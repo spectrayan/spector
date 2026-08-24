@@ -79,4 +79,6 @@ public final class RelayNames {
     public static final String EPISTEMIC_LEARNING         = "epistemic_learning";
     public static final String EVENT_DENSITY_GATING              = "event_density_gating";
     public static final String SURPRISAL_BOUNDARY_SEGMENTATION  = "surprisal_boundary_segmentation";
+    public static final String EDGE_ANONYMIZATION               = "edge_anonymization";
+    public static final String DIFFERENTIAL_PRIVACY             = "differential_privacy";
 }

@@ -39,9 +39,11 @@ public final class RememberSignal {
     private final long timestampMs;
 
     // ── Mutable Pipeline Working State ─────────────────────────────
+    private String sanitizedText;
     private String[] tags;
     private long synapticTags;
     private float[] normalizedVector;
+    private float[] privacyPerturbedVector;
     private byte[] quantizedVector;
     private float nearestDist;
     private float importance;
@@ -123,8 +125,17 @@ public final class RememberSignal {
     // ── Getters & Setters ──────────────────────────────────────────
 
     public String id() { return id; }
-    public String text() { return text; }
-    public float[] vector() { return normalizedVector != null ? normalizedVector : vector; }
+    public String text() { return sanitizedText != null ? sanitizedText : text; }
+    public String rawText() { return text; }
+    public String sanitizedText() { return sanitizedText; }
+    public void sanitizedText(final String sanitizedText) { this.sanitizedText = sanitizedText; }
+
+    public float[] vector() {
+        if (privacyPerturbedVector != null) {
+            return privacyPerturbedVector;
+        }
+        return normalizedVector != null ? normalizedVector : vector;
+    }
     public MemoryType type() { return type; }
     public MemorySource source() { return source; }
     public IngestionHints hints() { return hints; }
@@ -141,6 +152,9 @@ public final class RememberSignal {
 
     public float[] normalizedVector() { return normalizedVector; }
     public void normalizedVector(final float[] normalizedVector) { this.normalizedVector = normalizedVector; }
+
+    public float[] privacyPerturbedVector() { return privacyPerturbedVector; }
+    public void privacyPerturbedVector(final float[] privacyPerturbedVector) { this.privacyPerturbedVector = privacyPerturbedVector; }
 
     public byte[] quantizedVector() { return quantizedVector; }
     public void quantizedVector(final byte[] quantizedVector) { this.quantizedVector = quantizedVector; }
