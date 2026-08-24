@@ -212,6 +212,10 @@ public final class SpectorConfigFactory {
         properties.setHopfieldTemperature(props.getFloat(MEMORY_AISME_HOPFIELD_TEMPERATURE, DEFAULT_MEMORY_AISME_HOPFIELD_TEMPERATURE));
         properties.setManifoldSigma(props.getFloat(MEMORY_AISME_MANIFOLD_SIGMA, DEFAULT_MEMORY_AISME_MANIFOLD_SIGMA));
         properties.setPhiCohesionThreshold(props.getFloat(MEMORY_AISME_PHI_COHESION_THRESHOLD, DEFAULT_MEMORY_AISME_PHI_COHESION_THRESHOLD));
+        properties.setEnableSoftIdentityAnchor(props.getBoolean(MEMORY_AISME_SOFT_IDENTITY_ANCHOR_ENABLED, DEFAULT_MEMORY_AISME_SOFT_IDENTITY_ANCHOR_ENABLED));
+        properties.setIdentityAnchorEta(props.getFloat(MEMORY_AISME_IDENTITY_ANCHOR_ETA, DEFAULT_MEMORY_AISME_IDENTITY_ANCHOR_ETA));
+        properties.setIdentityLyapunovThreshold(props.getFloat(MEMORY_AISME_IDENTITY_LYAPUNOV_THRESHOLD, DEFAULT_MEMORY_AISME_IDENTITY_LYAPUNOV_THRESHOLD));
+        properties.setIdentityCoreSnapshotEpochs(props.getInt(MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS, DEFAULT_MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS));
         return properties;
     }
 
