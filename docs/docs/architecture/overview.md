@@ -262,55 +262,46 @@ sequenceDiagram
 
 ```mermaid
 graph LR
-    subgraph "🔬 Core Layer"
-        core["spector-core<br/><i>SIMD kernels</i>"]
-        commons["spector-commons<br/><i>Config, chunkers, tokenizer</i>"]
+    subgraph "🔬 Foundation & Acceleration (nucleus/)"
+        core["spector-core<br/><i>Compute SPIs & Quantization</i>"]
+        cpu["spector-cpu<br/><i>Java 25 SIMD Kernels</i>"]
+        gpu["spector-gpu<br/><i>Panama FFM + CUDA GPU</i>"]
+        hdc["spector-hdc<br/><i>Hyperdimensional vectors</i>"]
+        index["spector-index<br/><i>HNSW + SpectorIndex + BM25</i>"]
+        commons["spector-commons<br/><i>Error codes & concurrency</i>"]
+        config["spector-config<br/><i>SpectorProperties & YAML</i>"]
+        events["spector-events<br/><i>Telemetry event bus</i>"]
+        testsupport["spector-test-support<br/><i>Harnesses & mocks</i>"]
     end
 
-    subgraph "💾 Storage Layer"
-        storage["spector-storage<br/><i>Panama MemorySegment stores</i>"]
-    end
-
-    subgraph "📊 Index Layer"
-        index["spector-index<br/><i>HNSW + IVF-PQ + BM25</i>"]
-    end
-
-    subgraph "🔍 Query Layer"
-        query["spector-query<br/><i>Hybrid orchestrator + RRF</i>"]
-    end
-
-    subgraph "🧠 Intelligence"
+    subgraph "🧠 Cognitive Memory Layer (memory/)"
+        memory["spector-memory<br/><i>Bundle Kernel, 4-Tier Memory & Daemons</i>"]
         providerapi["spector-provider-api<br/><i>Provider SPI</i>"]
-        providers["spector-providers<br/><i>AI Providers</i>"]
-        gpu["spector-gpu<br/><i>Panama FFM + CUDA</i>"]
+        providers["spector-providers<br/><i>AI Providers (Ollama, OpenAI, ONNX)</i>"]
+        ingestion["spector-ingestion<br/><i>Sensory & file ingest pipeline</i>"]
+        inspect["spector-inspect<br/><i>Bundle inspection CLI</i>"]
+        metrics["spector-metrics<br/><i>Micrometer + Prometheus</i>"]
     end
 
-    subgraph "📥 Pipelines"
-        ingestion["spector-ingestion<br/><i>Ingest orchestration</i>"]
-        rag["spector-rag<br/><i>RAG pipeline</i>"]
-    end
-
-    subgraph "⚡ Runtime & Interfaces"
-        runtime["spector-runtime<br/><i>Unified context (memory + ingestion)</i>"]
-        synapse["spector-synapse<br/><i>Armeria REST/gRPC/SSE server</i>"]
+    subgraph "⚡ Nervous System & Gateways (synapse/)"
+        runtime["spector-runtime<br/><i>Unified context root</i>"]
+        synapse["spector-synapse<br/><i>Armeria REST/gRPC/SSE & Chat Graph</i>"]
+        connector["spector-connector<br/><i>Apache Camel connectors</i>"]
         mcp["spector-mcp<br/><i>MCP Server — Agent-native</i>"]
         cli["spector-cli<br/><i>spectorctl CLI</i>"]
         client["spector-client<br/><i>Java client SDK</i>"]
         spring["spector-spring<br/><i>Spring AI VectorStore</i>"]
-    end
-
-    subgraph "🧠 Cognitive Memory"
-        memory["spector-memory<br/><i>Biologically-inspired agent memory</i>"]
-    end
-
-    subgraph "📈 Distribution"
-        bench["spector-bench<br/><i>JMH benchmarks</i>"]
+        batch["spector-batch<br/><i>Batch migration engine</i>"]
         dist["spector-dist<br/><i>Single fat JAR</i>"]
+    end
+
+    subgraph "📈 Performance & Validation (bench/)"
+        bench["spector-bench<br/><i>JMH benchmarks & cognitive eval</i>"]
     end
 ```
 
 > [!NOTE]
-> **Index sub-modules:** `hnsw/` (graph-based ANN), `ivf/` (inverted file + posting lists), `pq/` (product quantizer, K-Means++, ADC), `bm25/` (keyword scoring + analyzers)
+> **Index implementations in `spector-index`:** `hnsw/` (graph-based ANN, Quantized HNSW), `spectrum/` (SpectorIndex, multi-tier sharding), `bm25/` (keyword scoring + analyzers), `splade/` (sparse neural representations).
 
 ---
 
@@ -320,7 +311,10 @@ graph LR
 graph TD
     synapse["🌐 synapse"] --> runtime["⚡ runtime"]
     synapse --> mcp["🤖 mcp"]
+    synapse --> connector["🔌 connector"]
     synapse --> metrics["📈 metrics"]
+    synapse --> events["📡 events"]
+
     mcp --> runtime
     mcp --> ingestion["📥 ingestion"]
     cli["🖥️ cli"] --> runtime
@@ -328,37 +322,30 @@ graph TD
 
     runtime --> memory["🧠 memory"]
     runtime --> ingestion
+    runtime --> providers["🤖 providers"]
 
-    memory --> query["🔍 query"]
     memory --> index["📊 index"]
-    memory --> storage["💾 storage"]
-    memory --> embedapi["🧬 embed-api"]
-    memory -.-> gpu["🎮 gpu"]
-    memory --> rag["🤖 rag"]
     memory --> core["🔬 core"]
+    memory --> cpu["⚡ cpu"]
+    memory --> config["⚙️ config"]
+    memory --> providerapi["🧬 provider-api"]
+
+    index --> core
+    index --> config
+    index --> commons["📄 commons"]
+
+    gpu --> index
+    gpu --> core
+    gpu --> commons
+
+    cpu --> core
+    cpu --> commons
 
     metrics --> memory
+    metrics --> events
 
-    ingestion --> config["⚙️ config"]
-    ingestion --> embedapi
-
-    rag --> query
-    rag --> index
-    rag --> storage
-    rag --> embedapi
-    rag --> commons["📄 commons"]
-
-    query --> index
-    query --> commons
-    index --> storage
-    index --> config
-    storage --> config
-    storage --> core
-    config --> core
-
-    embedapi --> commons
-    gpu --> core
-    gpu --> storage
+    connector --> ingestion
+    connector --> providerapi
 
     dist["📦 dist"] --> mcp
     dist --> cli
@@ -367,9 +354,10 @@ graph TD
     spring["🌱 spring"] --> memory
     spring --> metrics
     bench["🧪 bench"] --> memory
+    bench --> providers
 ```
 
-> **Legend:** Solid arrows = compile dependency. Dotted arrow (`gpu`) = optional dependency.
+> **Legend:** Solid arrows = compile dependency. Dotted arrow (`bench`) = benchmark execution dependency.
 
 **Dependency rules:**
 

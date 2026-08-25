@@ -71,8 +71,8 @@ THIRD-PARTY NOTICES
 This product includes software developed by the following open-source projects.
 Dependency versions are managed in the root pom.xml.
 
-NOTE: The core engine modules (spector-core, spector-storage, spector-index,
-spector-query, spector-engine, spector-memory) have ZERO external dependencies
+NOTE: The core engine modules (spector-core, spector-cpu, spector-index,
+spector-memory) have ZERO external dependencies
 beyond the JDK itself. All SIMD acceleration, off-heap storage, and vector
 indexing use only standard JDK APIs (Vector API, Panama FFM, Virtual Threads).
 

@@ -63,10 +63,6 @@ The shaded JAR contains all transitive dependencies:
 
 | Component | Modules |
 |-----------|---------|
-| **Core** | spector-core, spector-commons, spector-config, spector-storage |
-| **Search** | spector-index, spector-query, spector-gpu |
-| **Intelligence** | spector-embed-api, spector-embed-ollama, spector-rag |
-| **Engine** | spector-engine, spector-ingestion, spector-memory |
-| **Runtime** | spector-runtime, spector-metrics |
-| **Interfaces** | spector-mcp, spector-node, spector-cli, spector-client |
-| **Integration** | spector-spring |
+| **Foundation & Acceleration** | `spector-bom`, `spector-commons`, `spector-config`, `spector-core`, `spector-cpu`, `spector-gpu`, `spector-hdc`, `spector-index`, `spector-events` |
+| **Cognitive Memory** | `spector-memory`, `spector-provider-api`, `spector-providers`, `spector-ingestion`, `spector-inspect`, `spector-metrics` |
+| **Runtime & Gateways** | `spector-runtime`, `spector-synapse`, `spector-connector`, `spector-mcp`, `spector-cli`, `spector-client`, `spector-spring`, `spector-batch` |

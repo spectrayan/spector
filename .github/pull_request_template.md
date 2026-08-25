@@ -15,13 +15,11 @@
 
 ## Module(s) Affected
 <!-- Check all that apply -->
-- [ ] `spector-core` (SIMD kernels)
-- [ ] `spector-storage` (Panama storage)
-- [ ] `spector-index` (HNSW / BM25)
-- [ ] `spector-query` (query orchestration)
-- [ ] `spector-engine` (engine facade)
-- [ ] `spector-node` (REST API)
-- [ ] `spector-bench` (benchmarks)
+- [ ] `nucleus/*` (Foundation, SPIs, SIMD, GPU, Index, Events)
+- [ ] `memory/*` (Cognitive Memory, Ingestion, Providers, Metrics)
+- [ ] `synapse/*` (Runtime, Synapse Gateway, MCP, Connectors, CLI, Client, Spring)
+- [ ] `bench/*` (Benchmarks & Evaluations)
+- [ ] `docs/*` / Root Configuration
 
 ## Checklist
 - [ ] My code follows the code style of this project

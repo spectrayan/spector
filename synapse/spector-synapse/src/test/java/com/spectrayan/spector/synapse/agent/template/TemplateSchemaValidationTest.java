@@ -35,8 +35,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>Validates structural correctness of every template — required fields,
  * node types, edge references, and entry point validity. No external
  * dependencies required.</p>
- *
- * @see <a href="https://github.com/spectrayan/spector-enterprise/issues/97">#97</a>
  */
 class TemplateSchemaValidationTest {
 
