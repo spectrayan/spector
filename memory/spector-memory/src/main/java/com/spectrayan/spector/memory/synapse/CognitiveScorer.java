@@ -226,6 +226,20 @@ public final class CognitiveScorer {
             float[] queryVector, RecallOptions options,
             long nowMs, long baseOffset,
             float[] mins, float[] scales) {
+        return score(segment, recordCount, layout, queryVector, options, nowMs, baseOffset, mins, scales, null, null);
+    }
+
+    /**
+     * Scans a memory segment and returns the top-K scored records using calibrated
+     * distance computation and early O(1) graph associative prior (MR-06).
+     */
+    public static List<ScoredRecord> score(MemorySegment segment, int recordCount,
+            CognitiveRecordLayout layout,
+            float[] queryVector, RecallOptions options,
+            long nowMs, long baseOffset,
+            float[] mins, float[] scales,
+            AssociativePriorProvider priorProvider,
+            QueryAssociativeContext priorContext) {
         int topK = options.topK();
         long queryTagMask = options.synapticTagMask();
         float minImportance = options.minImportance();
@@ -241,6 +255,8 @@ public final class CognitiveScorer {
         ScoreFusionMode fusionMode = options.scoreFusionMode() != null
                 ? options.scoreFusionMode()
                 : ScoreFusionMode.MULTIPLICATIVE;
+        boolean enableAssociativePrior = options.enableAssociativePrior() && priorProvider != null && priorContext != null;
+        float associativePriorDelta = options.associativePriorDelta();
 
         // ── Valence Alignment (State-Dependent Recall) ──
         boolean valenceAlign = options.enableValenceAlignment();
@@ -434,6 +450,16 @@ public final class CognitiveScorer {
                 // Neurodivergent: Hyperfocus — post-score boost for focus-matched memories
                 if (focusMatch && hyperfocusBoost != 1.0f) {
                     finalScore *= hyperfocusBoost;
+                }
+
+                // MR-06: Early associative graph prior (Phase 6 fusion)
+                if (enableAssociativePrior) {
+                    float ag = priorProvider.priorFor(offset, recordTags, priorContext);
+                    if (fusionMode == ScoreFusionMode.ADDITIVE) {
+                        finalScore += associativePriorDelta * ag;
+                    } else {
+                        finalScore *= (1.0f + associativePriorDelta * ag);
+                    }
                 }
             }
 

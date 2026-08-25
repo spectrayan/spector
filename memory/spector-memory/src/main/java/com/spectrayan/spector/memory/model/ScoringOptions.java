@@ -31,6 +31,10 @@ import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
  * @param twoFactorConfig           Bjork &amp; Bjork retrieval/storage strength config
  * @param scoringMode               COGNITIVE or SIMILARITY scoring
  * @param scoreFusionMode           MULTIPLICATIVE (default) or ADDITIVE score fusion mode
+ * @param enableAssociativePrior    enable early O(1) graph prior in Phase 6 fusion
+ * @param associativePriorDelta     weight delta for associative prior (default 0.15)
+ * @param associativePriorStdpWeight weight for STDP predictive strength (default 0.7)
+ * @param associativePriorHubWeight weight for hub degree signal (default 0.3)
  */
 public record ScoringOptions(
         float alpha,
@@ -42,7 +46,11 @@ public record ScoringOptions(
         boolean enableValenceAlignment,
         TwoFactorConfig twoFactorConfig,
         ScoringMode scoringMode,
-        ScoreFusionMode scoreFusionMode
+        ScoreFusionMode scoreFusionMode,
+        boolean enableAssociativePrior,
+        float associativePriorDelta,
+        float associativePriorStdpWeight,
+        float associativePriorHubWeight
 ) {
     public ScoringOptions {
         if (Float.isNaN(alpha) || alpha < 0.0f || alpha > 1.0f) {
@@ -54,7 +62,30 @@ public record ScoringOptions(
     }
 
     /**
-     * Backward-compatible constructor defaulting scoreFusionMode to MULTIPLICATIVE.
+     * Backward-compatible constructor defaulting associative prior to disabled.
+     */
+    public ScoringOptions(
+            float alpha,
+            float beta,
+            float tagRelevanceBoost,
+            int semanticCandidateMultiplier,
+            float strictnessCoefficient,
+            byte queryValence,
+            boolean enableValenceAlignment,
+            TwoFactorConfig twoFactorConfig,
+            ScoringMode scoringMode,
+            ScoreFusionMode scoreFusionMode
+    ) {
+        this(alpha, beta, tagRelevanceBoost, semanticCandidateMultiplier, strictnessCoefficient,
+             queryValence, enableValenceAlignment, twoFactorConfig, scoringMode, scoreFusionMode,
+             com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_ASSOCIATIVE_PRIOR_ENABLED,
+             com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_ASSOCIATIVE_PRIOR_DELTA,
+             com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_ASSOCIATIVE_PRIOR_STDP_WEIGHT,
+             com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_ASSOCIATIVE_PRIOR_HUB_WEIGHT);
+    }
+
+    /**
+     * Backward-compatible constructor defaulting scoreFusionMode to MULTIPLICATIVE and associative prior disabled.
      */
     public ScoringOptions(
             float alpha,

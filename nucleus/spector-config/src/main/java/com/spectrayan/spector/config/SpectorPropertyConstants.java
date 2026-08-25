@@ -851,6 +851,22 @@ public final class SpectorPropertyConstants {
     public static final String RECALL_MAX_TEMPERATURE = "spector.recall.max-temperature";
     public static final float DEFAULT_RECALL_MAX_TEMPERATURE = 5.0f;
 
+    // Early Associative Prior (MR-06)
+    public static final String RECALL_ASSOCIATIVE_PRIOR_ENABLED = "spector.memory.recall.associative-prior.enabled";
+    public static final boolean DEFAULT_RECALL_ASSOCIATIVE_PRIOR_ENABLED = false;
+
+    public static final String RECALL_ASSOCIATIVE_PRIOR_DELTA = "spector.memory.recall.associative-prior.delta";
+    public static final float DEFAULT_RECALL_ASSOCIATIVE_PRIOR_DELTA = 0.15f;
+
+    public static final String RECALL_ASSOCIATIVE_PRIOR_STDP_WEIGHT = "spector.memory.recall.associative-prior.stdp-weight";
+    public static final float DEFAULT_RECALL_ASSOCIATIVE_PRIOR_STDP_WEIGHT = 0.7f;
+
+    public static final String RECALL_ASSOCIATIVE_PRIOR_HUB_WEIGHT = "spector.memory.recall.associative-prior.hub-weight";
+    public static final float DEFAULT_RECALL_ASSOCIATIVE_PRIOR_HUB_WEIGHT = 0.3f;
+
+    public static final String RECALL_ASSOCIATIVE_PRIOR_CACHE_SIZE = "spector.memory.recall.associative-prior.cache-size";
+    public static final int DEFAULT_RECALL_ASSOCIATIVE_PRIOR_CACHE_SIZE = 1024;
+
     // Ingestion
     public static final String INGESTION_ROOT_DIRECTORY = "spector.ingestion.root-directory";
     public static final Path DEFAULT_INGESTION_ROOT_DIRECTORY = Path.of(".");

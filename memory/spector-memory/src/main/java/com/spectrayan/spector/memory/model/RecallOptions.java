@@ -138,7 +138,12 @@ public record RecallOptions(
         float lateralInhibitionSoftKappa,
         float lateralInhibitionHardKappa,
         boolean lateralInhibitionContradictionHeuristic,
-        boolean lateralInhibitionRifEnabled
+        boolean lateralInhibitionRifEnabled,
+        //  Early Associative Prior (MR-06)
+        boolean enableAssociativePrior,
+        float associativePriorDelta,
+        float associativePriorStdpWeight,
+        float associativePriorHubWeight
 ) {
 
     /** Default options: top 10, no filters, balanced scoring. */
@@ -195,7 +200,8 @@ public record RecallOptions(
     public ScoringOptions scoring() {
         return new ScoringOptions(alpha, beta, tagRelevanceBoost, semanticCandidateMultiplier,
                 strictnessCoefficient, queryValence, enableValenceAlignment, twoFactorConfig, scoringMode,
-                scoreFusionMode != null ? scoreFusionMode : ScoreFusionMode.MULTIPLICATIVE);
+                scoreFusionMode != null ? scoreFusionMode : ScoreFusionMode.MULTIPLICATIVE,
+                enableAssociativePrior, associativePriorDelta, associativePriorStdpWeight, associativePriorHubWeight);
     }
 
     /** Returns text search parameters as a composed {@link TextSearchOptions}. */
@@ -394,6 +400,36 @@ public record RecallOptions(
         /** Enables or disables session Retrieval-Induced Forgetting (RIF) tracking. */
         public Builder lateralInhibitionRifEnabled(boolean enabled) {
             this.lateralInhibitionRifEnabled = enabled;
+            return this;
+        }
+
+        // ─── Early Associative Prior (MR-06) ───
+        private boolean enableAssociativePrior = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_ASSOCIATIVE_PRIOR_ENABLED;
+        private float associativePriorDelta = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_ASSOCIATIVE_PRIOR_DELTA;
+        private float associativePriorStdpWeight = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_ASSOCIATIVE_PRIOR_STDP_WEIGHT;
+        private float associativePriorHubWeight = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_ASSOCIATIVE_PRIOR_HUB_WEIGHT;
+
+        /** Enables or disables early O(1) graph associative prior in Phase 6 fusion. */
+        public Builder enableAssociativePrior(boolean enabled) {
+            this.enableAssociativePrior = enabled;
+            return this;
+        }
+
+        /** Sets influence multiplier delta for associative prior (default 0.15). */
+        public Builder associativePriorDelta(float delta) {
+            this.associativePriorDelta = delta;
+            return this;
+        }
+
+        /** Sets STDP predictive strength weight for associative prior (default 0.7). */
+        public Builder associativePriorStdpWeight(float weight) {
+            this.associativePriorStdpWeight = weight;
+            return this;
+        }
+
+        /** Sets hub degree weight for associative prior (default 0.3). */
+        public Builder associativePriorHubWeight(float weight) {
+            this.associativePriorHubWeight = weight;
             return this;
         }
 
@@ -993,7 +1029,11 @@ public record RecallOptions(
                     lateralInhibitionSoftKappa,
                     lateralInhibitionHardKappa,
                     lateralInhibitionContradictionHeuristic,
-                    lateralInhibitionRifEnabled);
+                    lateralInhibitionRifEnabled,
+                    enableAssociativePrior,
+                    associativePriorDelta,
+                    associativePriorStdpWeight,
+                    associativePriorHubWeight);
             return options;
         }
     }
@@ -1179,6 +1219,10 @@ public record RecallOptions(
         b.lateralInhibitionHardKappa = this.lateralInhibitionHardKappa;
         b.lateralInhibitionContradictionHeuristic = this.lateralInhibitionContradictionHeuristic;
         b.lateralInhibitionRifEnabled = this.lateralInhibitionRifEnabled;
+        b.enableAssociativePrior = this.enableAssociativePrior;
+        b.associativePriorDelta = this.associativePriorDelta;
+        b.associativePriorStdpWeight = this.associativePriorStdpWeight;
+        b.associativePriorHubWeight = this.associativePriorHubWeight;
         return b;
     }
 }
