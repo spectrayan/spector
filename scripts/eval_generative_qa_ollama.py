@@ -158,7 +158,7 @@ def main():
     parser.add_argument("--judge-model", type=str, default="", help="Ollama model for grading answers (defaults to generator model)")
     parser.add_argument("--ollama-url", type=str, default="http://127.0.0.1:11434", help="Ollama endpoint URL")
     parser.add_argument("--delay-ms", type=int, default=500, help="Delay in milliseconds between Ollama calls (pacing/thermal stability)")
-    parser.add_argument("--top-k-context", type=int, default=5, help="Number of top candidates to include in LLM context (default: 5)")
+    parser.add_argument("--top-k-context", type=int, default=10, help="Number of top candidates to include in LLM context (default: 10)")
     parser.add_argument("--limit", type=int, default=0, help="Limit number of queries to evaluate (0 = all)")
     parser.add_argument("--resume", action="store_true", default=False, help="Resume from existing checkpoint file")
     parser.add_argument("--fresh", action="store_true", default=False, help="Start evaluation from scratch and overwrite checkpoint")

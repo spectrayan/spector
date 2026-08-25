@@ -83,6 +83,7 @@ $PythonArgs = @(
     "--output-dir", $OutputDir,
     "--generator-model", $GeneratorModel,
     "--judge-model", $JudgeModel,
+    "--top-k-context", "$TopK",
     "--delay-ms", "$DelayMs",
     "--limit", "$Limit"
 )
