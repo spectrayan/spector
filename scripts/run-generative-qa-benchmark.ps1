@@ -1,6 +1,7 @@
 param(
     [string]$Dataset = "locomo",
-    [int]$Limit = 10,
+    [int]$Limit = 0,
+    [switch]$All,
     [int]$TopK = 10,
     [int]$DelayMs = 500,
     [string]$GeneratorModel = "llama3.1:latest",
@@ -8,9 +9,15 @@ param(
     [switch]$Fresh
 )
 
+if ($All) {
+    $Limit = 0
+}
+
 if (-not $JudgeModel) {
     $JudgeModel = $GeneratorModel
 }
+
+$LimitDisplay = if ($Limit -le 0) { "ALL (Entire Dataset)" } else { "$Limit" }
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -28,7 +35,7 @@ if ($Fresh -and (Test-Path $CheckpointFile)) {
 Write-Host "=================================================================" -ForegroundColor Cyan
 Write-Host " Spector Memory -- Generative QA (J-Score) Benchmark Pipeline" -ForegroundColor Cyan
 Write-Host " Dataset:          $Dataset" -ForegroundColor Yellow
-Write-Host " Query Limit:      $Limit" -ForegroundColor Yellow
+Write-Host " Query Limit:      $LimitDisplay" -ForegroundColor Yellow
 Write-Host " Top-K Candidates: $TopK" -ForegroundColor Yellow
 Write-Host " Pacing Delay:     $DelayMs ms" -ForegroundColor Yellow
 Write-Host " Generator Model:  $GeneratorModel" -ForegroundColor Yellow
