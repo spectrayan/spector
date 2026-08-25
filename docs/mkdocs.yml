@@ -189,8 +189,6 @@ nav:
       - GPU Acceleration: architecture/gpu-acceleration.md
       - Performance Tuning: operations/performance-tuning.md
       - Test Framework & LLM Judge: architecture/test-framework.md
-      - Architecture Decisions (ADRs):
-          - "ADR-001: Declarative MCP Tool Definitions": architecture/decisions/adr-001-declarative-mcp-tool-definitions.md
       - Security & Data:
           - "Encryption at Rest": architecture/encryption-at-rest.md
       - Deep Dives:
