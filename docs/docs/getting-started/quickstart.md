@@ -64,7 +64,7 @@ Start the unified server using the packaged distribution JAR:
 ```bash
 java --add-modules jdk.incubator.vector \
   --enable-native-access=ALL-UNNAMED --enable-preview \
-  -jar spector-dist/target/spector.jar \
+  -jar synapse/spector-cli/target/spector.jar mcp \
   --config spector.yml
 ```
 

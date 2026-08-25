@@ -23,7 +23,18 @@ import com.spectrayan.spector.config.SpectorConfigFactory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
-import com.spectrayan.spector.runtime.SpectorRuntime;
+import java.nio.file.Path;
+
+import com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager;
+import com.spectrayan.spector.commons.chunker.ChunkConfig;
+import com.spectrayan.spector.commons.chunker.MarkdownChunker;
+import com.spectrayan.spector.memory.DefaultSpectorMemory;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.graph.EntityExtractionMode;
+import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
+import com.spectrayan.spector.provider.embedding.generic.DenseDerivedSparseProvider;
+import com.spectrayan.spector.provider.embedding.generic.DenseDerivedTokenProvider;
+import com.spectrayan.spector.provider.embedding.CachingEmbeddingProvider;
 
 /**
  * CLI entry point for the Spector MCP Server.
@@ -45,13 +56,13 @@ import com.spectrayan.spector.runtime.SpectorRuntime;
  * <h3>Usage</h3>
  * <pre>
  *   # With config file (all settings from YAML)
- *   java --add-modules jdk.incubator.vector -jar spector-mcp.jar --config spector.yml
+ *   java --add-modules jdk.incubator.vector -jar spector.jar mcp --config spector.yml
  *
  *   # CLI overrides on top of config file
- *   java --add-modules jdk.incubator.vector -jar spector-mcp.jar --dims 768 --ollama-model qwen3-embedding
+ *   java --add-modules jdk.incubator.vector -jar spector.jar mcp --dims 768 --ollama-model qwen3-embedding
  *
  *   # Minimal (all defaults from spector-defaults.yml)
- *   java --add-modules jdk.incubator.vector -jar spector-mcp.jar
+ *   java --add-modules jdk.incubator.vector -jar spector.jar mcp
  * </pre>
  */
 public class SpectorMcpMain {
@@ -145,26 +156,25 @@ public class SpectorMcpMain {
                 propsBuilder.override("spector.memory.persistence-path",
                         odysseusDataDir + "/memory");
             }
-            // Odysseus category  ->  tier mapping: default ingestion to SEMANTIC
-            // (facts, contacts, preferences). EPISODIC for events via agent skill.
+            // Odysseus category -> tier mapping: default ingestion to SEMANTIC
             propsBuilder.override("spector.memory.default-ingestion-tier", "SEMANTIC");
             log.info("[Spector MCP] Odysseus mode: memory enabled, disk persistence, SEMANTIC default tier");
         }
 
         SpectorProperties props = propsBuilder.build();
 
-        // -,-, Create embedding provider -,-,
+        // ── Create embedding provider ──
         var embedDefaults = SpectorConfigFactory.embeddingDefaults(props);
         var config = com.spectrayan.spector.provider.ProviderConfig.local("ollama", "ollama", embedDefaults.model(), embedDefaults.baseUrl());
         var registry = com.spectrayan.spector.provider.ProviderDiscovery.discover(java.util.List.of(config));
         EmbeddingProvider embedder = registry.activeEmbedding().orElseThrow();
         log.info("[Spector MCP] Embedding: {} @ {}", embedDefaults.model(), embedDefaults.baseUrl());
 
-        //  Create text generation provider for LLM tag extraction (if configured) 
+        // ── Create text generation provider for LLM tag extraction (if configured) ──
         LlmProvider textGenProvider = null;
-        var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
-        if (memoryConfig.tagExtractor() == com.spectrayan.spector.config.model.TagExtractorMode.LLM) {
-            String tagModel = memoryConfig.tagExtractorModel();
+        var memoryDefaults = SpectorConfigFactory.memoryDefaults(props);
+        if (memoryDefaults.tagExtractor() == com.spectrayan.spector.config.model.TagExtractorMode.LLM) {
+            String tagModel = memoryDefaults.tagExtractorModel();
             if (tagModel == null || tagModel.isBlank()) {
                 tagModel = "qwen3:1.7b";
             }
@@ -172,17 +182,67 @@ public class SpectorMcpMain {
             log.info("[Spector MCP] LLM tag extraction: {} @ {}", tagModel, embedDefaults.baseUrl());
         }
 
-        //  Create runtime (engine + optional memory) 
-        SpectorRuntime runtime = SpectorRuntime.from(props, embedder, textGenProvider);
+        // ── Cache setup ──
+        var embedProps = SpectorConfigFactory.embeddingProperties(props);
+        var cacheManager = TtlConcurrentMapCacheManager.defaultManager();
+        EmbeddingProvider activeEmbedder = embedProps.cacheEnabled()
+                ? CachingEmbeddingProvider.wrap(embedder, cacheManager)
+                : embedder;
 
-        //  Start the MCP server (STDIO for CLI use) 
-        // For HTTP/SSE transport, use SpectorNode with mcpEnabled=true instead.
-        SpectorMcpServer server = new SpectorMcpServer(runtime);
+        // ── Chunker setup ──
+        var memoryProps = SpectorConfigFactory.memoryProperties(props);
+        var ingestionProps = SpectorConfigFactory.ingestionProperties(props);
+        var chunker = new MarkdownChunker();
+        var chunkConfig = new ChunkConfig(
+                ingestionProps.chunkSize(),
+                ingestionProps.chunkOverlap(),
+                "text/markdown",
+                "text/markdown",
+                true,
+                true,
+                false
+        );
+
+        // ── Build SpectorMemory directly ──
+        Path persistencePath = memoryProps.persistencePath() != null ? Path.of(memoryProps.persistencePath()) : null;
+        var memoryBuilder = DefaultSpectorMemory.builder()
+                .dimensions(memoryProps.dimensions())
+                .embeddingProvider(activeEmbedder)
+                .cacheManager(cacheManager)
+                .persistenceMode(MemoryPersistenceMode.valueOf(memoryProps.persistenceMode().name()))
+                .persistence(persistencePath)
+                .semanticCapacity(memoryProps.capacity())
+                .nodesPerPartition(memoryProps.nodesPerPartition())
+                .hebbianGraphCapacity(memoryProps.capacity())
+                .temporalChainCapacity(memoryProps.capacity())
+                .chunker(chunker, chunkConfig);
+
+        if (textGenProvider != null) {
+            memoryBuilder.entityExtractionMode(EntityExtractionMode.LLM).LlmProvider(textGenProvider);
+        } else {
+            memoryBuilder.entityExtractionMode(EntityExtractionMode.NONE);
+        }
+
+        if (memoryProps.spladeEnabled()) {
+            memoryBuilder.SparseEmbeddingProvider(new DenseDerivedSparseProvider(activeEmbedder));
+        }
+        if (memoryProps.colbertEnabled()) {
+            memoryBuilder.tokenEmbeddingProvider(new DenseDerivedTokenProvider(activeEmbedder));
+        }
+
+        SpectorMemory memory = memoryBuilder.build();
+
+        // ── Start MCP Server ──
+        SpectorMcpServer server = new SpectorMcpServer(memory);
 
         // Graceful shutdown hook
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             server.stop();
-            runtime.close();
+            try {
+                memory.close();
+            } catch (Exception e) {
+                log.warn("[Spector MCP] Error closing memory on shutdown", e);
+            }
             log.info("[Spector MCP] Shutdown complete");
         }));
 

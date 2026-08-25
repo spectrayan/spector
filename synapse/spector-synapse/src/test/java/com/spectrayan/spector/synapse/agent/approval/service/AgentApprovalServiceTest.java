@@ -13,7 +13,6 @@
 package com.spectrayan.spector.synapse.agent.approval.service;
 
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
-import com.spectrayan.spector.runtime.SpectorRuntime;
 import com.spectrayan.spector.synapse.agent.approval.model.AgentActionApproval;
 import com.spectrayan.spector.synapse.agent.approval.model.ApprovalExecutionResult;
 import com.spectrayan.spector.synapse.agent.approval.model.ApprovalStatus;
@@ -61,7 +60,7 @@ class AgentApprovalServiceTest {
             @Override public McpToolCategory category() { return McpToolCategory.GENERAL; }
             @Override public boolean isWriteTool() { return isWrite; }
             @Override
-            public McpSchema.CallToolResult execute(SpectorRuntime runtime, Map<String, Object> arguments) {
+            public McpSchema.CallToolResult execute(Map<String, Object> arguments) {
                 return textResult("executed:" + name);
             }
         };

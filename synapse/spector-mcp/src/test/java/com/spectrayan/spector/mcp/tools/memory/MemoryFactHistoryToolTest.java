@@ -69,7 +69,7 @@ class MemoryFactHistoryToolTest {
         FactHistory history = new FactHistory("Alice", "role", active, List.of(older), 2);
         when(memory.factHistory("Alice", "role")).thenReturn(history);
 
-        McpSchema.CallToolResult result = tool.execute(null, Map.of(
+        McpSchema.CallToolResult result = tool.execute(Map.of(
                 "subject", "Alice",
                 "predicate", "role"
         ));
@@ -92,7 +92,7 @@ class MemoryFactHistoryToolTest {
     void execute_handlesNoHistoryGracefully() throws Exception {
         when(memory.factHistory("UnknownEntity", "role")).thenReturn(FactHistory.empty("UnknownEntity", "role"));
 
-        McpSchema.CallToolResult result = tool.execute(null, Map.of(
+        McpSchema.CallToolResult result = tool.execute(Map.of(
                 "subject", "UnknownEntity",
                 "predicate", "role"
         ));

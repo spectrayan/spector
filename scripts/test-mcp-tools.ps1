@@ -6,7 +6,7 @@
 
 param(
     [string]$Config = "spector-local.yml",
-    [string]$Jar = "synapse/spector-dist/target/spector.jar"
+    [string]$Jar = "synapse/spector-cli/target/spector.jar"
 )
 
 $ErrorActionPreference = "Stop"

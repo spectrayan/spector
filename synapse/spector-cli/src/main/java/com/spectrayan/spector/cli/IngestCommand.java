@@ -15,36 +15,43 @@
  */
 package com.spectrayan.spector.cli;
 
-import com.spectrayan.spector.client.SpectorClient;
-import com.spectrayan.spector.client.SpectorClientException;
-import com.spectrayan.spector.client.SpectorConnectionException;
-import com.spectrayan.spector.client.model.IngestRequest;
-import com.spectrayan.spector.client.model.IngestResponse;
-import com.spectrayan.spector.config.SpectorConfigFactory;
-import com.spectrayan.spector.config.SpectorProperties;
-import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
-import com.spectrayan.spector.provider.generation.LlmProvider;
-import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
-import com.spectrayan.spector.runtime.IngestionHandler;
-import com.spectrayan.spector.runtime.SpectorRuntime;
-import picocli.CommandLine;
-import picocli.CommandLine.Command;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+
+import com.spectrayan.spector.cli.client.IngestRequest;
+import com.spectrayan.spector.cli.client.IngestResponse;
+import com.spectrayan.spector.cli.client.SpectorClientException;
+import com.spectrayan.spector.cli.client.SpectorConnectionException;
+import com.spectrayan.spector.commons.chunker.ChunkConfig;
+import com.spectrayan.spector.commons.chunker.MarkdownChunker;
+import com.spectrayan.spector.config.SpectorConfigFactory;
+import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.ingestion.FileDiscoveryService;
+import com.spectrayan.spector.ingestion.IngestionPipeline;
+import com.spectrayan.spector.memory.DefaultSpectorMemory;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.graph.EntityExtractionMode;
+import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
+import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
+
+import picocli.CommandLine;
+import picocli.CommandLine.Command;
 
 /**
  * Ingest documents into Spector.
  *
  * <p>Supports two modes, auto-detected from the flags provided:</p>
  * <ul>
- *   <li><strong>Remote</strong>  --  {@code --content} or {@code --file}: sends a single
+ *   <li><strong>Remote</strong> -- {@code --content} or {@code --file}: sends a single
  *       document to a running Spector server via HTTP.</li>
- *   <li><strong>Local batch</strong>  --  {@code --root}: discovers and ingests files
- *       locally through {@link SpectorRuntime}, honoring {@code spector.yml} config.</li>
+ *   <li><strong>Local batch</strong> -- {@code --root}: discovers and ingests files
+ *       locally directly into {@link SpectorMemory}, honoring {@code spector.yml} config.</li>
  * </ul>
  *
  * <h3>Examples</h3>
@@ -62,7 +69,7 @@ import java.util.Map;
 )
 class IngestCommand extends BaseCommand {
 
-    //  Remote mode options 
+    // Remote mode options
     @CommandLine.Option(names = {"--id"}, description = "Document ID (auto-generated if not provided).")
     private String documentId;
 
@@ -75,7 +82,7 @@ class IngestCommand extends BaseCommand {
     @CommandLine.Option(names = {"--file"}, description = "Path to file to ingest. Remote mode.")
     private Path file;
 
-    //  Local batch mode options 
+    // Local batch mode options
     @CommandLine.Option(names = {"--root"}, description = "Root directory for local batch ingestion.")
     private Path rootDir;
 
@@ -93,7 +100,6 @@ class IngestCommand extends BaseCommand {
         if (rootDir != null) {
             runLocalBatch();
         } else if (configFile != null) {
-            // Config provided  --  check if it has a root-directory for local batch
             var props = SpectorProperties.builder().configFile(configFile).build();
             var ingestionConfig = SpectorConfigFactory.ingestionProperties(props);
             if (ingestionConfig.rootDirectory() != null) {
@@ -110,10 +116,9 @@ class IngestCommand extends BaseCommand {
         }
     }
 
-    //  Local Batch Mode 
+    // Local Batch Mode
 
     private void runLocalBatch() {
-        //  Build config from spector.yml + CLI overrides 
         SpectorProperties.Builder propsBuilder = SpectorProperties.builder();
 
         if (configFile != null) propsBuilder.configFile(configFile);
@@ -127,14 +132,12 @@ class IngestCommand extends BaseCommand {
 
         SpectorProperties props = propsBuilder.build();
 
-        // ── Read configs ──
         var ingestionConfig = SpectorConfigFactory.ingestionProperties(props);
         var embedConfig = SpectorConfigFactory.embeddingProperties(props);
         var memoryConfig = SpectorConfigFactory.memoryProperties(props);
         var mode = SpectorConfigFactory.mode(props);
         Path root = ingestionConfig.rootDirectory().toAbsolutePath().normalize();
 
-        // ── Banner ──
         out().printf("========================================%n");
         out().printf("  Spector Ingestion (local batch)%n");
         out().printf("  Mode:    %s%n", mode);
@@ -148,7 +151,6 @@ class IngestCommand extends BaseCommand {
                 ingestionConfig.retryDelayMs());
         out().printf("========================================%n%n");
 
-        // ── Create embedder + probe dims ──
         var config = new com.spectrayan.spector.provider.ProviderConfig(
                 "ollama", embedConfig.type(), embedConfig.model(), embedConfig.apiKey(), embedConfig.baseUrl(), embedConfig.dimensions(), embedConfig.properties());
         var registry = com.spectrayan.spector.provider.ProviderDiscovery.discover(java.util.List.of(config));
@@ -160,7 +162,6 @@ class IngestCommand extends BaseCommand {
         propsBuilder.override("spector.provider.embedding.dimensions", String.valueOf(dims));
         props = propsBuilder.build();
 
-        // ── Create text generation provider for LLM tag extraction (if configured) ──
         LlmProvider textGenProvider = null;
         memoryConfig = SpectorConfigFactory.memoryProperties(props);
         if (memoryConfig.tagExtractor() == com.spectrayan.spector.config.model.TagExtractorMode.LLM) {
@@ -172,60 +173,106 @@ class IngestCommand extends BaseCommand {
             out().printf("[Tags] LLM extraction: %s @ %s%n", tagModel, embedConfig.baseUrl());
         }
 
-        //  Create runtime + ingest 
-        try (SpectorRuntime runtime = SpectorRuntime.from(props, embedder, textGenProvider)) {
+        var chunker = new MarkdownChunker();
+        var chunkConfig = new ChunkConfig(
+                ingestionConfig.chunkSize(),
+                ingestionConfig.chunkOverlap(),
+                "text/markdown",
+                "text/markdown",
+                true,
+                true,
+                false
+        );
+
+        Path persistencePath = memoryConfig.persistencePath() != null ? Path.of(memoryConfig.persistencePath()) : null;
+        var memoryBuilder = DefaultSpectorMemory.builder()
+                .dimensions(memoryConfig.dimensions())
+                .embeddingProvider(embedder)
+                .persistenceMode(MemoryPersistenceMode.valueOf(memoryConfig.persistenceMode().name()))
+                .persistence(persistencePath)
+                .semanticCapacity(memoryConfig.capacity())
+                .nodesPerPartition(memoryConfig.nodesPerPartition())
+                .hebbianGraphCapacity(memoryConfig.capacity())
+                .temporalChainCapacity(memoryConfig.capacity())
+                .chunker(chunker, chunkConfig);
+
+        if (textGenProvider != null) {
+            memoryBuilder.entityExtractionMode(EntityExtractionMode.LLM).LlmProvider(textGenProvider);
+        } else {
+            memoryBuilder.entityExtractionMode(EntityExtractionMode.NONE);
+        }
+
+        try (SpectorMemory memory = memoryBuilder.build()) {
             long startMs = System.currentTimeMillis();
 
-            var results = runtime.ingestion().ingest(
-                    root,
-                    ingestionConfig.filePattern(),
-                    ingestionConfig.chunkSize(),
-                    ingestionConfig.chunkOverlap(),
-                    ingestionConfig.skipDirs(),
-                    new IngestionHandler.IngestionProgress() {
-                        @Override
-                        public void onFileStart(int fileIndex, int totalFiles, String relativePath) {
-                            out().printf("  [%d/%d] > %s ...%n", fileIndex, totalFiles, relativePath);
-                            out().flush();
-                        }
+            IngestionPipeline pipeline = IngestionPipeline.builder()
+                    .target(memory.target())
+                    .embeddingProvider(embedder)
+                    .chunker(chunker)
+                    .chunkConfig(chunkConfig)
+                    .chunkThreshold(ingestionConfig.chunkSize())
+                    .build();
 
-                        @Override
-                        public void onFile(int fileIdx, int total, String path,
-                                           int chunks, long ms, String error) {
-                            if (error != null) {
-                                out().printf("  [%d/%d] X %s -- FAILED (%dms): %s%n",
-                                        fileIdx, total, path, ms, error);
-                            } else {
-                                out().printf("  [%d/%d] OK %s -- %d chunk%s, %dms%n",
-                                        fileIdx, total, path, chunks,
-                                        chunks == 1 ? "" : "s", ms);
-                            }
-                            out().flush();
-                        }
-                    },
-                    ingestionConfig.parallelism(),
-                    ingestionConfig.maxRetries(),
-                    ingestionConfig.retryDelayMs());
+            var discovery = FileDiscoveryService.builder()
+                    .rootDirectory(root)
+                    .filePattern(ingestionConfig.filePattern())
+                    .skipDirs(ingestionConfig.skipDirs().split(","))
+                    .chunkSize(ingestionConfig.chunkSize())
+                    .chunkOverlap(ingestionConfig.chunkOverlap())
+                    .build();
 
-            int files = results.size();
-            int chunks = results.stream().mapToInt(r -> r.chunksStored()).sum();
-            int failures = (int) results.stream().filter(r -> !r.isFullSuccess()).count();
+            List<Path> files = discovery.discover();
+            int fileIdx = 0;
+            int totalFiles = files.size();
+            int totalChunks = 0;
+            int failures = 0;
+
+            for (Path f : files) {
+                fileIdx++;
+                String relPath = root.relativize(f).toString();
+                out().printf("  [%d/%d] > %s ...%n", fileIdx, totalFiles, relPath);
+                out().flush();
+
+                long fileStart = System.currentTimeMillis();
+                try {
+                    String fileContent = Files.readString(f);
+                    if (!fileContent.isBlank()) {
+                        var res = pipeline.ingest(relPath, fileContent);
+                        long ms = System.currentTimeMillis() - fileStart;
+                        totalChunks += res.chunksStored();
+                        if (!res.isFullSuccess()) {
+                            failures++;
+                            out().printf("  [%d/%d] X %s -- FAILED (%dms)%n", fileIdx, totalFiles, relPath, ms);
+                        } else {
+                            out().printf("  [%d/%d] OK %s -- %d chunk%s, %dms%n", fileIdx, totalFiles, relPath, res.chunksStored(), res.chunksStored() == 1 ? "" : "s", ms);
+                        }
+                    } else {
+                        out().printf("  [%d/%d] SKIP %s -- empty%n", fileIdx, totalFiles, relPath);
+                    }
+                } catch (Exception e) {
+                    failures++;
+                    long ms = System.currentTimeMillis() - fileStart;
+                    out().printf("  [%d/%d] X %s -- FAILED (%dms): %s%n", fileIdx, totalFiles, relPath, ms, e.getMessage());
+                }
+                out().flush();
+            }
+
             long elapsed = System.currentTimeMillis() - startMs;
-
             out().printf("%n========================================%n");
             out().printf("  Ingestion Complete%n");
-            out().printf("  Mode:     %s%n", runtime.mode());
-            out().printf("  Files:    %d%n", files);
-            out().printf("  Chunks:   %d%n", chunks);
+            out().printf("  Mode:     MEMORY%n");
+            out().printf("  Files:    %d%n", totalFiles);
+            out().printf("  Chunks:   %d%n", totalChunks);
             out().printf("  Failures: %d%n", failures);
-            out().printf("  Docs:     %d (in %s)%n", runtime.ingestion().count(),
-                    runtime.mode().name().toLowerCase());
+            out().printf("  Docs:     %d (in memory)%n", memory.totalMemories());
             out().printf("  Time:     %dms%n", elapsed);
             out().printf("========================================%n");
+        } catch (Exception e) {
+            err().println("Error during ingestion: " + e.getMessage());
         }
     }
 
-    //  Remote Mode 
+    // Remote Mode
 
     private void runRemote() {
         String text = resolveContent();
@@ -236,24 +283,23 @@ class IngestCommand extends BaseCommand {
         }
 
         try (var client = createClient()) {
-            IngestRequest request = new IngestRequest();
-            request.setId(documentId);
-            request.setTitle(title);
-            request.setContent(text);
+            IngestRequest request = new IngestRequest(documentId, text);
 
             IngestResponse response = client.ingest(request);
 
             if (isJson()) {
                 Map<String, Object> result = new LinkedHashMap<>();
                 result.put("id", response.getId());
-                result.put("indexed", response.isIndexed());
-                result.put("autoEmbedded", response.isAutoEmbedded());
+                result.put("status", response.getStatus());
+                result.put("durationMs", response.getDurationMs());
+                result.put("chunks", response.getChunks());
                 OutputFormatter.printJson(out(), result);
             } else {
                 out().println("Document ingested successfully.");
-                out().println("  ID:            " + response.getId());
-                out().println("  Indexed:       " + response.isIndexed());
-                out().println("  Auto-Embedded: " + response.isAutoEmbedded());
+                out().println("  ID:         " + response.getId());
+                out().println("  Status:     " + response.getStatus());
+                out().println("  DurationMs: " + response.getDurationMs());
+                out().println("  Chunks:     " + response.getChunks());
             }
         } catch (SpectorConnectionException e) {
             handleConnectionError(e);

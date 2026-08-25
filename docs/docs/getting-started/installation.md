@@ -29,7 +29,7 @@ Spector uses incubator modules. The required JVM flags are configured in `pom.xm
 ```bash
 java --add-modules jdk.incubator.vector \
      --enable-native-access=ALL-UNNAMED --enable-preview \
-     -jar spector-dist/target/spector.jar --config spector.yml
+     -jar synapse/spector-cli/target/spector.jar mcp --config spector.yml
 ```
 
 ## Server Configuration
@@ -39,7 +39,7 @@ Start with a custom YAML configuration or launch the default configuration:
 ```bash
 java --add-modules jdk.incubator.vector \
      --enable-native-access=ALL-UNNAMED --enable-preview \
-     -jar spector-dist/target/spector.jar --config custom-config.yml
+     -jar synapse/spector-cli/target/spector.jar mcp --config custom-config.yml
 ```
 
 ## GPU Support

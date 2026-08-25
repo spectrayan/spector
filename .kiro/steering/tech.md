@@ -59,11 +59,11 @@ mvn test -pl nucleus/spector-core
 # Single test class
 mvn test -pl nucleus/spector-core -Dtest=DotProductTest
 
-# Build distribution JAR
-mvn package -pl synapse/spector-dist -am -DskipTests
+# Build standalone spector.jar
+mvn package -pl synapse/spector-cli -am -DskipTests
 
-# Run the server
-java --add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED --enable-preview -jar synapse/spector-dist/target/spector.jar --config spector.yml
+# Run the MCP server
+java --add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED --enable-preview -jar synapse/spector-cli/target/spector.jar mcp --config spector.yml
 ```
 
 ### Angular (Cortex) — run from `cortex/spector-cortex/`

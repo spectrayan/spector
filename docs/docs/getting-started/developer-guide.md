@@ -97,7 +97,7 @@ Spector is a multi-module Maven project. Start with these areas when deciding wh
 | ---- | ------- |
 | Foundation & Acceleration | `nucleus/spector-bom`, `nucleus/spector-commons`, `nucleus/spector-config`, `nucleus/spector-core`, `nucleus/spector-cpu`, `nucleus/spector-gpu`, `nucleus/spector-hdc`, `nucleus/spector-index`, `nucleus/spector-events`, `nucleus/spector-test-support` |
 | Cognitive Memory & Ingestion | `memory/spector-memory`, `memory/spector-provider-api`, `memory/spector-providers`, `memory/spector-ingestion`, `memory/spector-inspect`, `memory/spector-metrics` |
-| Gateways, Runtime & Connectors | `synapse/spector-runtime`, `synapse/spector-synapse`, `synapse/spector-connector`, `synapse/spector-mcp`, `synapse/spector-cli`, `synapse/spector-client`, `synapse/spector-spring`, `synapse/spector-batch`, `synapse/spector-dist` |
+| Gateways & Integrations | `synapse/spector-synapse`, `synapse/spector-connector`, `synapse/spector-mcp`, `synapse/spector-cli`, `synapse/spector-spring`, `synapse/spector-batch` |
 | Performance & Benchmarks | `bench/spector-bench` |
 
 For a deeper walkthrough, read the [architecture overview](../architecture/overview.md), [module guide](../modules/index.md), and module-specific README files.

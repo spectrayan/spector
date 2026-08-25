@@ -15,7 +15,6 @@
  */
 package com.spectrayan.spector.spring.autoconfigure;
 
-import com.spectrayan.spector.client.SpectorClient;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.id.TsidGenerator;
 import com.spectrayan.spector.metrics.MeteredSpectorMemory;
@@ -215,13 +214,6 @@ class SpectorAutoConfigurationTest {
                     assertThat(context).hasBean("spectorVectorMemoryStore");
                 });
     }
-    @Test
-    void shouldCreateVectorClientStoreBean(){
-        contextRunner.withUserConfiguration(TestSpectorVectorClientStoreBeanConfiguration.class)
-                .run(context -> {
-                    assertThat(context).hasBean("spectorVectorClientStore");
-                });
-    }
     @Configuration
     static class TestSpectorVectorMemoryStoreBeanConfiguration{
         @Bean
@@ -229,13 +221,6 @@ class SpectorAutoConfigurationTest {
             return Mockito.mock(SpectorMemory.class);
         }
 
-    }
-    @Configuration
-    static class TestSpectorVectorClientStoreBeanConfiguration{
-        @Bean
-        SpectorClient client(){
-            return Mockito.mock(SpectorClient.class);
-        }
     }
 
     @Test
@@ -269,20 +254,6 @@ class SpectorAutoConfigurationTest {
     void shouldNotCreateGoogleEmbeddingProviderWithoutSettingPropertiesValues(){
         contextRunner.run(context -> {
             assertThat(context).doesNotHaveBean("googleEmbeddingProvider");
-        });
-    }
-    @Test
-    void shouldNotProvideSpectorClientBean(){
-        contextRunner.run(context -> {
-            assertThat(context).doesNotHaveBean(SpectorClient.class);
-        });
-    }
-    @Test
-    void shouldProvideSpectorClientWithClientPropertiesBean(){
-        contextRunner.withPropertyValues("spector.client.host=192.168.1.1","spector.client.port=36","spector.client.api_key=dgg").run(context -> {
-            assertThat(context).hasSingleBean(SpectorClient.class);
-            SpectorClient client = context.getBean(SpectorClient.class);
-            assertThat(client.getBaseUrl()).isEqualTo("http://192.168.1.1:36");
         });
     }
 

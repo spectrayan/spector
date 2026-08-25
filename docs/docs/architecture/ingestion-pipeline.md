@@ -11,20 +11,18 @@ description: "How Spector processes documents: chunking strategies, embedding ge
 
 ## Architecture
 
-All entry points (CLI, MCP, Server) route ingestion through `SpectorRuntime`:
+All entry points (CLI, MCP, Server) route ingestion through `IngestionPipeline`:
 
 ```
-CLI/MCP/Server → SpectorRuntime.ingestion() → IngestionHandler → IngestionPipeline
-                                                                        │
-                                                                  ┌─────┴─────┐
-                                                                  ▼           ▼
-                                                       EngineIngestionTarget  CognitiveIngestionTarget
-                                                       (SEARCH mode)          (MEMORY mode)
+CLI/MCP/Server → IngestionPipeline
+                     │
+                     ▼
+             SpectorMemory.target()
+             (CognitiveIngestionTarget)
 ```
 
 - **`IngestionPipeline`** (in `spector-ingestion`) — unified chunk → embed → store orchestrator with builder pattern
-- **`IngestionTarget`** (in `spector-ingestion`) — abstraction for storage backends (engine or memory)
-- **`IngestionHandler`** (in `spector-runtime`) — thin routing layer over the pipeline
+- **`IngestionTarget`** (in `spector-ingestion`) — abstraction for storage backends (e.g. `memory.target()`)
 - **`FileDiscoveryService`** (in `spector-ingestion`) — pure file discovery + title extraction utility
 
 ## Module: `spector-ingestion`

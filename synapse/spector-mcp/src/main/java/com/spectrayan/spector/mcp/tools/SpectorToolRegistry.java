@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.function.Supplier;
 
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.runtime.SpectorRuntime;
 
 import com.spectrayan.spector.mcp.tools.memory.MemoryRememberTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryScratchpadTool;
@@ -144,88 +143,30 @@ public final class SpectorToolRegistry {
     }
 
     /**
-     * Creates mode-aware tool specifications from a runtime.
+     * Creates tool specifications from a fixed memory instance.
      *
-     * @param runtime       the Spector runtime
+     * @param memory        the Spector memory instance
      * @param serverVersion the server version string
      * @return list of MCP tool specifications
      */
     public static List<McpServerFeatures.SyncToolSpecification> createAll(
-            SpectorRuntime runtime, String serverVersion) {
-        SpectorMemory memory = runtime.memory().orElse(null);
-
-        var handlers = new ArrayList<McpToolHandler>();
-
-        if (memory != null) {
-            handlers.add(new MemoryRememberTool(memory));
-            handlers.add(new MemoryScratchpadTool(memory));
-            handlers.add(new MemoryRecallTool(memory));
-            handlers.add(new MemoryGraphRecallTool(memory));
-            handlers.add(new MemoryReinforceTool(memory));
-            handlers.add(new MemoryForgetTool(memory));
-            handlers.add(new MemoryStatusTool(memory));
-            handlers.add(new MemoryIntrospectTool(memory));
-            handlers.add(new MemorySuppressTool(memory));
-            handlers.add(new MemoryResolveTool(memory));
-            handlers.add(new MemoryReminderTool(memory));
-            handlers.add(new MemoryWhyNotTool(memory));
-            handlers.add(new MemoryComputeImportanceTool(memory));
-            handlers.add(new MemoryInspectTool(memory));
-            handlers.add(new MemoryExportTool(memory));
-            handlers.add(new MemoryBrowseTool(memory));
-            handlers.add(new MemorySalienceTool(memory));
-            handlers.add(new MemoryContextPackTool(memory));
-            handlers.add(new MemoryFactHistoryTool(memory));
-            handlers.add(new MemoryMultiEvidenceRecallTool(memory));
-            handlers.add(new MemoryExpressTool(memory));
-            handlers.add(new MemoryPersonaContextTool(memory));
-        }
-
-        return handlers.stream()
-                .map(handler -> handler.toToolSpecification(runtime))
+            SpectorMemory memory, String serverVersion) {
+        return handlers(serverVersion, memory).stream()
+                .map(McpToolHandler::toToolSpecification)
                 .toList();
     }
 
     /**
-     * Creates mode-aware tool specifications with an enterprise memory resolver.
+     * Creates tool specifications with a per-request memory resolver.
      *
-     * @param runtime        the Spector runtime
-     * @param serverVersion  the server version string
      * @param memoryResolver per-request memory resolver for tenant isolation
+     * @param serverVersion  the server version string
      * @return list of MCP tool specifications
      */
     public static List<McpServerFeatures.SyncToolSpecification> createAll(
-            SpectorRuntime runtime, String serverVersion,
-            Supplier<SpectorMemory> memoryResolver) {
-        var handlers = new ArrayList<McpToolHandler>();
-
-        if (memoryResolver != null) {
-            handlers.add(new MemoryRememberTool(memoryResolver));
-            handlers.add(new MemoryScratchpadTool(memoryResolver));
-            handlers.add(new MemoryRecallTool(memoryResolver));
-            handlers.add(new MemoryGraphRecallTool(memoryResolver));
-            handlers.add(new MemoryReinforceTool(memoryResolver));
-            handlers.add(new MemoryForgetTool(memoryResolver));
-            handlers.add(new MemoryStatusTool(memoryResolver));
-            handlers.add(new MemoryIntrospectTool(memoryResolver));
-            handlers.add(new MemorySuppressTool(memoryResolver));
-            handlers.add(new MemoryResolveTool(memoryResolver));
-            handlers.add(new MemoryReminderTool(memoryResolver));
-            handlers.add(new MemoryWhyNotTool(memoryResolver));
-            handlers.add(new MemoryComputeImportanceTool(memoryResolver));
-            handlers.add(new MemoryInspectTool(memoryResolver));
-            handlers.add(new MemoryExportTool(memoryResolver));
-            handlers.add(new MemoryBrowseTool(memoryResolver));
-            handlers.add(new MemorySalienceTool(memoryResolver));
-            handlers.add(new MemoryContextPackTool(memoryResolver));
-            handlers.add(new MemoryFactHistoryTool(memoryResolver));
-            handlers.add(new MemoryMultiEvidenceRecallTool(memoryResolver));
-            handlers.add(new MemoryExpressTool(memoryResolver));
-            handlers.add(new MemoryPersonaContextTool(memoryResolver));
-        }
-
-        return handlers.stream()
-                .map(handler -> handler.toToolSpecification(runtime))
+            Supplier<SpectorMemory> memoryResolver, String serverVersion) {
+        return handlers(serverVersion, memoryResolver).stream()
+                .map(McpToolHandler::toToolSpecification)
                 .toList();
     }
 }

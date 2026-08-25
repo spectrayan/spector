@@ -146,7 +146,7 @@ public final class ConversationReflector {
             if (rememberTool.isPresent()) {
                 for (var item : knowledge) {
                     try {
-                        io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult = rememberTool.get().execute(null, item);
+                        io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult = rememberTool.get().execute(item);
                         StringBuilder sb = new StringBuilder();
                         if (toolResult != null && toolResult.content() != null) {
                             for (var contentEntry : toolResult.content()) {
@@ -172,7 +172,7 @@ public final class ConversationReflector {
                             Map<String, Object> args = new HashMap<>(fact);
                             args.put("text", "User fact: " + fact.get("field")
                                     + " = " + fact.get("value"));
-                            factTool.execute(null, args);
+                            factTool.execute(args);
                         } catch (Exception e) {
                             log.debug("[Reflector] Fact storage failed: {}", e.getMessage());
                         }

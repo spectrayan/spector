@@ -87,7 +87,7 @@ class CamelRouteInvokerToolTest {
             }
         });
 
-        McpSchema.CallToolResult result = tool.execute(null, Map.of(
+        McpSchema.CallToolResult result = tool.execute(Map.of(
                 "routeId", "echo-service",
                 "payload", "Hello Camel!"
         ));
@@ -100,7 +100,7 @@ class CamelRouteInvokerToolTest {
     @Test
     @DisplayName("Missing routeId returns error result")
     void missingRouteIdReturnsError() throws Exception {
-        McpSchema.CallToolResult result = tool.execute(null, Map.of());
+        McpSchema.CallToolResult result = tool.execute(Map.of());
         assertThat(result.isError()).isTrue();
     }
 }

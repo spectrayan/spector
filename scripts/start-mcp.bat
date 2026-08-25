@@ -6,12 +6,12 @@ REM  CLI args can override any setting.
 REM ═══════════════════════════════════════════════════════════════
 
 set SPECTOR_HOME=%~dp0..
-set JAR=%SPECTOR_HOME%\synapse\spector-dist\target\spector.jar
+set JAR=%SPECTOR_HOME%\synapse\spector-cli\target\spector.jar
 set CONFIG=%SPECTOR_HOME%\spector-local.yml
 
 if not exist "%JAR%" (
     echo [ERROR] Fat JAR not found: %JAR%
-    echo [INFO]  Run: mvn package -pl synapse/spector-dist -am -DskipTests
+    echo [INFO]  Run: mvn package -pl synapse/spector-cli -am -DskipTests
     exit /b 1
 )
 

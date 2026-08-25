@@ -12,10 +12,10 @@ This guide covers practical setup for Claude Desktop, Cursor IDE, and custom MCP
 
 ```bash
 cd spector
-mvn package -pl spector-dist -am -DskipTests
+mvn package -pl synapse/spector-cli -am -DskipTests
 ```
 
-The fat JAR is produced at `spector-dist/target/spector.jar`.
+The standalone executable fat JAR is produced at `synapse/spector-cli/target/spector.jar`.
 
 ### 2. Configure Your AI Agent
 
@@ -30,7 +30,8 @@ Add the following to your agent's MCP configuration (see per-agent sections belo
         "--add-modules", "jdk.incubator.vector",
         "--enable-native-access=ALL-UNNAMED",
         "--enable-preview",
-        "-jar", "/path/to/spector-dist/target/spector.jar",
+        "-jar", "/path/to/synapse/spector-cli/target/spector.jar",
+        "mcp",
         "--config", "/path/to/spector.yml"
       ]
     }
@@ -299,7 +300,6 @@ To extend the MCP server with a custom tool:
 1. **Create a new class** extending `McpToolHandler`:
 
 ```java
-import com.spectrayan.spector.runtime.SpectorRuntime;
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
 import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -313,9 +313,9 @@ public final class MyCustomTool extends McpToolHandler {
                 .requiredString("input", "The input parameter.")
                 .build();
     }
-    @Override public McpSchema.CallToolResult execute(SpectorRuntime runtime, Map<String, Object> args) throws Exception {
+    @Override public McpSchema.CallToolResult execute(Map<String, Object> args) throws Exception {
         String input = requireString(args, "input");
-        // Your custom logic using runtime (e.g. querying memory or search services)
+        // Your custom logic using memory or search services
         return textResult("Result: " + input);
     }
 }

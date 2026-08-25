@@ -56,16 +56,12 @@ graph LR
         end
     end
 
-    subgraph "spector-runtime"
-        Runtime["\u26a1 SpectorRuntime<br/><i>Composition Root</i>"]
-    end
-
     subgraph "spector-memory"
-        Memory["\ud83e\udde0 SpectorMemory"]
+        Memory["🧠 SpectorMemory"]
     end
 
     subgraph "spector-core"
-        SIMD["\ud83d\udd2c SIMD Kernels<br/><i>AVX2/AVX-512/NEON</i>"]
+        SIMD["🔬 SIMD Kernels<br/><i>AVX2/AVX-512/NEON</i>"]
     end
 
     Agent -- "stdin/stdout" --> StdioTransport
@@ -77,8 +73,7 @@ graph LR
     M1 & M2 & M3 & M4 & M5 --> TH
     M1 & M2 & M3 & M4 & M5 --> SB
     M1 & M2 & M3 & M4 & M5 --> RF
-    M1 & M2 & M3 & M4 & M5 --> Runtime
-    Runtime --> Memory
+    M1 & M2 & M3 & M4 & M5 --> Memory
     Memory --> SIMD
 ```
 
@@ -86,29 +81,23 @@ graph LR
 
 ```mermaid
 sequenceDiagram
-    participant Agent as \ud83e\udd16 AI Agent
-    participant MCP as \ud83d\udce1 MCP Transport (stdio / Streamable HTTP)
-    participant Handler as \ud83d\udd27 McpToolHandler
-    participant Runtime as \u26a1 SpectorRuntime
-    participant Memory as \ud83e\udde0 SpectorMemory
-    participant SIMD as \ud83d\udd2c SIMD Kernel
+    participant Agent as 🤖 AI Agent
+    participant MCP as 📡 MCP Transport (stdio / Streamable HTTP)
+    participant Handler as 🔧 McpToolHandler
+    participant Memory as 🧠 SpectorMemory
+    participant SIMD as 🔬 SIMD Kernel
 
     Agent->>MCP: tools/call {"name": "memory_recall", "arguments": {"query": "..."}}
-    MCP->>Handler: MemoryRecallTool.execute(runtime, args)
+    MCP->>Handler: MemoryRecallTool.execute(args)
     
     Note over Handler: requireString(args, "query")<br/>optionalInt(args, "top_k", 5)
     
-    Handler->>Runtime: runtime.memory().recall(query, topK)
-    Runtime->>Memory: memory.recall(query, topK)
+    Handler->>Memory: memory.recall(query, topK)
     Memory->>SIMD: Fused scoring: sim × importance × decay (off-heap MemorySegment)
     SIMD-->>Memory: ScoredMemory[] (~0.13ms)
-    Memory-->>Runtime: RecallResult
-    Runtime-->>Handler: SpectorResult[]
-    
-    Note over Handler: ResultFormatter.formatRecallResults()<br/>McpToolHandler.textResult()
-    
-    Handler-->>MCP: CallToolResult (text content)
-    MCP-->>Agent: {"content": [{"type": "text", "text": "Recalled 5 memories..."}]}
+    Memory-->>Handler: RecallResult
+    Handler-->>MCP: CallToolResult (JSON-RPC)
+    MCP-->>Agent: tools/call response
 ```
 
 ---
@@ -188,7 +177,7 @@ public abstract class McpToolHandler {
     abstract String name();
     abstract String description();
     abstract Map<String, Object> inputSchema();
-    abstract CallToolResult execute(SpectorRuntime runtime, Map<String, Object> args);
+    abstract CallToolResult execute(Map<String, Object> args);
 
     // Base class automatically provides:
     // - Timing wrapper (nanoTime → milliseconds)

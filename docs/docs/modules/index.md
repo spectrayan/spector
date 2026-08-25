@@ -1,6 +1,6 @@
 # Modules
 
-Spector is organized as a multi-module Maven project. Each module has a focused responsibility, clear API boundaries, and minimal cross-module coupling.
+Spector is organized as a multi-module Maven project (24 modules). Each module has a focused responsibility, clear API boundaries, and minimal cross-module coupling.
 
 ---
 
@@ -29,16 +29,13 @@ graph TB
         metrics["spector-metrics<br/><i>Micrometer + Prometheus metrics</i>"]
     end
 
-    subgraph synapse["synapse/ (API, Runtime & Gateways)"]
-        runtime["spector-runtime<br/><i>Composition root</i>"]
-        synapseapp["spector-synapse<br/><i>Armeria REST/gRPC/SSE & Chat Graph</i>"]
+    subgraph synapse["synapse/ (API, Integration & Gateways)"]
+        synapseapp["spector-synapse<br/><i>Spring Boot 4 / REST, SSE & Chat Graph</i>"]
         connector["spector-connector<br/><i>Camel data connectors</i>"]
-        mcp["spector-mcp<br/><i>MCP Server (stdio/SSE)</i>"]
-        cli["spector-cli<br/><i>spectorctl CLI</i>"]
-        client["spector-client<br/><i>Java Client SDK</i>"]
+        mcp["spector-mcp<br/><i>MCP Server (STDIO/SSE)</i>"]
+        cli["spector-cli<br/><i>spectorctl CLI & standalone spector.jar</i>"]
         spring["spector-spring<br/><i>Spring AI VectorStore</i>"]
         batch["spector-batch<br/><i>Batch migration engine</i>"]
-        dist["spector-dist<br/><i>Fat JAR distribution</i>"]
     end
 
     subgraph bench["bench/ (Performance & Validation)"]
@@ -56,20 +53,17 @@ graph TB
 
 ```mermaid
 graph TD
-    synapseapp["🌐 synapse"] --> runtime["⚡ runtime"]
-    synapseapp --> mcp["🤖 mcp"]
+    synapseapp["🌐 synapse"] --> mcp["🤖 mcp"]
     synapseapp --> connector["🔌 connector"]
     synapseapp --> metrics["📈 metrics"]
     synapseapp --> events["📡 events"]
+    synapseapp --> memory["🧠 memory"]
     
-    mcp --> runtime
+    mcp --> memory
     mcp --> ingestion["📥 ingestion"]
-    cli["🖥️ cli"] --> runtime
-    cli --> client["📦 client"]
-
-    runtime --> memory["🧠 memory"]
-    runtime --> ingestion
-    runtime --> providers["🤖 providers"]
+    cli["🖥️ cli"] --> memory
+    cli --> mcp
+    cli --> ingestion
 
     memory --> index["📊 index"]
     memory --> core["🔬 core"]
@@ -94,14 +88,10 @@ graph TD
     connector --> ingestion
     connector --> providerApi
 
-    dist["📦 dist"] --> mcp
-    dist --> cli
-    dist --> runtime
-
     spring["🌱 spring"] --> memory
     spring --> metrics
     bench["🧪 bench"] --> memory
-    bench --> providers
+    bench --> providers["🤖 providers"]
 ```
 
 > **Legend:** Solid arrows = compile dependency. Dotted arrows = optional/benchmark dependency.
@@ -111,36 +101,24 @@ graph TD
 
 ---
 
-## Architecture: Entry Points → Runtime → Subsystems
+## Architecture: Direct Memory Composition
 
-All entry points (MCP, CLI, Server) route through `SpectorRuntime`:
+All entry points (MCP Server, CLI, Spring Boot Synapse) interact directly with `SpectorMemory`:
 
 ```mermaid
 graph TD
-    cli["🖥️ spector-cli<br/><i>SpectorCtl</i>"]
-    mcp["🤖 spector-mcp<br/><i>SpectorMcpMain</i>"]
-    synapseapp["🌐 spector-synapse<br/><i>SynapseApplication (Armeria)</i>"]
+    cli["🖥️ spector-cli<br/><i>SpectorCtl / spector.jar</i>"]
+    mcp["🤖 spector-mcp<br/><i>SpectorMcpServer</i>"]
+    synapseapp["🌐 spector-synapse<br/><i>SynapseApplication (Spring Boot 4)</i>"]
 
-    cli --> runtime
-    mcp --> runtime
-    synapseapp --> runtime
+    cli --> memory["🧠 SpectorMemory<br/><i>DefaultSpectorMemory</i>"]
+    mcp --> memory
+    synapseapp --> memory
 
-    runtime["⚡ SpectorRuntime<br/><i>Composition Root</i>"]
-
-    runtime --> sh["SearchHandler<br/><i>cognitive recall & query</i>"]
-    runtime --> ih["IngestionHandler<br/><i>delegates to IngestionPipeline</i>"]
-
-    sh --> memory["SpectorMemory (under memory/)"]
-    ih --> pipeline["IngestionPipeline<br/><i>chunk → embed → cognitive store</i>"]
-    pipeline --> memTarget["CognitiveIngestionTarget<br/><i>MEMORY mode</i>"]
+    memory --> recall["Recall Pipeline<br/><i>Dense + Sparse + Graph + Metamemory</i>"]
+    memory --> daemons["Consolidation Daemons<br/><i>Eager, Synaptic, Circadian</i>"]
+    memory --> storage["Bundle Kernel<br/><i>Off-Heap Memory Mapped</i>"]
 ```
-
-**SpectorRuntime** is a thin composition root — it creates and wires subsystems but contains no business logic. Each handler owns its domain:
-
-| Handler | Responsibility | Routes to |
-|---------|---------------|-----------|
-| `SearchHandler` | Mode-aware cognitive recall & retrieval | `SpectorMemory` |
-| `IngestionHandler` | Delegates to unified `IngestionPipeline` | Pipeline → `CognitiveIngestionTarget` |
 
 ---
 
@@ -150,7 +128,7 @@ graph TD
 
 | Module | Description |
 |:---|:---|
-| [spector-bom](spector-bom.md) | Bill of Materials POM managing dependency versions across all 27 modules |
+| [spector-bom](spector-bom.md) | Bill of Materials POM managing dependency versions across all modules |
 | [spector-commons](spector-commons.md) | Shared utilities, concurrent queues, base exceptions, `ErrorCode` registry |
 | [spector-core](spector-core.md) | Core compute SPIs (Similarity, HNSW, SVASQ, MaxSim) and quantization algorithms |
 | [spector-cpu](spector-cpu.md) | Java 25 Panama Vector SIMD acceleration kernel implementations |
@@ -176,19 +154,15 @@ graph TD
 
 | Module | Description |
 |:---|:---|
-| [spector-runtime](spector-runtime.md) | Composition root — wires cognitive memory and ingestion into unified handlers |
-| [spector-synapse](spector-synapse.md) | API gateway and central nervous system — Armeria REST/gRPC/SSE server and agentic chat graph |
+| [spector-synapse](spector-synapse.md) | API gateway and central nervous system — Spring Boot 4 REST/SSE server and agentic chat graph |
 | [spector-connector](spector-connector.md) | Enterprise data connector subsystem powered by Apache Camel |
-| [spector-mcp](spector-mcp.md) | Model Context Protocol server exposing Spector memory via stdio and SSE |
-| [spector-cli](spector-cli.md) | `spectorctl` CLI with remote HTTP and local runtime modes |
-| [spector-client](spector-client.md) | Java client SDK for programmatic REST/SSE API access |
+| [spector-mcp](spector-mcp.md) | Model Context Protocol server exposing Spector memory via STDIO and SSE |
+| [spector-cli](spector-cli.md) | Multi-function `spectorctl` CLI and standalone `spector.jar` runner |
 | [spector-spring](spector-spring.md) | Spring AI VectorStore integration and auto-configuration |
 | [spector-batch](spector-batch.md) | Batch migration and re-indexing engine |
-| [spector-dist](spector-dist.md) | Distribution packaging for standalone single-jar deployments |
 
 ### Benchmarks (`/bench`)
 
 | Module | Description |
 |:---|:---|
 | [spector-bench](spector-bench.md) | JMH micro-benchmarks and end-to-end cognitive memory evaluation harness |
-

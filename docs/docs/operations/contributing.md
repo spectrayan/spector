@@ -64,14 +64,12 @@ graph LR
     end
 
     subgraph "⚡ Nervous System & Gateways (synapse/)"
-        runtime["spector-runtime<br/>Composition root"]
-        synapse["spector-synapse<br/>REST, gRPC, SSE & Chat"]
+        synapse["spector-synapse<br/>Spring Boot 4 REST & SSE"]
         connector["spector-connector<br/>Camel connectors"]
         mcp["spector-mcp<br/>MCP Server"]
-        cli["spector-cli<br/>spectorctl CLI"]
-        client["spector-client<br/>Java SDK"]
+        cli["spector-cli<br/>spectorctl CLI & spector.jar"]
         spring["spector-spring<br/>Spring AI"]
-        dist["spector-dist<br/>Fat JAR distribution"]
+        batch["spector-batch<br/>Batch migration"]
     end
 
     subgraph "📈 Validation (bench/)"

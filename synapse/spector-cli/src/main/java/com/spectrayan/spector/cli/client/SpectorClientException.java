@@ -13,8 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.spectrayan.spector.cli.client;
 
 /**
- * Top-level runtime facade ({@link SpectorRuntime}) — the primary SDK entry point.
+ * Base exception for Spector CLI HTTP client errors.
  */
-package com.spectrayan.spector.runtime;
+public class SpectorClientException extends RuntimeException {
+
+    public SpectorClientException(String message) {
+        super(message);
+    }
+
+    public SpectorClientException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}

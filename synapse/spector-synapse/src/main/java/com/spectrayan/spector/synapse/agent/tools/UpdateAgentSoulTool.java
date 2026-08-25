@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.synapse.agent.tools;
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
-import com.spectrayan.spector.runtime.SpectorRuntime;
 import io.modelcontextprotocol.spec.McpSchema;
 
 
@@ -92,7 +91,7 @@ public class UpdateAgentSoulTool extends McpToolHandler {
     }
 
     @Override
-    public io.modelcontextprotocol.spec.McpSchema.CallToolResult execute(com.spectrayan.spector.runtime.SpectorRuntime runtime, Map<String, Object> args) throws Exception {
+    public io.modelcontextprotocol.spec.McpSchema.CallToolResult execute(Map<String, Object> args) throws Exception {
         return textResult(executeInternal(args));
     }
 

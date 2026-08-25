@@ -84,7 +84,7 @@ class SqlQueryToolTest {
     void rejectsGeneratedDelete() {
         SqlQueryTool tool = toolReturning("DELETE FROM users WHERE id = 1");
 
-        String result = tool.execute(Map.of("question", "delete all users"));
+        String result = tool.executeToString(Map.of("question", "delete all users"));
 
         assertThat(result).startsWith("Error:").contains("only SELECT statements are allowed");
     }
@@ -93,7 +93,7 @@ class SqlQueryToolTest {
     void rejectsGeneratedDrop() {
         SqlQueryTool tool = toolReturning("DROP TABLE users");
 
-        String result = tool.execute(Map.of("question", "drop the users table"));
+        String result = tool.executeToString(Map.of("question", "drop the users table"));
 
         assertThat(result).startsWith("Error:");
     }
@@ -102,7 +102,7 @@ class SqlQueryToolTest {
     void rejectsGeneratedInsert() {
         SqlQueryTool tool = toolReturning("INSERT INTO users VALUES (3, 'Eve')");
 
-        String result = tool.execute(Map.of("question", "add a user"));
+        String result = tool.executeToString(Map.of("question", "add a user"));
 
         assertThat(result).startsWith("Error:");
     }
@@ -111,7 +111,7 @@ class SqlQueryToolTest {
     void rejectsStackedStatements() {
         SqlQueryTool tool = toolReturning("SELECT * FROM users; DROP TABLE users;");
 
-        String result = tool.execute(Map.of("question", "list users"));
+        String result = tool.executeToString(Map.of("question", "list users"));
 
         assertThat(result).startsWith("Error:");
     }
@@ -122,7 +122,7 @@ class SqlQueryToolTest {
         SqlQueryTool tool = toolReturning(
                 "SELECT * FROM users WHERE name = 'DELETE attempt logged'");
 
-        String result = tool.execute(Map.of("question", "find suspicious log entries"));
+        String result = tool.executeToString(Map.of("question", "find suspicious log entries"));
 
         assertThat(result).doesNotStartWith("Error:");
     }
@@ -133,7 +133,7 @@ class SqlQueryToolTest {
     void rejectsUnparsableGeneratedSql() {
         SqlQueryTool tool = toolReturning("this is not sql at all");
 
-        String result = tool.execute(Map.of("question", "something nonsensical"));
+        String result = tool.executeToString(Map.of("question", "something nonsensical"));
 
         assertThat(result).startsWith("Error:").contains("failed to parse");
     }
@@ -142,7 +142,7 @@ class SqlQueryToolTest {
     void executeRequiresQuestion() {
         SqlQueryTool tool = toolReturning("SELECT * FROM users");
 
-        assertThat(tool.execute(Map.of())).startsWith("Error:");
+        assertThat(tool.executeToString(Map.of())).startsWith("Error:");
     }
 
     @Test
@@ -153,7 +153,7 @@ class SqlQueryToolTest {
 
         SqlQueryTool tool = toolReturning("SELECT * FROM users", spyJdbc, "", "");
 
-        String result = tool.execute(Map.of("question", "list all users"));
+        String result = tool.executeToString(Map.of("question", "list all users"));
 
         assertThat(result).startsWith("Error:").contains("query execution failed");
     }
@@ -163,7 +163,7 @@ class SqlQueryToolTest {
         // real SQLException path: querying a column that doesn't exist
         SqlQueryTool tool = toolReturning("SELECT nonexistent_column FROM users");
 
-        String result = tool.execute(Map.of("question", "bad query"));
+        String result = tool.executeToString(Map.of("question", "bad query"));
 
         assertThat(result).startsWith("Error:").contains("query execution failed");
     }
@@ -174,7 +174,7 @@ class SqlQueryToolTest {
     void formatsResultsAsMarkdownTable() {
         SqlQueryTool tool = toolReturning("SELECT id, name FROM users ORDER BY id");
 
-        String result = tool.execute(Map.of("question", "list all users"));
+        String result = tool.executeToString(Map.of("question", "list all users"));
 
         assertThat(result)
                 .contains("| ID | NAME |")
@@ -187,7 +187,7 @@ class SqlQueryToolTest {
     void formatsEmptyResultSetAsNoRowsMessage() {
         SqlQueryTool tool = toolReturning("SELECT * FROM users WHERE id = 999");
 
-        String result = tool.execute(Map.of("question", "find user 999"));
+        String result = tool.executeToString(Map.of("question", "find user 999"));
 
         assertThat(result).isEqualTo("No rows returned.");
     }
@@ -200,7 +200,7 @@ class SqlQueryToolTest {
                 "SELECT password_hash FROM credentials",
                 jdbcTemplate, "", "credentials,api_keys,tokens");
 
-        String result = tool.execute(Map.of("question", "show me a password hash"));
+        String result = tool.executeToString(Map.of("question", "show me a password hash"));
 
         assertThat(result).startsWith("Error:").contains("restricted tables");
     }
@@ -211,7 +211,7 @@ class SqlQueryToolTest {
                 "SELECT u.name, c.password_hash FROM users u JOIN credentials c ON u.id = c.user_id",
                 jdbcTemplate, "", "credentials");
 
-        String result = tool.execute(Map.of("question", "join users and credentials"));
+        String result = tool.executeToString(Map.of("question", "join users and credentials"));
 
         assertThat(result).startsWith("Error:").contains("restricted tables");
     }
@@ -221,7 +221,7 @@ class SqlQueryToolTest {
         SqlQueryTool tool = toolReturning(
                 "SELECT * FROM users", jdbcTemplate, "", "credentials");
 
-        String result = tool.execute(Map.of("question", "list users"));
+        String result = tool.executeToString(Map.of("question", "list users"));
 
         assertThat(result).doesNotStartWith("Error:");
     }
@@ -231,7 +231,7 @@ class SqlQueryToolTest {
         SqlQueryTool tool = toolReturning(
                 "SELECT * FROM credentials", jdbcTemplate, "users", "");
 
-        String result = tool.execute(Map.of("question", "show credentials"));
+        String result = tool.executeToString(Map.of("question", "show credentials"));
 
         assertThat(result).startsWith("Error:").contains("outside the allowlist");
     }
@@ -241,7 +241,7 @@ class SqlQueryToolTest {
         SqlQueryTool tool = toolReturning(
                 "SELECT * FROM users", jdbcTemplate, "users", "");
 
-        String result = tool.execute(Map.of("question", "show users"));
+        String result = tool.executeToString(Map.of("question", "show users"));
 
         assertThat(result).doesNotStartWith("Error:");
     }
@@ -253,8 +253,8 @@ class SqlQueryToolTest {
         JdbcTemplate spyJdbc = spy(jdbcTemplate);
         SqlQueryTool tool = toolReturning("SELECT * FROM users", spyJdbc, "", "");
 
-        tool.execute(Map.of("question", "list users"));
-        tool.execute(Map.of("question", "list users again"));
+        tool.executeToString(Map.of("question", "list users"));
+        tool.executeToString(Map.of("question", "list users again"));
 
         // schema introspection (a ConnectionCallback execute) should only
         // happen once across both calls, not once per call
@@ -266,9 +266,9 @@ class SqlQueryToolTest {
         JdbcTemplate spyJdbc = spy(jdbcTemplate);
         SqlQueryTool tool = toolReturning("SELECT * FROM users", spyJdbc, "", "");
 
-        tool.execute(Map.of("question", "list users"));
+        tool.executeToString(Map.of("question", "list users"));
         tool.refreshSchema();
-        tool.execute(Map.of("question", "list users again"));
+        tool.executeToString(Map.of("question", "list users again"));
 
         verify(spyJdbc, times(2)).execute(any(ConnectionCallback.class));
     }

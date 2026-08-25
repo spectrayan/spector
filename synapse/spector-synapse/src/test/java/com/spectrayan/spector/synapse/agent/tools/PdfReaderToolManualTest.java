@@ -50,7 +50,7 @@ class PdfReaderToolManualTest {
         System.out.println("  Source: " + pdfPath);
         System.out.println("═══════════════════════════════════════════════════\n");
 
-        String result = tool.execute(Map.of("file_path", pdfPath));
+        String result = tool.executeToString(Map.of("file_path", pdfPath));
 
         System.out.println(result);
         System.out.println("\n═══════════════════════════════════════════════════");
@@ -87,7 +87,7 @@ class PdfReaderToolManualTest {
         System.out.println("  Source: " + pdfPath);
         System.out.println("═══════════════════════════════════════════════════\n");
 
-        String result = tool.execute(Map.of(
+        String result = tool.executeToString(Map.of(
                 "file_path", pdfPath,
                 "pages", page));
 
@@ -114,7 +114,7 @@ class PdfReaderToolManualTest {
         System.out.println("  Source: " + pdfPath);
         System.out.println("═══════════════════════════════════════════════════\n");
 
-        String result = tool.execute(Map.of(
+        String result = tool.executeToString(Map.of(
                 "file_path", pdfPath,
                 "extract_tables", "true"));
 

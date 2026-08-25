@@ -97,7 +97,7 @@ class MemoryContextPackToolTest {
         when(memory.recall(eq("How did we start the lab?"), any(RecallOptions.class)))
                 .thenReturn(List.of(working, proc, sem, epi));
 
-        McpSchema.CallToolResult result = tool.execute(null, Map.of(
+        McpSchema.CallToolResult result = tool.execute(Map.of(
                 "query", "How did we start the lab?",
                 "token_budget", 2500,
                 "profile", "BALANCED",

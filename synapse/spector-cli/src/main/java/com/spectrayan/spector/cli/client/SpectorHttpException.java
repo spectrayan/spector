@@ -13,18 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.client;
+package com.spectrayan.spector.cli.client;
 
 /**
- * Base exception for all Spector Client SDK errors.
+ * Thrown when the Spector server returns an HTTP 4xx or 5xx status code.
  */
-public class SpectorClientException extends RuntimeException {
+public class SpectorHttpException extends SpectorClientException {
 
-    public SpectorClientException(String message) {
-        super(message);
+    private final int statusCode;
+    private final String url;
+
+    public SpectorHttpException(int statusCode, String message, String url) {
+        super("HTTP " + statusCode + " from " + url + ": " + message);
+        this.statusCode = statusCode;
+        this.url = url;
     }
 
-    public SpectorClientException(String message, Throwable cause) {
-        super(message, cause);
+    public int statusCode() {
+        return statusCode;
+    }
+
+    public String url() {
+        return url;
     }
 }

@@ -22,8 +22,6 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.runtime.SpectorRuntime;
-
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -35,10 +33,10 @@ import io.modelcontextprotocol.spec.McpSchema;
  * construction. Subclasses implement four methods:</p>
  *
  * <ul>
- *   <li>{@link #name()} — the MCP tool name (e.g., {@code "semantic_search"})</li>
+ *   <li>{@link #name()} — the MCP tool name (e.g., {@code "memory_recall"})</li>
  *   <li>{@link #description()} — human-readable description for AI agents</li>
  *   <li>{@link #inputSchema()} — JSON Schema map for tool parameters</li>
- *   <li>{@link #execute(SpectorRuntime, Map)} — the actual tool logic</li>
+ *   <li>{@link #execute(Map)} — the actual tool logic</li>
  * </ul>
  *
  * <h3>What the base class provides</h3>
@@ -105,29 +103,27 @@ public abstract class McpToolHandler {
     public abstract Map<String, Object> inputSchema();
 
     /**
-     * Executes the tool logic against the engine.
+     * Executes the tool logic against the memory engine.
      *
      * <p>This method is called inside the timing/error-handling wrapper
      * provided by {@link #toToolSpecification}. Implementations should
      * focus purely on business logic — no try/catch or timing needed.</p>
      *
-     * @param runtime the Spector runtime instance
-     * @param args    the parsed arguments from the MCP request (never null)
+     * @param args the parsed arguments from the MCP request (never null)
      * @return the tool result
      * @throws ToolArgumentException if a required argument is missing or invalid
      * @throws Exception             for any other failure (will be caught and wrapped)
      */
-    public abstract McpSchema.CallToolResult execute(SpectorRuntime runtime,
-                                                      Map<String, Object> args) throws Exception;
+    public abstract McpSchema.CallToolResult execute(Map<String, Object> args) throws Exception;
 
     /**
-     * Helper execute method that runs the tool without a runtime context
+     * Helper execute method that runs the tool
      * and returns the content directly as a single concatenated String.
      * Useful for legacy compatibility and unit tests.
      */
-    public String execute(Map<String, Object> arguments) {
+    public String executeToString(Map<String, Object> arguments) {
         try {
-            McpSchema.CallToolResult toolResult = execute(null, arguments);
+            McpSchema.CallToolResult toolResult = execute(arguments);
             StringBuilder sb = new StringBuilder();
             if (toolResult != null && toolResult.content() != null) {
                 for (var content : toolResult.content()) {
@@ -168,10 +164,9 @@ public abstract class McpToolHandler {
      * Builds the MCP SDK {@link McpServerFeatures.SyncToolSpecification}
      * for this tool, wrapping the handler with timing and error handling.
      *
-     * @param runtime the Spector runtime instance
      * @return fully-configured tool specification ready for server registration
      */
-    public final McpServerFeatures.SyncToolSpecification toToolSpecification(SpectorRuntime runtime) {
+    public final McpServerFeatures.SyncToolSpecification toToolSpecification() {
         var tool = McpSchema.Tool.builder(name())
                 .description(description())
                 .inputSchema(inputSchema())
@@ -183,7 +178,7 @@ public abstract class McpToolHandler {
                     : Map.of();
             try {
                 long startNs = System.nanoTime();
-                McpSchema.CallToolResult result = execute(runtime, args);
+                McpSchema.CallToolResult result = execute(args);
                 long elapsedMs = (System.nanoTime() - startNs) / 1_000_000;
 
                 if (log.isDebugEnabled()) {

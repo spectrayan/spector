@@ -13,7 +13,6 @@
 package com.spectrayan.spector.synapse.agent.tools;
 
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
-import com.spectrayan.spector.runtime.SpectorRuntime;
 import com.spectrayan.spector.synapse.channel.ChannelRouter;
 import com.spectrayan.spector.synapse.channel.model.ChannelType;
 import com.spectrayan.spector.synapse.channel.model.UnifiedMessage;
@@ -93,7 +92,7 @@ public class NotificationTool extends McpToolHandler {
     }
 
     @Override
-    public McpSchema.CallToolResult execute(SpectorRuntime runtime, Map<String, Object> args) throws Exception {
+    public McpSchema.CallToolResult execute(Map<String, Object> args) throws Exception {
         String channelId = (String) args.get("channel");
         String recipient = (String) args.get("recipient");
         String messageText = (String) args.get("message");

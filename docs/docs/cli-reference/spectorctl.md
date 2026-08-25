@@ -67,9 +67,9 @@ spectorctl index delete --name my-index
 
 The `ingest` command supports two modes, auto-detected from the flags:
 
-#### Local Batch Mode (via Runtime)
+#### Local Batch Mode (Direct Ingestion)
 
-Discovers and ingests files directly through `SpectorRuntime` — no server needed. Reads configuration from `spector.yml`.
+Discovers and ingests files directly through `IngestionPipeline` — no server needed. Reads configuration from `spector.yml`.
 
 ```bash
 # Ingest from config (root-directory, pattern, etc. from spector.yml)

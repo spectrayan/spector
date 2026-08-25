@@ -263,7 +263,7 @@ public final class DynamicGraphBuilder {
             }
 
             log.debug("[DynamicGraphBuilder] Tool '{}' executing with args: {}", toolName, mergedArgs);
-            io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult = tool.execute(null, mergedArgs);
+            io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult = tool.execute(mergedArgs);
             StringBuilder sb = new StringBuilder();
             if (toolResult != null && toolResult.content() != null) {
                 for (var content : toolResult.content()) {

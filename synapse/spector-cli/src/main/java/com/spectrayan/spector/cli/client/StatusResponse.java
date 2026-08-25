@@ -13,10 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.client.model;
+package com.spectrayan.spector.cli.client;
 
 import java.util.Map;
-
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 /**

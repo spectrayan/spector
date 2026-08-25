@@ -50,6 +50,7 @@ class SpectorCtlTest {
         assertThat(output).contains("ingest");
         assertThat(output).contains("search");
         assertThat(output).contains("status");
+        assertThat(output).contains("mcp");
     }
 
     @Test
@@ -182,6 +183,22 @@ class SpectorCtlTest {
         assertThat(output).contains("--id");
         assertThat(output).contains("--content");
         assertThat(output).contains("--file");
+    }
+
+    @Test
+    void mcpHelp_showsOptions() {
+        var cli = createCli();
+        var sw = new StringWriter();
+        cli.setOut(new PrintWriter(sw));
+
+        int exitCode = cli.execute("mcp", "--help");
+
+        assertThat(exitCode).isEqualTo(0);
+        String output = sw.toString();
+        assertThat(output).contains("--config");
+        assertThat(output).contains("--dims");
+        assertThat(output).contains("--capacity");
+        assertThat(output).contains("--data-dir");
     }
 
     // ─────────────── Requirement 18.2: Configurable host/port ───────────────
