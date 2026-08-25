@@ -22,6 +22,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -70,6 +71,13 @@ public final class AismeRelayMatrixRunner {
             double cohensD,
             double pValue,
             double avgLatencyMs,
+            double p50LatencyMs,
+            double p90LatencyMs,
+            double p95LatencyMs,
+            double p99LatencyMs,
+            double minLatencyMs,
+            double maxLatencyMs,
+            double qps,
             Map<String, Double> perQueryNdcg
     ) {}
 
@@ -115,6 +123,22 @@ public final class AismeRelayMatrixRunner {
             SpectorMemory memory = setup.createMemoryInstance(dataset, embedder, datasetDir);
             ConditionResult baselineResult = null;
 
+            // Warmup pass: prime JVM JIT compiler, off-heap pages, SIMD vector species (cold-start exclusion)
+            log.info("Running JIT and off-heap memory warmup (20 queries)...");
+            int warmupCount = Math.min(20, dataset.queries().size());
+            for (int w = 0; w < warmupCount; w++) {
+                BenchmarkQuery wq = dataset.queries().get(w);
+                RecallOptions wOpt = RecallOptions.builder()
+                        .topK(topK)
+                        .recallMode(RecallMode.OBSERVE)
+                        .enableTextSearch(true)
+                        .enableLateralInhibition(true)
+                        .enableAisme(true)
+                        .build();
+                memory.recall(wq.text(), wOpt);
+            }
+            log.info("Warmup complete. Commencing benchmark evaluation with warm JIT and active caches.");
+
             for (int i = 0; i < conditions.size(); i++) {
                 BenchmarkCondition cond = conditions.get(i);
                 log.info("\n▶ Running Condition {}/{}: [{}] {}", i + 1, conditions.size(), cond.id(), cond.name());
@@ -125,90 +149,106 @@ public final class AismeRelayMatrixRunner {
                 List<Double> latencies = new ArrayList<>();
                 Map<String, Double> perQueryNdcg = new LinkedHashMap<>();
 
-                    for (BenchmarkQuery query : dataset.queries()) {
-                        long qStart = System.nanoTime();
+                for (BenchmarkQuery query : dataset.queries()) {
+                    long qStart = System.nanoTime();
 
-                        RecallOptions.Builder optBuilder = RecallOptions.builder()
-                                .topK(topK)
-                                .recallMode(RecallMode.OBSERVE);
+                    RecallOptions.Builder optBuilder = RecallOptions.builder()
+                            .topK(topK)
+                            .recallMode(RecallMode.OBSERVE)
+                            .enableTextSearch(true)
+                            .scoreFusionMode(com.spectrayan.spector.memory.model.ScoreFusionMode.MULTIPLICATIVE);
 
-                        if (query.cognitiveProfile() != null) {
-                            optBuilder.profile(query.cognitiveProfile());
-                        } else {
-                            optBuilder.profile(CognitiveProfile.BALANCED);
-                        }
-
-                        if (query.synapticFilterTags() != null && !query.synapticFilterTags().isEmpty()) {
-                            optBuilder.synapticFilter(query.synapticFilterTags().toArray(String[]::new));
-                        }
-                        if (query.minValence() != null) {
-                            optBuilder.minValence(query.minValence());
-                        }
-                        if (query.maxValence() != null) {
-                            optBuilder.maxValence(query.maxValence());
-                        }
-                        if (query.entityHints() != null && !query.entityHints().isEmpty()) {
-                            optBuilder.entityHints(query.entityHints());
-                        }
-                        if (query.textSearchMode() != null) {
-                            optBuilder.textSearchMode(query.textSearchMode());
-                        }
-
-                        if (cond.config() != null) {
-                            optBuilder.aismeConfig(cond.config());
-                        }
-                        if (cond.conflictMode() != null) {
-                            optBuilder.conflictMode(cond.conflictMode());
-                        }
-                        if (cond.minTrustScore() > 0.0f) {
-                            optBuilder.minTrustScore(cond.minTrustScore());
-                        }
-
-                        List<CognitiveResult> recallResults = memory.recall(query.text(), optBuilder.build());
-                        long qElapsed = System.nanoTime() - qStart;
-                        latencies.add(qElapsed / 1_000_000.0);
-
-                        List<String> rankedIds = new ArrayList<>();
-                        for (CognitiveResult cr : recallResults) {
-                            rankedIds.add(cr.id());
-                        }
-
-                        Map<String, Integer> qrelsForQuery = dataset.qrels().getOrDefault(query.id(), Map.of());
-                        double ndcg = metricsComputer.ndcgAtK(rankedIds, qrelsForQuery, topK);
-                        double mrr = metricsComputer.mrrAtK(rankedIds, qrelsForQuery, topK);
-                        double rec = metricsComputer.recallAtK(rankedIds, qrelsForQuery, topK);
-
-                        ndcgList.add(ndcg);
-                        mrrList.add(mrr);
-                        recallList.add(rec);
-                        perQueryNdcg.put(query.id(), ndcg);
+                    if (query.cognitiveProfile() != null) {
+                        optBuilder.profile(query.cognitiveProfile());
+                    } else {
+                        optBuilder.profile(CognitiveProfile.BALANCED);
                     }
 
-                    double meanNdcg = ndcgList.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
-                    double meanMrr = mrrList.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
-                    double meanRec = recallList.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
-                    double avgLatency = latencies.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
-
-                    double cohensD = 0.0;
-                    double pVal = 1.0;
-                    if (baselineResult != null) {
-                        double[] baseArray = baselineResult.perQueryNdcg().values().stream().mapToDouble(Double::doubleValue).toArray();
-                        double[] condArray = ndcgList.stream().mapToDouble(Double::doubleValue).toArray();
-                        cohensD = StatisticalTests.cohensD(baseArray, condArray);
-                        pVal = StatisticalTests.pairedTTestPValue(baseArray, condArray);
+                    if (query.synapticFilterTags() != null && !query.synapticFilterTags().isEmpty()) {
+                        optBuilder.synapticFilter(query.synapticFilterTags().toArray(String[]::new));
+                    }
+                    if (query.minValence() != null) {
+                        optBuilder.minValence(query.minValence());
+                    }
+                    if (query.maxValence() != null) {
+                        optBuilder.maxValence(query.maxValence());
+                    }
+                    if (query.entityHints() != null && !query.entityHints().isEmpty()) {
+                        optBuilder.entityHints(query.entityHints());
+                    }
+                    if (query.textSearchMode() != null) {
+                        optBuilder.textSearchMode(query.textSearchMode());
                     }
 
-                    ConditionResult cr = new ConditionResult(
-                            cond, meanNdcg, meanMrr, meanRec, cohensD, pVal, avgLatency, perQueryNdcg
-                    );
-
-                    if (baselineResult == null) {
-                        baselineResult = cr;
+                    if (cond.config() != null) {
+                        optBuilder.aismeConfig(cond.config());
+                        if (cond.config().enabled()) {
+                            optBuilder.enableLateralInhibition(true);
+                        }
                     }
-                    results.add(cr);
+                    if (cond.conflictMode() != null) {
+                        optBuilder.conflictMode(cond.conflictMode());
+                    }
+                    if (cond.minTrustScore() > 0.0f) {
+                        optBuilder.minTrustScore(cond.minTrustScore());
+                    }
 
-                    log.info("  ✓ nDCG@{}: {:.4f} | MRR: {:.4f} | Recall: {:.4f} | Cohen's d: {:+.3f} | Latency: {:.2f}ms",
-                            topK, meanNdcg, meanMrr, meanRec, cohensD, avgLatency);
+                    List<CognitiveResult> recallResults = memory.recall(query.text(), optBuilder.build());
+                    long qElapsed = System.nanoTime() - qStart;
+                    latencies.add(qElapsed / 1_000_000.0);
+
+                    List<String> rankedIds = new ArrayList<>();
+                    for (CognitiveResult cr : recallResults) {
+                        rankedIds.add(cr.id());
+                    }
+
+                    Map<String, Integer> qrelsForQuery = dataset.qrels().getOrDefault(query.id(), Map.of());
+                    double ndcg = metricsComputer.ndcgAtK(rankedIds, qrelsForQuery, topK);
+                    double mrr = metricsComputer.mrrAtK(rankedIds, qrelsForQuery, topK);
+                    double rec = metricsComputer.recallAtK(rankedIds, qrelsForQuery, topK);
+
+                    ndcgList.add(ndcg);
+                    mrrList.add(mrr);
+                    recallList.add(rec);
+                    perQueryNdcg.put(query.id(), ndcg);
+                }
+
+                double meanNdcg = ndcgList.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+                double meanMrr = mrrList.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+                double meanRec = recallList.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+                double avgLatency = latencies.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+
+                List<Double> sortedLatencies = new ArrayList<>(latencies);
+                java.util.Collections.sort(sortedLatencies);
+                double p50 = percentile(sortedLatencies, 0.50);
+                double p90 = percentile(sortedLatencies, 0.90);
+                double p95 = percentile(sortedLatencies, 0.95);
+                double p99 = percentile(sortedLatencies, 0.99);
+                double minLatency = sortedLatencies.isEmpty() ? 0.0 : sortedLatencies.get(0);
+                double maxLatency = sortedLatencies.isEmpty() ? 0.0 : sortedLatencies.get(sortedLatencies.size() - 1);
+                double qps = avgLatency > 0.0 ? 1000.0 / avgLatency : 0.0;
+
+                double cohensD = 0.0;
+                double pVal = 1.0;
+                if (baselineResult != null) {
+                    double[] baseArray = baselineResult.perQueryNdcg().values().stream().mapToDouble(Double::doubleValue).toArray();
+                    double[] condArray = ndcgList.stream().mapToDouble(Double::doubleValue).toArray();
+                    cohensD = StatisticalTests.cohensD(baseArray, condArray);
+                    pVal = StatisticalTests.pairedTTestPValue(baseArray, condArray);
+                }
+
+                ConditionResult cr = new ConditionResult(
+                        cond, meanNdcg, meanMrr, meanRec, cohensD, pVal,
+                        avgLatency, p50, p90, p95, p99, minLatency, maxLatency, qps, perQueryNdcg
+                );
+
+                if (baselineResult == null) {
+                    baselineResult = cr;
+                }
+                results.add(cr);
+
+                log.info("  ✓ nDCG@{}: {:.4f} | MRR: {:.4f} | Recall: {:.4f} | Latency: avg={:.2f}ms p50={:.2f}ms p95={:.2f}ms p99={:.2f}ms | QPS: {:.1f} | Cohen's d: {:+.3f}",
+                        topK, meanNdcg, meanMrr, meanRec, avgLatency, p50, p95, p99, qps, cohensD);
             }
         }
 
@@ -359,6 +399,12 @@ public final class AismeRelayMatrixRunner {
         return list;
     }
 
+    private static double percentile(List<Double> sorted, double p) {
+        if (sorted.isEmpty()) return 0.0;
+        int idx = (int) Math.ceil(p * sorted.size()) - 1;
+        return sorted.get(Math.max(0, Math.min(idx, sorted.size() - 1)));
+    }
+
     private void generateReport(List<ConditionResult> results, LoadedDataset dataset) throws IOException {
         Files.createDirectories(outputDir);
         Path reportFile = outputDir.resolve("aisme_relay_benchmark_report.md");
@@ -369,25 +415,28 @@ public final class AismeRelayMatrixRunner {
         md.append("# 🧬 AISME Phase 1–7 Sub-Relay Differential Benchmark Report\n\n");
         md.append(String.format("**Dataset:** `%s` (%d records, %d queries)\n", datasetName, dataset.corpus().size(), dataset.queries().size()));
         md.append("**Generated:** ").append(java.time.Instant.now()).append("\n");
-        md.append("**Architecture:** Java 25 Panama Direct Off-Heap • AVX-512 Fused SIMD • Cognitive Pathways\n\n");
+        md.append("**Architecture:** Java 25 Panama Direct Off-Heap • AVX-512 Fused SIMD • Cognitive Pathways\n");
+        md.append("**Note:** Measurements exclude cold-start warmup (20 queries).\n\n");
 
         md.append("## 1. Differential Summary Matrix\n\n");
-        md.append("| # | Condition | nDCG@10 | MRR@10 | Recall@10 | Cohen's d (vs Base) | p-value | Avg Latency |\n");
-        md.append("|:---|:---|:---:|:---:|:---:|:---:|:---:|:---:|\n");
+        md.append("| # | Condition | nDCG@10 | MRR@10 | Recall@10 | Avg (ms) | p50 (ms) | p95 (ms) | p99 (ms) | QPS | Cohen's d | p-value |\n");
+        md.append("|:---|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|\n");
 
         for (ConditionResult cr : results) {
-            md.append(String.format("| **%s** | %s | **%.4f** | %.4f | %.4f | %+.3f | %.4f | %.2f ms |\n",
+            md.append(String.format(Locale.ROOT, "| **%s** | %s | **%.4f** | %.4f | %.4f | %.2f | %.2f | %.2f | %.2f | %.1f | %+.3f | %.4f |\n",
                     cr.condition().id(), cr.condition().name(),
                     cr.meanNdcg(), cr.meanMrr(), cr.meanRecall(),
-                    cr.cohensD(), cr.pValue(), cr.avgLatencyMs()));
+                    cr.avgLatencyMs(), cr.p50LatencyMs(), cr.p95LatencyMs(), cr.p99LatencyMs(),
+                    cr.qps(), cr.cohensD(), cr.pValue()));
         }
 
         md.append("\n## 2. Biological Cognitive Subsystem Descriptions\n\n");
         for (ConditionResult cr : results) {
             md.append(String.format("### %s: %s\n", cr.condition().id(), cr.condition().name()));
             md.append("- **Mechanism:** ").append(cr.condition().phaseDescription()).append("\n");
-            md.append(String.format("- **Performance:** nDCG@10 = `%.4f`, MRR@10 = `%.4f`, Recall@10 = `%.4f`, Latency = `%.2f ms`\n\n",
-                    cr.meanNdcg(), cr.meanMrr(), cr.meanRecall(), cr.avgLatencyMs()));
+            md.append(String.format(Locale.ROOT, "- **Performance:** nDCG@10 = `%.4f`, MRR@10 = `%.4f`, Recall@10 = `%.4f`, Avg Latency = `%.2f ms`, p50 = `%.2f ms`, p95 = `%.2f ms`, p99 = `%.2f ms`, QPS = `%.1f`\n\n",
+                    cr.meanNdcg(), cr.meanMrr(), cr.meanRecall(), cr.avgLatencyMs(),
+                    cr.p50LatencyMs(), cr.p95LatencyMs(), cr.p99LatencyMs(), cr.qps()));
         }
 
         Files.writeString(reportFile, md.toString(), StandardCharsets.UTF_8);
@@ -397,8 +446,10 @@ public final class AismeRelayMatrixRunner {
         StringBuilder json = new StringBuilder("[\n");
         for (int i = 0; i < results.size(); i++) {
             ConditionResult cr = results.get(i);
-            json.append(String.format("  {\"id\": \"%s\", \"name\": \"%s\", \"ndcg\": %.4f, \"mrr\": %.4f, \"recall\": %.4f, \"latencyMs\": %.2f}%s\n",
-                    cr.condition().id(), cr.condition().name(), cr.meanNdcg(), cr.meanMrr(), cr.meanRecall(), cr.avgLatencyMs(),
+            json.append(String.format(Locale.ROOT,
+                    "  {\"id\": \"%s\", \"name\": \"%s\", \"ndcg\": %.4f, \"mrr\": %.4f, \"recall\": %.4f, \"avgLatencyMs\": %.2f, \"p50LatencyMs\": %.2f, \"p95LatencyMs\": %.2f, \"p99LatencyMs\": %.2f, \"qps\": %.1f}%s\n",
+                    cr.condition().id(), cr.condition().name(), cr.meanNdcg(), cr.meanMrr(), cr.meanRecall(),
+                    cr.avgLatencyMs(), cr.p50LatencyMs(), cr.p95LatencyMs(), cr.p99LatencyMs(), cr.qps(),
                     i < results.size() - 1 ? "," : ""));
         }
         json.append("]\n");

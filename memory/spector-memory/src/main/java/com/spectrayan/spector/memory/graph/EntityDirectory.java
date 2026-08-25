@@ -125,6 +125,9 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     private int adjSegmentCapacity;  // total entries the adjacency segment can hold
     private int adjHighWaterMark;    // next free entry index in adjacency segment
 
+    private volatile long lastCompactionEpochMs = 0L;
+    private volatile long bytesReclaimedLastCycle = 0L;
+
     /** On-heap name→entityId index for O(1) lookup (case-insensitive). */
     private final ConcurrentHashMap<String, Integer> nameIndex = new ConcurrentHashMap<>();
 
@@ -940,12 +943,14 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
                 adjSegmentCapacity = newCapacity;
             }
             adjHighWaterMark = writePos;
-            long reclaimed = oldUsed - (long) writePos * ADJ_ENTRY_BYTES;
+            long reclaimed = Math.max(oldUsed - (long) writePos * ADJ_ENTRY_BYTES, 0L);
+            this.lastCompactionEpochMs = System.currentTimeMillis();
+            this.bytesReclaimedLastCycle = reclaimed;
             if (reclaimed > 0) {
                 log.info("EntityDirectory adjacency compacted: {} live entries, reclaimed {}KB",
                         liveEntries, reclaimed / 1024);
             }
-            return Math.max(reclaimed, 0);
+            return reclaimed;
         } finally {
             lock.unlockWrite(stamp);
         }
@@ -1516,6 +1521,33 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     @Override
     public MemorySegment headerSegment() {
         return headerSegment;
+    }
+
+    /**
+     * Captures a read-only telemetry snapshot of entity directory health and fragmentation (MR-08).
+     */
+    public GraphStructureHealthSnapshot structureHealthSnapshot() {
+        long stamp = lock.readLock();
+        try {
+            long allocBytes = (long) entityCapacity * ENTITY_NODE_BYTES + (long) adjSegmentCapacity * ADJ_ENTRY_BYTES;
+            long liveBytes = (long) entityCount * ENTITY_NODE_BYTES + (long) adjHighWaterMark * ADJ_ENTRY_BYTES;
+            float fragRatio = allocBytes > 0 ? 1.0f - ((float) liveBytes / (float) allocBytes) : 0.0f;
+            float loadFactor = entityCapacity > 0 ? (float) entityCount / (float) entityCapacity : 0.0f;
+
+            return new GraphStructureHealthSnapshot(
+                    "entity-directory",
+                    allocBytes,
+                    liveBytes,
+                    Math.max(0.0f, fragRatio),
+                    loadFactor,
+                    1,
+                    Float.NaN,
+                    lastCompactionEpochMs,
+                    bytesReclaimedLastCycle
+            );
+        } finally {
+            lock.unlockRead(stamp);
+        }
     }
 
     @Override

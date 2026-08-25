@@ -141,7 +141,8 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
                 encodingAlpha,
                 encodingBeta,
                 signal.soulVersion(),
-                surpriseZScore
+                surpriseZScore,
+                (byte) 0
         );
         signal.header(header);
 

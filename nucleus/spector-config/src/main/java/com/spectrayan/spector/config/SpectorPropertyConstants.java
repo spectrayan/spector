@@ -766,6 +766,9 @@ public final class SpectorPropertyConstants {
     public static final String RECALL_SCORING_MODE = "spector.recall.scoring-mode";
     public static final String DEFAULT_RECALL_SCORING_MODE = "COGNITIVE";
 
+    public static final String RECALL_SCORE_FUSION_MODE = "spector.recall.score-fusion-mode";
+    public static final String DEFAULT_RECALL_SCORE_FUSION_MODE = "MULTIPLICATIVE";
+
     public static final String RECALL_TRACE_ENABLED = "spector.recall.trace.enabled";
     public static final boolean DEFAULT_RECALL_TRACE_ENABLED = false;
 
@@ -796,6 +799,31 @@ public final class SpectorPropertyConstants {
     public static final String RECALL_LATERAL_MIN_TAG_OVERLAP = "spector.recall.lateral.min-tag-overlap";
     public static final float DEFAULT_RECALL_LATERAL_MIN_TAG_OVERLAP = 0.5f;
 
+    // Lateral Inhibition & Interference Resolution (MR-04)
+    public static final String RECALL_LATERAL_INHIBITION_ENABLED = "spector.memory.recall.lateral-inhibition.enabled";
+    public static final boolean DEFAULT_RECALL_LATERAL_INHIBITION_ENABLED = false;
+
+    public static final String RECALL_LATERAL_INHIBITION_OVERLAP_THRESHOLD = "spector.memory.recall.lateral-inhibition.overlap-threshold";
+    public static final float DEFAULT_RECALL_LATERAL_INHIBITION_OVERLAP_THRESHOLD = 0.88f;
+
+    public static final String RECALL_LATERAL_INHIBITION_OVERSCAN_FACTOR = "spector.memory.recall.lateral-inhibition.overscan-factor";
+    public static final int DEFAULT_RECALL_LATERAL_INHIBITION_OVERSCAN_FACTOR = 3;
+
+    public static final String RECALL_LATERAL_INHIBITION_MAX_CLUSTER_CANDIDATES = "spector.memory.recall.lateral-inhibition.max-cluster-candidates";
+    public static final int DEFAULT_RECALL_LATERAL_INHIBITION_MAX_CLUSTER_CANDIDATES = 64;
+
+    public static final String RECALL_LATERAL_INHIBITION_SOFT_KAPPA = "spector.memory.recall.lateral-inhibition.soft-kappa";
+    public static final float DEFAULT_RECALL_LATERAL_INHIBITION_SOFT_KAPPA = 0.15f;
+
+    public static final String RECALL_LATERAL_INHIBITION_HARD_KAPPA = "spector.memory.recall.lateral-inhibition.hard-kappa";
+    public static final float DEFAULT_RECALL_LATERAL_INHIBITION_HARD_KAPPA = 0.40f;
+
+    public static final String RECALL_LATERAL_INHIBITION_CONTRADICTION_HEURISTIC_ENABLED = "spector.memory.recall.lateral-inhibition.contradiction-heuristic-enabled";
+    public static final boolean DEFAULT_RECALL_LATERAL_INHIBITION_CONTRADICTION_HEURISTIC_ENABLED = false;
+
+    public static final String RECALL_LATERAL_INHIBITION_RIF_ENABLED = "spector.memory.recall.lateral-inhibition.rif-enabled";
+    public static final boolean DEFAULT_RECALL_LATERAL_INHIBITION_RIF_ENABLED = false;
+
     public static final String RECALL_STRICTNESS_COEFFICIENT = "spector.recall.strictness-coefficient";
     public static final float DEFAULT_RECALL_STRICTNESS_COEFFICIENT = 1.0f;
 
@@ -822,6 +850,35 @@ public final class SpectorPropertyConstants {
 
     public static final String RECALL_MAX_TEMPERATURE = "spector.recall.max-temperature";
     public static final float DEFAULT_RECALL_MAX_TEMPERATURE = 5.0f;
+
+    // Early Associative Prior (MR-06)
+    public static final String RECALL_ASSOCIATIVE_PRIOR_ENABLED = "spector.memory.recall.associative-prior.enabled";
+    public static final boolean DEFAULT_RECALL_ASSOCIATIVE_PRIOR_ENABLED = false;
+
+    public static final String RECALL_ASSOCIATIVE_PRIOR_DELTA = "spector.memory.recall.associative-prior.delta";
+    public static final float DEFAULT_RECALL_ASSOCIATIVE_PRIOR_DELTA = 0.15f;
+
+    public static final String RECALL_ASSOCIATIVE_PRIOR_STDP_WEIGHT = "spector.memory.recall.associative-prior.stdp-weight";
+    public static final float DEFAULT_RECALL_ASSOCIATIVE_PRIOR_STDP_WEIGHT = 0.7f;
+
+    public static final String RECALL_ASSOCIATIVE_PRIOR_HUB_WEIGHT = "spector.memory.recall.associative-prior.hub-weight";
+    public static final float DEFAULT_RECALL_ASSOCIATIVE_PRIOR_HUB_WEIGHT = 0.3f;
+
+    public static final String RECALL_ASSOCIATIVE_PRIOR_CACHE_SIZE = "spector.memory.recall.associative-prior.cache-size";
+    public static final int DEFAULT_RECALL_ASSOCIATIVE_PRIOR_CACHE_SIZE = 1024;
+
+    // Graph Compaction & Telemetry (MR-08)
+    public static final String GRAPH_COMPACTION_FRAGMENTATION_THRESHOLD = "spector.consolidation.graph-compaction.fragmentation-threshold";
+    public static final float DEFAULT_GRAPH_COMPACTION_FRAGMENTATION_THRESHOLD = 0.25f;
+
+    public static final String GRAPH_COMPACTION_LOAD_FACTOR_THRESHOLD = "spector.consolidation.graph-compaction.load-factor-threshold";
+    public static final float DEFAULT_GRAPH_COMPACTION_LOAD_FACTOR_THRESHOLD = 0.70f;
+
+    public static final String GRAPH_COMPACTION_MAX_PASSES_PER_CYCLE = "spector.consolidation.graph-compaction.max-passes-per-cycle";
+    public static final int DEFAULT_GRAPH_COMPACTION_MAX_PASSES_PER_CYCLE = 2;
+
+    public static final String GRAPH_COMPACTION_MODE = "spector.consolidation.graph-compaction.mode";
+    public static final String DEFAULT_GRAPH_COMPACTION_MODE = "ADAPTIVE";
 
     // Ingestion
     public static final String INGESTION_ROOT_DIRECTORY = "spector.ingestion.root-directory";

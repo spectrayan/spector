@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added & Fixed — Cognitive Memory Review Remediation (MR-01 — MR-09) (#661)
+- **spector-memory (MR-01):** Implemented simulated-memory binary provenance in `HeaderLayout64` using `FLAG_SIMULATED` (0x20 in consolidation flags, byte 34) and `soulVersion` (bytes 46-47); fixed roundtrip persistence durability and `CognitiveHeader.createSynthetic`
+- **spector-memory (MR-02):** Resolved fused score formula truth with `ScoreFusionMode` (`MULTIPLICATIVE` vs `ADDITIVE`); validated $\alpha \in [0.0, 1.0]$ in `RecallOptions` and `ScoringOptions`; added `FusedScoreFormulaPropertyTest`
+- **spector-memory (MR-03):** Implemented dynamic soul-conditioned scoring regime (FERS: $\alpha \cdot \text{Sim} + \beta \cdot \sigma(\Delta F) + \gamma \cdot \text{Resonance}$) in `FreeEnergyGuidedRelay` and `CognitiveScorer`; added `SoulConditionedWeightProvider` with EMA hysteresis damping and slew rate limits; wired `usePathwayEngine` reachability
+- **spector-memory (MR-04):** Implemented dentate-gyrus lateral inhibition & recall interference resolution (`LateralInhibitionRelay`) with single-linkage clustering ($\theta \ge 0.88$), soft rank-ordered redundancy attenuation, multi-factor confidence arbitration, and hard contradiction penalties
+- **spector-memory (MR-06):** Implemented early $O(1)$ graph associative prior ($A_g$) in Phase 6 fusion via `CoActivationAssociativePriorProvider` with log1p hub dampening; enforced anti-truncation guarantee (novel memories are never gated out in Phases 1-4)
+- **spector-memory (MR-07):** Deepened constructive simulation with multi-candidate sampling, weighted vector recombination, and PCMN prediction error validation; attached `alignSim` metadata and updated `ConstructiveMemoryPersistenceRelay` to threshold on real alignment; reordered `SoulDriftRefusionRelay` prior adaptation before re-fusion loop and preserved header-derived hints and true `MemoryType`
+- **spector-memory (MR-08):** Implemented graph compaction telemetry and `GraphStructureHealthSnapshot` on `EntityDirectory` and `HebbianGraphMemory`; added adaptive compaction configuration in `SpectorPropertyConstants`
+- **docs (MR-09):** Added `scoring-regimes.md`, `aisme.md`, `constructive-memory.md`; corrected test framework test counts and scoring pipeline formula documentation
+
 ### Removed & Refactored — Storage & Query Module Decommissioning (#650)
 - **spector-storage & spector-query:** Fully decommissioned and deleted both legacy modules (~4,500 lines of dead code eliminated); reduced reactor from 29 to 27 modules
 - **spector-index:** Relocated `SpectorSegmentClosedException` to `com.spectrayan.spector.index.error`; removed dead disk HNSW and sharded index classes (`DiskHnswIndex`, `DiskHnswWriter`, `ShardedDiskHnswIndex`, `ShardedDiskHnswWriter`) and dead `save()`/`load()` methods in `SpectorIndex` and `SpectorShard`

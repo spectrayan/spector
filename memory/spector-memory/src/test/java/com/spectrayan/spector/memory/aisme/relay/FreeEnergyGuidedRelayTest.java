@@ -77,9 +77,14 @@ class FreeEnergyGuidedRelayTest {
         boolean ok = relay.transmit(signal);
         assertThat(ok).isTrue();
 
-        // The score should be modified according to FERS
-        float newScore = signal.candidates().get(0).score();
-        assertThat(newScore).isNotEqualTo(0.5f);
+        // The score should be modified according to FERS and include breakdown
+        CognitiveResult result = signal.candidates().get(0);
+        assertThat(result.score()).isNotEqualTo(0.5f);
+        assertThat(result.breakdown()).isNotNull();
+        assertThat(result.breakdown().epistemicWeight()).isEqualTo(0.5f);
+        assertThat(result.breakdown().teleologicalWeight()).isEqualTo(0.35f);
+        assertThat(result.breakdown().pragmaticWeight()).isEqualTo(0.15f);
+        assertThat(result.breakdown().scoringRegime()).isEqualTo(com.spectrayan.spector.memory.model.ScoringRegime.GENERIC);
     }
 
     private static CognitiveResult createResult(String id, float score) {

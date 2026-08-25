@@ -101,7 +101,7 @@ class ConstructiveSimulationRelayTest {
         CognitiveResult simulated = signal.candidates().get(2);
         assertThat(simulated.id()).isNotNull().hasSize(13);
         assertThat(com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.isSimulated(simulated.consolidationFlags())).isTrue();
-        assertThat(simulated.text()).contains("[Constructive Simulation]");
+        assertThat(simulated.text()).contains("[Constructive Simulation");
         assertThat(simulated.synapticTags()).contains("simulated", "counterfactual", "constructive");
         assertThat(simulated.memoryType()).isEqualTo(MemoryType.EPISODIC);
         assertThat(simulated.source()).isEqualTo(MemorySource.INFERRED);

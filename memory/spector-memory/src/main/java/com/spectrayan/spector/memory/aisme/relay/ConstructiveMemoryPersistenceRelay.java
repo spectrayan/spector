@@ -81,8 +81,19 @@ public final class ConstructiveMemoryPersistenceRelay implements SynapticRelay<R
                 continue;
             }
 
-            // Only persist if score exceeds threshold (high narrative alignment)
-            if (result.score() < persistenceThreshold) {
+            // Only persist if alignment exceeds threshold (MR-07)
+            float alignSim;
+            if (result.metadata() != null && result.metadata().containsKey("alignSim")) {
+                try {
+                    alignSim = Float.parseFloat(result.metadata().get("alignSim"));
+                } catch (NumberFormatException e) {
+                    alignSim = result.score();
+                }
+            } else {
+                alignSim = result.score();
+            }
+
+            if (alignSim < persistenceThreshold) {
                 continue;
             }
 
@@ -98,11 +109,14 @@ public final class ConstructiveMemoryPersistenceRelay implements SynapticRelay<R
 
                 String durableId = TSID.generate();
                 byte procFlags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal());
-                byte cFlags = SynapticHeaderConstants.FLAG_SIMULATED;
                 float norm = VectorOps.magnitude(vector);
-                CognitiveHeader header = new CognitiveHeader(
-                        System.currentTimeMillis(), 0L, norm, result.importance(), 1,
-                        (short) 0, result.valence(), procFlags, cFlags, 1.0f
+                short soulVer = ingestionTarget.currentSoulVersion();
+                CognitiveHeader header = CognitiveHeader.createSynthetic(
+                        System.currentTimeMillis(), 0L, norm, result.importance(),
+                        result.valence(), (byte) 128, procFlags,
+                        SynapticHeaderConstants.FLAG_SIMULATED,
+                        soulVer,
+                        0.0f
                 );
 
                 ingestionTarget.ingestCognitiveWithHeader(

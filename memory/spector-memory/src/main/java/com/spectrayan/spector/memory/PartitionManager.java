@@ -374,7 +374,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                     long textSize = Long.getLong("spector.memory.text-segment-size", 32 * 1024 * 1024L);
 
                     long episodicSize = Long.getLong("spector.memory.episodic-segment-size",
-                            (long) episodicPartitionCapacity * 256L);
+                            (long) episodicPartitionCapacity * cogLayout.stride());
 
                     newBundle = PartitionBundle.Init.mmap(
                             bundleFile,

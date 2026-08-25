@@ -43,13 +43,20 @@ AI memory recall must combine **semantic similarity**, **temporal decay**, **emo
 
 ### The Fix: Fuse Everything
 
-Spector fuses temporal decay and importance directly into the scoring loop — **every memory is evaluated against all signals simultaneously**, in a single cache-friendly off-heap scan:
+Spector fuses temporal decay and importance directly into the scoring loop — **every memory is evaluated against all signals simultaneously**, in a single cache-friendly off-heap scan.
 
-$$\text{Similarity} = \frac{1}{1 + \text{L2\_Distance}(q, x)}$$
+For complete coverage of scoring regimes, see [Scoring Regimes & Fusion Modes](scoring-regimes.md).
 
-$$\text{FinalScore} = \alpha \cdot \text{Similarity} + \beta \cdot \text{Importance} \cdot \text{Decay}(\text{AdjustedAge})$$
+#### `MULTIPLICATIVE` Mode (Default)
+$$\text{FinalScore} = \text{BaseScore} \cdot (1.0 + \text{TagOverlap} \cdot \text{TagBoost})$$
 
-Where $\alpha$ (default: 0.6) and $\beta$ (default: 0.4) are user-configurable scoring weights.
+Where $\text{BaseScore} = \text{Similarity} \cdot (1.0 + \text{Importance} \cdot \text{DecayFactor}) \cdot \text{ValenceMultiplier}$.
+
+#### `ADDITIVE` Mode
+$$\text{BaseSimilarity} = \alpha \cdot \text{Similarity} + (1.0 - \alpha) \cdot \text{TagOverlap}$$
+$$\text{FinalScore} = \text{BaseSimilarity} \cdot (1.0 + \text{Importance} \cdot \text{DecayFactor}) \cdot \text{ValenceMultiplier}$$
+
+Where $\alpha \in [0.0, 1.0]$ is the user-configurable weight.
 
 ---
 
@@ -78,7 +85,7 @@ flowchart TD
     P5["Phase 5: SIMD L2 Distance<br/><i>~200 cycles — quantized vector math</i>"]
     P5 --> P6
 
-    P6["Phase 6: Fused Cognitive Score<br/><i>~7 cycles — α·sim + β·imp·decay</i>"]
+    P6["Phase 6: Fused Cognitive Score<br/><i>~7 cycles — formula fusion + graph prior</i>"]
     P6 --> HEAP(["Insert into min-heap (top-K)"])
 
     style P1 fill:#4a6fa5,color:white,stroke:#375985

@@ -84,8 +84,8 @@ public final class SuppressionSet {
     /**
      * Checks if a memory at the given offset is suppressed.
      *
-     * <p>O(1) lookup for use in scoring hot loops — avoids the String ID
-     * lookup required by {@link #isSuppressed(String)}.</p>
+     * <p>O(1) lookup for suppression by physical memory segment offset and type ordinal — avoids
+     * the String ID lookup required by {@link #isSuppressed(String)}.</p>
      *
      * @param typeOrdinal the memory type ordinal
      * @param offset      the byte offset of the record

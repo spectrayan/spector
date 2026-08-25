@@ -18,6 +18,7 @@ import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.ScoreFusionMode;
 import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 
@@ -41,7 +42,7 @@ import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstant
  *   Phase 3: Valence filter           (~2 cycles)  — skip outside valence range
  *   Phase 4: Temporal/importance pre-screen         — skip stale, low-importance
  *   Phase 5: Vector distance          (~200 cycles) — calibrated INT8 L2 distance
- *   Phase 6: Fused cognitive score    (~7 cycles)   — α·similarity + β·importance·decay
+ *   Phase 6: Fused cognitive score    (~7 cycles)   — MULTIPLICATIVE / ADDITIVE (α·sim + (1-α)·tag) + prior
  * </pre>
  *
  * <h3>Biological Analog: Sensory Gating + Fused Retrieval</h3>
@@ -225,6 +226,20 @@ public final class CognitiveScorer {
             float[] queryVector, RecallOptions options,
             long nowMs, long baseOffset,
             float[] mins, float[] scales) {
+        return score(segment, recordCount, layout, queryVector, options, nowMs, baseOffset, mins, scales, null, null);
+    }
+
+    /**
+     * Scans a memory segment and returns the top-K scored records using calibrated
+     * distance computation and early O(1) graph associative prior (MR-06).
+     */
+    public static List<ScoredRecord> score(MemorySegment segment, int recordCount,
+            CognitiveRecordLayout layout,
+            float[] queryVector, RecallOptions options,
+            long nowMs, long baseOffset,
+            float[] mins, float[] scales,
+            AssociativePriorProvider priorProvider,
+            QueryAssociativeContext priorContext) {
         int topK = options.topK();
         long queryTagMask = options.synapticTagMask();
         float minImportance = options.minImportance();
@@ -237,6 +252,11 @@ public final class CognitiveScorer {
         Long minTimestamp = options.minTimestamp();
         Long maxTimestamp = options.maxTimestamp();
         boolean pureSimilarity = options.scoringMode() == ScoringMode.SIMILARITY;
+        ScoreFusionMode fusionMode = options.scoreFusionMode() != null
+                ? options.scoreFusionMode()
+                : ScoreFusionMode.MULTIPLICATIVE;
+        boolean enableAssociativePrior = options.enableAssociativePrior() && priorProvider != null && priorContext != null;
+        float associativePriorDelta = options.associativePriorDelta();
 
         // ── Valence Alignment (State-Dependent Recall) ──
         boolean valenceAlign = options.enableValenceAlignment();
@@ -400,12 +420,19 @@ public final class CognitiveScorer {
                     }
                 }
 
-                // Multiplicative fusion: similarity is primary signal, importance×decay acts
-                // as a re-ranking multiplier. Importance is normalized to [0,1] so the
-                // boost ranges from 1.0× (imp=0) to 1.0+β (imp=10).
-                float importanceNorm = importance / 10.0f; // normalize to [0, 1]
+                // Importance normalized to [0,1] so boost ranges from 1.0x to 1.0+beta
+                float importanceNorm = importance / 10.0f;
                 float impDecayFactor = 1.0f + beta * importanceNorm * decay * storageBoost;
-                float baseScore = similarity * impDecayFactor;
+
+                float baseScore;
+                if (fusionMode == ScoreFusionMode.ADDITIVE) {
+                    // Additive convex combination: S_base = alpha * similarity + (1 - alpha) * tagOverlap
+                    float baseSimilarity = alpha * similarity + (1.0f - alpha) * tagOverlap;
+                    baseScore = baseSimilarity * impDecayFactor;
+                } else {
+                    // Multiplicative fusion (default): similarity is primary signal
+                    baseScore = similarity * impDecayFactor;
+                }
 
                 // Valence alignment: state-dependent recall (mood-congruent memory)
                 if (valenceAlign) {
@@ -413,12 +440,26 @@ public final class CognitiveScorer {
                     baseScore *= valenceMultiplier;
                 }
 
-                // Weighted tag relevance: partial matches get proportional boost
-                finalScore = baseScore * (1.0f + tagOverlap * tagRelevanceBoost);
+                // Weighted tag relevance / final score composition
+                if (fusionMode == ScoreFusionMode.ADDITIVE) {
+                    finalScore = baseScore;
+                } else {
+                    finalScore = baseScore * (1.0f + tagOverlap * tagRelevanceBoost);
+                }
 
                 // Neurodivergent: Hyperfocus — post-score boost for focus-matched memories
                 if (focusMatch && hyperfocusBoost != 1.0f) {
                     finalScore *= hyperfocusBoost;
+                }
+
+                // MR-06: Early associative graph prior (Phase 6 fusion)
+                if (enableAssociativePrior) {
+                    float ag = priorProvider.priorFor(offset, recordTags, priorContext);
+                    if (fusionMode == ScoreFusionMode.ADDITIVE) {
+                        finalScore += associativePriorDelta * ag;
+                    } else {
+                        finalScore *= (1.0f + associativePriorDelta * ag);
+                    }
                 }
             }
 

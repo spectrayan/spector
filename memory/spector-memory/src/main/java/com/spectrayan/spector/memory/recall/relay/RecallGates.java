@@ -55,6 +55,13 @@ public final class RecallGates {
             RecallSignal::isRrfFused);
 
     /**
+     * Gate evaluating whether lateral inhibition & retrieval interference resolution is enabled (MR-04).
+     */
+    public static final Specification<RecallSignal> LATERAL_INHIBITION_ENABLED =
+        Specification.of("lateral inhibition not enabled in recall options",
+            s -> s.options().enableLateralInhibition());
+
+    /**
      * Gate evaluating whether Homeostatic Affective Core bias is enabled.
      */
     public static final Specification<RecallSignal> HOMEOSTASIS_ENABLED =

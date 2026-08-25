@@ -119,10 +119,12 @@ public final class ProceduralCrystallizationRelay implements SynapticRelay<Refle
                     float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
                     byte procFlags = SynapticHeaderConstants.withMemoryType(
                             (byte) 0, MemoryType.PROCEDURAL.ordinal());
-                    byte cFlags = SynapticHeaderConstants.FLAG_CRYSTALLIZED;
-                    CognitiveHeader header = new CognitiveHeader(
-                            System.currentTimeMillis(), 0L, exactNorm, 1.0f, 1,
-                            (short) 0, (byte) 0, procFlags, cFlags, 1.0f
+                    short soulVer = signal.ingestionTarget().currentSoulVersion();
+                    CognitiveHeader header = CognitiveHeader.createSynthetic(
+                            System.currentTimeMillis(), 0L, exactNorm, 1.0f,
+                            (byte) 0, (byte) 0, procFlags,
+                            SynapticHeaderConstants.FLAG_CRYSTALLIZED,
+                            soulVer, 0.0f
                     );
                     signal.ingestionTarget().ingestCognitiveWithHeader(
                             skillId, skillText, vector, MemoryType.PROCEDURAL, tags, MemorySource.REFLECTED, header

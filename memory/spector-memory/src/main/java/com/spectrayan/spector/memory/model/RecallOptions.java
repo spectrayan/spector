@@ -127,7 +127,23 @@ public record RecallOptions(
         float minTrustScore,
         String personaId,
         //  Active Inference Self-Model Engine (AISME)
-        AismeConfig aismeConfig
+        AismeConfig aismeConfig,
+        //  Score Fusion Mode (MR-02)
+        ScoreFusionMode scoreFusionMode,
+        //  Lateral Inhibition & Retrieval Interference (MR-04)
+        boolean enableLateralInhibition,
+        float lateralInhibitionThreshold,
+        int lateralInhibitionOverscanFactor,
+        int lateralInhibitionMaxCandidates,
+        float lateralInhibitionSoftKappa,
+        float lateralInhibitionHardKappa,
+        boolean lateralInhibitionContradictionHeuristic,
+        boolean lateralInhibitionRifEnabled,
+        //  Early Associative Prior (MR-06)
+        boolean enableAssociativePrior,
+        float associativePriorDelta,
+        float associativePriorStdpWeight,
+        float associativePriorHubWeight
 ) {
 
     /** Default options: top 10, no filters, balanced scoring. */
@@ -183,7 +199,9 @@ public record RecallOptions(
     /** Returns scoring parameters as a composed {@link ScoringOptions}. */
     public ScoringOptions scoring() {
         return new ScoringOptions(alpha, beta, tagRelevanceBoost, semanticCandidateMultiplier,
-                strictnessCoefficient, queryValence, enableValenceAlignment, twoFactorConfig, scoringMode);
+                strictnessCoefficient, queryValence, enableValenceAlignment, twoFactorConfig, scoringMode,
+                scoreFusionMode != null ? scoreFusionMode : ScoreFusionMode.MULTIPLICATIVE,
+                enableAssociativePrior, associativePriorDelta, associativePriorStdpWeight, associativePriorHubWeight);
     }
 
     /** Returns text search parameters as a composed {@link TextSearchOptions}. */
@@ -315,6 +333,105 @@ public record RecallOptions(
         private ConflictMode conflictMode = ConflictMode.MULTI_EVIDENCE;
         private float minTrustScore = 0.0f;
         private String personaId = "";
+
+        // ─── Score Fusion Mode (MR-02) ───
+        private ScoreFusionMode scoreFusionMode = ScoreFusionMode.MULTIPLICATIVE;
+
+        /**
+         * Sets the score fusion mode (MULTIPLICATIVE by default, or ADDITIVE).
+         */
+        public Builder scoreFusionMode(ScoreFusionMode mode) {
+            this.scoreFusionMode = mode != null ? mode : ScoreFusionMode.MULTIPLICATIVE;
+            return this;
+        }
+
+        // ─── Lateral Inhibition & Interference Resolution (MR-04) ───
+        private boolean enableLateralInhibition = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_INHIBITION_ENABLED;
+        private float lateralInhibitionThreshold = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_INHIBITION_OVERLAP_THRESHOLD;
+        private int lateralInhibitionOverscanFactor = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_INHIBITION_OVERSCAN_FACTOR;
+        private int lateralInhibitionMaxCandidates = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_INHIBITION_MAX_CLUSTER_CANDIDATES;
+        private float lateralInhibitionSoftKappa = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_INHIBITION_SOFT_KAPPA;
+        private float lateralInhibitionHardKappa = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_INHIBITION_HARD_KAPPA;
+        private boolean lateralInhibitionContradictionHeuristic = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_INHIBITION_CONTRADICTION_HEURISTIC_ENABLED;
+        private boolean lateralInhibitionRifEnabled = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_INHIBITION_RIF_ENABLED;
+
+        /** Enables or disables lateral inhibition competition during recall. */
+        public Builder enableLateralInhibition(boolean enabled) {
+            this.enableLateralInhibition = enabled;
+            return this;
+        }
+
+        /** Sets cosine overlap threshold theta for single-linkage candidate clustering (default 0.88). */
+        public Builder lateralInhibitionThreshold(float threshold) {
+            this.lateralInhibitionThreshold = threshold;
+            return this;
+        }
+
+        /** Sets overscan factor determining cluster candidate pool size (default 3). */
+        public Builder lateralInhibitionOverscanFactor(int factor) {
+            this.lateralInhibitionOverscanFactor = factor;
+            return this;
+        }
+
+        /** Sets maximum number of top candidates evaluated for lateral inhibition (default 64). */
+        public Builder lateralInhibitionMaxCandidates(int max) {
+            this.lateralInhibitionMaxCandidates = max;
+            return this;
+        }
+
+        /** Sets soft inhibition penalty kappa for redundant clusters (default 0.15). */
+        public Builder lateralInhibitionSoftKappa(float kappa) {
+            this.lateralInhibitionSoftKappa = kappa;
+            return this;
+        }
+
+        /** Sets hard inhibition penalty kappa for contradictory clusters (default 0.40). */
+        public Builder lateralInhibitionHardKappa(float kappa) {
+            this.lateralInhibitionHardKappa = kappa;
+            return this;
+        }
+
+        /** Enables or disables semantic vs lexical contradiction heuristic. */
+        public Builder lateralInhibitionContradictionHeuristic(boolean enabled) {
+            this.lateralInhibitionContradictionHeuristic = enabled;
+            return this;
+        }
+
+        /** Enables or disables session Retrieval-Induced Forgetting (RIF) tracking. */
+        public Builder lateralInhibitionRifEnabled(boolean enabled) {
+            this.lateralInhibitionRifEnabled = enabled;
+            return this;
+        }
+
+        // ─── Early Associative Prior (MR-06) ───
+        private boolean enableAssociativePrior = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_ASSOCIATIVE_PRIOR_ENABLED;
+        private float associativePriorDelta = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_ASSOCIATIVE_PRIOR_DELTA;
+        private float associativePriorStdpWeight = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_ASSOCIATIVE_PRIOR_STDP_WEIGHT;
+        private float associativePriorHubWeight = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_ASSOCIATIVE_PRIOR_HUB_WEIGHT;
+
+        /** Enables or disables early O(1) graph associative prior in Phase 6 fusion. */
+        public Builder enableAssociativePrior(boolean enabled) {
+            this.enableAssociativePrior = enabled;
+            return this;
+        }
+
+        /** Sets influence multiplier delta for associative prior (default 0.15). */
+        public Builder associativePriorDelta(float delta) {
+            this.associativePriorDelta = delta;
+            return this;
+        }
+
+        /** Sets STDP predictive strength weight for associative prior (default 0.7). */
+        public Builder associativePriorStdpWeight(float weight) {
+            this.associativePriorStdpWeight = weight;
+            return this;
+        }
+
+        /** Sets hub degree weight for associative prior (default 0.3). */
+        public Builder associativePriorHubWeight(float weight) {
+            this.associativePriorHubWeight = weight;
+            return this;
+        }
 
         /**
          * Applies a {@link CognitiveProfile} preset to this builder.
@@ -871,6 +988,9 @@ public record RecallOptions(
         }
 
         public RecallOptions build() {
+            if (Float.isNaN(alpha) || alpha < 0.0f || alpha > 1.0f) {
+                throw new IllegalArgumentException("alpha must be in [0.0, 1.0], got: " + alpha);
+            }
             int effectiveLateralMax = lateralMaxResults >= 0
                     ? lateralMaxResults
                     : Math.max(1, topK / 3);
@@ -900,7 +1020,20 @@ public record RecallOptions(
                     conflictMode,
                     minTrustScore,
                     personaId,
-                    aismeConfig != null ? aismeConfig : AismeConfig.disabled());
+                    aismeConfig != null ? aismeConfig : AismeConfig.disabled(),
+                    scoreFusionMode != null ? scoreFusionMode : ScoreFusionMode.MULTIPLICATIVE,
+                    enableLateralInhibition,
+                    lateralInhibitionThreshold,
+                    lateralInhibitionOverscanFactor,
+                    lateralInhibitionMaxCandidates,
+                    lateralInhibitionSoftKappa,
+                    lateralInhibitionHardKappa,
+                    lateralInhibitionContradictionHeuristic,
+                    lateralInhibitionRifEnabled,
+                    enableAssociativePrior,
+                    associativePriorDelta,
+                    associativePriorStdpWeight,
+                    associativePriorHubWeight);
             return options;
         }
     }
@@ -1077,6 +1210,19 @@ public record RecallOptions(
         b.temperatureSurpriseCoefficient = this.temperatureSurpriseCoefficient;
         b.minTemperature = this.minTemperature;
         b.maxTemperature = this.maxTemperature;
+        b.scoreFusionMode = this.scoreFusionMode;
+        b.enableLateralInhibition = this.enableLateralInhibition;
+        b.lateralInhibitionThreshold = this.lateralInhibitionThreshold;
+        b.lateralInhibitionOverscanFactor = this.lateralInhibitionOverscanFactor;
+        b.lateralInhibitionMaxCandidates = this.lateralInhibitionMaxCandidates;
+        b.lateralInhibitionSoftKappa = this.lateralInhibitionSoftKappa;
+        b.lateralInhibitionHardKappa = this.lateralInhibitionHardKappa;
+        b.lateralInhibitionContradictionHeuristic = this.lateralInhibitionContradictionHeuristic;
+        b.lateralInhibitionRifEnabled = this.lateralInhibitionRifEnabled;
+        b.enableAssociativePrior = this.enableAssociativePrior;
+        b.associativePriorDelta = this.associativePriorDelta;
+        b.associativePriorStdpWeight = this.associativePriorStdpWeight;
+        b.associativePriorHubWeight = this.associativePriorHubWeight;
         return b;
     }
 }
