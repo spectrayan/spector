@@ -146,13 +146,12 @@ public final class RecallPathwayFactory {
 
         builder.relay(RelayNames.TRANSDUCTION, transductionRelay)
                .relay(RelayNames.PROSPECTIVE, prospectiveRelay)
-               .relay(RelayNames.GOVERNED_RELEASE_GATE, governedReleaseGateRelay);
+               .relay(RelayNames.GOVERNED_RELEASE_GATE, governedReleaseGateRelay)
+               .relay(RelayNames.VECTOR_SEARCH, vectorSearchRelay);
 
         if (homeostaticBiasRelay != null) {
             builder.gated(RelayNames.HOMEOSTATIC_BIAS, RecallGates.HOMEOSTASIS_ENABLED, homeostaticBiasRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
         }
-
-        builder.relay(RelayNames.VECTOR_SEARCH, vectorSearchRelay);
 
         if (freeEnergyGuidedRelay != null) {
             builder.gated(RelayNames.FREE_ENERGY_GUIDED, RecallGates.FREE_ENERGY_ENABLED, freeEnergyGuidedRelay, ErrorPolicy.DEGRADE_GRACEFULLY);

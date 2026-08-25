@@ -38,6 +38,10 @@ package com.spectrayan.spector.memory.model;
  * @param graphBoost        combined Hebbian + temporal + entity graph boost (1.0 = no graph)
  * @param valenceAlignment  valence alignment factor (1.0 = disabled or neutral)
  * @param finalScore        the actual returned score after all factors
+ * @param epistemicWeight   active epistemic/surprise weight alpha (MR-03)
+ * @param teleologicalWeight active goal/value alignment weight beta (MR-03)
+ * @param pragmaticWeight   active homeostatic/pragmatic weight gamma (MR-03)
+ * @param scoringRegime     active scoring regime (GENERIC vs SOUL_CONDITIONED)
  */
 public record ScoreBreakdown(
         float similarity,
@@ -46,11 +50,32 @@ public record ScoreBreakdown(
         float habituationPenalty,
         float graphBoost,
         float valenceAlignment,
-        float finalScore
+        float finalScore,
+        float epistemicWeight,
+        float teleologicalWeight,
+        float pragmaticWeight,
+        ScoringRegime scoringRegime
 ) {
 
+    /**
+     * Backward-compatible 7-arg constructor for standard cognitive scoring.
+     */
+    public ScoreBreakdown(
+            float similarity,
+            float importanceDecay,
+            float tagBoostFactor,
+            float habituationPenalty,
+            float graphBoost,
+            float valenceAlignment,
+            float finalScore
+    ) {
+        this(similarity, importanceDecay, tagBoostFactor, habituationPenalty,
+             graphBoost, valenceAlignment, finalScore,
+             0.0f, 0.0f, 0.0f, ScoringRegime.GENERIC);
+    }
+
     /** No breakdown available — used when breakdown cannot be computed. */
-    public static final ScoreBreakdown NONE = new ScoreBreakdown(0, 0, 1, 1, 1, 1, 0);
+    public static final ScoreBreakdown NONE = new ScoreBreakdown(0, 0, 1, 1, 1, 1, 0, 0.0f, 0.0f, 0.0f, ScoringRegime.GENERIC);
 
     /**
      * Returns a human-readable trace string showing how the score was computed.

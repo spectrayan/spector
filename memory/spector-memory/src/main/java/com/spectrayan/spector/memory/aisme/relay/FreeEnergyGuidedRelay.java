@@ -16,6 +16,7 @@ import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.aisme.fegr.FreeEnergyCalculator;
 import com.spectrayan.spector.memory.aisme.fegr.MentalStatePosterior;
 import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
+import com.spectrayan.spector.memory.aisme.fegr.SoulConditionedWeightProvider;
 import com.spectrayan.spector.memory.aisme.homeostasis.AffectiveResonanceScorer;
 import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;
 import com.spectrayan.spector.memory.aisme.homeostasis.InteroceptiveState;
@@ -45,6 +46,7 @@ public final class FreeEnergyGuidedRelay implements SynapticRelay<RecallSignal> 
     private final AffectiveResonanceScorer affectiveScorer;
     private final Function<String, float[]> embeddingLookup;
 
+    private final SoulConditionedWeightProvider weightProvider;
     private final float alpha;
     private final float beta;
     private final float gamma;
@@ -64,7 +66,20 @@ public final class FreeEnergyGuidedRelay implements SynapticRelay<RecallSignal> 
             HomeostaticCore homeostaticCore,
             AffectiveResonanceScorer affectiveScorer,
             Function<String, float[]> embeddingLookup) {
-        this(tracker, calculator, homeostaticCore, affectiveScorer, embeddingLookup, 0.5f, 0.35f, 0.15f);
+        this(tracker, calculator, homeostaticCore, affectiveScorer, embeddingLookup, null, 0.5f, 0.35f, 0.15f);
+    }
+
+    /**
+     * Constructs a FreeEnergyGuidedRelay with dynamic soul-conditioned weight provider.
+     */
+    public FreeEnergyGuidedRelay(
+            MentalStateTracker tracker,
+            FreeEnergyCalculator calculator,
+            HomeostaticCore homeostaticCore,
+            AffectiveResonanceScorer affectiveScorer,
+            Function<String, float[]> embeddingLookup,
+            SoulConditionedWeightProvider weightProvider) {
+        this(tracker, calculator, homeostaticCore, affectiveScorer, embeddingLookup, weightProvider, 0.5f, 0.35f, 0.15f);
     }
 
     /**
@@ -75,6 +90,7 @@ public final class FreeEnergyGuidedRelay implements SynapticRelay<RecallSignal> 
      * @param homeostaticCore homeostatic core
      * @param affectiveScorer affective resonance scorer
      * @param embeddingLookup embedding lookup function
+     * @param weightProvider optional dynamic weight provider
      * @param alpha semantic similarity weight
      * @param beta free-energy reduction weight
      * @param gamma affective resonance weight
@@ -85,6 +101,7 @@ public final class FreeEnergyGuidedRelay implements SynapticRelay<RecallSignal> 
             HomeostaticCore homeostaticCore,
             AffectiveResonanceScorer affectiveScorer,
             Function<String, float[]> embeddingLookup,
+            SoulConditionedWeightProvider weightProvider,
             float alpha,
             float beta,
             float gamma) {
@@ -93,6 +110,7 @@ public final class FreeEnergyGuidedRelay implements SynapticRelay<RecallSignal> 
         this.homeostaticCore = homeostaticCore;
         this.affectiveScorer = affectiveScorer;
         this.embeddingLookup = embeddingLookup;
+        this.weightProvider = weightProvider;
         this.alpha = alpha;
         this.beta = beta;
         this.gamma = gamma;
@@ -116,6 +134,15 @@ public final class FreeEnergyGuidedRelay implements SynapticRelay<RecallSignal> 
 
         MentalStatePosterior posterior = tracker.currentPosterior();
         InteroceptiveState interoceptiveState = (homeostaticCore != null) ? homeostaticCore.currentState() : null;
+
+        SoulConditionedWeightProvider.FersWeights weights = (weightProvider != null)
+                ? weightProvider.provideWeights(signal)
+                : new SoulConditionedWeightProvider.FersWeights(alpha, beta, gamma, com.spectrayan.spector.memory.model.ScoringRegime.GENERIC);
+
+        float activeAlpha = weights.alpha();
+        float activeBeta = weights.beta();
+        float activeGamma = weights.gamma();
+        com.spectrayan.spector.memory.model.ScoringRegime activeRegime = weights.regime();
 
         for (int i = 0; i < candidates.size(); i++) {
             CognitiveResult r = candidates.get(i);
@@ -144,9 +171,23 @@ public final class FreeEnergyGuidedRelay implements SynapticRelay<RecallSignal> 
                     baseSim,
                     deltaF,
                     affectiveResonance,
-                    alpha,
-                    beta,
-                    gamma
+                    activeAlpha,
+                    activeBeta,
+                    activeGamma
+            );
+
+            com.spectrayan.spector.memory.model.ScoreBreakdown breakdown = new com.spectrayan.spector.memory.model.ScoreBreakdown(
+                    baseSim,
+                    r.importance() * r.decayFactor(),
+                    1.0f,
+                    1.0f,
+                    1.0f,
+                    1.0f,
+                    fersScore,
+                    activeAlpha,
+                    activeBeta,
+                    activeGamma,
+                    activeRegime
             );
 
             candidates.set(i, new CognitiveResult(
@@ -154,14 +195,14 @@ public final class FreeEnergyGuidedRelay implements SynapticRelay<RecallSignal> 
                     r.ageDays(), r.agentRecallCount(), r.valence(),
                     r.memoryType(), r.source(), r.synapticTags(),
                     r.decayFactor(), r.ltpAdjustedDecay(),
-                    r.retrievalMode(), r.breakdown(), r.trace(),
-                    r.sourceModality(), r.metadata()
+                    r.retrievalMode(), breakdown, r.trace(),
+                    r.sourceModality(), r.metadata(), r.consolidationFlags()
             ));
         }
 
         if (log.isTraceEnabled()) {
-            log.trace("FreeEnergyGuidedRelay processed {} candidates with alpha={}, beta={}, gamma={}",
-                    candidates.size(), alpha, beta, gamma);
+            log.trace("FreeEnergyGuidedRelay processed {} candidates with regime={}, alpha={}, beta={}, gamma={}",
+                    candidates.size(), activeRegime, activeAlpha, activeBeta, activeGamma);
         }
 
         return true;

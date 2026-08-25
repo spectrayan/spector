@@ -258,10 +258,12 @@ public final class SpectorMemoryFactory {
             );
         }
 
-        //  Recall Pathway (#561 — relay-based engine, opt-in via usePathwayEngine or AISME) 
+        //  Recall Pathway (#561 — relay-based engine, opt-in via usePathwayEngine, AISME, or SoulContext) 
         RecallPathway recallPathway = null;
         RememberPathway rememberPathway = null;
-        if (builder.usePathwayEngine || (aismeBundle != null)) {
+        if (builder.usePathwayEngine || (aismeBundle != null)
+                || builder.soul != null || builder.agentSoul != null
+                || (builder.soulContexts != null && !builder.soulContexts.isEmpty())) {
             recallPathway = new RecallPathway.Builder()
                     .embeddingProvider(embeddingProvider)
                     .cortex(cortex)

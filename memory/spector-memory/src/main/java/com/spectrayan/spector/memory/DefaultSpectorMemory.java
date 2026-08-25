@@ -282,7 +282,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.embeddingProvider = bundle.embeddingProvider();
         this.recallPipeline = bundle.recallPipeline();
         this.recallPathway = bundle.recallPathway();
-        this.usePathwayEngine = builder.usePathwayEngine && (bundle.recallPathway() != null || bundle.rememberPathway() != null);
+        this.usePathwayEngine = (builder.usePathwayEngine || bundle.recallPathway() != null || bundle.rememberPathway() != null)
+                && (bundle.recallPathway() != null || bundle.rememberPathway() != null);
         this.index = bundle.index();
         this.quantizer = bundle.quantizer();
         this.partitionManager = bundle.partitionManager();

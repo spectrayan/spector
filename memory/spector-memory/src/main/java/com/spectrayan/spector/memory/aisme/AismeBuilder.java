@@ -137,9 +137,11 @@ public final class AismeBuilder {
         final ConsciousnessContinuityEvaluator continuityEvaluator = new ConsciousnessContinuityEvaluator(
                 soul, 0.01f, cfg.manifoldSigma());
 
+        final com.spectrayan.spector.memory.aisme.fegr.SoulConditionedWeightProvider soulWeightProvider =
+                new com.spectrayan.spector.memory.aisme.fegr.SoulConditionedWeightProvider(soul);
         final HomeostaticBiasRelay homeostaticBiasRelay = new HomeostaticBiasRelay(homeostaticCore, affectiveScorer);
         final FreeEnergyGuidedRelay freeEnergyGuidedRelay = new FreeEnergyGuidedRelay(
-                mentalStateTracker, freeEnergyCalculator, homeostaticCore, affectiveScorer, vectorLookup);
+                mentalStateTracker, freeEnergyCalculator, homeostaticCore, affectiveScorer, vectorLookup, soulWeightProvider);
         final HopfieldAssociativeRelay hopfieldAssociativeRelay = new HopfieldAssociativeRelay(
                 hopfieldNetwork, vectorLookup, CognitiveProfile.BALANCED, homeostaticCore);
         final ManifoldRerankRelay manifoldRerankRelay = new ManifoldRerankRelay(cognitiveManifold, vectorLookup);
