@@ -208,7 +208,7 @@ The test suite uses **16 seed data files** organized by domain:
 | `ScoringPipelineE2ETest` | 21 | 6-phase scoring, valence filtering, deduplication |
 | `DecayAndLtpE2ETest` | 5 | Temporal decay, long-term potentiation |
 | `GraphE2ETest` | 7 | Hebbian graph, entity-aware recall, co-activation |
-| `InhibitionE2ETest` | 7 | Suppression, habituation, retrieval-induced forgetting |
+| `InhibitionE2ETest` | 11 | Explicit suppression, habituation, and anti-filter bubble |
 | `PersistenceE2ETest` | 5 | WAL, disk persistence, crash recovery |
 | `ProspectiveMemoryE2ETest` | 3 | Future intents, deadline tracking |
 | `FullLifecycleE2ETest` | 23 | 13-step lifecycle from ingestion to reflection |

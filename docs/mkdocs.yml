@@ -139,6 +139,9 @@ nav:
       - API Reference: memory/api-reference.md
       - Architecture: memory/architecture.md
       - The 6-Phase Scoring Pipeline: memory/scoring-pipeline.md
+      - "Scoring Regimes & Fusion Modes": memory/scoring-regimes.md
+      - "Autonomous Identity & AISME": memory/aisme.md
+      - "Constructive Simulation & Provenance": memory/constructive-memory.md
       - "Retrieval Stack":
           - Overview: memory/retrieval-overview.md
           - "Keyword Retrieval (BM25)": memory/bm25.md
