@@ -30,6 +30,7 @@ import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
  * @param enableValenceAlignment    enable valence proximity scoring
  * @param twoFactorConfig           Bjork &amp; Bjork retrieval/storage strength config
  * @param scoringMode               COGNITIVE or SIMILARITY scoring
+ * @param scoreFusionMode           MULTIPLICATIVE (default) or ADDITIVE score fusion mode
  */
 public record ScoringOptions(
         float alpha,
@@ -40,10 +41,38 @@ public record ScoringOptions(
         byte queryValence,
         boolean enableValenceAlignment,
         TwoFactorConfig twoFactorConfig,
-        ScoringMode scoringMode
+        ScoringMode scoringMode,
+        ScoreFusionMode scoreFusionMode
 ) {
+    public ScoringOptions {
+        if (Float.isNaN(alpha) || alpha < 0.0f || alpha > 1.0f) {
+            throw new IllegalArgumentException("alpha must be in [0.0, 1.0], got: " + alpha);
+        }
+        if (scoreFusionMode == null) {
+            scoreFusionMode = ScoreFusionMode.MULTIPLICATIVE;
+        }
+    }
+
+    /**
+     * Backward-compatible constructor defaulting scoreFusionMode to MULTIPLICATIVE.
+     */
+    public ScoringOptions(
+            float alpha,
+            float beta,
+            float tagRelevanceBoost,
+            int semanticCandidateMultiplier,
+            float strictnessCoefficient,
+            byte queryValence,
+            boolean enableValenceAlignment,
+            TwoFactorConfig twoFactorConfig,
+            ScoringMode scoringMode
+    ) {
+        this(alpha, beta, tagRelevanceBoost, semanticCandidateMultiplier, strictnessCoefficient,
+             queryValence, enableValenceAlignment, twoFactorConfig, scoringMode, ScoreFusionMode.MULTIPLICATIVE);
+    }
+
     /** Default balanced cognitive scoring. */
     public static final ScoringOptions DEFAULT = new ScoringOptions(
             0.6f, 0.4f, 0.3f, 3, 1.0f,
-            (byte) 0, false, TwoFactorConfig.DEFAULT, ScoringMode.COGNITIVE);
+            (byte) 0, false, TwoFactorConfig.DEFAULT, ScoringMode.COGNITIVE, ScoreFusionMode.MULTIPLICATIVE);
 }

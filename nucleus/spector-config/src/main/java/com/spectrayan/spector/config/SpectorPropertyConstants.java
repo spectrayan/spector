@@ -766,6 +766,9 @@ public final class SpectorPropertyConstants {
     public static final String RECALL_SCORING_MODE = "spector.recall.scoring-mode";
     public static final String DEFAULT_RECALL_SCORING_MODE = "COGNITIVE";
 
+    public static final String RECALL_SCORE_FUSION_MODE = "spector.recall.score-fusion-mode";
+    public static final String DEFAULT_RECALL_SCORE_FUSION_MODE = "MULTIPLICATIVE";
+
     public static final String RECALL_TRACE_ENABLED = "spector.recall.trace.enabled";
     public static final boolean DEFAULT_RECALL_TRACE_ENABLED = false;
 

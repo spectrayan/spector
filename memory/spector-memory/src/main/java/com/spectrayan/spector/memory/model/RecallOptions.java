@@ -127,7 +127,9 @@ public record RecallOptions(
         float minTrustScore,
         String personaId,
         //  Active Inference Self-Model Engine (AISME)
-        AismeConfig aismeConfig
+        AismeConfig aismeConfig,
+        //  Score Fusion Mode (MR-02)
+        ScoreFusionMode scoreFusionMode
 ) {
 
     /** Default options: top 10, no filters, balanced scoring. */
@@ -183,7 +185,8 @@ public record RecallOptions(
     /** Returns scoring parameters as a composed {@link ScoringOptions}. */
     public ScoringOptions scoring() {
         return new ScoringOptions(alpha, beta, tagRelevanceBoost, semanticCandidateMultiplier,
-                strictnessCoefficient, queryValence, enableValenceAlignment, twoFactorConfig, scoringMode);
+                strictnessCoefficient, queryValence, enableValenceAlignment, twoFactorConfig, scoringMode,
+                scoreFusionMode != null ? scoreFusionMode : ScoreFusionMode.MULTIPLICATIVE);
     }
 
     /** Returns text search parameters as a composed {@link TextSearchOptions}. */
@@ -315,6 +318,17 @@ public record RecallOptions(
         private ConflictMode conflictMode = ConflictMode.MULTI_EVIDENCE;
         private float minTrustScore = 0.0f;
         private String personaId = "";
+
+        // ─── Score Fusion Mode (MR-02) ───
+        private ScoreFusionMode scoreFusionMode = ScoreFusionMode.MULTIPLICATIVE;
+
+        /**
+         * Sets the score fusion mode (MULTIPLICATIVE by default, or ADDITIVE).
+         */
+        public Builder scoreFusionMode(ScoreFusionMode mode) {
+            this.scoreFusionMode = mode != null ? mode : ScoreFusionMode.MULTIPLICATIVE;
+            return this;
+        }
 
         /**
          * Applies a {@link CognitiveProfile} preset to this builder.
@@ -871,6 +885,9 @@ public record RecallOptions(
         }
 
         public RecallOptions build() {
+            if (Float.isNaN(alpha) || alpha < 0.0f || alpha > 1.0f) {
+                throw new IllegalArgumentException("alpha must be in [0.0, 1.0], got: " + alpha);
+            }
             int effectiveLateralMax = lateralMaxResults >= 0
                     ? lateralMaxResults
                     : Math.max(1, topK / 3);
@@ -900,7 +917,8 @@ public record RecallOptions(
                     conflictMode,
                     minTrustScore,
                     personaId,
-                    aismeConfig != null ? aismeConfig : AismeConfig.disabled());
+                    aismeConfig != null ? aismeConfig : AismeConfig.disabled(),
+                    scoreFusionMode != null ? scoreFusionMode : ScoreFusionMode.MULTIPLICATIVE);
             return options;
         }
     }
@@ -1077,6 +1095,7 @@ public record RecallOptions(
         b.temperatureSurpriseCoefficient = this.temperatureSurpriseCoefficient;
         b.minTemperature = this.minTemperature;
         b.maxTemperature = this.maxTemperature;
+        b.scoreFusionMode = this.scoreFusionMode;
         return b;
     }
 }
