@@ -67,7 +67,8 @@ class SoulDriftRefusionRelayTest {
                 (byte) 0,
                 (byte) 0,
                 (short) 1,
-                2.5f
+                2.5f,
+                (byte) 0
         );
 
         byte[] quantized = new byte[layout.quantizedVecBytes()];
@@ -114,7 +115,7 @@ class SoulDriftRefusionRelayTest {
 
         CognitiveHeader header = new CognitiveHeader(
                 System.currentTimeMillis(), 0L, 1.0f, 0.4f, 0, (short) 0,
-                (byte) 10, (byte) 0, (byte) 5, 1.0f, (byte) 0, (byte) 0, (byte) 0, (short) 2, 1.0f
+                (byte) 10, (byte) 0, (byte) 5, 1.0f, (byte) 0, (byte) 0, (byte) 0, (short) 2, 1.0f, (byte) 0
         );
         byte[] quantized = new byte[layout.quantizedVecBytes()];
         semanticMemory.write(header, quantized);

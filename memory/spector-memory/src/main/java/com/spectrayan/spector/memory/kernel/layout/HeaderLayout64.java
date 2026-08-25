@@ -171,7 +171,8 @@ public record HeaderLayout64() implements HeaderLayout {
                 readEncodingAlpha(seg, off),
                 readEncodingBeta(seg, off),
                 readSoulVersion(seg, off),
-                readEncodingSurprise(seg, off)
+                readEncodingSurprise(seg, off),
+                readConsolidationFlags(seg, off)
         );
     }
 
@@ -187,7 +188,7 @@ public record HeaderLayout64() implements HeaderLayout {
         seg.set(LAYOUT_EXACT_NORM,    off + OFFSET_EXACT_NORM,     header.exactNorm());
         seg.set(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_SYNAPTIC_TAGS,  header.synapticTags());
         seg.set(LAYOUT_CENTROID_ID,   off + OFFSET_CENTROID_ID,    header.centroidId());
-        seg.set(LAYOUT_CONSOLIDATION_FLAGS, off + OFFSET_CONSOLIDATION_FLAGS, (byte) 0);
+        seg.set(LAYOUT_CONSOLIDATION_FLAGS, off + OFFSET_CONSOLIDATION_FLAGS, header.consolidationFlags());
         seg.set(LAYOUT_ENCODING_PROFILE, off + OFFSET_ENCODING_PROFILE, header.encodingProfile());
         seg.set(LAYOUT_STORAGE_STRENGTH, off + OFFSET_STORAGE_STRENGTH, header.storageStrength());
         // Zero auto-LTP and reserved fields (ensure clean state)

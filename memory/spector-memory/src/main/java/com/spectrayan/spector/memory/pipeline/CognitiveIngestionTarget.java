@@ -503,7 +503,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 System.currentTimeMillis(), synapticTags, l2Norm, importance,
                 0, (short) 0, valence, flags, arousal, 1.0f,
                 encodingProfile, encodingAlpha, encodingBeta,
-                currentSoulVersion, surpriseZScore);
+                currentSoulVersion, surpriseZScore, (byte) 0);
 
         // Step 7: Route to tier store and write (with automatic partition rolling)
         long offset;
@@ -621,7 +621,8 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 preservedHeader.encodingAlpha(),      // [x] original encoding alpha
                 preservedHeader.encodingBeta(),       // [x] original encoding beta
                 preservedHeader.soulVersion(),        // [x] original soul version
-                preservedHeader.encodingSurprise()    // [x] original encoding surprise
+                preservedHeader.encodingSurprise(),   // [x] original encoding surprise
+                preservedHeader.consolidationFlags()  // [x] original consolidation flags
         );
 
         // Step 7: Route to tier store and write
@@ -754,7 +755,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 timestampMs, synapticTags, l2Norm, importance,
                 0, (short) 0, valence, flags, arousal, 1.0f,
                 encodingProfile, encodingAlpha, encodingBeta,
-                currentSoulVersion, surpriseZScore);
+                currentSoulVersion, surpriseZScore, (byte) 0);
 
         // Step 7: Route to tier store and write
         long offset;

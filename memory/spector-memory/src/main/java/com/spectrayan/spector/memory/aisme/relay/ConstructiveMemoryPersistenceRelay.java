@@ -98,11 +98,14 @@ public final class ConstructiveMemoryPersistenceRelay implements SynapticRelay<R
 
                 String durableId = TSID.generate();
                 byte procFlags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal());
-                byte cFlags = SynapticHeaderConstants.FLAG_SIMULATED;
                 float norm = VectorOps.magnitude(vector);
-                CognitiveHeader header = new CognitiveHeader(
-                        System.currentTimeMillis(), 0L, norm, result.importance(), 1,
-                        (short) 0, result.valence(), procFlags, cFlags, 1.0f
+                short soulVer = ingestionTarget.currentSoulVersion();
+                CognitiveHeader header = CognitiveHeader.createSynthetic(
+                        System.currentTimeMillis(), 0L, norm, result.importance(),
+                        result.valence(), (byte) 128, procFlags,
+                        SynapticHeaderConstants.FLAG_SIMULATED,
+                        soulVer,
+                        0.0f
                 );
 
                 ingestionTarget.ingestCognitiveWithHeader(

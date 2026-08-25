@@ -59,6 +59,7 @@ class ConstructiveMemoryPersistenceRelayTest {
     @Test
     void highAlignmentSimulation_isPersisted() {
         CognitiveIngestionTarget target = mock(CognitiveIngestionTarget.class);
+        org.mockito.Mockito.when(target.currentSoulVersion()).thenReturn((short) 5);
         Map<String, float[]> vectors = new HashMap<>();
         vectors.put("0123456789ABC", new float[]{1.0f, 0.0f});
 
@@ -72,8 +73,14 @@ class ConstructiveMemoryPersistenceRelayTest {
         boolean ok = relay.transmit(signal);
 
         assertThat(ok).isTrue();
+        org.mockito.ArgumentCaptor<com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader> headerCaptor =
+                org.mockito.ArgumentCaptor.forClass(com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader.class);
         verify(target, times(1)).ingestCognitiveWithHeader(
-                anyString(), anyString(), any(float[].class), eq(MemoryType.EPISODIC), any(), eq(MemorySource.INFERRED), any());
+                anyString(), anyString(), any(float[].class), eq(MemoryType.EPISODIC), any(), eq(MemorySource.INFERRED), headerCaptor.capture());
+
+        var capturedHeader = headerCaptor.getValue();
+        assertThat(SynapticHeaderConstants.isSimulated(capturedHeader.consolidationFlags())).isTrue();
+        assertThat(capturedHeader.soulVersion()).isEqualTo((short) 5);
     }
 
     @Test

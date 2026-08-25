@@ -117,4 +117,55 @@ class ProceduralCrystallizationRelayTest {
                 any(Long.class)
         );
     }
+
+    @Test
+    void transmit_withIngestionTarget_crystallizesWithProvenanceFlagsAndSoulVersion() {
+        PartitionManager partitionManager = mock(PartitionManager.class);
+        PartitionHandle handle = mock(PartitionHandle.class);
+        CognitiveMemoryRouter router = mock(CognitiveMemoryRouter.class);
+        EpisodicLogMemory logStore = mock(EpisodicLogMemory.class);
+        com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget ingestionTarget =
+                mock(com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget.class);
+        when(ingestionTarget.currentSoulVersion()).thenReturn((short) 4);
+        EmbeddingProvider embeddingProvider = mock(EmbeddingProvider.class);
+
+        when(partitionManager.snapshot()).thenReturn(List.of(handle));
+        when(handle.router()).thenReturn(router);
+        when(router.isEpisodicLogMode()).thenReturn(true);
+        when(router.episodicLog()).thenReturn(logStore);
+
+        when(logStore.unconsolidatedTurnOffsets()).thenReturn(List.of(100L, 200L));
+
+        EpisodicFieldAccessor.EpisodicRecord rec1 = mock(EpisodicFieldAccessor.EpisodicRecord.class);
+        when(rec1.sessionId()).thenReturn(42L);
+        when(rec1.body()).thenReturn("Turn 1".getBytes(StandardCharsets.UTF_8));
+        EpisodicFieldAccessor.EpisodicRecord rec2 = mock(EpisodicFieldAccessor.EpisodicRecord.class);
+        when(rec2.sessionId()).thenReturn(42L);
+        when(rec2.body()).thenReturn("Turn 2".getBytes(StandardCharsets.UTF_8));
+
+        when(logStore.readTurns(List.of(100L, 200L), true)).thenReturn(List.of(rec1, rec2));
+
+        EmbeddingResult embedResult = mock(EmbeddingResult.class);
+        when(embedResult.vector()).thenReturn(new float[]{0.3f, 0.4f});
+        when(embeddingProvider.embed(anyString())).thenReturn(embedResult);
+
+        ReflectSignal signal = ReflectSignal.builder()
+                .partitionManager(partitionManager)
+                .ingestionTarget(ingestionTarget)
+                .embeddingProvider(embeddingProvider)
+                .build();
+
+        boolean result = relay.transmit(signal);
+
+        assertThat(result).isTrue();
+        org.mockito.ArgumentCaptor<com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader> captor =
+                org.mockito.ArgumentCaptor.forClass(com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader.class);
+        verify(ingestionTarget).ingestCognitiveWithHeader(
+                anyString(), anyString(), eq(new float[]{0.3f, 0.4f}), eq(MemoryType.PROCEDURAL), any(), eq(MemorySource.REFLECTED), captor.capture()
+        );
+
+        var header = captor.getValue();
+        assertThat(com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.isCrystallized(header.consolidationFlags())).isTrue();
+        assertThat(header.soulVersion()).isEqualTo((short) 4);
+    }
 }

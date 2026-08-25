@@ -383,6 +383,7 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
      * @param encodingBeta      quantized beta weight at encoding (0-255 → 0.0-1.0)
      * @param soulVersion       monotonic soul configuration version counter
      * @param encodingSurprise  surprise z-score from SurpriseDetector at ingestion
+     * @param consolidationFlags provenance & consolidation flags (V3+, offset 34; e.g., FLAG_SIMULATED, FLAG_CRYSTALLIZED)
      */
     public record CognitiveHeader(
             long timestampMs,
@@ -401,7 +402,9 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
             byte encodingAlpha,
             byte encodingBeta,
             short soulVersion,
-            float encodingSurprise
+            float encodingSurprise,
+            // ── Provenance (V3+) ──
+            byte consolidationFlags
     ) {
         /**
          * V1-compatible constructor — defaults for extended fields.
@@ -415,7 +418,8 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
             this(timestampMs, synapticTags, exactNorm, importance,
                  agentRecallCount, centroidId, valence, flags,
                  (byte) 0, 1.0f,
-                 (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f);
+                 (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
+                 (byte) 0);
         }
 
         /**
@@ -428,7 +432,8 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
             this(timestampMs, synapticTags, exactNorm, importance,
                  agentRecallCount, centroidId, valence, flags,
                  arousal, storageStrength,
-                 (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f);
+                 (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
+                 (byte) 0);
         }
 
         /**
@@ -440,7 +445,8 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
             return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
                     0, centroidId, (byte) 0, flags,
                     (byte) 0, 1.0f,
-                    (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f);
+                    (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
+                    (byte) 0);
         }
 
         /**
@@ -453,7 +459,8 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
             byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, memoryType.ordinal());
             return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
                     0, centroidId, valence, flags, arousal, 1.0f,
-                    (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f);
+                    (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
+                    (byte) 0);
         }
 
         /**
@@ -484,7 +491,8 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
             }
             return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
                     0, centroidId, valence, flags, arousal, 1.0f,
-                    (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f);
+                    (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
+                    (byte) 0);
         }
 
         /**
@@ -503,7 +511,22 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
             return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
                     0, centroidId, valence, flags, arousal, 1.0f,
                     encodingProfile, encodingAlpha, encodingBeta,
-                    soulVersion, encodingSurprise);
+                    soulVersion, encodingSurprise,
+                    (byte) 0);
+        }
+
+        /**
+         * Creates a new header for synthetically generated memories (constructive simulation,
+         * procedural crystallization) with explicit consolidation/provenance flags and current soul version.
+         */
+        public static CognitiveHeader createSynthetic(
+                long timestampMs, long synapticTags, float exactNorm, float importance,
+                byte valence, byte arousal, byte flags,
+                byte consolidationFlags, short soulVersion, float encodingSurprise) {
+            return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
+                    0, (short) 0, valence, flags, arousal, 1.0f,
+                    (byte) 0, (byte) 0, (byte) 0, soulVersion, encodingSurprise,
+                    consolidationFlags);
         }
     }
 }

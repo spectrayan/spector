@@ -56,7 +56,8 @@ class SynapticPruningRelayTest {
                 (byte) 0,
                 (byte) 0,
                 (short) 1,
-                0.0f
+                0.0f,
+                (byte) 0
         );
 
         episodicMemory.write(weakHeader, new byte[layout.quantizedVecBytes()]);
