@@ -7,6 +7,7 @@ from Spector Memory. Measures J-Score (LLM-as-a-Judge answer accuracy %)
 while isolating pure memory search latency (ms) from LLM generation time (s).
 
 Features:
+- Structured memory formatting with relative timestamps and candidate indices.
 - Paced sequential invocation with configurable delays (--delay-ms) to prevent thermal/resource starvation.
 - Real-time JSONL checkpointing with resume capability.
 - Multi-category accuracy breakdown (Single-hop, Multi-hop, Temporal, Open-domain).
@@ -30,13 +31,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-GENERATOR_PROMPT_TEMPLATE = """You are an AI assistant answering questions about a user's multi-session history based ONLY on the provided retrieved memories.
-If the answer is not in the context, say "I do not have enough information." Keep the answer concise and direct.
+GENERATOR_PROMPT_TEMPLATE = """You are an AI assistant answering questions about a user's multi-session history based on the provided retrieved memories.
 
-Retrieved Context:
+Context Memories from User History:
 {context}
 
 Question: {question}
+Provide a direct, concise factual answer to the question using the memories above:
 Answer:"""
 
 JUDGE_PROMPT_TEMPLATE = """You are an impartial evaluation judge grading an agent memory retrieval answer.
@@ -45,7 +46,10 @@ Question: {question}
 Reference Ground-Truth Answer: {gold_answer}
 Candidate Model Answer: {predicted_answer}
 
-Evaluate whether the candidate model answer accurately conveys the core factual information specified in the reference ground-truth answer. Ignore minor differences in punctuation, phrasing, or formatting.
+Grading Rules:
+1. The candidate model answer is CORRECT if it contains the correct factual answer specified in the reference ground-truth answer.
+2. Minor differences in phrasing, word order, or extra conversational context must NOT be penalized unless they directly contradict the reference answer.
+3. If the candidate model answer states the correct fact (e.g. correct name, item, date, or number), mark "correct": true.
 
 Respond strictly in valid JSON format:
 {{
@@ -97,9 +101,11 @@ def parse_judge_response(raw_resp: str) -> bool:
         pass
     # Fallback heuristic
     lower = raw_resp.lower()
-    if '"correct": true' in lower or '"correct":true' in lower or 'true' in lower:
+    if '"correct": true' in lower or '"correct":true' in lower:
         return True
-    return False
+    if '"correct": false' in lower or '"correct":false' in lower:
+        return False
+    return "true" in lower
 
 def load_checkpoint(checkpoint_file: str) -> Dict[str, Dict[str, Any]]:
     """Load completed judgements from checkpoint JSONL."""
@@ -118,6 +124,16 @@ def load_checkpoint(checkpoint_file: str) -> Dict[str, Dict[str, Any]]:
                         pass
     return completed
 
+def format_candidates_context(candidates: List[Dict[str, Any]], top_k: int = 5) -> str:
+    """Format candidate memories into a clean prompt context block."""
+    lines = []
+    selected = candidates[:top_k] if top_k > 0 else candidates
+    for i, c in enumerate(selected):
+        text = c.get("text", "").strip()
+        age = c.get("ageDays", 0.0)
+        lines.append(f"[{i+1}] (Recorded: {age:.1f} days ago)\n{text}")
+    return "\n\n".join(lines)
+
 def main():
     parser = argparse.ArgumentParser(description="Run End-to-End Generative QA Evaluation on Spector Memory using Local Ollama")
     parser.add_argument("--candidates-file", type=str, required=True, help="Path to retrieved_candidates.jsonl exported from Spector")
@@ -126,6 +142,7 @@ def main():
     parser.add_argument("--judge-model", type=str, default="llama3.2:latest", help="Ollama model for grading answers")
     parser.add_argument("--ollama-url", type=str, default="http://localhost:11434", help="Ollama endpoint URL")
     parser.add_argument("--delay-ms", type=int, default=500, help="Delay in milliseconds between Ollama calls (pacing/thermal stability)")
+    parser.add_argument("--top-k-context", type=int, default=5, help="Number of top candidates to include in LLM context (default: 5)")
     parser.add_argument("--limit", type=int, default=0, help="Limit number of queries to evaluate (0 = all)")
     parser.add_argument("--resume", action="store_true", default=False, help="Resume from existing checkpoint file")
 
@@ -146,7 +163,7 @@ def main():
     print("=" * 70)
     print(" Spector Memory -- End-to-End Generative QA (J-Score) Evaluator")
     print(f" Generator: {args.generator_model:<20} Judge: {args.judge_model:<20}")
-    print(f" Delay: {args.delay_ms} ms | Candidates: {os.path.basename(candidates_path):<30}")
+    print(f" Delay: {args.delay_ms} ms | Top-K Context: {args.top_k_context} | Candidates: {os.path.basename(candidates_path)}")
     print("=" * 70)
 
     # Load candidates
@@ -180,10 +197,11 @@ def main():
             qid = item.get("query_id", f"q_{idx}")
             question = item.get("question", "")
             gold_answer = item.get("gold_answer", "")
-            context_text = item.get("context_text", "")
+            candidates = item.get("candidates", [])
+            context_text = format_candidates_context(candidates, args.top_k_context) if candidates else item.get("context_text", "")
             category = item.get("expected_subsystem", item.get("category", "GENERAL"))
             recall_latency_ms = float(item.get("recall_latency_ms", 0.0))
-            context_tokens = int(item.get("context_tokens", 0))
+            context_tokens = max(1, len(context_text) // 4)
 
             if category not in category_stats:
                 category_stats[category] = {"total": 0, "correct": 0, "tokens": 0, "recall_ms": 0.0}

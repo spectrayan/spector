@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -35,6 +36,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.bench.cognitive.DatasetLoader.LoadedDataset;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
 import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -44,7 +47,8 @@ import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 
 /**
  * Executes high-performance off-heap memory recall across a benchmark dataset's queries
- * and exports the retrieved context candidates and isolated search latency to a JSONL file
+ * with full cognitive profiles, synaptic tag gating, AISME relays, and hypergraph entity traversal.
+ * Exports retrieved context candidates and isolated search latency to a JSONL file
  * for downstream LLM Generative QA evaluation (J-Score).
  */
 public final class ContextExportRunner {
@@ -133,6 +137,16 @@ public final class ContextExportRunner {
 
             SpectorMemory memory = setup.createMemoryInstance(dataset, embedder, datasetDir);
 
+            AismeConfig aismeConfig = AismeConfig.builder()
+                    .enabled(true)
+                    .enableHomeostasis(true)
+                    .enableFreeEnergy(true)
+                    .enableHopfield(true)
+                    .enablePredictiveCoding(true)
+                    .enableConsciousnessContinuity(true)
+                    .enableGlobalWorkspace(true)
+                    .build();
+
             // Warmup pass: 10 queries
             int warmupCount = Math.min(10, dataset.queries().size());
             log.info("Running JIT and memory warmup ({} queries)...", warmupCount);
@@ -144,32 +158,57 @@ public final class ContextExportRunner {
                         .enableTextSearch(true)
                         .enableLateralInhibition(true)
                         .enableAisme(true)
+                        .aismeConfig(aismeConfig)
                         .build();
                 memory.recall(wq.text(), wOpt);
             }
-            log.info("Warmup complete. Exporting retrieval contexts...");
-
-            RecallOptions recallOptions = RecallOptions.builder()
-                    .topK(topK)
-                    .recallMode(RecallMode.OBSERVE)
-                    .enableTextSearch(true)
-                    .enableLateralInhibition(true)
-                    .scoreFusionMode(ScoreFusionMode.MULTIPLICATIVE)
-                    .build();
+            log.info("Warmup complete. Exporting retrieval contexts with full AISME and cognitive filters...");
 
             int count = 0;
             double totalLatencyMs = 0.0;
             long totalTokens = 0;
 
             for (BenchmarkQuery query : queriesToRun) {
+                RecallOptions.Builder optBuilder = RecallOptions.builder()
+                        .topK(topK)
+                        .recallMode(RecallMode.OBSERVE)
+                        .enableTextSearch(true)
+                        .enableLateralInhibition(true)
+                        .enableAisme(true)
+                        .aismeConfig(aismeConfig)
+                        .scoreFusionMode(ScoreFusionMode.MULTIPLICATIVE);
+
+                if (query.cognitiveProfile() != null) {
+                    optBuilder.profile(query.cognitiveProfile());
+                } else {
+                    optBuilder.profile(CognitiveProfile.BALANCED);
+                }
+
+                if (query.synapticFilterTags() != null && !query.synapticFilterTags().isEmpty()) {
+                    optBuilder.synapticFilter(query.synapticFilterTags().toArray(String[]::new));
+                }
+                if (query.minValence() != null) {
+                    optBuilder.minValence(query.minValence());
+                }
+                if (query.maxValence() != null) {
+                    optBuilder.maxValence(query.maxValence());
+                }
+                if (query.entityHints() != null && !query.entityHints().isEmpty()) {
+                    optBuilder.entityHints(query.entityHints());
+                }
+                if (query.textSearchMode() != null) {
+                    optBuilder.textSearchMode(query.textSearchMode());
+                }
+
                 long startNs = System.nanoTime();
-                List<CognitiveResult> results = memory.recall(query.text(), recallOptions);
+                List<CognitiveResult> results = memory.recall(query.text(), optBuilder.build());
                 long elapsedNs = System.nanoTime() - startNs;
                 double latencyMs = elapsedNs / 1_000_000.0;
                 totalLatencyMs += latencyMs;
 
                 List<Map<String, Object>> candidateList = new ArrayList<>();
                 StringBuilder contextBuilder = new StringBuilder();
+                int candIdx = 1;
 
                 for (CognitiveResult res : results) {
                     Map<String, Object> cand = new HashMap<>();
@@ -179,12 +218,15 @@ public final class ContextExportRunner {
                     cand.put("source", res.source() != null ? res.source().name() : "OBSERVED");
                     cand.put("importance", res.importance());
                     cand.put("ageDays", res.ageDays());
+                    cand.put("valence", (int) res.valence());
                     candidateList.add(cand);
 
                     if (contextBuilder.length() > 0) {
-                        contextBuilder.append("\n");
+                        contextBuilder.append("\n\n");
                     }
-                    contextBuilder.append("- ").append(res.text() != null ? res.text().trim() : "");
+                    contextBuilder.append("[").append(candIdx++).append("] (Recorded: ")
+                            .append(String.format(Locale.US, "%.1f", res.ageDays())).append(" days ago)\n")
+                            .append(res.text() != null ? res.text().trim() : "");
                 }
 
                 String formattedContext = contextBuilder.toString();
@@ -199,6 +241,7 @@ public final class ContextExportRunner {
                 record.put("question", query.text());
                 record.put("gold_answer", gold);
                 record.put("cognitive_profile", query.cognitiveProfile() != null ? query.cognitiveProfile().name() : "BALANCED");
+                record.put("synaptic_tags", query.synapticFilterTags());
                 record.put("expected_subsystem", query.expectedSubsystem());
                 record.put("recall_latency_ms", latencyMs);
                 record.put("context_tokens", estimatedTokens);
