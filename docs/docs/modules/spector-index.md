@@ -1,1 +1,1 @@
---8<-- "memory/spector-index/README.md"
+--8<-- "nucleus/spector-index/README.md"

@@ -1,0 +1,1 @@
+﻿--8<-- "memory/spector-inspect/README.md"
