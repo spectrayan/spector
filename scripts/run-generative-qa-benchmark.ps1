@@ -3,8 +3,8 @@ param(
     [int]$Limit = 10,
     [int]$TopK = 10,
     [int]$DelayMs = 500,
-    [string]$GeneratorModel = "llama3.2:latest",
-    [string]$JudgeModel = "llama3.2:latest"
+    [string]$GeneratorModel = "glm-4.7-flash:latest",
+    [string]$JudgeModel = "glm-4.7-flash:latest"
 )
 
 $ErrorActionPreference = "Stop"

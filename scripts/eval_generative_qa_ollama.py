@@ -7,6 +7,8 @@ from Spector Memory. Measures J-Score (LLM-as-a-Judge answer accuracy %)
 while isolating pure memory search latency (ms) from LLM generation time (s).
 
 Features:
+- Full model configurability (defaults to glm-4.7-flash:latest or user-specified model).
+- Automatic reasoning/thinking trace extraction (strips <think>...</think> and Thinking... blocks).
 - Structured memory formatting with relative timestamps and candidate indices.
 - Paced sequential invocation with configurable delays (--delay-ms) to prevent thermal/resource starvation.
 - Real-time JSONL checkpointing with resume capability.
@@ -17,6 +19,7 @@ Features:
 import argparse
 import json
 import os
+import re
 import sys
 import time
 import urllib.request
@@ -47,7 +50,7 @@ Reference Ground-Truth Answer: {gold_answer}
 Candidate Model Answer: {predicted_answer}
 
 Grading Rules:
-1. The candidate model answer is CORRECT if it contains the correct factual answer specified in the reference ground-truth answer.
+1. The candidate model answer is CORRECT if it contains the core factual information specified in the reference ground-truth answer.
 2. Minor differences in phrasing, word order, or extra conversational context must NOT be penalized unless they directly contradict the reference answer.
 3. If the candidate model answer states the correct fact (e.g. correct name, item, date, or number), mark "correct": true.
 
@@ -58,12 +61,22 @@ Respond strictly in valid JSON format:
   "explanation": "concise rationale"
 }}"""
 
+def clean_thinking_traces(text: str) -> str:
+    """Strip out reasoning/thinking tokens (e.g. <think>...</think> or Thinking... ...done thinking.)"""
+    if not text:
+        return ""
+    # Strip <think>...</think>
+    cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    # Strip Thinking... ...done thinking.
+    cleaned = re.sub(r'Thinking\.\.\..*?\.\.\.done thinking\.', '', cleaned, flags=re.DOTALL)
+    return cleaned.strip()
+
 def query_ollama(
     url: str,
     prompt: str,
-    model: str = "llama3.2:latest",
+    model: str = "glm-4.7-flash:latest",
     format_json: bool = False,
-    timeout: int = 60
+    timeout: int = 120
 ) -> str:
     """Send a generate request to local Ollama API."""
     payload = {
@@ -85,12 +98,14 @@ def query_ollama(
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         data = json.loads(resp.read().decode("utf-8"))
-        return data.get("response", "").strip()
+        raw_resp = data.get("response", "").strip()
+        return clean_thinking_traces(raw_resp) if not format_json else raw_resp
 
 def parse_judge_response(raw_resp: str) -> bool:
     """Parse JSON boolean from judge response."""
+    cleaned = clean_thinking_traces(raw_resp)
     try:
-        data = json.loads(raw_resp)
+        data = json.loads(cleaned)
         if isinstance(data, dict):
             val = data.get("correct")
             if isinstance(val, bool):
@@ -100,12 +115,12 @@ def parse_judge_response(raw_resp: str) -> bool:
     except Exception:
         pass
     # Fallback heuristic
-    lower = raw_resp.lower()
+    lower = cleaned.lower()
     if '"correct": true' in lower or '"correct":true' in lower:
         return True
     if '"correct": false' in lower or '"correct":false' in lower:
         return False
-    return "true" in lower
+    return "true" in lower and "false" not in lower
 
 def load_checkpoint(checkpoint_file: str) -> Dict[str, Dict[str, Any]]:
     """Load completed judgements from checkpoint JSONL."""
@@ -138,9 +153,9 @@ def main():
     parser = argparse.ArgumentParser(description="Run End-to-End Generative QA Evaluation on Spector Memory using Local Ollama")
     parser.add_argument("--candidates-file", type=str, required=True, help="Path to retrieved_candidates.jsonl exported from Spector")
     parser.add_argument("--output-dir", type=str, default="", help="Output directory for reports (default: candidates-file directory)")
-    parser.add_argument("--generator-model", type=str, default="llama3.2:latest", help="Ollama model for answering questions")
-    parser.add_argument("--judge-model", type=str, default="llama3.2:latest", help="Ollama model for grading answers")
-    parser.add_argument("--ollama-url", type=str, default="http://localhost:11434", help="Ollama endpoint URL")
+    parser.add_argument("--generator-model", type=str, default="glm-4.7-flash:latest", help="Ollama model for answering questions")
+    parser.add_argument("--judge-model", type=str, default="glm-4.7-flash:latest", help="Ollama model for grading answers")
+    parser.add_argument("--ollama-url", type=str, default="http://127.0.0.1:11434", help="Ollama endpoint URL")
     parser.add_argument("--delay-ms", type=int, default=500, help="Delay in milliseconds between Ollama calls (pacing/thermal stability)")
     parser.add_argument("--top-k-context", type=int, default=5, help="Number of top candidates to include in LLM context (default: 5)")
     parser.add_argument("--limit", type=int, default=0, help="Limit number of queries to evaluate (0 = all)")
@@ -162,7 +177,7 @@ def main():
 
     print("=" * 70)
     print(" Spector Memory -- End-to-End Generative QA (J-Score) Evaluator")
-    print(f" Generator: {args.generator_model:<20} Judge: {args.judge_model:<20}")
+    print(f" Generator: {args.generator_model:<25} Judge: {args.judge_model:<25}")
     print(f" Delay: {args.delay_ms} ms | Top-K Context: {args.top_k_context} | Candidates: {os.path.basename(candidates_path)}")
     print("=" * 70)
 
@@ -274,8 +289,9 @@ def main():
                 category_stats[category]["correct"] += 1
 
             status_sym = "[PASS]" if is_correct else "[FAIL]"
-            current_acc = (correct_count / len(results)) * 100.0
-            print(f"[{idx + 1:4d}/{len(queries):4d}] {status_sym} Acc: {current_acc:5.1f}% | Memory: {recall_latency_ms:5.2f}ms | Gen: {gen_s:4.1f}s | Q: {question[:45]}...")
+            current_q_num = len(results)
+            cumulative_pct = (correct_count / current_q_num) * 100.0
+            print(f"[{current_q_num:3d}/{len(queries):3d}] {status_sym} Correct: {correct_count:2d}/{current_q_num:2d} ({cumulative_pct:5.1f}%) | Memory: {recall_latency_ms:5.2f}ms | Gen: {gen_s:4.1f}s | Q: {question[:40]}...")
 
     finally:
         checkpoint_writer.close()
@@ -292,6 +308,7 @@ def main():
 
     print("\n" + "=" * 70)
     print(f"EVALUATION COMPLETE: {total_q} Queries")
+    print(f"Total Correct:                         {correct_count} / {total_q}")
     print(f"Overall Downstream J-Score (Accuracy): {overall_j_score:.2f}%")
     print(f"Pure Memory Recall Latency (Avg):      {avg_recall_ms:.2f} ms")
     print(f"Context Tokens Injected (Avg):         {avg_tokens:.0f} tokens")
@@ -313,7 +330,7 @@ def main():
         "",
         "| Metric | Spector Memory (Observed) | Zep (Published) | Mem0 (Published) |",
         "|:---|:---:|:---:|:---:|",
-        f"| **Overall J-Score (QA Accuracy)** | **{overall_j_score:.2f}%** | 75.14% – 80.00% | 62.47% – 68.20% |",
+        f"| **Overall J-Score (QA Accuracy)** | **{overall_j_score:.2f}%** ({correct_count}/{total_q}) | 75.14% – 80.00% | 62.47% – 68.20% |",
         f"| **Pure Memory Search Latency** | **{avg_recall_ms:.2f} ms** | 632.0 ms | 657.0 ms |",
         f"| **Context Tokens Added** | **{avg_tokens:.0f} tokens** | 3,911 tokens | 1,764 tokens |",
         "",
@@ -369,6 +386,7 @@ def main():
         "generator_model": args.generator_model,
         "judge_model": args.judge_model,
         "total_queries": total_q,
+        "correct_answers": correct_count,
         "overall_j_score_pct": round(overall_j_score, 2),
         "avg_memory_latency_ms": round(avg_recall_ms, 2),
         "avg_context_tokens": round(avg_tokens, 1),
