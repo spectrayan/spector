@@ -134,24 +134,12 @@ graph TD
 
 ---
 
-## 4. Agent Tooling Alignment (Rules & Workflows)
+## 4. Architectural Guidelines & Concurrency Rules
 
-All agents working on this codebase must understand how our `.agents/` tooling maps to this layout:
-
-### File System Rules (`.agents/rules/rules.md`)
-*   **Virtual Threads Safe Concurrency**: Since Spector is built on virtual threads, agents are forbidden from using the `synchronized` keyword. You must use `ReentrantLock` or other non-pinning concurrency utilities.
-*   **Platform-agnostic SIMD**: Lane widths cannot be hardcoded (e.g. AVX-512 vs AVX2); agents must use `FloatVector.SPECIES_PREFERRED` inside `spector-core`, `spector-cpu`, `spector-index`, or `spector-memory`.
-*   **Bundle Kernel Architecture**: Storage and persistence are fully encapsulated within `spector-memory` using zero-copy Panama FFM memory layouts (`PartitionBundle`, `RuntimeBundle`, `CognitiveRecordLayout`). Vector indexes are managed directly in-memory by `spector-index`.
-
-### Automated Agent Workflows (`.agents/workflows/`)
-Each workflow matches a specific slash command or task trigger. Use them sequentially as listed:
-
-1.  **/feature-development** (`feature-development.md`): End-to-end framework for feature implementation. Guarantees that changes in foundation layers occur prior to search/intelligence modifications, and wraps everything in rigorous testing.
-2.  **/exception-hardening** (`exception-hardening.md`): Audits code safety. Ensures all throw and catch sites inside a module throw domain-specific exceptions (e.g. `SpectorHebbianException` or `SpectorGraphPersistenceException`) registered in `ErrorCode.java`.
-3.  **/dataset-generation** (`dataset-generation.md`): Dedicated workflow for the Cognitive Benchmark dataset. Calibrates emotional valence and importance tags under `datasets/cognitive-benchmark/`.
-4.  **/module-lifecycle** (`module-lifecycle.md`): Guidelines on how to add, remove, or rename any modules inside the 27-module Maven reactor without breaking the reactor.
-5.  **/pr-review** (`pr-review.md`): Quality gate. Automates compile checks, JaCoCo thresholds, and JMH benchmark runs before making a pull request.
-6.  **/release-prep** (`release-prep.md`): Guides versions bumping, changelog additions, and GPG release signing profiles.
+*   **Virtual Threads Safe Concurrency**: Spector is built on virtual threads. Never use the `synchronized` keyword (which pins carrier threads). Use `ReentrantLock`, `StampedLock`, or non-pinning concurrency utilities.
+*   **Platform-Agnostic SIMD**: Lane widths cannot be hardcoded (e.g., AVX-512 vs. AVX2). Use `FloatVector.SPECIES_PREFERRED` inside `spector-core`, `spector-cpu`, `spector-index`, or `spector-memory`.
+*   **Bundle Kernel Architecture**: Storage and persistence are encapsulated within `spector-memory` using zero-copy Panama FFM memory layouts (`PartitionBundle`, `RuntimeBundle`, `CognitiveRecordLayout`). Vector indexes are managed in-memory by `spector-index`.
+*   **Structured Concurrency**: Centralized in `ConcurrentTasks` (`spector-commons`) with automatic fallback to classic virtual thread executors via `-Dspector.concurrency.structured=false`.
 
 ---
 
@@ -161,18 +149,3 @@ Each workflow matches a specific slash command or task trigger. Use them sequent
 *   **On-Disk Storage**: `.spector/` (ignored via `.gitignore` - do not delete or commit).
 *   **Biologically-Inspired Design**: `spector-memory/RnD/` holds raw design math for cognitive memory mechanisms.
 *   **Documentation Site**: `docs/` (built via MkDocs Material: `python -m mkdocs build --clean`).
-
----
-
-## 6. Spector Enterprise
-
-The full-stack enterprise product features have been extracted to a separate repository: [spector-enterprise](https://github.com/spectrayan/spector-enterprise).
-
-**This repository (spector)** is the **core engine** — which includes the **Cortex dashboard** (Angular 22 neural visualization and chat UI) located in `cortex/spector-cortex/` as a core OSS module.
-
-**spector-enterprise** adds:
-*   Enterprise data connectors (Apache Camel) — template-driven ingestion from Kafka, S3, Salesforce, Confluence, etc.
-*   Multi-tenant namespace manager & access control
-*   Corporate management APIs for clustering, monitoring, and scaling
-
-Enterprise **depends on** `spector-synapse` and always starts the core engine.

@@ -30,8 +30,6 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  * Contract tests for all 10 channel adapters — validates normalize/send
  * behavior, UnifiedMessage formatting, and error handling without calling
  * real APIs.
- *
- * @see <a href="https://github.com/spectrayan/spector-enterprise/issues/143">#143-#152</a>
  */
 class ChannelAdapterContractTest {
 

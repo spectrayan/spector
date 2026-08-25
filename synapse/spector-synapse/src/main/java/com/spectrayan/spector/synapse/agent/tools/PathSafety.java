@@ -45,7 +45,7 @@ public final class PathSafety {
         }
 
         // Allow accessing files under the parent directory of the workspace root (e.g. d:\git)
-        // to support reading/writing across the twin repos (spector and spector-enterprise).
+        // to support reading/writing across workspace repositories.
         Path parentDir = workspaceRoot.getParent();
         Path allowedRoot = (parentDir != null) ? parentDir : workspaceRoot;
 
