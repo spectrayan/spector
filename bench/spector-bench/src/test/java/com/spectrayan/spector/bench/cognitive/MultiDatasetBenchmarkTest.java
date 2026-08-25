@@ -107,14 +107,15 @@ class MultiDatasetBenchmarkTest {
         List<ConditionResult> results = runner.run();
 
         log.info("\n=== RESULTS FOR DATASET: {} ===", datasetName);
-        log.info(String.format(Locale.ROOT, "%-35s | %-10s | %-10s | %-10s | %-12s | %-10s",
-                "Condition", "nDCG@10", "MRR@10", "Recall@10", "Latency (ms)", "Cohen's d"));
-        log.info("-----------------------------------------------------------------------------------------------");
+        log.info(String.format(Locale.ROOT, "%-35s | %-8s | %-8s | %-8s | %-9s | %-9s | %-9s | %-9s | %-8s | %-9s",
+                "Condition", "nDCG@10", "MRR@10", "Recall", "Avg (ms)", "p50 (ms)", "p95 (ms)", "p99 (ms)", "QPS", "Cohen's d"));
+        log.info("----------------------------------------------------------------------------------------------------------------------------------");
 
         for (ConditionResult res : results) {
-            log.info(String.format(Locale.ROOT, "%-35s | %-10.4f | %-10.4f | %-10.4f | %-12.2f | %-10.4f",
+            log.info(String.format(Locale.ROOT, "%-35s | %-8.4f | %-8.4f | %-8.4f | %-9.2f | %-9.2f | %-9.2f | %-9.2f | %-8.1f | %-+9.3f",
                     res.condition().name(), res.meanNdcg(), res.meanMrr(), res.meanRecall(),
-                    res.avgLatencyMs(), res.cohensD()));
+                    res.avgLatencyMs(), res.p50LatencyMs(), res.p95LatencyMs(), res.p99LatencyMs(),
+                    res.qps(), res.cohensD()));
         }
         log.info("===============================================================================================\n");
     }

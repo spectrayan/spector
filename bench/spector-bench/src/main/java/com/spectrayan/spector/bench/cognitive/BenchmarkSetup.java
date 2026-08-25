@@ -191,7 +191,7 @@ public final class BenchmarkSetup implements AutoCloseable {
 
         com.spectrayan.spector.memory.SpectorMemoryBuilder builder = DefaultSpectorMemory.builder()
                 .bundleMode(true)
-                .usePathwayEngine(Boolean.parseBoolean(System.getProperty("spector.pathway.enabled", System.getProperty("usePathwayEngine", "false"))))
+                .usePathwayEngine(Boolean.parseBoolean(System.getProperty("spector.pathway.enabled", System.getProperty("usePathwayEngine", "true"))))
                 .dimensions(embedder.dimensions())
                 .embeddingProvider(embedder)
                 .workingCapacity(Math.max(50, corpusSize / 10))
@@ -206,10 +206,7 @@ public final class BenchmarkSetup implements AutoCloseable {
         if (aismeConfig != null) {
             builder.aismeConfig(aismeConfig);
         } else {
-            boolean aismeEnabled = Boolean.parseBoolean(System.getProperty("spector.memory.aisme.enabled", "false"));
-            if (aismeEnabled) {
-                builder.enableAisme(true);
-            }
+            builder.enableAisme(true);
         }
 
 

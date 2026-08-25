@@ -239,7 +239,7 @@ final class CognitiveCortexBuilder {
             TextBlobLayout textLayout = new TextBlobLayout();
             long textSize = Long.getLong("spector.memory.text-segment-size", 32 * 1024 * 1024L);
             long episodicSize = Long.getLong("spector.memory.episodic-segment-size",
-                    (long) builder.episodicPartitionCapacity * 256L); // ~256B avg per turn
+                    (long) builder.episodicPartitionCapacity * cogLayout.stride());
 
             try {
                 if (isNew) {
