@@ -112,45 +112,84 @@ public final class ConstructiveSimulationRelay implements SynapticRelay<RecallSi
             }
         }
 
-        // 2. Synthesize Counterfactual Episodic Recombination (Schacter & Addis 2007)
-        if (candidates.size() >= 2) {
-            CognitiveResult r1 = candidates.get(0);
-            CognitiveResult r2 = candidates.get(1);
-            float[] v1 = embeddingLookup.apply(r1.id());
-            float[] v2 = embeddingLookup.apply(r2.id());
+        // 2. Synthesize Counterfactual Episodic Recombination (Schacter & Addis 2007, MR-07)
+        int numCandidates = candidates.size();
+        if (numCandidates >= 2) {
+            int maxSimulations = Math.min(3, numCandidates - 1);
+            long seed = 0xCBF29CE484222325L;
+            for (float v : queryVector) {
+                seed = seed * 31 + Float.floatToIntBits(v);
+            }
+            java.util.Random rng = new java.util.Random(seed);
 
-            if (v1 != null && v2 != null && v1.length == narrativeEngine.dimensions() && v2.length == narrativeEngine.dimensions()) {
-                float[] simVec = new float[narrativeEngine.dimensions()];
-                for (int d = 0; d < simVec.length; d++) {
-                    simVec[d] = 0.5f * (v1[d] + v2[d]);
+            for (int s = 0; s < maxSimulations; s++) {
+                int idx1 = s;
+                int idx2 = (s + 1 + (rng.nextInt(numCandidates - 1))) % numCandidates;
+                if (idx1 == idx2) {
+                    idx2 = (idx1 + 1) % numCandidates;
                 }
 
-                float alignSim = narrativeEngine.evaluateAlignment(simVec, narrativePrior);
-                if (alignSim > 0.3f) {
-                    float simScore = (r1.score() + r2.score()) * 0.5f * (1.0f + narrativeWeight * alignSim);
-                    String simId = new com.spectrayan.spector.memory.id.TsidGenerator().generate();
-                    CognitiveResult simResult = new CognitiveResult(
-                            simId,
-                            "[Constructive Simulation] " + r1.text() + " | " + r2.text(),
-                            simScore,
-                            Math.max(r1.importance(), r2.importance()),
-                            0.0f,
-                            0,
-                            (byte) ((r1.valence() + r2.valence()) / 2),
-                            com.spectrayan.spector.memory.model.MemoryType.EPISODIC,
-                            com.spectrayan.spector.memory.cortex.MemorySource.INFERRED,
-                            new String[]{"simulated", "counterfactual", "constructive"},
-                            1.0f,
-                            1.0f,
-                            com.spectrayan.spector.memory.model.CognitiveResult.RetrievalMode.STANDARD,
-                            null,
-                            null,
-                            com.spectrayan.spector.memory.model.SourceModality.TEXT,
-                            java.util.Map.of("simulation", "counterfactual_recombination"),
-                            com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.FLAG_SIMULATED
-                    );
-                    candidates.add(simResult);
-                    signal.attributes().put("simVec:" + simId, simVec);
+                CognitiveResult r1 = candidates.get(idx1);
+                CognitiveResult r2 = candidates.get(idx2);
+                float[] v1 = embeddingLookup.apply(r1.id());
+                float[] v2 = embeddingLookup.apply(r2.id());
+
+                if (v1 != null && v2 != null && v1.length == narrativeEngine.dimensions() && v2.length == narrativeEngine.dimensions()) {
+                    float align1 = Math.max(0.1f, narrativeEngine.evaluateAlignment(v1, narrativePrior));
+                    float align2 = Math.max(0.1f, narrativeEngine.evaluateAlignment(v2, narrativePrior));
+                    float w1 = align1 / (align1 + align2);
+                    float w2 = 1.0f - w1;
+
+                    float[] simVec = new float[narrativeEngine.dimensions()];
+                    for (int d = 0; d < simVec.length; d++) {
+                        simVec[d] = w1 * v1[d] + w2 * v2[d];
+                    }
+
+                    float alignSim = narrativeEngine.evaluateAlignment(simVec, narrativePrior);
+
+                    // PCMN Hierarchical Prediction Error Check (if PCMN is active)
+                    if (pcmn != null) {
+                        try {
+                            float[][] mockTiers = new float[][]{simVec, simVec, narrativePrior, narrativePrior};
+                            var error = pcmn.evaluateHierarchy(mockTiers);
+                            if (error != null && error.totalEnergy() > 50.0f) {
+                                // Excessive predictive coding error - attenuate alignSim
+                                alignSim *= 0.8f;
+                            }
+                        } catch (Exception e) {
+                            log.trace("PCMN evaluation skipped during simulation: {}", e.getMessage());
+                        }
+                    }
+
+                    if (alignSim > 0.3f) {
+                        float simScore = (r1.score() + r2.score()) * 0.5f * (1.0f + narrativeWeight * alignSim);
+                        String simId = new com.spectrayan.spector.memory.id.TsidGenerator().generate();
+                        CognitiveResult simResult = new CognitiveResult(
+                                simId,
+                                "[Constructive Simulation: " + r1.id() + "+" + r2.id() + "] " + r1.text() + " | " + r2.text(),
+                                simScore,
+                                Math.max(r1.importance(), r2.importance()),
+                                0.0f,
+                                0,
+                                (byte) ((r1.valence() + r2.valence()) / 2),
+                                com.spectrayan.spector.memory.model.MemoryType.EPISODIC,
+                                com.spectrayan.spector.memory.cortex.MemorySource.INFERRED,
+                                new String[]{"simulated", "counterfactual", "constructive"},
+                                1.0f,
+                                1.0f,
+                                com.spectrayan.spector.memory.model.CognitiveResult.RetrievalMode.STANDARD,
+                                null,
+                                null,
+                                com.spectrayan.spector.memory.model.SourceModality.TEXT,
+                                java.util.Map.of(
+                                        "simulation", "counterfactual_recombination",
+                                        "alignSim", String.valueOf(alignSim)
+                                ),
+                                com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.FLAG_SIMULATED
+                        );
+                        candidates.add(simResult);
+                        signal.attributes().put("simVec:" + simId, simVec);
+                    }
                 }
             }
         }

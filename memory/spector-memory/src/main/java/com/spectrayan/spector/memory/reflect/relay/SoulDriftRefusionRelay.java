@@ -58,6 +58,16 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
             return true;
         }
 
+        // 1. Generative Prior Plasticity: Adapt Generative Prior Mean toward Autobiographical Centroid (MR-07)
+        if (signal.mentalStateTracker() != null) {
+            float[] centroid = computeAutobiographicalCentroid(signal);
+            if (centroid != null) {
+                signal.mentalStateTracker().adaptPriorMean(centroid, 0.005f);
+                log.info("Generative prior adapted toward autobiographical centroid (dim={})", centroid.length);
+            }
+        }
+
+        // 2. Soul-Drift Re-Fusion: Re-stamp stale soul-version memories using the evolved prior
         short currentSoulVersion = 0;
         if (signal.rememberPathway() != null) {
             currentSoulVersion = signal.rememberPathway().currentSoulVersion();
@@ -92,15 +102,6 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
             }
         }
 
-        // 2. Generative Prior Plasticity: Adapt Generative Prior Mean toward Autobiographical Centroid
-        if (signal.mentalStateTracker() != null) {
-            float[] centroid = computeAutobiographicalCentroid(signal);
-            if (centroid != null) {
-                signal.mentalStateTracker().adaptPriorMean(centroid, 0.005f);
-                log.info("Generative prior adapted toward autobiographical centroid (dim={})", centroid.length);
-            }
-        }
-
         return true;
     }
 
@@ -118,28 +119,35 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         var handles = signal.partitionManager().snapshot();
         for (var handle : handles) {
             if (handle.router() == null) continue;
-            CognitiveRecordMemory semantic = handle.router().semantic();
-            if (semantic != null && semantic.segment() != null) {
-                CognitiveRecordLayout layout = semantic.cognitiveLayout();
-                MemorySegment segment = semantic.segment();
-                int size = semantic.size();
-                int vecBytes = layout.quantizedVecBytes();
-                byte[] qBytes = new byte[vecBytes];
+            CognitiveRecordMemory[] stores = new CognitiveRecordMemory[]{
+                    handle.router().semantic(),
+                    handle.router().working(),
+                    !handle.router().isEpisodicLogMode() ? handle.router().episodic() : null
+            };
 
-                for (int i = 0; i < size && count < 200; i++) {
-                    long offset = semantic.recordOffset(i);
-                    byte flags = layout.readFlags(segment, offset);
-                    if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+            for (CognitiveRecordMemory store : stores) {
+                if (store != null && store.segment() != null) {
+                    CognitiveRecordLayout layout = store.cognitiveLayout();
+                    MemorySegment segment = store.segment();
+                    int size = store.size();
+                    int vecBytes = layout.quantizedVecBytes();
+                    byte[] qBytes = new byte[vecBytes];
 
-                    MemorySegment.copy(segment, layout.vectorOffset(offset), MemorySegment.ofArray(qBytes), 0, vecBytes);
-                    float[] vec = quantizer.decode(qBytes);
-                    if (accumulator == null) {
-                        accumulator = new float[vec.length];
+                    for (int i = 0; i < size && count < 2000; i++) {
+                        long offset = store.recordOffset(i);
+                        byte flags = layout.readFlags(segment, offset);
+                        if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+
+                        MemorySegment.copy(segment, layout.vectorOffset(offset), MemorySegment.ofArray(qBytes), 0, vecBytes);
+                        float[] vec = quantizer.decode(qBytes);
+                        if (accumulator == null) {
+                            accumulator = new float[vec.length];
+                        }
+                        for (int d = 0; d < vec.length; d++) {
+                            accumulator[d] += vec[d];
+                        }
+                        count++;
                     }
-                    for (int d = 0; d < vec.length; d++) {
-                        accumulator[d] += vec[d];
-                    }
-                    count++;
                 }
             }
         }
@@ -148,30 +156,31 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
             for (int d = 0; d < accumulator.length; d++) {
                 accumulator[d] /= count;
             }
-            return accumulator;
         }
-        return null;
+
+        return accumulator;
     }
 
     private void scanStore(CognitiveRecordMemory store, short currentSoulVersion,
                            PriorityQueue<DriftCandidate> heap, ReflectSignal signal) {
-        if (store == null) return;
+        if (store == null || store.segment() == null) return;
+
         CognitiveRecordLayout layout = store.cognitiveLayout();
         MemorySegment segment = store.segment();
-        if (segment == null) return;
-        int count = store.size();
+        int size = store.size();
 
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < size; i++) {
             long offset = store.recordOffset(i);
             byte flags = layout.readFlags(segment, offset);
             if (SynapticHeaderConstants.isTombstoned(flags)) continue;
 
-            short version = layout.readSoulVersion(segment, offset);
-            if (version < currentSoulVersion) {
+            short recordSoulVersion = layout.readSoulVersion(segment, offset);
+            if (recordSoulVersion < currentSoulVersion) {
                 signal.addSoulDrifted(1);
-                float surprise = layout.readEncodingSurprise(segment, offset);
-                float oldImportance = layout.readImportance(segment, offset);
-                heap.offer(new DriftCandidate(store, offset, surprise, oldImportance, version));
+                float importance = layout.readImportance(segment, offset);
+                float encodingSurprise = layout.readEncodingSurprise(segment, offset);
+
+                heap.offer(new DriftCandidate(store, offset, encodingSurprise, importance, recordSoulVersion));
             }
         }
     }
@@ -195,13 +204,20 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         }
         float[] vector = (quantizer != null) ? quantizer.decode(quantized) : new float[vecBytes];
 
-        IngestionHints hints = new IngestionHints(0.5f, 0.5f, 0.5f, header.valence(), header.arousal());
+        MemoryType memoryType = SynapticHeaderConstants.memoryTypeOf(header.flags());
+        IngestionHints hints = new IngestionHints(
+                Math.clamp(header.importance() / 10.0f, 0.0f, 1.0f),
+                0.5f,
+                0.5f,
+                header.valence(),
+                header.arousal()
+        );
         ImportanceContext ctx = new ImportanceContext(
                 null,
                 vector,
                 hints,
                 signal.salienceProfile(),
-                MemoryType.SEMANTIC,
+                memoryType,
                 0.0f,
                 candidate.encodingSurprise(),
                 true

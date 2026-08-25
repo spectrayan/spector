@@ -242,6 +242,15 @@ public final class SynapticHeaderConstants {
     }
 
     /**
+     * Extracts the MemoryType enum value from the flags byte.
+     */
+    public static com.spectrayan.spector.memory.model.MemoryType memoryTypeOf(byte flags) {
+        int ord = memoryTypeOrdinal(flags);
+        var values = com.spectrayan.spector.memory.model.MemoryType.values();
+        return (ord >= 0 && ord < values.length) ? values[ord] : com.spectrayan.spector.memory.model.MemoryType.SEMANTIC;
+    }
+
+    /**
      * Encodes a memory type ordinal into a flags byte, preserving other bits.
      */
     public static byte withMemoryType(byte flags, int typeOrdinal) {

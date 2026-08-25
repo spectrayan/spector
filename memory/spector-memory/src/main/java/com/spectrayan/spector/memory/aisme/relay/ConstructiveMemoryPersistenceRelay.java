@@ -81,8 +81,19 @@ public final class ConstructiveMemoryPersistenceRelay implements SynapticRelay<R
                 continue;
             }
 
-            // Only persist if score exceeds threshold (high narrative alignment)
-            if (result.score() < persistenceThreshold) {
+            // Only persist if alignment exceeds threshold (MR-07)
+            float alignSim;
+            if (result.metadata() != null && result.metadata().containsKey("alignSim")) {
+                try {
+                    alignSim = Float.parseFloat(result.metadata().get("alignSim"));
+                } catch (NumberFormatException e) {
+                    alignSim = result.score();
+                }
+            } else {
+                alignSim = result.score();
+            }
+
+            if (alignSim < persistenceThreshold) {
                 continue;
             }
 
