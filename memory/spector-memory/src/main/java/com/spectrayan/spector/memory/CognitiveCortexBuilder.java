@@ -226,7 +226,7 @@ final class CognitiveCortexBuilder {
             MemorySegment insulaSlice = runtimeBundle.regionSegment(RegionId.INSULA);
             insularCortex = InsularCortex.fromBundle(runtimeBundle.arena(), insulaSlice, isNewRuntime);
 
-            MemorySegment continuitySlice = runtimeBundle.regionSegment(RegionId.CONTINUITY);
+            MemorySegment continuitySlice = runtimeBundle.optionalRegionSegment(RegionId.CONTINUITY);
             if (continuitySlice != null) {
                 continuityMemory = ContinuityRecordMemory.fromBundle(runtimeBundle.arena(), continuitySlice, isNewRuntime);
             }

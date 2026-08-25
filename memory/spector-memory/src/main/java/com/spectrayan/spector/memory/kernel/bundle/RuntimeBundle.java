@@ -241,6 +241,37 @@ public final class RuntimeBundle implements AutoCloseable {
     }
 
     /**
+     * Checks whether the runtime bundle contains the specified region.
+     */
+    public boolean hasRegion(RegionId id) {
+        long stamp = remapLock.tryOptimisticRead();
+        Map<RegionId, MemorySegment> slices = this.regionSlices;
+        if (remapLock.validate(stamp) && slices.containsKey(id)) {
+            return true;
+        }
+        stamp = remapLock.readLock();
+        try {
+            return this.regionSlices.containsKey(id) || directory.findRegion(id) != null;
+        } finally {
+            remapLock.unlockRead(stamp);
+        }
+    }
+
+    /**
+     * Returns the region slice for the specified region if present, or {@code null} if not found.
+     */
+    public MemorySegment optionalRegionSegment(RegionId id) {
+        if (!hasRegion(id)) {
+            return null;
+        }
+        try {
+            return regionSegment(id);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
      * Returns the shared arena. Stores must <b>not</b> close this arena.
      */
     public Arena arena() {
