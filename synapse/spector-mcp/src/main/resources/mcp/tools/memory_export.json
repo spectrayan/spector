@@ -1,0 +1,18 @@
+{
+  "name": "memory_export",
+  "description": "Export all memories as a JSON array. Each entry contains the full cognitive profile: text, memory type, source, tags, importance, valence, arousal, recall counts, storage strength, synaptic tags bloom filter, flags, and physical location. Use for backup, migration to other systems, audit, or debugging. For filtered exports, use memory_browse with tag filters first.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "format": {
+        "type": "string",
+        "description": "Export format: 'json' (default). Future: 'csv', 'markdown'.",
+        "default": "json"
+      }
+    }
+  }
+}

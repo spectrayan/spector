@@ -1,0 +1,45 @@
+{
+  "name": "memory_compute_importance",
+  "description": "Compute what importance a memory WOULD receive without actually storing it. Use this BEFORE memory_remember to preview novelty, detect duplicates, and understand how your ICNU hints affect the final score. Returns: novelty score (Spector-native), fused importance, nearest existing memory, and profile-specific importance variations. This is read-only — nothing is stored or modified.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "text"
+    ],
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The memory text to evaluate for importance."
+      },
+      "interest": {
+        "type": "number",
+        "description": "ICNU: how relevant to current task (0.0-1.0). High for directly actionable info.",
+        "default": 0.0
+      },
+      "challenge": {
+        "type": "number",
+        "description": "ICNU: how complex or difficult the problem is (0.0-1.0). High for novel technical problems.",
+        "default": 0.0
+      },
+      "urgency": {
+        "type": "number",
+        "description": "ICNU: how time-critical this information is (0.0-1.0). High for deadlines, incidents.",
+        "default": 0.0
+      },
+      "valence": {
+        "type": "number",
+        "description": "Emotional valence: -128 (extremely negative) to +127 (extremely positive). 0 = neutral.",
+        "default": 0
+      },
+      "arousal": {
+        "type": "number",
+        "description": "Emotional intensity: 0 (calm) to 255 (extreme). 0 = neutral.",
+        "default": 0
+      }
+    }
+  }
+}

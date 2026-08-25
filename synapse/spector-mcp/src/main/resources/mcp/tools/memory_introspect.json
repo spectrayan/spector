@@ -1,0 +1,20 @@
+{
+  "name": "memory_introspect",
+  "description": "Introspect the agent's knowledge about a topic. Returns confidence, knowledge gaps, staleness, and actionable recommendations. Use this before answering questions to check if you have reliable knowledge.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "topic"
+    ],
+    "properties": {
+      "topic": {
+        "type": "string",
+        "description": "The topic to introspect (e.g., 'kubernetes', 'user preferences')."
+      }
+    }
+  }
+}

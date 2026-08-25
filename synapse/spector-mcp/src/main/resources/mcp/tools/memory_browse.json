@@ -1,0 +1,20 @@
+{
+  "name": "memory_browse",
+  "description": "Browse memories by tag — no vector search needed. Returns all memories matching the given tags (AND: must contain ALL tags). Useful for auditing ('show me everything tagged payments'), knowledge review ('list architecture decisions'), and bulk operations. Use comma-separated tags for multiple filters.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "tags"
+    ],
+    "properties": {
+      "tags": {
+        "type": "string",
+        "description": "Comma-separated tags to filter by (AND semantics). Example: 'payments,architecture' returns memories with BOTH tags."
+      }
+    }
+  }
+}

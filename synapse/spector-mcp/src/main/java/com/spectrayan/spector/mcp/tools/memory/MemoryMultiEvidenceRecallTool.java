@@ -34,40 +34,14 @@ import io.modelcontextprotocol.spec.McpSchema;
  */
 public final class MemoryMultiEvidenceRecallTool extends MemoryToolHandler {
 
+    public static final String NAME = "memory_multi_evidence_recall";
+
     public MemoryMultiEvidenceRecallTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     public MemoryMultiEvidenceRecallTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override
-    public String name() {
-        return "memory_multi_evidence_recall";
-    }
-
-    @Override
-    public Set<String> requiredScopes() {
-        return Set.of(SpectorScopes.MEMORY_READ);
-    }
-
-    @Override
-    public String description() {
-        return "Recalls contradictory and evolving facts about an entity or query, "
-                + "returning competing hypothesis clusters, epistemic confidence spread, "
-                + "and recommended action policies (ACCEPT_WINNER, PRESENT_ALTERNATIVES, "
-                + "ASK_CLARIFYING_QUESTION, ABSTAIN).";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("query", "Natural language query or topic to evaluate.")
-                .optionalString("subject", "Specific subject entity name to check for bitemporal conflicts.", "")
-                .optionalString("predicate", "Specific relationship predicate to check.", "")
-                .optionalInt("top_k", "Number of memory evidence items to return (1-20).", 5)
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override

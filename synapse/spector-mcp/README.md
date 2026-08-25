@@ -26,34 +26,29 @@ Total overhead: 88µs p50 per query (23-113x faster than Python MCP servers)
 ### Module Structure
 
 ```
-spector-mcp/src/main/java/com/spectrayan/spector/mcp/
-├── SpectorMcpServer.java          ← Thin orchestrator (accepts SpectorMemory)
-├── SpectorMcpMain.java            ← CLI entry point
-├── schema/
-│   └── ToolSchemaBuilder.java     ← Type-safe fluent builder for JSON schemas
-├── tools/
-│   ├── McpToolHandler.java        ← Abstract base with timing, error handling
-│   ├── SpectorToolRegistry.java   ← Tool discovery & registration
-│   ├── EngineSearchTool.java
-│   ├── EngineHybridSearchTool.java
-│   ├── EngineRagTool.java
-│   ├── EngineIngestTool.java
-│   ├── EngineDeleteTool.java
-│   ├── EngineStatusTool.java
-│   ├── MemoryRememberTool.java
-│   ├── MemoryRecallTool.java
-│   ├── MemoryGraphRecallTool.java  ← Multi-hop GraphRAG relationship traversal
-│   ├── MemoryStatusTool.java
-│   ├── MemoryReinforceTool.java
-│   ├── MemoryForgetTool.java
-│   ├── MemoryIntrospectTool.java
-│   └── MemoryScratchpadTool.java
-├── resources/
-│   └── SpectorResourceProvider.java
-├── prompts/
-│   └── SpectorPromptProvider.java
-└── util/
-    └── ResultFormatter.java
+spector-mcp/
+├── src/main/java/com/spectrayan/spector/mcp/
+│   ├── SpectorMcpServer.java          ← Thin orchestrator (accepts SpectorMemory)
+│   ├── SpectorMcpMain.java            ← CLI entry point
+│   ├── spec/
+│   │   ├── McpToolSpec.java           ← Immutable tool contract record
+│   │   └── McpToolSpecLoader.java     ← Classpath Jackson loader & cache
+│   ├── schema/
+│   │   └── ToolSchemaBuilder.java     ← Programmatic schema builder
+│   ├── tools/
+│   │   ├── McpToolHandler.java        ← Base class (auto-binds to McpToolSpec)
+│   │   ├── SpectorToolRegistry.java   ← Tool discovery & registration
+│   │   └── memory/                    ← Pure execution handlers (22 tools)
+│   ├── resources/
+│   │   └── SpectorResourceProvider.java
+│   ├── prompts/
+│   │   └── SpectorPromptProvider.java
+│   └── util/
+│       ├── McpTemplateEngine.java     ← Handlebars engine for mcp/templates
+│       └── ResultFormatter.java
+└── src/main/resources/mcp/
+    ├── templates/                     ← Formatting templates (*.hbs)
+    └── tools/                         ← Declarative tool JSON specs (*.json)
 ```
 
 ## MCP Tools
@@ -163,40 +158,60 @@ Add to your `claude_desktop_config.json`:
 
 ### Adding a New Tool
 
-To add a new MCP tool, create a class extending `McpToolHandler` and register it:
+To add a new MCP tool:
 
-```java
-// 1. Create the tool (one focused class)
-public final class MyTool extends McpToolHandler {
-    @Override public String name() { return "my_tool"; }
-    @Override public String description() { return "Does something useful."; }
-    @Override public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("input", "The input.")
-                .optionalInt("count", "How many.", 5)
-                .build();
+1. **Define the declarative contract** in `src/main/resources/mcp/tools/{tool_name}.json`:
+```json
+{
+  "name": "my_tool",
+  "description": "Does something useful.",
+  "category": "MEMORY",
+  "scopes": ["spector:memory:read"],
+  "inputSchema": {
+    "type": "object",
+    "required": ["input"],
+    "properties": {
+      "input": { "type": "string", "description": "The input." },
+      "count": { "type": "integer", "description": "How many.", "default": 5 }
     }
-    @Override public CallToolResult execute(SpectorEngine engine, Map<String, Object> args) {
+  }
+}
+```
+
+2. **Implement the execution handler** extending `MemoryToolHandler` or `McpToolHandler`:
+```java
+public final class MyTool extends MemoryToolHandler {
+    public static final String NAME = "my_tool";
+
+    public MyTool(SpectorMemory memory) {
+        super(NAME, memory);
+    }
+
+    @Override
+    protected CallToolResult executeMemory(SpectorMemory memory, Map<String, Object> args) {
         String input = requireString(args, "input");
         int count = optionalInt(args, "count", 5);
         return textResult("Result: " + input);
     }
 }
+```
 
-// 2. Register in SpectorToolRegistry.handlers()  --  one line:
+3. **Register in `SpectorToolRegistry.handlers()`**:
+```java
 List.of(
     new EngineSearchTool(),
     // ... existing tools ...
-    new MyTool()  //  <-  add here
+    new MyTool(memory)
 );
 ```
 
 ### Key Design Decisions
 
-- **Template Method** (`McpToolHandler`)  --  timing, error handling, and arg parsing in the base class
-- **Builder Pattern** (`ToolSchemaBuilder`)  --  type-safe JSON schema, no nested `Map.of()`
-- **Open/Closed Principle** (`SpectorToolRegistry`)  --  add a tool = 1 class + 1 line
-- **Zero runtime overhead**  --  schemas built once, reused forever
+- **Declarative Tool Specs** (`ADR-001`)  --  JSON schemas defined on classpath in `mcp/tools/*.json`, automatically validated and loaded.
+- **Template Method** (`McpToolHandler`)  --  timing, error handling, security scopes, and argument parsing in the base class.
+- **Handlebars Engine** (`McpTemplateEngine`)  --  centralized formatting templates in `mcp/templates/*.hbs`.
+- **Open/Closed Principle** (`SpectorToolRegistry`)  --  add a tool = 1 JSON spec + 1 execution handler class.
+- **Zero runtime overhead**  --  specs parsed once at startup and cached in memory.
 
 ## Protocol Support
 

@@ -1,0 +1,25 @@
+{
+  "name": "memory_fact_history",
+  "description": "Retrieve the complete chronological evolution, supersession chain, and bitemporal validity intervals for an entity relationship. Enables multi-evidence timeline exploration and historical auditability.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "subject"
+    ],
+    "properties": {
+      "subject": {
+        "type": "string",
+        "description": "Subject entity name (e.g. 'Alice', 'career_goal')."
+      },
+      "predicate": {
+        "type": "string",
+        "description": "Relationship type or attribute name (e.g. 'works_at', 'role'). Default '*'.",
+        "default": "*"
+      }
+    }
+  }
+}

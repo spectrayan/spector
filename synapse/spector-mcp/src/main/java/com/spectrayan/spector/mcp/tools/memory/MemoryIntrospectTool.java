@@ -16,14 +16,11 @@
 package com.spectrayan.spector.mcp.tools.memory;
 
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Supplier;
-import com.spectrayan.spector.commons.security.SpectorScopes;
-import com.spectrayan.spector.commons.template.TemplateEngine;
 
+import com.spectrayan.spector.mcp.util.McpTemplateEngine;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.metamemory.MemoryInsight;
-import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
 
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -36,33 +33,15 @@ import io.modelcontextprotocol.spec.McpSchema;
  */
 public final class MemoryIntrospectTool extends MemoryToolHandler {
 
-    private static final TemplateEngine templateEngine = TemplateEngine.createDefault();
+    public static final String NAME = "memory_introspect";
 
     public MemoryIntrospectTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemoryIntrospectTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override public String name() { return "memory_introspect"; }
-
-    @Override public Set<String> requiredScopes() { return Set.of(SpectorScopes.MEMORY_READ); }
-
-    @Override
-    public String description() {
-        return "Introspect the agent's knowledge about a topic. Returns confidence, "
-                + "knowledge gaps, staleness, and actionable recommendations. "
-                + "Use this before answering questions to check if you have reliable knowledge.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("topic", "The topic to introspect (e.g., 'kubernetes', 'user preferences').")
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override
@@ -76,6 +55,6 @@ public final class MemoryIntrospectTool extends MemoryToolHandler {
                 "insight", insight
         );
 
-        return textResult(templateEngine.render("mcp/memory-introspect", model));
+        return textResult(McpTemplateEngine.render("memory-introspect", model));
     }
 }

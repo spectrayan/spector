@@ -16,15 +16,11 @@
 package com.spectrayan.spector.mcp.tools.memory;
 
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Supplier;
-import com.spectrayan.spector.commons.security.SpectorScopes;
-import com.spectrayan.spector.commons.template.TemplateEngine;
-
+import com.spectrayan.spector.mcp.util.McpTemplateEngine;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
 
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -33,30 +29,15 @@ import io.modelcontextprotocol.spec.McpSchema;
  */
 public final class MemoryStatusTool extends MemoryToolHandler {
 
-    private static final TemplateEngine templateEngine = TemplateEngine.createDefault();
+    public static final String NAME = "memory_status";
 
     public MemoryStatusTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemoryStatusTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override public String name() { return "memory_status"; }
-
-    @Override public Set<String> requiredScopes() { return Set.of(SpectorScopes.MEMORY_READ); }
-
-    @Override
-    public String description() {
-        return "View memory system statistics: total memories, per-tier counts, "
-                + "WAL event count, suppression set size, and pending reminders.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object().build();
+        super(NAME, memoryResolver);
     }
 
     @Override
@@ -83,6 +64,6 @@ public final class MemoryStatusTool extends MemoryToolHandler {
                 Map.entry("lateralHallucinationIndex", metrics.hallucinationIndex())
         );
 
-        return textResult(templateEngine.render("mcp/memory-status", model));
+        return textResult(McpTemplateEngine.render("memory-status", model));
     }
 }

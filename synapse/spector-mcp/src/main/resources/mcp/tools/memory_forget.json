@@ -1,0 +1,20 @@
+{
+  "name": "memory_forget",
+  "description": "Explicitly forget a memory by ID. The memory is tombstoned (logical deletion) and will be cleaned up during the next Deep Sleep consolidation cycle.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "memory_id"
+    ],
+    "properties": {
+      "memory_id": {
+        "type": "string",
+        "description": "The ID of the memory to forget."
+      }
+    }
+  }
+}

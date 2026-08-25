@@ -46,24 +46,44 @@ public abstract class MemoryToolHandler extends McpToolHandler {
     }
 
     /**
+     * Constructs a handler with a declarative tool name and a fixed memory instance.
+     *
+     * @param toolName the MCP tool name matching its specification in {@code /mcp/tools/*.json}
+     * @param memory   the cognitive memory instance
+     */
+    protected MemoryToolHandler(String toolName, SpectorMemory memory) {
+        super(toolName);
+        this.memoryResolver = memory != null ? () -> memory : () -> null;
+    }
+
+    /**
+     * Constructs a handler with a declarative tool name and a per-request memory resolver.
+     *
+     * @param toolName       the MCP tool name matching its specification in {@code /mcp/tools/*.json}
+     * @param memoryResolver supplier that resolves the active memory per request
+     */
+    protected MemoryToolHandler(String toolName, Supplier<SpectorMemory> memoryResolver) {
+        super(toolName);
+        this.memoryResolver = memoryResolver != null ? memoryResolver : () -> null;
+    }
+
+    /**
      * Constructs a handler with a fixed memory instance (standalone/OSS mode).
      *
      * @param memory the cognitive memory instance (may be null if not configured)
      */
     protected MemoryToolHandler(SpectorMemory memory) {
+        super();
         this.memoryResolver = memory != null ? () -> memory : () -> null;
     }
 
     /**
      * Constructs a handler with a per-request memory resolver (enterprise mode).
      *
-     * <p>The resolver is invoked on every tool call, allowing the enterprise layer
-     * to route to the authenticated user's tenant-scoped memory workspace via
-     * {@code AuthContextHolder}.</p>
-     *
      * @param memoryResolver supplier that resolves the active memory per request
      */
     protected MemoryToolHandler(Supplier<SpectorMemory> memoryResolver) {
+        super();
         this.memoryResolver = memoryResolver != null ? memoryResolver : () -> null;
     }
 

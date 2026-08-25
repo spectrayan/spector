@@ -189,7 +189,6 @@ nav:
       - GPU Acceleration: architecture/gpu-acceleration.md
       - Performance Tuning: operations/performance-tuning.md
       - Test Framework & LLM Judge: architecture/test-framework.md
-      - JDK API Status: getting-started/jdk-api-status.md
       - Security & Data:
           - "Encryption at Rest": architecture/encryption-at-rest.md
       - Deep Dives:

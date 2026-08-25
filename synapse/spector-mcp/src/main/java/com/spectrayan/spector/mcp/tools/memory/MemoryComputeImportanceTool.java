@@ -51,49 +51,15 @@ import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
  */
 public final class MemoryComputeImportanceTool extends MemoryToolHandler {
 
+    public static final String NAME = "memory_compute_importance";
+
     public MemoryComputeImportanceTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemoryComputeImportanceTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override public String name() { return "memory_compute_importance"; }
-
-    @Override public Set<String> requiredScopes() { return Set.of(SpectorScopes.MEMORY_READ); }
-
-    @Override
-    public String description() {
-        return "Compute what importance a memory WOULD receive without actually storing it. "
-                + "Use this BEFORE memory_remember to preview novelty, detect duplicates, "
-                + "and understand how your ICNU hints affect the final score. "
-                + "Returns: novelty score (Spector-native), fused importance, nearest existing memory, "
-                + "and profile-specific importance variations. "
-                + "This is read-only — nothing is stored or modified.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("text", "The memory text to evaluate for importance.")
-                .optionalNumber("interest",
-                        "ICNU: how relevant to current task (0.0-1.0). "
-                        + "High for directly actionable info.", 0.0)
-                .optionalNumber("challenge",
-                        "ICNU: how complex or difficult the problem is (0.0-1.0). "
-                        + "High for novel technical problems.", 0.0)
-                .optionalNumber("urgency",
-                        "ICNU: how time-critical this information is (0.0-1.0). "
-                        + "High for deadlines, incidents.", 0.0)
-                .optionalNumber("valence",
-                        "Emotional valence: -128 (extremely negative) to +127 (extremely positive). "
-                        + "0 = neutral.", 0)
-                .optionalNumber("arousal",
-                        "Emotional intensity: 0 (calm) to 255 (extreme). "
-                        + "0 = neutral.", 0)
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override

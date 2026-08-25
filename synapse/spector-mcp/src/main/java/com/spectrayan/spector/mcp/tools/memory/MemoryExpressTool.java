@@ -41,38 +41,14 @@ public final class MemoryExpressTool extends MemoryToolHandler {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    public static final String NAME = "memory_express";
+
     public MemoryExpressTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     public MemoryExpressTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override
-    public String name() {
-        return "memory_express";
-    }
-
-    @Override
-    public Set<String> requiredScopes() {
-        return Set.of(SpectorScopes.MEMORY_READ);
-    }
-
-    @Override
-    public String description() {
-        return "Multi-modal expressive persona synthesis compiling idiolect prompt directives, "
-                + "real-time affective vocal prosody (SSML), ARKit 52 facial blendshapes, "
-                + "and introspective monologues for sovereign digital persona interaction.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("query", "User query or stimulus for expressive synthesis")
-                .optionalString("userId", "Target user ID for persona resolution", null)
-                .optionalInt("limit", "Maximum candidate memories to recall", 5)
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override

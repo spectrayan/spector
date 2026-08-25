@@ -32,37 +32,14 @@ import io.modelcontextprotocol.spec.McpSchema;
  */
 public final class MemoryFactHistoryTool extends MemoryToolHandler {
 
+    public static final String NAME = "memory_fact_history";
+
     public MemoryFactHistoryTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     public MemoryFactHistoryTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override
-    public String name() {
-        return "memory_fact_history";
-    }
-
-    @Override
-    public Set<String> requiredScopes() {
-        return Set.of(SpectorScopes.MEMORY_READ);
-    }
-
-    @Override
-    public String description() {
-        return "Retrieve the complete chronological evolution, supersession chain, and "
-                + "bitemporal validity intervals for an entity relationship. Enables "
-                + "multi-evidence timeline exploration and historical auditability.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("subject", "Subject entity name (e.g. 'Alice', 'career_goal').")
-                .optionalString("predicate", "Relationship type or attribute name (e.g. 'works_at', 'role'). Default '*'.", "*")
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override

@@ -34,33 +34,15 @@ import com.spectrayan.spector.memory.SpectorMemory;
  */
 public final class MemorySuppressTool extends MemoryToolHandler {
 
+    public static final String NAME = "memory_suppress";
+
     public MemorySuppressTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemorySuppressTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override public String name() { return "memory_suppress"; }
-
-    @Override public Set<String> requiredScopes() { return Set.of(SpectorScopes.MEMORY_WRITE); }
-
-    @Override
-    public String description() {
-        return "Suppress or unsuppress a memory. Suppressed memories are hidden from "
-                + "recall without being deleted. Use SUPPRESS to hide irrelevant or "
-                + "outdated memories, UNSUPPRESS to restore them.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("memory_id", "The ID of the memory to suppress or unsuppress.")
-                .requiredString("action", "SUPPRESS or UNSUPPRESS.")
-                .optionalString("reason", "Why this memory is being suppressed (for audit trail).", "")
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override

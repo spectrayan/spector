@@ -1,0 +1,29 @@
+{
+  "name": "memory_suppress",
+  "description": "Suppress or unsuppress a memory. Suppressed memories are hidden from recall without being deleted. Use SUPPRESS to hide irrelevant or outdated memories, UNSUPPRESS to restore them.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "memory_id",
+      "action"
+    ],
+    "properties": {
+      "memory_id": {
+        "type": "string",
+        "description": "The ID of the memory to suppress or unsuppress."
+      },
+      "action": {
+        "type": "string",
+        "description": "SUPPRESS or UNSUPPRESS."
+      },
+      "reason": {
+        "type": "string",
+        "description": "Why this memory is being suppressed (for audit trail)."
+      }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "memory_express",
+  "description": "Multi-modal expressive persona synthesis compiling idiolect prompt directives, real-time affective vocal prosody (SSML), ARKit 52 facial blendshapes, and introspective monologues for sovereign digital persona interaction.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "query"
+    ],
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "User query or stimulus for expressive synthesis"
+      },
+      "userId": {
+        "type": "string",
+        "description": "Target user ID for persona resolution"
+      },
+      "limit": {
+        "type": "integer",
+        "description": "Maximum candidate memories to recall",
+        "default": 5
+      }
+    }
+  }
+}

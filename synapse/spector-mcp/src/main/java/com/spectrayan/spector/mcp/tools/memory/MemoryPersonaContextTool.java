@@ -33,35 +33,14 @@ public final class MemoryPersonaContextTool extends MemoryToolHandler {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    public static final String NAME = "memory_persona_context";
+
     public MemoryPersonaContextTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     public MemoryPersonaContextTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override
-    public String name() {
-        return "memory_persona_context";
-    }
-
-    @Override
-    public Set<String> requiredScopes() {
-        return Set.of(SpectorScopes.MEMORY_READ);
-    }
-
-    @Override
-    public String description() {
-        return "Inspects the active persona context including Idiolect linguistic DNA, "
-                + "Vocal Prosody acoustic profile, and Embodied Kinesics facial blendshape baselines.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .optionalString("userId", "Target user ID for persona resolution", null)
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override

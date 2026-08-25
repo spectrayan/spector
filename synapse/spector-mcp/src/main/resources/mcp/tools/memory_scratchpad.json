@@ -1,0 +1,20 @@
+{
+  "name": "memory_scratchpad",
+  "description": "Store a short-lived scratchpad note in working memory. Use this for in-progress reasoning, temporary hypotheses, or chain-of-thought steps. Working memory is volatile and auto-evicts old entries when capacity is reached.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "text"
+    ],
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The scratchpad note to store."
+      }
+    }
+  }
+}

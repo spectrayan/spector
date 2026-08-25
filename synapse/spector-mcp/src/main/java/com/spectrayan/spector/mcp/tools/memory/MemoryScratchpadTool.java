@@ -33,32 +33,15 @@ import io.modelcontextprotocol.spec.McpSchema;
  */
 public final class MemoryScratchpadTool extends MemoryToolHandler {
 
+    public static final String NAME = "memory_scratchpad";
+
     public MemoryScratchpadTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemoryScratchpadTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override public String name() { return "memory_scratchpad"; }
-
-    @Override public Set<String> requiredScopes() { return Set.of(SpectorScopes.MEMORY_WRITE); }
-
-    @Override
-    public String description() {
-        return "Store a short-lived scratchpad note in working memory. "
-                + "Use this for in-progress reasoning, temporary hypotheses, "
-                + "or chain-of-thought steps. Working memory is volatile and "
-                + "auto-evicts old entries when capacity is reached.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("text", "The scratchpad note to store.")
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override

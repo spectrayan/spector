@@ -1,0 +1,33 @@
+{
+  "name": "memory_multi_evidence_recall",
+  "description": "Recalls contradictory and evolving facts about an entity or query, returning competing hypothesis clusters, epistemic confidence spread, and recommended action policies (ACCEPT_WINNER, PRESENT_ALTERNATIVES, ASK_CLARIFYING_QUESTION, ABSTAIN).",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "query"
+    ],
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Natural language query or topic to evaluate."
+      },
+      "subject": {
+        "type": "string",
+        "description": "Specific subject entity name to check for bitemporal conflicts."
+      },
+      "predicate": {
+        "type": "string",
+        "description": "Specific relationship predicate to check."
+      },
+      "top_k": {
+        "type": "integer",
+        "description": "Number of memory evidence items to return (1-20).",
+        "default": 5
+      }
+    }
+  }
+}
