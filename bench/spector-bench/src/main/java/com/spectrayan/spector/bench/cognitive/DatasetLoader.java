@@ -292,10 +292,10 @@ public final class DatasetLoader {
             }
         }
 
-        byte valence = (byte) node.get("valence").asInt();
+        byte valence = (byte) node.path("valence").asInt(0);
 
         // importance: clamp to [0.05, 10.0]
-        float importance = (float) node.get("importance").asDouble();
+        float importance = (float) node.path("importance").asDouble(1.0);
         if (importance < IMPORTANCE_MIN) {
             log.warn("Corpus line {} in {}: importance {} below minimum, clamping to {}",
                     lineNumber, file, importance, IMPORTANCE_MIN);
@@ -307,7 +307,7 @@ public final class DatasetLoader {
         }
 
         // arousal: clamp to [0, 255]
-        int arousal = node.get("arousal").asInt();
+        int arousal = node.path("arousal").asInt(0);
         if (arousal < AROUSAL_MIN) {
             log.warn("Corpus line {} in {}: arousal {} below minimum, clamping to {}",
                     lineNumber, file, arousal, AROUSAL_MIN);
@@ -318,35 +318,42 @@ public final class DatasetLoader {
             arousal = AROUSAL_MAX;
         }
 
-        String sessionId = node.get("sessionId").asText();
-        long timestampMs = node.get("timestampMs").asLong();
+        String sessionId = node.path("sessionId").asText("");
+        long timestampMs = node.path("timestampMs").asLong(1700000000000L);
 
         List<EntityMention> entityMentions = new ArrayList<>();
         JsonNode mentionsNode = node.get("entityMentions");
         if (mentionsNode != null && mentionsNode.isArray()) {
             for (JsonNode mention : mentionsNode) {
-                String name = mention.get("name").asText();
-                String type = mention.get("type").asText();
-                entityMentions.add(new EntityMention(name, type));
+                String name = mention.path("name").asText("");
+                String type = mention.path("type").asText("CONCEPT");
+                if (!name.isBlank()) {
+                    entityMentions.add(new EntityMention(name, type));
+                }
             }
         }
 
-        String memoryTypeStr = node.get("memoryType").asText();
+        String memoryTypeStr = node.path("memoryType").asText("EPISODIC");
         MemoryType memoryType = MemoryType.valueOf(memoryTypeStr);
 
         // Accept both 'agentRecallCount' (new) and 'recallCount' (legacy dataset format)
         JsonNode recallNode = node.get("agentRecallCount");
         if (recallNode == null) recallNode = node.get("recallCount");
-        int agentRecallCount = recallNode != null ? recallNode.asInt() : 0;
+        int agentRecallCount = recallNode != null ? recallNode.asInt(0) : 0;
         if (agentRecallCount < RECALL_COUNT_MIN) {
             log.warn("Corpus line {} in {}: agentRecallCount {} below minimum, clamping to {}",
                     lineNumber, file, agentRecallCount, RECALL_COUNT_MIN);
             agentRecallCount = RECALL_COUNT_MIN;
         }
 
+        float interest = (float) node.path("interest").asDouble(0.5);
+        float challenge = (float) node.path("challenge").asDouble(0.5);
+        float urgency = (float) node.path("urgency").asDouble(0.5);
+
         return new BenchmarkCorpusRecord(
                 id, text, title, synapticTags, valence, importance, arousal,
-                sessionId, timestampMs, entityMentions, memoryType, agentRecallCount
+                sessionId, timestampMs, entityMentions, memoryType, agentRecallCount,
+                interest, challenge, urgency
         );
     }
 
