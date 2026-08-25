@@ -129,12 +129,12 @@ Spector 1.3.0 consolidates all sleep reflection operations into a single composa
 
 ```mermaid
 graph LR
-    subgraph "NREM Deep Sleep"
+    subgraph "NREM Slow-Wave Sleep (SWS)"
         R1["1. SynapticPruningRelay<br/><i>Downscaling & compaction</i>"]
+        R2["2. EpisodicLogConsolidationRelay<br/><i>Systems replay & gist extraction</i>"]
     end
     subgraph "REM Dream Sleep"
-        R2["2. EpisodicLogConsolidationRelay<br/><i>Session turn gist extraction</i>"]
-        R3["3. SoulDriftRefusionRelay<br/><i>#503 Soul drift re-fusion</i>"]
+        R3["3. SoulDriftRefusionRelay<br/><i>#503 Affective restamping & soul re-fusion</i>"]
         R4["4. ProactiveInterferenceRelay<br/><i>Near-duplicate decay</i>"]
     end
     subgraph "Synaptic Homeostasis & Maintenance"
@@ -150,8 +150,10 @@ graph LR
     R1 --> R2 --> R3 --> R4 --> R5 --> R6 --> R7 --> R8 --> R9
 ```
 
-### Soul-Drift Re-Fusion (#503)
-When an agent's cognitive soul or personality configuration evolves, older memories retained with stale soul version stamps undergo re-fusion during REM sleep. The `SoulDriftRefusionRelay` identifies candidates with `header.soulVersion() < currentSoulVersion`, prioritizes candidates via a max-heap of encoding surprise z-scores, re-scores importance using current ICNU/salience parameters, and stamps updated headers in-place.
+### Systems Consolidation & Soul-Drift Re-Fusion (#503)
+Following biological systems consolidation (Diekelmann & Born, 2010), declarative memory replay and gist abstraction occur predominantly during **NREM Slow-Wave Sleep (SWS)**. Emotional restamping and persona realignment occur during **REM Sleep**. 
+
+When an agent's cognitive soul or personality configuration evolves, older memories retained with stale soul version stamps undergo re-fusion during REM reflection. The `SoulDriftRefusionRelay` identifies candidates with `header.soulVersion() < currentSoulVersion`, prioritizes candidates via a max-heap of encoding surprise z-scores, adapts the generative prior mean toward the autobiographical centroid, re-scores importance using current ICNU/salience parameters and header-derived hints, and stamps updated headers in-place.
 
 ---
 

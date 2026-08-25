@@ -42,7 +42,7 @@ import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstant
  *   Phase 3: Valence filter           (~2 cycles)  — skip outside valence range
  *   Phase 4: Temporal/importance pre-screen         — skip stale, low-importance
  *   Phase 5: Vector distance          (~200 cycles) — calibrated INT8 L2 distance
- *   Phase 6: Fused cognitive score    (~7 cycles)   — α·similarity + β·importance·decay
+ *   Phase 6: Fused cognitive score    (~7 cycles)   — MULTIPLICATIVE / ADDITIVE (α·sim + (1-α)·tag) + prior
  * </pre>
  *
  * <h3>Biological Analog: Sensory Gating + Fused Retrieval</h3>

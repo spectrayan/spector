@@ -37,10 +37,10 @@ import net.jqwik.api.Provide;
 /**
  * Property-based tests for the fused scoring formula correctness.
  *
- * <p><b>Validates: Requirements 3.5</b>
+ * <p><b>Validates: Requirements 3.5 (MR-02)</b>
  *
  * <p>Property 10: For any valid scoring inputs, the CognitiveScorer SHALL compute
- * finalScore = (alpha Ã— similarity + beta Ã— importance Ã— decay) Ã— (1 + tagOverlap Ã— tagRelevanceBoost).
+ * fused scores according to the selected ScoreFusionMode (MULTIPLICATIVE or ADDITIVE).
  */
 class FusedScoreFormulaPropertyTest {
 

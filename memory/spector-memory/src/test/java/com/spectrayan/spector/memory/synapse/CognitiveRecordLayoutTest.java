@@ -32,12 +32,12 @@ class CognitiveRecordLayoutTest {
     private final CognitiveRecordLayout layout = new CognitiveRecordLayout(VECTOR_BYTES);
 
     @Test
-    void strideIs32PlusVectorBytes() {
+    void strideIs64PlusVectorBytes() {
         assertThat(layout.stride()).isEqualTo(64 + VECTOR_BYTES);
     }
 
     @Test
-    void vectorOffsetIs32() {
+    void vectorOffsetIs64() {
         assertThat(layout.vectorOffset(0)).isEqualTo(64);
         assertThat(layout.vectorOffset(832)).isEqualTo(896);
     }
