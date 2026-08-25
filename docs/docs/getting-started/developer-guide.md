@@ -95,10 +95,10 @@ Spector is a multi-module Maven project. Start with these areas when deciding wh
 
 | Area | Modules |
 | ---- | ------- |
-| Search, Storage & Core | `nucleus/spector-core`, `nucleus/spector-commons`, `nucleus/spector-config`, `nucleus/spector-storage` |
-| Cognitive Memory & Ingestion | `memory/spector-memory`, `memory/spector-index`, `memory/spector-query`, `memory/spector-gpu`, `memory/spector-provider-api`, `memory/spector-providers`, `memory/spector-ingestion` |
-| Gateways & Agentic Runtime | `synapse/spector-synapse`, `synapse/spector-mcp`, `synapse/spector-runtime`, `synapse/spector-cli`, `synapse/spector-client`, `synapse/spector-spring`, `synapse/spector-dist` |
-| Observability & Verification | `nucleus/spector-events`, `memory/spector-metrics`, `nucleus/spector-test-support`, `bench/spector-bench` |
+| Foundation & Acceleration | `nucleus/spector-bom`, `nucleus/spector-commons`, `nucleus/spector-config`, `nucleus/spector-core`, `nucleus/spector-cpu`, `nucleus/spector-gpu`, `nucleus/spector-hdc`, `nucleus/spector-index`, `nucleus/spector-events`, `nucleus/spector-test-support` |
+| Cognitive Memory & Ingestion | `memory/spector-memory`, `memory/spector-provider-api`, `memory/spector-providers`, `memory/spector-ingestion`, `memory/spector-inspect`, `memory/spector-metrics` |
+| Gateways, Runtime & Connectors | `synapse/spector-runtime`, `synapse/spector-synapse`, `synapse/spector-connector`, `synapse/spector-mcp`, `synapse/spector-cli`, `synapse/spector-client`, `synapse/spector-spring`, `synapse/spector-batch`, `synapse/spector-dist` |
+| Performance & Benchmarks | `bench/spector-bench` |
 
 For a deeper walkthrough, read the [architecture overview](../architecture/overview.md), [module guide](../modules/index.md), and module-specific README files.
 

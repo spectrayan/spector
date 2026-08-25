@@ -56,7 +56,7 @@ import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstant
  * <h3>Distance Computation</h3>
  * <p>
  * Phase 5 delegates to {@link SimilarityFunction#computeQuantizedFromSegment},
- * the same zero-copy off-heap SIMD kernel used by {@code spector-storage} and
+ * the same zero-copy off-heap SIMD kernel used by
  * {@code spector-index}. When calibration parameters
  * ({@code mins[]}/{@code scales[]})
  * are provided (from

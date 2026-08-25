@@ -22,7 +22,7 @@ This document defines the specialized **AI Developer Personas** used to automate
 
 ## ⚡ 2. The High-Performance Database Engineer
 *   **System Identifier**: `DbEngineer`
-*   **Focus Area**: `spector-core`, `spector-index`, `spector-query`, `spector-storage`
+*   **Focus Area**: `spector-core`, `spector-cpu`, `spector-gpu`, `spector-index`, `spector-memory`
 *   **Core Philosophy**: Enforce bare-metal C++ efficiency inside the JVM. Eradicate GC pauses, minimize lock contention, and maximize SIMD saturation.
 
 ### 📋 Core Directives

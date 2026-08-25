@@ -25,8 +25,7 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
  * Read/write operations for cognitive memory records.
  *
  * <p>A cognitive record = 64-byte synaptic header + quantized vector payload.
- * This layout does <em>not</em> extend or modify the existing {@code VectorStoreLayout}
- * in {@code spector-storage}. It is a new, independent layout specific to
+ * This layout is the zero-copy Panama FFM memory layout specific to
  * {@code spector-memory}.</p>
  *
  * <h3>Biological Analog: The Synaptic Tag</h3>

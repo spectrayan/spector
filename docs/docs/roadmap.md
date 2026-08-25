@@ -739,12 +739,9 @@ The 4-byte `float32 exactNormSq` header is now compressed to 2 bytes using `floa
 
 Migrated all 6 concurrency sites from unstructured `ExecutorService` + `Future` to the JEP 505 `StructuredTaskScope` API, centralized in `ConcurrentTasks`:
 
-| Site | Module | Pattern | Benefit |
-|------|--------|---------|---------|
-| `HybridSearchOrchestrator` | spector-query | 2-way fan-out (keyword ∥ vector) | Auto-cancel sibling on failure |
-| `ClusterCoordinator` | spector-node | N-way shard fan-out | Auto-cancel all on shard failure |
-| `DistributedQueryCoordinator` | spector-node | N-way with timeout + partial results | Clean timeout via `awaitAll()` + `withTimeout()` |
-| `ParallelEmbeddingPipeline` | spector-embed-api | N-way batch embedding | Scope-per-call, no executor lifecycle |
+| `RecallPipeline` / `Gatherer` | spector-memory | Multi-way recall fan-out (keyword ∥ vector ∥ graph) | Auto-cancel sibling on failure |
+| `SynapseApplication` | spector-synapse | N-way request fan-out | Auto-cancel on worker failure |
+| `EmbeddingProvider` | spector-provider-api | N-way batch embedding | Scope-per-call, no executor lifecycle |
 | `ParallelPqTrainer` | spector-index | M-way K-Means subspace training | All-or-nothing structured scope |
 | `BM25Index` | spector-index | Parallel term scoring | Auto-cancel with sequential fallback |
 

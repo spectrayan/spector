@@ -44,34 +44,38 @@ java --add-modules jdk.incubator.vector -cp spector-core/target/classes \
 
 ```mermaid
 graph LR
-    subgraph "🔬 Foundation"
-        core["spector-core<br/>SIMD kernels"]
-        commons["spector-commons<br/>Chunkers, readers"]
-        storage["spector-storage<br/>Off-heap stores"]
+    subgraph "🔬 Foundation & Acceleration (nucleus/)"
+        core["spector-core<br/>Compute SPIs"]
+        cpu["spector-cpu<br/>SIMD kernels"]
+        gpu["spector-gpu<br/>CUDA via Panama"]
+        hdc["spector-hdc<br/>Hyperdimensional"]
+        index["spector-index<br/>HNSW, SpectorIndex, BM25"]
+        commons["spector-commons<br/>Common utilities"]
+        config["spector-config<br/>Configuration"]
+        events["spector-events<br/>Event bus"]
     end
 
-    subgraph "📊 Search"
-        index["spector-index<br/>HNSW, IVF-PQ, BM25"]
-        query["spector-query<br/>Hybrid + RRF"]
-    end
-
-    subgraph "🧠 Intelligence"
+    subgraph "🧠 Cognitive Memory (memory/)"
+        memory["spector-memory<br/>4-tier memory & daemons"]
         providerapi["spector-provider-api<br/>Provider SPI"]
         providers["spector-providers<br/>AI Providers"]
-        gpu["spector-gpu<br/>CUDA via Panama"]
+        ingestion["spector-ingestion<br/>Ingestion pipeline"]
+        metrics["spector-metrics<br/>Micrometer metrics"]
     end
 
-    subgraph "⚡ Applications"
-        engine["spector-engine<br/>Unified facade"]
-        server["spector-synapse<br/>REST / Spring Web"]
-        cluster["spector-synapse<br/>Distributed coordination"]
-        cli["spector-cli<br/>CLI tool"]
+    subgraph "⚡ Nervous System & Gateways (synapse/)"
+        runtime["spector-runtime<br/>Composition root"]
+        synapse["spector-synapse<br/>REST, gRPC, SSE & Chat"]
+        connector["spector-connector<br/>Camel connectors"]
+        mcp["spector-mcp<br/>MCP Server"]
+        cli["spector-cli<br/>spectorctl CLI"]
         client["spector-client<br/>Java SDK"]
         spring["spector-spring<br/>Spring AI"]
+        dist["spector-dist<br/>Fat JAR distribution"]
     end
 
-    subgraph "📈 Quality"
-        bench["spector-bench<br/>JMH benchmarks"]
+    subgraph "📈 Validation (bench/)"
+        bench["spector-bench<br/>JMH & cognitive benchmarks"]
     end
 ```
 

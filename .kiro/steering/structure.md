@@ -18,58 +18,52 @@ spector/
 
 | Layer | Directory | Modules | Depends On |
 |-------|-----------|---------|------------|
-| Foundation | `nucleus/` | bom, commons, core, config, storage, events, metrics, test-support | Each other only |
-| Cognitive Engine | `memory/` | provider-api, providers, index, query, gpu, ingestion, memory | Foundation |
-| Runtime/API | `synapse/` | runtime, mcp, cli, client, spring, synapse, dist | Foundation + Memory |
-| UI | `cortex/` | spector-cortex (Angular) | Synapse REST APIs |
-| Infrastructure | `bench/`, `deploy/` | spector-bench, Docker | Any |
-
-**Key rule:** `spector-memory` and `spector-engine` are independent peers — they never depend on each other. They are wired only at `SpectorRuntime`.
+| Foundation & Acceleration | `nucleus/` | bom, commons, core, cpu, gpu, hdc, index, config, events, test-support | Foundation only |
+| Cognitive Memory | `memory/` | provider-api, providers, ingestion, inspect, metrics, memory | Foundation |
+| Runtime & Gateways | `synapse/` | runtime, synapse, connector, mcp, cli, client, spring, batch, dist | Foundation + Memory |
+| Infrastructure & Benchmarks | `bench/`, `deploy/` | spector-bench, Docker | Foundation + Memory + Synapse |
 
 ## Module Breakdown
 
-### nucleus/ (Foundation)
+### nucleus/ (Foundation & Acceleration)
 
 | Module | Purpose |
 |--------|---------|
 | `spector-bom` | Bill of Materials — version alignment |
 | `spector-commons` | Shared utilities, exception framework, error codes |
-| `spector-core` | SIMD kernels, distance functions, data structures |
+| `spector-core` | Compute SPIs (Similarity, HNSW, SVASQ, MaxSim) and quantization |
+| `spector-cpu` | Java 25 Panama Vector SIMD acceleration kernels |
+| `spector-gpu` | Java 25 Panama FFM + CUDA GPU hardware acceleration kernels |
+| `spector-hdc` | Hyperdimensional computing vector algebra |
+| `spector-index` | In-memory vector indexes (HNSW, SpectorIndex) and keyword indexes (BM25, Splade) |
 | `spector-config` | Configuration loading (YAML, env, system props) |
-| `spector-storage` | Off-heap storage, Panama FFM arenas, WAL |
-| `spector-events` | Internal event system |
-| `spector-metrics` | Micrometer observability integration |
+| `spector-events` | Internal event bus and telemetry scope |
 | `spector-test-support` | Test utilities and fixtures |
 
 ### memory/ (Cognitive Engine)
 
 | Module | Purpose |
 |--------|---------|
-| `spector-provider-api` | Embedding provider SPI |
-| `spector-providers` | Provider implementations (Ollama, etc.) |
-| `spector-index` | HNSW index, quantization (SVASQ-8/4, IVF-PQ) |
-| `spector-query` | Hybrid retrieval, RRF fusion, scoring pipeline |
-| `spector-gpu` | Optional CUDA acceleration via Panama FFM |
-| `spector-ingestion` | Document ingestion pipeline |
-| `spector-memory` | Cognitive memory (4-tier cortex, Hebbian graphs, consolidation) |
+| `spector-provider-api` | Model-agnostic LLM/embedding provider SPI |
+| `spector-providers` | Concrete AI providers (Ollama, OpenAI, Google, Anthropic, ONNX) |
+| `spector-ingestion` | Document ingestion pipeline and multi-modal sensory extractors |
+| `spector-inspect` | Binary bundle inspection CLI |
+| `spector-metrics` | Micrometer and Prometheus observability metrics |
+| `spector-memory` | Cognitive memory engine (4-tier cortex, Bundle Kernel, Hebbian graphs, consolidation) |
 
-### synapse/ (Runtime & APIs)
+### synapse/ (Runtime & Gateways)
 
 | Module | Purpose |
 |--------|---------|
-| `spector-runtime` | Runtime orchestration, component assembly |
-| `spector-mcp` | MCP server (stdio + Streamable HTTP, 16 tools) |
-| `spector-cli` | Command-line interface |
+| `spector-runtime` | Runtime orchestration, composition root |
+| `spector-synapse` | Armeria REST/gRPC/SSE gateway and agentic chat graph |
+| `spector-connector` | Enterprise data connectors powered by Apache Camel |
+| `spector-mcp` | MCP server (stdio + SSE, 20 tools) |
+| `spector-cli` | `spectorctl` CLI |
 | `spector-client` | Java client SDK |
-| `spector-spring` | Spring Boot / Spring AI integration |
-| `spector-synapse` | Armeria-based REST/gRPC gateway (built with `-Psynapse` profile) |
+| `spector-spring` | Spring Boot / Spring AI VectorStore integration |
+| `spector-batch` | Batch migration and re-indexing engine |
 | `spector-dist` | Distribution fat JAR |
-
-### cortex/ (UI — Angular 22, separate from Maven)
-
-| Module | Purpose |
-|--------|---------|
-| `spector-cortex` | Three.js neural dashboard, real-time memory visualization |
 
 ## Key Paths
 

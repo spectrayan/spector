@@ -39,8 +39,8 @@ import java.util.Optional;
  *
  * <h3>Distance Computation</h3>
  * <p>Delegates to {@link SimilarityFunction#computeQuantizedFromSegment} — the
- * same zero-copy off-heap kernel used by {@code CognitiveScorer}, {@code spector-storage},
- * and {@code spector-index}. Accepts optional calibration parameters from
+ * same zero-copy off-heap kernel used by {@code CognitiveScorer} and
+ * {@code spector-index}. Accepts optional calibration parameters from
  * {@link com.spectrayan.spector.core.quantization.ScalarQuantizer} for accurate
  * per-dimension affine dequantization.</p>
  */
