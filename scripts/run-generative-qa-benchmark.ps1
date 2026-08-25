@@ -3,9 +3,14 @@ param(
     [int]$Limit = 10,
     [int]$TopK = 10,
     [int]$DelayMs = 500,
-    [string]$GeneratorModel = "glm-4.7-flash:latest",
-    [string]$JudgeModel = "glm-4.7-flash:latest"
+    [string]$GeneratorModel = "llama3.1:latest",
+    [string]$JudgeModel = "",
+    [switch]$Fresh
 )
+
+if (-not $JudgeModel) {
+    $JudgeModel = $GeneratorModel
+}
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -14,6 +19,11 @@ $DatasetsBase = (Resolve-Path (Join-Path $SpectorRoot "../spector-datasets")).Pa
 $DatasetDir = Join-Path $DatasetsBase "$Dataset/data"
 $OutputDir = Join-Path $DatasetsBase "$Dataset/results"
 $CandidatesFile = Join-Path $OutputDir "retrieved_candidates.jsonl"
+$CheckpointFile = Join-Path $OutputDir "qa_eval_checkpoint.jsonl"
+
+if ($Fresh -and (Test-Path $CheckpointFile)) {
+    Remove-Item $CheckpointFile -Force -ErrorAction SilentlyContinue
+}
 
 Write-Host "=================================================================" -ForegroundColor Cyan
 Write-Host " Spector Memory -- Generative QA (J-Score) Benchmark Pipeline" -ForegroundColor Cyan
@@ -69,6 +79,10 @@ $PythonArgs = @(
     "--delay-ms", "$DelayMs",
     "--limit", "$Limit"
 )
+
+if ($Fresh) {
+    $PythonArgs += "--fresh"
+}
 
 & python $PythonArgs
 

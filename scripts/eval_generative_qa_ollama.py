@@ -153,15 +153,24 @@ def main():
     parser = argparse.ArgumentParser(description="Run End-to-End Generative QA Evaluation on Spector Memory using Local Ollama")
     parser.add_argument("--candidates-file", type=str, required=True, help="Path to retrieved_candidates.jsonl exported from Spector")
     parser.add_argument("--output-dir", type=str, default="", help="Output directory for reports (default: candidates-file directory)")
-    parser.add_argument("--generator-model", type=str, default="glm-4.7-flash:latest", help="Ollama model for answering questions")
-    parser.add_argument("--judge-model", type=str, default="glm-4.7-flash:latest", help="Ollama model for grading answers")
+    parser.add_argument("--model", type=str, default="", help="Unified model name for both generation and judging")
+    parser.add_argument("--generator-model", type=str, default="llama3.1:latest", help="Ollama model for answering questions")
+    parser.add_argument("--judge-model", type=str, default="", help="Ollama model for grading answers (defaults to generator model)")
     parser.add_argument("--ollama-url", type=str, default="http://127.0.0.1:11434", help="Ollama endpoint URL")
     parser.add_argument("--delay-ms", type=int, default=500, help="Delay in milliseconds between Ollama calls (pacing/thermal stability)")
     parser.add_argument("--top-k-context", type=int, default=5, help="Number of top candidates to include in LLM context (default: 5)")
     parser.add_argument("--limit", type=int, default=0, help="Limit number of queries to evaluate (0 = all)")
     parser.add_argument("--resume", action="store_true", default=False, help="Resume from existing checkpoint file")
+    parser.add_argument("--fresh", action="store_true", default=False, help="Start evaluation from scratch and overwrite checkpoint")
 
     args = parser.parse_args()
+
+    # Synchronize models if unified --model is passed
+    if args.model:
+        args.generator_model = args.model
+        args.judge_model = args.model
+    elif not args.judge_model:
+        args.judge_model = args.generator_model
 
     candidates_path = os.path.abspath(args.candidates_file)
     if not os.path.exists(candidates_path):
@@ -172,6 +181,8 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
 
     checkpoint_file = os.path.join(out_dir, "qa_eval_checkpoint.jsonl")
+    if args.fresh and os.path.exists(checkpoint_file):
+        os.remove(checkpoint_file)
     report_file = os.path.join(out_dir, "qa_generative_report.md")
     matrix_file = os.path.join(out_dir, "qa_matrix.json")
 
