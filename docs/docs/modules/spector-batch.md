@@ -1,0 +1,1 @@
+﻿--8<-- "synapse/spector-batch/README.md"
