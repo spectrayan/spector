@@ -18,11 +18,9 @@ package com.spectrayan.spector.mcp.tools.memory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Supplier;
 
-import com.spectrayan.spector.commons.security.SpectorScopes;
-import com.spectrayan.spector.commons.template.TemplateEngine;
+import com.spectrayan.spector.mcp.util.McpTemplateEngine;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.BigFiveTraits;
 import com.spectrayan.spector.memory.model.CommunicationStyle;
@@ -57,75 +55,15 @@ import io.modelcontextprotocol.spec.McpSchema;
  */
 public final class MemorySalienceTool extends MemoryToolHandler {
 
+    public static final String NAME = "memory_salience";
+
     public MemorySalienceTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemorySalienceTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override public String name() { return "memory_salience"; }
-
-    @Override public Set<String> requiredScopes() {
-        return Set.of(SpectorScopes.MEMORY_WRITE);
-    }
-
-    @Override
-    public String description() {
-        return "Manage the active salience profile — controls what matters to the agent. "
-                + "Operations: 'get' (view current profile), 'set' (replace profile), "
-                + "'compute_boost' (preview importance boost for text), "
-                + "'add_interest' (add interest topic), 'add_disinterest' (add dampened topic), "
-                + "'set_persona' (set personality/identity context). "
-                + "Use this to personalize memory scoring for different users or agents.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("operation",
-                        "Operation to perform: get, set, compute_boost, add_interest, "
-                        + "add_disinterest, set_persona.")
-                .optionalString("text",
-                        "Text to compute boost for (required for compute_boost).", "")
-                .optionalString("topic",
-                        "Interest/disinterest topic in natural language "
-                        + "(required for add_interest, add_disinterest).", "")
-                .optionalString("level",
-                        "Interest level: CRITICAL, HIGH, MEDIUM, LOW, IGNORE "
-                        + "(for add_interest/add_disinterest).", "HIGH")
-                .optionalString("occupation",
-                        "Occupation text for set_persona.", "")
-                .optionalString("about",
-                        "Self-description/bio for set_persona.", "")
-                .optionalInt("openness",
-                        "Big Five Openness (0-100) for set_persona.", 50)
-                .optionalInt("conscientiousness",
-                        "Big Five Conscientiousness (0-100) for set_persona.", 50)
-                .optionalInt("extraversion",
-                        "Big Five Extraversion (0-100) for set_persona.", 50)
-                .optionalInt("agreeableness",
-                        "Big Five Agreeableness (0-100) for set_persona.", 50)
-                .optionalInt("neuroticism",
-                        "Big Five Neuroticism (0-100) for set_persona.", 50)
-                .optionalString("stress_response",
-                        "Stress response: ADAPTIVE, FIGHT, FLIGHT, FREEZE, FAWN (for set_persona).", "ADAPTIVE")
-                .optionalString("icnu_interest",
-                        "ICNU Interest weight (0.0-1.0) for set operation.", "")
-                .optionalString("icnu_challenge",
-                        "ICNU Challenge weight (0.0-1.0) for set operation.", "")
-                .optionalString("icnu_novelty",
-                        "ICNU Novelty weight (0.0-1.0) for set operation.", "")
-                .optionalString("icnu_urgency",
-                        "ICNU Urgency weight (0.0-1.0) for set operation.", "")
-                .optionalString("agent_relevance_boost",
-                        "Agent expertise relevance boost (1.0-1.8). "
-                        + "Pre-computed scalar from agent soul expertise matching. "
-                        + "Default 1.0 (no effect). Set higher to boost memories "
-                        + "matching the agent's domain expertise.", "")
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override
@@ -145,8 +83,6 @@ public final class MemorySalienceTool extends MemoryToolHandler {
                     + "'. Valid: get, set, compute_boost, add_interest, add_disinterest, set_persona.");
         };
     }
-
-    private static final TemplateEngine templateEngine = TemplateEngine.createDefault();
 
     private McpSchema.CallToolResult handleGet(SpectorMemory memory) {
         SalienceProfile profile = memory.salienceProfile();
@@ -180,7 +116,7 @@ public final class MemorySalienceTool extends MemoryToolHandler {
                 Map.entry("hasAgentRelevanceBoost", profile.hasAgentRelevanceBoost())
         );
 
-        return textResult(templateEngine.render("mcp/memory-salience-profile", model));
+        return textResult(McpTemplateEngine.render("memory-salience-profile", model));
     }
 
     private McpSchema.CallToolResult handleSet(SpectorMemory memory, Map<String, Object> args) {
@@ -244,7 +180,7 @@ public final class MemorySalienceTool extends MemoryToolHandler {
                 Map.entry("combinedBoost", combinedBoost)
         );
 
-        return textResult(templateEngine.render("mcp/memory-salience-boost", model));
+        return textResult(McpTemplateEngine.render("memory-salience-boost", model));
     }
 
     private McpSchema.CallToolResult handleAddInterest(SpectorMemory memory,

@@ -16,17 +16,14 @@
 package com.spectrayan.spector.mcp.tools.memory;
 
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Supplier;
-import com.spectrayan.spector.commons.security.SpectorScopes;
+
+import com.spectrayan.spector.memory.SpectorMemory;
 
 import io.modelcontextprotocol.spec.McpSchema;
 
-import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
-import com.spectrayan.spector.memory.SpectorMemory;
-
 /**
- * MCP tool: {@code memory_export} — bulk export all memories as JSON.
+ * MCP tool: {@code memory_export} — export all memories as JSON.
  *
  * <p>Exports all live (non-tombstoned) memories as a JSON array.
  * Each memory includes its full cognitive profile: text, header fields,
@@ -39,36 +36,15 @@ import com.spectrayan.spector.memory.SpectorMemory;
  */
 public final class MemoryExportTool extends MemoryToolHandler {
 
+    public static final String NAME = "memory_export";
+
     public MemoryExportTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemoryExportTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override public String name() { return "memory_export"; }
-
-    @Override public Set<String> requiredScopes() { return Set.of(SpectorScopes.MEMORY_READ); }
-
-    @Override
-    public String description() {
-        return "Export all memories as a JSON array. "
-                + "Each entry contains the full cognitive profile: text, memory type, source, "
-                + "tags, importance, valence, arousal, recall counts, storage strength, "
-                + "synaptic tags bloom filter, flags, and physical location. "
-                + "Use for backup, migration to other systems, audit, or debugging. "
-                + "For filtered exports, use memory_browse with tag filters first.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        // No required arguments — exports everything
-        return ToolSchemaBuilder.object()
-                .optionalString("format",
-                        "Export format: 'json' (default). Future: 'csv', 'markdown'.", "json")
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override

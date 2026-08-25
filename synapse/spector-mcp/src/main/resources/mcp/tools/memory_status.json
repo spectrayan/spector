@@ -1,0 +1,12 @@
+{
+  "name": "memory_status",
+  "description": "View memory system statistics: total memories, per-tier counts, WAL event count, suppression set size, and pending reminders.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "properties": {}
+  }
+}

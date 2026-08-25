@@ -1,0 +1,25 @@
+{
+  "name": "memory_reinforce",
+  "description": "Report the outcome after using a recalled memory. If the memory helped solve the problem, reinforce positively (+50). If it was misleading, reinforce negatively (-50). This teaches the memory system which facts are reliable.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "memory_id",
+      "valence"
+    ],
+    "properties": {
+      "memory_id": {
+        "type": "string",
+        "description": "The ID of the memory to reinforce."
+      },
+      "valence": {
+        "type": "string",
+        "description": "Outcome: 'strongly_positive' (+100), 'positive' (+50), 'neutral' (0), 'negative' (-50), 'strongly_negative' (-100), or a numeric byte value (-128 to 127)."
+      }
+    }
+  }
+}

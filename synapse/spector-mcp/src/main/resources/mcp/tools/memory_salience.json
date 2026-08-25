@@ -1,0 +1,91 @@
+{
+  "name": "memory_salience",
+  "description": "Manage the active salience profile — controls what matters to the agent. Operations: 'get' (view current profile), 'set' (replace profile), 'compute_boost' (preview importance boost for text), 'add_interest' (add interest topic), 'add_disinterest' (add dampened topic), 'set_persona' (set personality/identity context). Use this to personalize memory scoring for different users or agents.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "operation"
+    ],
+    "properties": {
+      "operation": {
+        "type": "string",
+        "description": "Operation to perform: get, set, compute_boost, add_interest, add_disinterest, set_persona."
+      },
+      "text": {
+        "type": "string",
+        "description": "Text to compute boost for (required for compute_boost)."
+      },
+      "topic": {
+        "type": "string",
+        "description": "Interest/disinterest topic in natural language (required for add_interest, add_disinterest)."
+      },
+      "level": {
+        "type": "string",
+        "description": "Interest level: CRITICAL, HIGH, MEDIUM, LOW, IGNORE (for add_interest/add_disinterest).",
+        "default": "HIGH"
+      },
+      "occupation": {
+        "type": "string",
+        "description": "Occupation text for set_persona."
+      },
+      "about": {
+        "type": "string",
+        "description": "Self-description/bio for set_persona."
+      },
+      "openness": {
+        "type": "integer",
+        "description": "Big Five Openness (0-100) for set_persona.",
+        "default": 50
+      },
+      "conscientiousness": {
+        "type": "integer",
+        "description": "Big Five Conscientiousness (0-100) for set_persona.",
+        "default": 50
+      },
+      "extraversion": {
+        "type": "integer",
+        "description": "Big Five Extraversion (0-100) for set_persona.",
+        "default": 50
+      },
+      "agreeableness": {
+        "type": "integer",
+        "description": "Big Five Agreeableness (0-100) for set_persona.",
+        "default": 50
+      },
+      "neuroticism": {
+        "type": "integer",
+        "description": "Big Five Neuroticism (0-100) for set_persona.",
+        "default": 50
+      },
+      "stress_response": {
+        "type": "string",
+        "description": "Stress response: ADAPTIVE, FIGHT, FLIGHT, FREEZE, FAWN (for set_persona).",
+        "default": "ADAPTIVE"
+      },
+      "icnu_interest": {
+        "type": "string",
+        "description": "ICNU Interest weight (0.0-1.0) for set operation."
+      },
+      "icnu_challenge": {
+        "type": "string",
+        "description": "ICNU Challenge weight (0.0-1.0) for set operation."
+      },
+      "icnu_novelty": {
+        "type": "string",
+        "description": "ICNU Novelty weight (0.0-1.0) for set operation."
+      },
+      "icnu_urgency": {
+        "type": "string",
+        "description": "ICNU Urgency weight (0.0-1.0) for set operation."
+      },
+      "agent_relevance_boost": {
+        "type": "string",
+        "description": "Agent expertise relevance boost (1.0-1.8). Pre-computed scalar from agent soul expertise matching. Default 1.0 (no effect). Set higher to boost memories matching the agent's domain expertise."
+      }
+    }
+  }
+}

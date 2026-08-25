@@ -1,0 +1,30 @@
+{
+  "name": "memory_why_not",
+  "description": "Explain why a specific memory was NOT returned for a query. Diagnoses: not found, deleted, suppressed, outranked (below topK), or eliminated by pre-filters (tags/valence/importance). Always runs in OBSERVE mode (no state mutations).",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "memory_id",
+      "query"
+    ],
+    "properties": {
+      "memory_id": {
+        "type": "string",
+        "description": "The ID of the memory to investigate."
+      },
+      "query": {
+        "type": "string",
+        "description": "The query it was expected to match."
+      },
+      "top_k": {
+        "type": "integer",
+        "description": "The topK used in the original recall (default 5).",
+        "default": 5
+      }
+    }
+  }
+}

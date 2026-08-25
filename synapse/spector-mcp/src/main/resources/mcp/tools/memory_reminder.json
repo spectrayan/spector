@@ -1,0 +1,29 @@
+{
+  "name": "memory_reminder",
+  "description": "Schedule a prospective memory reminder. The reminder will be surfaced in future recall results after the specified delay. Use for 'remember to do X in Y minutes/hours' scenarios.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "text",
+      "delay_seconds"
+    ],
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The reminder text (what to remember)."
+      },
+      "delay_seconds": {
+        "type": "number",
+        "description": "Seconds from now until the reminder triggers (e.g., 3600 for 1 hour)."
+      },
+      "tags": {
+        "type": "string",
+        "description": "Comma-separated contextual tags."
+      }
+    }
+  }
+}

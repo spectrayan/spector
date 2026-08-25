@@ -46,87 +46,15 @@ import io.modelcontextprotocol.spec.McpSchema;
  */
 public final class MemoryRecallTool extends MemoryToolHandler {
 
+    public static final String NAME = "memory_recall";
+
     public MemoryRecallTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemoryRecallTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override public String name() { return "memory_recall"; }
-
-    @Override public Set<String> requiredScopes() { return Set.of(SpectorScopes.MEMORY_READ); }
-
-    @Override
-    public String description() {
-        return "Recall relevant memories using fused cognitive scoring across all memory tiers "
-                + "(Working, Episodic, Semantic, Procedural). Returns results with full provenance: "
-                + "confidence, age, importance, valence, source, and decay factors. "
-                + "Use 'profile' for preset scoring modes (e.g., DEBUGGING, EXPLORING, HYPERFOCUS). "
-                + "Use synaptic_filter for contextual pre-filtering (e.g., 'debugging,database'). "
-                + "Use 'point_in_time' for temporal queries (e.g., 'what did I know on March 15?'). "
-                + "Use 'workspace_id' + 'agent_id' for multi-agent shared memory.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("query", "Natural language query for memory recall.")
-                .optionalInt("top_k", "Number of results to return (1-50).", 5)
-                .optionalString("profile",
-                        "Cognitive scoring profile preset. Controls how memories are ranked. "
-                        + "Options: BALANCED (default), EXPLORING (creative/associative), "
-                        + "DEBUGGING (errors/failures), RECALLING (proven solutions), "
-                        + "CRITICAL (high-stakes), HYPERFOCUS (narrow deep-dive), "
-                        + "SYSTEMATIZER (encyclopedic detail), DIVERGENT (cross-domain), "
-                        + "PARANOID_SENTINEL (threat detection), THE_EXECUTOR (strict task), "
-                        + "HIGHLY_SENSITIVE (fine detail), DEFAULT_MODE_NETWORK (deep knowledge), "
-                        + "EXECUTIVE_DYSFUNCTION (associative context-driven recall), "
-                        + "auto (let the system choose based on context).", "")
-                .optionalString("synaptic_filter",
-                        "Comma-separated tags for Bloom filter pre-filtering.", "")
-                .optionalString("min_importance",
-                        "Minimum importance threshold (0.0-10.0).", "0.0")
-                .optionalString("min_valence",
-                        "Minimum valence filter (e.g., -128 for all, 10 for positive only).", "")
-                .optionalString("max_valence",
-                        "Maximum valence filter (e.g., -10 for failures only).", "")
-                .optionalString("recall_mode",
-                        "Controls whether recall mutates memory state. "
-                        + "LEARN (default): full biological memory, recall strengthens memories. "
-                        + "OBSERVE: pure read, no side effects, deterministic results.", "LEARN")
-                .optionalString("text_search_mode",
-                        "Controls text search retrieval path. "
-                        + "HYBRID (default): parallel vector + BM25 keyword search. "
-                        + "KEYWORD_ONLY: BM25 keyword search only. "
-                        + "VECTOR_ONLY: vector similarity only. "
-                        + "SPLADE: SPLADE learned sparse search only. "
-                        + "SPLADE_HYBRID: SPLADE + dense vector search. "
-                        + "LI_LSR: Li-LSR inference-free sparse search. "
-                        + "COLBERT_RERANK: hybrid search + ColBERT late-interaction reranking. "
-                        + "FULL_STACK: vector + BM25 + SPLADE + ColBERT reranking.", "HYBRID")
-                .optionalString("scoring_mode",
-                        "Controls how retrieved candidates are ranked. "
-                        + "COGNITIVE (default): full biological scoring — importance, decay, tag boost. "
-                        + "SIMILARITY: pure vector cosine similarity — ideal for search/retrieval benchmarks. "
-                        + "ASSOCIATIVE: context-driven recall using recent activity and causal predictions.", "COGNITIVE")
-                .optionalString("namespace",
-                        "Memory namespace to query. Isolates agent/user memory spaces. "
-                        + "Leave empty for default namespace.", "")
-                .optionalString("point_in_time",
-                        "ISO-8601 timestamp for temporal recall. Only memories created BEFORE this "
-                        + "time will be returned. Enables 'what did I know on date X?' queries. "
-                        + "Example: '2026-03-15T00:00:00Z'. Leave empty for current time.", "")
-                .optionalString("workspace_id",
-                        "Shared workspace ID for multi-agent recall. When set, recall is scoped "
-                        + "to the workspace's shared memory pool. Requires 'agent_id' for RBAC. "
-                        + "Leave empty for personal memory.", "")
-                .optionalString("agent_id",
-                        "Agent identity for workspace RBAC. Required when 'workspace_id' is set. "
-                        + "The agent must have read access to the workspace.", "")
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override

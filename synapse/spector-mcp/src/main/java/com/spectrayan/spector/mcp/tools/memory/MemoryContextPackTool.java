@@ -43,43 +43,14 @@ import io.modelcontextprotocol.spec.McpSchema;
  */
 public final class MemoryContextPackTool extends MemoryToolHandler {
 
+    public static final String NAME = "memory_context_pack";
+
     public MemoryContextPackTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     public MemoryContextPackTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override
-    public String name() {
-        return "memory_context_pack";
-    }
-
-    @Override
-    public Set<String> requiredScopes() {
-        return Set.of(SpectorScopes.MEMORY_READ);
-    }
-
-    @Override
-    public String description() {
-        return "Sub-millisecond hierarchical memory context pack assembly fusing Working, "
-                + "Episodic, Semantic, Procedural, and Graph context within a strict token budget. "
-                + "Essential for real-time persona dialogue and high-throughput agent execution.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("query", "Active conversational turn or task prompt.")
-                .optionalInt("token_budget", "Maximum token budget for assembled memory (default 3000).", 3000)
-                .optionalString("profile",
-                        "Cognitive scoring profile preset (e.g. BALANCED, RECALLING, THE_EXECUTOR).", "BALANCED")
-                .optionalString("persona_id", "Persona identifier for sovereign RBAC and identity gating.", "")
-                .optionalString("as_of", "ISO-8601 timestamp for temporal projection.", "")
-                .optionalString("conflict_mode",
-                        "Conflict resolution mode: MULTI_EVIDENCE, HIGHEST_CONFIDENCE, FAIL_CLOSED.", "MULTI_EVIDENCE")
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override

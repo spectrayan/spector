@@ -17,65 +17,34 @@ package com.spectrayan.spector.mcp.tools.memory;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Supplier;
-import com.spectrayan.spector.commons.security.SpectorScopes;
-import com.spectrayan.spector.commons.template.TemplateEngine;
+
+import com.spectrayan.spector.mcp.util.McpTemplateEngine;
+import com.spectrayan.spector.memory.model.CognitiveRecord;
+import com.spectrayan.spector.memory.SpectorMemory;
 
 import io.modelcontextprotocol.spec.McpSchema;
 
-import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
-import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.model.CognitiveRecord;
-
 /**
- * MCP tool: {@code memory_browse} — browse memories by tag without vector search.
+ * MCP tool: {@code memory_browse} — browse memories by tag.
  *
- * <p>Performs a metadata-only scan over the memory index, returning all memories
+ * <p>A fast, deterministic, non-vector search tool that returns all memories
  * that match the given tags (AND semantics). No embedding or similarity scoring
  * is involved — this is pure tag-based filtering.</p>
- *
- * <p>Use cases:</p>
- * <ul>
- *   <li>"Show me all memories tagged 'payments'" — audit and review</li>
- *   <li>"List everything tagged 'architecture' and 'decisions'" — knowledge graph</li>
- *   <li>"What did the agent learn about 'user-preferences'?" — debugging</li>
- * </ul>
  *
  * <p>Maps to {@link SpectorMemory#browse(String...)}.</p>
  */
 public final class MemoryBrowseTool extends MemoryToolHandler {
 
-    private static final TemplateEngine templateEngine = TemplateEngine.createDefault();
+    public static final String NAME = "memory_browse";
 
     public MemoryBrowseTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemoryBrowseTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override public String name() { return "memory_browse"; }
-
-    @Override public Set<String> requiredScopes() { return Set.of(SpectorScopes.MEMORY_READ); }
-
-    @Override
-    public String description() {
-        return "Browse memories by tag — no vector search needed. "
-                + "Returns all memories matching the given tags (AND: must contain ALL tags). "
-                + "Useful for auditing ('show me everything tagged payments'), "
-                + "knowledge review ('list architecture decisions'), "
-                + "and bulk operations. Use comma-separated tags for multiple filters.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("tags", "Comma-separated tags to filter by (AND semantics). "
-                        + "Example: 'payments,architecture' returns memories with BOTH tags.")
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override
@@ -107,6 +76,6 @@ public final class MemoryBrowseTool extends MemoryToolHandler {
                 "results", entries
         );
 
-        return textResult(templateEngine.render("mcp/memory-browse", model));
+        return textResult(McpTemplateEngine.render("memory-browse", model));
     }
 }

@@ -16,21 +16,17 @@
 package com.spectrayan.spector.mcp.tools.memory;
 
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Supplier;
-import com.spectrayan.spector.commons.security.SpectorScopes;
-import com.spectrayan.spector.commons.template.TemplateEngine;
 
+import com.spectrayan.spector.mcp.util.McpTemplateEngine;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.WhyNotExplanation;
-import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
 
 import io.modelcontextprotocol.spec.McpSchema;
 
 /**
- * MCP tool: {@code memory_why_not} — explain why a specific memory was NOT recalled.
+ * MCP tool: {@code memory_why_not} — explains recall misses.
  *
  * <p>When a developer or LLM expects a specific memory to be returned by a recall
  * query but it isn't, this tool diagnoses the exact reason: not found, tombstoned,
@@ -42,36 +38,15 @@ import io.modelcontextprotocol.spec.McpSchema;
  */
 public final class MemoryWhyNotTool extends MemoryToolHandler {
 
-    private static final TemplateEngine templateEngine = TemplateEngine.createDefault();
+    public static final String NAME = "memory_why_not";
 
     public MemoryWhyNotTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemoryWhyNotTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override public String name() { return "memory_why_not"; }
-
-    @Override public Set<String> requiredScopes() { return Set.of(SpectorScopes.MEMORY_READ); }
-
-    @Override
-    public String description() {
-        return "Explain why a specific memory was NOT returned for a query. "
-                + "Diagnoses: not found, deleted, suppressed, outranked (below topK), "
-                + "or eliminated by pre-filters (tags/valence/importance). "
-                + "Always runs in OBSERVE mode (no state mutations).";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("memory_id", "The ID of the memory to investigate.")
-                .requiredString("query", "The query it was expected to match.")
-                .optionalInt("top_k", "The topK used in the original recall (default 5).", 5)
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override
@@ -96,6 +71,6 @@ public final class MemoryWhyNotTool extends MemoryToolHandler {
                 Map.entry("summary", explanation.summary() != null ? explanation.summary() : "")
         );
 
-        return textResult(templateEngine.render("mcp/memory-why-not", model));
+        return textResult(McpTemplateEngine.render("memory-why-not", model));
     }
 }

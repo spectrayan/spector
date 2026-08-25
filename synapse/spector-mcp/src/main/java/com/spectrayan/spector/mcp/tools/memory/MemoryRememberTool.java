@@ -48,77 +48,15 @@ import org.slf4j.LoggerFactory;
 public final class MemoryRememberTool extends MemoryToolHandler {
 
     private static final Logger log = LoggerFactory.getLogger(MemoryRememberTool.class);
+    public static final String NAME = "memory_remember";
 
     public MemoryRememberTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemoryRememberTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override public String name() { return "memory_remember"; }
-
-    @Override public Set<String> requiredScopes() { return Set.of(SpectorScopes.MEMORY_WRITE); }
-
-    @Override
-    public String description() {
-        return "Store a memory with optional cognitive metadata. "
-                + "Use 'tier' to choose where it goes: WORKING (ephemeral scratchpad), "
-                + "EPISODIC (personal experiences with time context), "
-                + "SEMANTIC (facts and knowledge, default), "
-                + "PROCEDURAL (skills, patterns, how-to). "
-                + "Set 'interest', 'challenge', 'urgency' (0.0-1.0) for importance tuning. "
-                + "Set 'valence' for emotional memories (-128=very negative, +127=very positive). "
-                + "Set 'arousal' for intensity (0=calm, 255=extreme). "
-                + "Tags help with contextual recall (e.g., 'preferences', 'architecture'). "
-                + "Use 'workspace_id' + 'agent_id' to store in a shared workspace.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .optionalString("id", "Unique identifier for this memory. If omitted, a TSID is auto-generated.", "")
-                .requiredString("text", "The fact, experience, or knowledge to remember.")
-                .optionalString("tags", "Comma-separated contextual tags for Bloom filter encoding.", "")
-                .optionalString("source",
-                        "Memory source: USER_STATED, OBSERVED, INFERRED, PROCEDURAL.", "OBSERVED")
-                .optionalString("tier",
-                        "Memory tier: WORKING (ephemeral), EPISODIC (experiences), "
-                        + "SEMANTIC (facts, default), PROCEDURAL (skills/patterns).", "SEMANTIC")
-                .optionalNumber("interest",
-                        "ICNU: how relevant to current task (0.0-1.0). "
-                        + "High for directly actionable info.", 0.0)
-                .optionalNumber("challenge",
-                        "ICNU: how complex or difficult the problem is (0.0-1.0). "
-                        + "High for novel technical problems.", 0.0)
-                .optionalNumber("urgency",
-                        "ICNU: how time-critical this information is (0.0-1.0). "
-                        + "High for deadlines, incidents.", 0.0)
-                .optionalNumber("valence",
-                        "Emotional valence: -128 (extremely negative) to +127 (extremely positive). "
-                        + "0 = neutral. Use for emotionally significant memories.", 0)
-                .optionalNumber("arousal",
-                        "Emotional intensity: 0 (calm) to 255 (extreme). "
-                        + "0 = neutral. Auto-derived from |valence| if not set.", 0)
-                .optionalString("namespace",
-                        "Memory namespace to store into. Isolates agent/user memory spaces. "
-                        + "Leave empty for default namespace.", "")
-                .optionalString("metadata",
-                        "JSON object with multimodal metadata. Keys: "
-                        + "'modality' (TEXT/IMAGE/AUDIO/VIDEO), "
-                        + "'source_uri' (asset path/URL), "
-                        + "plus any custom key-value pairs. Example: "
-                        + "{\"modality\":\"IMAGE\",\"source_uri\":\"file:///photo.jpg\"}", "")
-                .optionalString("workspace_id",
-                        "Shared workspace ID for multi-agent storage. When set, the memory is "
-                        + "stored in the workspace's shared pool. Requires 'agent_id' for RBAC. "
-                        + "Leave empty for personal memory.", "")
-                .optionalString("agent_id",
-                        "Agent identity for workspace RBAC. Required when 'workspace_id' is set. "
-                        + "The agent must have write access to the workspace.", "")
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override

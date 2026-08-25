@@ -1,0 +1,43 @@
+{
+  "name": "memory_context_pack",
+  "description": "Sub-millisecond hierarchical memory context pack assembly fusing Working, Episodic, Semantic, Procedural, and Graph context within a strict token budget. Essential for real-time persona dialogue and high-throughput agent execution.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "query"
+    ],
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Active conversational turn or task prompt."
+      },
+      "token_budget": {
+        "type": "integer",
+        "description": "Maximum token budget for assembled memory (default 3000).",
+        "default": 3000
+      },
+      "profile": {
+        "type": "string",
+        "description": "Cognitive scoring profile preset (e.g. BALANCED, RECALLING, THE_EXECUTOR).",
+        "default": "BALANCED"
+      },
+      "persona_id": {
+        "type": "string",
+        "description": "Persona identifier for sovereign RBAC and identity gating."
+      },
+      "as_of": {
+        "type": "string",
+        "description": "ISO-8601 timestamp for temporal projection."
+      },
+      "conflict_mode": {
+        "type": "string",
+        "description": "Conflict resolution mode: MULTI_EVIDENCE, HIGHEST_CONFIDENCE, FAIL_CLOSED.",
+        "default": "MULTI_EVIDENCE"
+      }
+    }
+  }
+}

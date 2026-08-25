@@ -1,0 +1,79 @@
+{
+  "name": "memory_remember",
+  "description": "Store a memory with optional cognitive metadata. Use 'tier' to choose where it goes: WORKING (ephemeral scratchpad), EPISODIC (personal experiences with time context), SEMANTIC (facts and knowledge, default), PROCEDURAL (skills, patterns, how-to). Set 'interest', 'challenge', 'urgency' (0.0-1.0) for importance tuning. Set 'valence' for emotional memories (-128=very negative, +127=very positive). Set 'arousal' for intensity (0=calm, 255=extreme). Tags help with contextual recall (e.g., 'preferences', 'architecture'). Use 'workspace_id' + 'agent_id' to store in a shared workspace.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "text"
+    ],
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "Unique identifier for this memory. If omitted, a TSID is auto-generated."
+      },
+      "text": {
+        "type": "string",
+        "description": "The fact, experience, or knowledge to remember."
+      },
+      "tags": {
+        "type": "string",
+        "description": "Comma-separated contextual tags for Bloom filter encoding."
+      },
+      "source": {
+        "type": "string",
+        "description": "Memory source: USER_STATED, OBSERVED, INFERRED, PROCEDURAL.",
+        "default": "OBSERVED"
+      },
+      "tier": {
+        "type": "string",
+        "description": "Memory tier: WORKING (ephemeral), EPISODIC (experiences), SEMANTIC (facts, default), PROCEDURAL (skills/patterns).",
+        "default": "SEMANTIC"
+      },
+      "interest": {
+        "type": "number",
+        "description": "ICNU: how relevant to current task (0.0-1.0). High for directly actionable info.",
+        "default": 0.0
+      },
+      "challenge": {
+        "type": "number",
+        "description": "ICNU: how complex or difficult the problem is (0.0-1.0). High for novel technical problems.",
+        "default": 0.0
+      },
+      "urgency": {
+        "type": "number",
+        "description": "ICNU: how time-critical this information is (0.0-1.0). High for deadlines, incidents.",
+        "default": 0.0
+      },
+      "valence": {
+        "type": "number",
+        "description": "Emotional valence: -128 (extremely negative) to +127 (extremely positive). 0 = neutral. Use for emotionally significant memories.",
+        "default": 0
+      },
+      "arousal": {
+        "type": "number",
+        "description": "Emotional intensity: 0 (calm) to 255 (extreme). 0 = neutral. Auto-derived from |valence| if not set.",
+        "default": 0
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Memory namespace to store into. Isolates agent/user memory spaces. Leave empty for default namespace."
+      },
+      "metadata": {
+        "type": "string",
+        "description": "JSON object with multimodal metadata. Keys: 'modality' (TEXT/IMAGE/AUDIO/VIDEO), 'source_uri' (asset path/URL), plus any custom key-value pairs. Example: {\"modality\":\"IMAGE\",\"source_uri\":\"file:///photo.jpg\"}"
+      },
+      "workspace_id": {
+        "type": "string",
+        "description": "Shared workspace ID for multi-agent storage. When set, the memory is stored in the workspace's shared pool. Requires 'agent_id' for RBAC. Leave empty for personal memory."
+      },
+      "agent_id": {
+        "type": "string",
+        "description": "Agent identity for workspace RBAC. Required when 'workspace_id' is set. The agent must have write access to the workspace."
+      }
+    }
+  }
+}

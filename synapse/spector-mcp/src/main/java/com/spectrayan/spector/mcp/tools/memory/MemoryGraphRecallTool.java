@@ -42,53 +42,15 @@ public final class MemoryGraphRecallTool extends MemoryToolHandler {
     private static final int DEFAULT_MAX_HOPS = 3;
     private static final int DEFAULT_TOP_PATHS = 10;
 
+    public static final String NAME = "memory_graph_recall";
+
     public MemoryGraphRecallTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemoryGraphRecallTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override public String name() { return "memory_graph_recall"; }
-
-    @Override public Set<String> requiredScopes() { return Set.of(SpectorScopes.MEMORY_READ); }
-
-    @Override
-    public String description() {
-        return "Traverse Spector's knowledge graph across multi-hop entity relationships (GraphRAG). "
-                + "Discovers connections between entities through explicit facts (TemporalKnowledgeGraph) "
-                + "and co-occurrence hyperedges (HyperEntityGraph). Supports start entity targeting, "
-                + "pathfinding to a target entity, max hops bounding (1-5), entity type filtering "
-                + "(e.g., 'PERSON,ORGANIZATION,PROJECT'), and relation type filtering (e.g., 'works_at,leads'). "
-                + "Returns structured relational paths grounded in supporting cognitive memory text.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .optionalString("start_entity",
-                        "Focal entity name to begin traversal from (e.g. 'Alice', 'Sarah Chen'). "
-                        + "If omitted, entities are inferred from 'query'.", "")
-                .optionalString("query",
-                        "Natural language query or keywords used to discover starting entities when "
-                        + "'start_entity' is not provided.", "")
-                .optionalString("target_entity",
-                        "Optional destination entity to find relational path(s) to (point-to-point traversal).", "")
-                .optionalInt("max_hops",
-                        "Maximum traversal depth in hops (1-5, default: 3).", DEFAULT_MAX_HOPS)
-                .optionalString("entity_types",
-                        "Comma-separated list of entity types to filter by (e.g. 'PERSON,PROJECT,ORGANIZATION').", "")
-                .optionalString("relation_types",
-                        "Comma-separated list of relation / predicate types to filter by (e.g. 'works_at,leads,located_in').", "")
-                .optionalBoolean("include_memories",
-                        "Whether to include grounding text excerpts from linked cognitive memories (default: true).", true)
-                .optionalInt("top_paths",
-                        "Maximum number of discovered relational paths to return (1-50, default: 10).", DEFAULT_TOP_PATHS)
-                .optionalString("as_of", "ISO-8601 timestamp for point-in-time temporal queries (e.g., '2025-06-15T00:00:00Z'). When provided, only facts valid at this timestamp are traversed.", "")
-                .optionalBoolean("include_superseded", "Whether to include superseded (retracted) facts in traversal (default: false).", false)
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override

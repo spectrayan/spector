@@ -33,36 +33,15 @@ import io.modelcontextprotocol.spec.McpSchema;
  */
 public final class MemoryReinforceTool extends MemoryToolHandler {
 
+    public static final String NAME = "memory_reinforce";
+
     public MemoryReinforceTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemoryReinforceTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override public String name() { return "memory_reinforce"; }
-
-    @Override public Set<String> requiredScopes() { return Set.of(SpectorScopes.MEMORY_WRITE); }
-
-    @Override
-    public String description() {
-        return "Report the outcome after using a recalled memory. "
-                + "If the memory helped solve the problem, reinforce positively (+50). "
-                + "If it was misleading, reinforce negatively (-50). "
-                + "This teaches the memory system which facts are reliable.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("memory_id", "The ID of the memory to reinforce.")
-                .requiredString("valence",
-                        "Outcome: 'strongly_positive' (+100), 'positive' (+50), "
-                        + "'neutral' (0), 'negative' (-50), 'strongly_negative' (-100), "
-                        + "or a numeric byte value (-128 to 127).")
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override

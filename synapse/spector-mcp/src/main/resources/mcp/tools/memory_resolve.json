@@ -1,0 +1,25 @@
+{
+  "name": "memory_resolve",
+  "description": "Mark a memory as resolved or unresolved (Zeigarnik Effect). Unresolved memories resist time-decay and stay top-of-mind during recall. Resolved memories return to normal decay. Use for task tracking: mark unresolved when work begins, resolved when done.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "memory_id",
+      "resolved"
+    ],
+    "properties": {
+      "memory_id": {
+        "type": "string",
+        "description": "The ID of the memory to resolve or unresolve."
+      },
+      "resolved": {
+        "type": "boolean",
+        "description": "true = mark resolved (normal decay), false = mark unresolved (stays top-of-mind)."
+      }
+    }
+  }
+}

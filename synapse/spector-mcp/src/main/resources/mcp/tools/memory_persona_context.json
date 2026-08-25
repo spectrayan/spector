@@ -1,0 +1,17 @@
+{
+  "name": "memory_persona_context",
+  "description": "Inspects the active persona context including Idiolect linguistic DNA, Vocal Prosody acoustic profile, and Embodied Kinesics facial blendshape baselines.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "userId": {
+        "type": "string",
+        "description": "Target user ID for persona resolution"
+      }
+    }
+  }
+}

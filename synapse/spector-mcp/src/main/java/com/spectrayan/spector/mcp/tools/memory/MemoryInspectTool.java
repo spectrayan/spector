@@ -16,16 +16,13 @@
 package com.spectrayan.spector.mcp.tools.memory;
 
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Supplier;
-import com.spectrayan.spector.commons.security.SpectorScopes;
-import com.spectrayan.spector.commons.template.TemplateEngine;
+
+import com.spectrayan.spector.mcp.util.McpTemplateEngine;
+import com.spectrayan.spector.memory.model.CognitiveRecord;
+import com.spectrayan.spector.memory.SpectorMemory;
 
 import io.modelcontextprotocol.spec.McpSchema;
-
-import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
-import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.model.CognitiveRecord;
 
 /**
  * MCP tool: {@code memory_inspect} — full cognitive X-ray of a single memory.
@@ -38,36 +35,15 @@ import com.spectrayan.spector.memory.model.CognitiveRecord;
  */
 public final class MemoryInspectTool extends MemoryToolHandler {
 
-    private static final TemplateEngine templateEngine = TemplateEngine.createDefault();
+    public static final String NAME = "memory_inspect";
 
     public MemoryInspectTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemoryInspectTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override public String name() { return "memory_inspect"; }
-
-    @Override public Set<String> requiredScopes() { return Set.of(SpectorScopes.MEMORY_READ); }
-
-    @Override
-    public String description() {
-        return "Inspect a single memory by ID — returns the full cognitive X-ray: "
-                + "text content, cognitive header (importance, valence, arousal, recall counts, "
-                + "synaptic tags bloom filter, storage strength, flags), vector dimensions, "
-                + "physical location, and flag states (tombstoned, consolidated, pinned, resolved). "
-                + "Use this to debug why a memory scores high or low, verify ingestion, "
-                + "or understand the full internal state of a specific memory.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("id", "The memory ID to inspect.")
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override
@@ -93,6 +69,6 @@ public final class MemoryInspectTool extends MemoryToolHandler {
                 Map.entry("rawJson", record.toJson())
         );
 
-        return textResult(templateEngine.render("mcp/memory-inspect", model));
+        return textResult(McpTemplateEngine.render("memory-inspect", model));
     }
 }

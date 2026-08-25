@@ -57,15 +57,36 @@ import io.modelcontextprotocol.spec.McpSchema;
  */
 public abstract class McpToolHandler {
 
+    protected final com.spectrayan.spector.mcp.spec.McpToolSpec spec;
+
+    protected McpToolHandler() {
+        this((com.spectrayan.spector.mcp.spec.McpToolSpec) null);
+    }
+
+    protected McpToolHandler(String toolName) {
+        this(com.spectrayan.spector.mcp.spec.McpToolSpecLoader.find(toolName).orElse(null));
+    }
+
+    protected McpToolHandler(com.spectrayan.spector.mcp.spec.McpToolSpec spec) {
+        this.spec = spec;
+    }
+
     public enum McpToolCategory {
         GENERAL, MEMORY, FILESYSTEM, NETWORK, SYSTEM, DATA
     }
 
     /**
      * The category of this tool (e.g., MEMORY, FILESYSTEM).
-     * Defaults to GENERAL.
+     * Defaults to GENERAL or value in spec.
      */
     public McpToolCategory category() {
+        if (spec != null && spec.category() != null) {
+            try {
+                return McpToolCategory.valueOf(spec.category().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return McpToolCategory.GENERAL;
+            }
+        }
         return McpToolCategory.GENERAL;
     }
 
@@ -80,27 +101,41 @@ public abstract class McpToolHandler {
     private final Logger log = LoggerFactory.getLogger(getClass());
 
     // ═══════════════════════════════════════════════════════════════
-    //  Contract — subclass must implement
+    //  Contract — subclass must implement or declare in JSON spec
     // ═══════════════════════════════════════════════════════════════
 
     /**
      * The unique MCP tool name (e.g., {@code "semantic_search"}).
      * Must be a valid JSON-RPC method identifier.
      */
-    public abstract String name();
+    public String name() {
+        if (spec != null) {
+            return spec.name();
+        }
+        throw new UnsupportedOperationException("Subclass must implement name() or provide a tool spec");
+    }
 
     /**
      * Human-readable description shown to AI agents for tool selection.
      */
-    public abstract String description();
+    public String description() {
+        if (spec != null) {
+            return spec.description();
+        }
+        return "";
+    }
 
     /**
      * JSON Schema describing the tool's input parameters.
-     * Use {@link com.spectrayan.spector.mcp.schema.ToolSchemaBuilder} to construct.
      *
      * @return unmodifiable map conforming to JSON Schema "object" type
      */
-    public abstract Map<String, Object> inputSchema();
+    public Map<String, Object> inputSchema() {
+        if (spec != null) {
+            return spec.inputSchema();
+        }
+        return Map.of("type", "object");
+    }
 
     /**
      * Executes the tool logic against the memory engine.
@@ -153,6 +188,9 @@ public abstract class McpToolHandler {
      * @see com.spectrayan.spector.commons.security.SpectorRoles
      */
     public Set<String> requiredScopes() {
+        if (spec != null && spec.scopes() != null) {
+            return spec.scopes();
+        }
         return Set.of();
     }
 

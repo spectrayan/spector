@@ -36,34 +36,15 @@ import com.spectrayan.spector.memory.prospective.Reminder;
  */
 public final class MemoryReminderTool extends MemoryToolHandler {
 
+    public static final String NAME = "memory_reminder";
+
     public MemoryReminderTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemoryReminderTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override public String name() { return "memory_reminder"; }
-
-    @Override public Set<String> requiredScopes() { return Set.of(SpectorScopes.MEMORY_WRITE); }
-
-    @Override
-    public String description() {
-        return "Schedule a prospective memory reminder. The reminder will be "
-                + "surfaced in future recall results after the specified delay. "
-                + "Use for 'remember to do X in Y minutes/hours' scenarios.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("text", "The reminder text (what to remember).")
-                .requiredNumber("delay_seconds",
-                        "Seconds from now until the reminder triggers (e.g., 3600 for 1 hour).")
-                .optionalString("tags", "Comma-separated contextual tags.", "")
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override

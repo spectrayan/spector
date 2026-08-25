@@ -30,30 +30,15 @@ import io.modelcontextprotocol.spec.McpSchema;
  */
 public final class MemoryForgetTool extends MemoryToolHandler {
 
+    public static final String NAME = "memory_forget";
+
     public MemoryForgetTool(SpectorMemory memory) {
-        super(memory);
+        super(NAME, memory);
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemoryForgetTool(Supplier<SpectorMemory> memoryResolver) {
-        super(memoryResolver);
-    }
-
-    @Override public String name() { return "memory_forget"; }
-
-    @Override public Set<String> requiredScopes() { return Set.of(SpectorScopes.MEMORY_WRITE); }
-
-    @Override
-    public String description() {
-        return "Explicitly forget a memory by ID. The memory is tombstoned (logical deletion) "
-                + "and will be cleaned up during the next Deep Sleep consolidation cycle.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return ToolSchemaBuilder.object()
-                .requiredString("memory_id", "The ID of the memory to forget.")
-                .build();
+        super(NAME, memoryResolver);
     }
 
     @Override

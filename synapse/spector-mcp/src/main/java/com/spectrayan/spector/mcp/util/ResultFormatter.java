@@ -29,17 +29,6 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
  */
 public final class ResultFormatter {
 
-    private static final TemplateEngine templateEngine = TemplateEngine.createDefault();
-
-    private ResultFormatter() {} // static utility
-
-    // ═══════════════════════════════════════════════════════════════
-    //  Memory Results
-    // ═══════════════════════════════════════════════════════════════
-
-    /**
-     * Formats memory results for LLM consumption with score and truncated content.
-     */
     public static String formatMemoryResults(List<CognitiveResult> results) {
         if (results == null || results.isEmpty()) {
             return "No results found.";
@@ -50,7 +39,7 @@ public final class ResultFormatter {
                 "results", results
         );
 
-        return templateEngine.render("mcp/cognitive-results", model);
+        return McpTemplateEngine.render("cognitive-results", model);
     }
 
     // ═══════════════════════════════════════════════════════════════
