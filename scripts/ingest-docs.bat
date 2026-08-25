@@ -1,7 +1,7 @@
 @echo off
 REM ═══════════════════════════════════════════════════════════════
 REM  Spector File Ingestion Script
-REM  Uses spectorctl to discover and ingest files via SpectorRuntime.
+REM  Uses spectorctl to discover and ingest files via IngestionPipeline.
 REM  All configuration is read from spector.yml (or CLI overrides).
 REM
 REM  Usage: scripts\ingest-docs.bat [--pattern "**\*.java"] [--root path]

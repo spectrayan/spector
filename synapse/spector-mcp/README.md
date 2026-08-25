@@ -2,23 +2,15 @@
 
 **Agent-native search and cognitive memory integration for the Spector AI Memory Backbone.**
 
-Give any AI agent (Claude Desktop, Cursor, autonomous agents) instant access to Spector's SIMD-accelerated vector search engine and cognitive memory — with zero network overhead. The MCP server runs in-process via `SpectorRuntime`, calling the engine and memory directly on virtual threads for **88µs p50** query latency.
+Give any AI agent (Claude Desktop, Cursor, autonomous agents) instant access to Spector's SIMD-accelerated vector search engine and cognitive memory — with zero network overhead. The MCP server runs in-process via `SpectorMemory`, calling memory directly on virtual threads for **88µs p50** query latency.
 
 ## Architecture
 
 ```
 AI Agent --JSON-RPC (stdio)----> SpectorMcpServer (thin orchestrator)
-                                ├── SpectorRuntime
-AI Agent --JSON-RPC (HTTP)----> │   ├── SpectorEngine (search, ingest, RAG)
-  POST /mcp                     │   └── SpectorMemory (cognitive - optional)
-                                ├── SpectorToolRegistry
-                                │   ├── EngineSearchTool  ──► engine.search()
-                                │   ├── EngineHybridSearchTool    ──► engine.keywordSearch()
-                                │   ├── EngineRagTool        ──► engine.search() + formatting
-                                │   ├── EngineIngestTool  ──► engine.ingest()
-                                │   ├── EngineDeleteTool  ──► engine.delete()
-                                │   ├── EngineStatusTool    ──► engine metadata
-                                │   ├── MemoryRememberTool    ──► memory.remember()
+                                ├── SpectorMemory (cognitive memory)
+AI Agent --JSON-RPC (HTTP)----> ├── SpectorToolRegistry
+  POST /mcp                     │   ├── MemoryRememberTool    ──► memory.remember()
                                 │   ├── MemoryRecallTool       ──► memory.recall()
                                 │   ├── MemoryStatusTool        ──► memory.introspect()
                                 │   ├── MemoryReinforceTool     ──► memory.reinforce()
@@ -35,7 +27,7 @@ Total overhead: 88µs p50 per query (23-113x faster than Python MCP servers)
 
 ```
 spector-mcp/src/main/java/com/spectrayan/spector/mcp/
-├── SpectorMcpServer.java          ← Thin orchestrator (accepts SpectorRuntime)
+├── SpectorMcpServer.java          ← Thin orchestrator (accepts SpectorMemory)
 ├── SpectorMcpMain.java            ← CLI entry point
 ├── schema/
 │   └── ToolSchemaBuilder.java     ← Type-safe fluent builder for JSON schemas

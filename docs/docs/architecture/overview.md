@@ -29,7 +29,7 @@ graph TB
     end
 
     subgraph Engine["Spector Engine"]
-        runtime["SpectorRuntime<br/><i>Composition Root</i>"]
+        runtime["SpectorMemory<br/><i>Core Cognitive Engine</i>"]
 
         subgraph Search["Search Pipeline"]
             hybrid["Hybrid Search<br/><i>Mode auto-detection</i>"]
@@ -135,7 +135,7 @@ graph LR
 ```mermaid
 graph LR
     subgraph Embedded["Embedded Mode"]
-        lib["SpectorRuntime API<br/><i>In-process · zero-network · drop-in JAR</i>"]
+        lib["SpectorMemory API<br/><i>In-process · zero-network · drop-in JAR</i>"]
     end
 
     subgraph Standalone["Standalone Mode"]
@@ -196,7 +196,7 @@ graph TB
     end
 
     subgraph Core["In-Process Engine — Zero Network Overhead"]
-        runtime["SpectorRuntime<br/><i>Engine + Memory + Ingestion</i>"]
+        runtime["SpectorMemory<br/><i>Engine + Memory + Ingestion</i>"]
         simd["SIMD Kernels<br/><i>AVX2/512 · ~100µs per search</i>"]
         panama["Panama Off-Heap<br/><i>Zero GC · mmap storage</i>"]
     end
@@ -218,21 +218,21 @@ sequenceDiagram
     participant Agent as 🤖 AI Agent
     participant MCP as 📡 MCP Server
     participant Tools as 🔧 ToolRegistry
-    participant Runtime as ⚡ SpectorRuntime
+    participant Memory as 🧠 SpectorMemory
     participant SIMD as 🔬 SIMD (off-heap)
 
     Note over Agent,SIMD: Single JVM process — no HTTP, no gRPC, no serialization
 
     Agent->>MCP: tools/call {"name": "memory_remember", ...}
     MCP->>Tools: Route → MemoryRememberTool
-    Tools->>Runtime: memory().remember(text, tags, importance)
-    Runtime->>SIMD: Embed → HNSW insert → tier assign
+    Tools->>Memory: remember(text, tags, importance)
+    Memory->>SIMD: Embed → HNSW insert → tier assign
     SIMD-->>Agent: ✅ memoryId + tier (~1ms)
 
     Agent->>MCP: tools/call {"name": "memory_recall", ...}
     MCP->>Tools: Route → MemoryRecallTool
-    Tools->>Runtime: memory().recall(query, topK)
-    Runtime->>SIMD: Fused scoring: sim × importance × decay
+    Tools->>Memory: recall(query, topK)
+    Memory->>SIMD: Fused scoring: sim × importance × decay
     SIMD-->>Agent: 📋 Ranked memories (~0.13ms)
 
     Agent->>MCP: tools/call {"name": "memory_introspect", ...}
@@ -358,13 +358,11 @@ graph TD
 | `synapse → runtime` | Unified Armeria node: REST + gRPC + SSE + cluster coordination (incorporates former spector-node) |
 | `mcp → runtime + ingestion` | MCP agent entry point (in-process, zero network) |
 | `memory → ingestion` | Houses both `EngineIngestionTarget` and `CognitiveIngestionTarget` |
-| `memory → rag` | RAG context assembly pipeline |
-| `memory -.-> gpu` | Optional GPU acceleration |
-| `memory → index, storage, core, embed-api` | Cognitive memory and HNSW/BM25 storage foundations |
-| `dist → mcp + cli + runtime` | Fat JAR distribution |
+| `memory → index, events, commons` | Cognitive memory and HNSW/BM25 storage foundations |
+| `synapse → cli, mcp, spring` | Integration layer (CLI, MCP, Spring AI) |
 
 !!! important
-    **No circular dependencies.** `spector-memory` contains both engine search facades and cognitive stores. `SpectorRuntime` acts as the single composition root, keeping the API gateway (`spector-synapse`) decoupled from low-level storage.
+    **No circular dependencies.** `spector-memory` contains both vector search and cognitive memory stores, keeping the API gateway (`spector-synapse`) decoupled from low-level storage.
 
 ---
 
@@ -373,37 +371,33 @@ graph TD
 ```mermaid
 sequenceDiagram
     participant Client as 👤 Client (CLI/MCP/REST)
-    participant Runtime as ⚡ SpectorRuntime
-    participant Handler as 📥 IngestionHandler
     participant Pipeline as 🔄 IngestionPipeline
     participant Embed as 🧠 ParallelEmbeddingPipeline
     participant Target as 💾 IngestionTarget
     participant Store as 💾 Storage (mmap)
 
-    Client->>Runtime: runtime.ingestion().ingest(dir, pattern)
-    Runtime->>Handler: Pre-configured pipeline + target
-    Handler->>Handler: FileDiscoveryService.discover()
-    loop Each file
-        Handler->>Pipeline: pipeline.ingest(id, content)
+    Client->>Pipeline: pipeline.ingest(file)
+    Pipeline->>Embed: generateEmbeddings()
+    Embed-->>Pipeline: dense + sparse vectors
+    Pipeline->>Target: target.store(chunk)
+    Target->>Store: write to off-heap MemorySegment
+    loop Each chunk
         Pipeline->>Pipeline: TextChunker.chunk(content)
         Pipeline->>Embed: embed(chunkTexts) via virtual threads
         Embed-->>Pipeline: List<vector>
-        loop Each chunk
-            Pipeline->>Target: target.ingest(id, text, vector)
-            Target->>Store: VectorStore + VectorIndex + KeywordIndex
-        end
+        Pipeline->>Target: target.ingest(id, text, vector)
+        Target->>Store: VectorStore + VectorIndex
     end
     Store-->>Client: ✅ Indexed
 ```
 
-1. **Client** calls `runtime.ingestion().ingest()` — all entry points use this
-2. **IngestionHandler** delegates to a pre-configured `IngestionPipeline`
-3. **IngestionPipeline** handles chunking (from config) and parallel embedding
-4. **IngestionTarget** receives pre-embedded chunks — `EngineIngestionTarget` for SEARCH, `CognitiveIngestionTarget` for MEMORY
-5. Each target handles its own downstream storage (VectorStore/HNSW or Quantize/TierRoute/WAL)
+1. **Client** calls `pipeline.ingest()` — unified across CLI, MCP, and application code
+2. **IngestionPipeline** handles chunking (from config) and parallel embedding
+3. **IngestionTarget** receives pre-embedded chunks — storing directly in `SpectorMemory`
+4. Downstream storage writes to off-heap memory and indexes with HNSW/BM25
 
 > [!TIP]
-> `FileDiscoveryService` can be used independently for file discovery without any engine or runtime dependency.
+> `FileDiscoveryService` can be used independently for file discovery without any engine dependency.
 
 ---
 
@@ -449,14 +443,11 @@ sequenceDiagram
     participant Agent as 🤖 AI Agent (Claude/Cursor)
     participant MCP as 📡 MCP Transport (stdio / Streamable HTTP)
     participant Handler as 🔧 McpToolHandler
-    participant Runtime as ⚡ SpectorRuntime
     participant Memory as 🧠 SpectorMemory
     participant SIMD as 🔬 SIMD Kernels
 
     Agent->>MCP: tools/call {"name": "memory_recall", "arguments": {"query": "..."}}
-    MCP->>Handler: MemoryRecallTool.execute(runtime, args)
-    Handler->>Runtime: runtime.memory().get()
-    Runtime-->>Handler: SpectorMemory
+    MCP->>Handler: MemoryRecallTool.execute(args)
     Handler->>Memory: recall(query, options)
     Memory->>SIMD: 6-phase scoring + Panama off-heap reads
     SIMD-->>Memory: CognitiveResult[] (~130µs)
@@ -465,7 +456,7 @@ sequenceDiagram
     MCP-->>Agent: JSON-RPC response with recalled memories
 ```
 
-The MCP path routes through `SpectorRuntime` — the single composition root that holds both the search engine and optional cognitive memory. The MCP server wraps runtime handler calls with JSON-RPC transport. There is **zero network overhead** because everything runs in the same JVM process.
+The MCP path operates directly against `SpectorMemory`. The MCP server wraps tool handler calls with JSON-RPC transport. There is **zero network overhead** because everything runs in the same JVM process.
 
 > [!TIP]
 > For full MCP architecture details, tool schemas, and design patterns, see the dedicated [MCP Integration](mcp-integration.md) page.
@@ -582,14 +573,12 @@ graph TD
         MS["MemoryService"]
     end
 
-    subgraph "Core Runtime"
-        SR["SpectorRuntime"]
+    subgraph "Core Engine"
         SM["SpectorMemory"]
     end
 
     MC & SC & HC --> MS
-    MS --> SR
-    SR --> SM
+    MS --> SM
 ```
 
 Every request runs on its own virtual thread. The Armeria server handles HTTP REST, gRPC, and SSE events on a single port. API endpoints are registered via the `ApiModule` factory pattern, enabling straightforward API versioning (`/api/v1`, `/api/v2`).

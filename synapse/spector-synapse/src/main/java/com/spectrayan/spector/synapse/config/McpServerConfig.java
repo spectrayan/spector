@@ -222,7 +222,7 @@ public class McpServerConfig {
                             return toolError(McpRequestMemory.message(deny.get()));
                         }
                         try {
-                            return mcpTool.execute(null, args);
+                            return mcpTool.execute(args);
                         } catch (Exception e) {
                             return toolError(e.getMessage());
                         } finally {
@@ -250,7 +250,7 @@ public class McpServerConfig {
                             return toolError(McpRequestMemory.message(deny.get()));
                         }
                         try {
-                            return mcpTool.execute(null, args);
+                            return mcpTool.execute(args);
                         } catch (Exception e) {
                             return toolError(e.getMessage());
                         } finally {

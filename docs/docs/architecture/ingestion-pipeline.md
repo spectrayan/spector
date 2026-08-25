@@ -11,7 +11,7 @@ description: "How Spector processes documents: chunking strategies, embedding ge
 
 ## Architecture
 
-All entry points (CLI, MCP, Server) route ingestion through `SpectorRuntime`:
+All entry points (CLI, MCP, Server) route ingestion through `IngestionPipeline`:
 
 ```
 CLI/MCP/Server → IngestionPipeline

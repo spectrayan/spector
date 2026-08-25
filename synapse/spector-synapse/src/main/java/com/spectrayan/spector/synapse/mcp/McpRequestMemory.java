@@ -26,7 +26,7 @@ import com.spectrayan.spector.synapse.security.SecurityUtils;
  * {@link SpectorMemory} namespace.
  *
  * <p>MCP tools are executed synchronously on the servlet request thread
- * ({@code transport → SyncToolSpecification lambda → mcpTool.execute(null, args)}) and resolve
+ * ({@code transport → SyncToolSpecification lambda → mcpTool.execute(args)}) and resolve
  * their {@link SpectorMemory} independently. This holder lets the invocation site bind the memory
  * resolved for the authenticated caller — via {@link UserMemoryRegistry#resolveForCurrentRequest()}
  * on that same thread — so a memory-aware tool operates exclusively on that user's namespace,

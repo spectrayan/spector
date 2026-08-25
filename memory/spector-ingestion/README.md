@@ -105,15 +105,14 @@ public record IngestionResult(
 
 ## 🔗 How It Fits
 
-All entry points (CLI, MCP, Server) route through `SpectorRuntime`:
+All entry points (CLI, MCP, Server) route through `IngestionPipeline`:
 
 ```
-CLI/MCP/Server → SpectorRuntime.ingestion() → IngestionHandler → IngestionPipeline
-                                                                        │
-                                                                  ┌─────┴─────┐
-                                                                  ▼           ▼
-                                                       EngineIngestionTarget  CognitiveIngestionTarget
-                                                       (SEARCH mode)          (MEMORY mode)
+CLI/MCP/Server → IngestionPipeline
+                      │
+                      ▼
+            CognitiveIngestionTarget
+            (SpectorMemory)
 ```
 
-`SpectorRuntime.ingestion()` builds the pipeline with the right target based on the active mode and reads chunking config from `spector.yml`.
+`IngestionPipeline` builds the pipeline with the target and reads chunking config from `spector.yml`.
