@@ -39,15 +39,17 @@ class ContextExportTest {
             return Paths.get(envVar);
         }
         Path current = Paths.get("").toAbsolutePath();
-        Path candidate = current.resolve("spector-datasets");
-        if (Files.isDirectory(candidate)) {
-            return candidate;
+        for (Path dir = current; dir != null; dir = dir.getParent()) {
+            Path candidate = dir.resolve("spector-datasets");
+            if (Files.exists(candidate)) {
+                return candidate;
+            }
+            Path siblingCandidate = dir.getParent() != null ? dir.getParent().resolve("spector-datasets") : null;
+            if (siblingCandidate != null && Files.exists(siblingCandidate)) {
+                return siblingCandidate;
+            }
         }
-        candidate = current.getParent() != null ? current.getParent().resolve("spector-datasets") : null;
-        if (candidate != null && Files.isDirectory(candidate)) {
-            return candidate;
-        }
-        return Paths.get("D:/git/spector-datasets");
+        return Paths.get("..", "spector-datasets");
     }
 
     @Test
@@ -59,6 +61,11 @@ class ContextExportTest {
         Path baseDir = resolveBaseDir();
         Path datasetDir = baseDir.resolve(datasetName).resolve("data");
         Path defaultOutputFile = baseDir.resolve(datasetName).resolve("results").resolve("retrieved_candidates.jsonl");
+
+        if (!Files.exists(datasetDir) || !Files.exists(datasetDir.resolve("corpus.jsonl"))) {
+            log.warn("Dataset directory or corpus not found: {}, skipping context export in CI", datasetDir);
+            return;
+        }
 
         String outProp = System.getProperty("outputFile");
         Path outputFile = (outProp != null && !outProp.isBlank()) ? Paths.get(outProp) : defaultOutputFile;
