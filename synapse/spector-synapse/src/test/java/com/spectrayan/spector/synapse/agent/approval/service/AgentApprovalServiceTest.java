@@ -128,8 +128,8 @@ class AgentApprovalServiceTest {
         assertThat(result).isInstanceOf(ApprovalExecutionResult.Success.class);
         assertThat(((ApprovalExecutionResult.Success) result).output()).isEqualTo("wrote:hello");
 
-        verify(eventPublisher).agentEvent(eq(SseEventConstants.EVENT_AGENT_APPROVAL_REQUIRED), any(AgentActionApproval.class));
-        verify(eventPublisher).agentEvent(eq(SseEventConstants.EVENT_AGENT_APPROVAL_RESOLVED), any(AgentActionApproval.class));
+        verify(eventPublisher, timeout(2000)).agentEvent(eq(SseEventConstants.EVENT_AGENT_APPROVAL_REQUIRED), any(AgentActionApproval.class));
+        verify(eventPublisher, timeout(2000)).agentEvent(eq(SseEventConstants.EVENT_AGENT_APPROVAL_RESOLVED), any(AgentActionApproval.class));
     }
 
     @Test

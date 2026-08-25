@@ -208,10 +208,9 @@ public class DefaultAgentApprovalService implements AgentApprovalService {
 
         AgentActionApproval resolved = resolver.apply(current);
         repository.update(resolved);
-        futureOpt.get().complete(resolved);
-
         eventPublisher.agentEvent(SseEventConstants.EVENT_AGENT_APPROVAL_RESOLVED, resolved);
         log.info("[DefaultAgentApprovalService] Resolved approval id={} status={}", id, resolved.status());
+        futureOpt.get().complete(resolved);
         return resolved;
     }
 
