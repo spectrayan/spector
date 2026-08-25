@@ -50,14 +50,15 @@ Extraction Rules:
 5. interest: Float between 0.0 and 1.0 (novelty/curiosity/focus).
 6. challenge: Float between 0.0 and 1.0 (difficulty/effort/stress).
 7. urgency: Float between 0.0 and 1.0 (time sensitivity/deadline).
-8. synapticTags: Array of 2-5 concise semantic topic tags (e.g. ["lgbtq_support", "social_connection", "caroline"]).
+8. synapticTags: Array of 2-5 pure thematic topic, activity, or conceptual keywords (e.g. ["lgbtq_support", "watercolor_painting", "career_planning", "community_service", "family_stress"]).
+   STRICT RULE: NEVER include speaker names, session IDs (e.g. "session_1"), conversation IDs (e.g. "conv_26"), turn IDs, or dataset names ("locomo").
 
 Respond strictly in valid JSON format:
 {
   "turns": [
     {
       "id": "turn_id_string",
-      "entityMentions": [{"name": "Caroline", "type": "PERSON"}],
+      "entityMentions": [{"name": "Caroline", "type": "PERSON"}, {"name": "LGBTQ Support Group", "type": "ORGANIZATION"}],
       "relations": [
         {"fromEntity": {"name": "Caroline", "type": "PERSON"}, "toEntity": {"name": "LGBTQ Support Group", "type": "ORGANIZATION"}, "relationType": "ATTENDED", "sourceMemoryId": "turn_id_string"}
       ],
@@ -66,7 +67,7 @@ Respond strictly in valid JSON format:
       "interest": 0.8,
       "challenge": 0.2,
       "urgency": 0.1,
-      "synapticTags": ["lgbtq_support", "community", "caroline"]
+      "synapticTags": ["lgbtq_support", "community_service", "support_network"]
     }
   ]
 }"""
@@ -357,15 +358,43 @@ def main():
                 challenge = float(ext.get("challenge", 0.1))
                 urgency = float(ext.get("urgency", 0.1))
 
-                # Synaptic tags
+                # Synaptic tags: extract pure thematic/conceptual topic keywords ONLY
                 ext_tags = ext.get("synapticTags", [])
-                combined_tags = list(dict.fromkeys(orig.get("synapticTags", []) + ext_tags))
+                clean_tags = []
+                for tag in ext_tags:
+                    if isinstance(tag, str):
+                        t_clean = re.sub(r'[^a-zA-Z0-9_]', '_', tag.strip().lower()).strip('_')
+                        # Exclude any structural or dataset identifiers, session IDs, conv IDs
+                        if (
+                            len(t_clean) >= 3
+                            and not t_clean.startswith("conv")
+                            and not t_clean.startswith("session")
+                            and not t_clean.startswith("turn")
+                            and not t_clean.startswith("sample")
+                            and not t_clean.startswith("locomo")
+                            and not t_clean.startswith("longmemeval")
+                            and t_clean not in clean_tags
+                        ):
+                            clean_tags.append(t_clean)
+
+                # Fallback: if no valid tags, extract concept entities
+                if not clean_tags:
+                    for ent in entity_mentions:
+                        ename = ent.get("name", "")
+                        etype = ent.get("type", "")
+                        if etype in ("CONCEPT", "EVENT", "ACTIVITY", "ORGANIZATION", "HOBBY", "TOPIC", "OBJECT"):
+                            c_tag = re.sub(r'[^a-zA-Z0-9_]', '_', ename.strip().lower()).strip('_')
+                            if len(c_tag) >= 3 and c_tag not in clean_tags:
+                                clean_tags.append(c_tag)
+
+                if not clean_tags:
+                    clean_tags = ["general_conversation"]
 
                 enriched_rec = {
                     "id": tid,
                     "text": orig.get("text", ""),
                     "title": orig.get("title", ""),
-                    "synapticTags": combined_tags,
+                    "synapticTags": clean_tags,
                     "valence": valence,
                     "arousal": arousal,
                     "importance": orig.get("importance", 1.0),
