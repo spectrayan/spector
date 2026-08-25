@@ -13,11 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.spectrayan.spector.index.error;
+
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorIndexException;
+
 /**
- * Spector Query — Query engine with hybrid search orchestration and RRF fusion.
+ * Exception thrown when an operation is attempted on a closed memory segment, GPU context, or index resource.
  *
- * <p>Orchestrates fan-out queries across keyword and vector indexes using
- * virtual threads, then merges results via Reciprocal Rank Fusion (RRF)
- * for best-of-both-worlds retrieval.</p>
+ * @see SpectorIndexException
  */
-package com.spectrayan.spector.query;
+public class SpectorSegmentClosedException extends SpectorIndexException {
+
+    public SpectorSegmentClosedException() {
+        super(ErrorCode.SEGMENT_CLOSED);
+    }
+
+    public SpectorSegmentClosedException(Throwable cause) {
+        super(ErrorCode.SEGMENT_CLOSED, cause);
+    }
+}

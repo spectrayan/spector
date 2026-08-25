@@ -60,7 +60,6 @@ public final class SemanticRecallStrategy {
 
     private final VectorIndex vectorIndex;
     private final PartitionRegistry partitionRegistry;
-    private final SemanticRecordMemory legacyStore;
     private final MemoryIndex memoryIndex;
 
     /**
@@ -75,23 +74,6 @@ public final class SemanticRecallStrategy {
                                   MemoryIndex memoryIndex) {
         this.vectorIndex = vectorIndex;
         this.partitionRegistry = partitionRegistry;
-        this.legacyStore = null;
-        this.memoryIndex = memoryIndex;
-    }
-
-    /**
-     * Legacy constructor for single-store configurations and tests.
-     *
-     * @param vectorIndex   the HNSW/IVF index backing semantic memory
-     * @param semanticStore the single semantic slab
-     * @param memoryIndex   the ID → metadata index for reverse lookups
-     */
-    public SemanticRecallStrategy(VectorIndex vectorIndex,
-                                  SemanticRecordMemory semanticStore,
-                                  MemoryIndex memoryIndex) {
-        this.vectorIndex = vectorIndex;
-        this.partitionRegistry = null;
-        this.legacyStore = semanticStore;
         this.memoryIndex = memoryIndex;
     }
 
@@ -139,14 +121,10 @@ public final class SemanticRecallStrategy {
             int partitionSeq = loc.colocatedPartition();
             long headerOffset = loc.offset();
 
-            SemanticRecordMemory store;
-            if (partitionRegistry != null) {
-                PartitionHandle handle = partitionRegistry.handleFor(partitionSeq);
-                if (handle == null || handle.router() == null) continue;
-                store = handle.router().semantic();
-            } else {
-                store = legacyStore;
-            }
+            if (partitionRegistry == null) continue;
+            PartitionHandle handle = partitionRegistry.handleFor(partitionSeq);
+            if (handle == null || handle.router() == null) continue;
+            SemanticRecordMemory store = handle.router().semantic();
 
             if (store == null) continue;
 

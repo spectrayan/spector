@@ -9,21 +9,20 @@
 /nucleus/spector-bom/ @spectrayan/ai-engineering
 /nucleus/spector-commons/ @spectrayan/ai-engineering
 /nucleus/spector-core/ @spectrayan/ai-engineering
+/nucleus/spector-cpu/ @spectrayan/ai-engineering
 /nucleus/spector-config/ @spectrayan/ai-engineering
-/nucleus/spector-storage/ @spectrayan/ai-engineering
 /nucleus/spector-events/ @spectrayan/ai-engineering
-/memory/spector-metrics/ @spectrayan/ai-engineering
+/nucleus/spector-index/ @spectrayan/ai-engineering
+/nucleus/spector-gpu/ @spectrayan/ai-engineering
 /nucleus/spector-test-support/ @spectrayan/ai-engineering
 
 # Memory (Intelligence)
 /memory/spector-memory/ @spectrayan/ai-engineering
-/memory/spector-index/ @spectrayan/ai-engineering
-/memory/spector-query/ @spectrayan/ai-engineering
-/memory/spector-gpu/ @spectrayan/ai-engineering
-/memory/spector-embed-api/ @spectrayan/ai-engineering
-/memory/spector-embed-ollama/ @spectrayan/ai-engineering
+/memory/spector-inspect/ @spectrayan/ai-engineering
+/memory/spector-metrics/ @spectrayan/ai-engineering
+/memory/spector-provider-api/ @spectrayan/ai-engineering
+/memory/spector-providers/ @spectrayan/ai-engineering
 /memory/spector-ingestion/ @spectrayan/ai-engineering
-/memory/spector-rag/ @spectrayan/ai-engineering
 
 # Synapse (Wiring & APIs)
 /synapse/spector-runtime/ @spectrayan/ai-engineering

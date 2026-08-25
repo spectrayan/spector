@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.error.SpectorServerException;
 import com.spectrayan.spector.commons.error.SpectorGpuException;
-import com.spectrayan.spector.storage.error.SpectorSegmentClosedException;
+import com.spectrayan.spector.index.error.SpectorSegmentClosedException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 
 /**

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed & Refactored — Storage & Query Module Decommissioning (#650)
+- **spector-storage & spector-query:** Fully decommissioned and deleted both legacy modules (~4,500 lines of dead code eliminated); reduced reactor from 29 to 27 modules
+- **spector-index:** Relocated `SpectorSegmentClosedException` to `com.spectrayan.spector.index.error`; removed dead disk HNSW and sharded index classes (`DiskHnswIndex`, `DiskHnswWriter`, `ShardedDiskHnswIndex`, `ShardedDiskHnswWriter`) and dead `save()`/`load()` methods in `SpectorIndex` and `SpectorShard`
+- **spector-memory:** Purged dead legacy constructor and unused `legacyStore` field in `SemanticRecallStrategy.java`
+- **spector-gpu:** Updated exception imports to `com.spectrayan.spector.index.error.SpectorSegmentClosedException` and migrated dependency from `spector-storage` to `spector-index`
+
 ### Refactored — RecallPipeline SRP Decomposition & Builder Unification (#487)
 - **spector-memory:** Decomposed `RecallPipeline` into 4 phase components (`RecallCandidateGatherer`, `CognitiveReranker`, `GraphExpander`, `SalienceAndHabituationScorer`) and extracted 9 segment scanning inner types into `com.spectrayan.spector.memory.pipeline.scan`
 - **spector-memory:** Unified builder architecture on `RecallPipelineBuilder` (`RecallPipeline.builder()`) and consolidated telescopic constructors

@@ -73,7 +73,6 @@
         <module>nucleus/spector-cpu</module>
         <module>nucleus/spector-hdc</module>
         <module>nucleus/spector-config</module>
-        <module>nucleus/spector-storage</module>
         <module>nucleus/spector-events</module>
         <module>nucleus/spector-gpu</module>
         <module>nucleus/spector-index</module>
@@ -82,7 +81,6 @@
         <!-- ── Memory: Cognitive engine (flagship) ── -->
         <module>memory/spector-provider-api</module>
         <module>memory/spector-providers</module>
-        <module>memory/spector-query</module>
         <module>memory/spector-ingestion</module>
         <module>memory/spector-memory</module>
         <module>memory/spector-inspect</module>
@@ -179,6 +177,7 @@
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <maven-source-plugin.version>3.3.0</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
+        <excludedGroups>functional</excludedGroups>
 
         <!-- JaCoCo coverage threshold — default 0, modules raise as tests are added (target: 0.80) -->
         <jacoco.minimum.coverage>0</jacoco.minimum.coverage>
@@ -213,17 +212,7 @@
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
-                <artifactId>spector-storage</artifactId>
-                <version>${revision}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.spectrayan</groupId>
                 <artifactId>spector-index</artifactId>
-                <version>${revision}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.spectrayan</groupId>
-                <artifactId>spector-query</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
@@ -675,7 +664,7 @@
                         <!-- ${argLine} placeholder lets JaCoCo inject its agent -->
                         <argLine>${argLine} --add-modules ${vector.api.module} --enable-native-access=ALL-UNNAMED --enable-preview --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.util.concurrent=ALL-UNNAMED -Dnet.bytebuddy.experimental=true</argLine>
                         <!-- Exclude functional tests (require external services) -->
-                        <excludedGroups>functional</excludedGroups>
+                        <excludedGroups>${excludedGroups}</excludedGroups>
                     </configuration>
                 </plugin>
 
