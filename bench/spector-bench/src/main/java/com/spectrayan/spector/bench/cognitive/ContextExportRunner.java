@@ -147,6 +147,13 @@ public final class ContextExportRunner {
                     .enableGlobalWorkspace(true)
                     .build();
 
+            boolean enableMmr = Boolean.parseBoolean(System.getProperty("enableMmr", "true"));
+            float mmrLambda = Float.parseFloat(System.getProperty("mmrLambda", "0.7"));
+            boolean enableReranker = Boolean.parseBoolean(System.getProperty("enableReranker", "false"));
+            String textSearchModeProp = System.getProperty("textSearchMode", enableReranker ? "COLBERT" : "HYBRID");
+            com.spectrayan.spector.config.model.TextSearchMode defaultSearchMode =
+                    com.spectrayan.spector.config.model.TextSearchMode.valueOf(textSearchModeProp.toUpperCase());
+
             // Warmup pass: 10 queries
             int warmupCount = Math.min(10, dataset.queries().size());
             log.info("Running JIT and memory warmup ({} queries)...", warmupCount);
@@ -159,10 +166,14 @@ public final class ContextExportRunner {
                         .enableLateralInhibition(true)
                         .enableAisme(true)
                         .aismeConfig(aismeConfig)
+                        .enableMmr(enableMmr)
+                        .mmrLambda(mmrLambda)
+                        .enableReranker(enableReranker)
+                        .textSearchMode(defaultSearchMode)
                         .build();
                 memory.recall(wq.text(), wOpt);
             }
-            log.info("Warmup complete. Exporting retrieval contexts with full AISME and cognitive filters...");
+            log.info("Warmup complete. Exporting retrieval contexts with full AISME, MMR ({}), and cognitive filters...", enableMmr);
 
             int count = 0;
             double totalLatencyMs = 0.0;
@@ -176,6 +187,9 @@ public final class ContextExportRunner {
                         .enableLateralInhibition(true)
                         .enableAisme(true)
                         .aismeConfig(aismeConfig)
+                        .enableMmr(enableMmr)
+                        .mmrLambda(mmrLambda)
+                        .enableReranker(enableReranker)
                         .scoreFusionMode(ScoreFusionMode.MULTIPLICATIVE);
 
                 if (query.cognitiveProfile() != null) {
@@ -198,6 +212,8 @@ public final class ContextExportRunner {
                 }
                 if (query.textSearchMode() != null) {
                     optBuilder.textSearchMode(query.textSearchMode());
+                } else {
+                    optBuilder.textSearchMode(defaultSearchMode);
                 }
 
                 long startNs = System.nanoTime();

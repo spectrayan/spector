@@ -181,8 +181,6 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
 
     checkpoint_file = os.path.join(out_dir, "qa_eval_checkpoint.jsonl")
-    if args.fresh and os.path.exists(checkpoint_file):
-        os.remove(checkpoint_file)
     report_file = os.path.join(out_dir, "qa_generative_report.md")
     matrix_file = os.path.join(out_dir, "qa_matrix.json")
 
@@ -204,12 +202,13 @@ def main():
         queries = queries[:args.limit]
         print(f"Limiting evaluation to first {len(queries)} queries.")
 
-    completed_map = load_checkpoint(checkpoint_file) if args.resume else {}
+    use_resume = args.resume and not args.fresh
+    completed_map = load_checkpoint(checkpoint_file) if use_resume else {}
     if completed_map:
         print(f"Resuming evaluation: {len(completed_map)}/{len(queries)} queries already evaluated.")
 
     results = []
-    checkpoint_writer = open(checkpoint_file, "a" if args.resume else "w", encoding="utf-8", buffering=1)
+    checkpoint_writer = open(checkpoint_file, "a" if use_resume else "w", encoding="utf-8", buffering=1)
 
     category_stats: Dict[str, Dict[str, Any]] = {}
     total_recall_latency_ms = 0.0

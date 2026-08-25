@@ -6,6 +6,9 @@ param(
     [int]$DelayMs = 500,
     [string]$GeneratorModel = "llama3.1:latest",
     [string]$JudgeModel = "",
+    [switch]$EnableReranker,
+    [switch]$DisableMmr,
+    [string]$TextSearchMode = "HYBRID",
     [switch]$Fresh
 )
 
@@ -18,6 +21,7 @@ if (-not $JudgeModel) {
 }
 
 $LimitDisplay = if ($Limit -le 0) { "ALL (Entire Dataset)" } else { "$Limit" }
+$MmrEnabled = (-not $DisableMmr)
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -37,6 +41,8 @@ Write-Host " Spector Memory -- Generative QA (J-Score) Benchmark Pipeline" -Fore
 Write-Host " Dataset:          $Dataset" -ForegroundColor Yellow
 Write-Host " Query Limit:      $LimitDisplay" -ForegroundColor Yellow
 Write-Host " Top-K Candidates: $TopK" -ForegroundColor Yellow
+Write-Host " MMR Diversity:    $MmrEnabled" -ForegroundColor Yellow
+Write-Host " Reranker Mode:    $EnableReranker ($TextSearchMode)" -ForegroundColor Yellow
 Write-Host " Pacing Delay:     $DelayMs ms" -ForegroundColor Yellow
 Write-Host " Generator Model:  $GeneratorModel" -ForegroundColor Yellow
 Write-Host " Judge Model:      $JudgeModel" -ForegroundColor Yellow
@@ -56,6 +62,9 @@ $MavenArgs = @(
     "-Ddataset=$Dataset",
     "-DtopK=$TopK",
     "-Dlimit=$Limit",
+    "-DenableMmr=$($MmrEnabled.ToString().ToLower())",
+    "-DenableReranker=$($EnableReranker.IsPresent.ToString().ToLower())",
+    "-DtextSearchMode=$TextSearchMode",
     "-DoutputFile=$CandidatesFile"
 )
 
