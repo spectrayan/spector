@@ -21,23 +21,20 @@ import java.util.function.Supplier;
 
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
-import com.spectrayan.spector.runtime.SpectorRuntime;
 
 import io.modelcontextprotocol.spec.McpSchema;
 
 /**
  * Base handler for memory-aware MCP tools.
  *
- * <p>Memory tools need both the {@link SpectorEngine} (for embedding) and
- * {@link SpectorMemory} (for cognitive operations). Subclasses implement
- * {@link #executeMemory(SpectorMemory, SpectorEngine, Map)} instead of
- * the standard {@code execute()} method.</p>
+ * <p>Subclasses implement {@link #executeMemory(SpectorMemory, Map)}
+ * which is invoked against the resolved {@link SpectorMemory} instance.</p>
  *
  * <h3>Memory Resolution</h3>
  * <p>The memory instance is resolved per-request via a {@code Supplier<SpectorMemory>}
- * (the "memory resolver"). In standalone/OSS mode, this returns the single shared
- * memory instance. In enterprise mode, the supplier reads {@code AuthContextHolder}
- * and routes to the authenticated user's tenant-isolated memory workspace.</p>
+ * (the "memory resolver"). In standalone mode, this returns the single shared
+ * memory instance. In multi-tenant environments, the supplier routes to the
+ * authenticated user's tenant-isolated memory workspace.</p>
  */
 public abstract class MemoryToolHandler extends McpToolHandler {
 
@@ -81,8 +78,7 @@ public abstract class MemoryToolHandler extends McpToolHandler {
                                                                Map<String, Object> args) throws Exception;
 
     @Override
-    public final McpSchema.CallToolResult execute(SpectorRuntime runtime,
-                                                    Map<String, Object> args) throws Exception {
+    public final McpSchema.CallToolResult execute(Map<String, Object> args) throws Exception {
         SpectorMemory memory = memoryResolver.get();
         if (memory == null) {
             return errorResult("SpectorMemory is not configured. Start the server with --memory-enabled.");

@@ -15,18 +15,19 @@
  */
 package com.spectrayan.spector.cli;
 
-import com.spectrayan.spector.client.SpectorClient;
-import com.spectrayan.spector.client.SpectorConnectionException;
-import picocli.CommandLine;
-
 import java.io.PrintWriter;
 import java.time.Duration;
-import com.spectrayan.spector.commons.error.SpectorInternalException;
+
+import com.spectrayan.spector.cli.client.SpectorConnectionException;
+import com.spectrayan.spector.cli.client.SpectorHttpClient;
 import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorInternalException;
+
+import picocli.CommandLine;
 
 /**
  * Base class for CLI subcommands. Provides access to inherited options
- * (host, port, json) and a factory method for creating the SpectorClient.
+ * (host, port, json) and a factory method for creating the SpectorHttpClient.
  */
 abstract class BaseCommand implements Runnable {
 
@@ -37,11 +38,11 @@ abstract class BaseCommand implements Runnable {
     CommandLine.Model.CommandSpec spec;
 
     /**
-     * Creates a SpectorClient connected to the configured host/port.
+     * Creates a SpectorHttpClient connected to the configured host/port.
      * Uses a 10-second connect timeout to satisfy requirement 18.4.
      */
-    protected SpectorClient createClient() {
-        return SpectorClient.builder()
+    protected SpectorHttpClient createClient() {
+        return SpectorHttpClient.builder()
                 .host(getHost())
                 .port(getPort())
                 .connectTimeout(Duration.ofSeconds(10))

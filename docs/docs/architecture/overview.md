@@ -284,15 +284,12 @@ graph LR
     end
 
     subgraph "⚡ Nervous System & Gateways (synapse/)"
-        runtime["spector-runtime<br/><i>Unified context root</i>"]
-        synapse["spector-synapse<br/><i>Armeria REST/gRPC/SSE & Chat Graph</i>"]
+        synapse["spector-synapse<br/><i>Spring Boot 4 REST/SSE & Chat Graph</i>"]
         connector["spector-connector<br/><i>Apache Camel connectors</i>"]
         mcp["spector-mcp<br/><i>MCP Server — Agent-native</i>"]
-        cli["spector-cli<br/><i>spectorctl CLI</i>"]
-        client["spector-client<br/><i>Java client SDK</i>"]
+        cli["spector-cli<br/><i>spectorctl CLI & standalone spector.jar</i>"]
         spring["spector-spring<br/><i>Spring AI VectorStore</i>"]
         batch["spector-batch<br/><i>Batch migration engine</i>"]
-        dist["spector-dist<br/><i>Single fat JAR</i>"]
     end
 
     subgraph "📈 Performance & Validation (bench/)"
@@ -309,20 +306,17 @@ graph LR
 
 ```mermaid
 graph TD
-    synapse["🌐 synapse"] --> runtime["⚡ runtime"]
-    synapse --> mcp["🤖 mcp"]
+    synapse["🌐 synapse"] --> mcp["🤖 mcp"]
     synapse --> connector["🔌 connector"]
     synapse --> metrics["📈 metrics"]
     synapse --> events["📡 events"]
+    synapse --> memory["🧠 memory"]
 
-    mcp --> runtime
+    mcp --> memory
     mcp --> ingestion["📥 ingestion"]
-    cli["🖥️ cli"] --> runtime
-    cli --> client["📦 client"]
-
-    runtime --> memory["🧠 memory"]
-    runtime --> ingestion
-    runtime --> providers["🤖 providers"]
+    cli["🖥️ cli"] --> memory
+    cli --> mcp
+    cli --> ingestion
 
     memory --> index["📊 index"]
     memory --> core["🔬 core"]
@@ -347,14 +341,10 @@ graph TD
     connector --> ingestion
     connector --> providerapi
 
-    dist["📦 dist"] --> mcp
-    dist --> cli
-    dist --> runtime
-
     spring["🌱 spring"] --> memory
     spring --> metrics
     bench["🧪 bench"] --> memory
-    bench --> providers
+    bench --> providers["🤖 providers"]
 ```
 
 > **Legend:** Solid arrows = compile dependency. Dotted arrow (`bench`) = benchmark execution dependency.

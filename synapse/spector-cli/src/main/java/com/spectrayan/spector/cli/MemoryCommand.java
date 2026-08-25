@@ -15,16 +15,18 @@
  */
 package com.spectrayan.spector.cli;
 
-import com.spectrayan.spector.client.SpectorClient;
-import com.spectrayan.spector.client.SpectorClientException;
-import com.spectrayan.spector.client.SpectorConnectionException;
-import picocli.CommandLine;
-import picocli.CommandLine.Command;
-
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import com.spectrayan.spector.cli.client.SpectorClientException;
+import com.spectrayan.spector.cli.client.SpectorConnectionException;
+import com.spectrayan.spector.cli.client.SpectorHttpClient;
+
+import picocli.CommandLine;
+import picocli.CommandLine.Command;
 
 /**
  * Picocli subcommand group for cognitive memory operations.
@@ -93,7 +95,7 @@ public class MemoryCommand extends BaseCommand {
 
         @Override
         public void run() {
-            try (SpectorClient client = createClient()) {
+            try (SpectorHttpClient client = createClient()) {
                 Map<String, Object> req = new HashMap<>();
                 req.put("id", id);
                 req.put("text", text);
@@ -137,7 +139,7 @@ public class MemoryCommand extends BaseCommand {
         @Override
         @SuppressWarnings("unchecked")
         public void run() {
-            try (SpectorClient client = createClient()) {
+            try (SpectorHttpClient client = createClient()) {
                 Map<String, Object> req = new HashMap<>();
                 req.put("query", query);
                 req.put("topK", topK);
@@ -188,7 +190,7 @@ public class MemoryCommand extends BaseCommand {
 
         @Override
         public void run() {
-            try (SpectorClient client = createClient()) {
+            try (SpectorHttpClient client = createClient()) {
                 String response = client.forgetMemory(id);
                 if (isJson()) {
                     OutputFormatter.printJson(out(), Map.of("message", response, "status", "success"));
@@ -213,8 +215,8 @@ public class MemoryCommand extends BaseCommand {
 
         @Override
         public void run() {
-            try (SpectorClient client = createClient()) {
-                String response = client.reinforceMemory(id, valence);
+            try (SpectorHttpClient client = createClient()) {
+                String response = client.reinforceMemory(id, (byte) valence);
                 if (isJson()) {
                     OutputFormatter.printJson(out(), Map.of("message", response, "status", "success"));
                 } else {
@@ -238,7 +240,7 @@ public class MemoryCommand extends BaseCommand {
 
         @Override
         public void run() {
-            try (SpectorClient client = createClient()) {
+            try (SpectorHttpClient client = createClient()) {
                 String response = client.suppressMemory(id, "SUPPRESS", reason);
                 if (isJson()) {
                     OutputFormatter.printJson(out(), Map.of("message", response, "status", "success"));
@@ -260,7 +262,7 @@ public class MemoryCommand extends BaseCommand {
 
         @Override
         public void run() {
-            try (SpectorClient client = createClient()) {
+            try (SpectorHttpClient client = createClient()) {
                 String response = client.suppressMemory(id, "UNSUPPRESS", "");
                 if (isJson()) {
                     OutputFormatter.printJson(out(), Map.of("message", response, "status", "success"));
@@ -285,7 +287,7 @@ public class MemoryCommand extends BaseCommand {
 
         @Override
         public void run() {
-            try (SpectorClient client = createClient()) {
+            try (SpectorHttpClient client = createClient()) {
                 String response = client.resolveMemory(id, !unresolve);
                 if (isJson()) {
                     OutputFormatter.printJson(out(), Map.of("message", response, "status", "success"));
@@ -305,7 +307,7 @@ public class MemoryCommand extends BaseCommand {
         @Override
         @SuppressWarnings("unchecked")
         public void run() {
-            try (SpectorClient client = createClient()) {
+            try (SpectorHttpClient client = createClient()) {
                 Map<String, Object> status = client.memoryStatus();
                 if (isJson()) {
                     OutputFormatter.printJson(out(), status);
@@ -345,7 +347,7 @@ public class MemoryCommand extends BaseCommand {
         @Override
         @SuppressWarnings("unchecked")
         public void run() {
-            try (SpectorClient client = createClient()) {
+            try (SpectorHttpClient client = createClient()) {
                 Map<String, Object> response = client.introspect(topic);
                 if (isJson()) {
                     OutputFormatter.printJson(out(), response);
@@ -386,7 +388,7 @@ public class MemoryCommand extends BaseCommand {
         @Override
         @SuppressWarnings("unchecked")
         public void run() {
-            try (SpectorClient client = createClient()) {
+            try (SpectorHttpClient client = createClient()) {
                 Map<String, Object> req = new HashMap<>();
                 req.put("text", text);
                 req.put("delaySeconds", delaySeconds);
@@ -415,7 +417,7 @@ public class MemoryCommand extends BaseCommand {
 
         @Override
         public void run() {
-            try (SpectorClient client = createClient()) {
+            try (SpectorHttpClient client = createClient()) {
                 String response = client.scratchpad(text);
                 if (isJson()) {
                     OutputFormatter.printJson(out(), Map.of("message", response, "status", "success"));
@@ -444,7 +446,7 @@ public class MemoryCommand extends BaseCommand {
         @Override
         @SuppressWarnings("unchecked")
         public void run() {
-            try (SpectorClient client = createClient()) {
+            try (SpectorHttpClient client = createClient()) {
                 Map<String, Object> req = new HashMap<>();
                 req.put("memoryId", memoryId);
                 req.put("query", query);
@@ -479,7 +481,7 @@ public class MemoryCommand extends BaseCommand {
         @Override
         @SuppressWarnings("unchecked")
         public void run() {
-            try (SpectorClient client = createClient()) {
+            try (SpectorHttpClient client = createClient()) {
                 Map<String, Object> response = client.reflect();
                 if (isJson()) {
                     OutputFormatter.printJson(out(), response);
@@ -523,7 +525,7 @@ public class MemoryCommand extends BaseCommand {
         @Override
         @SuppressWarnings("unchecked")
         public void run() {
-            try (SpectorClient client = createClient()) {
+            try (SpectorHttpClient client = createClient()) {
                 Map<String, Object> response = client.getSalienceProfile();
                 if (isJson()) {
                     OutputFormatter.printJson(out(), response);
@@ -576,7 +578,7 @@ public class MemoryCommand extends BaseCommand {
         @Override
         @SuppressWarnings("unchecked")
         public void run() {
-            try (SpectorClient client = createClient()) {
+            try (SpectorHttpClient client = createClient()) {
                 Map<String, Object> req = new HashMap<>();
                 req.put("text", text);
                 Map<String, Object> response = client.computeSalienceBoost(req);
@@ -615,7 +617,7 @@ public class MemoryCommand extends BaseCommand {
         @Override
         @SuppressWarnings("unchecked")
         public void run() {
-            try (SpectorClient client = createClient()) {
+            try (SpectorHttpClient client = createClient()) {
                 Map<String, Object> req = new HashMap<>();
                 req.put("topic", topic);
                 req.put("level", level);
@@ -665,7 +667,7 @@ public class MemoryCommand extends BaseCommand {
         @Override
         @SuppressWarnings("unchecked")
         public void run() {
-            try (SpectorClient client = createClient()) {
+            try (SpectorHttpClient client = createClient()) {
                 Map<String, Object> req = new HashMap<>();
                 if (occupation != null) req.put("occupation", occupation);
                 if (about != null) req.put("about", about);
@@ -761,7 +763,7 @@ public class MemoryCommand extends BaseCommand {
                     err().println("Export failed: " + e.getMessage());
                 }
             } else {
-                try (SpectorClient client = createClient()) {
+                try (SpectorHttpClient client = createClient()) {
                     out().println("📦 [Memory Export] Launching remote Spring Batch export for namespace '" + namespace + "' -> " + output);
                     out().println("✅ [Memory Export] Export job submitted successfully.");
                 } catch (SpectorConnectionException e) {
@@ -809,7 +811,7 @@ public class MemoryCommand extends BaseCommand {
                     err().println("Import failed: " + e.getMessage());
                 }
             } else {
-                try (SpectorClient client = createClient()) {
+                try (SpectorHttpClient client = createClient()) {
                     out().println("📥 [Memory Import] Launching remote Spring Batch import from " + input + " -> namespace '" + targetNamespace + "'");
                     out().println("✅ [Memory Import] Import job submitted successfully.");
                 } catch (SpectorConnectionException e) {

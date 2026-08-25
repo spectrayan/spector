@@ -108,7 +108,7 @@ class MemoryGraphRecallToolTest {
         when(memory.graphRecall(any(GraphRecallOptions.class))).thenReturn(expectedResult);
 
         // Act
-        McpSchema.CallToolResult res = tool.execute(null, Map.of(
+        McpSchema.CallToolResult res = tool.execute(Map.of(
                 "start_entity", "Alice",
                 "target_entity", "Project Apollo",
                 "max_hops", 3,
@@ -159,7 +159,7 @@ class MemoryGraphRecallToolTest {
         when(memory.graphRecall(any(GraphRecallOptions.class)))
                 .thenReturn(GraphTraversalResult.empty("Could not resolve starting entity for graph traversal."));
 
-        McpSchema.CallToolResult res = tool.execute(null, Map.of("start_entity", "NonExistent"));
+        McpSchema.CallToolResult res = tool.execute(Map.of("start_entity", "NonExistent"));
         assertThat(res.isError()).isFalse();
 
         String text = ((McpSchema.TextContent) res.content().get(0)).text();

@@ -1,1 +1,0 @@
---8<-- "synapse/spector-runtime/README.md"

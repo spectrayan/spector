@@ -98,7 +98,7 @@ spector-mcp/src/main/java/com/spectrayan/spector/mcp/
 ### 1. Build
 
 ```bash
-mvn package -pl spector-dist -am -DskipTests
+mvn package -pl synapse/spector-cli -am -DskipTests
 ```
 
 ### 2. Configuration
@@ -132,7 +132,8 @@ Add to your `claude_desktop_config.json`:
         "--add-modules", "jdk.incubator.vector",
         "--enable-native-access=ALL-UNNAMED",
         "--enable-preview",
-        "-jar", "/path/to/spector-dist/target/spector.jar",
+        "-jar", "/path/to/synapse/spector-cli/target/spector.jar",
+        "mcp",
         "--config", "/path/to/spector.yml"
       ]
     }

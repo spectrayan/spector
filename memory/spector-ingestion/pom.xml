@@ -13,8 +13,7 @@
 
     <artifactId>spector-ingestion</artifactId>
     <name>Spector Ingestion</name>
-    <description>Pure ingestion utilities: file discovery, text chunking, title extraction.
-        No dependency on runtime or engine — used as a utility by spector-runtime.</description>
+    <description>Pure ingestion utilities: file discovery, text chunking, title extraction, and ingestion pipelines.</description>
 
     <properties>
         <spector.module.name>com.spectrayan.spector.ingestion</spector.module.name>

@@ -15,7 +15,6 @@ package com.spectrayan.spector.synapse.agent.tools;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.connector.core.CamelConnectorEngine;
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
-import com.spectrayan.spector.runtime.SpectorRuntime;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.apache.camel.ProducerTemplate;
 import org.slf4j.Logger;
@@ -90,7 +89,7 @@ public class CamelRouteInvokerTool extends McpToolHandler {
 
     @Override
     @SuppressWarnings("unchecked")
-    public McpSchema.CallToolResult execute(SpectorRuntime runtime, Map<String, Object> args) throws Exception {
+    public McpSchema.CallToolResult execute(Map<String, Object> args) throws Exception {
         String routeId = (String) args.get("routeId");
         if (routeId == null || routeId.isBlank()) {
             return errorResult("Parameter 'routeId' is required.");

@@ -13,14 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.runtime;
+package com.spectrayan.spector.mcp;
 
 import static org.assertj.core.api.Assertions.*;
 
+import com.spectrayan.spector.config.SpectorConfigFactory;
 import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.memory.*;
 import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
@@ -40,7 +43,7 @@ import java.util.List;
  *   <li><b>Full</b> (Ollama UP): Also tests remember, reinforce, suppress, forget</li>
  * </ul>
  *
- * <p>Run with: {@code mvn test -pl spector-runtime -Dtest=McpToolsFunctionalTest -Dspector.functional=true}
+ * <p>Run with: {@code mvn test -pl synapse/spector-mcp -Dtest=McpToolsFunctionalTest -Dspector.functional=true}
  */
 @TestMethodOrder(OrderAnnotation.class)
 @Tag("functional")
@@ -50,7 +53,6 @@ class McpToolsFunctionalTest {
     private static final String OLLAMA_URL = "http://localhost:11434";
     private static final String EMBED_MODEL = "qwen3-embedding:latest";
 
-    private static SpectorRuntime runtime;
     private static SpectorMemory memory;
     private static boolean ollamaAvailable = false;
 
@@ -61,7 +63,7 @@ class McpToolsFunctionalTest {
                 "true".equals(System.getProperty("spector.functional")),
                 "Functional tests disabled. Set -Dspector.functional=true to enable.");
 
-        // Check Ollama connectivity (non-fatal  --  we can still test recall with pre-ingested data)
+        // Check Ollama connectivity (non-fatal -- we can still test recall with pre-ingested data)
         try {
             var config = com.spectrayan.spector.provider.ProviderConfig.local("ollama", "ollama", EMBED_MODEL, OLLAMA_URL);
             var registry = com.spectrayan.spector.provider.ProviderDiscovery.discover(java.util.List.of(config));
@@ -71,15 +73,18 @@ class McpToolsFunctionalTest {
             System.out.printf("[x] Ollama connected: %d dims from %s%n", dims, EMBED_MODEL);
         } catch (Exception e) {
             ollamaAvailable = false;
-            System.out.printf("Warning  Ollama NOT available: %s%n", e.getMessage());
+            System.out.printf("Warning   Ollama NOT available: %s%n", e.getMessage());
             System.out.printf("   Write tests (remember/reinforce) will be skipped.%n");
             System.out.printf("   Read tests (recall/introspect) will run against pre-ingested data.%n%n");
         }
 
-        // Load config and create runtime
+        // Load config and create memory
         Path configFile = Path.of("spector-local.yml");
         if (!Files.exists(configFile)) {
             configFile = Path.of("../spector-local.yml");
+        }
+        if (!Files.exists(configFile)) {
+            configFile = Path.of("../../spector-local.yml");
         }
         Assumptions.assumeTrue(Files.exists(configFile),
                 "spector-local.yml not found");
@@ -88,37 +93,52 @@ class McpToolsFunctionalTest {
                 .configFile(configFile)
                 .build();
 
-        // Create runtime  --  with embedder if available, or null-safe for read-only
+        var memoryProps = SpectorConfigFactory.memoryProperties(props);
+        Path persistencePath = memoryProps.persistencePath() != null ? Path.of(memoryProps.persistencePath()) : null;
+
+        EmbeddingProvider embedder;
         if (ollamaAvailable) {
             var config = com.spectrayan.spector.provider.ProviderConfig.local("ollama", "ollama", EMBED_MODEL, OLLAMA_URL);
             var registry = com.spectrayan.spector.provider.ProviderDiscovery.discover(java.util.List.of(config));
-            var embedder = registry.activeEmbedding().orElseThrow();
-            runtime = SpectorRuntime.from(props, embedder);
+            embedder = registry.activeEmbedding().orElseThrow();
         } else {
-            // Create with a stub embedder for read-only access to pre-ingested data
-            runtime = SpectorRuntime.from(props, new com.spectrayan.spector.provider.embedding.EmbeddingProvider() {
-                @Override public com.spectrayan.spector.provider.embedding.EmbeddingResult embed(String text) {
-                    throw new UnsupportedOperationException("Ollama not available  --  read-only mode");
+            embedder = new EmbeddingProvider() {
+                @Override public EmbeddingResult embed(String text) {
+                    throw new UnsupportedOperationException("Ollama not available -- read-only mode");
                 }
                 @Override public int dimensions() { return 4096; }
                 @Override public String modelName() { return "stub-readonly"; }
-            });
+            };
         }
-        memory = runtime.memory().orElse(null);
-        assertThat(memory).isNotNull();
 
-        System.out.printf("Runtime initialized. Total memories: %d%n", memory.totalMemories());
+        memory = DefaultSpectorMemory.builder()
+                .dimensions(memoryProps.dimensions())
+                .embeddingProvider(embedder)
+                .persistenceMode(MemoryPersistenceMode.valueOf(memoryProps.persistenceMode().name()))
+                .persistence(persistencePath)
+                .semanticCapacity(memoryProps.capacity())
+                .nodesPerPartition(memoryProps.nodesPerPartition())
+                .hebbianGraphCapacity(memoryProps.capacity())
+                .temporalChainCapacity(memoryProps.capacity())
+                .build();
+
+        assertThat(memory).isNotNull();
+        System.out.printf("Memory initialized. Total memories: %d%n", memory.totalMemories());
     }
 
     @AfterAll
     static void tearDown() {
-        if (runtime != null) {
-            runtime.close();
+        if (memory != null) {
+            try {
+                memory.close();
+            } catch (Exception e) {
+                log.warn("Error closing memory", e);
+            }
         }
     }
 
     // ==============================================================
-    // TEST 1: Status  --  verify ingested data exists
+    // TEST 1: Status -- verify ingested data exists
     // ==============================================================
 
     @Test @Order(1)
@@ -136,7 +156,7 @@ class McpToolsFunctionalTest {
     }
 
     // ==============================================================
-    // TEST 2-5: Remember  --  store across all tiers (requires Ollama)
+    // TEST 2-5: Remember -- store across all tiers (requires Ollama)
     // ==============================================================
 
     @Test @Order(2)
@@ -158,13 +178,12 @@ class McpToolsFunctionalTest {
                     .as("Should find the just-stored semantic memory").isTrue();
             System.out.printf("  [x] Verified: found in recall results%n");
         } catch (Exception e) {
-            // Walk the cause chain for store-full
             Throwable t = e;
             while (t != null) {
                 if (t.getMessage() != null && t.getMessage().contains("capacity")) {
                     System.out.printf("%n== Test 2: memory_remember SEMANTIC ==%n");
-                    System.out.printf("  Warning  Store full (capacity 10K reached). Skipping.%n");
-                    Assumptions.abort("Store full  --  cannot test remember");
+                    System.out.printf("  Warning   Store full (capacity reached). Skipping.%n");
+                    Assumptions.abort("Store full -- cannot test remember");
                 }
                 t = t.getCause();
             }
@@ -208,7 +227,7 @@ class McpToolsFunctionalTest {
     }
 
     // ==============================================================
-    // TEST 6-8: Recall  --  cross-tier cognitive scoring (read-only)
+    // TEST 6-8: Recall -- cross-tier cognitive scoring (read-only)
     // ==============================================================
 
     @Test @Order(6)
@@ -248,7 +267,6 @@ class McpToolsFunctionalTest {
 
     @Test @Order(8)
     void recallSemanticTierFilter() {
-        // Use SEMANTIC filter since all ingested data is SEMANTIC
         RecallOptions options = RecallOptions.builder()
                 .memoryTypes(MemoryType.SEMANTIC)
                 .topK(5)
@@ -270,7 +288,7 @@ class McpToolsFunctionalTest {
     }
 
     // ==============================================================
-    // TEST 9: Recall  --  diverse queries to test data relevance
+    // TEST 9: Recall -- diverse queries to test data relevance
     // ==============================================================
 
     @Test @Order(9)
@@ -303,7 +321,6 @@ class McpToolsFunctionalTest {
 
     @Test @Order(10)
     void reinforce() {
-        // Use a pre-ingested ID from recall results (not dependent on remember test)
         List<CognitiveResult> existing = memory.recall("spector");
         Assumptions.assumeTrue(!existing.isEmpty(), "Need pre-ingested data for reinforce test");
         String targetId = existing.getFirst().id();
@@ -318,7 +335,7 @@ class McpToolsFunctionalTest {
     }
 
     // ==============================================================
-    // TEST 11: Introspect  --  metamemory analysis (read-only)
+    // TEST 11: Introspect -- metamemory analysis (read-only)
     // ==============================================================
 
     @Test @Order(11)
@@ -336,7 +353,7 @@ class McpToolsFunctionalTest {
 
     @Test @Order(12)
     void suppressAndUnsuppress() {
-        Assumptions.assumeTrue(ollamaAvailable, "Ollama required  --  needs ft-episodic-001 from Test 3");
+        Assumptions.assumeTrue(ollamaAvailable, "Ollama required -- needs ft-episodic-001 from Test 3");
 
         memory.suppress("ft-episodic-001", "Not relevant");
         System.out.printf("%n== Test 12: memory_suppress / unsuppress ==%n  Suppressed ft-episodic-001%n");
@@ -357,7 +374,7 @@ class McpToolsFunctionalTest {
 
     @Test @Order(13)
     void forget() {
-        Assumptions.assumeTrue(ollamaAvailable, "Ollama required  --  needs ft-procedural-001 from Test 4");
+        Assumptions.assumeTrue(ollamaAvailable, "Ollama required -- needs ft-procedural-001 from Test 4");
 
         memory.forget("ft-procedural-001");
         System.out.printf("%n== Test 13: memory_forget ==%n  Forgot ft-procedural-001%n");
@@ -369,12 +386,11 @@ class McpToolsFunctionalTest {
     }
 
     // ==============================================================
-    // TEST 14: WhyNot  --  recall diagnostics (read-only, uses pre-ingested data)
+    // TEST 14: WhyNot -- recall diagnostics (read-only, uses pre-ingested data)
     // ==============================================================
 
     @Test @Order(14)
     void whyNot() {
-        // Pick a known ID from pre-ingested data
         List<CognitiveResult> existing = memory.recall("README");
         Assumptions.assumeTrue(!existing.isEmpty(), "Need at least one ingested memory");
         String knownId = existing.getFirst().id();
@@ -408,7 +424,6 @@ class McpToolsFunctionalTest {
             System.out.printf("  [%d] score=%.4f | %s%n", i, r.score(), snippet);
         }
 
-        // Synaptic filter may return empty if no pre-ingested data has matching tags  --  that's OK
         System.out.printf("  (Synaptic filter: %s)%n", results.isEmpty() ? "no tag matches (expected for bulk-ingested data)" : "matches found");
     }
 
@@ -419,7 +434,7 @@ class McpToolsFunctionalTest {
     @Test @Order(16)
     void finalStatus() {
         System.out.printf("%n== Test 16: Final Status ==%n");
-        System.out.printf("  Ollama:     %s%n", ollamaAvailable ? "[x] Available" : "Warning  Offline (read-only mode)");
+        System.out.printf("  Ollama:     %s%n", ollamaAvailable ? "[x] Available" : "Warning   Offline (read-only mode)");
         System.out.printf("  Total:      %d%n", memory.totalMemories());
         System.out.printf("  SEMANTIC:   %d%n", memory.memoryCount(MemoryType.SEMANTIC));
         System.out.printf("  EPISODIC:   %d%n", memory.memoryCount(MemoryType.EPISODIC));

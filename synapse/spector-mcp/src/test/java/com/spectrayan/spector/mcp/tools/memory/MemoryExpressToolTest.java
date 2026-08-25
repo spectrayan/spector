@@ -73,7 +73,7 @@ class MemoryExpressToolTest {
         when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of());
         when(memory.express(any(ExpressSignal.class))).thenReturn(mockReport);
 
-        McpSchema.CallToolResult result = tool.execute(null, Map.of("query", "How are you?"));
+        McpSchema.CallToolResult result = tool.execute(Map.of("query", "How are you?"));
 
         assertThat(result.isError()).isFalse();
         assertThat(result.content()).isNotEmpty();

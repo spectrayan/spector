@@ -158,8 +158,8 @@ Identity, cognitive state (importance/valence/arousal), synaptic tags, and full 
 ```bash
 git clone https://github.com/spectrayan/spector.git
 cd spector
-mvn clean test                                        # Build & run all 685+ tests
-mvn package -pl spector-dist -am -DskipTests          # Build the distribution JAR
+mvn clean test                                             # Build & run tests
+mvn package -pl synapse/spector-cli -am -DskipTests        # Build the standalone spector.jar
 ```
 
 **Start the MCP server** (for AI agents):
@@ -167,7 +167,7 @@ mvn package -pl spector-dist -am -DskipTests          # Build the distribution J
 ```bash
 java --add-modules jdk.incubator.vector \
   --enable-native-access=ALL-UNNAMED --enable-preview \
-  -jar spector-dist/target/spector.jar \
+  -jar synapse/spector-cli/target/spector.jar mcp \
   --config spector.yml
 ```
 
@@ -182,7 +182,8 @@ java --add-modules jdk.incubator.vector \
         "--add-modules", "jdk.incubator.vector",
         "--enable-native-access=ALL-UNNAMED",
         "--enable-preview",
-        "-jar", "/path/to/spector-dist/target/spector.jar",
+        "-jar", "/path/to/synapse/spector-cli/target/spector.jar",
+        "mcp",
         "--config", "/path/to/spector.yml"
       ]
     }

@@ -25,13 +25,12 @@
 /memory/spector-ingestion/ @spectrayan/ai-engineering
 
 # Synapse (Wiring & APIs)
-/synapse/spector-runtime/ @spectrayan/ai-engineering
+/synapse/spector-connector/ @spectrayan/ai-engineering
 /synapse/spector-mcp/ @spectrayan/ai-engineering
 /synapse/spector-cli/ @spectrayan/ai-engineering
-/synapse/spector-client/ @spectrayan/ai-engineering
 /synapse/spector-spring/ @spectrayan/ai-engineering
+/synapse/spector-batch/ @spectrayan/ai-engineering
 /synapse/spector-synapse/ @spectrayan/ai-engineering
-/synapse/spector-dist/ @spectrayan/ai-engineering
 
 # Cortex (UI)
 /cortex/spector-cortex/ @spectrayan/ai-engineering

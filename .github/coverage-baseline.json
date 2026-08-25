@@ -11,12 +11,9 @@
   "spector-memory": 80,
   "spector-events": 80,
   "spector-metrics": 80,
-  "spector-runtime": 80,
   "spector-cli": 60,
-  "spector-client": 80,
   "spector-spring": 80,
   "spector-mcp": 80,
   "spector-bench": 0,
-  "spector-test-support": 0,
-  "spector-dist": 0
+  "spector-test-support": 0
 }

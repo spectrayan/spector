@@ -55,15 +55,12 @@ spector/
 
 | Module | Purpose |
 |--------|---------|
-| `spector-runtime` | Runtime orchestration, composition root |
-| `spector-synapse` | Armeria REST/gRPC/SSE gateway and agentic chat graph |
+| `spector-synapse` | Spring Boot 4 REST/SSE gateway and agentic chat graph |
 | `spector-connector` | Enterprise data connectors powered by Apache Camel |
 | `spector-mcp` | MCP server (stdio + SSE, 20 tools) |
-| `spector-cli` | `spectorctl` CLI |
-| `spector-client` | Java client SDK |
+| `spector-cli` | Multi-function `spectorctl` CLI and standalone `spector.jar` runner |
 | `spector-spring` | Spring Boot / Spring AI VectorStore integration |
 | `spector-batch` | Batch migration and re-indexing engine |
-| `spector-dist` | Distribution fat JAR |
 
 ## Key Paths
 

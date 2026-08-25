@@ -12,39 +12,37 @@
  */
 package com.spectrayan.spector.synapse.agent.tools;
 
-import com.spectrayan.spector.mcp.tools.McpToolHandler;
-import com.spectrayan.spector.runtime.SpectorRuntime;
-import com.spectrayan.spector.synapse.channel.ChannelAdapter;
-import com.spectrayan.spector.synapse.channel.ChannelRouter;
-import com.spectrayan.spector.synapse.channel.adapters.EmailChannelAdapter;
-import com.spectrayan.spector.synapse.channel.adapters.SlackChannelAdapter;
-import com.spectrayan.spector.synapse.channel.config.ChannelProperties;
-import io.modelcontextprotocol.spec.McpSchema;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import com.spectrayan.spector.synapse.channel.ChannelAdapter;
+import com.spectrayan.spector.synapse.channel.ChannelRouter;
+
+import io.modelcontextprotocol.spec.McpSchema;
 
 class NotificationToolTest {
 
-    private NotificationTool tool;
     private ChannelRouter channelRouter;
-    private ChannelProperties properties;
+    private NotificationTool tool;
 
     @BeforeEach
     void setUp() {
-        properties = new ChannelProperties();
-        properties.getSlack().setEnabled(true);
-        properties.getEmail().setEnabled(true);
+        ChannelAdapter mockSlack = Mockito.mock(ChannelAdapter.class);
+        Mockito.when(mockSlack.channelId()).thenReturn("slack");
+        Mockito.when(mockSlack.isEnabled()).thenReturn(true);
 
-        ChannelAdapter slackAdapter = new SlackChannelAdapter(properties);
-        ChannelAdapter emailAdapter = new EmailChannelAdapter(properties);
+        ChannelAdapter mockEmail = Mockito.mock(ChannelAdapter.class);
+        Mockito.when(mockEmail.channelId()).thenReturn("email");
+        Mockito.when(mockEmail.isEnabled()).thenReturn(true);
 
-        channelRouter = new ChannelRouter(List.of(slackAdapter, emailAdapter));
+        channelRouter = new ChannelRouter(List.of(mockSlack, mockEmail));
         tool = new NotificationTool(channelRouter);
     }
 
@@ -59,24 +57,22 @@ class NotificationToolTest {
 
     @Test
     void executeRequiresMandatoryParameters() throws Exception {
-        SpectorRuntime runtime = Mockito.mock(SpectorRuntime.class);
-
         // Missing channel
-        McpSchema.CallToolResult res1 = tool.execute(runtime, Map.of(
+        McpSchema.CallToolResult res1 = tool.execute(Map.of(
                 "recipient", "dev-team",
                 "message", "Build finished"
         ));
         assertThat(res1.isError()).isTrue();
 
         // Missing recipient
-        McpSchema.CallToolResult res2 = tool.execute(runtime, Map.of(
+        McpSchema.CallToolResult res2 = tool.execute(Map.of(
                 "channel", "slack",
                 "message", "Build finished"
         ));
         assertThat(res2.isError()).isTrue();
 
         // Missing message
-        McpSchema.CallToolResult res3 = tool.execute(runtime, Map.of(
+        McpSchema.CallToolResult res3 = tool.execute(Map.of(
                 "channel", "slack",
                 "recipient", "dev-team"
         ));
@@ -85,9 +81,7 @@ class NotificationToolTest {
 
     @Test
     void executeFailsForUnregisteredChannel() throws Exception {
-        SpectorRuntime runtime = Mockito.mock(SpectorRuntime.class);
-
-        McpSchema.CallToolResult res = tool.execute(runtime, Map.of(
+        McpSchema.CallToolResult res = tool.execute(Map.of(
                 "channel", "unregistered_channel",
                 "recipient", "user@example.com",
                 "message", "Hello"
@@ -97,9 +91,7 @@ class NotificationToolTest {
 
     @Test
     void executeSucceedsForSlackNotification() throws Exception {
-        SpectorRuntime runtime = Mockito.mock(SpectorRuntime.class);
-
-        McpSchema.CallToolResult res = tool.execute(runtime, Map.of(
+        McpSchema.CallToolResult res = tool.execute(Map.of(
                 "channel", "slack",
                 "recipient", "#general",
                 "message", "Deployment succeeded"
@@ -109,9 +101,7 @@ class NotificationToolTest {
 
     @Test
     void executeSucceedsForEmailNotificationWithSubject() throws Exception {
-        SpectorRuntime runtime = Mockito.mock(SpectorRuntime.class);
-
-        McpSchema.CallToolResult res = tool.execute(runtime, Map.of(
+        McpSchema.CallToolResult res = tool.execute(Map.of(
                 "channel", "email",
                 "recipient", "admin@spectrayan.com",
                 "message", "Database backup completed.",

@@ -13,24 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.client.model;
+package com.spectrayan.spector.cli.client;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 /**
- * Response model for delete operations.
+ * Response model for document ingestion.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class DeleteResponse {
+public class IngestResponse {
 
     private String id;
-    private boolean deleted;
+    private String status;
+    private long durationMs;
+    private int chunks;
 
-    public DeleteResponse() {}
+    public IngestResponse() {}
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
-    public boolean isDeleted() { return deleted; }
-    public void setDeleted(boolean deleted) { this.deleted = deleted; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public long getDurationMs() { return durationMs; }
+    public void setDurationMs(long durationMs) { this.durationMs = durationMs; }
+
+    public int getChunks() { return chunks; }
+    public void setChunks(int chunks) { this.chunks = chunks; }
 }

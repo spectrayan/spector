@@ -20,7 +20,6 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.core.simd.SimdCapability;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.runtime.SpectorRuntime;
 import com.spectrayan.spector.mcp.prompts.SpectorPromptProvider;
 import com.spectrayan.spector.mcp.resources.SpectorResourceProvider;
 import com.spectrayan.spector.mcp.tools.SpectorToolRegistry;
@@ -46,16 +45,24 @@ public class SpectorMcpServer {
     static final String SERVER_NAME = "spector";
     static final String SERVER_VERSION = "1.0.0";
 
-    private final SpectorRuntime runtime;
     private final SpectorMemory memory;
+    private final Supplier<SpectorMemory> memoryResolver;
     private volatile McpSyncServer mcpServer;
 
     /**
-     * Creates an MCP server backed by the given runtime.
+     * Creates an MCP server backed by the given memory instance.
      */
-    public SpectorMcpServer(SpectorRuntime runtime) {
-        this.runtime = runtime;
-        this.memory = runtime.memory().orElse(null);
+    public SpectorMcpServer(SpectorMemory memory) {
+        this.memory = memory;
+        this.memoryResolver = memory != null ? () -> memory : null;
+    }
+
+    /**
+     * Creates an MCP server backed by a per-request memory resolver (for multi-tenant isolation).
+     */
+    public SpectorMcpServer(Supplier<SpectorMemory> memoryResolver) {
+        this.memory = null;
+        this.memoryResolver = memoryResolver;
     }
 
     /**
@@ -84,9 +91,12 @@ public class SpectorMcpServer {
      * Builds an MCP server on an arbitrary transport.
      */
     public McpSyncServer buildMcpServer(McpServerTransportProvider transportProvider) {
-        var toolSpecs  = SpectorToolRegistry.createAll(runtime, SERVER_VERSION);
-        var resources  = SpectorResourceProvider.create(memory, SERVER_VERSION);
-        var prompts    = SpectorPromptProvider.create(memory);
+        var toolSpecs  = memoryResolver != null
+                ? SpectorToolRegistry.createAll(memoryResolver, SERVER_VERSION)
+                : SpectorToolRegistry.createAll(memory, SERVER_VERSION);
+        var activeMemory = memoryResolver != null ? memoryResolver.get() : memory;
+        var resources  = SpectorResourceProvider.create(activeMemory, SERVER_VERSION);
+        var prompts    = SpectorPromptProvider.create(activeMemory);
 
         mcpServer = McpServer.sync(transportProvider)
                 .serverInfo(SERVER_NAME, SERVER_VERSION)
@@ -111,7 +121,7 @@ public class SpectorMcpServer {
      */
     public McpSyncServer buildMcpServer(McpServerTransportProvider transportProvider,
                                         Supplier<SpectorMemory> memoryResolver) {
-        var toolSpecs  = SpectorToolRegistry.createAll(runtime, SERVER_VERSION, memoryResolver);
+        var toolSpecs  = SpectorToolRegistry.createAll(memoryResolver, SERVER_VERSION);
         var resolvedMemory = memoryResolver != null ? memoryResolver.get() : null;
         var resources  = SpectorResourceProvider.create(resolvedMemory, SERVER_VERSION);
         var prompts    = SpectorPromptProvider.create(resolvedMemory);

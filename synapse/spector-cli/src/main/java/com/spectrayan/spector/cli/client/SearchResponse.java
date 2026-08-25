@@ -13,44 +13,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.client.model;
+package com.spectrayan.spector.cli.client;
 
 import java.util.List;
-
+import java.util.Map;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 /**
- * Response model for search operations.
+ * Response model for document search.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class SearchResponse {
 
-    private List<SearchResult> results;
-    private int totalHits;
+    private long totalHits;
     private long queryTimeMs;
-    private String mode;
+    private List<SearchResult> results;
 
     public SearchResponse() {}
 
-    public List<SearchResult> getResults() { return results; }
-    public void setResults(List<SearchResult> results) { this.results = results; }
-
-    public int getTotalHits() { return totalHits; }
-    public void setTotalHits(int totalHits) { this.totalHits = totalHits; }
+    public long getTotalHits() { return totalHits; }
+    public void setTotalHits(long totalHits) { this.totalHits = totalHits; }
 
     public long getQueryTimeMs() { return queryTimeMs; }
     public void setQueryTimeMs(long queryTimeMs) { this.queryTimeMs = queryTimeMs; }
 
-    public String getMode() { return mode; }
-    public void setMode(String mode) { this.mode = mode; }
+    public List<SearchResult> getResults() { return results; }
+    public void setResults(List<SearchResult> results) { this.results = results; }
 
-    /**
-     * A single search result entry.
-     */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class SearchResult {
         private String id;
         private float score;
+        private Map<String, Object> metadata;
 
         public SearchResult() {}
 
@@ -59,5 +53,8 @@ public class SearchResponse {
 
         public float getScore() { return score; }
         public void setScore(float score) { this.score = score; }
+
+        public Map<String, Object> getMetadata() { return metadata; }
+        public void setMetadata(Map<String, Object> metadata) { this.metadata = metadata; }
     }
 }

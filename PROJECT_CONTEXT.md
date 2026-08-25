@@ -49,21 +49,18 @@ Spector is organized as a strict layered architecture to prevent circular depend
 
 ```mermaid
 graph TD
-    subgraph infrastructure ["Validation & Distribution"]
+    subgraph infrastructure ["Validation & Integration"]
         metrics[spector-metrics]
         bench[spector-bench]
-        dist[spector-dist]
         spring[spector-spring]
         batch[spector-batch]
     end
 
     subgraph run_layer ["Nervous System & Gateways (synapse/)"]
-        runtime[spector-runtime]
         synapse[spector-synapse]
         connector[spector-connector]
         mcp[spector-mcp]
         cli[spector-cli]
-        client[spector-client]
     end
 
     subgraph intelligence ["Cognitive Memory Layer (memory/)"]
@@ -121,14 +118,12 @@ graph TD
     *   `spector-inspect`: Binary inspection utility for partition and runtime bundles.
     *   `spector-metrics`: Micrometer and Prometheus observability instrumentation.
 3.  **Nervous System & Gateways (`synapse/`)**
-    *   `spector-runtime`: Core integration runtime and composition root.
-    *   `spector-synapse`: Unified API gateway, Armeria REST/gRPC/SSE server, and agentic chat graph.
+    *   `spector-synapse`: Unified API gateway, Spring Boot 4 / Armeria REST/SSE server, and agentic chat graph.
     *   `spector-connector`: Enterprise data connectors powered by Apache Camel.
-    *   `spector-mcp`: Model Context Protocol server exposing Spector memory via stdio/SSE.
-    *   `spector-cli` / `spector-client`: `spectorctl` CLI and Java client SDK.
+    *   `spector-mcp`: Model Context Protocol server exposing Spector memory via STDIO/SSE.
+    *   `spector-cli`: Multi-function CLI executable (`spectorctl`) and standalone MCP runner packaged into fat `spector.jar`.
     *   `spector-spring`: Spring AI VectorStore integration starter.
     *   `spector-batch`: Batch migration engine.
-    *   `spector-dist`: Distribution packaging for standalone single-jar deployments.
 4.  **Performance & Benchmarks (`bench/`)**
     *   `spector-bench`: JMH micro-benchmarks and end-to-end cognitive memory evaluation harness.
 

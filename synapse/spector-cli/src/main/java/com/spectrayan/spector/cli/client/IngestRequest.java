@@ -13,45 +13,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.client.model;
+package com.spectrayan.spector.cli.client;
 
+import java.util.Map;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
- * Request model for single document ingestion.
+ * Request model for document ingestion.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class IngestRequest {
 
     private String id;
-    private String title;
-    private String content;
+    private String text;
     private float[] vector;
+    private Map<String, Object> metadata;
 
     public IngestRequest() {}
 
-    public IngestRequest(String id, String content, float[] vector) {
+    public IngestRequest(String id, String text) {
         this.id = id;
-        this.content = content;
-        this.vector = vector;
+        this.text = text;
     }
 
-    public IngestRequest(String id, String title, String content, float[] vector) {
+    public IngestRequest(String id, String text, float[] vector) {
         this.id = id;
-        this.title = title;
-        this.content = content;
+        this.text = text;
         this.vector = vector;
     }
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
-
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
+    public String getText() { return text; }
+    public void setText(String text) { this.text = text; }
 
     public float[] getVector() { return vector; }
     public void setVector(float[] vector) { this.vector = vector; }
+
+    public Map<String, Object> getMetadata() { return metadata; }
+    public void setMetadata(Map<String, Object> metadata) { this.metadata = metadata; }
 }

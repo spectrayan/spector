@@ -13,7 +13,6 @@
 package com.spectrayan.spector.synapse.agent.graph.nodes;
 
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
-import com.spectrayan.spector.runtime.SpectorRuntime;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
 import com.spectrayan.spector.synapse.agent.approval.repository.AgentApprovalRepository;
 import com.spectrayan.spector.synapse.agent.approval.repository.InMemoryAgentApprovalRepository;
@@ -55,7 +54,7 @@ class ToolExecutionNodeApprovalTest {
             @Override public Map<String, Object> inputSchema() { return Map.of(); }
             @Override public McpToolCategory category() { return McpToolCategory.GENERAL; }
             @Override public boolean isWriteTool() { return false; }
-            @Override public McpSchema.CallToolResult execute(SpectorRuntime runtime, Map<String, Object> args) {
+            @Override public McpSchema.CallToolResult execute(Map<String, Object> args) {
                 return textResult("Result: 42");
             }
         };
@@ -66,7 +65,7 @@ class ToolExecutionNodeApprovalTest {
             @Override public Map<String, Object> inputSchema() { return Map.of(); }
             @Override public McpToolCategory category() { return McpToolCategory.FILESYSTEM; }
             @Override public boolean isWriteTool() { return true; }
-            @Override public McpSchema.CallToolResult execute(SpectorRuntime runtime, Map<String, Object> args) {
+            @Override public McpSchema.CallToolResult execute(Map<String, Object> args) {
                 return textResult("Deleted: " + args.get("path"));
             }
         };

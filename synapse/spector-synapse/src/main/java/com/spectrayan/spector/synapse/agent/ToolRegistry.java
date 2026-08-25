@@ -153,8 +153,8 @@ public class ToolRegistry {
                     ? MAPPER.readValue(request.arguments(), Map.class)
                     : Map.of();
             
-            // Execute the MCP tool using null runtime context
-            McpSchema.CallToolResult result = tool.execute(null, args);
+            // Execute the MCP tool
+            McpSchema.CallToolResult result = tool.execute(args);
             if (result == null || result.content() == null) {
                 return "";
             }

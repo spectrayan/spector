@@ -101,7 +101,7 @@ class VectorSearchToolTest {
 
         when(memory.recall(eq("test query"), any(RecallOptions.class))).thenReturn(List.of(result));
 
-        String response = tool.execute(args);
+        String response = tool.executeToString(args);
         assertNotNull(response);
         assertTrue(response.contains("Vector Search Results"));
         assertTrue(response.contains("Test memory"));
@@ -120,7 +120,7 @@ class VectorSearchToolTest {
 
         when(memory.recall(eq("test query"), any(RecallOptions.class))).thenReturn(List.of(result));
 
-        String response = tool.execute(args);
+        String response = tool.executeToString(args);
         assertTrue(response.contains("Semantic memory"));
         assertTrue(response.contains("SEMANTIC"));
     }
@@ -137,7 +137,7 @@ class VectorSearchToolTest {
 
         when(memory.recall(eq("test query"), any(RecallOptions.class))).thenReturn(List.of(result));
 
-        String response = tool.execute(args);
+        String response = tool.executeToString(args);
         assertTrue(response.contains("Recent memory"));
     }
 
@@ -157,7 +157,7 @@ class VectorSearchToolTest {
         when(memory.recall(eq("test query"), any(RecallOptions.class)))
                 .thenReturn(List.of(highScore, lowScore));
 
-        String response = tool.execute(args);
+        String response = tool.executeToString(args);
         assertTrue(response.contains("High score memory"));
         assertFalse(response.contains("Low score memory"));
     }
@@ -174,7 +174,7 @@ class VectorSearchToolTest {
 
         when(memory.recall(eq("test query"), any(RecallOptions.class))).thenReturn(List.of(result));
 
-        String response = tool.execute(args);
+        String response = tool.executeToString(args);
         assertTrue(response.contains("Tagged memory"));
     }
 
@@ -183,7 +183,7 @@ class VectorSearchToolTest {
         Map<String, Object> args = Map.of("query", "nonexistent");
         when(memory.recall(eq("nonexistent"), any(RecallOptions.class))).thenReturn(List.of());
 
-        String response = tool.execute(args);
+        String response = tool.executeToString(args);
         assertTrue(response.contains("No memories found"));
     }
 
@@ -199,7 +199,7 @@ class VectorSearchToolTest {
         when(memory.recall(eq("test query"), any(RecallOptions.class)))
                 .thenReturn(List.of(lowScore));
 
-        String response = tool.execute(args);
+        String response = tool.executeToString(args);
         assertTrue(response.contains("none met min_similarity"));
     }
 
@@ -211,7 +211,7 @@ class VectorSearchToolTest {
         Map<String, Object> args = Map.of("query", "test query");
 
         // Act
-        String response = tool.execute(args);
+        String response = tool.executeToString(args);
 
         // Assert
         assertNotNull(response);

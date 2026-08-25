@@ -26,7 +26,7 @@ pip install -e ".[dev]"
 
 - Python ≥ 3.10
 - JDK 25+ (for the Spector MCP server process)
-- Built `spector.jar` — run `mvn package -pl spector-dist -am -DskipTests` from the repo root
+- Built `spector.jar` — run `mvn package -pl synapse/spector-cli -am -DskipTests` from the repo root
 
 ---
 
@@ -36,7 +36,7 @@ pip install -e ".[dev]"
 from spector import SpectorClient
 
 with SpectorClient(
-    jar_path="/path/to/spector-dist/target/spector.jar",
+    jar_path="/path/to/synapse/spector-cli/target/spector.jar",
     config_path="/path/to/spector.yml",
 ) as client:
     # Store a memory (ID auto-generated via TSID)

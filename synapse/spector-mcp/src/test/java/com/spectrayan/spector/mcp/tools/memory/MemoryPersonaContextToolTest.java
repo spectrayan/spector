@@ -57,7 +57,7 @@ class MemoryPersonaContextToolTest {
     void execute_successfulInspection() throws Exception {
         when(memory.totalMemories()).thenReturn(42);
 
-        McpSchema.CallToolResult result = tool.execute(null, Map.of());
+        McpSchema.CallToolResult result = tool.execute(Map.of());
 
         assertThat(result.isError()).isFalse();
         assertThat(result.content()).isNotEmpty();

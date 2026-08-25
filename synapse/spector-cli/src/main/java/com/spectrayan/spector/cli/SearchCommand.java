@@ -15,18 +15,19 @@
  */
 package com.spectrayan.spector.cli;
 
-import com.spectrayan.spector.client.SpectorClient;
-import com.spectrayan.spector.client.SpectorClientException;
-import com.spectrayan.spector.client.SpectorConnectionException;
-import com.spectrayan.spector.client.model.SearchRequest;
-import com.spectrayan.spector.client.model.SearchResponse;
-import picocli.CommandLine;
-import picocli.CommandLine.Command;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import com.spectrayan.spector.cli.client.SearchRequest;
+import com.spectrayan.spector.cli.client.SearchResponse;
+import com.spectrayan.spector.cli.client.SpectorClientException;
+import com.spectrayan.spector.cli.client.SpectorConnectionException;
+import com.spectrayan.spector.cli.client.SpectorHttpClient;
+
+import picocli.CommandLine;
+import picocli.CommandLine.Command;
 
 /**
  * Search documents in the Spector engine.

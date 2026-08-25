@@ -119,7 +119,7 @@ class McpMultiTransportIntegrationTest {
         when(mockTool.name()).thenReturn("memory_status");
         when(mockTool.description()).thenReturn("Get memory status");
         when(mockTool.inputSchema()).thenReturn(Map.of("type", "object"));
-        when(mockTool.execute(null, Map.of())).thenReturn(
+        when(mockTool.execute(Map.of())).thenReturn(
                 new McpSchema.CallToolResult(List.of(new McpSchema.TextContent("OK")), false, null, null));
 
         when(toolRegistry.all()).thenReturn(Map.of("memory_status", mockTool));

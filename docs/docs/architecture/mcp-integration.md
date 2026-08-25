@@ -56,16 +56,12 @@ graph LR
         end
     end
 
-    subgraph "spector-runtime"
-        Runtime["\u26a1 SpectorRuntime<br/><i>Composition Root</i>"]
-    end
-
     subgraph "spector-memory"
-        Memory["\ud83e\udde0 SpectorMemory"]
+        Memory["🧠 SpectorMemory"]
     end
 
     subgraph "spector-core"
-        SIMD["\ud83d\udd2c SIMD Kernels<br/><i>AVX2/AVX-512/NEON</i>"]
+        SIMD["🔬 SIMD Kernels<br/><i>AVX2/AVX-512/NEON</i>"]
     end
 
     Agent -- "stdin/stdout" --> StdioTransport
@@ -77,8 +73,7 @@ graph LR
     M1 & M2 & M3 & M4 & M5 --> TH
     M1 & M2 & M3 & M4 & M5 --> SB
     M1 & M2 & M3 & M4 & M5 --> RF
-    M1 & M2 & M3 & M4 & M5 --> Runtime
-    Runtime --> Memory
+    M1 & M2 & M3 & M4 & M5 --> Memory
     Memory --> SIMD
 ```
 

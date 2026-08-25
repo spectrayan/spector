@@ -25,7 +25,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.runtime.SpectorRuntime;
 import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
 
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -39,16 +38,12 @@ class SpectorToolRegistryTest {
     private static final String TEST_VERSION = "0.1.0-test";
 
     private static SpectorMemory memory;
-    private static SpectorRuntime runtime;
     private static List<McpServerFeatures.SyncToolSpecification> specs;
 
     @BeforeAll
     static void setUp() {
         memory = mock(SpectorMemory.class);
-        runtime = mock(SpectorRuntime.class);
-        org.mockito.Mockito.when(runtime.memory()).thenReturn(java.util.Optional.of(memory));
-
-        specs = SpectorToolRegistry.createAll(runtime, TEST_VERSION);
+        specs = SpectorToolRegistry.createAll(memory, TEST_VERSION);
     }
 
     @Test

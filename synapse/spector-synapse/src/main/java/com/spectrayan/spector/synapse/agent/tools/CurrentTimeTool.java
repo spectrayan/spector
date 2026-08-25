@@ -11,18 +11,18 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.agent.tools;
-import com.spectrayan.spector.mcp.tools.McpToolHandler;
-import com.spectrayan.spector.runtime.SpectorRuntime;
-import io.modelcontextprotocol.spec.McpSchema;
-
-
-import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
+
+import org.springframework.stereotype.Component;
+
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+
+import io.modelcontextprotocol.spec.McpSchema;
 
 /**
  * Current time tool — provides the current date, time, and timezone info.
@@ -54,7 +54,7 @@ public class CurrentTimeTool extends McpToolHandler {
     }
 
     @Override
-    public io.modelcontextprotocol.spec.McpSchema.CallToolResult execute(com.spectrayan.spector.runtime.SpectorRuntime runtime, Map<String, Object> args) throws Exception {
+    public McpSchema.CallToolResult execute(Map<String, Object> args) throws Exception {
         return textResult(executeInternal(args));
     }
 
@@ -64,18 +64,22 @@ public class CurrentTimeTool extends McpToolHandler {
             ZoneId zoneId = ZoneId.of(tz);
             ZonedDateTime now = ZonedDateTime.now(zoneId);
             return String.format("""
-                    Current Time: %s
-                    Date: %s
-                    Timezone: %s
-                    Unix Epoch: %d
-                    ISO 8601: %s""",
-                    now.format(DateTimeFormatter.ofPattern("HH:mm:ss")),
-                    now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd (EEEE)")),
+                    Current Time Info:
+                    - ISO-8601: %s
+                    - Formatted: %s
+                    - Timezone: %s (offset: %s)
+                    - Epoch Millis: %d
+                    - Epoch Seconds: %d
+                    """,
+                    now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                    now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z")),
                     zoneId.getId(),
-                    Instant.now().getEpochSecond(),
-                    now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+                    now.getOffset().getId(),
+                    Instant.now().toEpochMilli(),
+                    Instant.now().getEpochSecond()
+            ).trim();
         } catch (Exception e) {
-            return "Error: Invalid timezone '" + tz + "'. Use IANA format like 'America/New_York'.";
+            return "Error: Invalid timezone '" + tz + "'. Use IANA format like 'America/New_York' or 'Europe/London'.";
         }
     }
 }

@@ -15,14 +15,12 @@
  */
 package org.springframework.ai.vectorstore.spector;
 
-import com.spectrayan.spector.client.SpectorClient;
-import com.spectrayan.spector.client.SpectorConnectionException;
-import com.spectrayan.spector.client.model.IngestRequest;
-import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.model.ScoringMode;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.commons.error.ErrorCode;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,26 +29,16 @@ import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.Filter;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.ScoringMode;
 
 /**
- * Spring AI {@link VectorStore} implementation backed by Spector.
+ * Spring AI {@link VectorStore} implementation backed by Spector Cognitive Memory.
  *
- * <p>Supports two modes of operation:
- * <ul>
- *   <li><b>Embedded</b> — uses a local {@link SpectorMemory} instance directly</li>
- *   <li><b>Remote</b> — communicates with a remote Spector instance via {@link SpectorClient}</li>
- * </ul>
- *
- * <p>Since Spector is a vector-native engine, documents must have their embeddings
- * pre-computed and stored in metadata under the key {@code "embedding"} (as a {@code float[]}).
- * The {@link #similaritySearch(SearchRequest)} method performs similarity search using the query
- * text, routing it to Spector memory. For direct vector search, use
- * {@link #similaritySearch(float[], int, double, Filter.Expression)}.</p>
+ * <p>Uses a local {@link SpectorMemory} instance directly.</p>
  */
 public class SpectorVectorStore implements VectorStore {
 
@@ -60,24 +48,13 @@ public class SpectorVectorStore implements VectorStore {
     public static final String EMBEDDING_METADATA_KEY = "embedding";
 
     private final SpectorMemory memory;
-    private final SpectorClient client;
     private final SpectorFilterExpressionConverter filterConverter;
 
     /**
      * Creates a SpectorVectorStore backed by an embedded SpectorMemory.
      */
     public SpectorVectorStore(SpectorMemory memory) {
-        this.memory = memory;
-        this.client = null;
-        this.filterConverter = new SpectorFilterExpressionConverter();
-    }
-
-    /**
-     * Creates a SpectorVectorStore backed by a remote SpectorClient.
-     */
-    public SpectorVectorStore(SpectorClient client) {
-        this.memory = null;
-        this.client = client;
+        this.memory = Objects.requireNonNull(memory, "memory");
         this.filterConverter = new SpectorFilterExpressionConverter();
     }
 
@@ -92,17 +69,7 @@ public class SpectorVectorStore implements VectorStore {
             String content = document.getText() != null ? document.getText() : "";
             float[] embedding = extractEmbedding(document);
 
-            if (memory != null) {
-                memory.target().ingest(id, content, embedding);
-            } else {
-                try {
-                    IngestRequest request = new IngestRequest(id, content, embedding);
-                    client.ingest(request);
-                } catch (SpectorConnectionException e) {
-                    throw new SpectorVectorStoreException(
-                            "Failed to connect to remote Spector instance: " + e.getMessage(), e);
-                }
-            }
+            memory.target().ingest(id, content, embedding);
         }
         LOG.debug("Added {} documents to SpectorVectorStore", documents.size());
     }
@@ -114,16 +81,7 @@ public class SpectorVectorStore implements VectorStore {
         }
 
         for (String id : idList) {
-            if (memory != null) {
-                memory.forget(id);
-            } else {
-                try {
-                    client.delete(id);
-                } catch (SpectorConnectionException e) {
-                    throw new SpectorVectorStoreException(
-                            "Failed to connect to remote Spector instance: " + e.getMessage(), e);
-                }
-            }
+            memory.forget(id);
         }
         LOG.debug("Deleted {} documents from SpectorVectorStore", idList.size());
     }
@@ -201,39 +159,26 @@ public class SpectorVectorStore implements VectorStore {
             return Collections.emptyList();
         }
 
-        List<Document> results;
-
-        if (memory != null) {
-            var options = RecallOptions.builder()
-                    .topK(topK)
-                    .scoringMode(ScoringMode.SIMILARITY)
+        var options = RecallOptions.builder()
+                .topK(topK)
+                .scoringMode(ScoringMode.SIMILARITY)
+                .build();
+        var recallResults = memory.admin().recallPipeline().recall(queryEmbedding, options);
+        List<Document> results = new ArrayList<>();
+        for (var r : recallResults) {
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("score", (double) r.score());
+            metadata.put("distance", (double) r.score());
+            Document doc = Document.builder()
+                    .id(r.id())
+                    .text(r.text())
+                    .metadata(metadata)
+                    .score((double) r.score())
                     .build();
-            var recallResults = memory.admin().recallPipeline().recall(queryEmbedding, options);
-            results = new ArrayList<>();
-            for (var r : recallResults) {
-                Map<String, Object> metadata = new HashMap<>();
-                metadata.put("score", (double) r.score());
-                metadata.put("distance", (double) r.score());
-                Document doc = Document.builder()
-                        .id(r.id())
-                        .text(r.text())
-                        .metadata(metadata)
-                        .score((double) r.score())
-                        .build();
-                results.add(doc);
-            }
-            if (filterExpression != null) {
-                results = applyFilter(results, filterExpression);
-            }
-        } else {
-            try {
-                var searchRequest = com.spectrayan.spector.client.model.SearchRequest.vector(queryEmbedding, topK);
-                var searchResponse = client.search(searchRequest);
-                results = mapClientResults(searchResponse, filterExpression);
-            } catch (SpectorConnectionException e) {
-                throw new SpectorVectorStoreException(
-                        "Failed to connect to remote Spector instance: " + e.getMessage(), e);
-            }
+            results.add(doc);
+        }
+        if (filterExpression != null) {
+            results = applyFilter(results, filterExpression);
         }
 
         // Apply similarity threshold if configured
@@ -250,36 +195,6 @@ public class SpectorVectorStore implements VectorStore {
     }
 
     // ─── Private Helpers ───
-
-    private List<Document> mapClientResults(
-            com.spectrayan.spector.client.model.SearchResponse response,
-            Filter.Expression filterExpression) {
-        if (response == null || response.getResults() == null || response.getResults().isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        List<Document> documents = new ArrayList<>();
-        for (var result : response.getResults()) {
-            Map<String, Object> metadata = new HashMap<>();
-            metadata.put("score", (double) result.getScore());
-            metadata.put("distance", (double) result.getScore());
-
-            Document doc = Document.builder()
-                    .id(result.getId())
-                    .text("")
-                    .metadata(metadata)
-                    .score((double) result.getScore())
-                    .build();
-            documents.add(doc);
-        }
-
-        // Apply filter in memory if expression is present
-        if (filterExpression != null) {
-            documents = applyFilter(documents, filterExpression);
-        }
-
-        return documents;
-    }
 
     private List<Document> applyFilter(List<Document> documents, Filter.Expression expression) {
         return documents.stream()

@@ -15,7 +15,6 @@
  */
 package com.spectrayan.spector.spring.autoconfigure;
 
-import com.spectrayan.spector.client.SpectorClient;
 import com.spectrayan.spector.provider.DefaultProviderRegistry;
 import com.spectrayan.spector.provider.DelegatingLlmProvider;
 import com.spectrayan.spector.provider.ProviderConfig;
@@ -444,49 +443,6 @@ public class SpectorAutoConfiguration {
     @ConditionalOnMissingBean(SpectorVectorStore.class)
     SpectorVectorStore spectorVectorMemoryStore(SpectorMemory memory){
         return new SpectorVectorStore(memory);
-    }
-    /**
-     * Auto-configures {@link SpectorVectorStore} using remote {@link SpectorClient}.
-     * <p>
-     * Evaluated only if no {@link SpectorVectorStore} bean (like the memory one above) was created.
-     *
-     * @param client remote client instance
-     * @return {@link SpectorVectorStore} backed by remote client
-     */
-    @Bean(name = "spectorVectorClientStore")
-    @ConditionalOnBean(SpectorClient.class)
-    @ConditionalOnMissingBean(SpectorVectorStore.class)
-    SpectorVectorStore spectorVectorClientStore(SpectorClient client){
-        return new SpectorVectorStore(client);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean(SpectorClient.class)
-    @ConditionalOnProperty(prefix = "spector.client",name = "host")
-    SpectorClient spectorClient(SpectorConfigProperties props){
-        com.spectrayan.spector.config.properties.ClientProperties clientProps = props.getClient();
-        SpectorClient.Builder builder = SpectorClient.builder();
-
-        if (clientProps.getHost() != null) {
-            builder.host(clientProps.getHost());
-            if (clientProps.getPort() > 0) {
-                builder.port(clientProps.getPort());
-            }
-            if (clientProps.getApiKey() != null) {
-                builder.apiKey(clientProps.getApiKey());
-            }
-            if (clientProps.getRequestTimeout() != null) {
-                builder.requestTimeout(clientProps.getRequestTimeout());
-            }
-            if (clientProps.getConnectTimeout() != null) {
-                builder.connectTimeout(clientProps.getConnectTimeout());
-            }
-            if (clientProps.getMaxConnections() > 0) {
-                builder.maxConnections(clientProps.getMaxConnections());
-            }
-
-        }
-        return builder.build();
     }
     /**
      * Helper method to map {@link SpectorConfigProperties} to Spector's native {@link EmbeddingConfig}.

@@ -13,50 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.client.model;
+package com.spectrayan.spector.cli.client;
 
+import java.util.Map;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
- * Request model for search operations.
+ * Request model for document search.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class SearchRequest {
 
     private String text;
     private float[] vector;
-    private String mode;
+    private String mode = "KEYWORD";
     private int topK = 10;
+    private Map<String, Object> filter;
+    private Map<String, Object> options;
 
     public SearchRequest() {}
-
-    /** Creates a keyword search request. */
-    public static SearchRequest keyword(String text, int topK) {
-        var req = new SearchRequest();
-        req.text = text;
-        req.mode = "KEYWORD";
-        req.topK = topK;
-        return req;
-    }
-
-    /** Creates a vector search request. */
-    public static SearchRequest vector(float[] vector, int topK) {
-        var req = new SearchRequest();
-        req.vector = vector;
-        req.mode = "VECTOR";
-        req.topK = topK;
-        return req;
-    }
-
-    /** Creates a hybrid search request. */
-    public static SearchRequest hybrid(String text, float[] vector, int topK) {
-        var req = new SearchRequest();
-        req.text = text;
-        req.vector = vector;
-        req.mode = "HYBRID";
-        req.topK = topK;
-        return req;
-    }
 
     public String getText() { return text; }
     public void setText(String text) { this.text = text; }
@@ -69,4 +44,10 @@ public class SearchRequest {
 
     public int getTopK() { return topK; }
     public void setTopK(int topK) { this.topK = topK; }
+
+    public Map<String, Object> getFilter() { return filter; }
+    public void setFilter(Map<String, Object> filter) { this.filter = filter; }
+
+    public Map<String, Object> getOptions() { return options; }
+    public void setOptions(Map<String, Object> options) { this.options = options; }
 }

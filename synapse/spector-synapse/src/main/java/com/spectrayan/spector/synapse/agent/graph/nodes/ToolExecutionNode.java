@@ -131,7 +131,7 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
     }
 
     private static String executeToolInternal(McpToolHandler tool, Map<String, Object> args) throws Exception {
-        io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult = tool.execute(null, args);
+        io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult = tool.execute(args);
         StringBuilder sb = new StringBuilder();
         if (toolResult != null && toolResult.content() != null) {
             for (var content : toolResult.content()) {

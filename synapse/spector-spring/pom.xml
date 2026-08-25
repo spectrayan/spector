@@ -85,12 +85,6 @@
             <artifactId>spector-gpu</artifactId>
         </dependency>
 
-        <!-- Spector Client (remote mode) -->
-        <dependency>
-            <groupId>com.spectrayan</groupId>
-            <artifactId>spector-client</artifactId>
-        </dependency>
-
         <!-- Jackson for metadata serialization -->
         <dependency>
             <groupId>tools.jackson.core</groupId>

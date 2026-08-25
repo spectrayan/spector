@@ -18,7 +18,7 @@ $tmpIn = [System.IO.Path]::GetTempFileName()
 @($initMsg, $notifyMsg, $queryMsg) | Set-Content $tmpIn -Encoding UTF8
 
 # Run server with stdin from file, capture stdout
-$javaArgs = "--enable-preview --add-modules jdk.incubator.vector -Xmx4g -jar $root\synapse\spector-dist\target\spector.jar serve --config $root\$Config"
+$javaArgs = "--enable-preview --add-modules jdk.incubator.vector -Xmx4g -jar $root\synapse\spector-cli\target\spector.jar mcp --config $root\$Config"
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = "java"

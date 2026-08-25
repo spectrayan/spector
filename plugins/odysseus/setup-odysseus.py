@@ -104,7 +104,7 @@ def main():
     if jar_path is None:
         # Auto-detect: check common locations
         candidates = [
-            SCRIPT_DIR.parent.parent / "spector-dist" / "target" / "spector.jar",
+            SCRIPT_DIR.parent.parent / "synapse" / "spector-cli" / "target" / "spector.jar",
             Path.home() / ".openclaw" / "spector" / "bin" / "spector.jar",
             Path("/opt/spector/spector.jar"),
         ]

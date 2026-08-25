@@ -111,7 +111,7 @@ public class VectorSearchTool extends McpToolHandler {
     }
 
     @Override
-    public io.modelcontextprotocol.spec.McpSchema.CallToolResult execute(com.spectrayan.spector.runtime.SpectorRuntime runtime, Map<String, Object> args) throws Exception {
+    public io.modelcontextprotocol.spec.McpSchema.CallToolResult execute(Map<String, Object> args) throws Exception {
         return textResult(executeInternal(args));
     }
 

@@ -11,17 +11,16 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.agent.tools;
-import com.spectrayan.spector.mcp.tools.McpToolHandler;
-import com.spectrayan.spector.runtime.SpectorRuntime;
-import io.modelcontextprotocol.spec.McpSchema;
 
-
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+
+import io.modelcontextprotocol.spec.McpSchema;
 
 /**
  * Evaluates mathematical expressions — basic arithmetic, percentages,
@@ -56,7 +55,7 @@ public class CalculatorTool extends McpToolHandler {
     }
 
     @Override
-    public io.modelcontextprotocol.spec.McpSchema.CallToolResult execute(com.spectrayan.spector.runtime.SpectorRuntime runtime, Map<String, Object> args) throws Exception {
+    public McpSchema.CallToolResult execute(Map<String, Object> args) throws Exception {
         return textResult(executeInternal(args));
     }
 
@@ -89,32 +88,89 @@ public class CalculatorTool extends McpToolHandler {
         }
     }
 
-    /** Recursive-descent expression evaluator. */
-    private static double evaluateExpression(String expr) {
-        return new Object() {
-            int pos = -1; int ch;
-            void nextChar() { ch = (++pos < expr.length()) ? expr.charAt(pos) : -1; }
-            boolean eat(int c) { while (ch == ' ') nextChar(); if (ch == c) { nextChar(); return true; } return false; }
+    private double evaluateExpression(String expr) {
+        return new Parser(expr).parse();
+    }
 
-            double parse() { nextChar(); double x = parseExpr(); if (pos < expr.length()) throw new RuntimeException("Unexpected: " + (char) ch); return x; }
-            double parseExpr() { double x = parseTerm(); for (;;) { if (eat('+')) x += parseTerm(); else if (eat('-')) x -= parseTerm(); else return x; } }
-            double parseTerm() { double x = parseFactor(); for (;;) { if (eat('*')) { if (eat('*')) x = Math.pow(x, parseFactor()); else x *= parseFactor(); } else if (eat('/')) x /= parseFactor(); else if (eat('%')) x %= parseFactor(); else return x; } }
+    private static final class Parser {
+        private final String str;
+        private int pos = -1, ch;
 
-            double parseFactor() {
-                if (eat('+')) return +parseFactor();
-                if (eat('-')) return -parseFactor();
-                double x; int startPos = this.pos;
-                if (eat('(')) { x = parseExpr(); if (!eat(')')) throw new RuntimeException("Missing )"); }
-                else if ((ch >= '0' && ch <= '9') || ch == '.') { while ((ch >= '0' && ch <= '9') || ch == '.') nextChar(); x = Double.parseDouble(expr.substring(startPos, this.pos)); }
-                else if (ch >= 'A' && ch <= 'z') {
-                    while (ch >= 'A' && ch <= 'z' || ch == '.') nextChar();
-                    String func = expr.substring(startPos, this.pos);
-                    if (eat('(')) { x = parseExpr(); if (!eat(')')) throw new RuntimeException("Missing ) after " + func); }
-                    else { return switch (func) { case "Math.PI" -> Math.PI; case "Math.E" -> Math.E; default -> throw new RuntimeException("Unknown: " + func); }; }
-                    x = switch (func) { case "Math.sqrt" -> Math.sqrt(x); case "Math.abs" -> Math.abs(x); case "Math.sin" -> Math.sin(x); case "Math.cos" -> Math.cos(x); case "Math.tan" -> Math.tan(x); case "Math.log" -> Math.log(x); default -> throw new RuntimeException("Unknown function: " + func); };
-                } else throw new RuntimeException("Unexpected: " + (char) ch);
-                return x;
+        Parser(String str) { this.str = str; nextChar(); }
+
+        void nextChar() { ch = (++pos < str.length()) ? str.charAt(pos) : -1; }
+
+        boolean eat(int charToEat) {
+            while (ch == ' ') nextChar();
+            if (ch == charToEat) { nextChar(); return true; }
+            return false;
+        }
+
+        double parse() {
+            double x = parseExpression();
+            if (pos < str.length()) throw new IllegalArgumentException("Unexpected: " + (char) ch);
+            return x;
+        }
+
+        double parseExpression() {
+            double x = parseTerm();
+            for (;;) {
+                if      (eat('+')) x += parseTerm();
+                else if (eat('-')) x -= parseTerm();
+                else return x;
             }
-        }.parse();
+        }
+
+        double parseTerm() {
+            double x = parseFactor();
+            for (;;) {
+                if      (eat('*')) {
+                    if (eat('*')) x = Math.pow(x, parseFactor());
+                    else x *= parseFactor();
+                }
+                else if (eat('/')) x /= parseFactor();
+                else if (eat('%')) x %= parseFactor();
+                else return x;
+            }
+        }
+
+        double parseFactor() {
+            if (eat('+')) return +parseFactor();
+            if (eat('-')) return -parseFactor();
+
+            double x;
+            int startPos = this.pos;
+            if (eat('(')) {
+                x = parseExpression();
+                if (!eat(')')) throw new IllegalArgumentException("Missing ')'");
+            } else if ((ch >= '0' && ch <= '9') || ch == '.') {
+                while ((ch >= '0' && ch <= '9') || ch == '.') nextChar();
+                x = Double.parseDouble(str.substring(startPos, this.pos));
+            } else if (ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z') {
+                while (ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch == '.') nextChar();
+                String func = str.substring(startPos, this.pos);
+                if (eat('(')) {
+                    x = parseExpression();
+                    if (!eat(')')) throw new IllegalArgumentException("Missing ')' after argument to " + func);
+                } else {
+                    x = parseFactor();
+                }
+                x = switch (func.toLowerCase()) {
+                    case "math.sqrt", "sqrt" -> Math.sqrt(x);
+                    case "math.sin", "sin"   -> Math.sin(Math.toRadians(x));
+                    case "math.cos", "cos"   -> Math.cos(Math.toRadians(x));
+                    case "math.tan", "tan"   -> Math.tan(Math.toRadians(x));
+                    case "math.log", "log"   -> Math.log10(x);
+                    case "math.abs", "abs"   -> Math.abs(x);
+                    case "ln"                -> Math.log(x);
+                    default                  -> throw new IllegalArgumentException("Unknown function: " + func);
+                };
+            } else {
+                throw new IllegalArgumentException("Unexpected: " + (char) ch);
+            }
+
+            if (eat('^')) x = Math.pow(x, parseFactor());
+            return x;
+        }
     }
 }

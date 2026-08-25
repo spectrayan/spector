@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.client;
+package com.spectrayan.spector.cli.client;
 
 /**
- * Thrown when the client cannot connect to the Spector server.
+ * Thrown when the CLI client cannot connect to a Spector server instance.
  */
 public class SpectorConnectionException extends SpectorClientException {
 
@@ -24,17 +24,15 @@ public class SpectorConnectionException extends SpectorClientException {
     private final int port;
 
     public SpectorConnectionException(String host, int port, Throwable cause) {
-        super("Failed to connect to Spector at " + host + ":" + port + ": " + cause.getMessage(), cause);
+        super("Cannot connect to Spector server at " + host + ":" + port, cause);
         this.host = host;
         this.port = port;
     }
 
-    /** Returns the host that was attempted. */
     public String host() {
         return host;
     }
 
-    /** Returns the port that was attempted. */
     public int port() {
         return port;
     }

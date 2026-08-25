@@ -12,7 +12,7 @@ $modules = @(
     "bench\spector-bench", "memory\spector-memory", "nucleus\spector-core", "nucleus\spector-commons",
     "nucleus\spector-cpu", "nucleus\spector-gpu", "nucleus\spector-index", "memory\spector-provider-api",
     "memory\spector-providers", "nucleus\spector-config", "memory\spector-ingestion", "nucleus\spector-events",
-    "memory\spector-metrics", "synapse\spector-runtime", "nucleus\spector-test-support"
+    "memory\spector-metrics", "nucleus\spector-test-support"
 )
 
 $modCp = ($modules | ForEach-Object { "$PSScriptRoot\$_\target\classes" } | Where-Object { Test-Path $_ }) -join ";"

@@ -72,7 +72,7 @@ class MemoryMultiEvidenceRecallToolTest {
         when(memory.factHistory("Alice", "work_preference")).thenReturn(history);
         when(memory.recall(eq("What is Alice's work preference?"), any(RecallOptions.class))).thenReturn(List.of());
 
-        McpSchema.CallToolResult result = tool.execute(null, Map.of(
+        McpSchema.CallToolResult result = tool.execute(Map.of(
                 "query", "What is Alice's work preference?",
                 "subject", "Alice",
                 "predicate", "work_preference"
@@ -97,7 +97,7 @@ class MemoryMultiEvidenceRecallToolTest {
         when(memory.factHistory("Bob", "city")).thenReturn(history);
         when(memory.recall(eq("Where does Bob live?"), any(RecallOptions.class))).thenReturn(List.of());
 
-        McpSchema.CallToolResult result = tool.execute(null, Map.of(
+        McpSchema.CallToolResult result = tool.execute(Map.of(
                 "query", "Where does Bob live?",
                 "subject", "Bob",
                 "predicate", "city"

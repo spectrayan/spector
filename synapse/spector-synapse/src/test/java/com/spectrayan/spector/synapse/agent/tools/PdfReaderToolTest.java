@@ -169,7 +169,7 @@ class PdfReaderToolTest {
 
         @Test
         void execute_missingFilePath_returnsError() {
-            String result = tool.execute(Map.of());
+            String result = tool.executeToString(Map.of());
             assertThat(result).isEqualTo("Error: Missing required argument: file_path");
         }
 
@@ -178,7 +178,7 @@ class PdfReaderToolTest {
             // Map.of() doesn't allow null values; use HashMap
             var args = new HashMap<String, Object>();
             args.put("file_path", null);
-            String result = tool.execute(args);
+            String result = tool.executeToString(args);
             assertThat(result).isEqualTo("Error: Missing required argument: file_path");
         }
 
@@ -188,26 +188,26 @@ class PdfReaderToolTest {
         void execute_blankOrEmptyFilePath_returnsError(String filePath) {
             var args = new HashMap<String, Object>();
             args.put("file_path", filePath);
-            String result = tool.execute(args);
+            String result = tool.executeToString(args);
             assertThat(result).startsWith("Error: Missing required argument: file_path");
         }
 
         @Test
         void execute_fileNotFound_returnsError() {
-            String result = tool.execute(Map.of("file_path", "/nonexistent/path/doc.pdf"));
+            String result = tool.executeToString(Map.of("file_path", "/nonexistent/path/doc.pdf"));
             assertThat(result).startsWith("Error: File not found:");
         }
 
         @Test
         void execute_notPdfFile_returnsError() {
-            String result = tool.execute(Map.of("file_path", notAPdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", notAPdf.toString()));
             assertThat(result).startsWith("Error: Not a PDF file:");
         }
 
         @ParameterizedTest
         @ValueSource(strings = {"abc", "1.5", "one-two", "-3", "2-", "0xFF", "1..5"})
         void execute_invalidPageRange_returnsError(String invalidRange) {
-            String result = tool.execute(Map.of(
+            String result = tool.executeToString(Map.of(
                     "file_path", samplePdf.toString(),
                     "pages", invalidRange));
             assertThat(result).startsWith("Error: Invalid page range:");
@@ -215,7 +215,7 @@ class PdfReaderToolTest {
 
         @Test
         void execute_pageRange_outOfBounds_returnsError() {
-            String result = tool.execute(Map.of(
+            String result = tool.executeToString(Map.of(
                     "file_path", samplePdf.toString(),
                     "pages", "99"));
             assertThat(result)
@@ -225,7 +225,7 @@ class PdfReaderToolTest {
 
         @Test
         void execute_pageRangeEnd_outOfBounds_returnsError() {
-            String result = tool.execute(Map.of(
+            String result = tool.executeToString(Map.of(
                     "file_path", multiPagePdf.toString(),
                     "pages", "2-50"));
             assertThat(result)
@@ -242,14 +242,14 @@ class PdfReaderToolTest {
 
         @Test
         void execute_validPdf_startsWithDocumentHeader() {
-            String result = tool.execute(Map.of("file_path", samplePdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", samplePdf.toString()));
             assertThat(result).startsWith("# Document:");
             assertThat(result).contains("sample.pdf");
         }
 
         @Test
         void execute_validPdf_extractsText() {
-            String result = tool.execute(Map.of("file_path", samplePdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", samplePdf.toString()));
             assertThat(result)
                     .contains("## Content")
                     .contains("Hello, Spector!");
@@ -257,26 +257,26 @@ class PdfReaderToolTest {
 
         @Test
         void execute_validPdf_extractsTitle() {
-            String result = tool.execute(Map.of("file_path", samplePdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", samplePdf.toString()));
             assertThat(result).contains("**Title:** Test Document");
         }
 
         @Test
         void execute_validPdf_extractsAuthor() {
-            String result = tool.execute(Map.of("file_path", samplePdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", samplePdf.toString()));
             assertThat(result).contains("**Author:** Spector Test");
         }
 
         @Test
         void execute_validPdf_extractsPageCount() {
-            String result = tool.execute(Map.of("file_path", samplePdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", samplePdf.toString()));
             assertThat(result).contains("**Pages:** 1");
         }
 
         @Test
         void execute_defaultPagesIsAll() {
             // When "pages" is not supplied, should extract all pages (no "showing" qualifier)
-            String result = tool.execute(Map.of("file_path", multiPagePdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", multiPagePdf.toString()));
             assertThat(result)
                     .contains("Page 1 content")
                     .contains("Page 2 content")
@@ -287,7 +287,7 @@ class PdfReaderToolTest {
         @Test
         void execute_extractTablesDefaultFalse_noTableSection() {
             // When extract_tables is not specified, Tables section should be absent
-            String result = tool.execute(Map.of("file_path", samplePdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", samplePdf.toString()));
             assertThat(result).doesNotContain("## Tables");
         }
     }
@@ -300,7 +300,7 @@ class PdfReaderToolTest {
 
         @Test
         void execute_pagesAll_extractsAllPages() {
-            String result = tool.execute(Map.of(
+            String result = tool.executeToString(Map.of(
                     "file_path", multiPagePdf.toString(),
                     "pages", "all"));
             assertThat(result)
@@ -311,7 +311,7 @@ class PdfReaderToolTest {
 
         @Test
         void execute_pagesAllCaseInsensitive() {
-            String result = tool.execute(Map.of(
+            String result = tool.executeToString(Map.of(
                     "file_path", multiPagePdf.toString(),
                     "pages", "ALL"));
             assertThat(result).contains("Page 1 content");
@@ -319,7 +319,7 @@ class PdfReaderToolTest {
 
         @Test
         void execute_singlePage_showsCorrectRange() {
-            String result = tool.execute(Map.of(
+            String result = tool.executeToString(Map.of(
                     "file_path", multiPagePdf.toString(),
                     "pages", "2"));
             assertThat(result)
@@ -329,7 +329,7 @@ class PdfReaderToolTest {
 
         @Test
         void execute_pageRange_showsCorrectRange() {
-            String result = tool.execute(Map.of(
+            String result = tool.executeToString(Map.of(
                     "file_path", multiPagePdf.toString(),
                     "pages", "1-2"));
             assertThat(result).contains("showing 1-2");
@@ -337,7 +337,7 @@ class PdfReaderToolTest {
 
         @Test
         void execute_pageRange_firstPage_extractsCorrectContent() {
-            String result = tool.execute(Map.of(
+            String result = tool.executeToString(Map.of(
                     "file_path", multiPagePdf.toString(),
                     "pages", "1"));
             assertThat(result).contains("Page 1 content");
@@ -345,7 +345,7 @@ class PdfReaderToolTest {
 
         @Test
         void execute_pageRange_lastPage_extractsCorrectContent() {
-            String result = tool.execute(Map.of(
+            String result = tool.executeToString(Map.of(
                     "file_path", multiPagePdf.toString(),
                     "pages", "3"));
             // Proportional page splitting may truncate tail characters on the last page
@@ -354,10 +354,10 @@ class PdfReaderToolTest {
 
         @Test
         void execute_fullRange_equivalentToAll() {
-            String all = tool.execute(Map.of(
+            String all = tool.executeToString(Map.of(
                     "file_path", multiPagePdf.toString(),
                     "pages", "all"));
-            String range = tool.execute(Map.of(
+            String range = tool.executeToString(Map.of(
                     "file_path", multiPagePdf.toString(),
                     "pages", "1-3"));
             // Both should contain all content; proportional splitting may clip
@@ -377,7 +377,7 @@ class PdfReaderToolTest {
 
         @Test
         void execute_extractTablesTrue_doesNotCrashOnPdfWithoutTables() {
-            String result = tool.execute(Map.of(
+            String result = tool.executeToString(Map.of(
                     "file_path", samplePdf.toString(),
                     "extract_tables", "true"));
             // Should succeed; no tables section since sample has no tables
@@ -386,7 +386,7 @@ class PdfReaderToolTest {
 
         @Test
         void execute_extractTablesFalse_noTableSection() {
-            String result = tool.execute(Map.of(
+            String result = tool.executeToString(Map.of(
                     "file_path", tablePdf.toString(),
                     "extract_tables", "false"));
             assertThat(result).doesNotContain("## Tables");
@@ -394,7 +394,7 @@ class PdfReaderToolTest {
 
         @Test
         void execute_extractTablesTrue_withTablePdf_containsTableSection() {
-            String result = tool.execute(Map.of(
+            String result = tool.executeToString(Map.of(
                     "file_path", tablePdf.toString(),
                     "extract_tables", "true"));
             // If Tabula can detect the table, it should appear
@@ -411,13 +411,13 @@ class PdfReaderToolTest {
 
         @Test
         void execute_encryptedPdf_returnsEncryptionError() {
-            String result = tool.execute(Map.of("file_path", encryptedPdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", encryptedPdf.toString()));
             assertThat(result).containsIgnoringCase("encrypt");
         }
 
         @Test
         void execute_emptyPdf_returnsMetadataButNoContent() {
-            String result = tool.execute(Map.of("file_path", emptyPdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", emptyPdf.toString()));
             assertThat(result)
                     .contains("## Metadata")
                     .contains("## Content")
@@ -427,7 +427,7 @@ class PdfReaderToolTest {
         @Test
         void execute_pagesOmitted_defaultsToAll() {
             // No "pages" key at all
-            String result = tool.execute(Map.of("file_path", multiPagePdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", multiPagePdf.toString()));
             assertThat(result)
                     .doesNotContain("showing")
                     .contains("**Pages:** 3");
@@ -436,13 +436,13 @@ class PdfReaderToolTest {
         @Test
         void execute_extractTablesOmitted_defaultsToFalse() {
             // No "extract_tables" key
-            String result = tool.execute(Map.of("file_path", samplePdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", samplePdf.toString()));
             assertThat(result).doesNotContain("## Tables");
         }
 
         @Test
         void execute_outputContainsMarkdownStructure() {
-            String result = tool.execute(Map.of("file_path", samplePdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", samplePdf.toString()));
             // Must contain all required markdown sections
             assertThat(result)
                     .contains("# Document:")
@@ -464,13 +464,13 @@ class PdfReaderToolTest {
 
         @Test
         void execute_richPdf_outputStartsWithDocumentHeader() {
-            String result = tool.execute(Map.of("file_path", richContentPdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", richContentPdf.toString()));
             assertThat(result).startsWith("# Document: spector-architecture.pdf");
         }
 
         @Test
         void execute_richPdf_metadataContainsTitleAndAuthor() {
-            String result = tool.execute(Map.of("file_path", richContentPdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", richContentPdf.toString()));
             assertThat(result)
                     .contains("## Metadata")
                     .contains("**Title:** Spector Architecture Overview")
@@ -479,13 +479,13 @@ class PdfReaderToolTest {
 
         @Test
         void execute_richPdf_metadataShowsCorrectPageCount() {
-            String result = tool.execute(Map.of("file_path", richContentPdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", richContentPdf.toString()));
             assertThat(result).contains("**Pages:** 2");
         }
 
         @Test
         void execute_richPdf_allTextParagraphsAreExtracted() {
-            String result = tool.execute(Map.of("file_path", richContentPdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", richContentPdf.toString()));
             // Page 1 content
             assertThat(result)
                     .contains("Spector is a cognitive search engine")
@@ -500,7 +500,7 @@ class PdfReaderToolTest {
 
         @Test
         void execute_richPdf_contentSectionIsPresent() {
-            String result = tool.execute(Map.of("file_path", richContentPdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", richContentPdf.toString()));
             assertThat(result).contains("## Content");
             // Should NOT contain "No extractable text content"
             assertThat(result).doesNotContain("No extractable text content");
@@ -508,7 +508,7 @@ class PdfReaderToolTest {
 
         @Test
         void execute_richPdf_singlePageExtractsOnlyThatPage() {
-            String result = tool.execute(Map.of(
+            String result = tool.executeToString(Map.of(
                     "file_path", richContentPdf.toString(),
                     "pages", "1"));
             assertThat(result)
@@ -518,7 +518,7 @@ class PdfReaderToolTest {
 
         @Test
         void execute_richPdf_page2ExtractsSecondPageContent() {
-            String result = tool.execute(Map.of(
+            String result = tool.executeToString(Map.of(
                     "file_path", richContentPdf.toString(),
                     "pages", "2"));
             assertThat(result)
@@ -528,7 +528,7 @@ class PdfReaderToolTest {
 
         @Test
         void execute_richPdf_fullOutputIsValidMarkdown() {
-            String result = tool.execute(Map.of("file_path", richContentPdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", richContentPdf.toString()));
             // Verify the Markdown structure ordering:
             // Document header → Metadata → Content
             int headerIdx = result.indexOf("# Document:");
@@ -548,14 +548,14 @@ class PdfReaderToolTest {
 
         @Test
         void execute_richPdf_noTablesUnlessRequested() {
-            String result = tool.execute(Map.of("file_path", richContentPdf.toString()));
+            String result = tool.executeToString(Map.of("file_path", richContentPdf.toString()));
             assertThat(result).doesNotContain("## Tables");
         }
 
         @Test
         void execute_richPdf_extractTablesTrue_doesNotCrash() {
             // Even though the rich PDF has no tables, extract_tables=true should not fail
-            String result = tool.execute(Map.of(
+            String result = tool.executeToString(Map.of(
                     "file_path", richContentPdf.toString(),
                     "extract_tables", "true"));
             assertThat(result)
