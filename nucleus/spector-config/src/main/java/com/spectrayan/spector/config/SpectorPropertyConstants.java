@@ -867,6 +867,19 @@ public final class SpectorPropertyConstants {
     public static final String RECALL_ASSOCIATIVE_PRIOR_CACHE_SIZE = "spector.memory.recall.associative-prior.cache-size";
     public static final int DEFAULT_RECALL_ASSOCIATIVE_PRIOR_CACHE_SIZE = 1024;
 
+    // Graph Compaction & Telemetry (MR-08)
+    public static final String GRAPH_COMPACTION_FRAGMENTATION_THRESHOLD = "spector.consolidation.graph-compaction.fragmentation-threshold";
+    public static final float DEFAULT_GRAPH_COMPACTION_FRAGMENTATION_THRESHOLD = 0.25f;
+
+    public static final String GRAPH_COMPACTION_LOAD_FACTOR_THRESHOLD = "spector.consolidation.graph-compaction.load-factor-threshold";
+    public static final float DEFAULT_GRAPH_COMPACTION_LOAD_FACTOR_THRESHOLD = 0.70f;
+
+    public static final String GRAPH_COMPACTION_MAX_PASSES_PER_CYCLE = "spector.consolidation.graph-compaction.max-passes-per-cycle";
+    public static final int DEFAULT_GRAPH_COMPACTION_MAX_PASSES_PER_CYCLE = 2;
+
+    public static final String GRAPH_COMPACTION_MODE = "spector.consolidation.graph-compaction.mode";
+    public static final String DEFAULT_GRAPH_COMPACTION_MODE = "ADAPTIVE";
+
     // Ingestion
     public static final String INGESTION_ROOT_DIRECTORY = "spector.ingestion.root-directory";
     public static final Path DEFAULT_INGESTION_ROOT_DIRECTORY = Path.of(".");

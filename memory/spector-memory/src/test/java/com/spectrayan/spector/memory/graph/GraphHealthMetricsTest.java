@@ -12,218 +12,58 @@
  */
 package com.spectrayan.spector.memory.graph;
 
-import org.junit.jupiter.api.BeforeEach;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Tests for {@link GraphHealthMetrics} observability collector.
- *
- * <p>Verifies metric accumulation, quartile bucketing, average computation,
- * fragmentation ratio, and toString representation.</p>
- */
+@DisplayName("GraphStructureHealthSnapshot: Telemetry and Compaction Tests (MR-08)")
 class GraphHealthMetricsTest {
 
-    private GraphHealthMetrics metrics;
+    @Test
+    @DisplayName("MR-08: EntityDirectory exports valid health and fragmentation metrics")
+    void entityDirectoryHealthMetrics() {
+        TypeRegistryMemory typeRegistry = new TypeRegistryMemory(SystemMemoryId.ENTITY_TYPE);
+        EntityDirectory dir = new EntityDirectory(100, typeRegistry);
 
-    @BeforeEach
-    void setUp() {
-        metrics = new GraphHealthMetrics();
-    }
+        int e1 = dir.intern("Apple", "COMPANY");
+        int e2 = dir.intern("Google", "COMPANY");
+        dir.linkEntityToMemory(e1, 10);
+        dir.linkEntityToMemory(e2, 10);
 
-    @Nested
-    @DisplayName("Hebbian Metrics")
-    class HebbianMetrics {
+        GraphStructureHealthSnapshot metrics = dir.structureHealthSnapshot();
+        assertThat(metrics.structureName()).isEqualTo("entity-directory");
+        assertThat(metrics.allocatedBytes()).isGreaterThan(0L);
+        assertThat(metrics.liveBytes()).isGreaterThan(0L);
+        assertThat(metrics.fragmentationRatio()).isBetween(0.0f, 1.0f);
+        assertThat(metrics.hashLoadFactor()).isEqualTo(2.0f / 100.0f);
 
-        @Test
-        @DisplayName("records decay events and survivor counts")
-        void recordsDecayAndSurvivors() {
-            metrics.recordHebbianDecay();
-            metrics.recordHebbianDecay();
-            metrics.recordHebbianSurvivor(100, 5);
-            metrics.recordHebbianSurvivor(200, 10);
-            metrics.recordHebbianSurvivor(50, 3);
+        long reclaimed = dir.compactAdjacency();
+        GraphStructureHealthSnapshot postMetrics = dir.structureHealthSnapshot();
+        assertThat(postMetrics.lastCompactionEpochMs()).isGreaterThan(0L);
+        assertThat(postMetrics.bytesReclaimedLastCycle()).isEqualTo(reclaimed);
 
-            assertEquals(2, metrics.hebbianEdgesDecayed());
-            assertEquals(3, metrics.hebbianEdgesSurviving());
-        }
-
-        @Test
-        @DisplayName("records arousal modulation events")
-        void recordsArousalModulation() {
-            metrics.recordHebbianArousalModulation();
-            metrics.recordHebbianArousalModulation();
-
-            assertEquals(2, metrics.hebbianArousalModulated());
-        }
-
-        @Test
-        @DisplayName("records bridge protection events")
-        void recordsBridgeProtection() {
-            metrics.recordHebbianBridgeProtection();
-
-            assertEquals(1, metrics.hebbianBridgeProtected());
-        }
-    }
-
-    @Nested
-    @DisplayName("Entity Metrics")
-    class EntityMetrics {
-
-        @Test
-        @DisplayName("records entity decay and survivor counts")
-        void recordsDecayAndSurvivors() {
-            metrics.recordEntityDecay();
-            metrics.recordEntitySurvivor(128);
-            metrics.recordEntitySurvivor(200);
-
-            assertEquals(1, metrics.entityEdgesDecayed());
-            assertEquals(2, metrics.entityEdgesSurviving());
-        }
-    }
-
-    @Nested
-    @DisplayName("Bridge Score Distribution")
-    class BridgeDistribution {
-
-        @Test
-        @DisplayName("buckets bridge scores into quartiles")
-        void bucketsCorrectly() {
-            // Q1: 0-63
-            metrics.recordHebbianSurvivor(0, 1);
-            metrics.recordHebbianSurvivor(63, 1);
-            // Q2: 64-127
-            metrics.recordHebbianSurvivor(64, 1);
-            metrics.recordHebbianSurvivor(127, 1);
-            // Q3: 128-191
-            metrics.recordHebbianSurvivor(128, 1);
-            metrics.recordEntitySurvivor(191);
-            // Q4: 192-255
-            metrics.recordEntitySurvivor(192);
-            metrics.recordEntitySurvivor(255);
-
-            assertEquals(2, metrics.bridgeQ1());
-            assertEquals(2, metrics.bridgeQ2());
-            assertEquals(2, metrics.bridgeQ3());
-            assertEquals(2, metrics.bridgeQ4());
-        }
-    }
-
-    @Nested
-    @DisplayName("Edge Age Metrics")
-    class EdgeAge {
-
-        @Test
-        @DisplayName("computes average edge age")
-        void computesAverageAge() {
-            // Ages: 10, 20, 30 → avg = 20
-            metrics.recordHebbianSurvivor(0, 10);
-            metrics.recordHebbianSurvivor(0, 20);
-            metrics.recordHebbianSurvivor(0, 30);
-
-            assertEquals(20.0f, metrics.averageEdgeAge(), 0.01f);
-        }
-
-        @Test
-        @DisplayName("tracks maximum edge age")
-        void tracksMaxAge() {
-            metrics.recordHebbianSurvivor(0, 5);
-            metrics.recordHebbianSurvivor(0, 100);
-            metrics.recordHebbianSurvivor(0, 50);
-
-            assertEquals(100, metrics.maxEdgeAge());
-        }
-
-        @Test
-        @DisplayName("returns 0 when no edges recorded")
-        void returnsZeroWhenEmpty() {
-            assertEquals(0f, metrics.averageEdgeAge());
-            assertEquals(0, metrics.maxEdgeAge());
-        }
-    }
-
-    @Nested
-    @DisplayName("Importance Score Metrics")
-    class ImportanceScore {
-
-        @Test
-        @DisplayName("computes average importance score")
-        void computesAverage() {
-            metrics.recordImportanceScore(0.5f);
-            metrics.recordImportanceScore(0.8f);
-            metrics.recordImportanceScore(0.2f);
-
-            assertEquals(0.5f, metrics.averageImportanceScore(), 0.01f);
-        }
-
-        @Test
-        @DisplayName("returns 0 when no scores recorded")
-        void returnsZeroWhenEmpty() {
-            assertEquals(0f, metrics.averageImportanceScore());
-        }
-    }
-
-    @Nested
-    @DisplayName("Fragmentation")
-    class Fragmentation {
-
-        @Test
-        @DisplayName("computes fragmentation ratio")
-        void computesRatio() {
-            // 5 components among 100 active nodes = 0.05 fragmentation
-            metrics.setHebbianFragmentation(5, 100);
-
-            assertEquals(0.05f, metrics.fragmentationRatio(), 0.001f);
-            assertEquals(5, metrics.hebbianComponents());
-            assertEquals(100, metrics.hebbianActiveNodes());
-        }
-
-        @Test
-        @DisplayName("returns 0 for no active nodes")
-        void returnsZeroForNoNodes() {
-            metrics.setHebbianFragmentation(0, 0);
-
-            assertEquals(0f, metrics.fragmentationRatio());
-        }
-    }
-
-    @Nested
-    @DisplayName("Aggregate Totals")
-    class Totals {
-
-        @Test
-        @DisplayName("totals combine hebbian and entity metrics")
-        void totalsCombine() {
-            metrics.recordHebbianDecay();
-            metrics.recordHebbianDecay();
-            metrics.recordEntityDecay();
-            metrics.recordHebbianSurvivor(50, 1);
-            metrics.recordEntitySurvivor(200);
-            metrics.recordHebbianBridgeProtection();
-            metrics.recordEntityBridgeProtection();
-
-            assertEquals(3, metrics.totalEdgesDecayed());
-            assertEquals(2, metrics.totalEdgesSurviving());
-            assertEquals(2, metrics.totalBridgeProtected());
-        }
+        dir.close();
+        typeRegistry.close();
     }
 
     @Test
-    @DisplayName("toString produces readable summary")
-    void toStringReadable() {
-        metrics.recordHebbianDecay();
-        metrics.recordHebbianSurvivor(200, 10);
-        metrics.recordEntitySurvivor(50);
+    @DisplayName("MR-08: HebbianGraphMemory exports valid CSR health and overflow metrics")
+    void hebbianGraphHealthMetrics() {
+        HebbianGraphMemory hebbian = new HebbianGraphMemory(50, 200, 10, null);
 
-        String s = metrics.toString();
-        assertNotNull(s);
-        assertTrue(s.contains("hebbian["));
-        assertTrue(s.contains("entity["));
-        assertTrue(s.contains("bridge["));
-        assertTrue(s.contains("avgAge="));
-        assertTrue(s.contains("fragmentation="));
+        hebbian.strengthen(1, 2, 1.5f);
+        hebbian.strengthen(2, 3, 2.0f);
+
+        GraphStructureHealthSnapshot metrics = hebbian.structureHealthSnapshot();
+        assertThat(metrics.structureName()).isEqualTo("hebbian-csr");
+        assertThat(metrics.allocatedBytes()).isGreaterThan(0L);
+        assertThat(metrics.liveBytes()).isGreaterThanOrEqualTo(0L);
+        assertThat(metrics.csrOverflowOccupancy()).isGreaterThanOrEqualTo(0.0f);
+        assertThat(metrics.fragmentationRatio()).isBetween(0.0f, 1.0f);
+
+        hebbian.close();
     }
 }

@@ -115,6 +115,8 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     private volatile long lastActivityMs = System.currentTimeMillis();
     private volatile long sessionBoundaryMs = 30 * 60 * 1000L;
     private volatile HebbianGraph.DecayModulator decayModulator;
+    private volatile long lastCompactionEpochMs = 0L;
+    private volatile long bytesReclaimedLastCycle = 0L;
 
     // ══════════════════════════════════════════════════════════════
     // CONSTRUCTORS
@@ -870,6 +872,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
                 }
             }
 
+            int oldTotal = totalEdgeCount + overflowEdgeCount;
             newOffsets[capacity] = writePos;
             totalEdgeCount = writePos;
 
@@ -878,6 +881,8 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
             }
 
             clearOverflow();
+            this.lastCompactionEpochMs = System.currentTimeMillis();
+            this.bytesReclaimedLastCycle = Math.max(0L, (long) (oldTotal - writePos) * EDGE_BYTES);
         } finally {
             graphLock.unlock();
         }
@@ -1030,6 +1035,33 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
             ByteBuffer buf = segment.asSlice(written, toWrite).asByteBuffer().asReadOnlyBuffer();
             ch.write(buf);
             written += toWrite;
+        }
+    }
+
+    /**
+     * Captures a read-only telemetry snapshot of CSR health, overflow occupancy, and compaction stats (MR-08).
+     */
+    public com.spectrayan.spector.memory.graph.GraphStructureHealthSnapshot structureHealthSnapshot() {
+        graphLock.lock();
+        try {
+            long allocBytes = (long) (capacity + 1) * Integer.BYTES + (long) edgeCapacity * EDGE_BYTES;
+            long liveBytes = (long) totalEdgeCount * EDGE_BYTES;
+            float fragRatio = allocBytes > 0 ? 1.0f - ((float) liveBytes / (float) allocBytes) : 0.0f;
+            float csrOverflowOccupancy = capacity > 0 ? (float) overflowEdgeCount / (float) (capacity * 8) : 0.0f;
+
+            return new com.spectrayan.spector.memory.graph.GraphStructureHealthSnapshot(
+                    "hebbian-csr",
+                    allocBytes,
+                    liveBytes,
+                    Math.max(0.0f, fragRatio),
+                    Float.NaN,
+                    0,
+                    csrOverflowOccupancy,
+                    lastCompactionEpochMs,
+                    bytesReclaimedLastCycle
+            );
+        } finally {
+            graphLock.unlock();
         }
     }
 }
