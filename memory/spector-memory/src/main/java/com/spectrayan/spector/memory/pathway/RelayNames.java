@@ -27,6 +27,7 @@ public final class RelayNames {
     public static final String SCORING               = "scoring";
     public static final String GRAPH_EXPANSION       = "graph_expansion";
     public static final String EVIDENCE_FUSION       = "evidence_fusion";
+    public static final String LATERAL_INHIBITION    = "lateral_inhibition";
     public static final String BM25_SEARCH           = "bm25_search";
     public static final String RRF_RESCORE           = "rrf_rescore";
     public static final String SORT_TRUNCATE         = "sort_truncate";

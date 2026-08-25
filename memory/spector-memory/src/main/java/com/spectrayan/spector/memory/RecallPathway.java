@@ -162,6 +162,12 @@ public final class RecallPathway {
 
         final EvidenceFusionRelay evidenceFusionRelay = new EvidenceFusionRelay();
 
+        final com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor vectorAccessor =
+                new com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor(
+                        builder.index, builder.partitionManager, builder.cortex.quantizer());
+        final com.spectrayan.spector.memory.recall.relay.LateralInhibitionRelay lateralInhibitionRelay =
+                new com.spectrayan.spector.memory.recall.relay.LateralInhibitionRelay(vectorAccessor);
+
         final RecallCandidateGatherer candidateGatherer = new RecallCandidateGatherer(
                 builder.index, builder.retrieval.bm25Index());
 
@@ -207,6 +213,7 @@ public final class RecallPathway {
                 graphExpansionRelay,
                 hopfieldAssociativeRelay,
                 evidenceFusionRelay,
+                lateralInhibitionRelay,
                 bm25SearchRelay,
                 rrfRescoreRelay,
                 manifoldRerankRelay,

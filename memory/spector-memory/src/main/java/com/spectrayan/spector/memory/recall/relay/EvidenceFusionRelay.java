@@ -13,8 +13,10 @@
 package com.spectrayan.spector.memory.recall.relay;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import org.slf4j.Logger;
@@ -63,14 +65,14 @@ public final class EvidenceFusionRelay implements SynapticRelay<RecallSignal> {
                 }
             }
             case HIGHEST_CONFIDENCE -> {
-                // If contradictions exist, favor the candidate with higher score
+                // If contradictions exist, favor the candidate with higher confidence/score
                 List<CognitiveResult> resolved = new ArrayList<>();
                 for (CognitiveResult r : candidates) {
                     if (SynapticHeaderConstants.isContradicted(r.consolidationFlags())) {
-                        // Check if we already have a higher scoring counterpart
                         boolean superseded = false;
                         for (CognitiveResult existing : resolved) {
-                            if (existing.text().equalsIgnoreCase(r.text()) && existing.score() >= r.score()) {
+                            if ((existing.text().equalsIgnoreCase(r.text()) || existing.id().equals(r.id()))
+                                    && existing.score() >= r.score()) {
                                 superseded = true;
                                 break;
                             }
@@ -86,7 +88,9 @@ public final class EvidenceFusionRelay implements SynapticRelay<RecallSignal> {
             }
             case MULTI_EVIDENCE -> {
                 // Preserve all evidence versions for downstream formatting and distribution
-                log.trace("Preserving {} multi-evidence candidate traces", candidates.size());
+                if (log.isTraceEnabled()) {
+                    log.trace("Preserved {} multi-evidence candidate traces", candidates.size());
+                }
             }
         }
 

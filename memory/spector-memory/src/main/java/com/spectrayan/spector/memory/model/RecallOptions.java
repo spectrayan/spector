@@ -129,7 +129,16 @@ public record RecallOptions(
         //  Active Inference Self-Model Engine (AISME)
         AismeConfig aismeConfig,
         //  Score Fusion Mode (MR-02)
-        ScoreFusionMode scoreFusionMode
+        ScoreFusionMode scoreFusionMode,
+        //  Lateral Inhibition & Retrieval Interference (MR-04)
+        boolean enableLateralInhibition,
+        float lateralInhibitionThreshold,
+        int lateralInhibitionOverscanFactor,
+        int lateralInhibitionMaxCandidates,
+        float lateralInhibitionSoftKappa,
+        float lateralInhibitionHardKappa,
+        boolean lateralInhibitionContradictionHeuristic,
+        boolean lateralInhibitionRifEnabled
 ) {
 
     /** Default options: top 10, no filters, balanced scoring. */
@@ -327,6 +336,64 @@ public record RecallOptions(
          */
         public Builder scoreFusionMode(ScoreFusionMode mode) {
             this.scoreFusionMode = mode != null ? mode : ScoreFusionMode.MULTIPLICATIVE;
+            return this;
+        }
+
+        // ─── Lateral Inhibition & Interference Resolution (MR-04) ───
+        private boolean enableLateralInhibition = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_INHIBITION_ENABLED;
+        private float lateralInhibitionThreshold = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_INHIBITION_OVERLAP_THRESHOLD;
+        private int lateralInhibitionOverscanFactor = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_INHIBITION_OVERSCAN_FACTOR;
+        private int lateralInhibitionMaxCandidates = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_INHIBITION_MAX_CLUSTER_CANDIDATES;
+        private float lateralInhibitionSoftKappa = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_INHIBITION_SOFT_KAPPA;
+        private float lateralInhibitionHardKappa = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_INHIBITION_HARD_KAPPA;
+        private boolean lateralInhibitionContradictionHeuristic = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_INHIBITION_CONTRADICTION_HEURISTIC_ENABLED;
+        private boolean lateralInhibitionRifEnabled = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_INHIBITION_RIF_ENABLED;
+
+        /** Enables or disables lateral inhibition competition during recall. */
+        public Builder enableLateralInhibition(boolean enabled) {
+            this.enableLateralInhibition = enabled;
+            return this;
+        }
+
+        /** Sets cosine overlap threshold theta for single-linkage candidate clustering (default 0.88). */
+        public Builder lateralInhibitionThreshold(float threshold) {
+            this.lateralInhibitionThreshold = threshold;
+            return this;
+        }
+
+        /** Sets overscan factor determining cluster candidate pool size (default 3). */
+        public Builder lateralInhibitionOverscanFactor(int factor) {
+            this.lateralInhibitionOverscanFactor = factor;
+            return this;
+        }
+
+        /** Sets maximum number of top candidates evaluated for lateral inhibition (default 64). */
+        public Builder lateralInhibitionMaxCandidates(int max) {
+            this.lateralInhibitionMaxCandidates = max;
+            return this;
+        }
+
+        /** Sets soft inhibition penalty kappa for redundant clusters (default 0.15). */
+        public Builder lateralInhibitionSoftKappa(float kappa) {
+            this.lateralInhibitionSoftKappa = kappa;
+            return this;
+        }
+
+        /** Sets hard inhibition penalty kappa for contradictory clusters (default 0.40). */
+        public Builder lateralInhibitionHardKappa(float kappa) {
+            this.lateralInhibitionHardKappa = kappa;
+            return this;
+        }
+
+        /** Enables or disables semantic vs lexical contradiction heuristic. */
+        public Builder lateralInhibitionContradictionHeuristic(boolean enabled) {
+            this.lateralInhibitionContradictionHeuristic = enabled;
+            return this;
+        }
+
+        /** Enables or disables session Retrieval-Induced Forgetting (RIF) tracking. */
+        public Builder lateralInhibitionRifEnabled(boolean enabled) {
+            this.lateralInhibitionRifEnabled = enabled;
             return this;
         }
 
@@ -918,7 +985,15 @@ public record RecallOptions(
                     minTrustScore,
                     personaId,
                     aismeConfig != null ? aismeConfig : AismeConfig.disabled(),
-                    scoreFusionMode != null ? scoreFusionMode : ScoreFusionMode.MULTIPLICATIVE);
+                    scoreFusionMode != null ? scoreFusionMode : ScoreFusionMode.MULTIPLICATIVE,
+                    enableLateralInhibition,
+                    lateralInhibitionThreshold,
+                    lateralInhibitionOverscanFactor,
+                    lateralInhibitionMaxCandidates,
+                    lateralInhibitionSoftKappa,
+                    lateralInhibitionHardKappa,
+                    lateralInhibitionContradictionHeuristic,
+                    lateralInhibitionRifEnabled);
             return options;
         }
     }
@@ -1096,6 +1171,14 @@ public record RecallOptions(
         b.minTemperature = this.minTemperature;
         b.maxTemperature = this.maxTemperature;
         b.scoreFusionMode = this.scoreFusionMode;
+        b.enableLateralInhibition = this.enableLateralInhibition;
+        b.lateralInhibitionThreshold = this.lateralInhibitionThreshold;
+        b.lateralInhibitionOverscanFactor = this.lateralInhibitionOverscanFactor;
+        b.lateralInhibitionMaxCandidates = this.lateralInhibitionMaxCandidates;
+        b.lateralInhibitionSoftKappa = this.lateralInhibitionSoftKappa;
+        b.lateralInhibitionHardKappa = this.lateralInhibitionHardKappa;
+        b.lateralInhibitionContradictionHeuristic = this.lateralInhibitionContradictionHeuristic;
+        b.lateralInhibitionRifEnabled = this.lateralInhibitionRifEnabled;
         return b;
     }
 }
