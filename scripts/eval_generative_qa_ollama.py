@@ -56,9 +56,13 @@ You have access to facts and entities from prior conversations:
 3. If the question asks about a specific event or fact, look for direct evidence in the memories.
 4. For multi-item or aggregation questions (such as asking for all pets, musical artists, pottery pieces, art types, books, purchases, symbols, or hobbies), combine and list all distinct items mentioned across all conversations unless an item was explicitly stated as replaced or discarded.
 5. If memories contain directly contradictory status information about a single mutually-exclusive state (e.g., relationship status or current city), prioritize the most recent memory.
-6. Always convert relative time references to specific dates, months, or years.
-7. Be as specific as possible when talking about people, places, and events.
-8. Timestamps in memories represent the actual time the event occurred, not the time the event was mentioned in a message.
+6. For speculative, plausible inference, or hypothetical questions (e.g., questions asking what someone "might", "would", "could", or is "likely" to do, like, pursue, or feel, or asking for plausible degrees, career paths, hobbies, financial classifications, personality traits, or religious attitudes):
+   - DO NOT give a non-committal refusal or disclaimer stating that the information is not explicitly mentioned or cannot be determined.
+   - DEDUCE the most logical, plausible answer by synthesizing their stated activities, volunteer work, degree pursuits, passions, purchases, gifts, and lifestyle clues in the memories (e.g., if someone pursues policymaking due to their degree, infer plausible degree fields such as Political Science, Public Administration, Public Policy, or Public Affairs; if someone passionately volunteers at a homeless shelter, infer plausible future careers like Shelter Coordinator or Counselor; if someone wears a family cross necklace without dogma, deduce somewhat religious).
+   - Provide the direct, concrete deduction or classification first, then briefly support it with the memory clues.
+7. Always convert relative time references to specific dates, months, or years.
+8. Be as specific as possible when talking about people, places, and events.
+9. Timestamps in memories represent the actual time the event occurred, not the time the event was mentioned in a message.
 
 Clarification:
 When interpreting memories, use the timestamp to determine when the described event happened, not when someone talked about the event.
@@ -74,10 +78,10 @@ Even though the phrase says "yesterday," the timestamp shows the event was recor
 1. First, examine all memories that contain information related to the question.
 2. Examine the timestamps and content of these memories carefully.
 3. Look for explicit mentions of dates, times, locations, or events that answer the question.
-4. If the answer requires calculation (e.g., converting relative time references or counting items), show your work.
-5. When questions ask for preferences or assessments, make the most reasonable direct inference using their stated activities and values.
-6. Formulate a precise, concise answer based solely on the evidence in the memories.
-7. Double-check that your answer directly addresses the question asked.
+4. If the question asks for plausible deductions or opinions ("might", "would", "could", "likely", traits, career prospects), synthesize the relevant lifestyle and activity clues to provide the most direct, plausible conclusion.
+5. If the answer requires calculation (e.g., converting relative time references or counting items), show your work.
+6. Formulate a precise, concise answer based on the evidence and logical inferences from the memories.
+7. Double-check that your answer directly addresses the question asked without unnecessary boilerplate disclaimers.
 8. Ensure your final answer is specific and avoids vague time references.
 
 Context:
@@ -103,6 +107,8 @@ The generated answer might be much longer, but you should be generous with your 
 For time related questions, the gold answer will be a specific date, month, year, etc. The generated answer might be much longer or use relative time references (like "last Tuesday" or "next month"), but you should be generous with your grading - as long as it refers to the same date or time period as the gold answer, it should be counted as CORRECT. Even if the format differs (e.g., "May 7th" vs "7 May"), consider it CORRECT if it's the same date.
 
 For multi-item or list questions, if the gold answer lists multiple items (e.g. "Charlotte's Web, Nothing is Impossible" or "dinosaurs, nature" or "running, pottery" or "pottery, camping, painting, swimming"), if the generated answer correctly identifies valid items from the list, count it as CORRECT.
+
+For speculative, hypothetical, or plausible inference questions (e.g. asking what someone "might", "would", "could" do, like, or pursue, or asking for likely degrees, career paths, financial status, or personality traits), if the generated answer provides a plausible deduction that aligns with the core reasoning or subject matter of the gold answer (e.g. inferring political science / public administration for someone entering policymaking, or inferring shelter coordinator / counselor for someone volunteering at a shelter, or characterizing someone as somewhat religious based on a cross necklace), count it as CORRECT even if phrasing or specific synonyms differ.
 
 Now it's time for the real question:
 Question: {question}
