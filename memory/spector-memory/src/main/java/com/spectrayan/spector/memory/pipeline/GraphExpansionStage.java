@@ -277,13 +277,7 @@ public final class GraphExpansionStage {
                                  float[] queryVector,
                                  RecallOptions options) {
         try {
-            List<CognitiveResult> seeds = allResults.stream()
-                    .filter(r -> r.memoryType() == MemoryType.SEMANTIC || r.memoryType() == MemoryType.PROCEDURAL)
-                    .limit(8)
-                    .toList();
-            if (seeds.isEmpty()) {
-                seeds = allResults.subList(0, Math.min(8, allResults.size()));
-            }
+            List<CognitiveResult> seeds = allResults.subList(0, Math.min(12, allResults.size()));
 
             for (CognitiveResult seed : seeds) {
                 MemoryIndex.MemoryLocation loc = index.locate(seed.id());
@@ -407,17 +401,15 @@ public final class GraphExpansionStage {
                 int entityId = entityDirectory.findEntity(entity.name());
                 if (entityId < 0) continue;
 
-                // Hub entity protection: Skip expansive multi-hop traversal on global speaker entities (refCount > 25)
-                // to prevent flooding retrieval with unrelated cross-topic facts.
+                // Hub entity protection: Limit multi-hop traversal depth on global speaker entities (refCount > 25)
+                // to 1 hop to prevent flooding retrieval with unrelated cross-topic facts, while preserving multi-session predicate bridging.
                 int refCnt = entityDirectory.memoryRefCount(entityId);
-                if (refCnt > 25) {
-                    continue;
-                }
+                int maxHops = refCnt > 25 ? 1 : graphScoringPolicy.entityMaxHops();
 
                 // First try hypergraph traversal for multi-hop entity discovery
                 Set<Integer> reachableMemories = null;
                 if (hyperEntityGraph != null) {
-                    reachableMemories = hyperEntityGraph.collectMemories(entityId, graphScoringPolicy.entityMaxHops());
+                    reachableMemories = hyperEntityGraph.collectMemories(entityId, maxHops);
                 }
 
                 // Fallback: EntityDirectory adjacency list for single-entity memory references
@@ -545,7 +537,7 @@ public final class GraphExpansionStage {
         if (chainId == null) return;
         if (!existingIds.contains(chainId) && matchesFilters(chainId, options)) {
             float neighborSim = computeNeighborSimilarity(chainId, queryVector);
-            float chainScore = neighborSim + seed.score() * attenuation * 0.9f;
+            float chainScore = (neighborSim + seed.score() * attenuation * 0.9f) * 2.0f;
 
             CognitiveResult candidate = buildGraphCandidate(chainId, chainScore, seed, seed.memoryType(), "TEMPORAL", neighborSim);
             graphCandidates.merge(chainId, candidate,
