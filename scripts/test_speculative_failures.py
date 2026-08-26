@@ -1,6 +1,6 @@
 """
-Dedicated Test Harness for Evaluating Speculative & Commonsense Failed Queries in Isolation.
-Target: Fixes Failure Mode A (Commonsense & Speculative Extrapolations).
+Dedicated Test Harness for Evaluating Failed Queries from Benchmark in Isolation.
+Supports evaluating all 72 failing queries across Failure Modes A, B, C, and D.
 """
 
 import os
@@ -24,26 +24,13 @@ from eval_generative_qa_ollama import (
     clean_thinking_traces
 )
 
-TARGET_SPECULATIVE_IDS = [
-    # Top speculative failure cases identified from 387-query benchmark
-    "q_conv_26_60",   # Would Caroline be considered religious? -> Somewhat, but not extremely religious
-    "q_conv_26_70",   # What personality traits might Melanie say Caroline has? -> Thoughtful, authentic, driven
-    "q_conv_41_9",    # What might John's financial status be? -> Middle-class or wealthy
-    "q_conv_41_18",   # What might John's degree be in? -> Political science, Public administration, Public affairs
-    "q_conv_41_65",   # What job might Maria pursue in the future? -> Shelter coordinator, Counselor
-    "q_conv_41_42",   # Does John live close to a beach or the mountains? -> beach
-    "q_conv_41_94",   # How has John's fitness improved since starting boot camps with his family? -> More energy, gains in strength and endurance
-    "q_conv_41_106",  # How does John plan to honor the memories of his beloved pet? -> By considering adopting a rescue dog
-    "q_conv_41_115",  # How does John describe the support he received during his journey to becoming assistant manager? -> having support at home and his own grit
-    "q_conv_41_119",  # What inspired John to join the marching event for veterans' rights? -> Respect for the military and the desire to show support
-    "q_conv_41_135",  # How did John describe his kids' reaction at the military memorial? -> awestruck and humbled
-]
-
 def main():
-    parser = argparse.ArgumentParser(description="Test Speculative Failure Cases")
+    parser = argparse.ArgumentParser(description="Test Failed Benchmark Queries in Isolation")
     parser.add_argument("--api-key", type=str, default=os.environ.get("GEMINI_API_KEY", "") or os.environ.get("GOOGLE_API_KEY", ""))
     parser.add_argument("--model", type=str, default="gemini-3.1-flash-lite")
     parser.add_argument("--dataset", type=str, default="locomo")
+    parser.add_argument("--all-failures", action="store_true", help="Evaluate all 72 failed queries from 387-query benchmark")
+    parser.add_argument("--limit", type=int, default=0, help="Limit number of queries to test")
     args = parser.parse_args()
 
     api_key = args.api_key
@@ -51,26 +38,51 @@ def main():
         print("[ERROR] Gemini API key required. Provide via --api-key or GEMINI_API_KEY env var.")
         sys.exit(1)
 
+    eval_checkpoint = os.path.join(project_root, f"../spector-datasets/{args.dataset}/results/backup_387_queries_81pct/qa_eval_checkpoint.jsonl")
+    if not os.path.exists(eval_checkpoint):
+        eval_checkpoint = os.path.join(project_root, f"../spector-datasets/{args.dataset}/results/qa_eval_checkpoint.jsonl")
+
     candidates_file = os.path.join(project_root, f"../spector-datasets/{args.dataset}/results/backup_387_queries_81pct/retrieved_candidates.jsonl")
     if not os.path.exists(candidates_file):
         candidates_file = os.path.join(project_root, f"../spector-datasets/{args.dataset}/results/retrieved_candidates.jsonl")
 
+    print(f"Loading evaluated benchmark records from: {eval_checkpoint}")
+    eval_records = [json.loads(l) for l in open(eval_checkpoint, encoding="utf-8") if l.strip()]
+    eval_map = {r.get("query_id"): r for r in eval_records}
+
     print(f"Loading candidates from: {candidates_file}")
-    records = [json.loads(l) for l in open(candidates_file, encoding="utf-8") if l.strip()]
-    records_by_id = {r.get("query_id"): r for r in records}
+    cand_records = [json.loads(l) for l in open(candidates_file, encoding="utf-8") if l.strip()]
+    cand_map = {r.get("query_id"): r for r in cand_records}
+
+    # Identify target query IDs
+    if args.all_failures:
+        target_ids = [r.get("query_id") for r in eval_records if not r.get("is_correct")]
+        print(f"Targeting ALL {len(target_ids)} failed queries from the 387-query benchmark.")
+    else:
+        target_ids = [
+            "q_conv_26_60", "q_conv_26_70", "q_conv_41_9", "q_conv_41_18",
+            "q_conv_41_65", "q_conv_41_42", "q_conv_41_94", "q_conv_41_106",
+            "q_conv_41_115", "q_conv_41_119", "q_conv_41_135"
+        ]
 
     test_records = []
-    for qid in TARGET_SPECULATIVE_IDS:
-        if qid in records_by_id:
-            test_records.append(records_by_id[qid])
+    for qid in target_ids:
+        if qid in cand_map:
+            test_records.append(cand_map[qid])
+        elif qid in eval_map:
+            test_records.append(eval_map[qid])
         else:
-            print(f"[WARN] Query ID {qid} not found in candidates file.")
+            print(f"[WARN] Query ID {qid} not found.")
 
-    print(f"\nEvaluating {len(test_records)} speculative/commonsense test queries with model: {args.model}")
+    if args.limit > 0:
+        test_records = test_records[:args.limit]
+
+    print(f"\nEvaluating {len(test_records)} failed test queries with model: {args.model}")
     print("=" * 80)
 
     passed_count = 0
     total_count = len(test_records)
+    results = []
 
     for idx, r in enumerate(test_records, 1):
         qid = r.get("query_id")
@@ -78,6 +90,7 @@ def main():
         gold = r.get("gold_answer")
         candidates = r.get("candidates", [])
         context = format_candidates_context(candidates, 50) if candidates else r.get("context_text", "")
+        prev_ans = eval_map.get(qid, {}).get("predicted_answer", "")
 
         print(f"\n[{idx:02d}/{total_count}] Testing {qid}")
         print(f"Question: {q}")
@@ -111,12 +124,21 @@ def main():
         if is_correct:
             passed_count += 1
 
-        time.sleep(0.5)
+        results.append({
+            "query_id": qid,
+            "question": q,
+            "gold": gold,
+            "generated": gen_ans,
+            "is_correct": is_correct,
+            "explanation": explanation
+        })
+
+        time.sleep(0.3)
 
     print("\n" + "=" * 80)
-    print(f"Speculative / Commonsense Accuracy: {passed_count}/{total_count} ({passed_count/total_count*100:.2f}%)")
-    print(f"Previous Benchmark Accuracy on these queries: 0/{total_count} (0.00%)")
-    print(f"Net Improvement: +{passed_count/total_count*100:.2f}%")
+    print(f"Re-Evaluation Accuracy on Failed Set: {passed_count}/{total_count} ({passed_count/total_count*100:.2f}%)")
+    print(f"Previous Benchmark Accuracy on this set: 0/{total_count} (0.00%)")
+    print(f"Net Recovered Queries: +{passed_count} / {total_count} (+{passed_count/total_count*100:.2f}%)")
     print("=" * 80)
 
 if __name__ == "__main__":

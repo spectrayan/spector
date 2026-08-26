@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -417,7 +418,46 @@ public final class BenchmarkSetup implements AutoCloseable {
             loaded++;
         }
 
-        log.info("Loaded {} Hebbian edges ({} skipped due to missing IDs)", loaded, skipped);
+        // Reciprocal Neocortical-Hippocampal Synaptic Bridge:
+        // Connect each consolidated semantic fact to its corresponding episodic conversation turns
+        int consolidationBridges = 0;
+        Map<String, List<Integer>> turnsBySessionPrefix = new HashMap<>();
+        for (Map.Entry<String, Integer> entry : idToSlot.entrySet()) {
+            String memId = entry.getKey();
+            if (!memId.startsWith("fact_")) {
+                // e.g. "conv_41_D32_11" -> key "conv_41_sess_32"
+                int dIdx = memId.indexOf("_D");
+                if (dIdx > 0) {
+                    int lastUnder = memId.lastIndexOf('_');
+                    if (lastUnder > dIdx) {
+                        String prefix = memId.substring(0, dIdx) + "_sess_" + memId.substring(dIdx + 2, lastUnder);
+                        turnsBySessionPrefix.computeIfAbsent(prefix, k -> new ArrayList<>()).add(entry.getValue());
+                    }
+                }
+            }
+        }
+
+        for (Map.Entry<String, Integer> entry : idToSlot.entrySet()) {
+            String memId = entry.getKey();
+            if (memId.startsWith("fact_")) {
+                // e.g. "fact_conv_41_sess_32_1" -> session prefix "conv_41_sess_32"
+                int lastUnder = memId.lastIndexOf('_');
+                if (lastUnder > 5) {
+                    String sessionKey = memId.substring(5, lastUnder);
+                    List<Integer> turnSlots = turnsBySessionPrefix.get(sessionKey);
+                    if (turnSlots != null) {
+                        int factSlot = entry.getValue();
+                        for (int turnSlot : turnSlots) {
+                            graph.strengthen(factSlot, turnSlot, 5.0f);
+                            consolidationBridges++;
+                        }
+                    }
+                }
+            }
+        }
+
+        log.info("Loaded {} Hebbian edges ({} skipped) + {} consolidation bridges",
+                loaded, skipped, consolidationBridges);
     }
 
     /**

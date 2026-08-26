@@ -277,13 +277,7 @@ public final class GraphExpansionStage {
                                  float[] queryVector,
                                  RecallOptions options) {
         try {
-            List<CognitiveResult> seeds = allResults.stream()
-                    .filter(r -> r.memoryType() == MemoryType.SEMANTIC || r.memoryType() == MemoryType.PROCEDURAL)
-                    .limit(8)
-                    .toList();
-            if (seeds.isEmpty()) {
-                seeds = allResults.subList(0, Math.min(8, allResults.size()));
-            }
+            List<CognitiveResult> seeds = allResults.subList(0, Math.min(12, allResults.size()));
 
             for (CognitiveResult seed : seeds) {
                 MemoryIndex.MemoryLocation loc = index.locate(seed.id());
@@ -545,7 +539,7 @@ public final class GraphExpansionStage {
         if (chainId == null) return;
         if (!existingIds.contains(chainId) && matchesFilters(chainId, options)) {
             float neighborSim = computeNeighborSimilarity(chainId, queryVector);
-            float chainScore = neighborSim + seed.score() * attenuation * 0.9f;
+            float chainScore = (neighborSim + seed.score() * attenuation * 0.9f) * 2.0f;
 
             CognitiveResult candidate = buildGraphCandidate(chainId, chainScore, seed, seed.memoryType(), "TEMPORAL", neighborSim);
             graphCandidates.merge(chainId, candidate,
