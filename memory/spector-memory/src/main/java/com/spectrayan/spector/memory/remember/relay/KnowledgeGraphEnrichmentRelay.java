@@ -49,6 +49,11 @@ public final class KnowledgeGraphEnrichmentRelay implements SynapticRelay<Rememb
             return true;
         }
 
+        // Episodic memories are raw event logs and should not generate entity graph links or KG extractions
+        if (signal.type() == com.spectrayan.spector.memory.model.MemoryType.EPISODIC) {
+            return true;
+        }
+
         final IngestionContext context = signal.context();
         final long epochSeconds = signal.timestampMs() / 1000;
         final String tsid = MemoryScope.sessionId();

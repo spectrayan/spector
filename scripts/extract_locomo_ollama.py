@@ -46,17 +46,28 @@ def query_ollama_json(prompt: str, model: str = EXTRACTION_MODEL, timeout: int =
         return {}
 
 def parse_date_to_ts(date_str: str) -> int:
+    """Parse date strings like '1:54 PM, 7 May, 2023' or '1:56 pm on 8 May, 2023' into timestamp ms."""
     if not date_str:
         return 1700000000000
-    try:
-        dt = datetime.strptime(date_str.strip(), "%I:%M %p, %d %B, %Y")
-        return int(dt.replace(tzinfo=timezone.utc).timestamp() * 1000)
-    except Exception:
+    cleaned = date_str.replace(" on ", ", ").strip()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    for fmt in [
+        "%I:%M %p, %d %B, %Y",
+        "%I:%M %p, %d %B %Y",
+        "%I:%M %p, %B %d, %Y",
+        "%d %B, %Y",
+        "%d %B %Y",
+        "%B %d, %Y",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d"
+    ]:
         try:
-            dt = datetime.strptime(date_str.strip(), "%d %B, %Y")
+            dt = datetime.strptime(cleaned, fmt)
             return int(dt.replace(tzinfo=timezone.utc).timestamp() * 1000)
         except Exception:
-            return 1700000000000
+            continue
+    print(f"[WARN] Failed to parse date string: '{date_str}'", file=sys.stderr)
+    return 1700000000000
 
 def get_subsystem_for_category(category: int) -> str:
     if category == 2:

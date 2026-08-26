@@ -24,18 +24,29 @@ DATASET_SRC = r"D:\git\spector-datasets\locomo\original\data\locomo10.json"
 DATASET_DIR = r"D:\git\spector-datasets\locomo\data"
 
 def parse_date_to_ts(date_str: str) -> int:
-    """Parse date strings like '1:54 PM, 7 May, 2023' into timestamp ms."""
+    """Parse date strings like '1:54 PM, 7 May, 2023' or '1:56 pm on 8 May, 2023' into timestamp ms."""
     if not date_str:
         return 1700000000000
-    try:
-        dt = datetime.strptime(date_str.strip(), "%I:%M %p, %d %B, %Y")
-        return int(dt.replace(tzinfo=timezone.utc).timestamp() * 1000)
-    except Exception:
+    cleaned = date_str.replace(" on ", ", ").strip()
+    # Normalize multiple spaces and ensure consistent casing for AM/PM
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    for fmt in [
+        "%I:%M %p, %d %B, %Y",
+        "%I:%M %p, %d %B %Y",
+        "%I:%M %p, %B %d, %Y",
+        "%d %B, %Y",
+        "%d %B %Y",
+        "%B %d, %Y",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d"
+    ]:
         try:
-            dt = datetime.strptime(date_str.strip(), "%d %B, %Y")
+            dt = datetime.strptime(cleaned, fmt)
             return int(dt.replace(tzinfo=timezone.utc).timestamp() * 1000)
         except Exception:
-            return 1700000000000
+            continue
+    print(f"[WARN] Failed to parse date string: '{date_str}'", file=sys.stderr)
+    return 1700000000000
 
 def get_subsystem_for_category(category: int) -> str:
     """Map LoCoMo category to subsystem."""
@@ -125,6 +136,13 @@ def main():
                     "sessionId": session_id,
                     "orderedMemoryIds": ordered_turn_ids
                 })
+                # Add conversational Hebbian associative edges for adjacent dialogue turns
+                for i in range(len(ordered_turn_ids) - 1):
+                    hebbian_edges.append({
+                        "memoryIdA": ordered_turn_ids[i],
+                        "memoryIdB": ordered_turn_ids[i+1],
+                        "coActivationCount": 2
+                    })
 
         # Process QA items
         qa_list = sample.get("qa", [])
@@ -170,7 +188,7 @@ def main():
                     hebbian_edges.append({
                         "memoryIdA": ev_ids[i],
                         "memoryIdB": ev_ids[i+1],
-                        "coActivationCount": 3
+                        "coActivationCount": 5
                     })
 
         # Extract entity relations from speaker info
@@ -211,9 +229,13 @@ def main():
     with open(os.path.join(DATASET_DIR, "persona.json"), "w", encoding="utf-8") as f:
         json.dump(persona, f, indent=2)
 
-    with open(os.path.join(DATASET_DIR, "entities.jsonl"), "w", encoding="utf-8") as f:
-        for ent in entities:
-            f.write(json.dumps(ent) + "\n")
+    entities_file = os.path.join(DATASET_DIR, "entities.jsonl")
+    if not os.path.exists(entities_file) or os.path.getsize(entities_file) < 5000:
+        with open(entities_file, "w", encoding="utf-8") as f:
+            for ent in entities:
+                f.write(json.dumps(ent) + "\n")
+    else:
+        print(f"Preserving existing enriched entities.jsonl ({os.path.getsize(entities_file)} bytes)")
 
     with open(os.path.join(DATASET_DIR, "temporal_chains.jsonl"), "w", encoding="utf-8") as f:
         for tc in temporal_chains:

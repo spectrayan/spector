@@ -86,7 +86,9 @@ final class CognitiveGraphBuilder {
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
             java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.HEBBIAN);
             boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(regionSlice, 0L);
-            int edgeCapacity = graphCapacity * 2;
+            int edgeCapacity = builder.hebbianMaxDegree > 0
+                    ? graphCapacity * builder.hebbianMaxDegree
+                    : graphCapacity * 16;
             hebbianGraph = HebbianGraphMemory.fromBundle(
                     cortex.runtimeBundle().arena(), regionSlice, graphCapacity, edgeCapacity,
                     builder.hebbianMaxDegree, builder.edgeImportance,

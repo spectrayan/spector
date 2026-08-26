@@ -59,7 +59,8 @@ public final class ConsciousAccessRelay implements SynapticRelay<RecallSignal> {
         signal.setCandidates(broadcastList);
 
         if (log.isTraceEnabled()) {
-            log.trace("ConsciousAccessRelay gated candidates from {} to {}", candidates.size(), broadcastList.size());
+            log.trace("ConsciousAccessRelay gated candidates from {} to {} (capacity={})",
+                    candidates.size(), broadcastList.size(), workspace.capacity());
         }
 
         return true;

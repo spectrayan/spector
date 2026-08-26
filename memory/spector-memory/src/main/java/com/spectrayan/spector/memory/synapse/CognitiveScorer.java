@@ -463,6 +463,12 @@ public final class CognitiveScorer {
                 }
             }
 
+            // Two-Tier Recall: SEMANTIC and PROCEDURAL memories represent consolidated knowledge and receive priority over raw EPISODIC logs
+            int mType = memoryTypeOrdinal(flags);
+            if (mType == 1 || mType == 2) { // 1 = SEMANTIC, 2 = PROCEDURAL
+                finalScore *= 2.0f;
+            }
+
             // ── Insert into flat min-heap (ZERO object allocation) ──
             // Only read remaining header fields (exactNorm, centroidId) if this record
             // will actually enter the heap.

@@ -136,6 +136,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
 
     private final boolean fileBacked;
     private final MemorySegment headerSegment;
+    private final MemorySegment rawAdjacencyRegion;
     private final Path mmapFilePath;
 
     /** Optional encryptor for name index persistence (set by enterprise layer). */
@@ -174,43 +175,45 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
               isNew ? 0 : (int) MemoryHeader.readCount(entityRegionSlice, 0L),
               true, bundlePath, null, true); // bundleManaged=true
         this.bundleManaged = true;
-        this.entitySegment = entityRegionSlice;
-        this.adjacencySegment = adjacencyRegionSlice;
+        this.rawAdjacencyRegion = adjacencyRegionSlice;
         this.entityCapacity = entityCapacity;
-        this.entityCount = isNew ? 0 : (int) MemoryHeader.readCount(entityRegionSlice, 0L);
+        this.headerSegment = entityRegionSlice.asSlice(0, DATA_START);
+        this.entitySegment = entityRegionSlice.asSlice(DATA_START, (long) ENTITY_NODE_BYTES * entityCapacity);
+        this.fileBacked = true;
+        this.mmapFilePath = bundlePath;
+        this.memoryId = MEMORY_ID;
+        this.entityTypeRegistryMemory = entityTypeRegistry;
 
         long headerStart = MemoryHeader.HEADER_BYTES;
         int initialAdjCap = adjacencyRegionSlice.get(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_CAPACITY);
         int adjHwm = adjacencyRegionSlice.get(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_HWM);
 
-        this.adjSegmentCapacity = initialAdjCap;
-        this.adjHighWaterMark = adjHwm;
-        this.fileBacked = true;
-        this.headerSegment = entityRegionSlice.asSlice(0, MemoryHeader.HEADER_BYTES + 16);
-        this.mmapFilePath = bundlePath;
-        this.memoryId = MEMORY_ID;
-        this.entityTypeRegistryMemory = entityTypeRegistry;
-
         if (isNew) {
-            long now = System.currentTimeMillis();
-            MemoryHeader.write(entityRegionSlice, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0,
-                    (int) entityRegionSlice.byteSize(), 0, 0, LAYOUT.layoutId(), now, now);
-            MemoryHeader.write(adjacencyRegionSlice, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0,
-                    (int) adjacencyRegionSlice.byteSize(), 0, 0, LAYOUT.layoutId(), now, now);
+            this.entityCount = 0;
+            writeSmkmHeaderToSegment(this.headerSegment, entityCapacity, 0, 0, 0);
+            writeSmkmHeaderToSegment(adjacencyRegionSlice.asSlice(0, DATA_START), 0, 0, 0, 0);
 
             long reservedForNames = 32L * entityCapacity;
-            long availableForAdj = Math.max(0, adjacencyRegionSlice.byteSize() - MemoryHeader.HEADER_BYTES - 16 - reservedForNames);
+            long availableForAdj = Math.max(0, adjacencyRegionSlice.byteSize() - DATA_START - reservedForNames);
             int adjCap = (int) (availableForAdj / ADJ_ENTRY_BYTES);
             adjacencyRegionSlice.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_CAPACITY, adjCap);
             adjacencyRegionSlice.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_HWM, 0);
             this.adjSegmentCapacity = adjCap;
             this.adjHighWaterMark = 0;
+            this.entitySegment.fill((byte) 0);
+            this.adjacencySegment = adjacencyRegionSlice.asSlice(DATA_START, (long) ADJ_ENTRY_BYTES * adjCap);
+            this.adjacencySegment.fill((byte) 0);
+        } else {
+            this.entityCount = (int) MemoryHeader.readCount(entityRegionSlice, 0L);
+            this.adjSegmentCapacity = initialAdjCap;
+            this.adjHighWaterMark = adjHwm;
+            this.adjacencySegment = adjacencyRegionSlice.asSlice(DATA_START, (long) ADJ_ENTRY_BYTES * this.adjSegmentCapacity);
         }
 
         // Load names: try V4 bundle region first, then V3 sidecar
         if (!isNew && bundlePath != null) {
             try {
-                long nameIndexOffset = MemoryHeader.HEADER_BYTES + 16
+                long nameIndexOffset = DATA_START
                         + (long) adjSegmentCapacity * ADJ_ENTRY_BYTES;
                 ConcurrentHashMap<String, Integer> names = EntityDirectorySerializer.loadNameIndexFromRegion(
                         adjacencyRegionSlice, nameIndexOffset);
@@ -272,6 +275,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         this.adjHighWaterMark = init.adjHighWaterMark;
         this.fileBacked = init.persistent;
         this.headerSegment = init.headerSegment;
+        this.rawAdjacencyRegion = null;
         this.mmapFilePath = init.filePath;
         this.memoryId = MEMORY_ID;
         this.entityTypeRegistryMemory = init.entityTypeRegistry;
@@ -484,17 +488,18 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         }
 
         if (adjCap == 0) {
-            adjOff = adjHighWaterMark;
             adjCap = DEFAULT_ADJ_PER_ENTITY;
             ensureAdjSegmentCapacity(adjHighWaterMark + adjCap);
+            adjOff = adjHighWaterMark;
             entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET, adjOff);
             entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_CAPACITY, adjCap);
             adjHighWaterMark += adjCap;
         } else if (adjCnt >= adjCap) {
             int newCap = adjCap * 2;
-            int newOff = adjHighWaterMark;
             ensureAdjSegmentCapacity(adjHighWaterMark + newCap);
-            MemorySegment.copy(adjacencySegment, (long) adjOff * ADJ_ENTRY_BYTES,
+            int currentAdjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
+            int newOff = adjHighWaterMark;
+            MemorySegment.copy(adjacencySegment, (long) currentAdjOff * ADJ_ENTRY_BYTES,
                     adjacencySegment, (long) newOff * ADJ_ENTRY_BYTES,
                     (long) adjCnt * ADJ_ENTRY_BYTES);
             adjOff = newOff;
@@ -516,10 +521,17 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
      * Ensures the adjacency segment can hold at least {@code requiredEntries} entries, doubling
      * (heap) or throwing (mmap, pre-allocated at max). Must be called under the write lock — it
      * reassigns {@link #adjacencySegment}.
+     *
+     * <p><b>IMPORTANT</b>: Calls {@link #compactAdjacencyLocked()} (lock-free) instead of the
+     * public {@link #compactAdjacency()} to avoid {@link java.util.concurrent.locks.StampedLock}
+     * reentrancy deadlock — {@code StampedLock} is NOT reentrant, and this method is always called
+     * from within an already-held write lock.</p>
      */
     private void ensureAdjSegmentCapacity(int requiredEntries) {
         if (requiredEntries <= adjSegmentCapacity) return;
         if (fileBacked) {
+            compactAdjacencyLocked();
+            if (requiredEntries <= adjSegmentCapacity) return;
             throw new SpectorEntityGraphException(
                     ErrorCode.CAPACITY_EXCEEDED,
                     "adjacency segment exhausted (mmap); increase MAX_ADJ_PER_ENTITY (currently "
@@ -890,6 +902,22 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     public long compactAdjacency() {
         long stamp = lock.writeLock();
         try {
+            return compactAdjacencyLocked();
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    /**
+     * Lock-free compaction of the adjacency segment. Must be called under the write lock.
+     *
+     * <p>Extracted from {@link #compactAdjacency()} so that callers already holding the write lock
+     * (e.g., {@link #ensureAdjSegmentCapacity(int)}) can invoke compaction without hitting a
+     * {@link java.util.concurrent.locks.StampedLock} reentrancy deadlock.</p>
+     *
+     * @return bytes reclaimed by compaction
+     */
+    private long compactAdjacencyLocked() {
             long oldUsed = (long) adjHighWaterMark * ADJ_ENTRY_BYTES;
             int liveEntries = 0;
             for (int e = 0; e < entityCount; e++) {
@@ -926,6 +954,9 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
                         (long) adjCnt * ADJ_ENTRY_BYTES);
                 entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET, writePos);
                 int newEntityCap = Math.max(adjCnt, DEFAULT_ADJ_PER_ENTITY);
+                if (writePos + (adjCnt * 2) <= (fileBacked ? adjSegmentCapacity : newCapacity)) {
+                    newEntityCap = Math.max(adjCnt * 2, DEFAULT_ADJ_PER_ENTITY);
+                }
                 entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_CAPACITY, newEntityCap);
                 writePos += newEntityCap;
             }
@@ -951,9 +982,6 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
                         liveEntries, reclaimed / 1024);
             }
             return reclaimed;
-        } finally {
-            lock.unlockWrite(stamp);
-        }
     }
 
     /**
@@ -1287,30 +1315,28 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         if (bundleManaged) {
             long stamp = lock.readLock();
             try {
-                // For bundleManaged, we don't have standard 64B headers mapped in the same segments,
-                // but wait, headerSegment was mapped as entitySegment.asSlice(0, 64)!
-                // So yes, writeSmkmHeaderToSegment on headerSegment works perfectly!
                 writeSmkmHeaderToSegment(headerSegment, entityCapacity, entityCount,
                         adjSegmentCapacity, adjHighWaterMark);
                 headerSegment.force();
                 entitySegment.force();
-                
-                // Write sub-header to adjacencySegment too
-                long headerStart = MemoryHeader.HEADER_BYTES;
-                adjacencySegment.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_CAPACITY, adjSegmentCapacity);
-                adjacencySegment.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_HWM, adjHighWaterMark);
-                adjacencySegment.force();
 
-                Path path = filePath != null ? filePath : mmapFilePath;
-                if (path != null) {
-                    // V4 bundle path: write name index to ENTITY_NAMES region after adjacency data
-                    long nameIndexOffset = MemoryHeader.HEADER_BYTES + 16
-                            + (long) adjSegmentCapacity * ADJ_ENTRY_BYTES;
-                    int written = EntityDirectorySerializer.saveNameIndexToRegion(
-                            adjacencySegment, nameIndexOffset, nameIndex);
-                    if (written < 0) {
-                        // Fallback to sidecar file if region too small
-                        EntityDirectorySerializer.saveNameIndexSidecar(this, path, encryptor);
+                if (rawAdjacencyRegion != null) {
+                    writeSmkmHeaderToSegment(rawAdjacencyRegion.asSlice(0, DATA_START), 0, 0,
+                            adjSegmentCapacity, adjHighWaterMark);
+                    adjacencySegment.force();
+                    rawAdjacencyRegion.force();
+
+                    Path path = filePath != null ? filePath : mmapFilePath;
+                    if (path != null) {
+                        // V4 bundle path: write name index to ENTITY_NAMES region after adjacency data
+                        long nameIndexOffset = DATA_START
+                                + (long) adjSegmentCapacity * ADJ_ENTRY_BYTES;
+                        int written = EntityDirectorySerializer.saveNameIndexToRegion(
+                                rawAdjacencyRegion, nameIndexOffset, nameIndex);
+                        if (written < 0) {
+                            // Fallback to sidecar file if region too small
+                            EntityDirectorySerializer.saveNameIndexSidecar(this, path, encryptor);
+                        }
                     }
                 }
             } finally {

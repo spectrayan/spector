@@ -550,6 +550,11 @@ public final class SpectorMemoryBuilder {
      * @param capacity maximum tasks in queue (must be >= 16)
      * @return this builder
      */
+    public SpectorMemoryBuilder entityExtractionQueueCapacity(int capacity) {
+        this.entityExtractionQueueCapacity = Math.max(16, capacity);
+        return this;
+    }
+
     /**
      * Applies configuration properties from a {@link com.spectrayan.spector.config.properties.MemoryProperties} instance (#605).
      *

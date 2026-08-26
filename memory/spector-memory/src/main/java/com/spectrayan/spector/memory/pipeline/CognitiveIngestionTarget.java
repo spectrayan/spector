@@ -540,16 +540,18 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         int previousIdx = lastIngestedMemoryIdx.getAndSet(memoryIdx);
         postIngestSync.syncGraphEdges(memoryIdx, previousIdx, sessionIntId);
 
-        // Step 9d: Entity extraction and graph population (asynchronous / non-blocking)
-        if (asyncEntityExtractionQueue != null && entityExtractor != null && entityExtractor.isAvailable()) {
-            hook.observe(ENTITY_EXTRACTION, java.util.Map.of(TAG_MEMORY_ID, id), () ->
-                asyncEntityExtractionQueue.submit(id, text, memoryIdx, header.timestampMs() / 1000, tsid, nsid)
-            );
-        } else {
-            hook.observe(ENTITY_EXTRACTION, java.util.Map.of(TAG_MEMORY_ID, id), () -> {
-                List<ExtractedEntity> extractedEntities = postIngestSync.syncEntityExtraction(id, text, memoryIdx);
-                postIngestSync.syncTemporalFacts(extractedEntities, memoryIdx, id, header.timestampMs() / 1000);
-            });
+        // Step 9d: Entity extraction and graph population (skip for raw EPISODIC logs)
+        if (type != MemoryType.EPISODIC) {
+            if (asyncEntityExtractionQueue != null && entityExtractor != null && entityExtractor.isAvailable()) {
+                hook.observe(ENTITY_EXTRACTION, java.util.Map.of(TAG_MEMORY_ID, id), () ->
+                    asyncEntityExtractionQueue.submit(id, text, memoryIdx, header.timestampMs() / 1000, tsid, nsid)
+                );
+            } else {
+                hook.observe(ENTITY_EXTRACTION, java.util.Map.of(TAG_MEMORY_ID, id), () -> {
+                    List<ExtractedEntity> extractedEntities = postIngestSync.syncEntityExtraction(id, text, memoryIdx);
+                    postIngestSync.syncTemporalFacts(extractedEntities, memoryIdx, id, header.timestampMs() / 1000);
+                });
+            }
         }
 
         log.debug("Ingested '{}' as {} (importance={}, {} tags, graphSlot={}, source={})",
@@ -805,16 +807,18 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 postIngestSync.syncPreExtractedEntities(context.entities(), memoryIdx, id);
                 postIngestSync.syncTemporalFacts(context.entities(), memoryIdx, id, header.timestampMs() / 1000);
             });
-        } else if (asyncEntityExtractionQueue != null && entityExtractor != null && entityExtractor.isAvailable()) {
-            String nsid = com.spectrayan.spector.commons.concurrent.MemoryScope.namespaceId();
-            hook.observe(ENTITY_EXTRACTION, java.util.Map.of(TAG_MEMORY_ID, id), () ->
-                asyncEntityExtractionQueue.submit(id, text, memoryIdx, header.timestampMs() / 1000, tsid, nsid)
-            );
-        } else {
-            hook.observe(ENTITY_EXTRACTION, java.util.Map.of(TAG_MEMORY_ID, id), () -> {
-                List<ExtractedEntity> extractedEntities = postIngestSync.syncEntityExtraction(id, text, memoryIdx);
-                postIngestSync.syncTemporalFacts(extractedEntities, memoryIdx, id, header.timestampMs() / 1000);
-            });
+        } else if (type != MemoryType.EPISODIC) {
+            if (asyncEntityExtractionQueue != null && entityExtractor != null && entityExtractor.isAvailable()) {
+                String nsid = com.spectrayan.spector.commons.concurrent.MemoryScope.namespaceId();
+                hook.observe(ENTITY_EXTRACTION, java.util.Map.of(TAG_MEMORY_ID, id), () ->
+                    asyncEntityExtractionQueue.submit(id, text, memoryIdx, header.timestampMs() / 1000, tsid, nsid)
+                );
+            } else {
+                hook.observe(ENTITY_EXTRACTION, java.util.Map.of(TAG_MEMORY_ID, id), () -> {
+                    List<ExtractedEntity> extractedEntities = postIngestSync.syncEntityExtraction(id, text, memoryIdx);
+                    postIngestSync.syncTemporalFacts(extractedEntities, memoryIdx, id, header.timestampMs() / 1000);
+                });
+            }
         }
 
         log.debug("Ingested '{}' as {} with IngestionContext (importance={}, {} tags, entities={}, hebbianEdges={}, temporalLinks={})",

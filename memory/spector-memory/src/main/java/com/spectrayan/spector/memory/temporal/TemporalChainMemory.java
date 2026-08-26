@@ -149,6 +149,9 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
         this.backing = new TemporalChainBacking(id, layout, capacity, arena, regionSlice, isNew);
 
         if (isNew) {
+            long now = System.currentTimeMillis();
+            MemoryHeader.write(backing.segment(), 0L, layout.schemaVersion(), MemoryShape.CHAIN, 1,
+                    capacity, 0L, layout.recordStride(), layout.layoutId(), now, now);
             MemorySegment seg = backing.segment();
             long base = backing.dataOffset();
             for (int i = 0; i < capacity; i++) {

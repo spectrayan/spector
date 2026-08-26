@@ -105,6 +105,7 @@ public final class RecallPathway {
     private final float[] calibrationMins;
     private final float[] calibrationScales;
     private final SalienceAndHabituationScorer salienceScorer;
+    private final com.spectrayan.spector.memory.hebbian.CoActivationAssociativePriorProvider associativePriorProvider;
 
     private final List<RecallListener> listeners = new CopyOnWriteArrayList<>();
     private final ConcurrentHashMap<String, RetrievalMode> recentRetrievalModes = new ConcurrentHashMap<>();
@@ -121,6 +122,19 @@ public final class RecallPathway {
         this.partitionRegistry = builder.partitionManager;
         this.calibrationMins = builder.cortex.quantizer().mins();
         this.calibrationScales = builder.cortex.quantizer().scales();
+        this.associativePriorProvider = this.coActivationTracker != null
+                ? new com.spectrayan.spector.memory.hebbian.CoActivationAssociativePriorProvider(
+                        this.coActivationTracker,
+                        0.5f,
+                        0.2f,
+                        offset -> {
+                            if (this.index != null) {
+                                String id = ((com.spectrayan.spector.memory.index.IndexRecordMemory) this.index).idAt((int) (offset / 164));
+                                if (id != null) return this.index.tags(id);
+                            }
+                            return null;
+                        })
+                : null;
 
         final MemoryObservationHook hook = builder.hook != null ? builder.hook : MemoryObservationHook.NOOP;
         final GraphScoringPolicy gsp =
@@ -563,9 +577,14 @@ public final class RecallPathway {
                                                    final CognitiveRecordLayout layout, final float[] queryVector,
                                                    final RecallOptions options, final long nowMs, final MemoryType type,
                                                    final long baseOffset, final int partitionSeq) {
+        com.spectrayan.spector.memory.synapse.QueryAssociativeContext priorContext = null;
+        if (options.enableAssociativePrior()) {
+            priorContext = new com.spectrayan.spector.memory.synapse.QueryAssociativeContext(List.of(), List.of(), nowMs);
+        }
+
         final List<ScoredRecord> scored = CognitiveScorer.score(
                 segment, recordCount, layout, queryVector, options, nowMs, baseOffset,
-                calibrationMins, calibrationScales);
+                calibrationMins, calibrationScales, associativePriorProvider, priorContext);
 
         final List<CognitiveResult> results = new ArrayList<>(scored.size());
         for (final ScoredRecord sr : scored) {

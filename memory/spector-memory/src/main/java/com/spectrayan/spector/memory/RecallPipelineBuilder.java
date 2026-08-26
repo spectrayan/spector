@@ -38,7 +38,9 @@ import org.slf4j.LoggerFactory;
  * critical ordering dependency.</p>
  *
  * @since 1.1.0
+ * @deprecated Superceded by {@link RecallPathway} and the relay-based cognitive pathway architecture (#561).
  */
+@Deprecated(since = "0.1.0-alpha", forRemoval = true)
 public final class RecallPipelineBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(RecallPipelineBuilder.class);

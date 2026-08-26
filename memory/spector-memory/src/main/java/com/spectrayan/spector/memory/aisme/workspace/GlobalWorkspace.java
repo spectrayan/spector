@@ -67,6 +67,17 @@ public final class GlobalWorkspace {
      * @return pruned list of items admitted to global broadcast
      */
     public List<CognitiveResult> filterForBroadcast(List<CognitiveResult> candidates) {
+        return filterForBroadcast(candidates, capacity);
+    }
+
+    /**
+     * Selects and broadcasts the top candidate memories with an explicit capacity override.
+     *
+     * @param candidates candidate memory items
+     * @param effectiveCapacity maximum number of items to admit
+     * @return pruned list of items admitted to global broadcast
+     */
+    public List<CognitiveResult> filterForBroadcast(List<CognitiveResult> candidates, int effectiveCapacity) {
         if (candidates == null || candidates.isEmpty()) {
             return List.of();
         }
@@ -74,12 +85,12 @@ public final class GlobalWorkspace {
         List<CognitiveResult> sorted = new ArrayList<>(candidates);
         sorted.sort(Comparator.comparingDouble(CognitiveResult::score).reversed());
 
-        int limit = Math.min(sorted.size(), capacity);
+        int limit = Math.min(sorted.size(), effectiveCapacity);
         List<CognitiveResult> broadcastList = new ArrayList<>(sorted.subList(0, limit));
 
         if (log.isTraceEnabled()) {
-            log.trace("GlobalWorkspace admitted {} / {} candidates to conscious broadcast",
-                    broadcastList.size(), candidates.size());
+            log.trace("GlobalWorkspace admitted {} / {} candidates to conscious broadcast (capacity={})",
+                    broadcastList.size(), candidates.size(), effectiveCapacity);
         }
 
         return broadcastList;

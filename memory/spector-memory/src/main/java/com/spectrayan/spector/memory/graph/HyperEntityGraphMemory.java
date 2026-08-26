@@ -448,13 +448,17 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
         long stamp = lock.writeLock();
         try {
             if (nextHyperedgeId >= hyperedgeCapacity) {
-                log.warn("HyperEntityGraphMemory full: {} hyperedges at capacity", hyperedgeCapacity);
+                if (log.isTraceEnabled()) {
+                    log.trace("HyperEntityGraphMemory full: {} hyperedges at capacity", hyperedgeCapacity);
+                }
                 return -1;
             }
 
             int vertexCount = vertexEntities.length;
             if (nextVertexOffset + vertexCount > vertexCapacity) {
-                log.warn("Vertex segment full: {} at capacity {}", nextVertexOffset, vertexCapacity);
+                if (log.isTraceEnabled()) {
+                    log.trace("Vertex segment full: {} at capacity {}", nextVertexOffset, vertexCapacity);
+                }
                 return -1;
             }
 
@@ -585,6 +589,26 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
 
         result.sort((a, b) -> Float.compare(b.weight(), a.weight()));
         return result;
+    }
+
+    /**
+     * Finds hyperedges for an entity that match a specific predicate type.
+     */
+    public List<HyperEdge> findHyperedgesForEntityAndPredicate(int entityId, int predicateType) {
+        long stamp = lock.readLock();
+        try {
+            List<HyperEdge> all = findHyperedgesForEntityLocked(entityId);
+            if (predicateType == 0 || all.isEmpty()) return all;
+            List<HyperEdge> result = new ArrayList<>(all.size());
+            for (HyperEdge e : all) {
+                if (e.type() == predicateType) {
+                    result.add(e);
+                }
+            }
+            return result;
+        } finally {
+            lock.unlockRead(stamp);
+        }
     }
 
     /**
@@ -1178,13 +1202,18 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
             list.clear();
         }
 
-        for (int i = 0; i < nextHyperedgeId; i++) {
+        long maxHedges = hedges.byteSize() / HyperEntityLayout.HEDGE_BYTES;
+        long maxVerts = vertices.byteSize() / HyperEntityLayout.VERTEX_BYTES;
+        int limit = (int) Math.min((long) nextHyperedgeId, maxHedges);
+
+        for (int i = 0; i < limit; i++) {
             long hedgeOff = (long) i * HyperEntityLayout.HEDGE_BYTES;
             int vertexCount = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_COUNT);
-            if (vertexCount == 0) continue;
+            if (vertexCount <= 0) continue;
 
             int vertexOffset = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_OFFSET);
             for (int j = 0; j < vertexCount; j++) {
+                if ((long) (vertexOffset + j) >= maxVerts) break;
                 long vOff = (long) (vertexOffset + j) * HyperEntityLayout.VERTEX_BYTES;
                 int entityId = vertices.get(ValueLayout.JAVA_INT, vOff + HyperEntityLayout.VERTEX_OFF_ENTITY_ID);
                 if (entityId >= 0 && entityId < entityCapacity) {

@@ -16,6 +16,7 @@ import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.index.BM25Index;
 import com.spectrayan.spector.index.ScoredResult;
+import com.spectrayan.spector.index.StemmingAnalyzer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,7 +85,7 @@ public final class MemoryBM25Index implements AutoCloseable {
     public MemoryBM25Index(int partitionCount) {
         this.partitions = new CopyOnWriteArrayList<>();
         for (int i = 0; i < partitionCount; i++) {
-            partitions.add(new BM25Index());
+            partitions.add(createBM25Index());
         }
     }
 
@@ -182,7 +183,7 @@ public final class MemoryBM25Index implements AutoCloseable {
         ensurePartition(partitionIndex);
 
         // Close old index and create a fresh one
-        BM25Index newIndex = new BM25Index();
+        BM25Index newIndex = createBM25Index();
         for (Map.Entry<String, String> entry : texts.entrySet()) {
             newIndex.index(entry.getKey(), entry.getValue());
         }
@@ -212,7 +213,7 @@ public final class MemoryBM25Index implements AutoCloseable {
      * @return the index of the newly added partition
      */
     public int addPartition() {
-        BM25Index newIndex = new BM25Index();
+        BM25Index newIndex = createBM25Index();
         partitions.add(newIndex);
         int idx = partitions.size() - 1;
         log.debug("Added BM25 partition {}", idx);
@@ -328,8 +329,12 @@ public final class MemoryBM25Index implements AutoCloseable {
 
     private void ensurePartition(int partitionIndex) {
         while (partitions.size() <= partitionIndex) {
-            partitions.add(new BM25Index());
+            partitions.add(createBM25Index());
         }
+    }
+
+    private BM25Index createBM25Index() {
+        return new BM25Index(new StemmingAnalyzer());
     }
 
     private List<BM25Candidate> searchSequential(List<BM25Index> snapshot, String query, int topK) {

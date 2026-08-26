@@ -136,11 +136,12 @@ public final class GraphExpansionStage {
      * @param queryVector  the embedded query vector
      * @param options      recall options (for expansion threshold, entity hints)
      */
-    public void expand(List<CognitiveResult> allResults, float[] queryVector, RecallOptions options) {
+    public void expand(List<CognitiveResult> allResults, float[] queryVector, RecallOptions options, String rawQuery) {
         boolean cognitiveScoring = options.scoringMode() != ScoringMode.SIMILARITY;
         boolean hasSubsystems = hebbianGraph != null || temporalChain != null
-                || (entityDirectory != null && (entityExtractor != null && entityExtractor.isAvailable()
-                        || !options.entityHints().isEmpty()));
+                || entityDirectory != null
+                || (entityExtractor != null && entityExtractor.isAvailable())
+                || !options.entityHints().isEmpty();
 
         if (!cognitiveScoring || !hasSubsystems || allResults.isEmpty()) {
             return;
@@ -207,7 +208,7 @@ public final class GraphExpansionStage {
         // Step 5e: Entity graph traversal (hyper-only — identity from the directory,
         // topology from the hypergraph; ADR-0003 #456)
         if (entityDirectory != null) {
-            expandEntity(allResults, existingIds, graphCandidates, queryVector, options);
+            expandEntity(allResults, existingIds, graphCandidates, queryVector, options, rawQuery);
         }
 
         // Add deduplicated graph candidates to results
@@ -231,9 +232,15 @@ public final class GraphExpansionStage {
                                  float[] queryVector,
                                  RecallOptions options) {
         try {
-            int seeds = Math.min(3, allResults.size());
-            for (int s = 0; s < seeds; s++) {
-                CognitiveResult seed = allResults.get(s);
+            List<CognitiveResult> seeds = allResults.stream()
+                    .filter(r -> r.memoryType() == MemoryType.SEMANTIC || r.memoryType() == MemoryType.PROCEDURAL)
+                    .limit(8)
+                    .toList();
+            if (seeds.isEmpty()) {
+                seeds = allResults.subList(0, Math.min(8, allResults.size()));
+            }
+
+            for (CognitiveResult seed : seeds) {
                 MemoryIndex.MemoryLocation loc = index.locate(seed.id());
                 if (loc == null) continue;
 
@@ -245,8 +252,8 @@ public final class GraphExpansionStage {
                     if (!existingIds.contains(neighborId) && matchesFilters(neighborId, options)) {
                         float neighborSim = computeNeighborSimilarity(neighborId, queryVector);
                         float saturatedWeight = Math.min(edge.weight() / 5.0f, 1.0f);
-                        float graphScore = neighborSim
-                                + seed.score() * saturatedWeight * graphScoringPolicy.hebbianBoostFactor();
+                        float graphScore = (neighborSim
+                                + seed.score() * saturatedWeight * graphScoringPolicy.hebbianBoostFactor()) * 2.0f;
 
                         CognitiveResult candidate = buildGraphCandidate(
                                 neighborId, graphScore, seed, MemoryType.SEMANTIC, "HEBBIAN", neighborSim);
@@ -270,9 +277,15 @@ public final class GraphExpansionStage {
                                  float[] queryVector,
                                  RecallOptions options) {
         try {
-            int seeds = Math.min(3, allResults.size());
-            for (int s = 0; s < seeds; s++) {
-                CognitiveResult seed = allResults.get(s);
+            List<CognitiveResult> seeds = allResults.stream()
+                    .filter(r -> r.memoryType() == MemoryType.SEMANTIC || r.memoryType() == MemoryType.PROCEDURAL)
+                    .limit(8)
+                    .toList();
+            if (seeds.isEmpty()) {
+                seeds = allResults.subList(0, Math.min(8, allResults.size()));
+            }
+
+            for (CognitiveResult seed : seeds) {
                 MemoryIndex.MemoryLocation loc = index.locate(seed.id());
                 if (loc == null) continue;
 
@@ -299,35 +312,82 @@ public final class GraphExpansionStage {
     private void expandEntity(List<CognitiveResult> allResults,
                                Set<String> existingIds,
                                Map<String, CognitiveResult> graphCandidates,
-                               float[] queryVector, RecallOptions options) {
+                               float[] queryVector, RecallOptions options, String rawQuery) {
         List<ExtractedEntity> queryEntities = null;
 
-        // Priority 1: Pre-extracted entity hints from RecallOptions
+        // Priority 0: Direct entity name matching from the raw query text against the EntityDirectory.
+        // This is a zero-LLM approach that catches entity names like "Caroline", "Melanie", "Sweden"
+        // mentioned in the query, without relying on seed candidate slots.
+        if (rawQuery != null && !rawQuery.isBlank() && entityDirectory != null) {
+            String queryLower = rawQuery.toLowerCase(java.util.Locale.ROOT);
+            java.util.Map<String, Integer> knownEntities = entityDirectory.nameIndex();
+            java.util.List<ExtractedEntity> directMatches = new java.util.ArrayList<>();
+            for (java.util.Map.Entry<String, Integer> entry : knownEntities.entrySet()) {
+                String entityName = entry.getKey();
+                // Match entity names that are at least 3 chars (avoid trivial matches)
+                if (entityName.length() >= 3 && queryLower.contains(entityName)) {
+                    String type = entityDirectory.entityType(entry.getValue());
+                    directMatches.add(new ExtractedEntity(entityName, type != null ? type : "UNKNOWN", List.of()));
+                }
+            }
+            if (!directMatches.isEmpty()) {
+                queryEntities = directMatches;
+                log.debug("Query-text entity matching found {} entities in query '{}'",
+                        directMatches.size(), rawQuery);
+            }
+        }
+
+        // Priority 1: Pre-extracted entity hints from RecallOptions (merge with any direct matches)
         if (!options.entityHints().isEmpty()) {
-            queryEntities = options.entityHints();
+            if (queryEntities == null) {
+                queryEntities = new java.util.ArrayList<>(options.entityHints());
+            } else {
+                // Merge: add hints not already found by direct matching
+                Set<String> existingNames = new HashSet<>();
+                for (ExtractedEntity e : queryEntities) existingNames.add(e.name().toLowerCase(java.util.Locale.ROOT));
+                for (ExtractedEntity hint : options.entityHints()) {
+                    if (!existingNames.contains(hint.name().toLowerCase(java.util.Locale.ROOT))) {
+                        queryEntities.add(hint);
+                    }
+                }
+            }
         }
         // Priority 2: Fast zero-LLM directory lookup from top seed candidate's indexed slot
-        else if (entityDirectory != null && index != null && !allResults.isEmpty()) {
-            CognitiveResult topResult = allResults.getFirst();
-            MemoryIndex.MemoryLocation loc = index.locate(topResult.id());
-            if (loc != null) {
-                int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
-                List<Integer> seedEntityIds = com.spectrayan.spector.memory.consolidation.CadpContradictionResolver
-                        .findEntitiesForSlot(entityDirectory, slot);
-                if (seedEntityIds != null && !seedEntityIds.isEmpty()) {
-                    queryEntities = new java.util.ArrayList<>(seedEntityIds.size());
-                    for (int eid : seedEntityIds) {
-                        String name = entityDirectory.entityName(eid);
-                        String type = entityDirectory.entityType(eid);
-                        if (name != null) {
-                            queryEntities.add(new ExtractedEntity(name, type != null ? type : "UNKNOWN", List.of()));
-                        }
+        if ((queryEntities == null || queryEntities.isEmpty())
+                && entityDirectory != null && index != null && !allResults.isEmpty()) {
+            List<CognitiveResult> semanticSeeds = allResults.stream()
+                    .filter(r -> r.memoryType() == MemoryType.SEMANTIC || r.memoryType() == MemoryType.PROCEDURAL)
+                    .limit(5)
+                    .toList();
+            if (semanticSeeds.isEmpty()) {
+                semanticSeeds = List.of(allResults.getFirst());
+            }
+            Set<Integer> collectedEntityIds = new HashSet<>();
+            for (CognitiveResult s : semanticSeeds) {
+                MemoryIndex.MemoryLocation loc = index.locate(s.id());
+                if (loc != null) {
+                    int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
+                    List<Integer> seedEntityIds = com.spectrayan.spector.memory.consolidation.CadpContradictionResolver
+                            .findEntitiesForSlot(entityDirectory, slot);
+                    if (seedEntityIds != null) {
+                        collectedEntityIds.addAll(seedEntityIds);
+                    }
+                }
+            }
+            if (!collectedEntityIds.isEmpty()) {
+                queryEntities = new java.util.ArrayList<>(collectedEntityIds.size());
+                for (int eid : collectedEntityIds) {
+                    String name = entityDirectory.entityName(eid);
+                    String type = entityDirectory.entityType(eid);
+                    if (name != null) {
+                        queryEntities.add(new ExtractedEntity(name, type != null ? type : "UNKNOWN", List.of()));
                     }
                 }
             }
         }
         // Priority 3: Fallback to live EntityExtractor SPI only if no directory entities found
-        else if (entityExtractor != null && entityExtractor.isAvailable()) {
+        if ((queryEntities == null || queryEntities.isEmpty())
+                && entityExtractor != null && entityExtractor.isAvailable() && !allResults.isEmpty()) {
             try {
                 queryEntities = entityExtractor.extract("query", allResults.getFirst().text());
             } catch (RuntimeException e) {
@@ -340,35 +400,96 @@ public final class GraphExpansionStage {
 
         try {
             // Identity (name→id, fan factor) from the directory; topology (reachable memories)
-            // from the hypergraph — unconditionally, no binary-graph fallback (ADR-0003 #456).
-            if (entityDirectory == null || hyperEntityGraph == null) return;
+            // from the hypergraph when available. Falls back to EntityDirectory.memoriesForEntity()
+            // for single-entity records that aren't indexed in the hypergraph.
+            if (entityDirectory == null) return;
             for (var entity : queryEntities) {
                 int entityId = entityDirectory.findEntity(entity.name());
                 if (entityId < 0) continue;
 
-                Set<Integer> reachableMemories =
-                        hyperEntityGraph.collectMemories(entityId, graphScoringPolicy.entityMaxHops());
-                for (int memIdx : reachableMemories) {
-                    String memId = ((com.spectrayan.spector.memory.index.IndexRecordMemory) index).idAt(memIdx);
-                    if (memId == null) continue;
-                    if (!existingIds.contains(memId) && matchesFilters(memId, options)) {
-                        float neighborSim = computeNeighborSimilarity(memId, queryVector);
-                        float fanAttenuation = entityDirectory.fanFactor(entityId);
-                        float entityScore = neighborSim
-                                + allResults.getFirst().score()
-                                  * graphScoringPolicy.entityHopAttenuation()
-                                  * fanAttenuation;
+                // Hub entity protection: Skip expansive multi-hop traversal on global speaker entities (refCount > 25)
+                // to prevent flooding retrieval with unrelated cross-topic facts.
+                int refCnt = entityDirectory.memoryRefCount(entityId);
+                if (refCnt > 25) {
+                    continue;
+                }
 
-                        CognitiveResult candidate = buildGraphCandidate(
-                                memId, entityScore, null, MemoryType.SEMANTIC, "ENTITY", neighborSim);
-                        graphCandidates.merge(memId, candidate,
-                                (a, b) -> a.score() >= b.score() ? a : b);
+                // First try hypergraph traversal for multi-hop entity discovery
+                Set<Integer> reachableMemories = null;
+                if (hyperEntityGraph != null) {
+                    reachableMemories = hyperEntityGraph.collectMemories(entityId, graphScoringPolicy.entityMaxHops());
+                }
+
+                // Fallback: EntityDirectory adjacency list for single-entity memory references
+                // This catches memories that reference an entity but aren't part of any hyperedge
+                if (reachableMemories == null || reachableMemories.isEmpty()) {
+                    int[] directMemories = entityDirectory.memoriesForEntity(entityId);
+                    if (directMemories.length > 0) {
+                        reachableMemories = new HashSet<>(directMemories.length);
+                        for (int m : directMemories) reachableMemories.add(m);
+                        log.debug("Entity '{}' (id={}) fallback to directory adjacency: {} memories",
+                                entity.name(), entityId, directMemories.length);
+                    }
+                }
+
+                if (reachableMemories != null) {
+                    for (int memIdx : reachableMemories) {
+                        String memId = ((com.spectrayan.spector.memory.index.IndexRecordMemory) index).idAt(memIdx);
+                        if (memId == null) continue;
+                        if (!existingIds.contains(memId) && matchesFilters(memId, options)) {
+                            float neighborSim = computeNeighborSimilarity(memId, queryVector);
+                            float fanAttenuation = entityDirectory.fanFactor(entityId);
+                            float entityScore = (neighborSim
+                                    + allResults.getFirst().score()
+                                      * graphScoringPolicy.entityHopAttenuation()
+                                      * fanAttenuation) * 2.0f;
+
+                            CognitiveResult candidate = buildGraphCandidate(
+                                    memId, entityScore, null, MemoryType.SEMANTIC, "ENTITY", neighborSim);
+                            graphCandidates.merge(memId, candidate,
+                                    (a, b) -> a.score() >= b.score() ? a : b);
+                        }
+                    }
+                }
+
+                // Predicate-guided multi-session association:
+                // If this entity participates in typed relations (e.g. HAS_PET, ATTENDED),
+                // traverse hyperedges that share the same predicate type for the subject to pull multi-session associates.
+                if (hyperEntityGraph != null) {
+                    List<HyperEntityGraphMemory.HyperEdge> typedEdges = hyperEntityGraph.findHyperedgesForEntity(entityId);
+                    if (typedEdges != null) {
+                        for (var e : typedEdges) {
+                            if (e.type() > 0 && e.vertices() != null) {
+                                for (var v : e.vertices()) {
+                                    if (v.roleId() == HyperEntityGraphMemory.ROLE_SUBJECT) {
+                                        List<HyperEntityGraphMemory.HyperEdge> siblingEdges =
+                                                hyperEntityGraph.findHyperedgesForEntityAndPredicate(v.entityId(), e.type());
+                                        for (var sib : siblingEdges) {
+                                            if (sib.memoryIdx() >= 0) {
+                                                String memId = ((com.spectrayan.spector.memory.index.IndexRecordMemory) index).idAt(sib.memoryIdx());
+                                                if (memId != null && !existingIds.contains(memId) && matchesFilters(memId, options)) {
+                                                    float neighborSim = computeNeighborSimilarity(memId, queryVector);
+                                                    float entityScore = (neighborSim
+                                                            + allResults.getFirst().score()
+                                                              * graphScoringPolicy.entityHopAttenuation()) * 2.0f;
+                                                    CognitiveResult candidate = buildGraphCandidate(
+                                                            memId, entityScore, null, MemoryType.SEMANTIC, "PREDICATE_BRIDGE", neighborSim);
+                                                    graphCandidates.merge(memId, candidate,
+                                                            (a, b) -> a.score() >= b.score() ? a : b);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
                 // Traversal of CONTRADICTS hyperedges (#528)
                 // If this entity is part of a corrected relation, traverse to the corrector entity's memories
-                List<HyperEntityGraphMemory.HyperEdge> hyperedges = hyperEntityGraph.findHyperedgesForEntity(entityId);
+                List<HyperEntityGraphMemory.HyperEdge> hyperedges = hyperEntityGraph != null
+                        ? hyperEntityGraph.findHyperedgesForEntity(entityId) : null;
                 if (hyperedges != null) {
                     for (var edge : hyperedges) {
                         if (edge.type() == HyperEntityGraphMemory.TYPE_CONTRADICTS && edge.vertices() != null) {
@@ -424,7 +545,7 @@ public final class GraphExpansionStage {
         if (chainId == null) return;
         if (!existingIds.contains(chainId) && matchesFilters(chainId, options)) {
             float neighborSim = computeNeighborSimilarity(chainId, queryVector);
-            float chainScore = neighborSim + seed.score() * attenuation * 0.2f;
+            float chainScore = neighborSim + seed.score() * attenuation * 0.9f;
 
             CognitiveResult candidate = buildGraphCandidate(chainId, chainScore, seed, seed.memoryType(), "TEMPORAL", neighborSim);
             graphCandidates.merge(chainId, candidate,
