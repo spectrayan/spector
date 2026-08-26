@@ -452,6 +452,12 @@ public final class CognitiveScorer {
                     finalScore *= hyperfocusBoost;
                 }
 
+                // Two-Tier Recall: SEMANTIC and PROCEDURAL memories represent consolidated knowledge and receive priority over raw EPISODIC logs
+                int mType = memoryTypeOrdinal(flags);
+                if (mType == 1 || mType == 2) { // 1 = SEMANTIC, 2 = PROCEDURAL
+                    finalScore *= 2.0f;
+                }
+
                 // MR-06: Early associative graph prior (Phase 6 fusion)
                 if (enableAssociativePrior) {
                     float ag = priorProvider.priorFor(offset, recordTags, priorContext);
@@ -461,12 +467,6 @@ public final class CognitiveScorer {
                         finalScore *= (1.0f + associativePriorDelta * ag);
                     }
                 }
-            }
-
-            // Two-Tier Recall: SEMANTIC and PROCEDURAL memories represent consolidated knowledge and receive priority over raw EPISODIC logs
-            int mType = memoryTypeOrdinal(flags);
-            if (mType == 1 || mType == 2) { // 1 = SEMANTIC, 2 = PROCEDURAL
-                finalScore *= 2.0f;
             }
 
             // ── Insert into flat min-heap (ZERO object allocation) ──
