@@ -200,18 +200,26 @@ public final class BenchmarkSetup implements AutoCloseable {
                 .proceduralCapacity(Math.max(50, corpusSize / 5))
                 .hebbianGraphCapacity(corpusSize + 100)
                 .temporalChainCapacity(corpusSize + 100)
-                .entityGraphCapacity(Math.max(50_000, corpusSize * 50))
-                .entityExtractionMode(EntityExtractionMode.NONE);
+                .entityGraphCapacity(Math.max(50_000, corpusSize * 5))
+                .entityExtractionMode(EntityExtractionMode.CUSTOM)
+                .entityExtractor(customExtractor)
+                .entityExtractionQueueCapacity(corpusSize + 1000);
 
         if (aismeConfig != null) {
             builder.aismeConfig(aismeConfig);
         } else {
-            builder.enableAisme(true);
+            builder.aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig.builder()
+                    .enabled(true)
+                    .globalWorkspaceCapacity(100)
+                    .build());
         }
 
 
         float threshold = 0.40f;
         String thresholdStr = System.getProperty("spector.benchmark.graphExpansionThreshold");
+        if (thresholdStr == null || thresholdStr.isBlank()) {
+            thresholdStr = System.getProperty("graphExpansionThreshold");
+        }
         if (thresholdStr != null && !thresholdStr.isBlank()) {
             try {
                 threshold = Float.parseFloat(thresholdStr);
@@ -225,8 +233,8 @@ public final class BenchmarkSetup implements AutoCloseable {
                 0.8f,   // temporalForwardFactor
                 0.7f,   // temporalBackwardFactor
                 0.25f,  // entityHopAttenuation
-                2,      // hebbianMaxDepth
-                3,      // temporalMaxHops
+                3,      // hebbianMaxDepth  (match resolveDefault — deeper cross-session associations)
+                5,      // temporalMaxHops  (match resolveDefault — wider session coverage)
                 2,      // entityMaxHops
                 threshold,
                 expansionMode

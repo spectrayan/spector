@@ -89,7 +89,7 @@ public class RecallCandidateGatherer {
         for (int i = 0; i < bm25Hits.size(); i++) {
             String id = bm25Hits.get(i).id();
             if (id != null && bm25Seen.add(id)) {
-                float rrfContribution = 1.0f / (RRF_K + (i + 1));
+                float rrfContribution = (1.0f / (RRF_K + (i + 1))) * 1.5f;
                 rrfScores.merge(id, rrfContribution, Float::sum);
             }
         }
@@ -101,8 +101,9 @@ public class RecallCandidateGatherer {
             CognitiveResult existing = existingById.get(id);
 
             if (existing != null) {
+                float tierBoost = (existing.memoryType() == MemoryType.SEMANTIC || existing.memoryType() == MemoryType.PROCEDURAL) ? 2.0f : 1.0f;
                 vectorResults.add(new CognitiveResult(
-                        existing.id(), existing.text(), rrfScore, existing.importance(),
+                        existing.id(), existing.text(), rrfScore * tierBoost, existing.importance(),
                         existing.ageDays(), existing.agentRecallCount(), existing.valence(),
                         existing.memoryType(), existing.source(), existing.synapticTags(),
                         existing.decayFactor(), existing.ltpAdjustedDecay(),
@@ -166,8 +167,9 @@ public class RecallCandidateGatherer {
                         ? SourceModality.fromName(bm25Meta.get(SourceModality.METADATA_KEY))
                         : SourceModality.TEXT;
 
+                float tierBoost = (type == MemoryType.SEMANTIC || type == MemoryType.PROCEDURAL) ? 2.0f : 1.0f;
                 vectorResults.add(new CognitiveResult(
-                        id, text, rrfScore, importance, ageDays,
+                        id, text, rrfScore * tierBoost, importance, ageDays,
                         recallCount, valence, type, source,
                         tags, 1.0f, 1.0f, CognitiveResult.RetrievalMode.STANDARD, null, null,
                         bm25Modality, bm25Meta));

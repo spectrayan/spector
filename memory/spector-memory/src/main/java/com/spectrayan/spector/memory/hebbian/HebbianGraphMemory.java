@@ -326,77 +326,82 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
             int writePos = 0;
             int[] newOffsets = new int[capacity + 1];
 
-            for (int node = 0; node < capacity; node++) {
-                newOffsets[node] = writePos;
+            try (Arena tmpArena = Arena.ofConfined()) {
+                MemorySegment tmpEdges = tmpArena.allocate((long) edgeCapacity * EDGE_BYTES);
 
-                List<EdgeData> allEdges = collectAllEdges(node);
-                if (allEdges.isEmpty()) continue;
+                for (int node = 0; node < capacity; node++) {
+                    newOffsets[node] = writePos;
 
-                float nodeDecay = decayFactor;
-                boolean arousalModulated = false;
-                if (mod != null) {
-                    float modulation = mod.modulateDecay(node);
-                    nodeDecay = decayFactor * modulation;
-                    arousalModulated = modulation != 1.0f;
-                }
+                    List<EdgeData> allEdges = collectAllEdges(node);
+                    if (allEdges.isEmpty()) continue;
 
-                for (EdgeData e : allEdges) {
-                    float newWeight = e.weight * nodeDecay;
-                    int bridge = e.bridgeScore;
-
-                    boolean bridgeProtected = false;
-                    if (newWeight < 0.1f && bridge >= BRIDGE_PROTECTION_THRESHOLD) {
-                        newWeight = 0.1f;
-                        bridgeProtected = true;
-                        if (metrics != null) metrics.recordHebbianBridgeProtection();
+                    float nodeDecay = decayFactor;
+                    boolean arousalModulated = false;
+                    if (mod != null) {
+                        float modulation = mod.modulateDecay(node);
+                        nodeDecay = decayFactor * modulation;
+                        arousalModulated = modulation != 1.0f;
                     }
 
-                    if (newWeight >= 0.1f) {
-                        if (writePos < edgeCapacity) {
-                            long edgeOff = (long) writePos * EDGE_BYTES;
-                            edges.set(ValueLayout.JAVA_INT, edgeOff + EDGE_OFF_NEIGHBOR, e.neighbor);
-                            edges.set(ValueLayout.JAVA_FLOAT, edgeOff + EDGE_OFF_WEIGHT, newWeight);
-                            edges.set(ValueLayout.JAVA_SHORT, edgeOff + EDGE_OFF_LAST_CYCLE, (short) e.lastCycle);
-                            edges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_BRIDGE_SCORE, (byte) bridge);
-                            edges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_EDGE_FLAGS, (byte) e.flags);
-                            writePos++;
+                    for (EdgeData e : allEdges) {
+                        float newWeight = e.weight * nodeDecay;
+                        int bridge = e.bridgeScore;
 
-                            if (metrics != null) {
-                                int edgeAge = (currentCycle - e.lastCycle) & 0xFFFF;
-                                metrics.recordHebbianSurvivor(bridge, edgeAge);
-                                if (arousalModulated) metrics.recordHebbianArousalModulation();
-                            }
+                        boolean bridgeProtected = false;
+                        if (newWeight < 0.1f && bridge >= BRIDGE_PROTECTION_THRESHOLD) {
+                            newWeight = 0.1f;
+                            bridgeProtected = true;
+                            if (metrics != null) metrics.recordHebbianBridgeProtection();
                         }
-                    } else {
-                        removed++;
-                        if (metrics != null) metrics.recordHebbianDecay();
+
+                        if (newWeight >= 0.1f) {
+                            if (writePos < edgeCapacity) {
+                                long edgeOff = (long) writePos * EDGE_BYTES;
+                                tmpEdges.set(ValueLayout.JAVA_INT, edgeOff + EDGE_OFF_NEIGHBOR, e.neighbor);
+                                tmpEdges.set(ValueLayout.JAVA_FLOAT, edgeOff + EDGE_OFF_WEIGHT, newWeight);
+                                tmpEdges.set(ValueLayout.JAVA_SHORT, edgeOff + EDGE_OFF_LAST_CYCLE, (short) e.lastCycle);
+                                tmpEdges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_BRIDGE_SCORE, (byte) bridge);
+                                tmpEdges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_EDGE_FLAGS, (byte) e.flags);
+                                writePos++;
+
+                                if (metrics != null) {
+                                    int edgeAge = (currentCycle - e.lastCycle) & 0xFFFF;
+                                    metrics.recordHebbianSurvivor(bridge, edgeAge);
+                                    if (arousalModulated) metrics.recordHebbianArousalModulation();
+                                }
+                            }
+                        } else {
+                            removed++;
+                            if (metrics != null) metrics.recordHebbianDecay();
+                        }
                     }
+
+                    if (writePos > newOffsets[node]) activeNodes++;
                 }
 
-                if (writePos > newOffsets[node]) activeNodes++;
+                newOffsets[capacity] = writePos;
+                totalEdgeCount = writePos;
+
+                MemorySegment.copy(tmpEdges, 0, edges, 0, (long) writePos * EDGE_BYTES);
+                for (int i = 0; i <= capacity; i++) {
+                    offsets.set(ValueLayout.JAVA_INT, (long) i * Integer.BYTES, newOffsets[i]);
+                }
+
+                clearOverflow();
+
+                updateBridgeScores();
+
+                if (metrics != null) {
+                    int components = countConnectedComponents();
+                    metrics.setHebbianFragmentation(components, activeNodes);
+                }
+
+                if (removed > 0) {
+                    log.debug("HebbianGraphMemory decay: {} edges removed (factor={}), {} surviving, cycle={}",
+                            removed, String.format("%.3f", decayFactor), totalEdgeCount, currentCycle);
+                }
+                return removed;
             }
-
-            newOffsets[capacity] = writePos;
-            totalEdgeCount = writePos;
-
-            for (int i = 0; i <= capacity; i++) {
-                offsets.set(ValueLayout.JAVA_INT, (long) i * Integer.BYTES, newOffsets[i]);
-            }
-
-            clearOverflow();
-
-            updateBridgeScores();
-
-            if (metrics != null) {
-                int components = countConnectedComponents();
-                metrics.setHebbianFragmentation(components, activeNodes);
-            }
-
-            if (removed > 0) {
-                log.debug("HebbianGraphMemory decay: {} edges removed (factor={}), {} surviving, cycle={}",
-                        removed, String.format("%.3f", decayFactor), totalEdgeCount, currentCycle);
-            }
-            return removed;
         } finally {
             graphLock.unlock();
         }
@@ -856,33 +861,38 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
             int writePos = 0;
             int[] newOffsets = new int[capacity + 1];
 
-            for (int node = 0; node < capacity; node++) {
-                newOffsets[node] = writePos;
-                List<EdgeData> all = collectAllEdges(node);
-                for (EdgeData e : all) {
-                    if (writePos < edgeCapacity) {
-                        long edgeOff = (long) writePos * EDGE_BYTES;
-                        edges.set(ValueLayout.JAVA_INT, edgeOff + EDGE_OFF_NEIGHBOR, e.neighbor);
-                        edges.set(ValueLayout.JAVA_FLOAT, edgeOff + EDGE_OFF_WEIGHT, e.weight);
-                        edges.set(ValueLayout.JAVA_SHORT, edgeOff + EDGE_OFF_LAST_CYCLE, (short) e.lastCycle);
-                        edges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_BRIDGE_SCORE, (byte) e.bridgeScore);
-                        edges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_EDGE_FLAGS, (byte) e.flags);
-                        writePos++;
+            try (Arena tmpArena = Arena.ofConfined()) {
+                MemorySegment tmpEdges = tmpArena.allocate((long) edgeCapacity * EDGE_BYTES);
+
+                for (int node = 0; node < capacity; node++) {
+                    newOffsets[node] = writePos;
+                    List<EdgeData> all = collectAllEdges(node);
+                    for (EdgeData e : all) {
+                        if (writePos < edgeCapacity) {
+                            long edgeOff = (long) writePos * EDGE_BYTES;
+                            tmpEdges.set(ValueLayout.JAVA_INT, edgeOff + EDGE_OFF_NEIGHBOR, e.neighbor);
+                            tmpEdges.set(ValueLayout.JAVA_FLOAT, edgeOff + EDGE_OFF_WEIGHT, e.weight);
+                            tmpEdges.set(ValueLayout.JAVA_SHORT, edgeOff + EDGE_OFF_LAST_CYCLE, (short) e.lastCycle);
+                            tmpEdges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_BRIDGE_SCORE, (byte) e.bridgeScore);
+                            tmpEdges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_EDGE_FLAGS, (byte) e.flags);
+                            writePos++;
+                        }
                     }
                 }
+
+                int oldTotal = totalEdgeCount + overflowEdgeCount;
+                newOffsets[capacity] = writePos;
+                totalEdgeCount = writePos;
+
+                MemorySegment.copy(tmpEdges, 0, edges, 0, (long) writePos * EDGE_BYTES);
+                for (int i = 0; i <= capacity; i++) {
+                    offsets.set(ValueLayout.JAVA_INT, (long) i * Integer.BYTES, newOffsets[i]);
+                }
+
+                clearOverflow();
+                this.lastCompactionEpochMs = System.currentTimeMillis();
+                this.bytesReclaimedLastCycle = Math.max(0L, (long) (oldTotal - writePos) * EDGE_BYTES);
             }
-
-            int oldTotal = totalEdgeCount + overflowEdgeCount;
-            newOffsets[capacity] = writePos;
-            totalEdgeCount = writePos;
-
-            for (int i = 0; i <= capacity; i++) {
-                offsets.set(ValueLayout.JAVA_INT, (long) i * Integer.BYTES, newOffsets[i]);
-            }
-
-            clearOverflow();
-            this.lastCompactionEpochMs = System.currentTimeMillis();
-            this.bytesReclaimedLastCycle = Math.max(0L, (long) (oldTotal - writePos) * EDGE_BYTES);
         } finally {
             graphLock.unlock();
         }

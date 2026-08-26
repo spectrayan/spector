@@ -58,6 +58,9 @@ public enum GraphExpansionMode {
     public static GraphExpansionMode resolve() {
         String value = System.getProperty(SYSTEM_PROPERTY);
         if (value == null || value.isBlank()) {
+            value = System.getProperty("graphExpansionMode");
+        }
+        if (value == null || value.isBlank()) {
             return GATED;
         }
         try {

@@ -596,7 +596,7 @@ public final class RecallPipeline {
 
         // Graph expansion
         try (var _obs = hook.start(GRAPH_EXPANSION, Map.of())) {
-            graphExpansionStage.expand(allResults, queryVector, options);
+            graphExpansionStage.expand(allResults, queryVector, options, null);
         } catch (RuntimeException e) { throw e; } catch (Exception e) { throw new RuntimeException(e); }
         temporalFactWeavingStage.weave(allResults, queryVector, options);
 
@@ -691,7 +691,7 @@ public final class RecallPipeline {
 
         // Steps 5c-5e: Graph expansion (delegated to GraphExpansionStage)
         try (var _obs = hook.start(GRAPH_EXPANSION, Map.of())) {
-            graphExpansionStage.expand(allResults, queryVector, options);
+            graphExpansionStage.expand(allResults, queryVector, options, queryText);
         } catch (RuntimeException e) { throw e; } catch (Exception e) { throw new RuntimeException(e); }
         temporalFactWeavingStage.weave(allResults, queryVector, options);
 

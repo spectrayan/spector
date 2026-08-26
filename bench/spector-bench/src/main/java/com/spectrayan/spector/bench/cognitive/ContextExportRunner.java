@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.bench.cognitive.DatasetLoader.LoadedDataset;
+import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
@@ -92,6 +93,13 @@ public final class ContextExportRunner {
         log.info("Dataset loaded: {} corpus records, {} queries",
                 dataset.corpus().size(), dataset.queries().size());
 
+        Map<String, BenchmarkCorpusRecord> corpusMap = new HashMap<>(dataset.corpus().size());
+        for (BenchmarkCorpusRecord r : dataset.corpus()) {
+            if (r.id() != null) {
+                corpusMap.put(r.id(), r);
+            }
+        }
+
         // Load raw queries to capture goldAnswer and additional JSON fields
         Map<String, String> goldAnswerMap = new HashMap<>();
         Path queriesFile = datasetDir.resolve("queries.jsonl");
@@ -145,6 +153,7 @@ public final class ContextExportRunner {
                     .enablePredictiveCoding(true)
                     .enableConsciousnessContinuity(true)
                     .enableGlobalWorkspace(true)
+                    .globalWorkspaceCapacity(topK) // Match topK — default 7 (Miller's Law) silently truncates
                     .build();
 
             boolean enableMmr = Boolean.parseBoolean(System.getProperty("enableMmr", "true"));
@@ -153,6 +162,10 @@ public final class ContextExportRunner {
             String textSearchModeProp = System.getProperty("textSearchMode", enableReranker ? "COLBERT" : "HYBRID");
             com.spectrayan.spector.config.model.TextSearchMode defaultSearchMode =
                     com.spectrayan.spector.config.model.TextSearchMode.valueOf(textSearchModeProp.toUpperCase());
+
+            String graphExpMode = System.getProperty("graphExpansionMode", "ALWAYS");
+            System.setProperty(com.spectrayan.spector.memory.pipeline.GraphExpansionMode.SYSTEM_PROPERTY, graphExpMode);
+            float graphExpansionThreshold = Float.parseFloat(System.getProperty("graphExpansionThreshold", "0.85"));
 
             // Warmup pass: 10 queries
             int warmupCount = Math.min(10, dataset.queries().size());
@@ -170,10 +183,12 @@ public final class ContextExportRunner {
                         .mmrLambda(mmrLambda)
                         .enableReranker(enableReranker)
                         .textSearchMode(defaultSearchMode)
+                        .graphExpansionThreshold(graphExpansionThreshold)
                         .build();
                 memory.recall(wq.text(), wOpt);
             }
-            log.info("Warmup complete. Exporting retrieval contexts with full AISME, MMR ({}), and cognitive filters...", enableMmr);
+            log.info("Warmup complete. Exporting retrieval contexts with full AISME, MMR ({}), GraphExpansion ({}), and cognitive filters...",
+                    enableMmr, graphExpMode);
 
             int count = 0;
             double totalLatencyMs = 0.0;
@@ -190,6 +205,7 @@ public final class ContextExportRunner {
                         .enableMmr(enableMmr)
                         .mmrLambda(mmrLambda)
                         .enableReranker(enableReranker)
+                        .graphExpansionThreshold(graphExpansionThreshold)
                         .scoreFusionMode(ScoreFusionMode.MULTIPLICATIVE);
 
                 if (query.cognitiveProfile() != null) {
@@ -200,6 +216,12 @@ public final class ContextExportRunner {
 
                 if (query.synapticFilterTags() != null && !query.synapticFilterTags().isEmpty()) {
                     optBuilder.synapticFilter(query.synapticFilterTags().toArray(String[]::new));
+                } else {
+                    // Extract conversation scope from query ID (e.g. q_conv_26_1 -> conv_26) to prevent cross-conversation memory contamination
+                    java.util.regex.Matcher m = java.util.regex.Pattern.compile("^q_(conv_\\w+?)_\\d+").matcher(query.id());
+                    if (m.find()) {
+                        optBuilder.hyperfocusMask(m.group(1));
+                    }
                 }
                 if (query.minValence() != null) {
                     optBuilder.minValence(query.minValence());
@@ -235,14 +257,27 @@ public final class ContextExportRunner {
                     cand.put("importance", res.importance());
                     cand.put("ageDays", res.ageDays());
                     cand.put("valence", (int) res.valence());
+
+                    BenchmarkCorpusRecord corpusRec = res.id() != null ? corpusMap.get(res.id()) : null;
+                    String sessionDate = null;
+                    if (corpusRec != null && corpusRec.timestampMs() > 0) {
+                        java.time.Instant instant = java.time.Instant.ofEpochMilli(corpusRec.timestampMs());
+                        sessionDate = java.time.format.DateTimeFormatter.ISO_LOCAL_DATE.withZone(java.time.ZoneOffset.UTC).format(instant);
+                        cand.put("session_date", sessionDate);
+                    }
+
                     candidateList.add(cand);
 
                     if (contextBuilder.length() > 0) {
                         contextBuilder.append("\n\n");
                     }
-                    contextBuilder.append("[").append(candIdx++).append("] (Recorded: ")
-                            .append(String.format(Locale.US, "%.1f", res.ageDays())).append(" days ago)\n")
-                            .append(res.text() != null ? res.text().trim() : "");
+                    if (sessionDate != null) {
+                        contextBuilder.append("[").append(candIdx++).append("] (Session: ").append(sessionDate).append(")\n")
+                                .append(res.text() != null ? res.text().trim() : "");
+                    } else {
+                        contextBuilder.append("[").append(candIdx++).append("]\n")
+                                .append(res.text() != null ? res.text().trim() : "");
+                    }
                 }
 
                 String formattedContext = contextBuilder.toString();

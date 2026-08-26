@@ -45,7 +45,7 @@ public final class AssociativeGraphRelay implements SynapticRelay<RecallSignal> 
     @Override
     public boolean transmit(final RecallSignal signal) {
         try {
-            graphExpansionStage.expand(signal.candidates(), signal.queryVector(), signal.options());
+            graphExpansionStage.expand(signal.candidates(), signal.queryVector(), signal.options(), signal.rawQuery());
         } catch (final RuntimeException e) {
             throw e;
         } catch (final Exception e) {

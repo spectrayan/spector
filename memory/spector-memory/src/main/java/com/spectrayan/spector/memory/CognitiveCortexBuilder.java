@@ -426,7 +426,7 @@ final class CognitiveCortexBuilder {
                 ),
                 new RegionSizeSpec(
                         RegionId.ENTITY_NAMES,
-                        64 + 16 + 8L * hyperCap * 16 + 32L * hyperCap, // adjacency + name index space
+                        64 + 16 + 8L * hyperCap * 64 + 32L * hyperCap, // adjacency + name index space
                         1,
                         8,
                         new com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout().layoutId(),
