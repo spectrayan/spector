@@ -207,10 +207,10 @@ jobs:
 
     steps:
       - name: Checkout Spector
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Checkout Spector Datasets
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: 'spectrayan/spector-datasets'
           path: 'spector-datasets'
