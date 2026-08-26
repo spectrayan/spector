@@ -42,9 +42,9 @@ def main():
     if not os.path.exists(eval_checkpoint):
         eval_checkpoint = os.path.join(project_root, f"../spector-datasets/{args.dataset}/results/qa_eval_checkpoint.jsonl")
 
-    candidates_file = os.path.join(project_root, f"../spector-datasets/{args.dataset}/results/backup_387_queries_81pct/retrieved_candidates.jsonl")
+    candidates_file = os.path.join(project_root, f"../spector-datasets/{args.dataset}/results/retrieved_candidates.jsonl")
     if not os.path.exists(candidates_file):
-        candidates_file = os.path.join(project_root, f"../spector-datasets/{args.dataset}/results/retrieved_candidates.jsonl")
+        candidates_file = os.path.join(project_root, f"../spector-datasets/{args.dataset}/results/backup_387_queries_81pct/retrieved_candidates.jsonl")
 
     print(f"Loading evaluated benchmark records from: {eval_checkpoint}")
     eval_records = [json.loads(l) for l in open(eval_checkpoint, encoding="utf-8") if l.strip()]

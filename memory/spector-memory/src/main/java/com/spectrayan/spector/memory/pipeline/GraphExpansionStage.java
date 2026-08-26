@@ -401,17 +401,15 @@ public final class GraphExpansionStage {
                 int entityId = entityDirectory.findEntity(entity.name());
                 if (entityId < 0) continue;
 
-                // Hub entity protection: Skip expansive multi-hop traversal on global speaker entities (refCount > 25)
-                // to prevent flooding retrieval with unrelated cross-topic facts.
+                // Hub entity protection: Limit multi-hop traversal depth on global speaker entities (refCount > 25)
+                // to 1 hop to prevent flooding retrieval with unrelated cross-topic facts, while preserving multi-session predicate bridging.
                 int refCnt = entityDirectory.memoryRefCount(entityId);
-                if (refCnt > 25) {
-                    continue;
-                }
+                int maxHops = refCnt > 25 ? 1 : graphScoringPolicy.entityMaxHops();
 
                 // First try hypergraph traversal for multi-hop entity discovery
                 Set<Integer> reachableMemories = null;
                 if (hyperEntityGraph != null) {
-                    reachableMemories = hyperEntityGraph.collectMemories(entityId, graphScoringPolicy.entityMaxHops());
+                    reachableMemories = hyperEntityGraph.collectMemories(entityId, maxHops);
                 }
 
                 // Fallback: EntityDirectory adjacency list for single-entity memory references
