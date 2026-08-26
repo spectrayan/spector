@@ -27,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A V4 partition bundle — packs 4 cognitive tier regions (Semantic, Episodic,
@@ -301,6 +302,15 @@ public final class PartitionBundle implements AutoCloseable {
         return isNew;
     }
 
+    private final AtomicBoolean isClosed = new AtomicBoolean(false);
+
+    /**
+     * Returns true if this partition bundle is closed or its arena has been closed.
+     */
+    public boolean isClosed() {
+        return isClosed.get() || (arena != null && !arena.scope().isAlive());
+    }
+
     /**
      * Flushes the directory and region data to disk, then closes the arena.
      *
@@ -309,15 +319,24 @@ public final class PartitionBundle implements AutoCloseable {
      */
     @Override
     public void close() {
+        if (!isClosed.compareAndSet(false, true)) {
+            return;
+        }
         try {
-            if (bundlePath != null) {
+            if (bundlePath != null && arena != null && arena.scope().isAlive()) {
                 directory.write(masterSegment);
                 masterSegment.force();
             }
         } catch (Exception e) {
             log.debug("Error flushing partition bundle: {}", e.getMessage());
         }
-        arena.close();
+        try {
+            if (arena != null && arena.scope().isAlive()) {
+                arena.close();
+            }
+        } catch (IllegalStateException e) {
+            log.debug("Partition bundle arena already closed: {}", e.getMessage());
+        }
         log.info("Closed partition bundle: {}", bundlePath);
     }
 }

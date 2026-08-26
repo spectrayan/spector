@@ -29,6 +29,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.StampedLock;
 
 /**
@@ -594,20 +595,38 @@ public final class RuntimeBundle implements AutoCloseable {
         }
     }
 
+    private final AtomicBoolean isClosed = new AtomicBoolean(false);
+
+    /**
+     * Returns true if this runtime bundle is closed or its arena has been closed.
+     */
+    public boolean isClosed() {
+        return isClosed.get() || (arena != null && !arena.scope().isAlive());
+    }
+
     /**
      * Flushes and closes the bundle. All region segments become invalid.
      */
     @Override
     public void close() {
+        if (!isClosed.compareAndSet(false, true)) {
+            return;
+        }
         try {
-            if (bundlePath != null) {
+            if (bundlePath != null && arena != null && arena.scope().isAlive()) {
                 directory.write(masterSegment);
                 masterSegment.force();
             }
         } catch (Exception e) {
             log.debug("Error flushing runtime bundle: {}", e.getMessage());
         }
-        arena.close();
+        try {
+            if (arena != null && arena.scope().isAlive()) {
+                arena.close();
+            }
+        } catch (IllegalStateException e) {
+            log.debug("Runtime bundle arena already closed: {}", e.getMessage());
+        }
         log.info("Closed runtime bundle: {}", bundlePath);
     }
 
