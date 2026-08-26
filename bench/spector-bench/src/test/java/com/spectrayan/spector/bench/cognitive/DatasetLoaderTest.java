@@ -338,11 +338,11 @@ class DatasetLoaderTest {
     }
 
     @Test
-    void loadEntities_defaultsUnknownRelationTypeToOther() {
+    void loadEntities_preservesOpenSchemaRelationTypes() {
         List<EntityRelation> relations = loader.loadEntities(entitiesFile);
 
-        // Fourth entry has "UNKNOWN_RELATION" which should default to "OTHER"
-        assertEquals("OTHER", relations.get(3).relationType());
+        // Fourth entry has "UNKNOWN_RELATION" which is preserved in open-schema mode
+        assertEquals("UNKNOWN_RELATION", relations.get(3).relationType());
     }
 
     @Test
