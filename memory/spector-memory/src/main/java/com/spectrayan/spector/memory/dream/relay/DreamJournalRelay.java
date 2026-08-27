@@ -1,0 +1,59 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Business Source License 1.1 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://github.com/spectrayan/spector/blob/main/spector-memory/LICENSE
+ *
+ * Change Date: May 27, 2030
+ * Change License: Apache License, Version 2.0
+ */
+package com.spectrayan.spector.memory.dream.relay;
+
+import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * Stage 5 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ *
+ * <h3>Biological Analog: Dream Journal / Audit Trail</h3>
+ * <p>Logs constructed scenes.</p>
+ *
+ * @since 1.4.0
+ */
+public final class DreamJournalRelay implements SynapticRelay<DreamSignal> {
+
+    private static final Logger log = LoggerFactory.getLogger(DreamJournalRelay.class);
+
+    @Override
+    public boolean transmit(final DreamSignal signal) {
+        if (signal == null || signal.constructedScenes().isEmpty()) return true;
+
+        int written = 0;
+        for (DreamSignal.DreamScene scene : signal.constructedScenes()) {
+            String narrative = scene.narrative() != null ? scene.narrative() : "";
+            if (narrative.length() > 200) {
+                narrative = narrative.substring(0, 200) + "...";
+            }
+
+            log.info("Dream Journal: Mode={}, Outcome={}, Quality={}, SourceIDs={}, Narrative='{}'",
+                signal.mode(), scene.triageOutcome(), scene.qualityScore(), scene.sourceIds(), narrative);
+            written++;
+        }
+
+        if (signal.dreamsGenerated() instanceof AtomicInteger) {
+            ((AtomicInteger) signal.dreamsGenerated()).addAndGet(written);
+        }
+
+        return true;
+    }
+
+    @Override
+    public String relayName() {
+        return "dream_journal";
+    }
+}

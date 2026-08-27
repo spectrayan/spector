@@ -1,0 +1,87 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Business Source License 1.1 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://github.com/spectrayan/spector/blob/main/spector-memory/LICENSE
+ *
+ * Change Date: May 27, 2030
+ * Change License: Apache License, Version 2.0
+ */
+package com.spectrayan.spector.memory.dream.relay;
+
+import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.util.Random;
+import java.util.List;
+
+/**
+ * Stage 3 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ *
+ * <h3>Biological Analog: Sharp-Wave Ripple Compressed Replay with Hoel Overfitted Brain Noise Injection</h3>
+ * <p>Injects noise into seed vectors to prevent overfitting.</p>
+ *
+ * @since 1.4.0
+ */
+public final class RemReplayRelay implements SynapticRelay<DreamSignal> {
+
+    private static final Logger log = LoggerFactory.getLogger(RemReplayRelay.class);
+
+    @Override
+    public boolean transmit(final DreamSignal signal) {
+        if (signal == null || signal.seedVectors().isEmpty()) return true;
+
+        List<float[]> seeds = signal.seedVectors();
+        List<String> seedIds = signal.seedMemoryIds();
+
+        long randomSeed = 0;
+        if (!seeds.isEmpty() && seeds.get(0).length > 0) {
+            randomSeed = Float.floatToIntBits(seeds.get(0)[0]);
+        }
+        Random random = new Random(randomSeed);
+
+        float sigmaMax = signal.config().dreamNoiseScale();
+        float gammaNoise = 1.5f;
+
+        for (int i = 0; i < seeds.size(); i++) {
+            float[] vector = seeds.get(i);
+            String id = seedIds.get(i);
+
+            float importanceRatio = 0.5f; // Phase 1 proxy
+            float sigmaDream = sigmaMax * (float) Math.pow(1.0 - importanceRatio, gammaNoise);
+
+            float[] noisyVector = new float[vector.length];
+            for (int j = 0; j < vector.length; j++) {
+                noisyVector[j] = vector[j] + (float) (random.nextGaussian() * sigmaDream);
+            }
+
+            String narrative = String.format("[REM Replay: %s] Noisy compressed replay with \u03C3=%.3f", id, sigmaDream);
+
+            DreamSignal.DreamScene scene = new DreamSignal.DreamScene(
+                java.util.UUID.randomUUID().toString(),
+                narrative,
+                "",
+                noisyVector,
+                List.of(id),
+                0.0f,
+                null
+            );
+
+            signal.constructedScenes().add(scene);
+        }
+
+        if (log.isDebugEnabled()) {
+            log.debug("RemReplayRelay: constructed {} scenes with noise", signal.constructedScenes().size());
+        }
+
+        return true;
+    }
+
+    @Override
+    public String relayName() {
+        return "rem_replay";
+    }
+}
