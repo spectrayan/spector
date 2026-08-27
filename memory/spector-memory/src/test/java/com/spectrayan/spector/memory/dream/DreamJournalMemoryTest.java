@@ -28,7 +28,7 @@ class DreamJournalMemoryTest {
 
     @Test
     void testTransientDreamJournalMemoryAppendAndCount() throws Exception {
-        try (DreamJournalMemory journal = new DreamJournalMemory(null, 10, 256)) {
+        try (DreamJournalMemory journal = DreamJournalMemory.heap(10, 256)) {
             assertThat(journal.entryCount()).isEqualTo(0);
 
             DreamJournalMemory.DreamJournalEntry entry1 = new DreamJournalMemory.DreamJournalEntry(
@@ -57,6 +57,14 @@ class DreamJournalMemoryTest {
 
             journal.appendScene(scene);
             assertThat(journal.entryCount()).isEqualTo(2);
+
+            List<DreamJournalMemory.DreamJournalEntry> entries = journal.readAll();
+            assertThat(entries).hasSize(2);
+            assertThat(entries.get(0).id()).isEqualTo("dream-1");
+            assertThat(entries.get(0).narrativeText()).isEqualTo("Dream of cross-system synchronization");
+            assertThat(entries.get(0).triageOutcome()).isEqualTo(TriageOutcome.EPISTEMIC);
+            assertThat(entries.get(1).id()).isEqualTo("scene-2");
+            assertThat(entries.get(1).narrativeText()).isEqualTo("Daydream of future plan");
         }
     }
 
@@ -79,6 +87,12 @@ class DreamJournalMemoryTest {
 
             journal.append(entry);
             assertThat(journal.entryCount()).isEqualTo(1);
+
+            List<DreamJournalMemory.DreamJournalEntry> recent = journal.readRecent(5);
+            assertThat(recent).hasSize(1);
+            assertThat(recent.get(0).id()).isEqualTo("dream-p1");
+            assertThat(recent.get(0).mode()).isEqualTo(DreamMode.THOUGHT_EXPERIMENT);
+            assertThat(recent.get(0).qualityScore()).isEqualTo(0.92f);
         }
     }
 }
