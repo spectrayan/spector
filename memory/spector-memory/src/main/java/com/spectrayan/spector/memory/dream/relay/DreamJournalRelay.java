@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class DreamJournalRelay implements SynapticRelay<DreamSignal> {
 
     private static final Logger log = LoggerFactory.getLogger(DreamJournalRelay.class);
+    public static final int MAX_LOG_PREVIEW_LENGTH = 200;
 
     @Override
     public boolean transmit(final DreamSignal signal) {
@@ -38,8 +39,8 @@ public final class DreamJournalRelay implements SynapticRelay<DreamSignal> {
         
         for (DreamSignal.DreamScene scene : signal.constructedScenes()) {
             String narrative = scene.narrative() != null ? scene.narrative() : "";
-            if (narrative.length() > 200) {
-                narrative = narrative.substring(0, 200) + "...";
+            if (narrative.length() > MAX_LOG_PREVIEW_LENGTH) {
+                narrative = narrative.substring(0, MAX_LOG_PREVIEW_LENGTH) + "...";
             }
 
             log.info("Dream Journal: Mode={}, Outcome={}, Quality={}, SourceIDs={}, Narrative='{}'",

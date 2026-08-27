@@ -30,6 +30,9 @@ public final class RemReplayRelay implements SynapticRelay<DreamSignal> {
 
     private static final Logger log = LoggerFactory.getLogger(RemReplayRelay.class);
 
+    public static final float DEFAULT_GAMMA_NOISE = 1.5f;
+    public static final float DEFAULT_IMPORTANCE_RATIO = 0.5f;
+
     @Override
     public boolean transmit(final DreamSignal signal) {
         if (signal == null || signal.seedVectors().isEmpty()) return true;
@@ -44,14 +47,13 @@ public final class RemReplayRelay implements SynapticRelay<DreamSignal> {
         Random random = new Random(randomSeed);
 
         float sigmaMax = signal.config().dreamNoiseScale() * (signal.temperature() / 2.0f);
-        float gammaNoise = 1.5f;
 
         for (int i = 0; i < seeds.size(); i++) {
             float[] vector = seeds.get(i);
             String id = seedIds.get(i);
 
-            float importanceRatio = 0.5f;
-            float sigmaDream = sigmaMax * (float) Math.pow(Math.max(0.01, 1.0 - importanceRatio), gammaNoise);
+            float importanceRatio = DEFAULT_IMPORTANCE_RATIO;
+            float sigmaDream = sigmaMax * (float) Math.pow(Math.max(0.01, 1.0 - importanceRatio), DEFAULT_GAMMA_NOISE);
 
             float[] noisyVector = new float[vector.length];
             for (int j = 0; j < vector.length; j++) {

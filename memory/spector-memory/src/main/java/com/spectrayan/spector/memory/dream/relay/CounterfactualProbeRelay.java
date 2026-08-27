@@ -24,14 +24,14 @@ import java.util.List;
  *
  * <h3>Biological Analog: Predictive Coding Reality Testing &amp; Expected Free Energy Verification</h3>
  * <p>Validates synthetic counterfactual simulations against stored priors, evaluating
- * prediction error, epistemic information gain, and pragmatic plausibility to assign
- * rigorous quality scores.</p>
- *
  * @since 1.4.0
  */
 public final class CounterfactualProbeRelay implements SynapticRelay<DreamSignal> {
 
     private static final Logger log = LoggerFactory.getLogger(CounterfactualProbeRelay.class);
+
+    public static final float WEIGHT_EPISTEMIC_SURPRISE = 0.55f;
+    public static final float WEIGHT_PRAGMATIC_PLAUSIBILITY = 0.45f;
 
     @Override
     public boolean transmit(final DreamSignal signal) {
@@ -66,8 +66,7 @@ public final class CounterfactualProbeRelay implements SynapticRelay<DreamSignal
                     : 0.5f;
 
             // 3. Expected Free Energy Quality Score
-            // Epistemic gain (novelty) vs pragmatic coherence
-            float qualityScore = 0.55f * epistemicSurprise + 0.45f * pragmaticPlausibility;
+            float qualityScore = WEIGHT_EPISTEMIC_SURPRISE * epistemicSurprise + WEIGHT_PRAGMATIC_PLAUSIBILITY * pragmaticPlausibility;
             qualityScore = Math.max(0.0f, Math.min(1.0f, qualityScore));
 
             DreamSignal.DreamScene evaluated = new DreamSignal.DreamScene(

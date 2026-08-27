@@ -35,6 +35,11 @@ public final class HyperAssociateRelay implements SynapticRelay<DreamSignal> {
 
     private static final Logger log = LoggerFactory.getLogger(HyperAssociateRelay.class);
 
+    public static final float WEIGHT_SEMANTIC_DISTANCE = 0.50f;
+    public static final float WEIGHT_RELATIONAL_OVERLAP = 0.30f;
+    public static final float WEIGHT_AFFECTIVE_RHYME = 0.20f;
+    public static final float PAIRING_ACCEPTANCE_THRESHOLD = 0.35f;
+
     public record FragmentPair(SceneFragment fragmentA, SceneFragment fragmentB, float antiCentroidScore) {}
 
     @Override
@@ -66,9 +71,9 @@ public final class HyperAssociateRelay implements SynapticRelay<DreamSignal> {
                 // 3. Affective Rhyme (Valence alignment / emotional resonance)
                 float affRhyme = 1.0f - (Math.abs((float) fA.valence() - (float) fB.valence()) / 100.0f);
 
-                float antiCentroidScore = semDistance * 0.50f + relOverlap * 0.30f + affRhyme * 0.20f;
+                float antiCentroidScore = semDistance * WEIGHT_SEMANTIC_DISTANCE + relOverlap * WEIGHT_RELATIONAL_OVERLAP + affRhyme * WEIGHT_AFFECTIVE_RHYME;
 
-                if (antiCentroidScore > 0.35f) {
+                if (antiCentroidScore > PAIRING_ACCEPTANCE_THRESHOLD) {
                     pairs.add(new FragmentPair(fA, fB, antiCentroidScore));
                 }
             }

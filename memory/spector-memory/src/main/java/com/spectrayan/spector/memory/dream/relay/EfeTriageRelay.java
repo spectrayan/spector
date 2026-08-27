@@ -33,6 +33,24 @@ public final class EfeTriageRelay implements SynapticRelay<DreamSignal> {
 
     private static final Logger log = LoggerFactory.getLogger(EfeTriageRelay.class);
 
+    public static final float DEFAULT_EPISTEMIC_THRESHOLD = 0.70f;
+    public static final float DEFAULT_PRAGMATIC_THRESHOLD = 0.50f;
+    public static final float DEFAULT_IDENTITY_THRESHOLD = 0.35f;
+
+    private final float epistemicThreshold;
+    private final float pragmaticThreshold;
+    private final float identityThreshold;
+
+    public EfeTriageRelay(float epistemicThreshold, float pragmaticThreshold, float identityThreshold) {
+        this.epistemicThreshold = epistemicThreshold;
+        this.pragmaticThreshold = pragmaticThreshold;
+        this.identityThreshold = identityThreshold;
+    }
+
+    public EfeTriageRelay() {
+        this(DEFAULT_EPISTEMIC_THRESHOLD, DEFAULT_PRAGMATIC_THRESHOLD, DEFAULT_IDENTITY_THRESHOLD);
+    }
+
     @Override
     public boolean transmit(final DreamSignal signal) {
         if (signal == null || signal.constructedScenes().isEmpty()) {
@@ -49,13 +67,13 @@ public final class EfeTriageRelay implements SynapticRelay<DreamSignal> {
             float q = scene.qualityScore();
 
             DreamSignal.TriageOutcome outcome;
-            if (q >= 0.70f) {
+            if (q >= epistemicThreshold) {
                 outcome = DreamSignal.TriageOutcome.EPISTEMIC;
                 epistemic++;
-            } else if (q >= 0.50f) {
+            } else if (q >= pragmaticThreshold) {
                 outcome = DreamSignal.TriageOutcome.PRAGMATIC;
                 pragmatic++;
-            } else if (q >= 0.35f) {
+            } else if (q >= identityThreshold) {
                 outcome = DreamSignal.TriageOutcome.IDENTITY;
                 identity++;
             } else {
