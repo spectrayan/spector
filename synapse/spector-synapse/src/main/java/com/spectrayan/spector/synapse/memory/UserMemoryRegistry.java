@@ -373,7 +373,7 @@ public final class UserMemoryRegistry implements AutoCloseable {
         if (quartzSchedulerProvider != null) {
             org.quartz.Scheduler springQuartz = quartzSchedulerProvider.getIfAvailable();
             if (springQuartz != null) {
-                builder.scheduler(springQuartz);
+                builder.quartzScheduler(springQuartz);
             }
         }
 

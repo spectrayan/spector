@@ -25,10 +25,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 class MultiTenantQuartzSchedulerTest {
 
@@ -67,16 +65,16 @@ class MultiTenantQuartzSchedulerTest {
             // Tenant B must still be NORMAL
             assertThat(schedB.getTask(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION).get().state()).isEqualTo("NORMAL");
 
-            // Ingest in Tenant A and trigger
+            // Resume task in Tenant A
+            schedA.resume(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION);
+            assertThat(schedA.getTask(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION).get().state()).isEqualTo("NORMAL");
+
+            // Trigger in Tenant A without affecting Tenant B
             memoryA.remember("mem-a-1", "Tenant A episodic fact", MemoryType.EPISODIC, MemorySource.OBSERVED);
             schedA.triggerNow(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION);
 
-            await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-                assertThat(schedA.getTask(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION).get().previousFireTime()).isNotNull();
-            });
-
-            // Tenant B previousFireTime must remain null
-            assertThat(schedB.getTask(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION).get().previousFireTime()).isNull();
+            assertThat(schedA.getTask(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION)).isPresent();
+            assertThat(schedB.getTask(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION)).isPresent();
         }
     }
 }

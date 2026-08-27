@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.scheduler.jobs;
 
-import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
@@ -21,8 +20,12 @@ import org.quartz.JobExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.function.Supplier;
+
 /**
  * Quartz Job for executing periodic hippocampal sleep consolidation (episodic-to-semantic promotion and Hebbian decay).
+ * <p>
+ * Decoupled from the {@code SpectorMemory} god-object by taking a functional {@code reflectAction} supplier.
  */
 @DisallowConcurrentExecution
 public final class SleepConsolidationJob implements Job {
@@ -31,17 +34,24 @@ public final class SleepConsolidationJob implements Job {
 
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
-        SpectorMemory memory = (SpectorMemory) context.getMergedJobDataMap().get("memoryInstance");
-        if (memory == null) {
-            log.warn("SleepConsolidationJob: memoryInstance missing from JobDataMap — skipping");
+        Object action = context.getMergedJobDataMap().get("reflectAction");
+        if (action == null) {
+            log.warn("SleepConsolidationJob: reflectAction missing from JobDataMap — skipping");
             return;
         }
 
         try {
             String ns = context.getMergedJobDataMap().getString("namespaceId");
             log.debug("SleepConsolidationJob: running sleep consolidation for namespace [{}]", ns);
-            ReflectReport report = memory.reflect();
-            context.setResult(report);
+
+            if (action instanceof Supplier<?> supplier) {
+                Object result = supplier.get();
+                if (result instanceof ReflectReport report) {
+                    context.setResult(report);
+                }
+            } else if (action instanceof Runnable runnable) {
+                runnable.run();
+            }
         } catch (Exception e) {
             throw new JobExecutionException("Sleep consolidation failed: " + e.getMessage(), e);
         }

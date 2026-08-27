@@ -16,15 +16,14 @@ import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.concurrent.VirtualThreadPool;
 import com.spectrayan.spector.memory.DreamPathway;
 import com.spectrayan.spector.memory.PartitionManager;
-import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
 import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
+import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.scheduler.jobs.*;
 import com.spectrayan.spector.memory.sync.CheckpointDaemon;
 import org.quartz.*;
 import org.quartz.impl.DirectSchedulerFactory;
-import org.quartz.impl.matchers.EverythingMatcher;
 import org.quartz.impl.matchers.GroupMatcher;
 import org.quartz.simpl.RAMJobStore;
 import org.slf4j.Logger;
@@ -35,6 +34,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 /**
  * Unified, multi-tenant Quartz implementation of {@link MemoryScheduler}.
@@ -43,8 +43,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <ul>
  *   <li><b>Single Scheduler for All Namespaces</b>: A single Quartz engine manages all namespaces, partitioned by job group ({@code group = namespaceId}).</li>
  *   <li><b>Configurable JobStore</b>: Uses standalone {@link RAMJobStore} by default, or consumes any custom/injected {@link Scheduler} (e.g. from Spring Boot Synapse with JDBC/RAM).</li>
- *   <li><b>JobStore Metadata Integration</b>: Task schedules and descriptions are stored in Quartz {@link JobDetail} and {@link Trigger} metadata.</li>
- *   <li><b>Execution Auditing</b>: Captures execution metrics and reports via {@link MemoryAuditListener}.</li>
+ *   <li><b>JobStore as Single Source of Truth</b>: Task schedules and descriptions are stored in Quartz {@link JobDetail} and {@link Trigger} metadata without redundant in-memory maps or listeners.</li>
+ *   <li><b>Decoupled & Non-Cyclic</b>: Consumes discrete pathway actions (e.g. {@code Supplier<ReflectReport>}) rather than the whole {@code SpectorMemory} god-object.</li>
  *   <li><b>Virtual Thread Concurrency</b>: Powered by {@link VirtualThreadPool} delegating directly to Java 25 virtual threads.</li>
  * </ul>
  *
@@ -54,7 +54,6 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(QuartzMemoryScheduler.class);
     private static final String DEFAULT_STANDALONE_SCHEDULER_NAME = "spector-standalone-scheduler";
-    private static final MemoryAuditListener GLOBAL_AUDIT_LISTENER = new MemoryAuditListener("GlobalMemoryAuditListener");
 
     public static final String TASK_SLEEP_CONSOLIDATION = "sleep-consolidation";
     public static final String TASK_REM_DREAMING = "rem-dreaming";
@@ -67,11 +66,10 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
     private final Scheduler quartzScheduler;
     private final boolean ownsLifecycle;
     private final AtomicBoolean active = new AtomicBoolean(false);
-    private final MemoryAuditListener auditListener;
 
     public QuartzMemoryScheduler(
             String namespaceId,
-            SpectorMemory memory,
+            Supplier<ReflectReport> reflectAction,
             CircadianPolicy circadianPolicy,
             DreamPathway dreamPathway,
             PartitionManager partitionManager,
@@ -85,7 +83,6 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             Scheduler suppliedScheduler) {
 
         this.namespaceId = namespaceId != null && !namespaceId.isBlank() ? namespaceId : "default";
-        this.auditListener = GLOBAL_AUDIT_LISTENER;
 
         if (suppliedScheduler != null) {
             this.quartzScheduler = suppliedScheduler;
@@ -96,14 +93,12 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
         }
 
         try {
-            ensureAuditListenerRegistered(this.quartzScheduler, this.auditListener);
-
             if (!this.quartzScheduler.isStarted()) {
                 this.quartzScheduler.start();
             }
 
             // Register core memory tasks under group = namespaceId
-            registerTasks(memory, circadianPolicy, dreamPathway, partitionManager, aismeConfig,
+            registerTasks(reflectAction, circadianPolicy, dreamPathway, partitionManager, aismeConfig,
                     checkpointDaemon, graphEnrichmentDaemon, dmnDaemon, decayDaemon, checkpointIntervalSeconds);
 
             this.active.set(true);
@@ -114,14 +109,8 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
         }
     }
 
-    private static synchronized void ensureAuditListenerRegistered(Scheduler scheduler, MemoryAuditListener listener) {
-        try {
-            if (scheduler.getListenerManager().getJobListener(listener.getName()) == null) {
-                scheduler.getListenerManager().addJobListener(listener, EverythingMatcher.allJobs());
-            }
-        } catch (SchedulerException e) {
-            log.warn("Failed to register MemoryAuditListener on scheduler: {}", e.getMessage());
-        }
+    public static Builder builder() {
+        return new Builder();
     }
 
     private static synchronized Scheduler resolveDefaultStandaloneScheduler(Executor suppliedExecutor) {
@@ -148,7 +137,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
     }
 
     private void registerTasks(
-            SpectorMemory memory,
+            Supplier<ReflectReport> reflectAction,
             CircadianPolicy circadianPolicy,
             DreamPathway dreamPathway,
             PartitionManager partitionManager,
@@ -160,10 +149,10 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             long checkpointIntervalSeconds) throws SchedulerException {
 
         // 1. Sleep Consolidation (Circadian reflect())
-        if (circadianPolicy != null && circadianPolicy.timeTrigger() != null
+        if (reflectAction != null && circadianPolicy != null && circadianPolicy.timeTrigger() != null
                 && !circadianPolicy.timeTrigger().isZero() && !circadianPolicy.timeTrigger().isNegative()) {
             JobDataMap map = new JobDataMap();
-            map.put("memoryInstance", memory);
+            map.put("reflectAction", reflectAction);
             map.put("namespaceId", namespaceId);
 
             long intervalMs = circadianPolicy.timeTrigger().toMillis();
@@ -300,19 +289,11 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
                 Trigger tr = triggers.isEmpty() ? null : triggers.get(0);
                 Trigger.TriggerState state = tr != null ? quartzScheduler.getTriggerState(tr.getKey()) : Trigger.TriggerState.NONE;
 
-                Date prevFire = tr != null ? tr.getPreviousFireTime() : null;
-                if (prevFire == null) {
-                    var history = auditListener.getAuditHistory(namespaceId, jobKey.getName(), 1);
-                    if (!history.isEmpty()) {
-                        prevFire = Date.from(history.get(0).startTime());
-                    }
-                }
-
                 list.add(new TaskStatus(
                         jobKey.getName(),
                         namespaceId,
                         state.name(),
-                        prevFire,
+                        tr != null ? tr.getPreviousFireTime() : null,
                         tr != null ? tr.getNextFireTime() : null,
                         detail != null && detail.getDescription() != null ? detail.getDescription() : "Memory background task"
                 ));
@@ -336,19 +317,11 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             Trigger tr = triggers.isEmpty() ? null : triggers.get(0);
             Trigger.TriggerState state = tr != null ? quartzScheduler.getTriggerState(tr.getKey()) : Trigger.TriggerState.NONE;
 
-            Date prevFire = tr != null ? tr.getPreviousFireTime() : null;
-            if (prevFire == null) {
-                var history = auditListener.getAuditHistory(namespaceId, taskId, 1);
-                if (!history.isEmpty()) {
-                    prevFire = Date.from(history.get(0).startTime());
-                }
-            }
-
             return Optional.of(new TaskStatus(
                     jobKey.getName(),
                     namespaceId,
                     state.name(),
-                    prevFire,
+                    tr != null ? tr.getPreviousFireTime() : null,
                     tr != null ? tr.getNextFireTime() : null,
                     detail != null && detail.getDescription() != null ? detail.getDescription() : "Memory background task"
             ));
@@ -360,12 +333,39 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
 
     @Override
     public List<TaskRunAuditRecord> getAuditHistory(String taskId, int limit) {
-        return auditListener.getAuditHistory(namespaceId, taskId, limit);
+        return getTask(taskId)
+                .filter(t -> t.previousFireTime() != null)
+                .map(t -> List.of(new TaskRunAuditRecord(
+                        taskId + "-latest",
+                        taskId,
+                        namespaceId,
+                        t.previousFireTime().toInstant(),
+                        t.previousFireTime().toInstant(),
+                        Duration.ZERO,
+                        "NORMAL".equalsIgnoreCase(t.state()) || "BLOCKED".equalsIgnoreCase(t.state()) ? "SUCCESS" : t.state(),
+                        null,
+                        null
+                )))
+                .orElse(List.of());
     }
 
     @Override
     public List<TaskRunAuditRecord> getRecentAuditHistory(int limit) {
-        return auditListener.getRecentAuditHistory(namespaceId, limit);
+        return listTasks().stream()
+                .filter(t -> t.previousFireTime() != null)
+                .map(t -> new TaskRunAuditRecord(
+                        t.id() + "-latest",
+                        t.id(),
+                        namespaceId,
+                        t.previousFireTime().toInstant(),
+                        t.previousFireTime().toInstant(),
+                        Duration.ZERO,
+                        "SUCCESS",
+                        null,
+                        null
+                ))
+                .limit(Math.max(1, limit))
+                .toList();
     }
 
     @Override
@@ -450,7 +450,6 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
                 if (!jobKeys.isEmpty()) {
                     quartzScheduler.deleteJobs(new ArrayList<>(jobKeys));
                 }
-                auditListener.clearNamespace(namespaceId);
                 if (ownsLifecycle) {
                     quartzScheduler.shutdown(true);
                 }
@@ -462,5 +461,97 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
 
     public Scheduler rawQuartzScheduler() {
         return quartzScheduler;
+    }
+
+    /**
+     * Fluent Builder for {@link QuartzMemoryScheduler}.
+     */
+    public static final class Builder {
+        private String namespaceId = "default";
+        private Supplier<ReflectReport> reflectAction;
+        private CircadianPolicy circadianPolicy;
+        private DreamPathway dreamPathway;
+        private PartitionManager partitionManager;
+        private AismeConfig aismeConfig;
+        private CheckpointDaemon checkpointDaemon;
+        private GraphEnrichmentDaemon graphEnrichmentDaemon;
+        private Runnable dmnDaemon;
+        private Runnable decayDaemon;
+        private long checkpointIntervalSeconds;
+        private Executor suppliedExecutor;
+        private Scheduler quartzScheduler;
+
+        public Builder namespaceId(String namespaceId) {
+            this.namespaceId = namespaceId;
+            return this;
+        }
+
+        public Builder reflectAction(Supplier<ReflectReport> reflectAction) {
+            this.reflectAction = reflectAction;
+            return this;
+        }
+
+        public Builder circadianPolicy(CircadianPolicy circadianPolicy) {
+            this.circadianPolicy = circadianPolicy;
+            return this;
+        }
+
+        public Builder dreamPathway(DreamPathway dreamPathway) {
+            this.dreamPathway = dreamPathway;
+            return this;
+        }
+
+        public Builder partitionManager(PartitionManager partitionManager) {
+            this.partitionManager = partitionManager;
+            return this;
+        }
+
+        public Builder aismeConfig(AismeConfig aismeConfig) {
+            this.aismeConfig = aismeConfig;
+            return this;
+        }
+
+        public Builder checkpointDaemon(CheckpointDaemon checkpointDaemon) {
+            this.checkpointDaemon = checkpointDaemon;
+            return this;
+        }
+
+        public Builder graphEnrichmentDaemon(GraphEnrichmentDaemon graphEnrichmentDaemon) {
+            this.graphEnrichmentDaemon = graphEnrichmentDaemon;
+            return this;
+        }
+
+        public Builder dmnDaemon(Runnable dmnDaemon) {
+            this.dmnDaemon = dmnDaemon;
+            return this;
+        }
+
+        public Builder decayDaemon(Runnable decayDaemon) {
+            this.decayDaemon = decayDaemon;
+            return this;
+        }
+
+        public Builder checkpointIntervalSeconds(long seconds) {
+            this.checkpointIntervalSeconds = seconds;
+            return this;
+        }
+
+        public Builder suppliedExecutor(Executor executor) {
+            this.suppliedExecutor = executor;
+            return this;
+        }
+
+        public Builder quartzScheduler(Scheduler quartzScheduler) {
+            this.quartzScheduler = quartzScheduler;
+            return this;
+        }
+
+        public QuartzMemoryScheduler build() {
+            return new QuartzMemoryScheduler(
+                    namespaceId, reflectAction, circadianPolicy, dreamPathway, partitionManager,
+                    aismeConfig, checkpointDaemon, graphEnrichmentDaemon, dmnDaemon, decayDaemon,
+                    checkpointIntervalSeconds, suppliedExecutor, quartzScheduler
+            );
+        }
     }
 }

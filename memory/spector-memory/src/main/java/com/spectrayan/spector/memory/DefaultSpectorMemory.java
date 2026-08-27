@@ -193,7 +193,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final ReinforcementHandler reinforcementHandler;
     private final BatchConsolidator batchConsolidator;
     private final com.spectrayan.spector.memory.consolidation.EagerConsolidator eagerConsolidator;
-    private final com.spectrayan.spector.memory.scheduler.QuartzMemoryScheduler memoryScheduler;
+    private final com.spectrayan.spector.memory.scheduler.MemoryScheduler memoryScheduler;
 
 
     //  Biological Subsystems 
@@ -351,26 +351,30 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.hook = builder.hook != null ? builder.hook : MemoryObservationHook.NOOP;
 
         //  Quartz Memory Scheduler (In-Memory Multi-Tenant Background Scheduling & Auditing)
-        this.memoryScheduler = new com.spectrayan.spector.memory.scheduler.QuartzMemoryScheduler(
-                this.namespaceId,
-                this,
-                circadianPolicy,
-                this.dreamPathway,
-                this.partitionManager,
-                builder.aismeConfig,
-                this.checkpointDaemon,
-                this.graphEnrichmentDaemon,
-                (this.wanderPathway != null && builder.aismeConfig != null && builder.aismeConfig.enabled() && builder.aismeConfig.enableDmnSpontaneous())
-                        ? new com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon(this.wanderPathway, this.partitionManager, System::currentTimeMillis) : null,
-                (bundle.aismeBundle() != null && builder.aismeConfig != null && builder.aismeConfig.backgroundDecayEnabled())
-                        ? new com.spectrayan.spector.memory.aisme.dmn.HomeostaticDecayDaemon(
-                                bundle.aismeBundle().mentalStateTracker(),
-                                bundle.aismeBundle().homeostaticCore(),
-                                builder.aismeConfig.backgroundDecayFactor()) : null,
-                builder.checkpointIntervalSeconds,
-                builder.suppliedExecutor,
-                builder.customScheduler
-        );
+        if (builder.scheduler != null) {
+            this.memoryScheduler = builder.scheduler;
+        } else {
+            this.memoryScheduler = com.spectrayan.spector.memory.scheduler.QuartzMemoryScheduler.builder()
+                    .namespaceId(this.namespaceId)
+                    .reflectAction(() -> this.reflect())
+                    .circadianPolicy(circadianPolicy)
+                    .dreamPathway(this.dreamPathway)
+                    .partitionManager(this.partitionManager)
+                    .aismeConfig(builder.aismeConfig)
+                    .checkpointDaemon(this.checkpointDaemon)
+                    .graphEnrichmentDaemon(this.graphEnrichmentDaemon)
+                    .dmnDaemon((this.wanderPathway != null && builder.aismeConfig != null && builder.aismeConfig.enabled() && builder.aismeConfig.enableDmnSpontaneous())
+                            ? new com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon(this.wanderPathway, this.partitionManager, System::currentTimeMillis) : null)
+                    .decayDaemon((bundle.aismeBundle() != null && builder.aismeConfig != null && builder.aismeConfig.backgroundDecayEnabled())
+                            ? new com.spectrayan.spector.memory.aisme.dmn.HomeostaticDecayDaemon(
+                                    bundle.aismeBundle().mentalStateTracker(),
+                                    bundle.aismeBundle().homeostaticCore(),
+                                    builder.aismeConfig.backgroundDecayFactor()) : null)
+                    .checkpointIntervalSeconds(builder.checkpointIntervalSeconds)
+                    .suppliedExecutor(builder.suppliedExecutor)
+                    .quartzScheduler(builder.customQuartzScheduler)
+                    .build();
+        }
 
         //  JVM Shutdown Hook  (DISK mode only)
         if (persistenceMode == MemoryPersistenceMode.DISK && bundle.basePath() != null) {
