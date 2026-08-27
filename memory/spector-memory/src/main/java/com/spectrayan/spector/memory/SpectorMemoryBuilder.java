@@ -275,6 +275,28 @@ public final class SpectorMemoryBuilder {
         return this;
     }
 
+    public java.util.concurrent.Executor suppliedExecutor;
+    public com.spectrayan.spector.memory.scheduler.MemoryScheduler scheduler;
+    public org.quartz.Scheduler customQuartzScheduler;
+
+    /** Supplies a custom Executor for background task execution (defaults to ConcurrentTasks.virtualExecutor()). */
+    public SpectorMemoryBuilder suppliedExecutor(java.util.concurrent.Executor executor) {
+        this.suppliedExecutor = executor;
+        return this;
+    }
+
+    /** Supplies a custom MemoryScheduler implementation. */
+    public SpectorMemoryBuilder scheduler(com.spectrayan.spector.memory.scheduler.MemoryScheduler scheduler) {
+        this.scheduler = scheduler;
+        return this;
+    }
+
+    /** Supplies a custom or shared Quartz Scheduler (e.g. from Spring Boot). If omitted, a default standalone in-memory scheduler is used. */
+    public SpectorMemoryBuilder quartzScheduler(org.quartz.Scheduler quartzScheduler) {
+        this.customQuartzScheduler = quartzScheduler;
+        return this;
+    }
+
 
 
     /**

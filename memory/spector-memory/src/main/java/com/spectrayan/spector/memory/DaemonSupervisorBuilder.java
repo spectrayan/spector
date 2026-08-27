@@ -91,35 +91,26 @@ final class DaemonSupervisorBuilder {
                         graphs.entityDirectory(), graphs.hyperEntityGraph(), bio.coActivationTracker(),
                         graphs.temporalKnowledgeGraph(),
                         resolvedPartitionDir, basePath, ckptSlice);
-                daemonSupervisor.schedule(
-                        "checkpoint",
-                        checkpointDaemon::checkpoint,
-                        java.time.Duration.ofSeconds(builder.checkpointIntervalSeconds),
-                        DaemonPolicy.CRITICAL);
+                // Deprecated: Checkpointing is now scheduled and managed exclusively by Quartz CheckpointJob (#683)
+                // daemonSupervisor.schedule("checkpoint", checkpointDaemon::checkpoint,
+                //         java.time.Duration.ofSeconds(builder.checkpointIntervalSeconds), DaemonPolicy.CRITICAL);
             } else {
                 checkpointDaemon = null;
             }
 
             if (graphEnrichmentDaemon != null) {
-                daemonSupervisor.schedule(
-                        "graph-enricher",
-                        graphEnrichmentDaemon::enrichPending,
-                        java.time.Duration.ofSeconds(30),
-                        DaemonPolicy.DEFAULT);
+                // Deprecated: Graph enrichment is now scheduled and managed exclusively by Quartz GraphEnrichmentJob (#683)
+                // daemonSupervisor.schedule("graph-enricher", graphEnrichmentDaemon::enrichPending,
+                //         java.time.Duration.ofSeconds(30), DaemonPolicy.DEFAULT);
             }
 
             if (wanderPathway != null && builder.aismeConfig != null && builder.aismeConfig.enabled() && builder.aismeConfig.enableDmnSpontaneous()) {
-                com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon dmnDaemon =
-                        new com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon(
-                                wanderPathway,
-                                partitionManager,
-                                System::currentTimeMillis
-                        );
-                daemonSupervisor.schedule(
-                        "dmn-wandering",
-                        dmnDaemon,
-                        java.time.Duration.ofSeconds(Math.max(10, builder.aismeConfig.dmnIdleIntervalSeconds())),
-                        DaemonPolicy.DEFAULT);
+                // Deprecated: DMN spontaneous wandering is now scheduled and managed exclusively by Quartz DmnWanderingJob (#683)
+                // com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon dmnDaemon =
+                //         new com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon(
+                //                 wanderPathway, partitionManager, System::currentTimeMillis);
+                // daemonSupervisor.schedule("dmn-wandering", dmnDaemon,
+                //         java.time.Duration.ofSeconds(Math.max(10, builder.aismeConfig.dmnIdleIntervalSeconds())), DaemonPolicy.DEFAULT);
             }
         } else {
             checkpointDaemon = null;

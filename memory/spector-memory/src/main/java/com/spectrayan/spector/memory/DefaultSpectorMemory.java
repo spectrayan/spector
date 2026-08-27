@@ -193,7 +193,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final ReinforcementHandler reinforcementHandler;
     private final BatchConsolidator batchConsolidator;
     private final com.spectrayan.spector.memory.consolidation.EagerConsolidator eagerConsolidator;
-    private final java.util.concurrent.ScheduledExecutorService circadianScheduler;
+    private final com.spectrayan.spector.memory.scheduler.MemoryScheduler memoryScheduler;
 
 
     //  Biological Subsystems 
@@ -350,24 +350,30 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.dreamPathway = bundle.dreamPathway();
         this.hook = builder.hook != null ? builder.hook : MemoryObservationHook.NOOP;
 
-        //  Circadian Time Trigger (Automatic Background Sleep Consolidation)
-        if (circadianPolicy != null && circadianPolicy.timeTrigger() != null
-                && !circadianPolicy.timeTrigger().isZero() && !circadianPolicy.timeTrigger().isNegative()) {
-            this.circadianScheduler = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(
-                    Thread.ofVirtual().name("circadian-scheduler-", 0).factory());
-            long delayMs = circadianPolicy.timeTrigger().toMillis();
-            this.circadianScheduler.scheduleWithFixedDelay(() -> {
-                try {
-                    if (!closed.get()) {
-                        log.info("Circadian time trigger: auto-running sleep consolidation");
-                        reflect();
-                    }
-                } catch (Throwable t) {
-                    log.warn("Circadian background reflection failed: {}", t.getMessage());
-                }
-            }, delayMs, delayMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+        //  Quartz Memory Scheduler (In-Memory Multi-Tenant Background Scheduling & Auditing)
+        if (builder.scheduler != null) {
+            this.memoryScheduler = builder.scheduler;
         } else {
-            this.circadianScheduler = null;
+            this.memoryScheduler = com.spectrayan.spector.memory.scheduler.QuartzMemoryScheduler.builder()
+                    .namespaceId(this.namespaceId)
+                    .reflectAction(() -> this.reflect())
+                    .circadianPolicy(circadianPolicy)
+                    .dreamPathway(this.dreamPathway)
+                    .partitionManager(this.partitionManager)
+                    .aismeConfig(builder.aismeConfig)
+                    .checkpointDaemon(this.checkpointDaemon)
+                    .graphEnrichmentDaemon(this.graphEnrichmentDaemon)
+                    .dmnDaemon((this.wanderPathway != null && builder.aismeConfig != null && builder.aismeConfig.enabled() && builder.aismeConfig.enableDmnSpontaneous())
+                            ? new com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon(this.wanderPathway, this.partitionManager, System::currentTimeMillis) : null)
+                    .decayDaemon((bundle.aismeBundle() != null && builder.aismeConfig != null && builder.aismeConfig.backgroundDecayEnabled())
+                            ? new com.spectrayan.spector.memory.aisme.dmn.HomeostaticDecayDaemon(
+                                    bundle.aismeBundle().mentalStateTracker(),
+                                    bundle.aismeBundle().homeostaticCore(),
+                                    builder.aismeConfig.backgroundDecayFactor()) : null)
+                    .checkpointIntervalSeconds(builder.checkpointIntervalSeconds)
+                    .suppliedExecutor(builder.suppliedExecutor)
+                    .quartzScheduler(builder.customQuartzScheduler)
+                    .build();
         }
 
         //  JVM Shutdown Hook  (DISK mode only)
@@ -1541,6 +1547,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public CoActivationRecordMemory coActivation() { return coActivationTracker; }
     @Override public MemoryWal wal() { return wal; }
     @Override public ProspectiveScheduler prospective() { return prospectiveScheduler; }
+    @Override public com.spectrayan.spector.memory.scheduler.MemoryScheduler scheduler() { return memoryScheduler; }
     @Override public SuppressionSet suppression() { return suppressionSet; }
     @Override public HabituationPenalty habituation() { return habituationPenalty; }
     @Override public ScalarQuantizer quantizer() { return quantizer; }
@@ -1792,12 +1799,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             daemonSupervisor.close();
         }
 
-        // Stop circadian scheduler
-        if (circadianScheduler != null) {
+        // Stop memory scheduler (drains Quartz jobs)
+        if (memoryScheduler != null) {
             try {
-                circadianScheduler.shutdown();
+                memoryScheduler.close();
             } catch (Exception e) {
-                log.warn("Failed to shutdown circadianScheduler on close", e);
+                log.warn("Failed to shutdown memoryScheduler on close", e);
             }
         }
 

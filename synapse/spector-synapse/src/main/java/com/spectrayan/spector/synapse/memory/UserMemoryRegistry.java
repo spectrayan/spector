@@ -97,6 +97,7 @@ public final class UserMemoryRegistry implements AutoCloseable {
     private final ObjectProvider<com.spectrayan.spector.memory.DataEncryptor> encryptorProvider;
     private final ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistryProvider;
     private final ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider;
+    private final ObjectProvider<org.quartz.Scheduler> quartzSchedulerProvider;
 
     /** Maximum number of concurrently-cached per-user instances (LRU cap). */
     private final int maxInstances;
@@ -117,7 +118,7 @@ public final class UserMemoryRegistry implements AutoCloseable {
             ObjectProvider<SalienceProfileProvider> salienceProvider,
             ObjectProvider<ObjectMapper> objectMapperProvider,
             int maxInstances) {
-        this(sharedProvider, synapseProps, embedderProvider, textGenProvider, salienceProvider, objectMapperProvider, null, null, null, null, maxInstances);
+        this(sharedProvider, synapseProps, embedderProvider, textGenProvider, salienceProvider, objectMapperProvider, null, null, null, null, null, maxInstances);
     }
 
     @Autowired
@@ -132,6 +133,7 @@ public final class UserMemoryRegistry implements AutoCloseable {
             ObjectProvider<com.spectrayan.spector.memory.DataEncryptor> encryptorProvider,
             ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistryProvider,
             ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider,
+            ObjectProvider<org.quartz.Scheduler> quartzSchedulerProvider,
             @Value("${spector.auth.memory.max-instances:512}") int maxInstances) {
         this.sharedProvider = sharedProvider;
         this.synapseProps = synapseProps;
@@ -143,6 +145,7 @@ public final class UserMemoryRegistry implements AutoCloseable {
         this.encryptorProvider = encryptorProvider;
         this.observationRegistryProvider = observationRegistryProvider;
         this.observabilityConfigProvider = observabilityConfigProvider;
+        this.quartzSchedulerProvider = quartzSchedulerProvider;
         this.maxInstances = Math.max(1, maxInstances);
         log.info("[UserMemoryRegistry] initialized: authEnabled={}, maxInstances={}",
                 synapseProps.auth().enabled(), this.maxInstances);
@@ -365,6 +368,13 @@ public final class UserMemoryRegistry implements AutoCloseable {
 
         if (obsRegistry != null && obsConfig != null) {
             builder.observationHook(new com.spectrayan.spector.metrics.observation.MicrometerMemoryObservationHook(obsRegistry, obsConfig));
+        }
+
+        if (quartzSchedulerProvider != null) {
+            org.quartz.Scheduler springQuartz = quartzSchedulerProvider.getIfAvailable();
+            if (springQuartz != null) {
+                builder.quartzScheduler(springQuartz);
+            }
         }
 
         SpectorMemory built = builder.build();

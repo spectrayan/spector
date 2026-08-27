@@ -122,7 +122,8 @@ public final class SpectorMemoryFactory {
             WanderPathway wanderPathway,
             com.spectrayan.spector.memory.cortex.ContinuityRecordMemory continuityMemory,
             DecidePathway decidePathway,
-            DreamPathway dreamPathway
+            DreamPathway dreamPathway,
+            com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle
     ) {}
 
     private SpectorMemoryFactory() {}
@@ -416,11 +417,12 @@ public final class SpectorMemoryFactory {
                     aismeBundle.mentalStateTracker(),
                     aismeBundle.homeostaticCore(),
                     builder.aismeConfig.backgroundDecayFactor());
-            daemons.daemonSupervisor().schedule(
-                    "homeostatic-decay",
-                    decayDaemon,
-                    java.time.Duration.ofSeconds(Math.max(10, builder.aismeConfig.backgroundDecayIntervalSeconds())),
-                    com.spectrayan.spector.commons.concurrent.DaemonPolicy.DEFAULT);
+            // Deprecated: Homeostatic decay is now scheduled and managed exclusively by Quartz HomeostaticDecayJob (#683)
+            // daemons.daemonSupervisor().schedule(
+            //         "homeostatic-decay",
+            //         decayDaemon,
+            //         java.time.Duration.ofSeconds(Math.max(10, builder.aismeConfig.backgroundDecayIntervalSeconds())),
+            //         com.spectrayan.spector.commons.concurrent.DaemonPolicy.DEFAULT);
         }
 
         // Wire the graph facade into the enrichment daemon for cache invalidation
@@ -448,7 +450,7 @@ public final class SpectorMemoryFactory {
                 daemons.checkpointDaemon(), daemons.graphEnrichmentDaemon(), daemons.daemonSupervisor(), retrieval.bm25Index(), attachmentProcessor,
                 parallelPipeline, embedConfig, cortex.resolvedPartitionDir(), cortex.basePath(),
                 cortex.namespaceManager(), profileAdaptor, cortex.runtimeBundle(), cortex.insularCortex(),
-                wanderPathway, cortex.continuityMemory(), decidePathway, dreamPathway
+                wanderPathway, cortex.continuityMemory(), decidePathway, dreamPathway, aismeBundle
         );
     }
 }

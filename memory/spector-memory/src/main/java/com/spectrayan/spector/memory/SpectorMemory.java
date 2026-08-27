@@ -560,6 +560,11 @@ public interface SpectorMemory extends AutoCloseable {
     /** Schedules a reminder after a delay. */
     Reminder scheduleReminder(String text, Duration delay, String... tags);
 
+    /** Returns the namespace-scoped background task scheduler and audit manager. */
+    default com.spectrayan.spector.memory.scheduler.MemoryScheduler scheduler() {
+        return admin().scheduler();
+    }
+
     /** Stores ephemeral text in working memory. */
     void scratchpad(String text);
 

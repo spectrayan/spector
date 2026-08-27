@@ -32,6 +32,12 @@
             <artifactId>handlebars</artifactId>
         </dependency>
 
+        <!-- Quartz Scheduler (ThreadPool SPI) -->
+        <dependency>
+            <groupId>org.quartz-scheduler</groupId>
+            <artifactId>quartz</artifactId>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

@@ -149,6 +149,7 @@
         <camel.version>4.11.0</camel.version>
         <bucket4j.version>8.10.1</bucket4j.version>
         <caffeine.version>3.2.0</caffeine.version>
+        <quartz.version>2.3.2</quartz.version>
 
         <!-- Test dependency versions -->
         <junit.version>6.1.2</junit.version>
@@ -412,6 +413,23 @@
                 <version>${caffeine.version}</version>
             </dependency>
 
+            <!-- ── Quartz Scheduler (In-Memory Task Management) ── -->
+            <dependency>
+                <groupId>org.quartz-scheduler</groupId>
+                <artifactId>quartz</artifactId>
+                <version>${quartz.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.mchange</groupId>
+                        <artifactId>c3p0</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.zaxxer</groupId>
+                        <artifactId>HikariCP-java7</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
             <!-- ── Logging ── -->
             <dependency>
                 <groupId>org.slf4j</groupId>
@@ -652,6 +670,16 @@
                         <argLine>${argLine} --add-modules ${vector.api.module} --enable-native-access=ALL-UNNAMED --enable-preview --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.util.concurrent=ALL-UNNAMED -Dnet.bytebuddy.experimental=true</argLine>
                         <!-- Exclude functional tests (require external services) -->
                         <excludedGroups>${excludedGroups}</excludedGroups>
+                        <systemPropertyVariables>
+                            <org.slf4j.simpleLogger.defaultLogLevel>error</org.slf4j.simpleLogger.defaultLogLevel>
+                            <org.slf4j.simpleLogger.log.org.quartz>error</org.slf4j.simpleLogger.log.org.quartz>
+                            <org.slf4j.simpleLogger.log.com.spectrayan>error</org.slf4j.simpleLogger.log.com.spectrayan>
+                            <org.slf4j.simpleLogger.log.org.springframework>error</org.slf4j.simpleLogger.log.org.springframework>
+                            <logging.level.root>ERROR</logging.level.root>
+                            <logging.level.com.spectrayan>ERROR</logging.level.com.spectrayan>
+                            <logging.level.org.quartz>ERROR</logging.level.org.quartz>
+                            <logging.level.org.springframework>ERROR</logging.level.org.springframework>
+                        </systemPropertyVariables>
                     </configuration>
                 </plugin>
 
