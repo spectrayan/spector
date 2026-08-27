@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.memory.id.TsidGenerator;
 import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +21,6 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.UUID;
 
 /**
  * Stage 8 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
@@ -35,6 +35,7 @@ import java.util.UUID;
 public final class LangevinDiscoveryRelay implements SynapticRelay<DreamSignal> {
 
     private static final Logger log = LoggerFactory.getLogger(LangevinDiscoveryRelay.class);
+    private static final TsidGenerator TSID = new TsidGenerator();
 
     public static final float MIN_TEMPERATURE_FLOOR = 0.05f;
     public static final float FINITE_DIFFERENCE_STEP_H = 1e-3f;
@@ -102,7 +103,7 @@ public final class LangevinDiscoveryRelay implements SynapticRelay<DreamSignal> 
         float minSeedDist = computeMinDistance(v, signal.seedVectors());
 
         if (minSeedDist >= noveltyRadius) {
-            String id = UUID.randomUUID().toString();
+            String id = TSID.generate();
             String insightText = String.format("Interstitial Concept Discovery via Langevin Dynamics (dist=%.3f, energy=%.3f)",
                     minSeedDist, dmt.evaluateEnergy(v, beta));
 

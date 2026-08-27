@@ -13,11 +13,10 @@
 package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-
-import java.util.UUID;
+import com.spectrayan.spector.memory.id.TsidGenerator;
 
 /**
- * Stage relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Stage 10 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
  *
  * <h3>Biological Analog: Persist the Residue, Discard the Scaffold (Insight Extraction)</h3>
  * <p>Distills clean ExtractedInsight records from surviving scenes.</p>
@@ -25,6 +24,8 @@ import java.util.UUID;
  * @since 1.4.0
  */
 public final class ConceptExtractRelay implements SynapticRelay<DreamSignal> {
+
+    private static final TsidGenerator TSID = new TsidGenerator();
 
     @Override
     public boolean transmit(final DreamSignal signal) {
@@ -34,7 +35,7 @@ public final class ConceptExtractRelay implements SynapticRelay<DreamSignal> {
 
         for (DreamSignal.DreamScene scene : signal.survivingScenes()) {
             ExtractedInsight insight = new ExtractedInsight(
-                    UUID.randomUUID().toString(),
+                    TSID.generate(),
                     scene.insightText(),
                     scene.embedding(),
                     ExtractedInsight.InsightType.SEMANTIC,

@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.memory.id.TsidGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.Random;
@@ -29,6 +30,7 @@ import java.util.List;
 public final class RemReplayRelay implements SynapticRelay<DreamSignal> {
 
     private static final Logger log = LoggerFactory.getLogger(RemReplayRelay.class);
+    private static final TsidGenerator TSID = new TsidGenerator();
 
     public static final float DEFAULT_GAMMA_NOISE = 1.5f;
     public static final float DEFAULT_IMPORTANCE_RATIO = 0.5f;
@@ -61,9 +63,9 @@ public final class RemReplayRelay implements SynapticRelay<DreamSignal> {
             }
 
             String narrative = String.format("[REM Replay: %s] Noisy compressed replay with \u03C3=%.3f", id, sigmaDream);
-
+            String sceneId = TSID.generate();
             DreamSignal.DreamScene scene = new DreamSignal.DreamScene(
-                java.util.UUID.randomUUID().toString(),
+                sceneId,
                 narrative,
                 "",
                 noisyVector,

@@ -13,13 +13,13 @@
 package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.memory.id.TsidGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 public final class SceneConstructRelay implements SynapticRelay<DreamSignal> {
 
     private static final Logger log = LoggerFactory.getLogger(SceneConstructRelay.class);
+    private static final TsidGenerator TSID = new TsidGenerator();
 
     @Override
     public boolean transmit(final DreamSignal signal) {
@@ -86,7 +87,7 @@ public final class SceneConstructRelay implements SynapticRelay<DreamSignal> {
             float[] blended = blendVectors(List.of(agent, action, obj, loc), scaledNoise, random);
 
             DreamSignal.DreamScene scene = new DreamSignal.DreamScene(
-                    UUID.randomUUID().toString(),
+                    TSID.generate(),
                     narrative,
                     insightDraft,
                     blended,
