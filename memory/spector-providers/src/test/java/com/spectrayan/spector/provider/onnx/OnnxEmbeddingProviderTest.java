@@ -16,7 +16,6 @@
 package com.spectrayan.spector.provider.onnx;
 
 import com.spectrayan.spector.provider.ProviderConfig;
-import com.spectrayan.spector.provider.embedding.EmbeddingConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -25,11 +24,16 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class OnnxEmbeddingProviderTest {
+
+    private final OnnxProviderFactory factory = new OnnxProviderFactory();
 
     @Nested
     @DisplayName("Dimension & Model Resolution Tests")
@@ -37,9 +41,9 @@ class OnnxEmbeddingProviderTest {
 
         @Test
         void defaultMiniLmResolvesTo384Dimensions() {
-            var provider = new OnnxEmbeddingProvider(EmbeddingConfig.onnx("all-MiniLM-L6-v2"));
+            var config = new ProviderConfig("onnx-test", "onnx", "all-MiniLM-L6-v2", "", "", 0, Map.of());
+            var provider = factory.createEmbeddingProvider(config).orElseThrow();
             assertThat(provider.dimensions()).isEqualTo(384);
-            assertThat(provider.isInProcess()).isTrue();
 
             EmbeddingResult res = provider.embed("Cognitive memory architecture in Spector");
             assertThat(res.vector()).hasSize(384);
@@ -48,7 +52,8 @@ class OnnxEmbeddingProviderTest {
 
         @Test
         void bgeSmallResolvesTo384Dimensions() {
-            var provider = new OnnxEmbeddingProvider(EmbeddingConfig.onnx("bge-small-en-v1.5"));
+            var config = new ProviderConfig("onnx-test", "onnx", "bge-small-en-v1.5", "", "", 0, Map.of());
+            var provider = factory.createEmbeddingProvider(config).orElseThrow();
             assertThat(provider.dimensions()).isEqualTo(384);
             EmbeddingResult res = provider.embed("Quick associative graph traversal");
             assertThat(res.vector()).hasSize(384);
@@ -56,7 +61,8 @@ class OnnxEmbeddingProviderTest {
 
         @Test
         void bgeBaseResolvesTo768Dimensions() {
-            var provider = new OnnxEmbeddingProvider(EmbeddingConfig.onnx("bge-base-en-v1.5"));
+            var config = new ProviderConfig("onnx-test", "onnx", "bge-base-en-v1.5", "", "", 0, Map.of());
+            var provider = factory.createEmbeddingProvider(config).orElseThrow();
             assertThat(provider.dimensions()).isEqualTo(768);
             EmbeddingResult res = provider.embed("Dense hippocampal memory trace");
             assertThat(res.vector()).hasSize(768);
@@ -64,7 +70,8 @@ class OnnxEmbeddingProviderTest {
 
         @Test
         void bgeLargeResolvesTo1024Dimensions() {
-            var provider = new OnnxEmbeddingProvider(EmbeddingConfig.onnx("bge-large-en-v1.5"));
+            var config = new ProviderConfig("onnx-test", "onnx", "bge-large-en-v1.5", "", "", 0, Map.of());
+            var provider = factory.createEmbeddingProvider(config).orElseThrow();
             assertThat(provider.dimensions()).isEqualTo(1024);
             EmbeddingResult res = provider.embed("Neocortical sleep consolidation");
             assertThat(res.vector()).hasSize(1024);
@@ -72,7 +79,8 @@ class OnnxEmbeddingProviderTest {
 
         @Test
         void customExplicitDimensionsOverride() {
-            var provider = new OnnxEmbeddingProvider(EmbeddingConfig.onnx("custom-model"), 512);
+            var config = new ProviderConfig("onnx-test", "onnx", "custom-model", "", "", 512, Map.of());
+            var provider = factory.createEmbeddingProvider(config).orElseThrow();
             assertThat(provider.dimensions()).isEqualTo(512);
             EmbeddingResult res = provider.embed("Testing explicit 512 dimensions");
             assertThat(res.vector()).hasSize(512);
@@ -85,7 +93,8 @@ class OnnxEmbeddingProviderTest {
 
         @Test
         void vectorIsL2NormalizedToUnitLength() {
-            var provider = new OnnxEmbeddingProvider(EmbeddingConfig.onnx("all-MiniLM-L6-v2"));
+            var config = new ProviderConfig("onnx-test", "onnx", "all-MiniLM-L6-v2", "", "", 384, Map.of());
+            var provider = factory.createEmbeddingProvider(config).orElseThrow();
             EmbeddingResult res = provider.embed("Unit length normalization check");
 
             float sumSq = 0.0f;
@@ -98,7 +107,8 @@ class OnnxEmbeddingProviderTest {
 
         @Test
         void batchEmbeddingPreservesOrderAndDimensions() {
-            var provider = new OnnxEmbeddingProvider(EmbeddingConfig.onnx("all-MiniLM-L6-v2"));
+            var config = new ProviderConfig("onnx-test", "onnx", "all-MiniLM-L6-v2", "", "", 384, Map.of());
+            var provider = factory.createEmbeddingProvider(config).orElseThrow();
             List<String> inputs = List.of("First query", "Second query", "Third query");
             List<EmbeddingResult> results = provider.embedBatch(inputs);
 
@@ -115,7 +125,8 @@ class OnnxEmbeddingProviderTest {
 
         @Test
         void concurrentEmbedUnderVirtualThreads() throws InterruptedException, ExecutionException {
-            var provider = new OnnxEmbeddingProvider(EmbeddingConfig.onnx("all-MiniLM-L6-v2"));
+            var config = new ProviderConfig("onnx-test", "onnx", "all-MiniLM-L6-v2", "", "", 384, Map.of());
+            var provider = factory.createEmbeddingProvider(config).orElseThrow();
             int threadCount = 100;
             ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
             List<Future<EmbeddingResult>> futures = new ArrayList<>();
@@ -142,7 +153,6 @@ class OnnxEmbeddingProviderTest {
 
         @Test
         void factoryInstantiatesOnnxProvider() {
-            var factory = new OnnxProviderFactory();
             assertThat(factory.name()).isEqualTo("onnx");
             assertThat(factory.displayName()).isEqualTo("In-Process Native ONNX");
             assertThat(factory.supportsEmbedding()).isTrue();
