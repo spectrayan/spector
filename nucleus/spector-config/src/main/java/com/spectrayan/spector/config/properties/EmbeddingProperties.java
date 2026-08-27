@@ -107,6 +107,31 @@ public class EmbeddingProperties implements Serializable {
         if (properties != null) this.properties = properties;
     }
 
+    private String modelPath = DEFAULT_PROVIDER_EMBEDDING_MODEL_PATH;
+    private String executionProvider = DEFAULT_PROVIDER_EMBEDDING_EXECUTION_PROVIDER;
+    private int intraOpThreads = DEFAULT_PROVIDER_EMBEDDING_INTRA_OP_THREADS;
+    private String vocabPath = DEFAULT_PROVIDER_EMBEDDING_VOCAB_PATH;
+
+    public String getModelPath() { return modelPath; }
+    public void setModelPath(String modelPath) {
+        if (modelPath != null) this.modelPath = modelPath;
+    }
+
+    public String getExecutionProvider() { return executionProvider; }
+    public void setExecutionProvider(String executionProvider) {
+        if (executionProvider != null && !executionProvider.isBlank()) this.executionProvider = executionProvider;
+    }
+
+    public int getIntraOpThreads() { return intraOpThreads; }
+    public void setIntraOpThreads(int intraOpThreads) {
+        if (intraOpThreads >= 0) this.intraOpThreads = intraOpThreads;
+    }
+
+    public String getVocabPath() { return vocabPath; }
+    public void setVocabPath(String vocabPath) {
+        if (vocabPath != null) this.vocabPath = vocabPath;
+    }
+
     public static class CacheProperties implements Serializable {
         private static final long serialVersionUID = 1L;
 
@@ -144,4 +169,8 @@ public class EmbeddingProperties implements Serializable {
     public Duration cacheTtl() { return getCacheTtl(); }
     public Duration cacheStatsLogInterval() { return getCacheStatsLogInterval(); }
     public Map<String, String> properties() { return getProperties(); }
+    public String modelPath() { return getModelPath(); }
+    public String executionProvider() { return getExecutionProvider(); }
+    public int intraOpThreads() { return getIntraOpThreads(); }
+    public String vocabPath() { return getVocabPath(); }
 }

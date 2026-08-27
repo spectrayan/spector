@@ -5,3 +5,4 @@ com.spectrayan.spector.provider.google.GoogleProviderFactory
 com.spectrayan.spector.provider.mistral.MistralProviderFactory
 com.spectrayan.spector.provider.azure.AzureOpenAiProviderFactory
 com.spectrayan.spector.provider.bedrock.BedrockProviderFactory
+com.spectrayan.spector.provider.onnx.OnnxProviderFactory

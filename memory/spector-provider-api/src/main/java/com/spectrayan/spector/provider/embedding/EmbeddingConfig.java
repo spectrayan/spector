@@ -16,30 +16,53 @@
 package com.spectrayan.spector.provider.embedding;
 
 import java.time.Duration;
+import java.util.Map;
 
 /**
  * Configuration for an embedding provider.
  *
- * @param model         the embedding model name (e.g., "nomic-embed-text")
- * @param baseUrl       the API base URL (e.g., "http://localhost:11434")
- * @param timeout       HTTP request timeout
+ * @param model         the embedding model name (e.g., "nomic-embed-text", "all-MiniLM-L6-v2")
+ * @param baseUrl       the API base URL (e.g., "http://localhost:11434"), or null for in-process providers
+ * @param timeout       request timeout
  * @param batchSize     maximum texts per batch request
- * @param maxConcurrent maximum concurrent HTTP calls (0 = unlimited)
+ * @param maxConcurrent maximum concurrent requests (0 = unlimited)
+ * @param modelPath     optional local path to native model artifact (for in-process ONNX models)
+ * @param properties    additional provider-specific configuration properties
  */
 public record EmbeddingConfig(
         String model,
         String baseUrl,
         Duration timeout,
         int batchSize,
-        int maxConcurrent
+        int maxConcurrent,
+        String modelPath,
+        Map<String, String> properties
 ) {
+    /** 5-parameter legacy constructor for backward compatibility. */
+    public EmbeddingConfig(String model, String baseUrl, Duration timeout, int batchSize, int maxConcurrent) {
+        this(model, baseUrl, timeout, batchSize, maxConcurrent, null, Map.of());
+    }
+
     /** Default Ollama configuration (aligned with SpectorPropertyConstants: 30s timeout). */
     public static final EmbeddingConfig OLLAMA_DEFAULT = new EmbeddingConfig(
             "nomic-embed-text",
             "http://localhost:11434",
             Duration.ofSeconds(30),
             32,
-            0
+            0,
+            null,
+            Map.of()
+    );
+
+    /** Default in-process ONNX configuration. */
+    public static final EmbeddingConfig ONNX_DEFAULT = new EmbeddingConfig(
+            "all-MiniLM-L6-v2",
+            null,
+            Duration.ofSeconds(10),
+            32,
+            0,
+            null,
+            Map.of()
     );
 
     /**
@@ -47,34 +70,69 @@ public record EmbeddingConfig(
      */
     public static EmbeddingConfig ollama(String model) {
         return new EmbeddingConfig(model, OLLAMA_DEFAULT.baseUrl, OLLAMA_DEFAULT.timeout,
-                OLLAMA_DEFAULT.batchSize, OLLAMA_DEFAULT.maxConcurrent);
+                OLLAMA_DEFAULT.batchSize, OLLAMA_DEFAULT.maxConcurrent, null, Map.of());
+    }
+
+    /**
+     * Creates an in-process ONNX config with the given model name.
+     */
+    public static EmbeddingConfig onnx(String model) {
+        return new EmbeddingConfig(model, null, Duration.ofSeconds(10), 32, 0, null, Map.of());
+    }
+
+    /**
+     * Creates an in-process ONNX config with the given model name and local file path.
+     */
+    public static EmbeddingConfig onnx(String model, String modelPath) {
+        return new EmbeddingConfig(model, null, Duration.ofSeconds(10), 32, 0, modelPath, Map.of());
+    }
+
+    /**
+     * Creates an in-process ONNX config with model name, local path, and properties.
+     */
+    public static EmbeddingConfig onnx(String model, String modelPath, Map<String, String> properties) {
+        return new EmbeddingConfig(model, null, Duration.ofSeconds(10), 32, 0, modelPath, properties != null ? properties : Map.of());
     }
 
     /**
      * Returns a new config with a different base URL.
      */
     public EmbeddingConfig withBaseUrl(String baseUrl) {
-        return new EmbeddingConfig(model, baseUrl, timeout, batchSize, maxConcurrent);
+        return new EmbeddingConfig(model, baseUrl, timeout, batchSize, maxConcurrent, modelPath, properties);
     }
 
     /**
      * Returns a new config with a different timeout.
      */
     public EmbeddingConfig withTimeout(Duration timeout) {
-        return new EmbeddingConfig(model, baseUrl, timeout, batchSize, maxConcurrent);
+        return new EmbeddingConfig(model, baseUrl, timeout, batchSize, maxConcurrent, modelPath, properties);
     }
 
     /**
      * Returns a new config with a different batch size.
      */
     public EmbeddingConfig withBatchSize(int batchSize) {
-        return new EmbeddingConfig(model, baseUrl, timeout, batchSize, maxConcurrent);
+        return new EmbeddingConfig(model, baseUrl, timeout, batchSize, maxConcurrent, modelPath, properties);
     }
 
     /**
      * Returns a new config with a different max concurrent requests setting.
      */
     public EmbeddingConfig withMaxConcurrent(int maxConcurrent) {
-        return new EmbeddingConfig(model, baseUrl, timeout, batchSize, maxConcurrent);
+        return new EmbeddingConfig(model, baseUrl, timeout, batchSize, maxConcurrent, modelPath, properties);
+    }
+
+    /**
+     * Returns a new config with a different model path.
+     */
+    public EmbeddingConfig withModelPath(String modelPath) {
+        return new EmbeddingConfig(model, baseUrl, timeout, batchSize, maxConcurrent, modelPath, properties);
+    }
+
+    /**
+     * Returns a new config with different properties.
+     */
+    public EmbeddingConfig withProperties(Map<String, String> properties) {
+        return new EmbeddingConfig(model, baseUrl, timeout, batchSize, maxConcurrent, modelPath, properties != null ? properties : Map.of());
     }
 }

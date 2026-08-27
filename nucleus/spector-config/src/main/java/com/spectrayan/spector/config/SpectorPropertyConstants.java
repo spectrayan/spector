@@ -88,6 +88,18 @@ public final class SpectorPropertyConstants {
     public static final String PROVIDER_EMBEDDING_CACHE_STATS_LOG_INTERVAL = "spector.provider.embedding.cache.stats-log-interval";
     public static final Duration DEFAULT_PROVIDER_EMBEDDING_CACHE_STATS_LOG_INTERVAL = Duration.ofMinutes(5);
 
+    public static final String PROVIDER_EMBEDDING_MODEL_PATH = "spector.provider.embedding.model-path";
+    public static final String DEFAULT_PROVIDER_EMBEDDING_MODEL_PATH = "";
+
+    public static final String PROVIDER_EMBEDDING_EXECUTION_PROVIDER = "spector.provider.embedding.execution-provider";
+    public static final String DEFAULT_PROVIDER_EMBEDDING_EXECUTION_PROVIDER = "CPU";
+
+    public static final String PROVIDER_EMBEDDING_INTRA_OP_THREADS = "spector.provider.embedding.intra-op-threads";
+    public static final int DEFAULT_PROVIDER_EMBEDDING_INTRA_OP_THREADS = 0;
+
+    public static final String PROVIDER_EMBEDDING_VOCAB_PATH = "spector.provider.embedding.vocab-path";
+    public static final String DEFAULT_PROVIDER_EMBEDDING_VOCAB_PATH = "";
+
     // Provider — Generation
     public static final String PROVIDER_GENERATION_TYPE = "spector.provider.generation.type";
     public static final String DEFAULT_PROVIDER_GENERATION_TYPE = "ollama";
