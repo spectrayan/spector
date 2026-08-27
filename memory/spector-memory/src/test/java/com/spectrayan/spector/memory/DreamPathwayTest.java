@@ -127,4 +127,37 @@ class DreamPathwayTest {
             assertThat(report.mode()).isEqualTo(DreamMode.DAYDREAM);
         }
     }
+
+    @Test
+    void testCustomMemoryIdGeneratorPropagation() throws Exception {
+        DreamConfig dreamConfig = DreamConfig.builder()
+                .enabled(true)
+                .build();
+
+        java.util.concurrent.atomic.AtomicInteger counter = new java.util.concurrent.atomic.AtomicInteger(100);
+        com.spectrayan.spector.memory.id.MemoryIdGenerator customIdGen = () -> "CUSTOM-ID-" + counter.getAndIncrement();
+
+        try (DreamPathway pathway = DreamPathway.builder()
+                .dreamConfig(dreamConfig)
+                .idGenerator(customIdGen)
+                .build()) {
+
+            float[] v1 = new float[]{0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+
+            DreamSignal signal = DreamSignal.builder()
+                    .mode(DreamMode.REM)
+                    .config(dreamConfig)
+                    .idGenerator(customIdGen)
+                    .seedMemoryIds(List.of("seed-1"))
+                    .seedVectors(List.of(v1))
+                    .build();
+
+            DreamReport report = pathway.conduct(signal);
+            assertThat(report).isNotNull();
+            assertThat(signal.constructedScenes()).isNotEmpty();
+            for (var scene : signal.constructedScenes()) {
+                assertThat(scene.id()).startsWith("CUSTOM-ID-");
+            }
+        }
+    }
 }

@@ -13,7 +13,6 @@
 package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.id.TsidGenerator;
 
 /**
  * Stage 10 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
@@ -25,8 +24,6 @@ import com.spectrayan.spector.memory.id.TsidGenerator;
  */
 public final class ConceptExtractRelay implements SynapticRelay<DreamSignal> {
 
-    private static final TsidGenerator TSID = new TsidGenerator();
-
     @Override
     public boolean transmit(final DreamSignal signal) {
         if (signal == null || signal.survivingScenes().isEmpty()) {
@@ -35,7 +32,7 @@ public final class ConceptExtractRelay implements SynapticRelay<DreamSignal> {
 
         for (DreamSignal.DreamScene scene : signal.survivingScenes()) {
             ExtractedInsight insight = new ExtractedInsight(
-                    TSID.generate(),
+                    signal.nextId(),
                     scene.insightText(),
                     scene.embedding(),
                     ExtractedInsight.InsightType.SEMANTIC,

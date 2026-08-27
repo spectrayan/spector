@@ -38,9 +38,9 @@ import com.spectrayan.spector.memory.dream.relay.SceneConstructRelay;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,13 +48,12 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /**
- * 7th Canonical Cognitive Pathway in Spector Memory orchestrating Dreaming,
- * Thought Experimentation, and Creative Imagination.
+ * The 7th canonical {@link CognitivePathway} in Spector — executing generative dreaming,
+ * mind-wandering counterfactuals, and stochastic Langevin discovery over memory representations.
  *
- * <h3>Biological Analog: Offline Consolidation and Generative Recombination</h3>
- * <p>Executes continuous dream cycles during offline/sleep states, mind-wandering
- * daydreams during extended idle periods, and deliberate counterfactual thought experiments
- * for prospective decision making.</p>
+ * <h3>Biological Analog: Offline REM Sleep Replay &amp; Waking Deliberate Imagination</h3>
+ * <p>Implements active systems consolidation and regularizing generative replay through a 12-relay
+ * synaptic pipeline.</p>
  *
  * @since 1.4.0
  */
@@ -73,6 +72,7 @@ public final class DreamPathway implements AutoCloseable {
     private final HyperEntityGraphMemory hyperEntityGraph;
     private final EmbeddingProvider embeddingProvider;
     private final ContinuousHopfieldNetwork hopfieldNetwork;
+    private final MemoryIdGenerator idGenerator;
 
     private DreamPathway(final Builder builder) {
         this.dreamConfig = builder.dreamConfig != null ? builder.dreamConfig : DreamConfig.defaultConfig();
@@ -85,6 +85,7 @@ public final class DreamPathway implements AutoCloseable {
         this.hyperEntityGraph = builder.hyperEntityGraph;
         this.embeddingProvider = builder.embeddingProvider;
         this.hopfieldNetwork = builder.hopfieldNetwork;
+        this.idGenerator = builder.idGenerator;
 
         var pathwayBuilder = CognitivePathway.<DreamSignal>pathway("dream_pathway");
         if (builder.interceptor != null) {
@@ -100,31 +101,31 @@ public final class DreamPathway implements AutoCloseable {
         // 3. Fragment Unpack (entity/role/affect decomposition)
         pathwayBuilder.gated("fragment_unpack", DreamGates.HAS_SEEDS, new FragmentUnpackRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
-        // 4. Hyper-Associate (anti-centroid pairing)
+        // 4. Anti-Centroid Hyper-Association
         pathwayBuilder.gated("hyper_associate", DreamGates.HAS_FRAGMENTS, new HyperAssociateRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
-        // 5. REM Replay (Hoel noise injection)
+        // 5. REM Compressed Replay with Hoel Noise
         pathwayBuilder.gated("rem_replay", DreamGates.HAS_SEEDS, new RemReplayRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
-        // 6. Scene Construct (compositional scene graph generation)
+        // 6. Compositional Scene Construction
         pathwayBuilder.gated("scene_construct", DreamGates.HAS_SEEDS, new SceneConstructRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
-        // 7. Counterfactual Probe (predict-and-verify against world model)
+        // 7. Predictive Coding Reality Testing & Counterfactual Probing
         pathwayBuilder.gated("counterfactual_probe", DreamGates.HAS_CONSTRUCTED_SCENES, new CounterfactualProbeRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
-        // 8. Langevin Discovery (interstitial concept mining over holographic tensor)
+        // 8. Langevin Stochastic SDE Discovery
         pathwayBuilder.gated("langevin_discovery", DreamGates.LANGEVIN_ENABLED, new LangevinDiscoveryRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
-        // 9. EFE Triage (4-outcome expected free energy triage)
+        // 9. Prefrontal EFE Triage (Utility Filter)
         pathwayBuilder.gated("efe_triage", DreamGates.HAS_CONSTRUCTED_SCENES, new EfeTriageRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
-        // 10. Concept Extract (persist residue, extract insight)
+        // 10. Distill Residue, Discard Scaffold (Concept Extraction)
         pathwayBuilder.gated("concept_extract", DreamGates.DREAMING_ENABLED, new ConceptExtractRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
-        // 11. Dream Journal (audit trail persistence)
+        // 11. Dream Journal Recording (Audit Trail)
         pathwayBuilder.gated("dream_journal", DreamGates.JOURNAL_ENABLED, new DreamJournalRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
-        // 12. Dream Ingestion (persist insights with FLAG_DREAMED + Hebbian inhibition)
+        // 12. Ingestion & Hebbian Synaptic Inhibition
         pathwayBuilder.gated("dream_ingestion", DreamGates.DREAMING_ENABLED, new DreamIngestionRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
         this.pathway = pathwayBuilder.build();
@@ -139,13 +140,10 @@ public final class DreamPathway implements AutoCloseable {
     }
 
     /**
-     * Conducts a full dreaming cycle over the supplied signal.
-     *
-     * @param signal the dream execution signal
-     * @return resulting {@link DreamReport}
+     * Conducts a {@link DreamSignal} through the full 12-relay pipeline.
      */
     public DreamReport conduct(final DreamSignal signal) {
-        Objects.requireNonNull(signal, "DreamSignal cannot be null");
+        Objects.requireNonNull(signal, "signal cannot be null");
         if (log.isTraceEnabled()) {
             log.trace("DreamPathway: initiating dream cycle in {} mode...", signal.mode());
         }
@@ -180,6 +178,7 @@ public final class DreamPathway implements AutoCloseable {
                 .hyperEntityGraph(hyperEntityGraph)
                 .embeddingProvider(embeddingProvider)
                 .hopfieldNetwork(hopfieldNetwork)
+                .idGenerator(idGenerator)
                 .build();
 
         return conduct(signal);
@@ -204,6 +203,7 @@ public final class DreamPathway implements AutoCloseable {
         private HyperEntityGraphMemory hyperEntityGraph;
         private EmbeddingProvider embeddingProvider;
         private ContinuousHopfieldNetwork hopfieldNetwork;
+        private MemoryIdGenerator idGenerator;
         private Function<SynapticRelay<DreamSignal>, SynapticRelay<DreamSignal>> interceptor;
 
         public Builder dreamConfig(DreamConfig dc) { this.dreamConfig = dc; return this; }
@@ -216,6 +216,7 @@ public final class DreamPathway implements AutoCloseable {
         public Builder hyperEntityGraph(HyperEntityGraphMemory heg) { this.hyperEntityGraph = heg; return this; }
         public Builder embeddingProvider(EmbeddingProvider ep) { this.embeddingProvider = ep; return this; }
         public Builder hopfieldNetwork(ContinuousHopfieldNetwork hn) { this.hopfieldNetwork = hn; return this; }
+        public Builder idGenerator(MemoryIdGenerator idGen) { this.idGenerator = idGen; return this; }
         public Builder interceptor(Function<SynapticRelay<DreamSignal>, SynapticRelay<DreamSignal>> inc) { this.interceptor = inc; return this; }
 
         public DreamPathway build() {

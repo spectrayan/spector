@@ -13,7 +13,8 @@
 package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.core.similarity.VectorOps;
+import com.spectrayan.spector.core.spi.AcceleratorRegistry;
 import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +36,6 @@ import java.util.Random;
 public final class LangevinDiscoveryRelay implements SynapticRelay<DreamSignal> {
 
     private static final Logger log = LoggerFactory.getLogger(LangevinDiscoveryRelay.class);
-    private static final TsidGenerator TSID = new TsidGenerator();
 
     public static final float MIN_TEMPERATURE_FLOOR = 0.05f;
     public static final float FINITE_DIFFERENCE_STEP_H = 1e-3f;
@@ -73,9 +73,11 @@ public final class LangevinDiscoveryRelay implements SynapticRelay<DreamSignal> 
             float energy = dmt.evaluateEnergy(v, beta);
             if (Float.isInfinite(energy)) {
                 // If tensor is zero, perform random exploratory walk
+                float[] noise = new float[dim];
                 for (int d = 0; d < dim; d++) {
-                    v[d] += (float) (random.nextGaussian() * noiseScale);
+                    noise[d] = (float) (random.nextGaussian() * noiseScale);
                 }
+                v = VectorOps.add(v, noise);
                 continue;
             }
 
@@ -93,17 +95,20 @@ public final class LangevinDiscoveryRelay implements SynapticRelay<DreamSignal> 
                 }
             }
 
-            // SDE Update
+            // Vectorized SDE Update: v_{t+1} = v_t - (eta * grad) + noise
+            float[] stepDelta = VectorOps.scale(grad, -eta);
+            float[] noise = new float[dim];
             for (int d = 0; d < dim; d++) {
-                v[d] = v[d] - (eta * grad[d]) + (float) (random.nextGaussian() * noiseScale);
+                noise[d] = (float) (random.nextGaussian() * noiseScale);
             }
+            v = VectorOps.add(v, VectorOps.add(stepDelta, noise));
         }
 
-        // Check if discovered state vector v is sufficiently distant (novel) from seed memories
-        float minSeedDist = computeMinDistance(v, signal.seedVectors());
+        // Check if discovered state vector v is sufficiently distant (novel) from seed memories using SPI Accelerator
+        float minSeedDist = computeMinDistance(v, signal.seedVectors(), dim);
 
         if (minSeedDist >= noveltyRadius) {
-            String id = TSID.generate();
+            String id = signal.nextId();
             String insightText = String.format("Interstitial Concept Discovery via Langevin Dynamics (dist=%.3f, energy=%.3f)",
                     minSeedDist, dmt.evaluateEnergy(v, beta));
 
@@ -143,22 +148,27 @@ public final class LangevinDiscoveryRelay implements SynapticRelay<DreamSignal> 
         return v;
     }
 
-    private static float computeMinDistance(float[] v, List<float[]> seeds) {
+    private static float computeMinDistance(float[] v, List<float[]> seeds, int dim) {
         if (seeds == null || seeds.isEmpty()) return 1.0f;
-        float minDist = Float.MAX_VALUE;
-        for (float[] s : seeds) {
-            if (s == null) continue;
-            float distSq = 0.0f;
-            for (int d = 0; d < Math.min(v.length, s.length); d++) {
-                float diff = v[d] - s[d];
-                distSq += diff * diff;
-            }
-            float dist = (float) Math.sqrt(distSq);
-            if (dist < minDist) {
-                minDist = dist;
+        int numSeeds = seeds.size();
+        float[] db = new float[numSeeds * dim];
+        for (int i = 0; i < numSeeds; i++) {
+            float[] s = seeds.get(i);
+            if (s != null) {
+                System.arraycopy(s, 0, db, i * dim, Math.min(dim, s.length));
             }
         }
-        return minDist != Float.MAX_VALUE ? minDist : 1.0f;
+
+        // Hardware-accelerated SIMD / GPU batch Euclidean distance via SPI
+        float[] distances = AcceleratorRegistry.getSimilarityKernel().euclideanDistance(v, db, numSeeds, dim);
+
+        float min = Float.MAX_VALUE;
+        for (float d : distances) {
+            if (d < min) {
+                min = d;
+            }
+        }
+        return min != Float.MAX_VALUE ? min : 1.0f;
     }
 
     @Override

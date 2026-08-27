@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.memory.PartitionManager;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.memory.id.MemoryIdGenerator;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -69,6 +70,9 @@ public final class DreamSignal {
 
     private final List<SceneFragment> fragments;
     private final List<ExtractedInsight> extractedInsights;
+    private static final com.spectrayan.spector.memory.id.TsidGenerator DEFAULT_ID_GEN = new com.spectrayan.spector.memory.id.TsidGenerator();
+
+    private final MemoryIdGenerator idGenerator;
     private final HebbianGraphBase hebbianGraph;
     private final DistributedMemoryTensor distributedMemoryTensor;
     private final DreamJournalMemory dreamJournalMemory;
@@ -101,6 +105,7 @@ public final class DreamSignal {
 
         this.partitionManager = builder.partitionManager;
         this.aismeConfig = builder.aismeConfig;
+        this.idGenerator = builder.idGenerator;
         
         this.seedMemoryIds = builder.seedMemoryIds != null ? new ArrayList<>(builder.seedMemoryIds) : new ArrayList<>();
         this.seedVectors = builder.seedVectors != null ? new ArrayList<>(builder.seedVectors) : new ArrayList<>();
@@ -123,6 +128,18 @@ public final class DreamSignal {
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    public MemoryIdGenerator idGenerator() { return idGenerator; }
+
+    /**
+     * Generates a globally unique memory identifier using the configured {@link MemoryIdGenerator},
+     * falling back to the standard TSID generator if no custom strategy was injected.
+     *
+     * @return unique memory ID
+     */
+    public String nextId() {
+        return idGenerator != null ? idGenerator.generate() : DEFAULT_ID_GEN.generate();
     }
 
     public DreamMode mode() { return mode; }
@@ -200,12 +217,14 @@ public final class DreamSignal {
         private HyperEntityGraphMemory hyperEntityGraph;
         private EmbeddingProvider embeddingProvider;
         private ContinuousHopfieldNetwork hopfieldNetwork;
+        private MemoryIdGenerator idGenerator;
 
         public Builder mode(DreamMode mode) { this.mode = mode; return this; }
         public Builder config(DreamConfig config) { this.config = config; return this; }
         public Builder temperature(float temperature) { this.temperature = temperature; return this; }
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
         public Builder aismeConfig(AismeConfig config) { this.aismeConfig = config; return this; }
+        public Builder idGenerator(MemoryIdGenerator idGenerator) { this.idGenerator = idGenerator; return this; }
         public Builder seedMemoryIds(List<String> ids) { this.seedMemoryIds = ids; return this; }
         public Builder seedVectors(List<float[]> vectors) { this.seedVectors = vectors; return this; }
         public Builder fragments(List<SceneFragment> fragments) { this.fragments = fragments; return this; }

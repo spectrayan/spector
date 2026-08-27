@@ -13,11 +13,12 @@
 package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.core.similarity.VectorOps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.Random;
+
 import java.util.List;
+import java.util.Random;
 
 /**
  * Stage 3 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
@@ -30,7 +31,6 @@ import java.util.List;
 public final class RemReplayRelay implements SynapticRelay<DreamSignal> {
 
     private static final Logger log = LoggerFactory.getLogger(RemReplayRelay.class);
-    private static final TsidGenerator TSID = new TsidGenerator();
 
     public static final float DEFAULT_GAMMA_NOISE = 1.5f;
     public static final float DEFAULT_IMPORTANCE_RATIO = 0.5f;
@@ -57,13 +57,14 @@ public final class RemReplayRelay implements SynapticRelay<DreamSignal> {
             float importanceRatio = DEFAULT_IMPORTANCE_RATIO;
             float sigmaDream = sigmaMax * (float) Math.pow(Math.max(0.01, 1.0 - importanceRatio), DEFAULT_GAMMA_NOISE);
 
-            float[] noisyVector = new float[vector.length];
+            float[] noise = new float[vector.length];
             for (int j = 0; j < vector.length; j++) {
-                noisyVector[j] = vector[j] + (float) (random.nextGaussian() * sigmaDream);
+                noise[j] = (float) (random.nextGaussian() * sigmaDream);
             }
+            float[] noisyVector = VectorOps.add(vector, noise);
 
             String narrative = String.format("[REM Replay: %s] Noisy compressed replay with \u03C3=%.3f", id, sigmaDream);
-            String sceneId = TSID.generate();
+            String sceneId = signal.nextId();
             DreamSignal.DreamScene scene = new DreamSignal.DreamScene(
                 sceneId,
                 narrative,

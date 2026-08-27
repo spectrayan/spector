@@ -13,14 +13,13 @@
 package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.core.similarity.VectorOps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.stream.Collectors;
 
 /**
  * Stage 6 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
@@ -35,7 +34,6 @@ import java.util.stream.Collectors;
 public final class SceneConstructRelay implements SynapticRelay<DreamSignal> {
 
     private static final Logger log = LoggerFactory.getLogger(SceneConstructRelay.class);
-    private static final TsidGenerator TSID = new TsidGenerator();
 
     @Override
     public boolean transmit(final DreamSignal signal) {
@@ -83,11 +81,11 @@ public final class SceneConstructRelay implements SynapticRelay<DreamSignal> {
             String insightDraft = String.format("Cross-domain relation: %s linked with %s through %s",
                     agentLabel, objectLabel, actionLabel);
 
-            // Blend fragment vectors with temperature-scaled Gaussian noise
+            // Blend fragment vectors with temperature-scaled Gaussian noise using VectorOps SIMD
             float[] blended = blendVectors(List.of(agent, action, obj, loc), scaledNoise, random);
 
             DreamSignal.DreamScene scene = new DreamSignal.DreamScene(
-                    TSID.generate(),
+                    signal.nextId(),
                     narrative,
                     insightDraft,
                     blended,
@@ -123,25 +121,25 @@ public final class SceneConstructRelay implements SynapticRelay<DreamSignal> {
         }
         if (dim == 0) return new float[0];
 
-        float[] blended = new float[dim];
+        float[] sum = new float[dim];
         int validCount = 0;
 
         for (SceneFragment f : frags) {
             if (f == null || f.embedding() == null || f.embedding().length == 0) continue;
-            float[] vec = f.embedding();
-            for (int d = 0; d < Math.min(dim, vec.length); d++) {
-                blended[d] += vec[d];
-            }
+            sum = VectorOps.add(sum, f.embedding());
             validCount++;
         }
 
         if (validCount > 0) {
+            float[] scaled = VectorOps.scale(sum, 1.0f / validCount);
+            float[] noise = new float[dim];
             for (int d = 0; d < dim; d++) {
-                blended[d] = (blended[d] / validCount) + (float) (rng.nextGaussian() * noiseScale);
+                noise[d] = (float) (rng.nextGaussian() * noiseScale);
             }
+            return VectorOps.add(scaled, noise);
         }
 
-        return blended;
+        return sum;
     }
 
     @Override

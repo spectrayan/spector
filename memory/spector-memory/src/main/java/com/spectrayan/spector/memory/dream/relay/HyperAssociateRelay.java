@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.core.similarity.CosineSimilarity;
+import com.spectrayan.spector.core.spi.AcceleratorRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,8 +61,11 @@ public final class HyperAssociateRelay implements SynapticRelay<DreamSignal> {
                     continue;
                 }
 
-                // 1. Semantic Distance (Anti-centroid: prefer distant concepts)
-                float cosSim = computeSimilarity(fA.embedding(), fB.embedding());
+                // 1. Semantic Distance (Anti-centroid: prefer distant concepts) via SPI CosineSimilarity
+                float cosSim = 0.0f;
+                if (fA.embedding() != null && fB.embedding() != null && fA.embedding().length == fB.embedding().length && fA.embedding().length > 0) {
+                    cosSim = AcceleratorRegistry.getSimilarityKernel().cosineSimilarity(fA.embedding(), fB.embedding(), 1, fA.embedding().length)[0];
+                }
                 float semDistance = Math.max(0.0f, 1.0f - cosSim);
 
                 // 2. Relational Role Complementarity
@@ -86,19 +89,6 @@ public final class HyperAssociateRelay implements SynapticRelay<DreamSignal> {
         }
 
         return true;
-    }
-
-    private static float computeSimilarity(float[] a, float[] b) {
-        if (a == null || b == null || a.length == 0 || b.length == 0) return 0.0f;
-        int minLen = Math.min(a.length, b.length);
-        float dot = 0.0f, normA = 0.0f, normB = 0.0f;
-        for (int k = 0; k < minLen; k++) {
-            dot += a[k] * b[k];
-            normA += a[k] * a[k];
-            normB += b[k] * b[k];
-        }
-        if (normA == 0.0f || normB == 0.0f) return 0.0f;
-        return (float) (dot / (Math.sqrt(normA) * Math.sqrt(normB)));
     }
 
     private static float computeRoleComplementarity(FragmentRole rA, FragmentRole rB) {

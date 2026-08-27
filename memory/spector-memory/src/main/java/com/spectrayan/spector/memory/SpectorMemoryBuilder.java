@@ -238,6 +238,20 @@ public final class SpectorMemoryBuilder {
         return this;
     }
 
+    public com.spectrayan.spector.memory.dream.relay.DreamConfig dreamConfig = com.spectrayan.spector.memory.dream.relay.DreamConfig.defaultConfig();
+
+    /** Sets the Generative Dreaming &amp; Thought Experiment configuration (#679). */
+    public SpectorMemoryBuilder dreamConfig(com.spectrayan.spector.memory.dream.relay.DreamConfig config) {
+        this.dreamConfig = config != null ? config : com.spectrayan.spector.memory.dream.relay.DreamConfig.defaultConfig();
+        return this;
+    }
+
+    /** Enables or disables Generative Dreaming with default configuration (#679). */
+    public SpectorMemoryBuilder enableDreaming(boolean enable) {
+        this.dreamConfig = enable ? com.spectrayan.spector.memory.dream.relay.DreamConfig.defaultConfig() : com.spectrayan.spector.memory.dream.relay.DreamConfig.disabled();
+        return this;
+    }
+
     /** Sets the primary SoulContext defining identity, purpose, and values for conscious self-modeling (#597, #623). */
     public SpectorMemoryBuilder soul(com.spectrayan.spector.memory.model.SoulContext soul) {
         this.soul = soul;

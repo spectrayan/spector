@@ -13,6 +13,8 @@
 package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.core.similarity.VectorOps;
+import com.spectrayan.spector.core.spi.AcceleratorRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,6 +26,9 @@ import java.util.List;
  *
  * <h3>Biological Analog: Predictive Coding Reality Testing &amp; Expected Free Energy Verification</h3>
  * <p>Validates synthetic counterfactual simulations against stored priors, evaluating
+ * prediction error, epistemic information gain, and pragmatic plausibility to assign
+ * rigorous quality scores.</p>
+ *
  * @since 1.4.0
  */
 public final class CounterfactualProbeRelay implements SynapticRelay<DreamSignal> {
@@ -45,25 +50,41 @@ public final class CounterfactualProbeRelay implements SynapticRelay<DreamSignal
         List<float[]> seedVectors = signal.seedVectors();
         float[] seedCentroid = computeCentroid(seedVectors);
 
+        // Prepare flat contiguous array of seed vectors for SIMD/GPU batch similarity
+        int numSeeds = seedVectors != null ? seedVectors.size() : 0;
+        int dim = (numSeeds > 0 && seedVectors.get(0) != null) ? seedVectors.get(0).length : 0;
+        float[] flatSeeds = null;
+        if (numSeeds > 0 && dim > 0) {
+            flatSeeds = new float[numSeeds * dim];
+            for (int i = 0; i < numSeeds; i++) {
+                float[] s = seedVectors.get(i);
+                if (s != null) {
+                    System.arraycopy(s, 0, flatSeeds, i * dim, Math.min(dim, s.length));
+                }
+            }
+        }
+
         for (DreamSignal.DreamScene scene : scenes) {
             float[] vec = scene.embedding();
 
-            // 1. Prediction Error / Epistemic Novelty (Surprise)
+            // 1. Prediction Error / Epistemic Novelty (Surprise) via batch SPI CosineSimilarity
             float maxSimWithSeed = 0.0f;
-            if (seedVectors != null && !seedVectors.isEmpty() && vec != null && vec.length > 0) {
-                for (float[] seedVec : seedVectors) {
-                    float sim = cosineSimilarity(vec, seedVec);
-                    if (sim > maxSimWithSeed) {
-                        maxSimWithSeed = sim;
+            if (flatSeeds != null && vec != null && vec.length == dim) {
+                float[] sims = AcceleratorRegistry.getSimilarityKernel().cosineSimilarity(vec, flatSeeds, numSeeds, dim);
+                for (float s : sims) {
+                    if (s > maxSimWithSeed) {
+                        maxSimWithSeed = s;
                     }
                 }
             }
             float epistemicSurprise = Math.max(0.0f, 1.0f - maxSimWithSeed);
 
-            // 2. Pragmatic Plausibility (Coherence with global seed centroid)
-            float pragmaticPlausibility = (seedCentroid != null && vec != null && vec.length > 0)
-                    ? Math.max(0.0f, (cosineSimilarity(vec, seedCentroid) + 1.0f) / 2.0f)
-                    : 0.5f;
+            // 2. Pragmatic Plausibility (Coherence with global seed centroid) via SPI CosineSimilarity
+            float pragmaticPlausibility = 0.5f;
+            if (seedCentroid != null && vec != null && vec.length == seedCentroid.length) {
+                float centroidSim = AcceleratorRegistry.getSimilarityKernel().cosineSimilarity(vec, seedCentroid, 1, vec.length)[0];
+                pragmaticPlausibility = Math.max(0.0f, (centroidSim + 1.0f) / 2.0f);
+            }
 
             // 3. Expected Free Energy Quality Score
             float qualityScore = WEIGHT_EPISTEMIC_SURPRISE * epistemicSurprise + WEIGHT_PRAGMATIC_PLAUSIBILITY * pragmaticPlausibility;
@@ -95,30 +116,14 @@ public final class CounterfactualProbeRelay implements SynapticRelay<DreamSignal
         int dim = vectors.get(0).length;
         if (dim == 0) return null;
 
-        float[] centroid = new float[dim];
+        float[] sum = new float[dim];
+        int count = 0;
         for (float[] v : vectors) {
             if (v == null || v.length != dim) continue;
-            for (int d = 0; d < dim; d++) {
-                centroid[d] += v[d];
-            }
+            sum = VectorOps.add(sum, v);
+            count++;
         }
-        for (int d = 0; d < dim; d++) {
-            centroid[d] /= vectors.size();
-        }
-        return centroid;
-    }
-
-    private static float cosineSimilarity(float[] a, float[] b) {
-        if (a == null || b == null || a.length == 0 || b.length == 0) return 0.0f;
-        int minLen = Math.min(a.length, b.length);
-        float dot = 0.0f, normA = 0.0f, normB = 0.0f;
-        for (int i = 0; i < minLen; i++) {
-            dot += a[i] * b[i];
-            normA += a[i] * a[i];
-            normB += b[i] * b[i];
-        }
-        if (normA <= 0.0f || normB <= 0.0f) return 0.0f;
-        return (float) (dot / (Math.sqrt(normA) * Math.sqrt(normB)));
+        return count > 0 ? VectorOps.scale(sum, 1.0f / count) : null;
     }
 
     @Override

@@ -266,6 +266,25 @@ public interface SpectorMemory extends AutoCloseable {
     }
 
     /**
+     * Triggers a generative dream or deliberate thought experiment cycle (#679).
+     *
+     * @param mode dreaming mode (REM, DAYDREAM, THOUGHT_EXPERIMENT)
+     * @return resulting dream report
+     */
+    default com.spectrayan.spector.memory.dream.relay.DreamReport dream(com.spectrayan.spector.memory.dream.relay.DreamMode mode) {
+        return com.spectrayan.spector.memory.dream.relay.DreamReport.empty();
+    }
+
+    /**
+     * Triggers a standard REM generative dream cycle (#679).
+     *
+     * @return resulting dream report
+     */
+    default com.spectrayan.spector.memory.dream.relay.DreamReport dream() {
+        return dream(com.spectrayan.spector.memory.dream.relay.DreamMode.REM);
+    }
+
+    /**
      * Evaluates candidate cognitive policies by minimizing Expected Free Energy G(π) across
      * the active multi-soul context hierarchy (AgentSoul, UserSoul, TenantSoul, OrgUnitSoul).
      *
