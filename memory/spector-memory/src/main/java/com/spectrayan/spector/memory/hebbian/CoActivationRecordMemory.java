@@ -19,7 +19,9 @@ import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
+import com.spectrayan.spector.memory.kernel.layout.CoActivationMetadataLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractHashTableMemory;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -74,10 +76,13 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
     static final float MAX_WEIGHT = 1.0f;
 
     // ── Persistence ──
-    private static final int FILE_MAGIC = 0x434F4158;
-    private static final int FILE_VERSION = 2;
-    private static final int FILE_HEADER_V1_BYTES = 24;
-    private static final int FILE_HEADER_BYTES = 32;
+    private static final int FILE_MAGIC = CoActivationMetadataLayout.FILE_MAGIC;
+    private static final int FILE_VERSION = CoActivationMetadataLayout.FILE_VERSION;
+    private static final int FILE_HEADER_V1_BYTES = CoActivationMetadataLayout.FILE_HEADER_V1_BYTES;
+    private static final int FILE_HEADER_BYTES = CoActivationMetadataLayout.FILE_HEADER_BYTES;
+
+    private static final long FNV1A_OFFSET_BASIS = 0xcbf29ce484222325L;
+    private static final long FNV1A_PRIME = 0x100000001b3L;
 
     // ── Tables ──
     private OffHeapPairTable pairTable;
@@ -125,7 +130,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
     // ══════════════════════════════════════════════════════════════
 
     public CoActivationRecordMemory() {
-        this(10_000);
+        this(SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_CAPACITY);
     }
 
     public CoActivationRecordMemory(int maxPairs) {
@@ -139,8 +144,8 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
     private CoActivationRecordMemory(MemoryId id, long totalBytes, int maxPairs, int maxEdges) {
         super(id, new CoActivationLayout(), (int) totalBytes, totalBytes);
 
-        int pairCap = nextPowerOf2(Math.max(64, maxPairs * 2));
-        int edgeCap = nextPowerOf2(Math.max(64, maxEdges * 2));
+        int pairCap = nextPowerOf2(Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_MIN_TABLE_CAPACITY, maxPairs * 2));
+        int edgeCap = nextPowerOf2(Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_MIN_TABLE_CAPACITY, maxEdges * 2));
 
         MemorySegment segment = segment();
         long dataOffset = dataOffset();
@@ -148,8 +153,8 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
         segment.set(ValueLayout.JAVA_INT, dataOffset, pairCap);
         segment.set(ValueLayout.JAVA_INT, dataOffset + 4, edgeCap);
 
-        this.pairTable = new OffHeapPairTable(pairCap, segment.asSlice(dataOffset + 8, 32L * pairCap), 0);
-        this.edgeTable = new OffHeapEdgeTable(edgeCap, segment.asSlice(dataOffset + 8 + 32L * pairCap, 40L * edgeCap), 0);
+        this.pairTable = new OffHeapPairTable(pairCap, segment.asSlice(dataOffset + layout.pairTableOffset(), (long) CoActivationLayout.PAIR_SLOT_BYTES * pairCap), 0);
+        this.edgeTable = new OffHeapEdgeTable(edgeCap, segment.asSlice(dataOffset + layout.edgeTableOffset(pairCap), (long) CoActivationLayout.EDGE_SLOT_BYTES * edgeCap), 0);
 
         log.info("CoActivationRecordMemory initialized (volatile): pairCap={}, edgeCap={}, memory={}KB",
                 pairCap, edgeCap, totalBytes / 1024);
@@ -157,9 +162,9 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
 
     private CoActivationRecordMemory(Path filePath, int pairCap, int edgeCap) {
         super(SystemMemoryId.COACTIVATION.id(), new CoActivationLayout(),
-                (int) (8 + 32L * pairCap + 40L * edgeCap), 8 + 32L * pairCap + 40L * edgeCap, filePath);
+                new CoActivationLayout().totalDataBytes(pairCap, edgeCap), new CoActivationLayout().totalDataBytes(pairCap, edgeCap), filePath);
 
-        long totalBytes = 8 + 32L * pairCap + 40L * edgeCap;
+        long totalBytes = layout.totalDataBytes(pairCap, edgeCap);
         MemorySegment segment = segment();
         long dataOffset = dataOffset();
 
@@ -169,11 +174,11 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
 
             // Zero-fill the data region (replaces the old write(totalBytes-1) hack
             // that abused AbstractRecordMemory.write() for file-sizing)
-            segment.asSlice(dataOffset + 8, totalBytes - 8).fill((byte) 0);
+            segment.asSlice(dataOffset + layout.pairTableOffset(), totalBytes - CoActivationLayout.SUB_HEADER_BYTES).fill((byte) 0);
         }
 
-        this.pairTable = new OffHeapPairTable(pairCap, segment.asSlice(dataOffset + 8, 32L * pairCap), 0);
-        this.edgeTable = new OffHeapEdgeTable(edgeCap, segment.asSlice(dataOffset + 8 + 32L * pairCap, 40L * edgeCap), 0);
+        this.pairTable = new OffHeapPairTable(pairCap, segment.asSlice(dataOffset + layout.pairTableOffset(), (long) CoActivationLayout.PAIR_SLOT_BYTES * pairCap), 0);
+        this.edgeTable = new OffHeapEdgeTable(edgeCap, segment.asSlice(dataOffset + layout.edgeTableOffset(pairCap), (long) CoActivationLayout.EDGE_SLOT_BYTES * edgeCap), 0);
 
         log.info("CoActivationRecordMemory initialized (persistent): pairCap={}, edgeCap={}, file={}",
                 pairCap, edgeCap, filePath);
@@ -205,14 +210,14 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
               true, bundlePath, null, true); // bundleManaged=true
         this.checkpointRegion = checkpointRegion;
 
-        long totalBytes = 8 + 32L * pairCap + 40L * edgeCap;
+        long totalBytes = layout.totalDataBytes(pairCap, edgeCap);
         MemorySegment segment = segment();
         long dataOffset = dataOffset();
 
         if (isNew) {
             segment.set(ValueLayout.JAVA_INT, dataOffset, pairCap);
             segment.set(ValueLayout.JAVA_INT, dataOffset + 4, edgeCap);
-            segment.asSlice(dataOffset + 8, totalBytes - 8).fill((byte) 0);
+            segment.asSlice(dataOffset + layout.pairTableOffset(), totalBytes - CoActivationLayout.SUB_HEADER_BYTES).fill((byte) 0);
 
             long now = System.currentTimeMillis();
             MemoryHeader.write(segment, 0L, layout().schemaVersion(), MemoryShape.HASHTABLE, 1,
@@ -225,8 +230,8 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
             }
         }
 
-        this.pairTable = new OffHeapPairTable(pairCap, segment.asSlice(dataOffset + 8, 32L * pairCap), 0);
-        this.edgeTable = new OffHeapEdgeTable(edgeCap, segment.asSlice(dataOffset + 8 + 32L * pairCap, 40L * edgeCap), 0);
+        this.pairTable = new OffHeapPairTable(pairCap, segment.asSlice(dataOffset + layout.pairTableOffset(), (long) CoActivationLayout.PAIR_SLOT_BYTES * pairCap), 0);
+        this.edgeTable = new OffHeapEdgeTable(edgeCap, segment.asSlice(dataOffset + layout.edgeTableOffset(pairCap), (long) CoActivationLayout.EDGE_SLOT_BYTES * edgeCap), 0);
 
         // One-time migration of standalone legacy file into bundle region
         if (isNew && bundlePath != null) {
@@ -250,13 +255,13 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
             }
         } else if (!isNew && checkpointRegion != null) {
             try {
-                int pairs = checkpointRegion.get(ValueLayout.JAVA_INT, 16);
-                int edges = checkpointRegion.get(ValueLayout.JAVA_INT, 20);
+                int pairs = checkpointRegion.get(ValueLayout.JAVA_INT, CoActivationMetadataLayout.OFF_CHK_PAIR_COUNT);
+                int edges = checkpointRegion.get(ValueLayout.JAVA_INT, CoActivationMetadataLayout.OFF_CHK_EDGE_COUNT);
                 this.pairTable.setCount(pairs);
                 this.edgeTable.setCount(edges);
 
-                int nameCount = checkpointRegion.get(ValueLayout.JAVA_INT, 24);
-                long offset = 28;
+                int nameCount = checkpointRegion.get(ValueLayout.JAVA_INT, CoActivationMetadataLayout.OFF_CHK_NAME_COUNT);
+                long offset = CoActivationMetadataLayout.OFF_CHK_TAG_DATA;
                 for (int i = 0; i < nameCount; i++) {
                     long hash = checkpointRegion.get(ValueLayout.JAVA_LONG, offset);
                     offset += 8;
@@ -274,12 +279,12 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                 CognitiveProfile[] profiles = CognitiveProfile.values();
                 for (int i = 0; i < entryCount; i++) {
                     long ctxHash = checkpointRegion.get(ValueLayout.JAVA_LONG, offset);
-                    int ordinal = checkpointRegion.get(ValueLayout.JAVA_BYTE, offset + 8) & 0xFF;
-                    float ema = checkpointRegion.get(ValueLayout.JAVA_FLOAT, offset + 12);
-                    int totalSignals = checkpointRegion.get(ValueLayout.JAVA_INT, offset + 16);
-                    int positiveSignals = checkpointRegion.get(ValueLayout.JAVA_INT, offset + 20);
-                    long lastUpdatedMs = checkpointRegion.get(ValueLayout.JAVA_LONG, offset + 24);
-                    offset += 32;
+                    int ordinal = checkpointRegion.get(ValueLayout.JAVA_BYTE, offset + CoActivationMetadataLayout.OFF_BANDIT_ORDINAL) & 0xFF;
+                    float ema = checkpointRegion.get(ValueLayout.JAVA_FLOAT, offset + CoActivationMetadataLayout.OFF_BANDIT_EMA);
+                    int totalSignals = checkpointRegion.get(ValueLayout.JAVA_INT, offset + CoActivationMetadataLayout.OFF_BANDIT_TOTAL_SIGNALS);
+                    int positiveSignals = checkpointRegion.get(ValueLayout.JAVA_INT, offset + CoActivationMetadataLayout.OFF_BANDIT_POS_SIGNALS);
+                    long lastUpdatedMs = checkpointRegion.get(ValueLayout.JAVA_LONG, offset + CoActivationMetadataLayout.OFF_BANDIT_LAST_UPDATED_MS);
+                    offset += CoActivationMetadataLayout.BANDIT_RECORD_BYTES;
 
                     if (ordinal < profiles.length) {
                         CognitiveProfile profile = profiles[ordinal];
@@ -322,9 +327,9 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
     }
 
     private static long calculateTotalBytes(int maxPairs, int maxEdges) {
-        int pairCap = nextPowerOf2(Math.max(64, maxPairs * 2));
-        int edgeCap = nextPowerOf2(Math.max(64, maxEdges * 2));
-        return 8 + 32L * pairCap + 40L * edgeCap;
+        int pairCap = nextPowerOf2(Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_MIN_TABLE_CAPACITY, maxPairs * 2));
+        int edgeCap = nextPowerOf2(Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_MIN_TABLE_CAPACITY, maxEdges * 2));
+        return new CoActivationLayout().totalDataBytes(pairCap, edgeCap);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -494,10 +499,10 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
     // ══════════════════════════════════════════════════════════════
 
     static long hashTag(String tag) {
-        long hash = 0xcbf29ce484222325L;
+        long hash = FNV1A_OFFSET_BASIS;
         for (int i = 0; i < tag.length(); i++) {
             hash ^= tag.charAt(i);
-            hash *= 0x100000001b3L;
+            hash *= FNV1A_PRIME;
         }
         return hash == 0 ? 1 : hash;
     }
@@ -631,7 +636,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                 int degree = neighborList != null ? neighborList.size() : 0;
                 if (degree == 0) continue;
 
-                float fanFactor = 1.0f / (float) Math.sqrt(degree);
+                float fanFactor = 1.0f / (float) Math.pow(degree, SpectorPropertyConstants.DEFAULT_MEMORY_CROSS_CAPTURE_FAN_EXPONENT);
                 float baseScore = (float) neighbor.coOccurrenceCount() * fanFactor;
 
                 int[] memorySlots = findMemoriesByTag(neighbor.tagHash(), maxMemoriesPerTag);
@@ -695,7 +700,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                     for (String tag : hashToTag.values()) {
                         tagsSize += 12 + tag.getBytes(StandardCharsets.UTF_8).length;
                     }
-                    int banditSize = 4 + banditStatsCount() * 32;
+                    int banditSize = 4 + banditStatsCount() * CoActivationMetadataLayout.BANDIT_RECORD_BYTES;
                     int totalSize = 8 + tagsSize + banditSize;
                     ByteBuffer buf = ByteBuffer.allocate(totalSize);
 
@@ -727,7 +732,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                         }
                     }
                     buf.flip();
-                    MemorySegment.copy(MemorySegment.ofBuffer(buf), 0, checkpointRegion, 16, totalSize);
+                    MemorySegment.copy(MemorySegment.ofBuffer(buf), 0, checkpointRegion, CoActivationMetadataLayout.OFF_CHK_PAIR_COUNT, totalSize);
                 } else {
                     Path path = filePath != null ? filePath : filePath();
                     if (path == null) return;
@@ -762,7 +767,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                     try (FileChannel ch = FileChannel.open(filePath,
                             StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
 
-                        long totalBytes = 8 + 32L * pairTable.capacity() + 40L * edgeTable.capacity();
+                        long totalBytes = layout.totalDataBytes(pairTable.capacity(), edgeTable.capacity());
                         ByteBuffer header = ByteBuffer.allocate(64);
                         MemorySegment headerSeg = MemorySegment.ofBuffer(header);
                         MemoryHeader.write(headerSeg, 0, layout().schemaVersion(), shape(),
@@ -792,7 +797,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                     flush();
                     Path path = filePath != null ? filePath : filePath();
                     try (FileChannel ch = FileChannel.open(path, StandardOpenOption.WRITE)) {
-                        ch.position(MemoryHeader.HEADER_BYTES + 8 + 32L * pairTable.capacity() + 40L * edgeTable.capacity());
+                        ch.position(MemoryHeader.HEADER_BYTES + layout.totalDataBytes(pairTable.capacity(), edgeTable.capacity()));
 
                         ByteBuffer countsBuf = ByteBuffer.allocate(8);
                         countsBuf.putInt(pairTable.count());
@@ -815,8 +820,8 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
     public static CoActivationRecordMemory load(Path filePath, int defaultPairs, int defaultEdges) {
         if (filePath == null || !Files.exists(filePath)) {
             log.info("CoActivationRecordMemory file not found, creating fresh: {}", filePath);
-            int pairCap = nextPowerOf2(Math.max(64, defaultPairs * 2));
-            int edgeCap = nextPowerOf2(Math.max(64, defaultEdges * 2));
+            int pairCap = nextPowerOf2(Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_MIN_TABLE_CAPACITY, defaultPairs * 2));
+            int edgeCap = nextPowerOf2(Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_MIN_TABLE_CAPACITY, defaultEdges * 2));
             return new CoActivationRecordMemory(filePath, pairCap, edgeCap);
         }
 
@@ -854,7 +859,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
             CoActivationRecordMemory tracker = new CoActivationRecordMemory(filePath, pairCap, edgeCap);
 
             try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
-                ch.position(MemoryHeader.HEADER_BYTES + 8 + 32L * pairCap + 40L * edgeCap);
+                ch.position(MemoryHeader.HEADER_BYTES + new CoActivationLayout().totalDataBytes(pairCap, edgeCap));
 
                 ByteBuffer countsBuf = ByteBuffer.allocate(8);
                 ch.read(countsBuf);
