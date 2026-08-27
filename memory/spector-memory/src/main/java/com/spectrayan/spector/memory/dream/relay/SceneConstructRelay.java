@@ -48,9 +48,10 @@ public final class SceneConstructRelay implements SynapticRelay<DreamSignal> {
 
         List<SceneFragment> fragments = signal.fragments();
         int maxScenes = signal.config().maxDreamsPerCycle();
-        float temp = signal.temperature();
+        float boundaryMultiplier = RemReplayRelay.computeHartmannBoundary(signal.primarySoul(), signal.config());
+        float temp = signal.temperature() * boundaryMultiplier;
         float baseNoise = signal.config().dreamNoiseScale();
-        float scaledNoise = baseNoise * (temp / REFERENCE_TEMPERATURE);
+        float scaledNoise = baseNoise * (temp / REFERENCE_TEMPERATURE) * boundaryMultiplier;
 
         Random random = new Random(signal.startTime().toEpochMilli() + RNG_SEED_SALT);
 

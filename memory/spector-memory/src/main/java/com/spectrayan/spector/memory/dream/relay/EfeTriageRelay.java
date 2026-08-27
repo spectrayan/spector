@@ -13,6 +13,8 @@
 package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.core.spi.AcceleratorRegistry;
+import com.spectrayan.spector.memory.model.SoulContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,10 +24,10 @@ import java.util.List;
 /**
  * Stage 9 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
  *
- * <h3>Biological Analog: Prefrontal Executive Dream Evaluation via Expected Free Energy</h3>
+ * <h3>Biological Analog: Prefrontal Executive Dream Evaluation via Multi-Soul Expected Free Energy</h3>
  * <p>Triages constructed dream scenarios into four canonical cognitive outcomes:
  * <b>EPISTEMIC</b> (high information gain/rule discovery), <b>PRAGMATIC</b> (goal-directed solution),
- * <b>IDENTITY</b> (self-model stabilization), and <b>NOISE</b> (rejection with Hebbian inhibition).</p>
+ * <b>IDENTITY</b> (self-model stabilization based on soul resonance), and <b>NOISE</b> (rejection with Hebbian inhibition).</p>
  *
  * @since 1.4.0
  */
@@ -35,20 +37,20 @@ public final class EfeTriageRelay implements SynapticRelay<DreamSignal> {
 
     public static final float DEFAULT_EPISTEMIC_THRESHOLD = 0.70f;
     public static final float DEFAULT_PRAGMATIC_THRESHOLD = 0.50f;
-    public static final float DEFAULT_IDENTITY_THRESHOLD = 0.35f;
+    public static final float DEFAULT_IDENTITY_FALLBACK_THRESHOLD = 0.35f;
 
     private final float epistemicThreshold;
     private final float pragmaticThreshold;
-    private final float identityThreshold;
+    private final float identityFallbackThreshold;
 
-    public EfeTriageRelay(float epistemicThreshold, float pragmaticThreshold, float identityThreshold) {
+    public EfeTriageRelay(float epistemicThreshold, float pragmaticThreshold, float identityFallbackThreshold) {
         this.epistemicThreshold = epistemicThreshold;
         this.pragmaticThreshold = pragmaticThreshold;
-        this.identityThreshold = identityThreshold;
+        this.identityFallbackThreshold = identityFallbackThreshold;
     }
 
     public EfeTriageRelay() {
-        this(DEFAULT_EPISTEMIC_THRESHOLD, DEFAULT_PRAGMATIC_THRESHOLD, DEFAULT_IDENTITY_THRESHOLD);
+        this(DEFAULT_EPISTEMIC_THRESHOLD, DEFAULT_PRAGMATIC_THRESHOLD, DEFAULT_IDENTITY_FALLBACK_THRESHOLD);
     }
 
     @Override
@@ -61,19 +63,33 @@ public final class EfeTriageRelay implements SynapticRelay<DreamSignal> {
         signal.constructedScenes().clear();
         signal.survivingScenes().clear();
 
+        SoulContext soul = signal.primarySoul();
+        float identityResonanceThreshold = signal.config().identityResonanceThreshold();
+
         int epistemic = 0, pragmatic = 0, identity = 0, noise = 0;
 
         for (DreamSignal.DreamScene scene : scenes) {
             float q = scene.qualityScore();
+            float[] vec = scene.embedding();
+
+            float soulResonance = 0.0f;
+            if (soul != null && soul.identityEmbedding() != null && vec != null && vec.length == soul.identityEmbedding().length && vec.length > 0) {
+                soulResonance = AcceleratorRegistry.getSimilarityKernel().cosineSimilarity(vec, soul.identityEmbedding(), 1, vec.length)[0];
+            }
 
             DreamSignal.TriageOutcome outcome;
-            if (q >= epistemicThreshold) {
+            if (soulResonance >= identityResonanceThreshold) {
+                // High direct alignment with the active soul self-model
+                outcome = DreamSignal.TriageOutcome.IDENTITY;
+                identity++;
+            } else if (q >= epistemicThreshold) {
                 outcome = DreamSignal.TriageOutcome.EPISTEMIC;
                 epistemic++;
             } else if (q >= pragmaticThreshold) {
                 outcome = DreamSignal.TriageOutcome.PRAGMATIC;
                 pragmatic++;
-            } else if (q >= identityThreshold) {
+            } else if (soul == null && q >= identityFallbackThreshold) {
+                // Fallback for soul-less instances
                 outcome = DreamSignal.TriageOutcome.IDENTITY;
                 identity++;
             } else {
@@ -101,8 +117,8 @@ public final class EfeTriageRelay implements SynapticRelay<DreamSignal> {
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("EfeTriageRelay: triage complete — Epistemic: {}, Pragmatic: {}, Identity: {}, Noise: {} (Surviving: {})",
-                    epistemic, pragmatic, identity, noise, signal.survivingScenes().size());
+            log.debug("EfeTriageRelay: triage complete — Epistemic: {}, Pragmatic: {}, Identity: {}, Noise: {} (Surviving: {}, Soul: {})",
+                    epistemic, pragmatic, identity, noise, signal.survivingScenes().size(), soul != null ? soul.name() : "none");
         }
 
         return true;

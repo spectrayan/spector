@@ -152,6 +152,7 @@ public final class SpectorMemoryBuilder {
 
     //  Salience profile provider (enterprise SPI) 
     SalienceProfileProvider salienceProfileProvider;
+    com.spectrayan.spector.memory.model.SalienceProfile salienceProfile;
 
     //  Importance provider SPI (#481) 
     ImportanceProvider importanceProvider;
@@ -503,6 +504,17 @@ public final class SpectorMemoryBuilder {
      */
     public SpectorMemoryBuilder salienceProfileProvider(SalienceProfileProvider provider) {
         this.salienceProfileProvider = provider;
+        return this;
+    }
+
+    /**
+     * Sets the default salience profile for user/agent interest-driven importance and dream seeding.
+     *
+     * @param profile the salience profile
+     * @return this builder
+     */
+    public SpectorMemoryBuilder salienceProfile(com.spectrayan.spector.memory.model.SalienceProfile profile) {
+        this.salienceProfile = profile;
         return this;
     }
 

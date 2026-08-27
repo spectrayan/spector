@@ -378,11 +378,25 @@ public final class SpectorMemoryFactory {
                         .build()
                 : null;
 
-        //  Dream Pathway (#679 / Generative Dreaming & Thought Experiments)
+        //  Dream Pathway (#679, #681 / Soul-Conditioned Generative Dreaming)
+        com.spectrayan.spector.memory.model.SoulContext dreamPrimarySoul =
+                builder.soul != null ? builder.soul : builder.agentSoul;
+        java.util.List<com.spectrayan.spector.memory.model.SoulContext> dreamActiveSouls;
+        if (builder.soulContexts != null && !builder.soulContexts.isEmpty()) {
+            dreamActiveSouls = builder.soulContexts;
+        } else if (dreamPrimarySoul != null) {
+            dreamActiveSouls = java.util.List.of(dreamPrimarySoul);
+        } else {
+            dreamActiveSouls = java.util.List.of();
+        }
+
         DreamPathway dreamPathway = DreamPathway.builder()
                 .dreamConfig(builder.dreamConfig)
                 .partitionManager(partitionManager)
                 .aismeConfig(builder.aismeConfig)
+                .primarySoul(dreamPrimarySoul)
+                .soulContexts(dreamActiveSouls)
+                .salienceProfile(builder.salienceProfile)
                 .hebbianGraph(graphs.hebbianGraph())
                 .entityDirectory(graphs.entityDirectory())
                 .hyperEntityGraph(graphs.hyperEntityGraph())

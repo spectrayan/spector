@@ -14,30 +14,32 @@ package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.memory.PartitionManager;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
+import com.spectrayan.spector.memory.dream.DreamJournalMemory;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.id.MemoryIdGenerator;
+import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
+import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.model.SoulContext;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import com.spectrayan.spector.memory.dream.relay.SceneFragment;
-import com.spectrayan.spector.memory.dream.relay.ExtractedInsight;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
-import com.spectrayan.spector.memory.dream.DreamJournalMemory;
-import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
-import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 
 /**
  * Mutable synaptic execution signal passed along the {@link com.spectrayan.spector.memory.DreamPathway}.
  *
  * <h3>Biological Analog: Activation during Sleep Consolidation</h3>
  * <p>Carries the state of spontaneous offline generative replay, tracking counterfactual
- * simulations, triage outcomes, and modifications to Hebbian topologies.</p>
+ * simulations, multi-soul identity constraints, salience profiles, triage outcomes, and modifications
+ * to Hebbian topologies.</p>
  *
  * @since 1.4.0
  */
@@ -63,6 +65,10 @@ public final class DreamSignal {
     private final PartitionManager partitionManager;
     private final AismeConfig aismeConfig;
 
+    private final SoulContext primarySoul;
+    private final List<SoulContext> soulContexts;
+    private final SalienceProfile salienceProfile;
+
     private final List<String> seedMemoryIds;
     private final List<float[]> seedVectors;
     private final List<DreamScene> constructedScenes;
@@ -70,7 +76,7 @@ public final class DreamSignal {
 
     private final List<SceneFragment> fragments;
     private final List<ExtractedInsight> extractedInsights;
-    private static final com.spectrayan.spector.memory.id.TsidGenerator DEFAULT_ID_GEN = new com.spectrayan.spector.memory.id.TsidGenerator();
+    private static final TsidGenerator DEFAULT_ID_GEN = new TsidGenerator();
 
     private final MemoryIdGenerator idGenerator;
     private final HebbianGraphBase hebbianGraph;
@@ -105,6 +111,9 @@ public final class DreamSignal {
 
         this.partitionManager = builder.partitionManager;
         this.aismeConfig = builder.aismeConfig;
+        this.primarySoul = builder.primarySoul;
+        this.soulContexts = builder.soulContexts != null ? Collections.unmodifiableList(builder.soulContexts) : List.of();
+        this.salienceProfile = builder.salienceProfile;
         this.idGenerator = builder.idGenerator;
         
         this.seedMemoryIds = builder.seedMemoryIds != null ? new ArrayList<>(builder.seedMemoryIds) : new ArrayList<>();
@@ -147,6 +156,10 @@ public final class DreamSignal {
     public float temperature() { return temperature; }
     public PartitionManager partitionManager() { return partitionManager; }
     public AismeConfig aismeConfig() { return aismeConfig; }
+
+    public SoulContext primarySoul() { return primarySoul; }
+    public List<SoulContext> soulContexts() { return soulContexts; }
+    public SalienceProfile salienceProfile() { return salienceProfile; }
 
     public List<String> seedMemoryIds() { return seedMemoryIds; }
     public List<float[]> seedVectors() { return seedVectors; }
@@ -206,6 +219,9 @@ public final class DreamSignal {
         private float temperature;
         private PartitionManager partitionManager;
         private AismeConfig aismeConfig;
+        private SoulContext primarySoul;
+        private List<SoulContext> soulContexts;
+        private SalienceProfile salienceProfile;
         private List<String> seedMemoryIds;
         private List<float[]> seedVectors;
         private List<SceneFragment> fragments;
@@ -224,6 +240,9 @@ public final class DreamSignal {
         public Builder temperature(float temperature) { this.temperature = temperature; return this; }
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
         public Builder aismeConfig(AismeConfig config) { this.aismeConfig = config; return this; }
+        public Builder primarySoul(SoulContext soul) { this.primarySoul = soul; return this; }
+        public Builder soulContexts(List<SoulContext> soulContexts) { this.soulContexts = soulContexts; return this; }
+        public Builder salienceProfile(SalienceProfile profile) { this.salienceProfile = profile; return this; }
         public Builder idGenerator(MemoryIdGenerator idGenerator) { this.idGenerator = idGenerator; return this; }
         public Builder seedMemoryIds(List<String> ids) { this.seedMemoryIds = ids; return this; }
         public Builder seedVectors(List<float[]> vectors) { this.seedVectors = vectors; return this; }

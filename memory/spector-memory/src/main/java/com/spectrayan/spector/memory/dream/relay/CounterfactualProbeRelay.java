@@ -15,6 +15,7 @@ package com.spectrayan.spector.memory.dream.relay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.core.spi.AcceleratorRegistry;
+import com.spectrayan.spector.memory.model.SoulContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,8 +26,8 @@ import java.util.List;
  * Stage 7 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
  *
  * <h3>Biological Analog: Predictive Coding Reality Testing &amp; Expected Free Energy Verification</h3>
- * <p>Validates synthetic counterfactual simulations against stored priors, evaluating
- * prediction error, epistemic information gain, and pragmatic plausibility to assign
+ * <p>Validates synthetic counterfactual simulations against stored priors and soul identity,
+ * evaluating prediction error, epistemic information gain, and pragmatic plausibility to assign
  * rigorous quality scores.</p>
  *
  * @since 1.4.0
@@ -51,6 +52,8 @@ public final class CounterfactualProbeRelay implements SynapticRelay<DreamSignal
         List<float[]> seedVectors = signal.seedVectors();
         float[] seedCentroid = computeCentroid(seedVectors);
 
+        SoulContext soul = signal.primarySoul();
+
         // Prepare flat contiguous array of seed vectors for SIMD/GPU batch similarity
         int numSeeds = seedVectors != null ? seedVectors.size() : 0;
         int dim = (numSeeds > 0 && seedVectors.get(0) != null) ? seedVectors.get(0).length : 0;
@@ -64,6 +67,9 @@ public final class CounterfactualProbeRelay implements SynapticRelay<DreamSignal
                 }
             }
         }
+
+        float[] soulEmbedding = (soul != null && soul.identityEmbedding() != null && soul.identityEmbedding().length == dim)
+                ? soul.identityEmbedding() : null;
 
         for (DreamSignal.DreamScene scene : scenes) {
             float[] vec = scene.embedding();
@@ -80,9 +86,12 @@ public final class CounterfactualProbeRelay implements SynapticRelay<DreamSignal
             }
             float epistemicSurprise = Math.max(0.0f, 1.0f - maxSimWithSeed);
 
-            // 2. Pragmatic Plausibility (Coherence with global seed centroid) via SPI CosineSimilarity
+            // 2. Pragmatic Plausibility: prioritize Soul Identity prior over generic seed centroid
             float pragmaticPlausibility = DEFAULT_NEUTRAL_PLAUSIBILITY;
-            if (seedCentroid != null && vec != null && vec.length == seedCentroid.length) {
+            if (soulEmbedding != null && vec != null && vec.length == dim) {
+                float soulSim = AcceleratorRegistry.getSimilarityKernel().cosineSimilarity(vec, soulEmbedding, 1, dim)[0];
+                pragmaticPlausibility = Math.max(0.0f, (soulSim + 1.0f) / 2.0f);
+            } else if (seedCentroid != null && vec != null && vec.length == seedCentroid.length) {
                 float centroidSim = AcceleratorRegistry.getSimilarityKernel().cosineSimilarity(vec, seedCentroid, 1, vec.length)[0];
                 pragmaticPlausibility = Math.max(0.0f, (centroidSim + 1.0f) / 2.0f);
             }
@@ -105,8 +114,8 @@ public final class CounterfactualProbeRelay implements SynapticRelay<DreamSignal
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("CounterfactualProbeRelay: evaluated {} constructed scenes through predictive coding verification",
-                    signal.constructedScenes().size());
+            log.debug("CounterfactualProbeRelay: evaluated {} constructed scenes through predictive coding verification (soul={})",
+                    signal.constructedScenes().size(), soul != null ? soul.name() : "none");
         }
 
         return true;
