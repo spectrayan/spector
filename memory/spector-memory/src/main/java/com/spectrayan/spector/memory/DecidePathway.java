@@ -45,6 +45,12 @@ public final class DecidePathway implements AutoCloseable {
                 new PolicyInferenceRelay(), 
                 ErrorPolicy.DEGRADE_GRACEFULLY);
 
+        // Stage 2: ExperimentRelay (waking thought experiments)
+        pathwayBuilder.gated("experiment_thought",
+                DecideGates.EFE_ENABLED,
+                new com.spectrayan.spector.memory.decide.relay.ExperimentRelay(),
+                ErrorPolicy.DEGRADE_GRACEFULLY);
+
         this.pathway = pathwayBuilder.build();
     }
 

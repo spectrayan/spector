@@ -121,7 +121,8 @@ public final class SpectorMemoryFactory {
             InsularCortex insularCortex,
             WanderPathway wanderPathway,
             com.spectrayan.spector.memory.cortex.ContinuityRecordMemory continuityMemory,
-            DecidePathway decidePathway
+            DecidePathway decidePathway,
+            DreamPathway dreamPathway
     ) {}
 
     private SpectorMemoryFactory() {}
@@ -377,6 +378,19 @@ public final class SpectorMemoryFactory {
                         .build()
                 : null;
 
+        //  Dream Pathway (#679 / Generative Dreaming & Thought Experiments)
+        DreamPathway dreamPathway = DreamPathway.builder()
+                .dreamConfig(builder.dreamConfig)
+                .partitionManager(partitionManager)
+                .aismeConfig(builder.aismeConfig)
+                .hebbianGraph(graphs.hebbianGraph())
+                .entityDirectory(graphs.entityDirectory())
+                .hyperEntityGraph(graphs.hyperEntityGraph())
+                .embeddingProvider(embeddingProvider)
+                .hopfieldNetwork(aismeBundle != null ? aismeBundle.hopfieldNetwork() : null)
+                .idGenerator(idGenerator)
+                .build();
+
         //  Daemon Supervisor + Checkpoint Daemon  (DISK mode only)
         DaemonSupervisorBuilder.DaemonBundle daemons = DaemonSupervisorBuilder.build(
                 builder, cortex, bio, graphs, index, wal, wanderPathway, partitionManager);
@@ -420,7 +434,7 @@ public final class SpectorMemoryFactory {
                 daemons.checkpointDaemon(), daemons.graphEnrichmentDaemon(), daemons.daemonSupervisor(), retrieval.bm25Index(), attachmentProcessor,
                 parallelPipeline, embedConfig, cortex.resolvedPartitionDir(), cortex.basePath(),
                 cortex.namespaceManager(), profileAdaptor, cortex.runtimeBundle(), cortex.insularCortex(),
-                wanderPathway, cortex.continuityMemory(), decidePathway
+                wanderPathway, cortex.continuityMemory(), decidePathway, dreamPathway
         );
     }
 }

@@ -181,6 +181,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final RecallPathway recallPathway;       // #561 relay-based engine (nullable)
     private final ReflectPathway reflectPathway;     // #503 relay-based sleep reflection engine
     private final ExpressPathway expressPathway;     // #602 relay-based express engine
+    private final DreamPathway dreamPathway;         // #679 relay-based generative dreaming & thought experiment engine
     private final boolean usePathwayEngine;
     private final MemoryIndex index;
     private final ScalarQuantizer quantizer;
@@ -346,6 +347,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.wanderPathway = bundle.wanderPathway();
         this.continuityMemory = bundle.continuityMemory();
         this.decidePathway = bundle.decidePathway();
+        this.dreamPathway = bundle.dreamPathway();
         this.hook = builder.hook != null ? builder.hook : MemoryObservationHook.NOOP;
 
         //  Circadian Time Trigger (Automatic Background Sleep Consolidation)
@@ -1048,6 +1050,25 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } finally {
             releaseLease();
         }
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.dream.relay.DreamReport dream(
+            com.spectrayan.spector.memory.dream.relay.DreamMode mode) {
+        acquireLease();
+        try {
+            if (dreamPathway != null) {
+                return dreamPathway.dream(mode != null ? mode : com.spectrayan.spector.memory.dream.relay.DreamMode.REM, partitionManager, null);
+            }
+            return com.spectrayan.spector.memory.dream.relay.DreamReport.empty();
+        } finally {
+            releaseLease();
+        }
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.dream.relay.DreamReport dream() {
+        return dream(com.spectrayan.spector.memory.dream.relay.DreamMode.REM);
     }
 
     @Override
