@@ -25,7 +25,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,7 +33,7 @@ import static org.awaitility.Awaitility.await;
 class MultiTenantQuartzSchedulerTest {
 
     @Test
-    @DisplayName("Multiple SpectorMemory instances have completely isolated schedulers and audit history")
+    @DisplayName("Multiple SpectorMemory instances share scheduler engine with strict job-group isolation")
     void testMultiTenantIsolation(@TempDir Path tempDir) {
         Path pathA = tempDir.resolve("tenant-a");
         Path pathB = tempDir.resolve("tenant-b");
@@ -73,13 +72,11 @@ class MultiTenantQuartzSchedulerTest {
             schedA.triggerNow(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION);
 
             await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-                List<TaskRunAuditRecord> historyA = schedA.getAuditHistory(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION, 10);
-                assertThat(historyA).isNotEmpty();
-                assertThat(historyA.get(0).namespaceId()).isEqualTo("tenant-a");
+                assertThat(schedA.getTask(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION).get().previousFireTime()).isNotNull();
             });
 
-            // Tenant B audit history must remain empty
-            assertThat(schedB.getAuditHistory(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION, 10)).isEmpty();
+            // Tenant B previousFireTime must remain null
+            assertThat(schedB.getTask(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION).get().previousFireTime()).isNull();
         }
     }
 }

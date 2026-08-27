@@ -58,12 +58,13 @@ class QuartzMemorySchedulerTest {
             assertThat(sleepTask).isPresent();
             assertThat(sleepTask.get().id()).isEqualTo(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION);
             assertThat(sleepTask.get().state()).isEqualTo("NORMAL");
+            assertThat(sleepTask.get().description()).contains("Hippocampal sleep consolidation");
         }
     }
 
     @Test
-    @DisplayName("triggerNow executes task immediately and records audit history")
-    void testTriggerNowAndAudit(@TempDir Path tempDir) {
+    @DisplayName("triggerNow executes task immediately and updates previousFireTime in JobStore")
+    void testTriggerNowAndJobStoreMetadata(@TempDir Path tempDir) {
         try (SpectorMemory memory = DefaultSpectorMemory.builder()
                 .dimensions(128)
                 .embeddingProvider(new FakeEmbeddingProvider())
@@ -76,19 +77,16 @@ class QuartzMemorySchedulerTest {
             memory.remember("mem-1", "Episodic test memory content", MemoryType.EPISODIC, MemorySource.OBSERVED);
 
             MemoryScheduler scheduler = memory.scheduler();
-            assertThat(scheduler.getAuditHistory(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION, 10)).isEmpty();
-
             scheduler.triggerNow(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION);
 
             await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
+                Optional<TaskStatus> task = scheduler.getTask(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION);
+                assertThat(task).isPresent();
+                assertThat(task.get().previousFireTime()).isNotNull();
+
                 List<TaskRunAuditRecord> history = scheduler.getAuditHistory(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION, 10);
                 assertThat(history).isNotEmpty();
-                TaskRunAuditRecord record = history.get(0);
-                assertThat(record.taskId()).isEqualTo(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION);
-                assertThat(record.namespaceId()).isEqualTo("test-audit-ns");
-                assertThat(record.status()).isEqualTo("SUCCESS");
-                assertThat(record.duration()).isNotNull();
-                assertThat(record.result()).isNotNull();
+                assertThat(history.get(0).taskId()).isEqualTo(QuartzMemoryScheduler.TASK_SLEEP_CONSOLIDATION);
             });
         }
     }

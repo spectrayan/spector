@@ -368,7 +368,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                 bundle.aismeBundle().homeostaticCore(),
                                 builder.aismeConfig.backgroundDecayFactor()) : null,
                 builder.checkpointIntervalSeconds,
-                builder.suppliedExecutor
+                builder.suppliedExecutor,
+                builder.customScheduler
         );
 
         //  JVM Shutdown Hook  (DISK mode only)

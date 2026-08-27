@@ -276,10 +276,17 @@ public final class SpectorMemoryBuilder {
     }
 
     public java.util.concurrent.Executor suppliedExecutor;
+    public org.quartz.Scheduler customScheduler;
 
     /** Supplies a custom Executor for background task execution (defaults to ConcurrentTasks.virtualExecutor()). */
     public SpectorMemoryBuilder suppliedExecutor(java.util.concurrent.Executor executor) {
         this.suppliedExecutor = executor;
+        return this;
+    }
+
+    /** Supplies a custom or shared Quartz Scheduler (e.g. from Spring Boot). If omitted, a default standalone in-memory scheduler is used. */
+    public SpectorMemoryBuilder scheduler(org.quartz.Scheduler scheduler) {
+        this.customScheduler = scheduler;
         return this;
     }
 

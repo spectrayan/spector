@@ -33,20 +33,19 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * High-performance, in-memory Quartz implementation of {@link MemoryScheduler}.
+ * Unified, multi-tenant Quartz implementation of {@link MemoryScheduler}.
  *
- * <h3>Key Properties</h3>
+ * <h3>Design Principles</h3>
  * <ul>
- *   <li><b>Zero Database Dependency</b>: Operates entirely in RAM via {@link RAMJobStore}.</li>
- *   <li><b>Virtual Thread Concurrency</b>: Powered by {@link VirtualThreadPool} delegating to Spector's concurrency SPI.</li>
- *   <li><b>Per-Namespace Isolation</b>: Runs an independent {@link Scheduler} instance partitioned by {@code namespaceId}.</li>
- *   <li><b>Task Run Auditing</b>: In-memory bounded ring-buffer capturing execution durations, domain reports, and errors.</li>
+ *   <li><b>Single Scheduler for All Namespaces</b>: A single Quartz engine manages all namespaces, partitioned by job group ({@code group = namespaceId}).</li>
+ *   <li><b>Configurable JobStore</b>: Uses standalone {@link RAMJobStore} by default, or consumes any custom/injected {@link Scheduler} (e.g. from Spring Boot Synapse with JDBC/RAM).</li>
+ *   <li><b>JobStore Metadata Integration</b>: Task schedules and descriptions are stored in Quartz {@link JobDetail} and {@link Trigger} metadata.</li>
+ *   <li><b>Execution Auditing</b>: Captures execution metrics and reports via {@link MemoryAuditListener}.</li>
+ *   <li><b>Virtual Thread Concurrency</b>: Powered by {@link VirtualThreadPool} delegating directly to Java 25 virtual threads.</li>
  * </ul>
  *
  * @since 1.4.0
@@ -54,7 +53,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class QuartzMemoryScheduler implements MemoryScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(QuartzMemoryScheduler.class);
-    private static final int MAX_AUDIT_HISTORY_PER_TASK = 500;
+    private static final String DEFAULT_STANDALONE_SCHEDULER_NAME = "spector-standalone-scheduler";
+    private static final MemoryAuditListener GLOBAL_AUDIT_LISTENER = new MemoryAuditListener("GlobalMemoryAuditListener");
 
     public static final String TASK_SLEEP_CONSOLIDATION = "sleep-consolidation";
     public static final String TASK_REM_DREAMING = "rem-dreaming";
@@ -64,13 +64,10 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
     public static final String TASK_GRAPH_ENRICHMENT = "graph-enrichment";
 
     private final String namespaceId;
-    private final String schedulerName;
     private final Scheduler quartzScheduler;
-    private final AtomicBoolean running = new AtomicBoolean(false);
-
-    private final ConcurrentHashMap<String, ConcurrentLinkedDeque<TaskRunAuditRecord>> taskAuditStore = new ConcurrentHashMap<>();
-    private final ConcurrentLinkedDeque<TaskRunAuditRecord> recentAuditHistory = new ConcurrentLinkedDeque<>();
-    private final ConcurrentHashMap<String, String> taskDescriptions = new ConcurrentHashMap<>();
+    private final boolean ownsLifecycle;
+    private final AtomicBoolean active = new AtomicBoolean(false);
+    private final MemoryAuditListener auditListener;
 
     public QuartzMemoryScheduler(
             String namespaceId,
@@ -84,42 +81,69 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             Runnable dmnDaemon,
             Runnable decayDaemon,
             long checkpointIntervalSeconds,
-            Executor suppliedExecutor) {
+            Executor suppliedExecutor,
+            Scheduler suppliedScheduler) {
 
         this.namespaceId = namespaceId != null && !namespaceId.isBlank() ? namespaceId : "default";
-        this.schedulerName = "spector-scheduler-" + this.namespaceId;
+        this.auditListener = GLOBAL_AUDIT_LISTENER;
 
-        Executor targetExecutor = suppliedExecutor != null ? suppliedExecutor : ConcurrentTasks.virtualExecutor();
-        VirtualThreadPool threadPool = new VirtualThreadPool(targetExecutor);
-        threadPool.setInstanceName(this.schedulerName);
+        if (suppliedScheduler != null) {
+            this.quartzScheduler = suppliedScheduler;
+            this.ownsLifecycle = false;
+        } else {
+            this.quartzScheduler = resolveDefaultStandaloneScheduler(suppliedExecutor);
+            this.ownsLifecycle = false;
+        }
 
         try {
-            DirectSchedulerFactory factory = DirectSchedulerFactory.getInstance();
-            Scheduler existing = factory.getScheduler(this.schedulerName);
-            if (existing != null && !existing.isShutdown()) {
-                try {
-                    existing.shutdown(false);
-                } catch (Exception ignored) {}
+            ensureAuditListenerRegistered(this.quartzScheduler, this.auditListener);
+
+            if (!this.quartzScheduler.isStarted()) {
+                this.quartzScheduler.start();
             }
 
-            threadPool.initialize();
-            factory.createScheduler(this.schedulerName, "ID_" + this.namespaceId + "_" + System.nanoTime(),
-                    threadPool, new RAMJobStore());
-            this.quartzScheduler = factory.getScheduler(this.schedulerName);
-
-            // Register audit listener for all jobs in this scheduler
-            this.quartzScheduler.getListenerManager().addJobListener(new MemoryAuditListener(), EverythingMatcher.allJobs());
-
-            // Register core memory tasks
+            // Register core memory tasks under group = namespaceId
             registerTasks(memory, circadianPolicy, dreamPathway, partitionManager, aismeConfig,
                     checkpointDaemon, graphEnrichmentDaemon, dmnDaemon, decayDaemon, checkpointIntervalSeconds);
 
-            this.quartzScheduler.start();
-            running.set(true);
-            log.info("QuartzMemoryScheduler started for namespace [{}]", this.namespaceId);
+            this.active.set(true);
+            log.info("QuartzMemoryScheduler initialized for namespace [{}]", this.namespaceId);
 
         } catch (SchedulerException e) {
             throw new RuntimeException("Failed to initialize QuartzMemoryScheduler for namespace " + this.namespaceId, e);
+        }
+    }
+
+    private static synchronized void ensureAuditListenerRegistered(Scheduler scheduler, MemoryAuditListener listener) {
+        try {
+            if (scheduler.getListenerManager().getJobListener(listener.getName()) == null) {
+                scheduler.getListenerManager().addJobListener(listener, EverythingMatcher.allJobs());
+            }
+        } catch (SchedulerException e) {
+            log.warn("Failed to register MemoryAuditListener on scheduler: {}", e.getMessage());
+        }
+    }
+
+    private static synchronized Scheduler resolveDefaultStandaloneScheduler(Executor suppliedExecutor) {
+        DirectSchedulerFactory factory = DirectSchedulerFactory.getInstance();
+        try {
+            Scheduler existing = factory.getScheduler(DEFAULT_STANDALONE_SCHEDULER_NAME);
+            if (existing != null && !existing.isShutdown()) {
+                return existing;
+            }
+
+            Executor targetExecutor = suppliedExecutor != null ? suppliedExecutor : ConcurrentTasks.virtualExecutor();
+            VirtualThreadPool threadPool = new VirtualThreadPool(targetExecutor);
+            threadPool.setInstanceName(DEFAULT_STANDALONE_SCHEDULER_NAME);
+            threadPool.initialize();
+
+            factory.createScheduler(DEFAULT_STANDALONE_SCHEDULER_NAME, "STANDALONE_PRIMARY",
+                    threadPool, new RAMJobStore());
+            Scheduler scheduler = factory.getScheduler(DEFAULT_STANDALONE_SCHEDULER_NAME);
+            scheduler.start();
+            return scheduler;
+        } catch (SchedulerException e) {
+            throw new RuntimeException("Failed to initialize default standalone Quartz scheduler", e);
         }
     }
 
@@ -231,16 +255,20 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
 
         JobDetail job = JobBuilder.newJob(jobClass)
                 .withIdentity(taskId, namespaceId)
+                .withDescription(description)
                 .usingJobData(dataMap)
                 .build();
 
         Trigger trigger = TriggerBuilder.newTrigger()
                 .withIdentity(taskId + "-trigger", namespaceId)
+                .withDescription(description)
                 .startAt(Date.from(Instant.now().plusMillis(Math.max(1000L, initialDelayMs))))
                 .withSchedule(scheduleBuilder)
                 .build();
 
-        taskDescriptions.put(taskId, description);
+        if (quartzScheduler.checkExists(job.getKey())) {
+            quartzScheduler.deleteJob(job.getKey());
+        }
         quartzScheduler.scheduleJob(job, trigger);
     }
 
@@ -251,7 +279,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
 
     @Override
     public boolean isRunning() {
-        return running.get() && !quartzSchedulerIsShutdown();
+        return active.get() && !quartzSchedulerIsShutdown();
     }
 
     private boolean quartzSchedulerIsShutdown() {
@@ -267,17 +295,26 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
         List<TaskStatus> list = new ArrayList<>();
         try {
             for (JobKey jobKey : quartzScheduler.getJobKeys(GroupMatcher.jobGroupEquals(namespaceId))) {
+                JobDetail detail = quartzScheduler.getJobDetail(jobKey);
                 List<? extends Trigger> triggers = quartzScheduler.getTriggersOfJob(jobKey);
                 Trigger tr = triggers.isEmpty() ? null : triggers.get(0);
                 Trigger.TriggerState state = tr != null ? quartzScheduler.getTriggerState(tr.getKey()) : Trigger.TriggerState.NONE;
+
+                Date prevFire = tr != null ? tr.getPreviousFireTime() : null;
+                if (prevFire == null) {
+                    var history = auditListener.getAuditHistory(namespaceId, jobKey.getName(), 1);
+                    if (!history.isEmpty()) {
+                        prevFire = Date.from(history.get(0).startTime());
+                    }
+                }
 
                 list.add(new TaskStatus(
                         jobKey.getName(),
                         namespaceId,
                         state.name(),
-                        tr != null ? tr.getPreviousFireTime() : null,
+                        prevFire,
                         tr != null ? tr.getNextFireTime() : null,
-                        taskDescriptions.getOrDefault(jobKey.getName(), "Memory background task")
+                        detail != null && detail.getDescription() != null ? detail.getDescription() : "Memory background task"
                 ));
             }
         } catch (SchedulerException e) {
@@ -294,17 +331,26 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
                 return Optional.empty();
             }
 
+            JobDetail detail = quartzScheduler.getJobDetail(jobKey);
             List<? extends Trigger> triggers = quartzScheduler.getTriggersOfJob(jobKey);
             Trigger tr = triggers.isEmpty() ? null : triggers.get(0);
             Trigger.TriggerState state = tr != null ? quartzScheduler.getTriggerState(tr.getKey()) : Trigger.TriggerState.NONE;
+
+            Date prevFire = tr != null ? tr.getPreviousFireTime() : null;
+            if (prevFire == null) {
+                var history = auditListener.getAuditHistory(namespaceId, taskId, 1);
+                if (!history.isEmpty()) {
+                    prevFire = Date.from(history.get(0).startTime());
+                }
+            }
 
             return Optional.of(new TaskStatus(
                     jobKey.getName(),
                     namespaceId,
                     state.name(),
-                    tr != null ? tr.getPreviousFireTime() : null,
+                    prevFire,
                     tr != null ? tr.getNextFireTime() : null,
-                    taskDescriptions.getOrDefault(jobKey.getName(), "Memory background task")
+                    detail != null && detail.getDescription() != null ? detail.getDescription() : "Memory background task"
             ));
         } catch (SchedulerException e) {
             log.error("Failed to get task [{}] for namespace {}", taskId, namespaceId, e);
@@ -314,16 +360,12 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
 
     @Override
     public List<TaskRunAuditRecord> getAuditHistory(String taskId, int limit) {
-        var deque = taskAuditStore.get(taskId);
-        if (deque == null) {
-            return List.of();
-        }
-        return deque.stream().limit(Math.max(1, limit)).toList();
+        return auditListener.getAuditHistory(namespaceId, taskId, limit);
     }
 
     @Override
     public List<TaskRunAuditRecord> getRecentAuditHistory(int limit) {
-        return recentAuditHistory.stream().limit(Math.max(1, limit)).toList();
+        return auditListener.getRecentAuditHistory(namespaceId, limit);
     }
 
     @Override
@@ -401,83 +443,24 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
 
     @Override
     public void close() {
-        if (running.compareAndSet(true, false)) {
+        if (active.compareAndSet(true, false)) {
             try {
-                log.info("Shutting down QuartzMemoryScheduler for namespace [{}]", namespaceId);
-                quartzScheduler.shutdown(true);
+                log.info("Deregistering tasks for namespace [{}]", namespaceId);
+                var jobKeys = quartzScheduler.getJobKeys(GroupMatcher.jobGroupEquals(namespaceId));
+                if (!jobKeys.isEmpty()) {
+                    quartzScheduler.deleteJobs(new ArrayList<>(jobKeys));
+                }
+                auditListener.clearNamespace(namespaceId);
+                if (ownsLifecycle) {
+                    quartzScheduler.shutdown(true);
+                }
             } catch (SchedulerException e) {
-                log.warn("Error during QuartzMemoryScheduler shutdown for namespace {}: {}", namespaceId, e.getMessage());
+                log.warn("Error during QuartzMemoryScheduler close for namespace {}: {}", namespaceId, e.getMessage());
             }
         }
     }
 
     public Scheduler rawQuartzScheduler() {
         return quartzScheduler;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    //  MemoryAuditListener — captures run execution details and domain reports
-    // ═══════════════════════════════════════════════════════════════════════
-
-    private final class MemoryAuditListener implements JobListener {
-
-        @Override
-        public String getName() {
-            return "MemoryAuditListener-" + namespaceId;
-        }
-
-        @Override
-        public void jobToBeExecuted(JobExecutionContext context) {
-            context.put("exec_start_instant", Instant.now());
-        }
-
-        @Override
-        public void jobExecutionVetoed(JobExecutionContext context) {
-            String taskId = context.getJobDetail().getKey().getName();
-            log.warn("Task execution vetoed: [{}] in namespace [{}]", taskId, namespaceId);
-        }
-
-        @Override
-        public void jobWasExecuted(JobExecutionContext context, JobExecutionException jobException) {
-            Instant start = (Instant) context.get("exec_start_instant");
-            if (start == null) {
-                start = Instant.now();
-            }
-            Instant end = Instant.now();
-            Duration duration = Duration.between(start, end);
-            String taskId = context.getJobDetail().getKey().getName();
-            String runId = context.getFireInstanceId() != null ? context.getFireInstanceId() : UUID.randomUUID().toString();
-
-            TaskRunAuditRecord record = new TaskRunAuditRecord(
-                    runId,
-                    taskId,
-                    namespaceId,
-                    start,
-                    end,
-                    duration,
-                    jobException == null ? "SUCCESS" : "FAILED",
-                    context.getResult(),
-                    jobException != null ? jobException.getMessage() : null
-            );
-
-            // Record into per-task audit ring buffer
-            var taskDeque = taskAuditStore.computeIfAbsent(taskId, k -> new ConcurrentLinkedDeque<>());
-            taskDeque.addFirst(record);
-            while (taskDeque.size() > MAX_AUDIT_HISTORY_PER_TASK) {
-                taskDeque.removeLast();
-            }
-
-            // Record into global recent history ring buffer
-            recentAuditHistory.addFirst(record);
-            while (recentAuditHistory.size() > MAX_AUDIT_HISTORY_PER_TASK * 2) {
-                recentAuditHistory.removeLast();
-            }
-
-            if (jobException != null) {
-                log.error("Task [{}] in namespace [{}] failed after {}ms: {}", taskId, namespaceId, duration.toMillis(), jobException.getMessage());
-            } else {
-                log.debug("Task [{}] in namespace [{}] completed in {}ms", taskId, namespaceId, duration.toMillis());
-            }
-        }
     }
 }
