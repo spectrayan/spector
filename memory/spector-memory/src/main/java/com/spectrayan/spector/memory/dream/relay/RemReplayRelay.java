@@ -43,15 +43,15 @@ public final class RemReplayRelay implements SynapticRelay<DreamSignal> {
         }
         Random random = new Random(randomSeed);
 
-        float sigmaMax = signal.config().dreamNoiseScale();
+        float sigmaMax = signal.config().dreamNoiseScale() * (signal.temperature() / 2.0f);
         float gammaNoise = 1.5f;
 
         for (int i = 0; i < seeds.size(); i++) {
             float[] vector = seeds.get(i);
             String id = seedIds.get(i);
 
-            float importanceRatio = 0.5f; // Phase 1 proxy
-            float sigmaDream = sigmaMax * (float) Math.pow(1.0 - importanceRatio, gammaNoise);
+            float importanceRatio = 0.5f;
+            float sigmaDream = sigmaMax * (float) Math.pow(Math.max(0.01, 1.0 - importanceRatio), gammaNoise);
 
             float[] noisyVector = new float[vector.length];
             for (int j = 0; j < vector.length; j++) {

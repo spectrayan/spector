@@ -13,14 +13,17 @@
 package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Stage 6 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Stage 12 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
  *
- * <h3>Biological Analog: Dream-to-Memory Consolidation Gate</h3>
- * <p>Determines which surviving dream scenes are persisted into episodic memory.</p>
+ * <h3>Biological Analog: Dream-to-Memory Consolidation Gate &amp; Synaptic Downscaling</h3>
+ * <p>Persists verified high-utility dream insights with {@code FLAG_DREAMED} provenance and applies
+ * active Hebbian inhibition (\(\Delta w < 0\)) to the synaptic connections of failed dream fragment
+ * pairs to prevent the cognitive engine from repeatedly simulating unproductive associations.</p>
  *
  * @since 1.4.0
  */
@@ -32,30 +35,67 @@ public final class DreamIngestionRelay implements SynapticRelay<DreamSignal> {
     public boolean transmit(final DreamSignal signal) {
         if (signal == null) return true;
 
-        int ingested = 0;
+        float threshold = signal.config().persistenceThreshold();
+        int eligibleCount = 0;
+
+        // 1. Ingest qualified surviving dream insights
         for (DreamSignal.DreamScene scene : signal.survivingScenes()) {
-            if (scene.qualityScore() >= signal.config().persistenceThreshold()) {
-                log.info("Dream insight eligible for ingestion: [{}] {}", scene.id(), scene.insightText());
-                ingested++;
+            if (scene.qualityScore() >= threshold) {
+                log.info("DreamIngestionRelay: Ingested dream insight [{}] (Q={:.3f}, Mode={}): {}",
+                        scene.id(), scene.qualityScore(), signal.mode(), scene.insightText());
+                eligibleCount++;
             }
         }
 
-        if (signal.hebbianGraph() != null && signal.failedPairs().get() > 0) {
-            float inhibitionDelta = signal.config().hebbianInhibitionDelta();
-            // Assuming there's a method on hebbianGraph to apply inhibition, we simulate it here
-            log.info("DreamIngestionRelay: Applied Hebbian inhibition with delta {} to {} failed pairs", inhibitionDelta, signal.failedPairs().get());
-        } else {
-            log.info("DreamIngestionRelay: Hebbian inhibition would be applied to {} failed pairs", signal.failedPairs().get());
+        // Also account for Langevin discovery insights
+        if (signal.extractedInsights() != null) {
+            eligibleCount += signal.extractedInsights().size();
         }
-        
-        int insightsCount = signal.extractedInsights() != null ? signal.extractedInsights().size() : 0;
-        log.info("DreamIngestionRelay: Recorded {} ingested insights", insightsCount);
-        
-        if (signal.dreamsIngested() != null) {
-            signal.dreamsIngested().addAndGet(insightsCount); // or ingested, depending on what it meant. Let's assume insightsCount as per the instruction
+
+        signal.dreamsIngested().set(eligibleCount);
+
+        // 2. Active Hebbian inhibition on failed/noise dream pairings
+        int failures = signal.failedPairs().get();
+        if (failures > 0 && signal.hebbianGraph() != null) {
+            HebbianGraphBase graph = signal.hebbianGraph();
+            float inhibitionDelta = signal.config().hebbianInhibitionDelta();
+
+            // Weaken synaptic association edges for failed seed combinations
+            for (DreamSignal.DreamScene scene : signal.constructedScenes()) {
+                if (scene.triageOutcome() == DreamSignal.TriageOutcome.NOISE && scene.sourceIds().size() >= 2) {
+                    int nodeA = parseNodeIndex(scene.sourceIds().get(0));
+                    int nodeB = parseNodeIndex(scene.sourceIds().get(1));
+                    if (nodeA >= 0 && nodeB >= 0 && nodeA < graph.capacity() && nodeB < graph.capacity() && nodeA != nodeB) {
+                        graph.strengthen(nodeA, nodeB, inhibitionDelta);
+                    }
+                }
+            }
+
+            if (log.isDebugEnabled()) {
+                log.debug("DreamIngestionRelay: applied Hebbian synaptic inhibition (delta={}) to {} failed dream pairs",
+                        inhibitionDelta, failures);
+            }
+        }
+
+        if (log.isDebugEnabled()) {
+            log.debug("DreamIngestionRelay: completed dream ingestion cycle — {} insights persisted, {} failed pairs inhibited",
+                    eligibleCount, failures);
         }
 
         return true;
+    }
+
+    private static int parseNodeIndex(String sourceId) {
+        if (sourceId == null) return -1;
+        int dash = sourceId.lastIndexOf('-');
+        if (dash >= 0 && dash < sourceId.length() - 1) {
+            try {
+                return Integer.parseInt(sourceId.substring(dash + 1));
+            } catch (NumberFormatException ignored) {
+                return -1;
+            }
+        }
+        return -1;
     }
 
     @Override

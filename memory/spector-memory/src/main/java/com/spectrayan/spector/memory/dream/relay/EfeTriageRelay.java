@@ -16,11 +16,16 @@ import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * Stage 4 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Stage 9 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
  *
- * <h3>Biological Analog: Prefrontal Cortex Executive Dream Evaluation via Expected Free Energy</h3>
- * <p>Triages constructed scenes into epistemic, pragmatic, identity, or noise outcomes.</p>
+ * <h3>Biological Analog: Prefrontal Executive Dream Evaluation via Expected Free Energy</h3>
+ * <p>Triages constructed dream scenarios into four canonical cognitive outcomes:
+ * <b>EPISTEMIC</b> (high information gain/rule discovery), <b>PRAGMATIC</b> (goal-directed solution),
+ * <b>IDENTITY</b> (self-model stabilization), and <b>NOISE</b> (rejection with Hebbian inhibition).</p>
  *
  * @since 1.4.0
  */
@@ -30,27 +35,27 @@ public final class EfeTriageRelay implements SynapticRelay<DreamSignal> {
 
     @Override
     public boolean transmit(final DreamSignal signal) {
-        if (signal == null || signal.constructedScenes().isEmpty()) return true;
+        if (signal == null || signal.constructedScenes().isEmpty()) {
+            return true;
+        }
+
+        List<DreamSignal.DreamScene> scenes = new ArrayList<>(signal.constructedScenes());
+        signal.constructedScenes().clear();
+        signal.survivingScenes().clear();
 
         int epistemic = 0, pragmatic = 0, identity = 0, noise = 0;
 
-        for (int i = 0; i < signal.constructedScenes().size(); i++) {
-            DreamSignal.DreamScene scene = signal.constructedScenes().get(i);
-
-            float novelty = 0.5f; // Phase 1 placeholder
-            float alignment = 0.5f; // Phase 1 placeholder
-            float epistemicGain = 0.5f;
-
-            float qualityScore = novelty * 0.4f + alignment * 0.3f + epistemicGain * 0.3f;
+        for (DreamSignal.DreamScene scene : scenes) {
+            float q = scene.qualityScore();
 
             DreamSignal.TriageOutcome outcome;
-            if (qualityScore >= 0.7f) {
+            if (q >= 0.70f) {
                 outcome = DreamSignal.TriageOutcome.EPISTEMIC;
                 epistemic++;
-            } else if (qualityScore >= 0.5f) {
+            } else if (q >= 0.50f) {
                 outcome = DreamSignal.TriageOutcome.PRAGMATIC;
                 pragmatic++;
-            } else if (qualityScore >= 0.3f) {
+            } else if (q >= 0.35f) {
                 outcome = DreamSignal.TriageOutcome.IDENTITY;
                 identity++;
             } else {
@@ -58,38 +63,28 @@ public final class EfeTriageRelay implements SynapticRelay<DreamSignal> {
                 noise++;
             }
 
-            DreamSignal.DreamScene evaluatedScene = new DreamSignal.DreamScene(
-                scene.id(),
-                scene.narrative(),
-                scene.insightText(),
-                scene.embedding(),
-                scene.sourceIds(),
-                qualityScore,
-                outcome
+            DreamSignal.DreamScene evaluated = new DreamSignal.DreamScene(
+                    scene.id(),
+                    scene.narrative(),
+                    scene.insightText(),
+                    scene.embedding(),
+                    scene.sourceIds(),
+                    q,
+                    outcome
             );
 
-            // Replace the scene with evaluated one if possible, or assume it's just a placeholder implementation
-            try {
-                signal.constructedScenes().set(i, evaluatedScene);
-            } catch (UnsupportedOperationException e) {
-                // Ignore if list is immutable
-            }
+            signal.addConstructedScene(evaluated);
 
             if (outcome != DreamSignal.TriageOutcome.NOISE) {
-                signal.survivingScenes().add(evaluatedScene);
+                signal.addSurvivingScene(evaluated);
             } else {
-                // Assume failedPairs is a counter/list we can manipulate
-                if (signal.failedPairs() instanceof java.util.concurrent.atomic.AtomicInteger) {
-                    ((java.util.concurrent.atomic.AtomicInteger) signal.failedPairs()).incrementAndGet();
-                } else if (signal.failedPairs() instanceof java.util.List) {
-                    ((java.util.List) signal.failedPairs()).add(evaluatedScene);
-                }
+                signal.failedPairs().incrementAndGet();
             }
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("EfeTriageRelay: triage statistics - Epistemic: {}, Pragmatic: {}, Identity: {}, Noise: {}",
-                epistemic, pragmatic, identity, noise);
+            log.debug("EfeTriageRelay: triage complete — Epistemic: {}, Pragmatic: {}, Identity: {}, Noise: {} (Surviving: {})",
+                    epistemic, pragmatic, identity, noise, signal.survivingScenes().size());
         }
 
         return true;
