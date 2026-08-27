@@ -47,4 +47,32 @@ public final class DreamGates {
     public static final Specification<DreamSignal> JOURNAL_ENABLED =
             Specification.of("Dream journaling is disabled in configuration",
                     s -> s.config() != null && s.config().journalEnabled());
+
+    /**
+     * Gate evaluating whether fragments were identified.
+     */
+    public static final Specification<DreamSignal> HAS_FRAGMENTS =
+            Specification.of("No fragments available",
+                    s -> !s.fragments().isEmpty());
+
+    /**
+     * Gate evaluating whether extracted insights exist.
+     */
+    public static final Specification<DreamSignal> HAS_INSIGHTS =
+            Specification.of("No extracted insights available",
+                    s -> !s.extractedInsights().isEmpty());
+
+    /**
+     * Gate evaluating whether constructed scenes are available.
+     */
+    public static final Specification<DreamSignal> HAS_CONSTRUCTED_SCENES =
+            Specification.of("No constructed scenes available",
+                    s -> !s.constructedScenes().isEmpty());
+
+    /**
+     * Gate evaluating whether Langevin dynamics are enabled.
+     */
+    public static final Specification<DreamSignal> LANGEVIN_ENABLED =
+            Specification.of("Langevin dynamics disabled or missing tensor",
+                    s -> s.distributedMemoryTensor() != null && s.config().langevinSteps() > 0);
 }

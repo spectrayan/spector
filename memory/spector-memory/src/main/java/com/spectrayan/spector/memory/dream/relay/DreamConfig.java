@@ -34,6 +34,10 @@ public record DreamConfig(
         boolean journalEnabled,
         int dreamCycleFrequency
 ) {
+    public static Builder builder() {
+        return new Builder();
+    }
+
     public static DreamConfig defaultConfig() {
         return new Builder().build();
     }
@@ -43,7 +47,7 @@ public record DreamConfig(
     }
 
     public static final class Builder {
-        private boolean enabled = false;
+        private boolean enabled = true;
         private float dreamNoiseScale = 0.15f;
         private float dreamTemperatureRem = 2.0f;
         private float dreamTemperatureDaydream = 1.0f;

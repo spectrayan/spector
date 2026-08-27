@@ -21,6 +21,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.spectrayan.spector.memory.dream.relay.SceneFragment;
+import com.spectrayan.spector.memory.dream.relay.ExtractedInsight;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
+import com.spectrayan.spector.memory.dream.DreamJournalMemory;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
+
 /**
  * Mutable synaptic execution signal passed along the {@link com.spectrayan.spector.memory.DreamPathway}.
  *
@@ -57,6 +67,16 @@ public final class DreamSignal {
     private final List<DreamScene> constructedScenes;
     private final List<DreamScene> survivingScenes;
 
+    private final List<SceneFragment> fragments;
+    private final List<ExtractedInsight> extractedInsights;
+    private final HebbianGraphBase hebbianGraph;
+    private final DistributedMemoryTensor distributedMemoryTensor;
+    private final DreamJournalMemory dreamJournalMemory;
+    private final EntityDirectory entityDirectory;
+    private final HyperEntityGraphMemory hyperEntityGraph;
+    private final EmbeddingProvider embeddingProvider;
+    private final ContinuousHopfieldNetwork hopfieldNetwork;
+
     private final AtomicInteger dreamsGenerated = new AtomicInteger(0);
     private final AtomicInteger dreamsIngested = new AtomicInteger(0);
     private final AtomicInteger failedPairs = new AtomicInteger(0);
@@ -88,6 +108,16 @@ public final class DreamSignal {
         this.constructedScenes = new ArrayList<>();
         this.survivingScenes = new ArrayList<>();
         
+        this.fragments = builder.fragments != null ? new ArrayList<>(builder.fragments) : new ArrayList<>();
+        this.extractedInsights = builder.extractedInsights != null ? new ArrayList<>(builder.extractedInsights) : new ArrayList<>();
+        this.hebbianGraph = builder.hebbianGraph;
+        this.distributedMemoryTensor = builder.distributedMemoryTensor;
+        this.dreamJournalMemory = builder.dreamJournalMemory;
+        this.entityDirectory = builder.entityDirectory;
+        this.hyperEntityGraph = builder.hyperEntityGraph;
+        this.embeddingProvider = builder.embeddingProvider;
+        this.hopfieldNetwork = builder.hopfieldNetwork;
+
         this.startTime = Instant.now();
     }
 
@@ -106,10 +136,28 @@ public final class DreamSignal {
     public List<DreamScene> constructedScenes() { return constructedScenes; }
     public List<DreamScene> survivingScenes() { return survivingScenes; }
 
+    public List<SceneFragment> fragments() { return fragments; }
+    public List<ExtractedInsight> extractedInsights() { return extractedInsights; }
+    public HebbianGraphBase hebbianGraph() { return hebbianGraph; }
+    public DistributedMemoryTensor distributedMemoryTensor() { return distributedMemoryTensor; }
+    public DreamJournalMemory dreamJournalMemory() { return dreamJournalMemory; }
+    public EntityDirectory entityDirectory() { return entityDirectory; }
+    public HyperEntityGraphMemory hyperEntityGraph() { return hyperEntityGraph; }
+    public EmbeddingProvider embeddingProvider() { return embeddingProvider; }
+    public ContinuousHopfieldNetwork hopfieldNetwork() { return hopfieldNetwork; }
+
     public AtomicInteger dreamsGenerated() { return dreamsGenerated; }
     public AtomicInteger dreamsIngested() { return dreamsIngested; }
     public AtomicInteger failedPairs() { return failedPairs; }
     public Instant startTime() { return startTime; }
+
+    public synchronized void addFragment(SceneFragment fragment) {
+        fragments.add(fragment);
+    }
+    
+    public synchronized void addExtractedInsight(ExtractedInsight insight) {
+        extractedInsights.add(insight);
+    }
 
     public synchronized void addConstructedScene(DreamScene scene) {
         constructedScenes.add(scene);
@@ -143,6 +191,15 @@ public final class DreamSignal {
         private AismeConfig aismeConfig;
         private List<String> seedMemoryIds;
         private List<float[]> seedVectors;
+        private List<SceneFragment> fragments;
+        private List<ExtractedInsight> extractedInsights;
+        private HebbianGraphBase hebbianGraph;
+        private DistributedMemoryTensor distributedMemoryTensor;
+        private DreamJournalMemory dreamJournalMemory;
+        private EntityDirectory entityDirectory;
+        private HyperEntityGraphMemory hyperEntityGraph;
+        private EmbeddingProvider embeddingProvider;
+        private ContinuousHopfieldNetwork hopfieldNetwork;
 
         public Builder mode(DreamMode mode) { this.mode = mode; return this; }
         public Builder config(DreamConfig config) { this.config = config; return this; }
@@ -151,6 +208,15 @@ public final class DreamSignal {
         public Builder aismeConfig(AismeConfig config) { this.aismeConfig = config; return this; }
         public Builder seedMemoryIds(List<String> ids) { this.seedMemoryIds = ids; return this; }
         public Builder seedVectors(List<float[]> vectors) { this.seedVectors = vectors; return this; }
+        public Builder fragments(List<SceneFragment> fragments) { this.fragments = fragments; return this; }
+        public Builder extractedInsights(List<ExtractedInsight> insights) { this.extractedInsights = insights; return this; }
+        public Builder hebbianGraph(HebbianGraphBase graph) { this.hebbianGraph = graph; return this; }
+        public Builder distributedMemoryTensor(DistributedMemoryTensor tensor) { this.distributedMemoryTensor = tensor; return this; }
+        public Builder dreamJournalMemory(DreamJournalMemory memory) { this.dreamJournalMemory = memory; return this; }
+        public Builder entityDirectory(EntityDirectory directory) { this.entityDirectory = directory; return this; }
+        public Builder hyperEntityGraph(HyperEntityGraphMemory graph) { this.hyperEntityGraph = graph; return this; }
+        public Builder embeddingProvider(EmbeddingProvider provider) { this.embeddingProvider = provider; return this; }
+        public Builder hopfieldNetwork(ContinuousHopfieldNetwork network) { this.hopfieldNetwork = network; return this; }
 
         public DreamSignal build() {
             return new DreamSignal(this);
