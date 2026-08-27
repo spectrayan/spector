@@ -12,9 +12,13 @@
  */
 package com.spectrayan.spector.memory.dream.relay;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
+
 /**
  * Biological Analog: Endogenous parameters regulating sleep cycles, plasticity windows,
- * and neurotransmitter thresholds during memory consolidation.
+ * and neurotransmitter thresholds during memory consolidation and dream generation.
  *
  * @since 1.4.0
  */
@@ -34,6 +38,42 @@ public record DreamConfig(
         boolean journalEnabled,
         int dreamCycleFrequency
 ) {
+    public DreamConfig {
+        if (Float.isNaN(dreamNoiseScale) || dreamNoiseScale < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "dreamNoiseScale must be non-negative");
+        }
+        if (Float.isNaN(dreamTemperatureRem) || dreamTemperatureRem <= 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "dreamTemperatureRem must be positive");
+        }
+        if (Float.isNaN(dreamTemperatureDaydream) || dreamTemperatureDaydream <= 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "dreamTemperatureDaydream must be positive");
+        }
+        if (Float.isNaN(dreamTemperatureThought) || dreamTemperatureThought <= 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "dreamTemperatureThought must be positive");
+        }
+        if (maxDreamsPerCycle < 1) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "maxDreamsPerCycle must be at least 1");
+        }
+        if (maxCounterfactualsPerSeed < 1) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "maxCounterfactualsPerSeed must be at least 1");
+        }
+        if (Float.isNaN(persistenceThreshold) || persistenceThreshold < 0.0f || persistenceThreshold > 1.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "persistenceThreshold must be in [0, 1]");
+        }
+        if (Float.isNaN(langevinStepSize) || langevinStepSize <= 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "langevinStepSize must be positive");
+        }
+        if (langevinSteps < 0) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "langevinSteps must be non-negative");
+        }
+        if (Float.isNaN(noveltyRadius) || noveltyRadius <= 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "noveltyRadius must be positive");
+        }
+        if (dreamCycleFrequency < 1) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "dreamCycleFrequency must be at least 1");
+        }
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -48,19 +88,19 @@ public record DreamConfig(
 
     public static final class Builder {
         private boolean enabled = true;
-        private float dreamNoiseScale = 0.15f;
-        private float dreamTemperatureRem = 2.0f;
-        private float dreamTemperatureDaydream = 1.0f;
-        private float dreamTemperatureThought = 0.5f;
-        private int maxDreamsPerCycle = 5;
-        private int maxCounterfactualsPerSeed = 3;
-        private float persistenceThreshold = 0.50f;
-        private float langevinStepSize = 0.01f;
-        private int langevinSteps = 100;
-        private float noveltyRadius = 1.5f;
-        private float hebbianInhibitionDelta = -0.05f;
-        private boolean journalEnabled = true;
-        private int dreamCycleFrequency = 3;
+        private float dreamNoiseScale = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_NOISE_SCALE;
+        private float dreamTemperatureRem = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_TEMPERATURE_REM;
+        private float dreamTemperatureDaydream = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_TEMPERATURE_DAYDREAM;
+        private float dreamTemperatureThought = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_TEMPERATURE_THOUGHT;
+        private int maxDreamsPerCycle = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_MAX_DREAMS_PER_CYCLE;
+        private int maxCounterfactualsPerSeed = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_MAX_COUNTERFACTUALS_PER_SEED;
+        private float persistenceThreshold = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_PERSISTENCE_THRESHOLD;
+        private float langevinStepSize = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_LANGEVIN_STEP_SIZE;
+        private int langevinSteps = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_LANGEVIN_STEPS;
+        private float noveltyRadius = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_NOVELTY_RADIUS;
+        private float hebbianInhibitionDelta = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_HEBBIAN_INHIBITION_DELTA;
+        private boolean journalEnabled = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_JOURNAL_ENABLED;
+        private int dreamCycleFrequency = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_CYCLE_FREQUENCY;
 
         public Builder enabled(boolean enabled) { this.enabled = enabled; return this; }
         public Builder dreamNoiseScale(float scale) { this.dreamNoiseScale = scale; return this; }

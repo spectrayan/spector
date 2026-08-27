@@ -644,6 +644,49 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_AISME_LIFESPAN_FLASHBULB_PROTECT = "spector.memory.aisme.lifespan.flashbulb-protect";
     public static final boolean DEFAULT_MEMORY_AISME_LIFESPAN_FLASHBULB_PROTECT = true;
 
+    // DreamPathway & Generative Cognition Hyperparameters (ADR Issue #679)
+    public static final String MEMORY_DREAM_ENABLED = "spector.memory.dream.enabled";
+    public static final boolean DEFAULT_MEMORY_DREAM_ENABLED = false;
+
+    public static final String MEMORY_DREAM_NOISE_SCALE = "spector.memory.dream.noise-scale";
+    public static final float DEFAULT_MEMORY_DREAM_NOISE_SCALE = 0.15f;
+
+    public static final String MEMORY_DREAM_TEMPERATURE_REM = "spector.memory.dream.temperature.rem";
+    public static final float DEFAULT_MEMORY_DREAM_TEMPERATURE_REM = 2.0f;
+
+    public static final String MEMORY_DREAM_TEMPERATURE_DAYDREAM = "spector.memory.dream.temperature.daydream";
+    public static final float DEFAULT_MEMORY_DREAM_TEMPERATURE_DAYDREAM = 1.0f;
+
+    public static final String MEMORY_DREAM_TEMPERATURE_THOUGHT = "spector.memory.dream.temperature.thought";
+    public static final float DEFAULT_MEMORY_DREAM_TEMPERATURE_THOUGHT = 0.5f;
+
+    public static final String MEMORY_DREAM_MAX_DREAMS_PER_CYCLE = "spector.memory.dream.max-dreams-per-cycle";
+    public static final int DEFAULT_MEMORY_DREAM_MAX_DREAMS_PER_CYCLE = 5;
+
+    public static final String MEMORY_DREAM_MAX_COUNTERFACTUALS_PER_SEED = "spector.memory.dream.max-counterfactuals-per-seed";
+    public static final int DEFAULT_MEMORY_DREAM_MAX_COUNTERFACTUALS_PER_SEED = 3;
+
+    public static final String MEMORY_DREAM_PERSISTENCE_THRESHOLD = "spector.memory.dream.persistence-threshold";
+    public static final float DEFAULT_MEMORY_DREAM_PERSISTENCE_THRESHOLD = 0.50f;
+
+    public static final String MEMORY_DREAM_LANGEVIN_STEP_SIZE = "spector.memory.dream.langevin.step-size";
+    public static final float DEFAULT_MEMORY_DREAM_LANGEVIN_STEP_SIZE = 0.01f;
+
+    public static final String MEMORY_DREAM_LANGEVIN_STEPS = "spector.memory.dream.langevin.steps";
+    public static final int DEFAULT_MEMORY_DREAM_LANGEVIN_STEPS = 100;
+
+    public static final String MEMORY_DREAM_NOVELTY_RADIUS = "spector.memory.dream.novelty-radius";
+    public static final float DEFAULT_MEMORY_DREAM_NOVELTY_RADIUS = 1.5f;
+
+    public static final String MEMORY_DREAM_HEBBIAN_INHIBITION_DELTA = "spector.memory.dream.hebbian.inhibition-delta";
+    public static final float DEFAULT_MEMORY_DREAM_HEBBIAN_INHIBITION_DELTA = -0.05f;
+
+    public static final String MEMORY_DREAM_JOURNAL_ENABLED = "spector.memory.dream.journal-enabled";
+    public static final boolean DEFAULT_MEMORY_DREAM_JOURNAL_ENABLED = true;
+
+    public static final String MEMORY_DREAM_CYCLE_FREQUENCY = "spector.memory.dream.cycle-frequency";
+    public static final int DEFAULT_MEMORY_DREAM_CYCLE_FREQUENCY = 3;
+
     // Session, Sync, WAL & Subsystems
     public static final String MEMORY_WAL_MAX_CHUNK_BYTES = "spector.memory.wal.max-chunk-bytes";
     public static final long DEFAULT_MEMORY_WAL_MAX_CHUNK_BYTES = 8L * 1024 * 1024;
