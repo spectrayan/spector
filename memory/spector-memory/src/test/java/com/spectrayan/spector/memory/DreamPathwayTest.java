@@ -35,6 +35,7 @@ class DreamPathwayTest {
                 .enabled(true)
                 .dreamNoiseScale(0.15f)
                 .journalEnabled(true)
+                .langevinSteps(20)
                 .build();
 
         AismeConfig aismeConfig = AismeConfig.defaultConfig();
@@ -53,6 +54,10 @@ class DreamPathwayTest {
             float[] v1 = new float[]{0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
             float[] v2 = new float[]{0.0f, 0.0f, 0.8f, 0.6f, 0.0f, 0.0f, 0.0f, 0.0f};
 
+            // Seed holographic memory tensor
+            dmt.accumulate(v1, 1.0f);
+            dmt.accumulate(v2, 1.0f);
+
             DreamSignal signal = DreamSignal.builder()
                     .mode(DreamMode.REM)
                     .config(dreamConfig)
@@ -70,6 +75,40 @@ class DreamPathwayTest {
             assertThat(report.seedsSampled()).isEqualTo(2);
             assertThat(report.scenesConstructed()).isGreaterThanOrEqualTo(1);
             assertThat(report.mode()).isEqualTo(DreamMode.REM);
+            assertThat(signal.fragments()).isNotEmpty();
+            assertThat(signal.constructedScenes()).isNotEmpty();
+            assertThat(signal.survivingScenes()).isNotEmpty();
+        }
+    }
+
+    @Test
+    void testThoughtExperimentModeExecution() throws Exception {
+        int dim = 8;
+        DreamConfig dreamConfig = DreamConfig.builder()
+                .enabled(true)
+                .dreamTemperatureThought(0.5f)
+                .build();
+
+        try (DistributedMemoryTensor dmt = new DistributedMemoryTensor(dim);
+             DreamPathway pathway = DreamPathway.builder()
+                     .dreamConfig(dreamConfig)
+                     .distributedMemoryTensor(dmt)
+                     .build()) {
+
+            float[] v1 = new float[]{0.2f, 0.8f, 0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+
+            DreamSignal signal = DreamSignal.builder()
+                    .mode(DreamMode.THOUGHT_EXPERIMENT)
+                    .config(dreamConfig)
+                    .seedMemoryIds(List.of("decision-fork-1"))
+                    .seedVectors(List.of(v1))
+                    .build();
+
+            DreamReport report = pathway.conduct(signal);
+
+            assertThat(report).isNotNull();
+            assertThat(report.mode()).isEqualTo(DreamMode.THOUGHT_EXPERIMENT);
+            assertThat(signal.temperature()).isEqualTo(0.5f);
         }
     }
 
