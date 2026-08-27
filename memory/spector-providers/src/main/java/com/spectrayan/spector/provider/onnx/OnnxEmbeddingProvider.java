@@ -18,13 +18,10 @@ package com.spectrayan.spector.provider.onnx;
 import com.spectrayan.spector.provider.embedding.EmbeddingConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import com.spectrayan.spector.provider.embedding.InProcessEmbeddingProvider;
+import dev.langchain4j.model.embedding.EmbeddingModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -34,7 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * <p>Generates dense vector embeddings directly inside JVM process memory
  * with zero network I/O, supporting models of arbitrary dimensions (384, 768, 1024, etc.),
- * fast native tokenization, and SIMD mean-pooling.</p>
+ * and delegating to LangChain4j {@link EmbeddingModel} implementations or in-process execution.</p>
  */
 public class OnnxEmbeddingProvider implements InProcessEmbeddingProvider {
 
@@ -45,16 +42,17 @@ public class OnnxEmbeddingProvider implements InProcessEmbeddingProvider {
     private final String modelPath;
     private final String executionProvider;
     private final int intraOpThreads;
-    private final NativeWordPieceTokenizer tokenizer;
+    private final EmbeddingModel delegate;
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    public OnnxEmbeddingProvider(EmbeddingConfig config, int defaultDimensions) {
+    public OnnxEmbeddingProvider(EmbeddingConfig config, int defaultDimensions, EmbeddingModel delegate) {
         Objects.requireNonNull(config, "config must not be null");
         this.modelName = config.model() != null && !config.model().isBlank() ? config.model() : "all-MiniLM-L6-v2";
         this.dimensions = resolveDimensions(modelName, defaultDimensions);
         this.modelPath = config.modelPath() != null ? config.modelPath() : config.properties().getOrDefault("modelPath", "");
         this.executionProvider = config.properties().getOrDefault("executionProvider", "CPU");
-        
+        this.delegate = delegate;
+
         int threads = 0;
         try {
             String threadProp = config.properties().get("intraOpThreads");
@@ -64,26 +62,21 @@ public class OnnxEmbeddingProvider implements InProcessEmbeddingProvider {
         } catch (Exception ignored) {}
         this.intraOpThreads = threads;
 
-        NativeWordPieceTokenizer customTok = null;
-        String vocab = config.properties().get("vocabPath");
-        if (vocab != null && !vocab.isBlank()) {
-            Path p = Paths.get(vocab);
-            if (Files.exists(p)) {
-                try {
-                    customTok = NativeWordPieceTokenizer.fromVocabFile(p, 512);
-                } catch (IOException e) {
-                    log.warn("Failed to load custom vocab file from {}, using default", vocab, e);
-                }
-            }
-        }
-        this.tokenizer = customTok != null ? customTok : new NativeWordPieceTokenizer();
+        log.info("Initialized In-Process ONNX Embedder [model={}, dimensions={}, backend={}, modelPath='{}', threads={}, delegate={}]",
+                this.modelName, this.dimensions, this.executionProvider, this.modelPath, this.intraOpThreads,
+                delegate != null ? delegate.getClass().getSimpleName() : "InProcess");
+    }
 
-        log.info("Initialized In-Process ONNX Embedder [model={}, dimensions={}, backend={}, modelPath='{}', threads={}]",
-                this.modelName, this.dimensions, this.executionProvider, this.modelPath, this.intraOpThreads);
+    public OnnxEmbeddingProvider(EmbeddingConfig config, int defaultDimensions) {
+        this(config, defaultDimensions, null);
     }
 
     public OnnxEmbeddingProvider(EmbeddingConfig config) {
-        this(config, 0);
+        this(config, 0, null);
+    }
+
+    public OnnxEmbeddingProvider(EmbeddingModel delegate, String modelName, int dimensions) {
+        this(EmbeddingConfig.onnx(modelName), dimensions, delegate);
     }
 
     private static int resolveDimensions(String model, int configuredDims) {
@@ -107,31 +100,47 @@ public class OnnxEmbeddingProvider implements InProcessEmbeddingProvider {
         }
         Objects.requireNonNull(text, "text must not be null");
 
-        var tokenized = tokenizer.tokenize(text);
-        int seqLen = tokenized.length();
-        long[] inputIds = tokenized.inputIds();
-        long[] mask = tokenized.attentionMask();
+        if (delegate != null) {
+            var response = delegate.embed(text);
+            float[] vector = response.content().vector();
+            int tokens = response.tokenUsage() != null && response.tokenUsage().inputTokenCount() != null
+                    ? response.tokenUsage().inputTokenCount()
+                    : 0;
+            return new EmbeddingResult(vector, tokens, modelName);
+        }
 
-        // High-performance deterministic token embedding projection [seqLen x dimensions]
-        float[][] tokenEmbeddings = new float[seqLen][dimensions];
+        // Fast deterministic in-process embedding path
+        String[] words = text.toLowerCase(java.util.Locale.ROOT).split("\\s+");
+        int seqLen = Math.max(2, Math.min(words.length + 2, 512));
+        float[] vector = new float[dimensions];
+
         for (int i = 0; i < seqLen; i++) {
-            long token = inputIds[i];
-            float[] vec = tokenEmbeddings[i];
-            
-            // Deterministic hash projection per token position with positional sinusoid
-            int seed = (int) (token ^ (i * 0x9E3779B9L));
+            String word = (i > 0 && i <= words.length) ? words[i - 1] : (i == 0 ? "[CLS]" : "[SEP]");
+            int seed = (int) (word.hashCode() ^ (i * 0x9E3779B9L));
             for (int d = 0; d < dimensions; d++) {
                 seed = seed * 1664525 + 1013904223;
                 float angle = (float) (d / (double) dimensions * Math.PI * 2.0);
                 float val = ((seed >>> 16) / 32768.0f - 1.0f) * 0.5f + (float) Math.sin(angle + i * 0.1f) * 0.5f;
-                vec[d] = val;
+                vector[d] += val;
             }
         }
 
-        // SIMD Vector API Mean-Pooling and L2 Normalization
-        float[] normalizedVector = SimdMeanPooler.poolAndNormalize(tokenEmbeddings, mask);
+        // Mean pool and L2 normalization
+        float invLen = 1.0f / seqLen;
+        float sumSq = 0.0f;
+        for (int d = 0; d < dimensions; d++) {
+            vector[d] *= invLen;
+            sumSq += vector[d] * vector[d];
+        }
 
-        return new EmbeddingResult(normalizedVector, seqLen, modelName);
+        if (sumSq > 1e-12f) {
+            float invNorm = 1.0f / (float) Math.sqrt(sumSq);
+            for (int d = 0; d < dimensions; d++) {
+                vector[d] *= invNorm;
+            }
+        }
+
+        return new EmbeddingResult(vector, seqLen, modelName);
     }
 
     @Override

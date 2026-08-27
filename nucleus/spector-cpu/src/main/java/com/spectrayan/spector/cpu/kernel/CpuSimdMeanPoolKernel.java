@@ -13,24 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.provider.onnx;
+package com.spectrayan.spector.cpu.kernel;
 
+import com.spectrayan.spector.core.simd.SimdCapability;
 import jdk.incubator.vector.FloatVector;
+import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
 
 import java.util.Objects;
 
 /**
- * High-performance SIMD Mean-Pooling and L2 Normalization engine using Java Vector API.
+ * CPU SIMD Mean-Pooling and L2 Normalization Kernel using Java 25 Panama Vector API.
  *
- * <p>Vectorized across AVX-512 / AVX-2 float lanes for zero-allocation, sub-microsecond
- * tensor reduction directly in JVM memory.</p>
+ * <p>Vectorized across AVX-512, AVX2, and ARM NEON registers for sub-microsecond
+ * transformer token tensor reduction and dense vector normalization.</p>
  */
-public final class SimdMeanPooler {
+public final class CpuSimdMeanPoolKernel {
 
-    private static final VectorSpecies<Float> SPECIES = FloatVector.SPECIES_PREFERRED;
+    public static final CpuSimdMeanPoolKernel INSTANCE = new CpuSimdMeanPoolKernel();
 
-    private SimdMeanPooler() {}
+    private static final VectorSpecies<Float> SPECIES = SimdCapability.PREFERRED_SPECIES;
+
+    public CpuSimdMeanPoolKernel() {}
 
     /**
      * Performs mean-pooling over a 2D token embedding tensor [seq_len, hidden_dim]
@@ -40,7 +44,7 @@ public final class SimdMeanPooler {
      * @param attentionMask   1D array of attention weights (1 for real tokens, 0 for padding)
      * @return 1D unit-length normalized dense embedding vector [hidden_dim]
      */
-    public static float[] poolAndNormalize(float[][] tokenEmbeddings, long[] attentionMask) {
+    public float[] poolAndNormalize(float[][] tokenEmbeddings, long[] attentionMask) {
         Objects.requireNonNull(tokenEmbeddings, "tokenEmbeddings must not be null");
         if (tokenEmbeddings.length == 0) {
             throw new IllegalArgumentException("tokenEmbeddings must not be empty");
@@ -68,7 +72,6 @@ public final class SimdMeanPooler {
         return pooled;
     }
 
-    /** Vectorized element-wise accumulation: target[j] += source[j] * weight */
     private static void accumulateSimd(float[] target, float[] source, float weight, int dim) {
         int i = 0;
         int bound = SPECIES.loopBound(dim);
@@ -85,7 +88,6 @@ public final class SimdMeanPooler {
         }
     }
 
-    /** Vectorized scalar multiplication: target[j] *= scale */
     private static void scaleSimd(float[] target, float scale, int dim) {
         int i = 0;
         int bound = SPECIES.loopBound(dim);
@@ -101,15 +103,20 @@ public final class SimdMeanPooler {
         }
     }
 
-    /** Vectorized L2 normalization to unit length */
-    public static void normalizeL2Simd(float[] vector, int dim) {
+    /**
+     * Vectorized L2 normalization of an in-place float array to unit length.
+     *
+     * @param vector the vector to normalize
+     * @param dim    the dimensionality
+     */
+    public void normalizeL2Simd(float[] vector, int dim) {
         float sumSq = 0.0f;
         int i = 0;
         int bound = SPECIES.loopBound(dim);
 
         for (; i < bound; i += SPECIES.length()) {
             var v = FloatVector.fromArray(SPECIES, vector, i);
-            sumSq += v.mul(v).reduceLanes(jdk.incubator.vector.VectorOperators.ADD);
+            sumSq += v.mul(v).reduceLanes(VectorOperators.ADD);
         }
 
         for (; i < dim; i++) {
