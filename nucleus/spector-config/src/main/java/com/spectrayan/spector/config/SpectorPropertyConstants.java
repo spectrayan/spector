@@ -306,6 +306,32 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_STDP_TAU_MINUS = "spector.memory.stdp.tau-minus";
     public static final float DEFAULT_MEMORY_STDP_TAU_MINUS = 30_000f;
 
+    public static final String MEMORY_HEBBIAN_DECAY_FLOOR = "spector.memory.hebbian.decay-floor";
+    public static final float DEFAULT_MEMORY_HEBBIAN_DECAY_FLOOR = 0.10f;
+
+    public static final String MEMORY_HEBBIAN_ACTIVATION_CUTOFF = "spector.memory.hebbian.activation-cutoff";
+    public static final float DEFAULT_MEMORY_HEBBIAN_ACTIVATION_CUTOFF = 0.01f;
+
+    public static final String MEMORY_HEBBIAN_HOP_ATTENUATION = "spector.memory.hebbian.hop-attenuation";
+    public static final float DEFAULT_MEMORY_HEBBIAN_HOP_ATTENUATION = 0.50f;
+
+    public static final String MEMORY_HEBBIAN_DEFAULT_WEIGHT_DELTA = "spector.memory.hebbian.default-weight-delta";
+    public static final float DEFAULT_MEMORY_HEBBIAN_DEFAULT_WEIGHT_DELTA = 1.0f;
+
+    public static final String MEMORY_HEBBIAN_NEUTRAL_BRIDGE_SCORE = "spector.memory.hebbian.neutral-bridge-score";
+    public static final int DEFAULT_MEMORY_HEBBIAN_NEUTRAL_BRIDGE_SCORE = 128;
+
+    // ── CoActivation ──
+
+    public static final String MEMORY_COACTIVATION_CAPACITY = "spector.memory.coactivation.capacity";
+    public static final int DEFAULT_MEMORY_COACTIVATION_CAPACITY = 10_000;
+
+    public static final String MEMORY_COACTIVATION_MIN_TABLE_CAPACITY = "spector.memory.coactivation.min-table-capacity";
+    public static final int DEFAULT_MEMORY_COACTIVATION_MIN_TABLE_CAPACITY = 64;
+
+    public static final String MEMORY_CROSS_CAPTURE_FAN_EXPONENT = "spector.memory.cross-capture.fan-exponent";
+    public static final float DEFAULT_MEMORY_CROSS_CAPTURE_FAN_EXPONENT = 0.50f;
+
     // ── Cross-Capture Graph (ADR-0009) ──
 
     /** Attenuation factor applied to Cross-Capture Graph candidates during recall expansion. */
