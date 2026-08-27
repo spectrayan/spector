@@ -14,6 +14,8 @@ package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.similarity.VectorOps;
+import com.spectrayan.spector.memory.model.AgentSoul;
+import com.spectrayan.spector.memory.model.SoulContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,7 +26,7 @@ import java.util.Random;
  * Stage 3 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
  *
  * <h3>Biological Analog: Sharp-Wave Ripple Compressed Replay with Hoel Overfitted Brain Noise Injection</h3>
- * <p>Injects noise into seed vectors to prevent overfitting.</p>
+ * <p>Injects Hartmann boundary-modulated noise into seed vectors to prevent representational overfitting.</p>
  *
  * @since 1.4.0
  */
@@ -51,7 +53,9 @@ public final class RemReplayRelay implements SynapticRelay<DreamSignal> {
         }
         Random random = new Random(randomSeed);
 
-        float sigmaMax = signal.config().dreamNoiseScale() * (signal.temperature() / REFERENCE_TEMPERATURE);
+        float boundaryMultiplier = computeHartmannBoundary(signal.primarySoul(), signal.config());
+        float effectiveTemp = signal.temperature() * boundaryMultiplier;
+        float sigmaMax = signal.config().dreamNoiseScale() * (effectiveTemp / REFERENCE_TEMPERATURE) * boundaryMultiplier;
 
         for (int i = 0; i < seeds.size(); i++) {
             float[] vector = seeds.get(i);
@@ -66,7 +70,8 @@ public final class RemReplayRelay implements SynapticRelay<DreamSignal> {
             }
             float[] noisyVector = VectorOps.add(vector, noise);
 
-            String narrative = String.format("[REM Replay: %s] Noisy compressed replay with \u03C3=%.3f", id, sigmaDream);
+            String narrative = String.format("[REM Replay: %s] Noisy compressed replay with \u03C3=%.3f (boundary=%.2f)",
+                    id, sigmaDream, boundaryMultiplier);
             String sceneId = signal.nextId();
             DreamSignal.DreamScene scene = new DreamSignal.DreamScene(
                 sceneId,
@@ -82,10 +87,29 @@ public final class RemReplayRelay implements SynapticRelay<DreamSignal> {
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("RemReplayRelay: constructed {} scenes with noise", signal.constructedScenes().size());
+            log.debug("RemReplayRelay: constructed {} scenes with noise (boundaryMultiplier={})",
+                    signal.constructedScenes().size(), boundaryMultiplier);
         }
 
         return true;
+    }
+
+    public static float computeHartmannBoundary(SoulContext soul, DreamConfig config) {
+        if (soul == null || config == null) return 1.0f;
+        if (soul instanceof AgentSoul agentSoul) {
+            String personality = agentSoul.personality() != null ? agentSoul.personality().toLowerCase() : "";
+            AgentSoul.EmotionalBaseline baseline = agentSoul.emotionalBaseline();
+
+            if ((baseline != null && (baseline.defaultArousal() > 150 || baseline.defaultValence() > 20))
+                    || personality.contains("creative") || personality.contains("open") || personality.contains("innovat")) {
+                return config.hartmannOpennessMultiplier();
+            }
+            if ((baseline != null && (baseline.defaultArousal() < 80 || baseline.defaultValence() < -10))
+                    || personality.contains("strict") || personality.contains("vigilant") || personality.contains("audit") || personality.contains("security")) {
+                return config.hartmannVigilanceMultiplier();
+            }
+        }
+        return 1.0f;
     }
 
     @Override

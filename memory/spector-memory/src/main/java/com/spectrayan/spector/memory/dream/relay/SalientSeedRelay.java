@@ -13,12 +13,15 @@
 package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.core.spi.AcceleratorRegistry;
 import com.spectrayan.spector.memory.PartitionManager;
 import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.model.InterestDomain;
+import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.model.SoulContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,9 +33,10 @@ import java.util.List;
 /**
  * Stage 2 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
  *
- * <h3>Biological Analog: Targeted Memory Reactivation (TMR) & Salience Gating</h3>
- * <p>Scans autobiographical and episodic stores for high prediction error, unresolved Zeigarnik
- * tensions, high emotional arousal, and recency to seed the offline generative dream cycle.</p>
+ * <h3>Biological Analog: Targeted Memory Reactivation (TMR) &amp; Soul-Salience Gating</h3>
+ * <p>Scans autobiographical and episodic stores for salient memories, evaluating recency,
+ * novelty, semantic alignment with the active {@link SoulContext}, and user {@link SalienceProfile}
+ * interests via hardware-accelerated batch SIMD/GPU kernels.</p>
  *
  * @since 1.4.0
  */
@@ -40,13 +44,9 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
 
     private static final Logger log = LoggerFactory.getLogger(SalientSeedRelay.class);
 
-    public static final float WEIGHT_RECENCY = 0.50f;
-    public static final float WEIGHT_NOVELTY = 0.30f;
-    public static final float WEIGHT_PROFILE = 0.20f;
     public static final double RECENCY_DECAY_PERIOD_SECONDS = 86400.0;
     public static final int CANDIDATE_POOL_MULTIPLIER = 4;
     public static final float SIMULATED_NOVELTY_ATTENUATION = 0.40f;
-    public static final float MAX_PROFILE_NIBBLE = 15.0f;
 
     private record SeedCandidate(String id, float[] vector, float salienceScore) {}
 
@@ -76,14 +76,18 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
         int candidatePoolLimit = maxSeeds * CANDIDATE_POOL_MULTIPLIER;
         List<SeedCandidate> candidates = new ArrayList<>();
 
+        SoulContext soul = signal.primarySoul();
+        SalienceProfile salience = signal.salienceProfile();
+        DreamConfig config = signal.config();
+
         for (PartitionHandle handle : handles) {
             if (handle.router() == null || candidates.size() >= candidatePoolLimit) {
                 continue;
             }
 
-            collectCandidates(handle.router().episodic(), candidates, candidatePoolLimit, "epi-" + handle.seq());
+            collectCandidates(handle.router().episodic(), candidates, candidatePoolLimit, "epi-" + handle.seq(), soul, salience, config);
             if (candidates.size() < candidatePoolLimit) {
-                collectCandidates(handle.router().semantic(), candidates, candidatePoolLimit, "sem-" + handle.seq());
+                collectCandidates(handle.router().semantic(), candidates, candidatePoolLimit, "sem-" + handle.seq(), soul, salience, config);
             }
         }
 
@@ -98,14 +102,21 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("SalientSeedRelay: selected {} salient seeds for dream synthesis (pool={})",
-                    signal.seedMemoryIds().size(), candidates.size());
+            log.debug("SalientSeedRelay: selected {} salient seeds for dream synthesis (soul={}, pool={})",
+                    signal.seedMemoryIds().size(), soul != null ? soul.name() : "none", candidates.size());
         }
 
         return true;
     }
 
-    private void collectCandidates(CognitiveRecordMemory store, List<SeedCandidate> candidates, int limit, String prefix) {
+    private void collectCandidates(
+            CognitiveRecordMemory store,
+            List<SeedCandidate> candidates,
+            int limit,
+            String prefix,
+            SoulContext soul,
+            SalienceProfile salience,
+            DreamConfig config) {
         if (store == null || store.segment() == null) return;
 
         CognitiveRecordLayout layout = store.cognitiveLayout();
@@ -116,6 +127,21 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
         int vecBytes = layout.quantizedVecBytes();
         int dim = vecBytes;
         byte[] qBytes = new byte[vecBytes];
+
+        float[] soulEmbedding = (soul != null && soul.identityEmbedding() != null && soul.identityEmbedding().length == dim)
+                ? soul.identityEmbedding() : null;
+
+        List<InterestDomain> interests = (salience != null && salience.interests() != null)
+                ? salience.interests().stream().filter(in -> in != null && in.embedding() != null && in.embedding().length == dim).toList()
+                : List.of();
+
+        float wRecency = config.seedWeightRecency();
+        float wNovelty = config.seedWeightNovelty();
+        float wSoul = (soulEmbedding != null) ? config.seedWeightSoul() : 0.0f;
+        float wSalience = (!interests.isEmpty()) ? config.seedWeightSalience() : 0.0f;
+
+        float totalWeight = wRecency + wNovelty + wSoul + wSalience;
+        if (totalWeight <= 0.0f) totalWeight = 1.0f;
 
         int stride = Math.max(1, size / limit);
         for (int i = 0; i < size && candidates.size() < limit; i += stride) {
@@ -135,18 +161,39 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
 
             // Read metadata for composite salience score
             long epochSecs = layout.readTimestamp(segment, offset);
-            byte profile = layout.readEncodingProfile(segment, offset);
             boolean simulated = SynapticHeaderConstants.isSimulated(flags);
             boolean dreamed = SynapticHeaderConstants.isDreamed(flags);
 
-            // Composite salience: prioritize un-consolidated, non-dreamed, high-intensity memories
-            float recencyWeight = (float) Math.exp(-Math.max(0L, System.currentTimeMillis() / 1000L - epochSecs) / RECENCY_DECAY_PERIOD_SECONDS);
-            float noveltyWeight = (!simulated && !dreamed) ? 1.0f : SIMULATED_NOVELTY_ATTENUATION;
-            float profileSalience = (profile & 0x0F) / MAX_PROFILE_NIBBLE;
+            // 1. Recency
+            float recencyScore = (float) Math.exp(-Math.max(0L, System.currentTimeMillis() / 1000L - epochSecs) / RECENCY_DECAY_PERIOD_SECONDS);
 
-            float salienceScore = WEIGHT_RECENCY * recencyWeight + WEIGHT_NOVELTY * noveltyWeight + WEIGHT_PROFILE * profileSalience;
+            // 2. Novelty (attenuated if already dreamed or simulated)
+            float noveltyScore = (!simulated && !dreamed) ? 1.0f : SIMULATED_NOVELTY_ATTENUATION;
 
-            candidates.add(new SeedCandidate(prefix + "-" + i, vector, salienceScore));
+            // 3. Soul Identity Alignment via hardware-accelerated SPI CosineSimilarity
+            float soulScore = 0.5f;
+            if (soulEmbedding != null) {
+                float cos = AcceleratorRegistry.getSimilarityKernel().cosineSimilarity(vector, soulEmbedding, 1, dim)[0];
+                soulScore = Math.max(0.0f, (cos + 1.0f) / 2.0f);
+            }
+
+            // 4. Salience Profile Interests Semantic Match via SPI
+            float salienceScore = 0.5f;
+            if (!interests.isEmpty()) {
+                float maxInterest = 0.0f;
+                for (InterestDomain in : interests) {
+                    float cos = AcceleratorRegistry.getSimilarityKernel().cosineSimilarity(vector, in.embedding(), 1, dim)[0];
+                    float weighted = Math.max(0.0f, (cos + 1.0f) / 2.0f) * in.level().multiplier();
+                    if (weighted > maxInterest) {
+                        maxInterest = weighted;
+                    }
+                }
+                salienceScore = Math.min(1.0f, maxInterest);
+            }
+
+            float compositeSalience = (wRecency * recencyScore + wNovelty * noveltyScore + wSoul * soulScore + wSalience * salienceScore) / totalWeight;
+
+            candidates.add(new SeedCandidate(prefix + "-" + i, vector, compositeSalience));
         }
     }
 

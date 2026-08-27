@@ -18,7 +18,7 @@ import com.spectrayan.spector.config.SpectorPropertyConstants;
 
 /**
  * Biological Analog: Endogenous parameters regulating sleep cycles, plasticity windows,
- * and neurotransmitter thresholds during memory consolidation and dream generation.
+ * neurotransmitter thresholds, and soul-conditioned salience during memory consolidation and dream generation.
  *
  * @since 1.4.0
  */
@@ -36,7 +36,16 @@ public record DreamConfig(
         float noveltyRadius,
         float hebbianInhibitionDelta,
         boolean journalEnabled,
-        int dreamCycleFrequency
+        int dreamCycleFrequency,
+        float seedWeightRecency,
+        float seedWeightNovelty,
+        float seedWeightSoul,
+        float seedWeightSalience,
+        float identityResonanceThreshold,
+        float ethicalViolationThreshold,
+        float langevinSoulAttractorLambda,
+        float hartmannOpennessMultiplier,
+        float hartmannVigilanceMultiplier
 ) {
     public DreamConfig {
         if (Float.isNaN(dreamNoiseScale) || dreamNoiseScale < 0.0f) {
@@ -101,6 +110,15 @@ public record DreamConfig(
         private float hebbianInhibitionDelta = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_HEBBIAN_INHIBITION_DELTA;
         private boolean journalEnabled = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_JOURNAL_ENABLED;
         private int dreamCycleFrequency = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_CYCLE_FREQUENCY;
+        private float seedWeightRecency = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_SEED_WEIGHT_RECENCY;
+        private float seedWeightNovelty = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_SEED_WEIGHT_NOVELTY;
+        private float seedWeightSoul = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_SEED_WEIGHT_SOUL;
+        private float seedWeightSalience = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_SEED_WEIGHT_SALIENCE;
+        private float identityResonanceThreshold = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_IDENTITY_RESONANCE_THRESHOLD;
+        private float ethicalViolationThreshold = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_ETHICAL_VIOLATION_THRESHOLD;
+        private float langevinSoulAttractorLambda = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_LANGEVIN_SOUL_ATTRACTOR_LAMBDA;
+        private float hartmannOpennessMultiplier = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_HARTMANN_OPENNESS_MULTIPLIER;
+        private float hartmannVigilanceMultiplier = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_HARTMANN_VIGILANCE_MULTIPLIER;
 
         public Builder enabled(boolean enabled) { this.enabled = enabled; return this; }
         public Builder dreamNoiseScale(float scale) { this.dreamNoiseScale = scale; return this; }
@@ -116,13 +134,25 @@ public record DreamConfig(
         public Builder hebbianInhibitionDelta(float delta) { this.hebbianInhibitionDelta = delta; return this; }
         public Builder journalEnabled(boolean enabled) { this.journalEnabled = enabled; return this; }
         public Builder dreamCycleFrequency(int freq) { this.dreamCycleFrequency = freq; return this; }
+        public Builder seedWeightRecency(float w) { this.seedWeightRecency = w; return this; }
+        public Builder seedWeightNovelty(float w) { this.seedWeightNovelty = w; return this; }
+        public Builder seedWeightSoul(float w) { this.seedWeightSoul = w; return this; }
+        public Builder seedWeightSalience(float w) { this.seedWeightSalience = w; return this; }
+        public Builder identityResonanceThreshold(float t) { this.identityResonanceThreshold = t; return this; }
+        public Builder ethicalViolationThreshold(float t) { this.ethicalViolationThreshold = t; return this; }
+        public Builder langevinSoulAttractorLambda(float l) { this.langevinSoulAttractorLambda = l; return this; }
+        public Builder hartmannOpennessMultiplier(float m) { this.hartmannOpennessMultiplier = m; return this; }
+        public Builder hartmannVigilanceMultiplier(float m) { this.hartmannVigilanceMultiplier = m; return this; }
 
         public DreamConfig build() {
             return new DreamConfig(
                     enabled, dreamNoiseScale, dreamTemperatureRem, dreamTemperatureDaydream,
                     dreamTemperatureThought, maxDreamsPerCycle, maxCounterfactualsPerSeed,
                     persistenceThreshold, langevinStepSize, langevinSteps, noveltyRadius,
-                    hebbianInhibitionDelta, journalEnabled, dreamCycleFrequency
+                    hebbianInhibitionDelta, journalEnabled, dreamCycleFrequency,
+                    seedWeightRecency, seedWeightNovelty, seedWeightSoul, seedWeightSalience,
+                    identityResonanceThreshold, ethicalViolationThreshold,
+                    langevinSoulAttractorLambda, hartmannOpennessMultiplier, hartmannVigilanceMultiplier
             );
         }
     }

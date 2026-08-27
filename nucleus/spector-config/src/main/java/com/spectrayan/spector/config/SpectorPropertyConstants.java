@@ -687,6 +687,34 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_DREAM_CYCLE_FREQUENCY = "spector.memory.dream.cycle-frequency";
     public static final int DEFAULT_MEMORY_DREAM_CYCLE_FREQUENCY = 3;
 
+    // Soul-Conditioned & Salience-Modulated Dreaming Hyperparameters (ADR Issue #681)
+    public static final String MEMORY_DREAM_SEED_WEIGHT_RECENCY = "spector.memory.dream.seed.weight-recency";
+    public static final float DEFAULT_MEMORY_DREAM_SEED_WEIGHT_RECENCY = 0.30f;
+
+    public static final String MEMORY_DREAM_SEED_WEIGHT_NOVELTY = "spector.memory.dream.seed.weight-novelty";
+    public static final float DEFAULT_MEMORY_DREAM_SEED_WEIGHT_NOVELTY = 0.20f;
+
+    public static final String MEMORY_DREAM_SEED_WEIGHT_SOUL = "spector.memory.dream.seed.weight-soul";
+    public static final float DEFAULT_MEMORY_DREAM_SEED_WEIGHT_SOUL = 0.30f;
+
+    public static final String MEMORY_DREAM_SEED_WEIGHT_SALIENCE = "spector.memory.dream.seed.weight-salience";
+    public static final float DEFAULT_MEMORY_DREAM_SEED_WEIGHT_SALIENCE = 0.20f;
+
+    public static final String MEMORY_DREAM_IDENTITY_RESONANCE_THRESHOLD = "spector.memory.dream.identity-resonance-threshold";
+    public static final float DEFAULT_MEMORY_DREAM_IDENTITY_RESONANCE_THRESHOLD = 0.75f;
+
+    public static final String MEMORY_DREAM_ETHICAL_VIOLATION_THRESHOLD = "spector.memory.dream.ethical-violation-threshold";
+    public static final float DEFAULT_MEMORY_DREAM_ETHICAL_VIOLATION_THRESHOLD = 0.80f;
+
+    public static final String MEMORY_DREAM_LANGEVIN_SOUL_ATTRACTOR_LAMBDA = "spector.memory.dream.langevin.soul-attractor-lambda";
+    public static final float DEFAULT_MEMORY_DREAM_LANGEVIN_SOUL_ATTRACTOR_LAMBDA = 0.15f;
+
+    public static final String MEMORY_DREAM_HARTMANN_OPENNESS_MULTIPLIER = "spector.memory.dream.hartmann.openness-multiplier";
+    public static final float DEFAULT_MEMORY_DREAM_HARTMANN_OPENNESS_MULTIPLIER = 1.35f;
+
+    public static final String MEMORY_DREAM_HARTMANN_VIGILANCE_MULTIPLIER = "spector.memory.dream.hartmann.vigilance-multiplier";
+    public static final float DEFAULT_MEMORY_DREAM_HARTMANN_VIGILANCE_MULTIPLIER = 0.75f;
+
     // Session, Sync, WAL & Subsystems
     public static final String MEMORY_WAL_MAX_CHUNK_BYTES = "spector.memory.wal.max-chunk-bytes";
     public static final long DEFAULT_MEMORY_WAL_MAX_CHUNK_BYTES = 8L * 1024 * 1024;

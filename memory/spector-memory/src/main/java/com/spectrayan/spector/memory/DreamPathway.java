@@ -40,10 +40,13 @@ import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
+import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -53,7 +56,7 @@ import java.util.function.Function;
  *
  * <h3>Biological Analog: Offline REM Sleep Replay &amp; Waking Deliberate Imagination</h3>
  * <p>Implements active systems consolidation and regularizing generative replay through a 12-relay
- * synaptic pipeline.</p>
+ * synaptic pipeline, conditioned on the active soul identity and salience profile.</p>
  *
  * @since 1.4.0
  */
@@ -65,6 +68,9 @@ public final class DreamPathway implements AutoCloseable {
     private final DreamConfig dreamConfig;
     private final PartitionManager partitionManager;
     private final AismeConfig aismeConfig;
+    private final SoulContext primarySoul;
+    private final List<SoulContext> soulContexts;
+    private final SalienceProfile salienceProfile;
     private final HebbianGraphBase hebbianGraph;
     private final DistributedMemoryTensor distributedMemoryTensor;
     private final DreamJournalMemory dreamJournalMemory;
@@ -78,6 +84,9 @@ public final class DreamPathway implements AutoCloseable {
         this.dreamConfig = builder.dreamConfig != null ? builder.dreamConfig : DreamConfig.defaultConfig();
         this.partitionManager = builder.partitionManager;
         this.aismeConfig = builder.aismeConfig;
+        this.primarySoul = builder.primarySoul;
+        this.soulContexts = builder.soulContexts != null ? List.copyOf(builder.soulContexts) : List.of();
+        this.salienceProfile = builder.salienceProfile;
         this.hebbianGraph = builder.hebbianGraph;
         this.distributedMemoryTensor = builder.distributedMemoryTensor;
         this.dreamJournalMemory = builder.dreamJournalMemory;
@@ -95,7 +104,7 @@ public final class DreamPathway implements AutoCloseable {
         // 1. Dream Gate (circadian & sleep pressure check)
         pathwayBuilder.gated("dream_gate", DreamGates.DREAMING_ENABLED, new DreamGateRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
-        // 2. Salient Seed Selection (TMR)
+        // 2. Salient Seed Selection (TMR + Soul / Salience Matching)
         pathwayBuilder.gated("salient_seed", DreamGates.DREAMING_ENABLED, new SalientSeedRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
         // 3. Fragment Unpack (entity/role/affect decomposition)
@@ -104,7 +113,7 @@ public final class DreamPathway implements AutoCloseable {
         // 4. Anti-Centroid Hyper-Association
         pathwayBuilder.gated("hyper_associate", DreamGates.HAS_FRAGMENTS, new HyperAssociateRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
-        // 5. REM Compressed Replay with Hoel Noise
+        // 5. REM Compressed Replay with Hartmann Boundary Modulated Hoel Noise
         pathwayBuilder.gated("rem_replay", DreamGates.HAS_SEEDS, new RemReplayRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
         // 6. Compositional Scene Construction
@@ -113,10 +122,10 @@ public final class DreamPathway implements AutoCloseable {
         // 7. Predictive Coding Reality Testing & Counterfactual Probing
         pathwayBuilder.gated("counterfactual_probe", DreamGates.HAS_CONSTRUCTED_SCENES, new CounterfactualProbeRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
-        // 8. Langevin Stochastic SDE Discovery
+        // 8. Langevin Stochastic SDE Discovery with Soul Attractor Potential
         pathwayBuilder.gated("langevin_discovery", DreamGates.LANGEVIN_ENABLED, new LangevinDiscoveryRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
-        // 9. Prefrontal EFE Triage (Utility Filter)
+        // 9. Prefrontal Multi-Soul EFE Triage & Ethical Reality Testing
         pathwayBuilder.gated("efe_triage", DreamGates.HAS_CONSTRUCTED_SCENES, new EfeTriageRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
         // 10. Distill Residue, Discard Scaffold (Concept Extraction)
@@ -137,6 +146,18 @@ public final class DreamPathway implements AutoCloseable {
 
     public DreamConfig config() {
         return dreamConfig;
+    }
+
+    public SoulContext primarySoul() {
+        return primarySoul;
+    }
+
+    public List<SoulContext> soulContexts() {
+        return soulContexts;
+    }
+
+    public SalienceProfile salienceProfile() {
+        return salienceProfile;
     }
 
     /**
@@ -163,14 +184,23 @@ public final class DreamPathway implements AutoCloseable {
     }
 
     /**
-     * Convenience method to execute a dream cycle.
+     * Convenience method to execute a dream cycle with soul contexts and salience profile.
      */
-    public DreamReport dream(DreamMode mode, PartitionManager pm, AismeConfig aismeConfig) {
+    public DreamReport dream(
+            DreamMode mode,
+            PartitionManager pm,
+            AismeConfig aismeConfig,
+            SoulContext primarySoul,
+            List<SoulContext> soulContexts,
+            SalienceProfile salienceProfile) {
         DreamSignal signal = DreamSignal.builder()
                 .mode(mode)
                 .config(dreamConfig)
                 .partitionManager(pm != null ? pm : partitionManager)
                 .aismeConfig(aismeConfig != null ? aismeConfig : this.aismeConfig)
+                .primarySoul(primarySoul != null ? primarySoul : this.primarySoul)
+                .soulContexts(soulContexts != null ? soulContexts : this.soulContexts)
+                .salienceProfile(salienceProfile != null ? salienceProfile : this.salienceProfile)
                 .hebbianGraph(hebbianGraph)
                 .distributedMemoryTensor(distributedMemoryTensor)
                 .dreamJournalMemory(dreamJournalMemory)
@@ -182,6 +212,13 @@ public final class DreamPathway implements AutoCloseable {
                 .build();
 
         return conduct(signal);
+    }
+
+    /**
+     * Convenience method to execute a dream cycle using the instance defaults.
+     */
+    public DreamReport dream(DreamMode mode, PartitionManager pm, AismeConfig aismeConfig) {
+        return dream(mode, pm, aismeConfig, primarySoul, soulContexts, salienceProfile);
     }
 
     @Override
@@ -196,6 +233,9 @@ public final class DreamPathway implements AutoCloseable {
         private DreamConfig dreamConfig;
         private PartitionManager partitionManager;
         private AismeConfig aismeConfig = AismeConfig.defaultConfig();
+        private SoulContext primarySoul;
+        private List<SoulContext> soulContexts;
+        private SalienceProfile salienceProfile;
         private HebbianGraphBase hebbianGraph;
         private DistributedMemoryTensor distributedMemoryTensor;
         private DreamJournalMemory dreamJournalMemory;
@@ -209,6 +249,9 @@ public final class DreamPathway implements AutoCloseable {
         public Builder dreamConfig(DreamConfig dc) { this.dreamConfig = dc; return this; }
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
         public Builder aismeConfig(AismeConfig ac) { this.aismeConfig = ac; return this; }
+        public Builder primarySoul(SoulContext soul) { this.primarySoul = soul; return this; }
+        public Builder soulContexts(List<SoulContext> soulContexts) { this.soulContexts = soulContexts; return this; }
+        public Builder salienceProfile(SalienceProfile profile) { this.salienceProfile = profile; return this; }
         public Builder hebbianGraph(HebbianGraphBase graph) { this.hebbianGraph = graph; return this; }
         public Builder distributedMemoryTensor(DistributedMemoryTensor dmt) { this.distributedMemoryTensor = dmt; return this; }
         public Builder dreamJournalMemory(DreamJournalMemory djm) { this.dreamJournalMemory = djm; return this; }

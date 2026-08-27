@@ -160,4 +160,67 @@ class DreamPathwayTest {
             }
         }
     }
+
+    @Test
+    void testSoulConditionedDreamPathwayExecution() throws Exception {
+        int dim = 8;
+        DreamConfig dreamConfig = DreamConfig.builder()
+                .enabled(true)
+                .identityResonanceThreshold(0.70f)
+                .build();
+
+        float[] soulEmbedding = new float[]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+
+        com.spectrayan.spector.memory.model.AgentSoul soul = new com.spectrayan.spector.memory.model.AgentSoul(
+                "agent-researcher-1",
+                "Neuron AI",
+                "Cognitive Neuroscience Researcher",
+                "System prompt",
+                "Cognitive research",
+                "creative and open",
+                List.of("neuroscience"),
+                List.of("Accuracy"),
+                List.of(),
+                new com.spectrayan.spector.memory.model.AgentSoul.EmotionalBaseline((byte) 25, (byte) 160),
+                "technical",
+                "gpt-4",
+                List.of(),
+                soulEmbedding,
+                soulEmbedding,
+                (short) 1,
+                java.time.Instant.now(),
+                java.time.Instant.now()
+        );
+
+        com.spectrayan.spector.memory.model.SalienceProfile profile = com.spectrayan.spector.memory.model.SalienceProfile.builder()
+                .interest("neuroscience", com.spectrayan.spector.memory.model.InterestLevel.CRITICAL, soulEmbedding)
+                .build();
+
+        try (DreamPathway pathway = DreamPathway.builder()
+                .dreamConfig(dreamConfig)
+                .primarySoul(soul)
+                .salienceProfile(profile)
+                .build()) {
+
+            float[] v1 = new float[]{0.95f, 0.05f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+
+            DreamSignal signal = DreamSignal.builder()
+                    .mode(DreamMode.REM)
+                    .config(dreamConfig)
+                    .primarySoul(soul)
+                    .salienceProfile(profile)
+                    .seedMemoryIds(List.of("seed-neuro-1"))
+                    .seedVectors(List.of(v1))
+                    .build();
+
+            DreamReport report = pathway.conduct(signal);
+
+            assertThat(report).isNotNull();
+            assertThat(signal.primarySoul()).isEqualTo(soul);
+            assertThat(signal.salienceProfile()).isEqualTo(profile);
+            assertThat(signal.constructedScenes()).isNotEmpty();
+            // At least one constructed scene aligns with soul and gets IDENTITY
+            assertThat(signal.survivingScenes()).anyMatch(s -> s.triageOutcome() == DreamSignal.TriageOutcome.IDENTITY);
+        }
+    }
 }
