@@ -48,6 +48,17 @@ public final class HebbianLayout implements MemoryLayout {
     /** Edge field: edge flags (byte). */
     public static final int EDGE_OFF_EDGE_FLAGS = 11;
 
+    // ── Structural capacity constants ──
+
+    /** Default edge capacity multiplier relative to vertex count. */
+    public static final int DEFAULT_EDGE_CAPACITY_FACTOR = 2;
+    /** Default initial capacity for overflow node adjacency lists. */
+    public static final int DEFAULT_OVERFLOW_INITIAL_CAPACITY = 4;
+    /** Occupancy multiplier for telemetry (degree * factor = max overflow capacity). */
+    public static final int OVERFLOW_OCCUPANCY_MAX_DEGREE = 8;
+    /** I/O chunk buffer size for persistence operations. */
+    public static final int IO_CHUNK_BYTES = 64 * 1024;
+
     @Override
     public int layoutId() {
         return LAYOUT_ID;

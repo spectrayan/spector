@@ -23,6 +23,7 @@ import java.nio.channels.FileChannel;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.locks.ReentrantLock;
+import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
 
 /**
  * Off-heap open-addressing hash table for <b>directed</b> STDP edges.
@@ -46,18 +47,18 @@ final class OffHeapEdgeTable {
 
     private static final Logger log = LoggerFactory.getLogger(OffHeapEdgeTable.class);
 
-    // ── Slot layout ──
-    static final int SLOT_BYTES = 40;
-    static final long OFF_SRC = 0;
-    static final long OFF_TGT = 8;
-    static final long OFF_WEIGHT = 16;
-    // pad: 4B at offset 20 for alignment
-    static final long OFF_LAST_MS = 24;
-    static final long OFF_ACT_COUNT = 32;
-    static final long OFF_FLAGS = 36;
+    // ── Slot layout (delegated to CoActivationLayout) ──
+    static final int SLOT_BYTES = CoActivationLayout.EDGE_SLOT_BYTES;
+    static final long OFF_SRC = CoActivationLayout.OFF_EDGE_SRC;
+    static final long OFF_TGT = CoActivationLayout.OFF_EDGE_TGT;
+    static final long OFF_WEIGHT = CoActivationLayout.OFF_EDGE_WEIGHT;
+    // 4B padding at offset 20 for 8-byte alignment
+    static final long OFF_LAST_MS = CoActivationLayout.OFF_EDGE_LAST_MS;
+    static final long OFF_ACT_COUNT = CoActivationLayout.OFF_EDGE_ACT_COUNT;
+    static final long OFF_FLAGS = CoActivationLayout.OFF_EDGE_FLAGS;
 
     /** Flag: slot is occupied. */
-    static final int FLAG_OCCUPIED = 1;
+    static final int FLAG_OCCUPIED = CoActivationLayout.FLAG_OCCUPIED;
 
     /** Minimum weight (prevent complete erasure). */
     static final float MIN_WEIGHT = 0.0f;
@@ -126,7 +127,7 @@ final class OffHeapEdgeTable {
             } else {
                 // Insert
                 int insertSlot = ~slot;
-                if (insertSlot < 0 || count >= capacity / 2) {
+                if (insertSlot < 0 || count >= (int) (capacity * CoActivationLayout.MAX_LOAD_FACTOR)) {
                     pruneWeakest();
                     slot = findSlot(srcHash, tgtHash);
                     insertSlot = slot >= 0 ? slot : ~slot;
@@ -199,7 +200,7 @@ final class OffHeapEdgeTable {
      */
     private int findSlot(long srcHash, long tgtHash) {
         int mask = capacity - 1;
-        int idx = (int) ((srcHash * 0x517CC1B727220A95L + tgtHash) & mask);
+        int idx = (int) ((srcHash * CoActivationLayout.SPLITMIX_HASH_MULTIPLIER_64 + tgtHash) & mask);
 
         for (int probe = 0; probe < capacity; probe++) {
             int slot = (idx + probe) & mask;
@@ -219,7 +220,7 @@ final class OffHeapEdgeTable {
      */
     private void pruneWeakest() {
         if (count == 0) return;
-        int toPrune = Math.max(1, count / 10);
+        int toPrune = Math.max(1, (int) (count * CoActivationLayout.PRUNE_FRACTION));
 
         float[] weights = new float[count];
         int idx = 0;
@@ -257,7 +258,7 @@ final class OffHeapEdgeTable {
     void writeTo(FileChannel ch) throws IOException {
         long totalBytes = (long) SLOT_BYTES * capacity;
         long written = 0;
-        int chunkSize = 64 * 1024;
+        int chunkSize = CoActivationLayout.IO_CHUNK_BYTES;
         while (written < totalBytes) {
             int toWrite = (int) Math.min(chunkSize, totalBytes - written);
             ByteBuffer buf = segment.asSlice(written, toWrite).asByteBuffer().asReadOnlyBuffer();
@@ -271,7 +272,7 @@ final class OffHeapEdgeTable {
         long totalBytes = (long) SLOT_BYTES * capacity;
         MemorySegment seg = arena.allocate(totalBytes);
         long read = 0;
-        int chunkSize = 64 * 1024;
+        int chunkSize = CoActivationLayout.IO_CHUNK_BYTES;
         while (read < totalBytes) {
             int toRead = (int) Math.min(chunkSize, totalBytes - read);
             ByteBuffer buf = ByteBuffer.allocate(toRead);

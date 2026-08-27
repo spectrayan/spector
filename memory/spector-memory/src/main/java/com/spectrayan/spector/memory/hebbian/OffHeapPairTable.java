@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
 
 /**
  * Off-heap open-addressing hash table for <b>undirected</b> co-activation pairs.
@@ -49,15 +50,15 @@ final class OffHeapPairTable {
 
     private static final Logger log = LoggerFactory.getLogger(OffHeapPairTable.class);
 
-    // ── Slot layout ──
-    static final int SLOT_BYTES = 32;
-    static final long OFF_HASH_A = 0;
-    static final long OFF_HASH_B = 8;
-    static final long OFF_COUNT = 16;
-    static final long OFF_FLAGS = 20;
+    // ── Slot layout (delegated to CoActivationLayout) ──
+    static final int SLOT_BYTES = CoActivationLayout.PAIR_SLOT_BYTES;
+    static final long OFF_HASH_A = CoActivationLayout.OFF_PAIR_HASH_A;
+    static final long OFF_HASH_B = CoActivationLayout.OFF_PAIR_HASH_B;
+    static final long OFF_COUNT = CoActivationLayout.OFF_PAIR_COUNT;
+    static final long OFF_FLAGS = CoActivationLayout.OFF_PAIR_FLAGS;
 
     /** Flag: slot is occupied. */
-    static final int FLAG_OCCUPIED = 1;
+    static final int FLAG_OCCUPIED = CoActivationLayout.FLAG_OCCUPIED;
 
     private final MemorySegment segment;
     private final int capacity;
@@ -109,7 +110,7 @@ final class OffHeapPairTable {
                 segment.set(ValueLayout.JAVA_INT, offset + OFF_COUNT, c + 1);
             } else {
                 int insertSlot = ~slot;
-                if (insertSlot < 0 || count >= capacity / 2) {
+                if (insertSlot < 0 || count >= (int) (capacity * CoActivationLayout.MAX_LOAD_FACTOR)) {
                     pruneWeakest();
                     slot = findSlot(hashA, hashB);
                     insertSlot = slot >= 0 ? slot : ~slot;
@@ -189,7 +190,7 @@ final class OffHeapPairTable {
      */
     private int findSlot(long hashA, long hashB) {
         int mask = capacity - 1;
-        int idx = (int) ((hashA * 0x9E3779B97F4A7C15L + hashB) & mask);
+        int idx = (int) ((hashA * CoActivationLayout.FIBONACCI_HASH_MULTIPLIER_64 + hashB) & mask);
 
         for (int probe = 0; probe < capacity; probe++) {
             int slot = (idx + probe) & mask;
@@ -209,7 +210,7 @@ final class OffHeapPairTable {
      */
     private void pruneWeakest() {
         if (count == 0) return;
-        int toPrune = Math.max(1, count / 10);
+        int toPrune = Math.max(1, (int) (count * CoActivationLayout.PRUNE_FRACTION));
 
         int[] counts = new int[count];
         int idx = 0;
@@ -248,7 +249,7 @@ final class OffHeapPairTable {
     void writeTo(FileChannel ch) throws IOException {
         long totalBytes = (long) SLOT_BYTES * capacity;
         long written = 0;
-        int chunkSize = 64 * 1024;
+        int chunkSize = CoActivationLayout.IO_CHUNK_BYTES;
         while (written < totalBytes) {
             int toWrite = (int) Math.min(chunkSize, totalBytes - written);
             ByteBuffer buf = segment.asSlice(written, toWrite).asByteBuffer().asReadOnlyBuffer();
@@ -262,7 +263,7 @@ final class OffHeapPairTable {
         long totalBytes = (long) SLOT_BYTES * capacity;
         MemorySegment seg = arena.allocate(totalBytes);
         long read = 0;
-        int chunkSize = 64 * 1024;
+        int chunkSize = CoActivationLayout.IO_CHUNK_BYTES;
         while (read < totalBytes) {
             int toRead = (int) Math.min(chunkSize, totalBytes - read);
             ByteBuffer buf = ByteBuffer.allocate(toRead);

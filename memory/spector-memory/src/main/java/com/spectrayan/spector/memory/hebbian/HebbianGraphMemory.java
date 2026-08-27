@@ -22,6 +22,7 @@ import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.codec.Codecs;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.memory.kernel.layout.HebbianLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractGraphMemory;
 
@@ -82,7 +83,15 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     // HebbianLayout; this class only references them.
 
     /** Minimum bridge score to protect an edge from eviction during decay. */
-    static final int BRIDGE_PROTECTION_THRESHOLD = 224;
+    static final int BRIDGE_PROTECTION_THRESHOLD = SpectorPropertyConstants.DEFAULT_MEMORY_SPARSIFICATION_BRIDGE_THRESHOLD;
+
+    /** Minimum survivor weight for decayed edges (below this, edges are pruned unless bridge-protected). */
+    private static final float DECAY_FLOOR = SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_DECAY_FLOOR;
+
+    /** Minimum compound weight for recursive spreading activation to continue. */
+    private static final float ACTIVATION_CUTOFF = SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_ACTIVATION_CUTOFF;
+    /** Per-hop attenuation factor applied to compound weight during spreading activation. */
+    private static final float HOP_ATTENUATION = SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_HOP_ATTENUATION;
 
     /** Maximum degree per node (prevents graph explosion). */
     private final int maxDegree;
@@ -113,7 +122,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     // ── Thread safety & session ──
     private final ReentrantLock graphLock = new ReentrantLock();
     private volatile long lastActivityMs = System.currentTimeMillis();
-    private volatile long sessionBoundaryMs = 30 * 60 * 1000L;
+    private volatile long sessionBoundaryMs = SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_SESSION_BOUNDARY_MS;
     private volatile HebbianGraph.DecayModulator decayModulator;
     private volatile long lastCompactionEpochMs = 0L;
     private volatile long bytesReclaimedLastCycle = 0L;
@@ -216,7 +225,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     }
 
     public HebbianGraphMemory(int capacity) {
-        this(capacity, capacity * 2, HebbianGraph.DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
+        this(capacity, capacity * HebbianLayout.DEFAULT_EDGE_CAPACITY_FACTOR, HebbianGraph.DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -236,7 +245,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
             if (nodeA == nodeB) return;
 
             if (wal != null && !bypassWal) {
-                ByteBuffer buf = ByteBuffer.allocate(4);
+                ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES);
                 buf.putFloat(weightDelta);
                 wal.appendAdjAddEdge(id().toString(), nodeA, nodeB, buf.array());
             }
@@ -348,13 +357,13 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
                         int bridge = e.bridgeScore;
 
                         boolean bridgeProtected = false;
-                        if (newWeight < 0.1f && bridge >= BRIDGE_PROTECTION_THRESHOLD) {
-                            newWeight = 0.1f;
+                        if (newWeight < DECAY_FLOOR && bridge >= BRIDGE_PROTECTION_THRESHOLD) {
+                            newWeight = DECAY_FLOOR;
                             bridgeProtected = true;
                             if (metrics != null) metrics.recordHebbianBridgeProtection();
                         }
 
-                        if (newWeight >= 0.1f) {
+                        if (newWeight >= DECAY_FLOOR) {
                             if (writePos < edgeCapacity) {
                                 long edgeOff = (long) writePos * EDGE_BYTES;
                                 tmpEdges.set(ValueLayout.JAVA_INT, edgeOff + EDGE_OFF_NEIGHBOR, e.neighbor);
@@ -460,7 +469,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
 
     @Override
     public int addEdge(int fromNode, int toNode, MemorySegment edgeBytes) {
-        strengthen(fromNode, toNode, 1.0f);
+        strengthen(fromNode, toNode, SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_DEFAULT_WEIGHT_DELTA);
         return totalEdges();
     }
 
@@ -576,7 +585,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
                                           int maxDegree, EdgeImportance edgeImportance) {
         if (filePath == null || !Files.exists(filePath)) {
             log.info("HebbianGraphMemory file not found, creating fresh: {}", filePath);
-            return new HebbianGraphMemory(defaultCapacity, defaultCapacity * 2, maxDegree, edgeImportance);
+            return new HebbianGraphMemory(defaultCapacity, defaultCapacity * HebbianLayout.DEFAULT_EDGE_CAPACITY_FACTOR, maxDegree, edgeImportance);
         }
 
         try {
@@ -620,7 +629,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     /** Reads the leading 4-byte magic in big-endian (the order legacy writers used). */
     private static int readMagic(Path filePath) throws IOException {
         try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
-            ByteBuffer buf = ByteBuffer.allocate(4);
+            ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES);
             int n = ch.read(buf);
             if (n < 4) {
                 throw new IOException("File too small to contain a magic header: " + filePath);
@@ -692,7 +701,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
                                             EdgeImportance edgeImportance) {
         int cap = legacy.capacity();
         int totalEdges = legacy.totalEdges();
-        int edgeCap = Math.max(totalEdges * 2, cap * 2);
+        int edgeCap = Math.max(totalEdges * HebbianLayout.DEFAULT_EDGE_CAPACITY_FACTOR, cap * HebbianLayout.DEFAULT_EDGE_CAPACITY_FACTOR);
         HebbianGraphMemory csr = new HebbianGraphMemory(cap, edgeCap, maxDegree, edgeImportance);
 
         int writePos = 0;
@@ -755,7 +764,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
         }
 
         if (ov == null) {
-            ov = new ArrayList<>(4);
+            ov = new ArrayList<>(HebbianLayout.DEFAULT_OVERFLOW_INITIAL_CAPACITY);
             overflow[from] = ov;
         }
         ov.add(new int[]{to, Float.floatToRawIntBits(weightDelta)});
@@ -926,7 +935,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
                 for (int i = 0; i < end - start; i++) {
                     long edgeOff = (long) (start + i) * EDGE_BYTES;
                     int score = scores[node] != null && i < scores[node].length
-                            ? scores[node][i] : 128;
+                            ? scores[node][i] : SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_NEUTRAL_BRIDGE_SCORE;
                     edges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_BRIDGE_SCORE, (byte) score);
                 }
             }
@@ -967,9 +976,9 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
 
         for (HebbianEdge edge : neighbors(node)) {
             float compoundWeight = edge.weight() * attenuation;
-            if (compoundWeight > 0.01f && !visited[edge.neighborIndex()]) {
+            if (compoundWeight > ACTIVATION_CUTOFF && !visited[edge.neighborIndex()]) {
                 activated.add(new HebbianEdge(edge.neighborIndex(), compoundWeight));
-                activateRecursive(edge.neighborIndex(), depth - 1, compoundWeight * 0.5f,
+                activateRecursive(edge.neighborIndex(), depth - 1, compoundWeight * HOP_ATTENUATION,
                         activated, visited);
             }
         }
@@ -1024,7 +1033,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
 
     private static void readIntoSegment(FileChannel ch, MemorySegment segment, long bytes) throws IOException {
         long read = 0;
-        int chunkSize = 64 * 1024;
+        int chunkSize = HebbianLayout.IO_CHUNK_BYTES;
         while (read < bytes) {
             int toRead = (int) Math.min(chunkSize, bytes - read);
             ByteBuffer buf = ByteBuffer.allocate(toRead);
@@ -1039,7 +1048,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     private static void writeSegmentToChannel(MemorySegment segment, long bytes,
                                                FileChannel ch) throws IOException {
         long written = 0;
-        int chunkSize = 64 * 1024;
+        int chunkSize = HebbianLayout.IO_CHUNK_BYTES;
         while (written < bytes) {
             int toWrite = (int) Math.min(chunkSize, bytes - written);
             ByteBuffer buf = segment.asSlice(written, toWrite).asByteBuffer().asReadOnlyBuffer();
@@ -1057,7 +1066,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
             long allocBytes = (long) (capacity + 1) * Integer.BYTES + (long) edgeCapacity * EDGE_BYTES;
             long liveBytes = (long) totalEdgeCount * EDGE_BYTES;
             float fragRatio = allocBytes > 0 ? 1.0f - ((float) liveBytes / (float) allocBytes) : 0.0f;
-            float csrOverflowOccupancy = capacity > 0 ? (float) overflowEdgeCount / (float) (capacity * 8) : 0.0f;
+            float csrOverflowOccupancy = capacity > 0 ? (float) overflowEdgeCount / (float) (capacity * HebbianLayout.OVERFLOW_OCCUPANCY_MAX_DEGREE) : 0.0f;
 
             return new com.spectrayan.spector.memory.graph.GraphStructureHealthSnapshot(
                     "hebbian-csr",
