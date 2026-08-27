@@ -34,6 +34,8 @@ public final class DreamJournalRelay implements SynapticRelay<DreamSignal> {
         if (signal == null || signal.constructedScenes().isEmpty()) return true;
 
         int written = 0;
+        boolean journalEnabled = signal.config() != null && signal.config().journalEnabled();
+        
         for (DreamSignal.DreamScene scene : signal.constructedScenes()) {
             String narrative = scene.narrative() != null ? scene.narrative() : "";
             if (narrative.length() > 200) {
@@ -42,11 +44,15 @@ public final class DreamJournalRelay implements SynapticRelay<DreamSignal> {
 
             log.info("Dream Journal: Mode={}, Outcome={}, Quality={}, SourceIDs={}, Narrative='{}'",
                 signal.mode(), scene.triageOutcome(), scene.qualityScore(), scene.sourceIds(), narrative);
+                
+            if (journalEnabled && signal.dreamJournalMemory() != null) {
+                signal.dreamJournalMemory().appendScene(scene);
+            }
             written++;
         }
 
-        if (signal.dreamsGenerated() instanceof AtomicInteger) {
-            ((AtomicInteger) signal.dreamsGenerated()).addAndGet(written);
+        if (signal.dreamsGenerated() != null) {
+            signal.dreamsGenerated().addAndGet(written);
         }
 
         return true;
