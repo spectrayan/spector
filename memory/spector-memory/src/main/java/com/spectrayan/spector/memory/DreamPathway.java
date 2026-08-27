@@ -134,6 +134,10 @@ public final class DreamPathway implements AutoCloseable {
         return new Builder();
     }
 
+    public DreamConfig config() {
+        return dreamConfig;
+    }
+
     /**
      * Conducts a full dreaming cycle over the supplied signal.
      *
