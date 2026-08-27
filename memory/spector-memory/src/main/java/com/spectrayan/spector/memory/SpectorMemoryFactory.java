@@ -122,7 +122,8 @@ public final class SpectorMemoryFactory {
             WanderPathway wanderPathway,
             com.spectrayan.spector.memory.cortex.ContinuityRecordMemory continuityMemory,
             DecidePathway decidePathway,
-            DreamPathway dreamPathway
+            DreamPathway dreamPathway,
+            com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle
     ) {}
 
     private SpectorMemoryFactory() {}
@@ -448,7 +449,7 @@ public final class SpectorMemoryFactory {
                 daemons.checkpointDaemon(), daemons.graphEnrichmentDaemon(), daemons.daemonSupervisor(), retrieval.bm25Index(), attachmentProcessor,
                 parallelPipeline, embedConfig, cortex.resolvedPartitionDir(), cortex.basePath(),
                 cortex.namespaceManager(), profileAdaptor, cortex.runtimeBundle(), cortex.insularCortex(),
-                wanderPathway, cortex.continuityMemory(), decidePathway, dreamPathway
+                wanderPathway, cortex.continuityMemory(), decidePathway, dreamPathway, aismeBundle
         );
     }
 }

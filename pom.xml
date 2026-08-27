@@ -149,6 +149,7 @@
         <camel.version>4.11.0</camel.version>
         <bucket4j.version>8.10.1</bucket4j.version>
         <caffeine.version>3.2.0</caffeine.version>
+        <quartz.version>2.3.2</quartz.version>
 
         <!-- Test dependency versions -->
         <junit.version>6.1.2</junit.version>
@@ -410,6 +411,23 @@
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
                 <version>${caffeine.version}</version>
+            </dependency>
+
+            <!-- ── Quartz Scheduler (In-Memory Task Management) ── -->
+            <dependency>
+                <groupId>org.quartz-scheduler</groupId>
+                <artifactId>quartz</artifactId>
+                <version>${quartz.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.mchange</groupId>
+                        <artifactId>c3p0</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.zaxxer</groupId>
+                        <artifactId>HikariCP-java7</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <!-- ── Logging ── -->

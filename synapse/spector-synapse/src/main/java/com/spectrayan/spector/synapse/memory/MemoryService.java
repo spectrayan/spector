@@ -1048,6 +1048,84 @@ public class MemoryService {
         return java.util.Collections.emptyList();
     }
 
+    // ══════════════════════════════════════════════════════════════
+    // BACKGROUND TASK SCHEDULER & AUDIT MANAGEMENT (#683)
+    // ══════════════════════════════════════════════════════════════
+
+    public List<com.spectrayan.spector.memory.scheduler.TaskStatus> listTasks() {
+        SpectorMemory mem = resolveMemory();
+        if (mem != null && mem.scheduler() != null) {
+            return mem.scheduler().listTasks();
+        }
+        return List.of();
+    }
+
+    public java.util.Optional<com.spectrayan.spector.memory.scheduler.TaskStatus> getTask(String taskId) {
+        requireId(taskId);
+        SpectorMemory mem = resolveMemory();
+        if (mem != null && mem.scheduler() != null) {
+            return mem.scheduler().getTask(taskId);
+        }
+        return java.util.Optional.empty();
+    }
+
+    public void triggerTask(String taskId) {
+        requireId(taskId);
+        SpectorMemory mem = resolveMemory();
+        if (mem != null && mem.scheduler() != null) {
+            mem.scheduler().triggerNow(taskId);
+        }
+    }
+
+    public void pauseTask(String taskId) {
+        requireId(taskId);
+        SpectorMemory mem = resolveMemory();
+        if (mem != null && mem.scheduler() != null) {
+            mem.scheduler().pause(taskId);
+        }
+    }
+
+    public void resumeTask(String taskId) {
+        requireId(taskId);
+        SpectorMemory mem = resolveMemory();
+        if (mem != null && mem.scheduler() != null) {
+            mem.scheduler().resume(taskId);
+        }
+    }
+
+    public void rescheduleTaskInterval(String taskId, java.time.Duration interval) {
+        requireId(taskId);
+        SpectorMemory mem = resolveMemory();
+        if (mem != null && mem.scheduler() != null) {
+            mem.scheduler().rescheduleInterval(taskId, interval);
+        }
+    }
+
+    public void rescheduleTaskCron(String taskId, String cron) {
+        requireId(taskId);
+        SpectorMemory mem = resolveMemory();
+        if (mem != null && mem.scheduler() != null) {
+            mem.scheduler().rescheduleCron(taskId, cron);
+        }
+    }
+
+    public List<com.spectrayan.spector.memory.scheduler.TaskRunAuditRecord> getTaskAuditHistory(String taskId, int limit) {
+        requireId(taskId);
+        SpectorMemory mem = resolveMemory();
+        if (mem != null && mem.scheduler() != null) {
+            return mem.scheduler().getAuditHistory(taskId, limit);
+        }
+        return List.of();
+    }
+
+    public List<com.spectrayan.spector.memory.scheduler.TaskRunAuditRecord> getRecentAuditHistory(int limit) {
+        SpectorMemory mem = resolveMemory();
+        if (mem != null && mem.scheduler() != null) {
+            return mem.scheduler().getRecentAuditHistory(limit);
+        }
+        return List.of();
+    }
+
     private static void requireId(String id) {
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("Memory ID cannot be blank");

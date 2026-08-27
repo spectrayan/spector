@@ -76,6 +76,9 @@ public interface SpectorMemoryAdmin {
     /** Returns the prospective memory scheduler. */
     ProspectiveScheduler prospective();
 
+    /** Returns the namespace-scoped background task scheduler and audit manager. */
+    com.spectrayan.spector.memory.scheduler.MemoryScheduler scheduler();
+
     /** Returns the suppression set. */
     SuppressionSet suppression();
 

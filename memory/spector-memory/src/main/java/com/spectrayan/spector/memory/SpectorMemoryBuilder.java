@@ -275,6 +275,14 @@ public final class SpectorMemoryBuilder {
         return this;
     }
 
+    public java.util.concurrent.Executor suppliedExecutor;
+
+    /** Supplies a custom Executor for background task execution (defaults to ConcurrentTasks.virtualExecutor()). */
+    public SpectorMemoryBuilder suppliedExecutor(java.util.concurrent.Executor executor) {
+        this.suppliedExecutor = executor;
+        return this;
+    }
+
 
 
     /**
