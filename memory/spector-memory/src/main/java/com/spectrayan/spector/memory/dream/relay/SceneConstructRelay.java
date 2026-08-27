@@ -35,6 +35,11 @@ public final class SceneConstructRelay implements SynapticRelay<DreamSignal> {
 
     private static final Logger log = LoggerFactory.getLogger(SceneConstructRelay.class);
 
+    public static final float REFERENCE_TEMPERATURE = 2.0f;
+    public static final float INITIAL_SCENE_QUALITY_BASELINE = 0.50f;
+    public static final int MIN_FRAGMENTS_PER_SCENE = 3;
+    public static final long RNG_SEED_SALT = 42L;
+
     @Override
     public boolean transmit(final DreamSignal signal) {
         if (signal == null || signal.fragments().isEmpty()) {
@@ -45,9 +50,9 @@ public final class SceneConstructRelay implements SynapticRelay<DreamSignal> {
         int maxScenes = signal.config().maxDreamsPerCycle();
         float temp = signal.temperature();
         float baseNoise = signal.config().dreamNoiseScale();
-        float scaledNoise = baseNoise * (temp / 2.0f);
+        float scaledNoise = baseNoise * (temp / REFERENCE_TEMPERATURE);
 
-        Random random = new Random(signal.startTime().toEpochMilli() + 42L);
+        Random random = new Random(signal.startTime().toEpochMilli() + RNG_SEED_SALT);
 
         // Group fragments by role for structured slot filling
         List<SceneFragment> agents = fragments.stream().filter(f -> f.role() == FragmentRole.AGENT).toList();
@@ -55,7 +60,7 @@ public final class SceneConstructRelay implements SynapticRelay<DreamSignal> {
         List<SceneFragment> objects = fragments.stream().filter(f -> f.role() == FragmentRole.OBJECT).toList();
         List<SceneFragment> locations = fragments.stream().filter(f -> f.role() == FragmentRole.LOCATION).toList();
 
-        int count = Math.min(maxScenes, Math.max(1, fragments.size() / 3));
+        int count = Math.min(maxScenes, Math.max(1, fragments.size() / MIN_FRAGMENTS_PER_SCENE));
 
         for (int i = 0; i < count; i++) {
             SceneFragment agent = pickFragment(agents, fragments, random, i);
@@ -90,7 +95,7 @@ public final class SceneConstructRelay implements SynapticRelay<DreamSignal> {
                     insightDraft,
                     blended,
                     sourceIds,
-                    0.5f, // initial baseline prior to counterfactual probe
+                    INITIAL_SCENE_QUALITY_BASELINE,
                     null
             );
 

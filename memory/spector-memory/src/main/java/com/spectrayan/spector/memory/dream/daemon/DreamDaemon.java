@@ -73,7 +73,7 @@ public final class DreamDaemon implements Runnable {
                 return;
             }
 
-            int freq = dreamPathway.config() != null ? dreamPathway.config().dreamCycleFrequency() : 3;
+            int freq = dreamPathway.config() != null ? dreamPathway.config().dreamCycleFrequency() : com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_CYCLE_FREQUENCY;
             if (currentEpoch % freq != 0) {
                 if (log.isTraceEnabled()) {
                     log.trace("DreamDaemon: cycle {} not matching frequency {} — skipping", currentEpoch, freq);

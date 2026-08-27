@@ -37,6 +37,7 @@ public final class CounterfactualProbeRelay implements SynapticRelay<DreamSignal
 
     public static final float WEIGHT_EPISTEMIC_SURPRISE = 0.55f;
     public static final float WEIGHT_PRAGMATIC_PLAUSIBILITY = 0.45f;
+    public static final float DEFAULT_NEUTRAL_PLAUSIBILITY = 0.50f;
 
     @Override
     public boolean transmit(final DreamSignal signal) {
@@ -80,7 +81,7 @@ public final class CounterfactualProbeRelay implements SynapticRelay<DreamSignal
             float epistemicSurprise = Math.max(0.0f, 1.0f - maxSimWithSeed);
 
             // 2. Pragmatic Plausibility (Coherence with global seed centroid) via SPI CosineSimilarity
-            float pragmaticPlausibility = 0.5f;
+            float pragmaticPlausibility = DEFAULT_NEUTRAL_PLAUSIBILITY;
             if (seedCentroid != null && vec != null && vec.length == seedCentroid.length) {
                 float centroidSim = AcceleratorRegistry.getSimilarityKernel().cosineSimilarity(vec, seedCentroid, 1, vec.length)[0];
                 pragmaticPlausibility = Math.max(0.0f, (centroidSim + 1.0f) / 2.0f);

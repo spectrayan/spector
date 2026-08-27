@@ -44,6 +44,9 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
     public static final float WEIGHT_NOVELTY = 0.30f;
     public static final float WEIGHT_PROFILE = 0.20f;
     public static final double RECENCY_DECAY_PERIOD_SECONDS = 86400.0;
+    public static final int CANDIDATE_POOL_MULTIPLIER = 4;
+    public static final float SIMULATED_NOVELTY_ATTENUATION = 0.40f;
+    public static final float MAX_PROFILE_NIBBLE = 15.0f;
 
     private record SeedCandidate(String id, float[] vector, float salienceScore) {}
 
@@ -70,7 +73,7 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
         }
 
         int maxSeeds = signal.config().maxDreamsPerCycle();
-        int candidatePoolLimit = maxSeeds * 4;
+        int candidatePoolLimit = maxSeeds * CANDIDATE_POOL_MULTIPLIER;
         List<SeedCandidate> candidates = new ArrayList<>();
 
         for (PartitionHandle handle : handles) {
@@ -138,8 +141,8 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
 
             // Composite salience: prioritize un-consolidated, non-dreamed, high-intensity memories
             float recencyWeight = (float) Math.exp(-Math.max(0L, System.currentTimeMillis() / 1000L - epochSecs) / RECENCY_DECAY_PERIOD_SECONDS);
-            float noveltyWeight = (!simulated && !dreamed) ? 1.0f : 0.4f;
-            float profileSalience = (profile & 0x0F) / 15.0f;
+            float noveltyWeight = (!simulated && !dreamed) ? 1.0f : SIMULATED_NOVELTY_ATTENUATION;
+            float profileSalience = (profile & 0x0F) / MAX_PROFILE_NIBBLE;
 
             float salienceScore = WEIGHT_RECENCY * recencyWeight + WEIGHT_NOVELTY * noveltyWeight + WEIGHT_PROFILE * profileSalience;
 

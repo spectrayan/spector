@@ -34,6 +34,9 @@ public final class RemReplayRelay implements SynapticRelay<DreamSignal> {
 
     public static final float DEFAULT_GAMMA_NOISE = 1.5f;
     public static final float DEFAULT_IMPORTANCE_RATIO = 0.5f;
+    public static final float REFERENCE_TEMPERATURE = 2.0f;
+    public static final double MIN_RESIDUAL_IMPORTANCE_FLOOR = 0.01;
+    public static final float INITIAL_REPLAY_QUALITY = 0.0f;
 
     @Override
     public boolean transmit(final DreamSignal signal) {
@@ -48,14 +51,14 @@ public final class RemReplayRelay implements SynapticRelay<DreamSignal> {
         }
         Random random = new Random(randomSeed);
 
-        float sigmaMax = signal.config().dreamNoiseScale() * (signal.temperature() / 2.0f);
+        float sigmaMax = signal.config().dreamNoiseScale() * (signal.temperature() / REFERENCE_TEMPERATURE);
 
         for (int i = 0; i < seeds.size(); i++) {
             float[] vector = seeds.get(i);
             String id = seedIds.get(i);
 
             float importanceRatio = DEFAULT_IMPORTANCE_RATIO;
-            float sigmaDream = sigmaMax * (float) Math.pow(Math.max(0.01, 1.0 - importanceRatio), DEFAULT_GAMMA_NOISE);
+            float sigmaDream = sigmaMax * (float) Math.pow(Math.max(MIN_RESIDUAL_IMPORTANCE_FLOOR, 1.0 - importanceRatio), DEFAULT_GAMMA_NOISE);
 
             float[] noise = new float[vector.length];
             for (int j = 0; j < vector.length; j++) {
@@ -71,7 +74,7 @@ public final class RemReplayRelay implements SynapticRelay<DreamSignal> {
                 "",
                 noisyVector,
                 List.of(id),
-                0.0f,
+                INITIAL_REPLAY_QUALITY,
                 null
             );
 

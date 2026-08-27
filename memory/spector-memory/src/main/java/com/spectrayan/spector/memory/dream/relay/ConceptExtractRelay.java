@@ -24,6 +24,8 @@ import com.spectrayan.spector.commons.pathway.SynapticRelay;
  */
 public final class ConceptExtractRelay implements SynapticRelay<DreamSignal> {
 
+    public static final float DEFAULT_FREE_ENERGY_SCORE = 0.50f;
+
     @Override
     public boolean transmit(final DreamSignal signal) {
         if (signal == null || signal.survivingScenes().isEmpty()) {
@@ -38,7 +40,7 @@ public final class ConceptExtractRelay implements SynapticRelay<DreamSignal> {
                     ExtractedInsight.InsightType.SEMANTIC,
                     scene.sourceIds(),
                     scene.qualityScore(),
-                    0.5f
+                    DEFAULT_FREE_ENERGY_SCORE
             );
             signal.addExtractedInsight(insight);
         }

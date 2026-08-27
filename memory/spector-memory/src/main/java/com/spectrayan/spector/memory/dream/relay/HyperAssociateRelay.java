@@ -40,6 +40,11 @@ public final class HyperAssociateRelay implements SynapticRelay<DreamSignal> {
     public static final float WEIGHT_AFFECTIVE_RHYME = 0.20f;
     public static final float PAIRING_ACCEPTANCE_THRESHOLD = 0.35f;
 
+    public static final float MAX_VALENCE_SPREAD = 100.0f;
+    public static final float DEFAULT_NEUTRAL_ROLE_COMPLEMENTARITY = 0.50f;
+    public static final float COMPLEMENTARY_ROLE_SCORE = 1.0f;
+    public static final float IDENTICAL_ROLE_SCORE = 0.40f;
+
     public record FragmentPair(SceneFragment fragmentA, SceneFragment fragmentB, float antiCentroidScore) {}
 
     @Override
@@ -72,7 +77,7 @@ public final class HyperAssociateRelay implements SynapticRelay<DreamSignal> {
                 float relOverlap = computeRoleComplementarity(fA.role(), fB.role());
 
                 // 3. Affective Rhyme (Valence alignment / emotional resonance)
-                float affRhyme = 1.0f - (Math.abs((float) fA.valence() - (float) fB.valence()) / 100.0f);
+                float affRhyme = 1.0f - (Math.abs((float) fA.valence() - (float) fB.valence()) / MAX_VALENCE_SPREAD);
 
                 float antiCentroidScore = semDistance * WEIGHT_SEMANTIC_DISTANCE + relOverlap * WEIGHT_RELATIONAL_OVERLAP + affRhyme * WEIGHT_AFFECTIVE_RHYME;
 
@@ -92,12 +97,12 @@ public final class HyperAssociateRelay implements SynapticRelay<DreamSignal> {
     }
 
     private static float computeRoleComplementarity(FragmentRole rA, FragmentRole rB) {
-        if (rA == null || rB == null) return 0.5f;
+        if (rA == null || rB == null) return DEFAULT_NEUTRAL_ROLE_COMPLEMENTARITY;
         if (rA != rB) {
             // Complementary roles (e.g. AGENT + ACTION, ACTION + OBJECT) form coherent scenes
-            return 1.0f;
+            return COMPLEMENTARY_ROLE_SCORE;
         }
-        return 0.4f;
+        return IDENTICAL_ROLE_SCORE;
     }
 
     @Override
