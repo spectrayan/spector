@@ -103,47 +103,71 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
         final IngestionHints hints = signal.hints();
         final IngestionContext context = signal.context();
         final SalienceProfile salienceProfile = signal.salienceProfile();
-
-        byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, type.ordinal());
-        if (signal.isFlashbulb()) {
-            flags = (byte) (flags | SynapticHeaderConstants.FLAG_PINNED);
-        }
-        if (context != null) {
-            final SourceModality modality = context.sourceModality();
-            if (modality != null && modality != SourceModality.TEXT) {
-                flags = SynapticHeaderConstants.withSourceModality(flags, modality.ordinal());
-            }
-        }
-
         final float l2Norm = (vector != null) ? VectorOps.magnitude(vector) : 0.0f;
-        final byte rawValence = (hints != null) ? hints.valence() : (byte) 0;
-        final byte rawArousal = (hints != null) ? hints.effectiveArousal() : (byte) 0;
-        final byte valence = salienceProfile.modulateValence(rawValence);
-        final byte arousal = salienceProfile.modulateArousal(rawArousal);
 
-        final float surpriseZScore = (float) surpriseDetector.stats().zScore(signal.nearestDist());
-        final byte encodingProfile = computeEncodingProfile(salienceProfile);
-        final byte encodingAlpha = computeEncodingAlpha(salienceProfile);
-        final byte encodingBeta = computeEncodingBeta(salienceProfile);
+        final CognitiveHeader preserved = signal.header();
+        final CognitiveHeader header;
+        if (preserved != null) {
+            long synapticTags = signal.synapticTags() != 0 ? signal.synapticTags() : preserved.synapticTags();
+            header = new CognitiveHeader(
+                    preserved.timestampMs(),
+                    synapticTags,
+                    l2Norm,
+                    preserved.importance(),
+                    preserved.agentRecallCount(),
+                    (short) 0,
+                    preserved.valence(),
+                    preserved.flags(),
+                    preserved.arousal(),
+                    preserved.storageStrength(),
+                    preserved.encodingProfile(),
+                    preserved.encodingAlpha(),
+                    preserved.encodingBeta(),
+                    preserved.soulVersion(),
+                    preserved.encodingSurprise(),
+                    preserved.consolidationFlags()
+            );
+        } else {
+            byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, type.ordinal());
+            if (signal.isFlashbulb()) {
+                flags = (byte) (flags | SynapticHeaderConstants.FLAG_PINNED);
+            }
+            if (context != null) {
+                final SourceModality modality = context.sourceModality();
+                if (modality != null && modality != SourceModality.TEXT) {
+                    flags = SynapticHeaderConstants.withSourceModality(flags, modality.ordinal());
+                }
+            }
 
-        final CognitiveHeader header = new CognitiveHeader(
-                signal.timestampMs(),
-                signal.synapticTags(),
-                l2Norm,
-                signal.importance(),
-                0,
-                (short) 0,
-                valence,
-                flags,
-                arousal,
-                1.0f,
-                encodingProfile,
-                encodingAlpha,
-                encodingBeta,
-                signal.soulVersion(),
-                surpriseZScore,
-                (byte) 0
-        );
+            final byte rawValence = (hints != null) ? hints.valence() : (byte) 0;
+            final byte rawArousal = (hints != null) ? hints.effectiveArousal() : (byte) 0;
+            final byte valence = salienceProfile.modulateValence(rawValence);
+            final byte arousal = salienceProfile.modulateArousal(rawArousal);
+
+            final float surpriseZScore = (float) surpriseDetector.stats().zScore(signal.nearestDist());
+            final byte encodingProfile = computeEncodingProfile(salienceProfile);
+            final byte encodingAlpha = computeEncodingAlpha(salienceProfile);
+            final byte encodingBeta = computeEncodingBeta(salienceProfile);
+
+            header = new CognitiveHeader(
+                    signal.timestampMs(),
+                    signal.synapticTags(),
+                    l2Norm,
+                    signal.importance(),
+                    0,
+                    (short) 0,
+                    valence,
+                    flags,
+                    arousal,
+                    1.0f,
+                    encodingProfile,
+                    encodingAlpha,
+                    encodingBeta,
+                    signal.soulVersion(),
+                    surpriseZScore,
+                    (byte) 0
+            );
+        }
         signal.header(header);
 
         // 3. Off-Heap Slab Write (with partition roll support)
@@ -209,6 +233,10 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
 
     public PostIngestSync postIngestSync() {
         return postIngestSync;
+    }
+
+    public com.spectrayan.spector.core.quantization.ScalarQuantizer quantizer() {
+        return quantizer;
     }
 
     private static float[] l2Normalize(final float[] vector) {

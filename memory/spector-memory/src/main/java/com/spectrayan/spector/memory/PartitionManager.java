@@ -27,7 +27,7 @@ import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
 import com.spectrayan.spector.memory.kernel.bundle.RegionId;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
@@ -86,7 +86,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
     private final MemoryIndex index;
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
-    private final CognitiveIngestionTarget cognitiveTarget;
+    private final RememberPathway cognitiveTarget;
     private final DataEncryptor encryptor;
     private final boolean useBundleMode;
     private volatile RememberPathway rememberPathway;
@@ -115,7 +115,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                      MemoryIndex index,
                      HebbianGraphBase hebbianGraph,
                      TemporalChainMemory temporalChain,
-                     CognitiveIngestionTarget cognitiveTarget,
+                     RememberPathway cognitiveTarget,
                      DataEncryptor encryptor,
                      boolean useBundleMode,
                      PartitionBundle activePartitionBundle) {

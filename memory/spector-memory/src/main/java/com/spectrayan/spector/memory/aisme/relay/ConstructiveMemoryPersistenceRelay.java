@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.Cogniti
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.recall.relay.RecallSignal;
 
 import org.slf4j.Logger;
@@ -43,7 +43,7 @@ public final class ConstructiveMemoryPersistenceRelay implements SynapticRelay<R
     private static final Logger log = LoggerFactory.getLogger(ConstructiveMemoryPersistenceRelay.class);
     private static final TsidGenerator TSID = new TsidGenerator();
 
-    private final CognitiveIngestionTarget ingestionTarget;
+    private final RememberPathway ingestionTarget;
     private final Function<String, float[]> embeddingLookup;
     private final float persistenceThreshold;
 
@@ -55,7 +55,7 @@ public final class ConstructiveMemoryPersistenceRelay implements SynapticRelay<R
      * @param persistenceThreshold minimum score for a simulation to be persisted
      */
     public ConstructiveMemoryPersistenceRelay(
-            CognitiveIngestionTarget ingestionTarget,
+            RememberPathway ingestionTarget,
             Function<String, float[]> embeddingLookup,
             float persistenceThreshold) {
         this.ingestionTarget = ingestionTarget;

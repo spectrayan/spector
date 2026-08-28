@@ -24,7 +24,7 @@ import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 import org.junit.jupiter.api.AfterEach;
@@ -53,7 +53,7 @@ import static org.mockito.Mockito.mock;
  * {@link PartitionManager} is package-private.</p>
  *
  * <p>The tier stores, {@link CognitiveMemoryRouter}, and filesystem are REAL. Only
- * {@link CognitiveIngestionTarget} is mocked — {@code PartitionManager} calls just
+ * {@link RememberPathway} is mocked — {@code PartitionManager} calls just
  * {@code updateCognitiveRouter(...)} on it during a roll, and its full construction
  * is prohibitively heavy. Index / Hebbian / Temporal collaborators are real so the
  * {@code flushGlobalState()} behaviour is exercised end-to-end.</p>
@@ -71,7 +71,7 @@ class PartitionManagerTest {
     private MemoryIndex index;
     private HebbianGraphMemory hebbian;
     private TemporalChainMemory temporal;
-    private CognitiveIngestionTarget cognitiveTarget;
+    private RememberPathway cognitiveTarget;
 
     private final List<CognitiveMemoryRouter> routersToClose = new ArrayList<>();
 
@@ -81,7 +81,7 @@ class PartitionManagerTest {
         hebbian = new HebbianGraphMemory(128);
         // Persistent backing so save() (a copy-on-differ) actually materialises a file.
         temporal = new TemporalChainMemory(basePath.resolve("temporal-backing.chain"), 128);
-        cognitiveTarget = mock(CognitiveIngestionTarget.class);
+        cognitiveTarget = mock(RememberPathway.class);
     }
 
     @AfterEach

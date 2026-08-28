@@ -26,7 +26,7 @@ import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.recall.relay.RecallSignal;
 
 import org.junit.jupiter.api.Test;
@@ -58,7 +58,7 @@ class ConstructiveMemoryPersistenceRelayTest {
 
     @Test
     void highAlignmentSimulation_isPersisted() {
-        CognitiveIngestionTarget target = mock(CognitiveIngestionTarget.class);
+        RememberPathway target = mock(RememberPathway.class);
         org.mockito.Mockito.when(target.currentSoulVersion()).thenReturn((short) 5);
         Map<String, float[]> vectors = new HashMap<>();
         vectors.put("0123456789ABC", new float[]{1.0f, 0.0f});
@@ -85,7 +85,7 @@ class ConstructiveMemoryPersistenceRelayTest {
 
     @Test
     void belowThresholdSimulation_isNotPersisted() {
-        CognitiveIngestionTarget target = mock(CognitiveIngestionTarget.class);
+        RememberPathway target = mock(RememberPathway.class);
         Map<String, float[]> vectors = new HashMap<>();
         vectors.put("0123456789ABC", new float[]{1.0f, 0.0f});
 

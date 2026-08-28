@@ -33,13 +33,11 @@ import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.inhibition.SuppressionSet;
-import com.spectrayan.spector.memory.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
 import com.spectrayan.spector.memory.pipeline.AttachmentProcessor;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
-import com.spectrayan.spector.memory.pipeline.RecallPipeline;
 import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.sync.CheckpointDaemon;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -48,25 +46,25 @@ import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
+import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
+import com.spectrayan.spector.memory.cortex.TextAppendMemory;
+import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
 import com.spectrayan.spector.memory.insula.InsularCortex;
-
-import java.nio.file.Path;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Path;
+
 /**
- * Factory class for assembling the core subsystems of a {@code DefaultSpectorMemory} instance.
+ * Single-responsibility assembly factory for the Spector Cognitive Memory subsystem graph.
  *
- * <p>Constructs and wires the ingestion pipeline, recall pipeline, persistence managers,
- * biological subsystem trackers, cognitive graphs, and search indices from configuration
- * properties in {@link SpectorMemoryBuilder}.</p>
- *
- * <p>The heavy lifting is delegated to a set of single-responsibility subsystem builders
- * (see {@link CognitiveCortexBuilder}, {@link MemoryIndexBuilder},
+ * <p>Extracted from {@link DefaultSpectorMemory} constructor (Phase 6 decomposition) to
+ * isolate subsystem construction, dependency wiring, and configuration validation.
+ * All subsystem instantiation delegates to dedicated sub-builders (e.g. {@link CognitiveCortexBuilder},
  * {@link BiologicalSubsystemsBuilder}, {@link CognitiveGraphBuilder},
- * {@link RetrievalIndexBuilder}, {@link CognitiveIngestionTargetBuilder},
- * {@link PartitionManagerBuilder}, {@link RecallPipelineBuilder},
+ * {@link RetrievalIndexBuilder},
+ * {@link PartitionManagerBuilder},
  * {@link DaemonSupervisorBuilder}, {@link MigrationPathResolver} and
  * {@link MemoryWalRecovery}). {@link #assemble} is the orchestrator that invokes them in
  * the correct dependency order and collects the results into a {@link SubsystemBundle}.</p>
@@ -78,10 +76,8 @@ public final class SpectorMemoryFactory {
     private static final Logger log = LoggerFactory.getLogger(SpectorMemoryFactory.class);
 
     public record SubsystemBundle(
-            CognitiveIngestionTarget cognitiveTarget,
             RememberPathway rememberPathway,
             EmbeddingProvider embeddingProvider,
-            RecallPipeline recallPipeline,
             RecallPathway recallPathway,
             ReflectPathway reflectPathway,
             ExpressPathway expressPathway,
@@ -187,21 +183,45 @@ public final class SpectorMemoryFactory {
                 : new DefaultImportanceProvider(
                         bio.surpriseDetector(), bio.flashbulbPolicy(), bio.icnuWeights());
 
-        //  Ingestion target 
+        //  Ingestion target (RememberPathway) 
         int activePartitionIndex = 0;
-        CognitiveIngestionTarget cognitiveTarget = CognitiveIngestionTargetBuilder.build(
-                builder, cortex, bio, graphs, retrieval, index, wal, activePartitionIndex,
-                importanceProvider);
+        RememberPathway rememberPathway = new RememberPathway.Builder()
+                .cortex(cortex)
+                .bio(bio)
+                .graphs(graphs)
+                .retrieval(retrieval)
+                .index(index)
+                .wal(wal)
+                .activePartitionIndex(activePartitionIndex)
+                .importanceProvider(importanceProvider)
+                .tagExtractor(builder.tagExtractor)
+                .semanticIndex(builder.semanticIndex)
+                .sparseEmbeddingProvider(builder.SparseEmbeddingProvider)
+                .dataEncryptor(builder.dataEncryptor)
+                .entityExtractionParallelism(builder.entityExtractionParallelism)
+                .entityExtractionQueueCapacity(builder.entityExtractionQueueCapacity)
+                .normalizeAtIngest(true)
+                .build();
+
+        if (builder.salienceProfileProvider != null) {
+            SalienceProfile effective = builder.salienceProfileProvider.effectiveProfile();
+            if (effective != null && !effective.isNeutral()) {
+                rememberPathway.setSalienceProfile(effective);
+            }
+        }
 
         //  Partition manager (+ #443 frozen-partition registry, roll callback, text resolver) 
         PartitionManager partitionManager = PartitionManagerBuilder.build(
-                builder, cortex, retrieval, index, graphs, cognitiveTarget);
+                builder, cortex, retrieval, index, graphs, rememberPathway);
+
+        partitionManager.setRememberPathway(rememberPathway);
+        rememberPathway.setPartitionRollCallback(partitionManager::rollPartition);
 
         //  WAL Recovery 
         MemoryWalRecovery.recover(wal, cortex.cognitiveRouter(), index, graphs.hebbianGraph(),
                 graphs.temporalChain(), graphs.temporalKnowledgeGraph(),
                 graphs.entityDirectory(), graphs.hyperEntityGraph(),
-                bio.coActivationTracker(), cognitiveTarget, cortex.basePath(), cortex.initialPartitionSeq());
+                bio.coActivationTracker(), rememberPathway, cortex.basePath(), cortex.initialPartitionSeq());
         // ADR-0003 #456 (P2): the EntityDirectory is now the authoritative identity store, WAL-bound
         // and recovered directly (WalRecoveryDispatcher GRAPH_ADD_NODE/LINK repointed to it).
         if (wal != null) {
@@ -230,10 +250,6 @@ public final class SpectorMemoryFactory {
             profileAdaptor.loadStats(bio.coActivationTracker().banditStats());
         }
 
-        //  Recall Pipeline (semantic strategy + HNSW rebuild + history + pipeline + listeners) 
-        RecallPipeline recallPipeline = RecallPipelineBuilder.build(
-                builder, embeddingProvider, cortex, bio, graphs, retrieval, index, partitionManager, wal);
-
         // Active Inference Self-Model Engine (AISME) (#597, #623)
         com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle = null;
         if (builder.aismeConfig != null && builder.aismeConfig.enabled()) {
@@ -254,63 +270,31 @@ public final class SpectorMemoryFactory {
                     builder.aismeConfig,
                     primarySoul,
                     builder.dimensions,
-                    cognitiveTarget,
+                    rememberPathway,
                     vectorAccessor,
                     activeSouls
             );
         }
 
-        //  Recall Pathway (#561 — relay-based engine, opt-in via usePathwayEngine, AISME, or SoulContext) 
-        RecallPathway recallPathway = null;
-        RememberPathway rememberPathway = null;
-        if (builder.usePathwayEngine || (aismeBundle != null)
-                || builder.soul != null || builder.agentSoul != null
-                || (builder.soulContexts != null && !builder.soulContexts.isEmpty())) {
-            recallPathway = new RecallPathway.Builder()
-                    .embeddingProvider(embeddingProvider)
-                    .cortex(cortex)
-                    .bio(bio)
-                    .graphs(graphs)
-                    .retrieval(retrieval)
-                    .index(index)
-                    .partitionManager(partitionManager)
-                    .wal(wal)
-                    .graphScoringPolicy(builder.graphScoringPolicy)
-                    .sparseEmbeddingProvider(builder.SparseEmbeddingProvider)
-                    .hook(builder.hook)
-                    .semanticIndex(builder.semanticIndex)
-                    .aismeBundle(aismeBundle)
-                    .build();
+        //  Recall Pathway (#561 — relay-based engine) 
+        RecallPathway recallPathway = new RecallPathway.Builder()
+                .embeddingProvider(embeddingProvider)
+                .cortex(cortex)
+                .bio(bio)
+                .graphs(graphs)
+                .retrieval(retrieval)
+                .index(index)
+                .partitionManager(partitionManager)
+                .wal(wal)
+                .graphScoringPolicy(builder.graphScoringPolicy)
+                .sparseEmbeddingProvider(builder.SparseEmbeddingProvider)
+                .hook(builder.hook)
+                .semanticIndex(builder.semanticIndex)
+                .aismeBundle(aismeBundle)
+                .build();
 
-            rememberPathway = new RememberPathway.Builder()
-                    .cortex(cortex)
-                    .bio(bio)
-                    .graphs(graphs)
-                    .retrieval(retrieval)
-                    .index(index)
-                    .wal(wal)
-                    .activePartitionIndex(activePartitionIndex)
-                    .importanceProvider(importanceProvider)
-                    .tagExtractor(builder.tagExtractor)
-                    .semanticIndex(builder.semanticIndex)
-                    .sparseEmbeddingProvider(builder.SparseEmbeddingProvider)
-                    .dataEncryptor(builder.dataEncryptor)
-                    .entityExtractionParallelism(builder.entityExtractionParallelism)
-                    .entityExtractionQueueCapacity(builder.entityExtractionQueueCapacity)
-                    .normalizeAtIngest(true)
-                    .build();
-
-            if (builder.salienceProfileProvider != null) {
-                SalienceProfile effective = builder.salienceProfileProvider.effectiveProfile();
-                if (effective != null && !effective.isNeutral()) {
-                    rememberPathway.setSalienceProfile(effective);
-                }
-            }
-
-            partitionManager.setRememberPathway(rememberPathway);
-            rememberPathway.setPartitionRollCallback(partitionManager::rollPartition);
-
-            log.info("Cognitive Pathway Engine enabled — recall and remember use relay-based pathways");
+        if (builder.semanticIndex != null && !builder.semanticIndex.isReadOnly() && builder.semanticIndex.size() == 0) {
+            RecallPipelineBuilder.rebuildHnswIfNeeded(builder, partitionManager, index, cortex.quantizer());
         }
 
         //  Reflect Pathway (#503 / ADR-0007)
@@ -351,7 +335,7 @@ public final class SpectorMemoryFactory {
                 builder.entityResolutionEnabled, builder.entityShadowMode, builder.entityCosineThreshold, typeNormalizer);
 
         ReinforcementHandler reinforcementHandler = new ReinforcementHandler(
-                bio.valenceTracker(), graphs.hebbianGraph(), bio.lateralEvaluator(), recallPipeline,
+                bio.valenceTracker(), graphs.hebbianGraph(), bio.lateralEvaluator(), recallPathway,
                 wal, builder.twoFactorConfig, profileAdaptor);
 
         //  ID Generator 
@@ -440,7 +424,7 @@ public final class SpectorMemoryFactory {
         }
 
         return new SubsystemBundle(
-                cognitiveTarget, rememberPathway, embeddingProvider, recallPipeline, recallPathway, reflectPathway, expressPathway, index, cortex.quantizer(),
+                rememberPathway, embeddingProvider, recallPathway, reflectPathway, expressPathway, index, cortex.quantizer(),
                 partitionManager, importanceProvider, reflectionOrchestrator,
                 reinforcementHandler, bio.valenceTracker(), bio.coActivationTracker(),
                 bio.suppressionSet(), bio.habituationPenalty(), bio.prospectiveScheduler(),

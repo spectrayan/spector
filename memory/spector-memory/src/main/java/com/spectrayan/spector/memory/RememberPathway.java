@@ -40,6 +40,7 @@ import com.spectrayan.spector.memory.remember.relay.SynapticGraphLinkingRelay;
 import com.spectrayan.spector.memory.remember.relay.SynapticTagTransductionRelay;
 import com.spectrayan.spector.memory.session.SessionRegistry;
 import com.spectrayan.spector.memory.sync.MemoryWal;
+import com.spectrayan.spector.ingestion.IngestionTarget;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,7 +54,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>Replaces procedural ingestion in {@code CognitiveIngestionTarget} with a type-safe,
  * observable synaptic relay chain.</p>
  */
-public final class RememberPathway implements AutoCloseable {
+public final class RememberPathway implements IngestionTarget, AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(RememberPathway.class);
 
@@ -268,6 +269,27 @@ public final class RememberPathway implements AutoCloseable {
 
     public AsyncEntityExtractionQueue asyncEntityExtractionQueue() {
         return asyncEntityExtractionQueue;
+    }
+
+    public ScalarQuantizer quantizer() {
+        return corticalWriteRelay.quantizer();
+    }
+
+    /**
+     * Ingests a cognitive memory preserving the provided cognitive header.
+     */
+    public void ingestCognitiveWithHeader(
+            final String id,
+            final String text,
+            final float[] vector,
+            final MemoryType type,
+            final String[] tags,
+            final MemorySource source,
+            final com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader preservedHeader) {
+        final RememberSignal signal = RememberSignal.forCognitiveWithHeader(
+                id, text, vector, type, tags, source, preservedHeader
+        );
+        pathway.conduct(signal);
     }
 
     @Override

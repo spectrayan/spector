@@ -21,7 +21,7 @@ import java.util.List;
  * is case-insensitive (normalized during graph population).</p>
  *
  * <p><b>Open-schema types:</b> The type field is a free-form string, not
- * constrained to the well-known {@link EntityType} enum values. Any type
+ * constrained to the canonical {@link OntologyConfig#canonicalTypes()} ontology values. Any type
  * string is accepted and auto-registered in the {@link TypeRegistryMemory} at
  * graph population time. This allows domain-specific types (e.g., VEHICLE,
  * RECIPE, MEDICAL_CONDITION) to flow through without being collapsed to OTHER.</p>

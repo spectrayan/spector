@@ -16,7 +16,7 @@ package com.spectrayan.spector.memory.graph;
  * A typed relation between two entities extracted from memory text.
  *
  * <p><b>Open-schema types:</b> The relation type is a free-form string,
- * not constrained to the well-known {@link RelationType} enum values. Any
+ * not constrained to the canonical {@link OntologyConfig#canonicalPredicates()} ontology values. Any
  * type string is accepted and auto-registered in the {@link TypeRegistryMemory}
  * at graph population time.</p>
  *

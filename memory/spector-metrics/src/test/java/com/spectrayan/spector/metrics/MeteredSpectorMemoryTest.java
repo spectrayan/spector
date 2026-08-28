@@ -27,8 +27,7 @@ import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
-import com.spectrayan.spector.memory.pipeline.RecallPipeline;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -145,7 +144,7 @@ class MeteredSpectorMemoryTest {
     }
 
     static class DummySpectorMemory implements SpectorMemory {
-        @Override public CognitiveIngestionTarget target() { return null; }
+        @Override public RememberPathway target() { return null; }
         @Override public void remember(String id, String text, MemoryType type, MemorySource source, String... tags) {}
         @Override public void remember(String id, String text, MemoryType type, MemorySource source, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints, String... tags) {}
         @Override public void remember(String id, String text, MemoryType type, String... tags) {}

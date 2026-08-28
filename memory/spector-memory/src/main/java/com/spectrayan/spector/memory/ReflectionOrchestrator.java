@@ -25,7 +25,7 @@ import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
@@ -160,7 +160,7 @@ final class ReflectionOrchestrator {
      * @param ingestionTarget  the ingestion target for promoted semantic memories (active partition)
      * @return a {@link ReflectReport} summarizing what was consolidated, pruned, and promoted
      */
-    ReflectReport reflect(PartitionManager partitionManager, MemoryIndex index, CognitiveIngestionTarget ingestionTarget) {
+    ReflectReport reflect(PartitionManager partitionManager, MemoryIndex index, RememberPathway ingestionTarget) {
         log.info("Manual reflection triggered across partitions");
 
         // Create metrics collector for this cycle
@@ -211,7 +211,7 @@ final class ReflectionOrchestrator {
     /**
      * Backward-compatible reflect overload using a single cognitive router.
      */
-    ReflectReport reflect(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, CognitiveIngestionTarget ingestionTarget) {
+    ReflectReport reflect(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, RememberPathway ingestionTarget) {
         log.info("Manual reflection triggered (single-router fallback)");
 
         var graphMetrics = new GraphHealthMetrics();

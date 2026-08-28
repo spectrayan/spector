@@ -17,7 +17,7 @@ import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.memory.graph.BridgeDetector;
 import com.spectrayan.spector.memory.graph.SparsificationPlan;
 import com.spectrayan.spector.memory.graph.SpectralSparsifier;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;
+import com.spectrayan.spector.memory.hebbian.HebbianEdge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

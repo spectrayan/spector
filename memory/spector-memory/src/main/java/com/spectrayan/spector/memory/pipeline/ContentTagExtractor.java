@@ -82,7 +82,7 @@ public final class ContentTagExtractor implements TagExtractor {
      * Examples:
      *   WhatsAppTelegram  → Whats-App-Telegram  → whatsapp-telegram (after lowercase + clean)
      *   profileAdaptorSuggest → profile-Adaptor-Suggest → profile-adaptor-suggest
-     *   CognitiveIngestionTarget → Cognitive-Ingestion-Target
+     *   RememberPathway → Cognitive-Ingestion-Target
      *   BM25Index → BM25-Index
      *
      * Three patterns:

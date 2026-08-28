@@ -27,7 +27,7 @@ import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.sync.CheckpointDaemon;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
@@ -70,7 +70,7 @@ final class MemoryWalRecovery {
             EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
             CoActivationRecordMemory coActivationTracker,
-            CognitiveIngestionTarget cognitiveTarget,
+            RememberPathway cognitiveTarget,
             Path basePath,
             int activePartitionSeq) {
 

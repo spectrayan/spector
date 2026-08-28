@@ -25,7 +25,6 @@ import com.spectrayan.spector.memory.graph.EdgeImportance;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
 import com.spectrayan.spector.memory.id.IdStrategy;
 import com.spectrayan.spector.memory.id.MemoryIdGenerator;

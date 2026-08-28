@@ -198,6 +198,11 @@ final class CognitiveGraphBuilder {
             hyperEntityGraph = null;
         }
 
+        OntologyConfig ontConfig = builder.ontologyConfig != null
+                ? builder.ontologyConfig
+                : OntologyConfig.defaultInstance();
+        String[] entitySeedTypes = ontConfig.canonicalTypes().toArray(String[]::new);
+
         EntityDirectory entityDirectory;
         if (entityEnabled) {
             int dirCap = builder.entityGraphCapacity;
@@ -208,11 +213,11 @@ final class CognitiveGraphBuilder {
                 entityTypeRegistry = TypeRegistryMemory.fromBundle(
                         SystemMemoryId.ENTITY_TYPE, cortex.runtimeBundle().arena(), regionSlice,
                         StorageLayout.entityTypesRuntime(basePath), isNew,
-                        com.spectrayan.spector.memory.graph.EntityType.SEED);
+                        entitySeedTypes);
             } else if (isDisk && basePath != null) {
-                entityTypeRegistry = TypeRegistryMemory.load(StorageLayout.entityTypesRuntime(basePath), SystemMemoryId.ENTITY_TYPE, com.spectrayan.spector.memory.graph.EntityType.SEED);
+                entityTypeRegistry = TypeRegistryMemory.load(StorageLayout.entityTypesRuntime(basePath), SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
             } else {
-                entityTypeRegistry = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, com.spectrayan.spector.memory.graph.EntityType.SEED);
+                entityTypeRegistry = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
             }
 
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
@@ -266,10 +271,6 @@ final class CognitiveGraphBuilder {
         } else {
             temporalKnowledgeGraph = new TemporalKnowledgeGraph(predRegistry);
         }
-
-        OntologyConfig ontConfig = builder.ontologyConfig != null
-                ? builder.ontologyConfig
-                : OntologyConfig.defaultInstance();
 
         //  Cognitive Graph Facade 
         CognitiveGraphFacade graphFacade = new CognitiveGraphFacade(

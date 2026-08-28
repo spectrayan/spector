@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.hebbian;
 
 import com.spectrayan.spector.memory.graph.EdgeImportance;
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;
+import com.spectrayan.spector.memory.hebbian.HebbianEdge;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

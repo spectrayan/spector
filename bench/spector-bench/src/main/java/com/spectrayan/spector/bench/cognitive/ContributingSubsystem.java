@@ -23,9 +23,8 @@ import java.util.Set;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;
+import com.spectrayan.spector.memory.hebbian.HebbianEdge;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 /**

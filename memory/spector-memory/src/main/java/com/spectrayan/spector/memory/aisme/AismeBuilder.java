@@ -39,7 +39,7 @@ import com.spectrayan.spector.memory.aisme.workspace.GlobalWorkspace;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 
 import java.util.List;
 import java.util.function.Function;
@@ -104,7 +104,7 @@ public final class AismeBuilder {
             final AismeConfig config,
             final SoulContext soul,
             final int dimensions,
-            final CognitiveIngestionTarget ingestionTarget,
+            final RememberPathway ingestionTarget,
             final Function<String, float[]> vectorLookup,
             final List<SoulContext> soulContexts
     ) {

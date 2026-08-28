@@ -28,7 +28,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -227,7 +227,7 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
             EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
-            CognitiveIngestionTarget ingestionTarget,
+            RememberPathway ingestionTarget,
             MemoryWal wal,
             Function<String, CognitiveRecord> inspectFunction) {
         // Queue is drained automatically by SpectorTaskQueue on close

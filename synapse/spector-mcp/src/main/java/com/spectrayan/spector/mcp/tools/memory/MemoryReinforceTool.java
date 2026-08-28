@@ -53,7 +53,7 @@ public final class MemoryReinforceTool extends MemoryToolHandler {
         byte valence = parseValence(valenceStr);
 
         // Check if this was a lateral result before reinforcing
-        boolean wasLateral = memory.admin().recallPipeline().wasLateral(memoryId);
+        boolean wasLateral = memory.admin().recallPathway().wasLateral(memoryId);
 
         memory.reinforce(memoryId, valence);
 

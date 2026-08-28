@@ -24,7 +24,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.Cogniti
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -104,7 +104,7 @@ public abstract class AbstractConsolidator implements Consolidator {
             EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
-            CognitiveIngestionTarget ingestionTarget,
+            RememberPathway ingestionTarget,
             MemoryIndex index,
             MemoryWal wal,
             boolean enableMerge) {
@@ -141,7 +141,7 @@ public abstract class AbstractConsolidator implements Consolidator {
             EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
-            CognitiveIngestionTarget ingestionTarget,
+            RememberPathway ingestionTarget,
             MemoryIndex index,
             MemoryWal wal,
             boolean enableMerge) {
@@ -159,7 +159,7 @@ public abstract class AbstractConsolidator implements Consolidator {
             com.spectrayan.spector.memory.PartitionManager partitionManager,
             CognitiveRecordMemory store,
             ScalarQuantizer quantizer,
-            CognitiveIngestionTarget ingestionTarget,
+            RememberPathway ingestionTarget,
             MemoryIndex index,
             MemoryWal wal) {
 
@@ -208,7 +208,7 @@ public abstract class AbstractConsolidator implements Consolidator {
             CognitiveRecord recordB,
             CognitiveRecordMemory store,
             ScalarQuantizer quantizer,
-            CognitiveIngestionTarget ingestionTarget,
+            RememberPathway ingestionTarget,
             MemoryIndex index,
             MemoryWal wal) {
         mergeDuplicate(recordA, recordB, null, store, quantizer, ingestionTarget, index, wal);

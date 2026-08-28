@@ -51,15 +51,17 @@ public final class HgphToCsrStep extends RewriteFileStep {
         return TO_FORMAT;
     }
 
+    @SuppressWarnings("deprecation") // HebbianGraph.load() required for legacy V2 HGPH migration
     @Override
     protected void rewrite(Path source, Path target, MigrationContext ctx) throws IOException {
         // Decode the legacy fixed-width HGPH graph, rebuild it as a CSR graph, and write
         // the result as an SMKM container to the migration target.
+        int maxDegree = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_MAX_DEGREE;
         HebbianGraph legacy = HebbianGraph.load(source, 1024,
-                HebbianGraph.DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
+                maxDegree, EdgeImportance.DEFAULT);
         try {
             HebbianGraphMemory csr = HebbianGraphMemory.fromNeighbors(
-                    legacy, HebbianGraph.DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
+                    legacy, maxDegree, EdgeImportance.DEFAULT);
             try {
                 csr.save(target);
             } finally {

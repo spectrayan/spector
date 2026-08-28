@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 
@@ -53,7 +53,7 @@ public interface Consolidator extends AutoCloseable {
             EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
-            CognitiveIngestionTarget ingestionTarget,
+            RememberPathway ingestionTarget,
             MemoryWal wal,
             Function<String, CognitiveRecord> inspectFunction);
 

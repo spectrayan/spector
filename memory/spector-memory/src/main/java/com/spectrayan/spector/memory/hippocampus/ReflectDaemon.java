@@ -31,7 +31,7 @@ import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
 import com.spectrayan.spector.core.similarity.VectorOps;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 
 import org.slf4j.Logger;
@@ -203,7 +203,7 @@ public final class ReflectDaemon {
      * @return report summarizing what was done
      */
     public ReflectReport runCycle(PartitionManager partitionManager,
-                                   CognitiveIngestionTarget ingestionTarget,
+                                   RememberPathway ingestionTarget,
                                    MemoryIndex index) {
         if (partitionManager == null) {
             return ReflectReport.EMPTY;
@@ -265,7 +265,7 @@ public final class ReflectDaemon {
         }
     }
 
-    private int reflectEpisodicLog(EpisodicLogMemory logStore, CognitiveIngestionTarget ingestionTarget) {
+    private int reflectEpisodicLog(EpisodicLogMemory logStore, RememberPathway ingestionTarget) {
         if (logStore == null || ingestionTarget == null) return 0;
         List<Long> unconsolidatedOffsets = logStore.unconsolidatedTurnOffsets();
         if (unconsolidatedOffsets.isEmpty()) return 0;
@@ -360,12 +360,12 @@ public final class ReflectDaemon {
     }
 
     public ReflectReport runCycle(EpisodicRecordMemory episodicStore,
-                                   CognitiveIngestionTarget ingestionTarget) {
+                                   RememberPathway ingestionTarget) {
         return runCycle(episodicStore, ingestionTarget, null);
     }
 
     public ReflectReport runCycle(EpisodicRecordMemory episodicStore,
-                                   CognitiveIngestionTarget ingestionTarget,
+                                   RememberPathway ingestionTarget,
                                    Function<Long, String> textLookup) {
         if (!running.compareAndSet(false, true)) {
             log.warn("Reflection cycle already in progress  --  skipping");
@@ -501,7 +501,7 @@ public final class ReflectDaemon {
     private record PromotedFact(String text, float[] vector, CognitiveHeader header) {}
 
     private int clusterAndSynthesize(EpisodicPartition partition,
-                                      CognitiveIngestionTarget ingestionTarget,
+                                      RememberPathway ingestionTarget,
                                       Function<Long, String> textLookup) {
         if (ingestionTarget == null || partition.count() == 0) return 0;
 
@@ -812,7 +812,7 @@ public final class ReflectDaemon {
      * into the semantic store. Used as fallback when clustering is not configured.
      */
     private int promoteHighestImportance(EpisodicPartition partition,
-                                          CognitiveIngestionTarget ingestionTarget,
+                                          RememberPathway ingestionTarget,
                                           Function<Long, String> textLookup) {
         if (ingestionTarget == null || partition.count() == 0) return 0;
 

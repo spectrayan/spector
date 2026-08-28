@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.hebbian;
 
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;
+import com.spectrayan.spector.memory.hebbian.HebbianEdge;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.codec.Codecs;

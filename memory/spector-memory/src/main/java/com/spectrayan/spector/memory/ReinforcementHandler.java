@@ -22,7 +22,7 @@ import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.pipeline.RecallPipeline;
+import com.spectrayan.spector.memory.RecallPathway;
 import com.spectrayan.spector.memory.synapse.ActRActivation;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
@@ -64,7 +64,7 @@ final class ReinforcementHandler {
     private final ValenceTracker valenceTracker;
     private final HebbianGraphBase hebbianGraph;
     private final LateralEvaluator lateralEvaluator;
-    private final RecallPipeline recallPipeline;
+    private final RecallPathway recallPathway;
     private final MemoryWal wal;
     private final TwoFactorConfig twoFactorConfig;
     private final ProfileAdaptor profileAdaptor;
@@ -72,14 +72,14 @@ final class ReinforcementHandler {
     ReinforcementHandler(ValenceTracker valenceTracker,
                          HebbianGraphBase hebbianGraph,
                          LateralEvaluator lateralEvaluator,
-                         RecallPipeline recallPipeline,
+                         RecallPathway recallPathway,
                          MemoryWal wal,
                          TwoFactorConfig twoFactorConfig,
                          ProfileAdaptor profileAdaptor) {
         this.valenceTracker = valenceTracker;
         this.hebbianGraph = hebbianGraph;
         this.lateralEvaluator = lateralEvaluator;
-        this.recallPipeline = recallPipeline;
+        this.recallPathway = recallPathway;
         this.wal = wal;
         this.twoFactorConfig = twoFactorConfig;
         this.profileAdaptor = profileAdaptor;
@@ -136,7 +136,7 @@ final class ReinforcementHandler {
         }
 
         // Step 5: Lateral evaluator feedback
-        if (recallPipeline.wasLateral(memoryId)) {
+        if (recallPathway.wasLateral(memoryId)) {
             if (valence > 0) {
                 lateralEvaluator.recordLateralReinforcement();
                 log.debug("Lateral reinforcement: '{}' (positive valence={})", memoryId, valence);

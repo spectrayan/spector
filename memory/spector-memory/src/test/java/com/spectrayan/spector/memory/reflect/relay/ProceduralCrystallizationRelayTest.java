@@ -124,8 +124,8 @@ class ProceduralCrystallizationRelayTest {
         PartitionHandle handle = mock(PartitionHandle.class);
         CognitiveMemoryRouter router = mock(CognitiveMemoryRouter.class);
         EpisodicLogMemory logStore = mock(EpisodicLogMemory.class);
-        com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget ingestionTarget =
-                mock(com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget.class);
+        com.spectrayan.spector.memory.RememberPathway ingestionTarget =
+                mock(com.spectrayan.spector.memory.RememberPathway.class);
         when(ingestionTarget.currentSoulVersion()).thenReturn((short) 4);
         EmbeddingProvider embeddingProvider = mock(EmbeddingProvider.class);
 

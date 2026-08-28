@@ -27,7 +27,7 @@ import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.reflect.relay.CrossLayerPromotionRelay;
 import com.spectrayan.spector.memory.reflect.relay.EntityMaintenanceRelay;
 import com.spectrayan.spector.memory.reflect.relay.EpisodicLogConsolidationRelay;
@@ -186,7 +186,7 @@ public final class ReflectPathway implements AutoCloseable {
     public ReflectReport reflect(final PartitionManager partitionManager,
                                  final MemoryIndex index,
                                  final RememberPathway rememberPathway,
-                                 final CognitiveIngestionTarget ingestionTarget,
+                                 final RememberPathway ingestionTarget,
                                  final SalienceProfile salienceProfile) {
         ReflectSignal signal = ReflectSignal.builder()
                 .partitionManager(partitionManager)
