@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
@@ -61,8 +61,8 @@ import static org.mockito.Mockito.mock;
 class PartitionManagerTest {
 
     private static final int VEC_BYTES = 16;
-    private static final int SEMANTIC_CAP = 64;
-    private static final int EPISODIC_CAP = 4;   // small → easy to drive to tier-full
+    private static final int SEMANTIC_CAP = 4;   // small → easy to drive to tier-full
+    private static final int EPISODIC_CAP = 64;
     private static final int PROCEDURAL_CAP = 64;
 
     @TempDir
@@ -107,13 +107,12 @@ class PartitionManagerTest {
     /** Builds a real router with fresh tier stores rooted in the given partition dir. */
     private CognitiveMemoryRouter newRouter(Path partitionDir) {
         WorkingRecordMemory working = new WorkingRecordMemory(VEC_BYTES, 64);
-        EpisodicRecordMemory episodic = new EpisodicRecordMemory(
-                StorageLayout.episodicMem(partitionDir), VEC_BYTES, EPISODIC_CAP);
         SemanticRecordMemory semantic = new SemanticRecordMemory(
                 VEC_BYTES, SEMANTIC_CAP, StorageLayout.semanticMem(partitionDir));
         ProceduralRecordMemory procedural = new ProceduralRecordMemory(
                 VEC_BYTES, PROCEDURAL_CAP, StorageLayout.proceduralMem(partitionDir));
-        CognitiveMemoryRouter router = new CognitiveMemoryRouter(working, episodic, semantic, procedural);
+        EpisodicLogMemory episodicLog = EpisodicLogMemory.heap();
+        CognitiveMemoryRouter router = new CognitiveMemoryRouter(working, semantic, procedural, episodicLog);
         routersToClose.add(router);
         return router;
     }
@@ -128,8 +127,8 @@ class PartitionManagerTest {
                 /* useBundleMode */ false, /* activePartitionBundle */ null);
     }
 
-    private static CognitiveHeader episodicHeader(long timestampMs) {
-        return CognitiveHeader.create(timestampMs, 0L, 1.0f, 0.5f, (short) 0, MemoryType.EPISODIC);
+    private static CognitiveHeader semanticHeader(long timestampMs) {
+        return CognitiveHeader.create(timestampMs, 0L, 1.0f, 0.5f, (short) 0, MemoryType.SEMANTIC);
     }
 
     private static byte[] vec() {
@@ -141,43 +140,27 @@ class PartitionManagerTest {
     // ──────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("discovery: fresh base creates partition 000 as active")
-    void discoveryCreatesInitialPartitionWhenNoneExist() throws Exception {
-        Path active = PartitionManager.discoverOrCreatePartition(basePath);
-
-        assertThat(Files.isDirectory(active)).isTrue();
-        assertThat(active.getParent()).isEqualTo(StorageLayout.partitionsDir(basePath));
-        assertThat(StorageLayout.isPartitionDir(active.getFileName().toString())).isTrue();
-        assertThat(StorageLayout.parsePartitionSeqNo(active.getFileName().toString())).isZero();
+    @DisplayName("discovery: empty base dir creates p000 partition on load")
+    void emptyBaseDirDiscoversAndCreatesPartitionZero() throws Exception {
+        List<Path> discovered = PartitionManager.discoverAllPartitions(basePath);
+        assertThat(discovered).hasSize(1);
+        Path p0 = discovered.get(0);
+        assertThat(p0.getFileName().toString()).startsWith("000_");
+        assertThat(Files.isDirectory(p0)).isTrue();
     }
 
     @Test
-    @DisplayName("discovery: newest NNN_EPOCH selected as active, prior dirs left frozen (not written)")
-    void discoverySelectsNewestPartitionAsActive() throws Exception {
-        // Pre-seed three partition dirs; the highest seq (002) must become active.
-        Path p0 = StorageLayout.partitionDir(basePath, 0, 1_717_430_400L);
-        Path p1 = StorageLayout.partitionDir(basePath, 1, 1_717_516_800L);
-        Path p2 = StorageLayout.partitionDir(basePath, 2, 1_717_603_200L);
-        Files.createDirectories(p0);
-        Files.createDirectories(p1);
-        Files.createDirectories(p2);
-        // A non-partition directory must be ignored.
-        Files.createDirectories(StorageLayout.partitionsDir(basePath).resolve("not-a-partition"));
+    @DisplayName("discovery: existing partition dirs are sorted ascending by seq on load")
+    void existingPartitionDirsAreDiscoveredAscendingBySeq() throws Exception {
+        Files.createDirectories(StorageLayout.partitionDir(basePath, 0, 1_000L));
+        Files.createDirectories(StorageLayout.partitionDir(basePath, 2, 3_000L));
+        Files.createDirectories(StorageLayout.partitionDir(basePath, 1, 2_000L));
 
-        Path active = PartitionManager.discoverOrCreatePartition(basePath);
-
-        assertThat(active).isEqualTo(p2);
-        assertThat(StorageLayout.parsePartitionSeqNo(active.getFileName().toString())).isEqualTo(2);
-        // No new partition dir was created — the prior partitions are simply frozen (never re-selected).
-        try (var stream = Files.newDirectoryStream(StorageLayout.partitionsDir(basePath))) {
-            long partitionDirs = 0;
-            for (Path entry : stream) {
-                if (Files.isDirectory(entry) && StorageLayout.isPartitionDir(entry.getFileName().toString())) {
-                    partitionDirs++;
-                }
-            }
-            assertThat(partitionDirs).isEqualTo(3);
-        }
+        List<Path> discovered = PartitionManager.discoverAllPartitions(basePath);
+        assertThat(discovered).hasSize(3);
+        assertThat(discovered.get(0).getFileName().toString()).startsWith("000_");
+        assertThat(discovered.get(1).getFileName().toString()).startsWith("001_");
+        assertThat(discovered.get(2).getFileName().toString()).startsWith("002_");
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -191,16 +174,16 @@ class PartitionManagerTest {
         CognitiveMemoryRouter router0 = newRouter(p0);
         PartitionManager pm = newManager(router0, p0);
 
-        // Fill the active episodic store to capacity.
-        EpisodicRecordMemory episodic0 = router0.episodic();
-        for (int i = 0; i < EPISODIC_CAP; i++) {
-            episodic0.append(episodicHeader(1_000L + i), vec());
+        // Fill the active semantic store to capacity.
+        SemanticRecordMemory semantic0 = router0.semantic();
+        for (int i = 0; i < SEMANTIC_CAP; i++) {
+            semantic0.append(semanticHeader(1_000L + i), vec());
         }
-        assertThat(episodic0.totalRecords()).isEqualTo(EPISODIC_CAP);
+        assertThat(semantic0.size()).isEqualTo(SEMANTIC_CAP);
 
         // The next write must overflow the tier — this is what the ingestion pipeline
         // catches to trigger PartitionManager::rollPartition.
-        assertThatThrownBy(() -> episodic0.append(episodicHeader(9_999L), vec()))
+        assertThatThrownBy(() -> semantic0.append(semanticHeader(9_999L), vec()))
                 .isInstanceOf(SpectorMemoryTierFullException.class);
 
         pm.rollPartition();
@@ -215,13 +198,12 @@ class PartitionManagerTest {
         CognitiveMemoryRouter rolled = pm.cognitiveRouter();
         routersToClose.add(rolled);
         assertThat(rolled).isNotSameAs(router0);
-        assertThat(rolled.episodic().totalRecords()).isZero();
         assertThat(rolled.semantic().size()).isZero();
         assertThat(rolled.procedural().size()).isZero();
 
-        // The new active episodic store accepts writes again.
-        rolled.episodic().append(episodicHeader(2_000L), vec());
-        assertThat(rolled.episodic().totalRecords()).isEqualTo(1);
+        // The new active semantic store accepts writes again.
+        rolled.semantic().append(semanticHeader(2_000L), vec());
+        assertThat(rolled.semantic().size()).isEqualTo(1);
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -235,9 +217,9 @@ class PartitionManagerTest {
         CognitiveMemoryRouter router0 = newRouter(p0);
         PartitionManager pm = newManager(router0, p0);
 
-        EpisodicRecordMemory episodic0 = router0.episodic();
-        for (int i = 0; i < EPISODIC_CAP; i++) {
-            episodic0.append(episodicHeader(1_000L + i), vec());
+        SemanticRecordMemory semantic0 = router0.semantic();
+        for (int i = 0; i < SEMANTIC_CAP; i++) {
+            semantic0.append(semanticHeader(1_000L + i), vec());
         }
 
         AtomicBoolean stop = new AtomicBoolean(false);
@@ -248,10 +230,10 @@ class PartitionManagerTest {
         Thread reader = new Thread(() -> {
             try {
                 while (!stop.get()) {
-                    int visible = episodic0.visibleCount();
-                    assertThat(visible).isEqualTo(EPISODIC_CAP);
+                    int visible = semantic0.visibleCount();
+                    assertThat(visible).isEqualTo(SEMANTIC_CAP);
                     // Read record 0 — must remain the value written before the roll.
-                    CognitiveHeader h = episodic0.readHeader(0);
+                    CognitiveHeader h = semantic0.readHeader(0);
                     assertThat(h.timestampMs()).isEqualTo(1_000L);
                     sawData.set(true);
                 }
@@ -276,9 +258,9 @@ class PartitionManagerTest {
         // Router was swapped away from router0 …
         assertThat(pm.cognitiveRouter()).isNotSameAs(router0);
         // … yet the OLD partition's Arena was NOT unmapped: reads on router0 still succeed.
-        assertThat(episodic0.totalRecords()).isEqualTo(EPISODIC_CAP);
-        assertThat(episodic0.readHeader(EPISODIC_CAP - 1).timestampMs())
-                .isEqualTo(1_000L + (EPISODIC_CAP - 1));
+        assertThat(semantic0.size()).isEqualTo(SEMANTIC_CAP);
+        assertThat(semantic0.readHeader(SEMANTIC_CAP - 1).timestampMs())
+                .isEqualTo(1_000L + (SEMANTIC_CAP - 1));
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -320,9 +302,9 @@ class PartitionManagerTest {
         PartitionManager pm = newManager(router0, p0);
 
         // Seed the initial (soon-to-be-frozen) partition with readable records.
-        EpisodicRecordMemory episodic0 = router0.episodic();
-        for (int i = 0; i < EPISODIC_CAP; i++) {
-            episodic0.append(episodicHeader(1_000L + i), vec());
+        SemanticRecordMemory semantic0 = router0.semantic();
+        for (int i = 0; i < SEMANTIC_CAP; i++) {
+            semantic0.append(semanticHeader(1_000L + i), vec());
         }
 
         final int rolls = 5;
@@ -339,17 +321,17 @@ class PartitionManagerTest {
         }
 
         // FROZEN handles remain OPEN and readable (this is the leak fix — old Arenas kept mapped).
-        assertThat(episodic0.totalRecords()).isEqualTo(EPISODIC_CAP);
-        assertThat(episodic0.readHeader(0).timestampMs()).isEqualTo(1_000L);
-        assertThat(episodic0.readHeader(EPISODIC_CAP - 1).timestampMs())
-                .isEqualTo(1_000L + (EPISODIC_CAP - 1));
+        assertThat(semantic0.size()).isEqualTo(SEMANTIC_CAP);
+        assertThat(semantic0.readHeader(0).timestampMs()).isEqualTo(1_000L);
+        assertThat(semantic0.readHeader(SEMANTIC_CAP - 1).timestampMs())
+                .isEqualTo(1_000L + (SEMANTIC_CAP - 1));
 
         // Ensure the active roll-created router is closed by tearDown.
         routersToClose.add(pm.cognitiveRouter());
 
         // Close once: frozen handles' stores are released (reads now throw on closed Arena).
         pm.close();
-        assertThatThrownBy(() -> episodic0.readHeader(0))
+        assertThatThrownBy(() -> semantic0.readHeader(0))
                 .as("frozen store's arena is closed after component close()")
                 .isInstanceOf(RuntimeException.class);
 

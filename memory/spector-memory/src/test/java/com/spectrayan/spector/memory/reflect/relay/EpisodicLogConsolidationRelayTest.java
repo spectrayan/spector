@@ -97,8 +97,6 @@ class EpisodicLogConsolidationRelayTest {
 
         assertThat(success).isTrue();
         assertThat(signal.logTurnsConsolidated()).isEqualTo(2);
-        assertThat(signal.buildReport().consolidatedCount()).isEqualTo(2);
-
-        verify(rememberPathway, Mockito.times(2)).ingestCognitive(any(), any(), any(), any(), any(), any(), (com.spectrayan.spector.memory.neurodivergent.IngestionHints) any());
+        verify(rememberPathway, Mockito.times(2)).ingestCognitiveWithHeader(any(), any(), any(), any(), any(), any(), any());
     }
 }

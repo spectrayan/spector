@@ -53,6 +53,16 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     private final EpisodicLogMemory episodicLogStore;
 
     /**
+     * Creates a CognitiveMemoryRouter with the modern log-structured episodic store.
+     */
+    public CognitiveMemoryRouter(WorkingRecordMemory workingStore,
+                                 SemanticRecordMemory semanticStore,
+                                 ProceduralRecordMemory proceduralStore,
+                                 EpisodicLogMemory episodicLogStore) {
+        this(workingStore, null, semanticStore, proceduralStore, episodicLogStore);
+    }
+
+    /**
      * Creates a CognitiveMemoryRouter with all four cognitive memory stores.
      */
     public CognitiveMemoryRouter(WorkingRecordMemory workingStore,

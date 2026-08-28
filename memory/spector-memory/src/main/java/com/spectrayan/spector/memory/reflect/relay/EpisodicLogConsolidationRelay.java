@@ -107,17 +107,6 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                 }
 
                 if (signal.rememberPathway() != null) {
-                    signal.rememberPathway().ingestCognitive(
-                            memoryId,
-                            factText,
-                            vector,
-                            MemoryType.SEMANTIC,
-                            tags,
-                            MemorySource.REFLECTED,
-                            (com.spectrayan.spector.memory.neurodivergent.IngestionHints) null
-                    );
-                    signal.addConsolidated(1);
-                } else if (signal.ingestionTarget() != null) {
                     float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
                     byte semanticFlags = SynapticHeaderConstants.withMemoryType(
                             SynapticHeaderConstants.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal());
@@ -125,7 +114,7 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                             System.currentTimeMillis(), 0L, exactNorm, 1.0f, 1,
                             (short) 0, (byte) 0, semanticFlags, (byte) 0, 1.0f
                     );
-                    signal.ingestionTarget().ingestCognitiveWithHeader(
+                    signal.rememberPathway().ingestCognitiveWithHeader(
                             memoryId, factText, vector, MemoryType.SEMANTIC, tags, MemorySource.REFLECTED, header
                     );
                     signal.addConsolidated(1);

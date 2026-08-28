@@ -227,7 +227,7 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
             EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
-            RememberPathway ingestionTarget,
+            RememberPathway rememberPathway,
             MemoryWal wal,
             Function<String, CognitiveRecord> inspectFunction) {
         // Queue is drained automatically by SpectorTaskQueue on close

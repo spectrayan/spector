@@ -79,10 +79,7 @@ final class BiologicalSubsystemsBuilder {
             java.lang.foreign.MemorySegment ckptSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.CHECKPOINT);
             coActivationTracker = CoActivationRecordMemory.fromBundle(
                     cortex.runtimeBundle().arena(), regionSlice, 10_000, 20_000,
-                    StorageLayout.coactivationTracker(basePath), isNew, ckptSlice);
-        } else if (isDisk && basePath != null) {
-            coActivationTracker = CoActivationRecordMemory.load(
-                    StorageLayout.coactivationTracker(basePath), 10_000, 20_000);
+                    cortex.runtimeBundle().bundlePath(), isNew, ckptSlice);
         } else {
             coActivationTracker = new CoActivationRecordMemory();
         }

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.aisme.relay;
 
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
+import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
@@ -31,12 +31,12 @@ class ConstructivePersistenceDurabilityTest {
 
     @Test
     @DisplayName("MR-01: Persisted synthetic simulation retains FLAG_SIMULATED, arousal, and soulVersion across store operations")
-    void testSyntheticMemoryDurabilityInEpisodicStore() {
+    void testSyntheticMemoryDurabilityInSemanticStore() {
         CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
-        EpisodicRecordMemory episodicStore = new EpisodicRecordMemory(DIMS, 100);
+        SemanticRecordMemory semanticStore = new SemanticRecordMemory(DIMS, 100);
 
         long timestamp = System.currentTimeMillis();
-        byte procFlags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal());
+        byte procFlags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
         short soulVersion = 3;
         byte arousal = (byte) 180;
         byte valence = (byte) 25;
@@ -50,21 +50,21 @@ class ConstructivePersistenceDurabilityTest {
         );
 
         byte[] vectorBytes = new byte[layout.quantizedVecBytes()];
-        episodicStore.append(syntheticHeader, vectorBytes);
-        long offset = episodicStore.recordOffset(0);
+        semanticStore.append(syntheticHeader, vectorBytes);
+        long offset = semanticStore.recordOffset(0);
 
         // 1. Direct segment read
-        byte cFlags = layout.readConsolidationFlags(episodicStore.segment(), offset);
+        byte cFlags = layout.readConsolidationFlags(semanticStore.segment(), offset);
         assertThat(SynapticHeaderConstants.isSimulated(cFlags)).isTrue();
 
         // 2. Full CognitiveHeader read
-        CognitiveHeader readHeader = layout.readHeader(episodicStore.segment(), offset);
+        CognitiveHeader readHeader = layout.readHeader(semanticStore.segment(), offset);
         assertThat(SynapticHeaderConstants.isSimulated(readHeader.consolidationFlags())).isTrue();
         assertThat(readHeader.arousal()).isEqualTo(arousal); // Must NOT be corrupted to FLAG_SIMULATED (32)
         assertThat(readHeader.valence()).isEqualTo(valence);
         assertThat(readHeader.soulVersion()).isEqualTo(soulVersion);
         assertThat(readHeader.importance()).isEqualTo(importance);
 
-        episodicStore.close();
+        semanticStore.close();
     }
 }

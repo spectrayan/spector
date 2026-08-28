@@ -211,23 +211,24 @@ public final class CheckpointDaemon {
             }
         }
 
-        // Step 3: Persist cognitive graphs to runtime/ directory (V3 layout)
+        // Step 3: Persist cognitive graphs
         if (basePath != null) {
+            Path bundlePath = StorageLayout.runtimeBundleFile(basePath);
             saveGraph("HebbianGraph", () ->
-                    hebbianGraph.save(StorageLayout.hebbianGraphRuntime(basePath)));
+                    hebbianGraph.save(bundlePath));
             saveGraph("TemporalChain", () ->
-                    temporalChain.save(StorageLayout.temporalChainRuntime(basePath)));
+                    temporalChain.save(bundlePath));
 
             if (hyperEntityGraph != null) {
                 saveGraph("HyperEntityGraph", () ->
-                        hyperEntityGraph.save(StorageLayout.hyperEntityGraphRuntime(basePath)));
+                        hyperEntityGraph.save(bundlePath));
             }
             if (entityDirectory != null) {
                 saveGraph("EntityDirectory", () ->
-                        entityDirectory.save(StorageLayout.entityDirectoryRuntime(basePath)));
+                        entityDirectory.save(bundlePath));
                 saveGraph("EntityTypeRegistry", () -> {
                     try {
-                        entityDirectory.entityTypeRegistry().save(StorageLayout.entityTypesRuntime(basePath));
+                        entityDirectory.entityTypeRegistry().save(bundlePath);
                     } catch (java.io.IOException e) {
                         throw new java.io.UncheckedIOException(e);
                     }
@@ -236,19 +237,16 @@ public final class CheckpointDaemon {
             if (temporalKnowledgeGraph != null) {
                 saveGraph("RelationTypeRegistry", () -> {
                     try {
-                        temporalKnowledgeGraph.predicateRegistry().save(StorageLayout.relationTypesRuntime(basePath));
+                        temporalKnowledgeGraph.predicateRegistry().save(bundlePath);
                     } catch (java.io.IOException e) {
                         throw new java.io.UncheckedIOException(e);
                     }
                 });
             }
-        }
-
-        // Step 4: Persist CoActivationTracker (global, not partitioned)
-        if (coActivationTracker != null && basePath != null) {
-            saveGraph("CoActivationTracker", () ->
-                    coActivationTracker.save(
-                            StorageLayout.coactivationTracker(basePath)));
+            if (coActivationTracker != null) {
+                saveGraph("CoActivationTracker", () ->
+                        coActivationTracker.save(bundlePath));
+            }
         }
 
         // Step 5: Read the WAL high-water mark

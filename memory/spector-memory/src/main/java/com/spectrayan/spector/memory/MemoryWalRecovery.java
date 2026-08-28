@@ -72,15 +72,23 @@ final class MemoryWalRecovery {
             CoActivationRecordMemory coActivationTracker,
             RememberPathway cognitiveTarget,
             Path basePath,
-            int activePartitionSeq) {
+            int activePartitionSeq,
+            java.lang.foreign.MemorySegment checkpointRegion) {
 
         if (wal == null || !wal.isPersistent()) {
             return;
         }
 
         long checkpointHwm = 0;
-        if (basePath != null) {
-            Path metaPath = StorageLayout.checkpointMeta(basePath);
+        if (checkpointRegion != null) {
+            long hwm = CheckpointDaemon.readCheckpointHwm(checkpointRegion);
+            if (hwm > 0) {
+                checkpointHwm = hwm;
+                log.info("WAL recovery: loaded checkpoint HWM {} from bundle region", checkpointHwm);
+            }
+        }
+        if (checkpointHwm == 0 && basePath != null) {
+            Path metaPath = StorageLayout.runtimeDir(basePath).resolve("checkpoint.meta");
             if (Files.exists(metaPath)) {
                 checkpointHwm = CheckpointDaemon.readCheckpointHwm(metaPath);
                 log.info("WAL recovery: loaded checkpoint HWM {}", checkpointHwm);

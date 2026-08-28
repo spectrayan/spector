@@ -186,14 +186,12 @@ public final class ReflectPathway implements AutoCloseable {
     public ReflectReport reflect(final PartitionManager partitionManager,
                                  final MemoryIndex index,
                                  final RememberPathway rememberPathway,
-                                 final RememberPathway ingestionTarget,
                                  final SalienceProfile salienceProfile) {
         ReflectSignal signal = ReflectSignal.builder()
                 .partitionManager(partitionManager)
                 .index(index)
                 .quantizer(quantizer)
                 .rememberPathway(rememberPathway)
-                .ingestionTarget(ingestionTarget)
                 .embeddingProvider(embeddingProvider)
                 .textGenerator(textGenerator)
                 .importanceProvider(importanceProvider)

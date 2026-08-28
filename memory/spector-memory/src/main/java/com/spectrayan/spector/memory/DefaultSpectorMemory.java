@@ -42,7 +42,6 @@ import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker;
 import com.spectrayan.spector.memory.pipeline.reranker.ColBERTTokenCache;
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
@@ -984,7 +983,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         acquireLease();
         try {
             if (reflectPathway != null) {
-                return reflectPathway.reflect(partitionManager, index, rememberPathway, rememberPathway, salienceProfile());
+                return reflectPathway.reflect(partitionManager, index, rememberPathway, salienceProfile());
             }
             return reflectionOrchestrator.reflect(partitionManager, index, rememberPathway);
         } finally {
@@ -1842,17 +1841,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         if (persistenceMode == MemoryPersistenceMode.DISK
                 && partitionManager.activePartitionDir() != null
                 && bm25Index != null && bm25Index.totalDocuments() > 0) {
-            int written = -1;
             if (runtimeBundle != null) {
-                written = bm25Index.persistToBundle(runtimeBundle, null);
-            }
-            if (written <= 0) {
-                try {
-                    bm25Index.partition(0).save(
-                            StorageLayout.bm25BidxRuntime(persistencePath));
-                } catch (Exception e) {
-                    log.warn("Failed to save BM25 index on close", e);
-                }
+                bm25Index.persistToBundle(runtimeBundle, null);
             }
         }
 

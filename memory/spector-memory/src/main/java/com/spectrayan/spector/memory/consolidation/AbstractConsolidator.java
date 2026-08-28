@@ -71,7 +71,7 @@ public abstract class AbstractConsolidator implements Consolidator {
      * @param entityDirectory        entity directory (optional)
      * @param hyperEntityGraph       hypergraph memory (optional)
      * @param temporalKnowledgeGraph temporal knowledge graph (optional)
-     * @param ingestionTarget        ingestion target for merged memories (optional)
+     * @param rememberPathway        ingestion target for merged memories (optional)
      * @param index                  memory index for tombstoning (optional)
      * @param wal                    memory WAL for tombstoning (optional)
      * @param enableMerge            whether to execute duplicate fusion for non-contradictions
@@ -89,7 +89,7 @@ public abstract class AbstractConsolidator implements Consolidator {
      * @param entityDirectory        entity directory (optional)
      * @param hyperEntityGraph       hypergraph memory (optional)
      * @param temporalKnowledgeGraph temporal knowledge graph (optional)
-     * @param ingestionTarget        ingestion target for merged memories (optional)
+     * @param rememberPathway        ingestion target for merged memories (optional)
      * @param index                  memory index for tombstoning (optional)
      * @param wal                    memory WAL for tombstoning (optional)
      * @param enableMerge            whether to execute duplicate fusion for non-contradictions
@@ -104,7 +104,7 @@ public abstract class AbstractConsolidator implements Consolidator {
             EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
-            RememberPathway ingestionTarget,
+            RememberPathway rememberPathway,
             MemoryIndex index,
             MemoryWal wal,
             boolean enableMerge) {
@@ -121,9 +121,9 @@ public abstract class AbstractConsolidator implements Consolidator {
             CadpContradictionResolver.resolve(
                     recordA, recordB, partitionManager, store, hyperEntityGraph, entityDirectory, temporalKnowledgeGraph);
             return true;
-        } else if (enableMerge && memoryMerger != null && ingestionTarget != null && quantizer != null && index != null) {
+        } else if (enableMerge && memoryMerger != null && rememberPathway != null && quantizer != null && index != null) {
             log.info("Consolidator: Merging duplicate memories '{}' and '{}'", recordA.id(), recordB.id());
-            mergeDuplicate(recordA, recordB, partitionManager, store, quantizer, ingestionTarget, index, wal);
+            mergeDuplicate(recordA, recordB, partitionManager, store, quantizer, rememberPathway, index, wal);
             return true;
         }
 
@@ -141,12 +141,12 @@ public abstract class AbstractConsolidator implements Consolidator {
             EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
-            RememberPathway ingestionTarget,
+            RememberPathway rememberPathway,
             MemoryIndex index,
             MemoryWal wal,
             boolean enableMerge) {
         return evaluateAndResolvePair(recordA, recordB, null, store, quantizer,
-                entityDirectory, hyperEntityGraph, temporalKnowledgeGraph, ingestionTarget, index, wal, enableMerge);
+                entityDirectory, hyperEntityGraph, temporalKnowledgeGraph, rememberPathway, index, wal, enableMerge);
     }
 
     /**
@@ -159,7 +159,7 @@ public abstract class AbstractConsolidator implements Consolidator {
             com.spectrayan.spector.memory.PartitionManager partitionManager,
             CognitiveRecordMemory store,
             ScalarQuantizer quantizer,
-            RememberPathway ingestionTarget,
+            RememberPathway rememberPathway,
             MemoryIndex index,
             MemoryWal wal) {
 
@@ -189,7 +189,7 @@ public abstract class AbstractConsolidator implements Consolidator {
 
         String[] tags = mergeTags(recordA.tags(), recordB.tags());
 
-        ingestionTarget.ingestCognitiveWithHeader(
+        rememberPathway.ingestCognitiveWithHeader(
                 newId,
                 merged.text(),
                 merged.vector(),
@@ -208,10 +208,10 @@ public abstract class AbstractConsolidator implements Consolidator {
             CognitiveRecord recordB,
             CognitiveRecordMemory store,
             ScalarQuantizer quantizer,
-            RememberPathway ingestionTarget,
+            RememberPathway rememberPathway,
             MemoryIndex index,
             MemoryWal wal) {
-        mergeDuplicate(recordA, recordB, null, store, quantizer, ingestionTarget, index, wal);
+        mergeDuplicate(recordA, recordB, null, store, quantizer, rememberPathway, index, wal);
     }
 
     /**

@@ -194,12 +194,15 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
               true, bundlePath, null, true); // bundleManaged=true
         this.bundleManaged = true;
         this.entityCapacity = entityCapacity;
-        this.hyperedgeCapacity = hyperedgeCapacity;
-        this.vertexCapacity = hyperedgeCapacity * HyperEntityLayout.MAX_VERTICES_PER_EDGE;
+        long availableBytes = Math.max(0L, regionSlice.byteSize() - DATA_START);
+        long bytesPerHedge = HyperEntityLayout.HEDGE_BYTES + (long) HyperEntityLayout.VERTEX_BYTES * HyperEntityLayout.MAX_VERTICES_PER_EDGE;
+        int availableHedgeCap = (int) (availableBytes / bytesPerHedge);
+        this.hyperedgeCapacity = Math.min(hyperedgeCapacity, availableHedgeCap);
+        this.vertexCapacity = this.hyperedgeCapacity * HyperEntityLayout.MAX_VERTICES_PER_EDGE;
         this.incidenceCapacity = entityCapacity * HyperEntityLayout.MAX_HYPEREDGES_PER_ENTITY;
 
-        long hedgeBytes = (long) HyperEntityLayout.HEDGE_BYTES * hyperedgeCapacity;
-        long vertexBytes = (long) HyperEntityLayout.VERTEX_BYTES * vertexCapacity;
+        long hedgeBytes = (long) HyperEntityLayout.HEDGE_BYTES * this.hyperedgeCapacity;
+        long vertexBytes = (long) HyperEntityLayout.VERTEX_BYTES * this.vertexCapacity;
 
         this.hedges = regionSlice.asSlice(DATA_START, hedgeBytes);
         this.vertices = regionSlice.asSlice(DATA_START + hedgeBytes, vertexBytes);

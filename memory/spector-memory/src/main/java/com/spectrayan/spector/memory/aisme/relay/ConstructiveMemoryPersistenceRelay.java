@@ -43,29 +43,29 @@ public final class ConstructiveMemoryPersistenceRelay implements SynapticRelay<R
     private static final Logger log = LoggerFactory.getLogger(ConstructiveMemoryPersistenceRelay.class);
     private static final TsidGenerator TSID = new TsidGenerator();
 
-    private final RememberPathway ingestionTarget;
+    private final RememberPathway rememberPathway;
     private final Function<String, float[]> embeddingLookup;
     private final float persistenceThreshold;
 
     /**
      * Constructs a ConstructiveMemoryPersistenceRelay.
      *
-     * @param ingestionTarget the ingestion target for persisting memories
+     * @param rememberPathway the ingestion target for persisting memories
      * @param embeddingLookup function to resolve embeddings for simulation text
      * @param persistenceThreshold minimum score for a simulation to be persisted
      */
     public ConstructiveMemoryPersistenceRelay(
-            RememberPathway ingestionTarget,
+            RememberPathway rememberPathway,
             Function<String, float[]> embeddingLookup,
             float persistenceThreshold) {
-        this.ingestionTarget = ingestionTarget;
+        this.rememberPathway = rememberPathway;
         this.embeddingLookup = embeddingLookup;
         this.persistenceThreshold = persistenceThreshold;
     }
 
     @Override
     public boolean transmit(RecallSignal signal) {
-        if (ingestionTarget == null || signal == null) {
+        if (rememberPathway == null || signal == null) {
             return true;
         }
 
@@ -110,7 +110,7 @@ public final class ConstructiveMemoryPersistenceRelay implements SynapticRelay<R
                 String durableId = TSID.generate();
                 byte procFlags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal());
                 float norm = VectorOps.magnitude(vector);
-                short soulVer = ingestionTarget.currentSoulVersion();
+                short soulVer = rememberPathway.currentSoulVersion();
                 CognitiveHeader header = CognitiveHeader.createSynthetic(
                         System.currentTimeMillis(), 0L, norm, result.importance(),
                         result.valence(), (byte) 128, procFlags,
@@ -119,7 +119,7 @@ public final class ConstructiveMemoryPersistenceRelay implements SynapticRelay<R
                         0.0f
                 );
 
-                ingestionTarget.ingestCognitiveWithHeader(
+                rememberPathway.ingestCognitiveWithHeader(
                         durableId, text, vector, MemoryType.EPISODIC,
                         result.synapticTags() != null ? result.synapticTags() : new String[]{"simulated", "constructive"},
                         MemorySource.INFERRED, header

@@ -95,7 +95,7 @@ public final class AismeBuilder {
      * @param config the AISME configuration (or disabled if null)
      * @param soul optional polymorphic SoulContext identity definition
      * @param dimensions vector embedding dimensionality
-     * @param ingestionTarget target for persisting high-alignment constructive simulations
+     * @param rememberPathway target for persisting high-alignment constructive simulations
      * @param vectorLookup function mapping memory IDs to vector representations
      * @param soulContexts list of all active soul contexts for multi-soul EFE evaluation
      * @return the constructed AismeBundle, or null if disabled
@@ -104,7 +104,7 @@ public final class AismeBuilder {
             final AismeConfig config,
             final SoulContext soul,
             final int dimensions,
-            final RememberPathway ingestionTarget,
+            final RememberPathway rememberPathway,
             final Function<String, float[]> vectorLookup,
             final List<SoulContext> soulContexts
     ) {
@@ -169,7 +169,7 @@ public final class AismeBuilder {
         // Constructive Memory Persistence (#613 / AISME Phase 12)
         final ConstructiveMemoryPersistenceRelay constructiveMemoryPersistenceRelay =
                 cfg.constructivePersistenceEnabled()
-                        ? new ConstructiveMemoryPersistenceRelay(ingestionTarget, vectorLookup, cfg.constructivePersistenceThreshold())
+                        ? new ConstructiveMemoryPersistenceRelay(rememberPathway, vectorLookup, cfg.constructivePersistenceThreshold())
                         : null;
 
         return new AismeBundle(

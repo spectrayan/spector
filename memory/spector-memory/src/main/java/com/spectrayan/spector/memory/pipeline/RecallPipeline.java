@@ -40,7 +40,6 @@ import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.config.model.TextSearchMode;
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index.BM25Candidate;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;

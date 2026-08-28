@@ -71,8 +71,6 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         short currentSoulVersion = 0;
         if (signal.rememberPathway() != null) {
             currentSoulVersion = signal.rememberPathway().currentSoulVersion();
-        } else if (signal.ingestionTarget() != null) {
-            currentSoulVersion = signal.ingestionTarget().currentSoulVersion();
         }
 
         if (currentSoulVersion > 0) {
@@ -108,8 +106,8 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
     private float[] computeAutobiographicalCentroid(ReflectSignal signal) {
         if (signal.partitionManager() == null) return null;
         ScalarQuantizer quantizer = signal.quantizer();
-        if (quantizer == null && signal.ingestionTarget() != null) {
-            quantizer = signal.ingestionTarget().quantizer();
+        if (quantizer == null && signal.rememberPathway() != null) {
+            quantizer = signal.rememberPathway().quantizer();
         }
         if (quantizer == null) return null;
 
@@ -199,8 +197,8 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         MemorySegment.copy(segment, layout.vectorOffset(offset), MemorySegment.ofArray(quantized), 0, vecBytes);
 
         ScalarQuantizer quantizer = signal.quantizer();
-        if (quantizer == null && signal.ingestionTarget() != null) {
-            quantizer = signal.ingestionTarget().quantizer();
+        if (quantizer == null && signal.rememberPathway() != null) {
+            quantizer = signal.rememberPathway().quantizer();
         }
         float[] vector = (quantizer != null) ? quantizer.decode(quantized) : new float[vecBytes];
 

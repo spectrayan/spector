@@ -67,26 +67,12 @@ final class RetrievalIndexBuilder {
             textDataStore.readAll();
             index.setTextDataStore(textDataStore);
 
-            // V4 bundle path: try loading from BM25 region first
+            // V4 bundle path: load from BM25 region
             BM25Index loadedBm25 = null;
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
                 loadedBm25 = MemoryBM25Index.loadFromBundle(cortex.runtimeBundle());
                 if (loadedBm25 != null) {
                     log.info("BM25 loaded from bundle region: {} docs", loadedBm25.size());
-                }
-            }
-
-            // V3 fallback: load from bm25.bidx file
-            if (loadedBm25 == null) {
-                java.nio.file.Path bm25Path = StorageLayout.bm25BidxRuntime(basePath);
-                java.nio.file.Path v2Bm25 = resolvedPartitionDir != null ? resolvedPartitionDir.resolve(StorageLayout.FILE_BM25) : null;
-                java.nio.file.Path loadFrom = MigrationPathResolver.getNewerPath(bm25Path, v2Bm25, null);
-                if (loadFrom != null) {
-                    bm25Path = loadFrom;
-                }
-                loadedBm25 = BM25Index.load(bm25Path);
-                if (loadedBm25 != null) {
-                    log.info("BM25 loaded from binary index: {} docs", loadedBm25.size());
                 }
             }
 
@@ -104,14 +90,9 @@ final class RetrievalIndexBuilder {
                 if (!allTexts.isEmpty()) {
                     bm25Index.rebuildPartition(0, allTexts);
                     log.info("Rebuilt BM25 index with {} documents from memory index", allTexts.size());
-                    // Save to bundle region (V4) or file (V3 fallback)
-                    int written = -1;
+                    // Save to bundle region (V4)
                     if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-                        written = bm25Index.persistToBundle(cortex.runtimeBundle(), null);
-                    }
-                    if (written <= 0) {
-                        java.nio.file.Path bm25Path = StorageLayout.bm25BidxRuntime(basePath);
-                        bm25Index.partition(0).save(bm25Path);
+                        bm25Index.persistToBundle(cortex.runtimeBundle(), null);
                     }
                 }
             }

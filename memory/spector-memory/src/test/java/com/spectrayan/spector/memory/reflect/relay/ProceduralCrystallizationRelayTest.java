@@ -98,14 +98,14 @@ class ProceduralCrystallizationRelayTest {
         assertThat(result).isTrue();
         assertThat(signal.proceduralCrystallizedCount()).isGreaterThan(0);
 
-        verify(rememberPathway).ingestCognitive(
+        verify(rememberPathway).ingestCognitiveWithHeader(
                 anyString(),
                 anyString(),
                 eq(new float[]{0.1f, 0.2f}),
                 eq(MemoryType.PROCEDURAL),
                 eq(new String[]{"procedural", "crystallized", "skill"}),
                 eq(MemorySource.REFLECTED),
-                org.mockito.ArgumentMatchers.nullable(IngestionHints.class)
+                any(com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader.class)
         );
 
         verify(hyperEntityGraph).addHyperedge(
@@ -124,9 +124,9 @@ class ProceduralCrystallizationRelayTest {
         PartitionHandle handle = mock(PartitionHandle.class);
         CognitiveMemoryRouter router = mock(CognitiveMemoryRouter.class);
         EpisodicLogMemory logStore = mock(EpisodicLogMemory.class);
-        com.spectrayan.spector.memory.RememberPathway ingestionTarget =
+        com.spectrayan.spector.memory.RememberPathway rememberPathway =
                 mock(com.spectrayan.spector.memory.RememberPathway.class);
-        when(ingestionTarget.currentSoulVersion()).thenReturn((short) 4);
+        when(rememberPathway.currentSoulVersion()).thenReturn((short) 4);
         EmbeddingProvider embeddingProvider = mock(EmbeddingProvider.class);
 
         when(partitionManager.snapshot()).thenReturn(List.of(handle));
@@ -151,7 +151,7 @@ class ProceduralCrystallizationRelayTest {
 
         ReflectSignal signal = ReflectSignal.builder()
                 .partitionManager(partitionManager)
-                .ingestionTarget(ingestionTarget)
+                .rememberPathway(rememberPathway)
                 .embeddingProvider(embeddingProvider)
                 .build();
 
@@ -160,7 +160,7 @@ class ProceduralCrystallizationRelayTest {
         assertThat(result).isTrue();
         org.mockito.ArgumentCaptor<com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader> captor =
                 org.mockito.ArgumentCaptor.forClass(com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader.class);
-        verify(ingestionTarget).ingestCognitiveWithHeader(
+        verify(rememberPathway).ingestCognitiveWithHeader(
                 anyString(), anyString(), eq(new float[]{0.3f, 0.4f}), eq(MemoryType.PROCEDURAL), any(), eq(MemorySource.REFLECTED), captor.capture()
         );
 

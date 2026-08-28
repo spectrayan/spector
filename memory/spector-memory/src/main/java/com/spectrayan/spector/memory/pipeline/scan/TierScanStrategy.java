@@ -48,6 +48,7 @@ public interface TierScanStrategy {
         @Override
         public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
             if (!CognitiveMemoryRouter.shouldScan(MemoryType.EPISODIC, ctx.targetTypes())) return;
+            if (handle.router() == null || handle.router().episodic() == null) return;
             for (EpisodicPartition partition : handle.router().episodic().partitions()) {
                 if (partition.visibleCount() > 0) {
                     emitter.emitSlabScan(partition::segment, partition::visibleCount,

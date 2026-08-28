@@ -88,6 +88,20 @@ public final class EpisodicLogMemory extends AbstractAppendMemory<EpisodicLogLay
     }
 
     /**
+     * Creates a volatile (heap-backed) episodic log with a default 16MB buffer.
+     */
+    public static EpisodicLogMemory heap() {
+        return new EpisodicLogMemory(16 * 1024 * 1024L);
+    }
+
+    /**
+     * Creates a volatile (heap-backed) episodic log with specified capacity.
+     */
+    public static EpisodicLogMemory heap(long capacityBytes) {
+        return new EpisodicLogMemory(capacityBytes);
+    }
+
+    /**
      * Creates a bundle-backed episodic log from a pre-sliced region segment.
      *
      * @param arena        the shared arena from the owning bundle

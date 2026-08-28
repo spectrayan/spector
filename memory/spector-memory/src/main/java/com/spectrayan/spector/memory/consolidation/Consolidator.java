@@ -42,7 +42,7 @@ public interface Consolidator extends AutoCloseable {
      * @param entityDirectory        entity directory
      * @param hyperEntityGraph       hypergraph memory
      * @param temporalKnowledgeGraph temporal knowledge graph
-     * @param ingestionTarget        ingestion target for merged memories
+     * @param rememberPathway        ingestion target for merged memories
      * @param wal                    write-ahead log
      * @param inspectFunction        function to inspect full cognitive records by ID
      */
@@ -53,7 +53,7 @@ public interface Consolidator extends AutoCloseable {
             EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
-            RememberPathway ingestionTarget,
+            RememberPathway rememberPathway,
             MemoryWal wal,
             Function<String, CognitiveRecord> inspectFunction);
 

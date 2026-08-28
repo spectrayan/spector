@@ -173,12 +173,14 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
               isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0L),
               true, bundlePath, null, true); // bundleManaged=true
         this.bundleManaged = true;
-        this.edgeCapacity = edgeCapacity;
         this.maxDegree = maxDegree;
         this.edgeImportance = edgeImportance;
 
         long offsetBytes = (long) (capacity + 1) * Integer.BYTES;
-        long edgeBytes = (long) edgeCapacity * EDGE_BYTES;
+        long maxEdgeBytes = Math.max(0L, regionSlice.byteSize() - DATA_START - offsetBytes);
+        int availableEdgeCap = (int) (maxEdgeBytes / EDGE_BYTES);
+        this.edgeCapacity = Math.min(edgeCapacity, availableEdgeCap);
+        long edgeBytes = (long) this.edgeCapacity * EDGE_BYTES;
 
         this.offsets = segment().asSlice(DATA_START, offsetBytes);
         this.edges = segment().asSlice(DATA_START + offsetBytes, edgeBytes);

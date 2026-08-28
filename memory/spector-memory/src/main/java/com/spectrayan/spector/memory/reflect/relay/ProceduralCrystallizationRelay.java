@@ -105,28 +105,17 @@ public final class ProceduralCrystallizationRelay implements SynapticRelay<Refle
 
                 String[] tags = new String[]{"procedural", "crystallized", "skill"};
                 if (signal.rememberPathway() != null) {
-                    try {
-                        signal.rememberPathway().ingestCognitive(
-                                skillId, skillText, vector, MemoryType.PROCEDURAL, tags,
-                                MemorySource.REFLECTED,
-                                (com.spectrayan.spector.memory.neurodivergent.IngestionHints) null
-                        );
-                        signal.addProceduralCrystallized(1);
-                    } catch (Exception e) {
-                        log.warn("Failed to remember procedural skill: {}", e.getMessage());
-                    }
-                } else if (signal.ingestionTarget() != null) {
                     float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
                     byte procFlags = SynapticHeaderConstants.withMemoryType(
                             (byte) 0, MemoryType.PROCEDURAL.ordinal());
-                    short soulVer = signal.ingestionTarget().currentSoulVersion();
+                    short soulVer = signal.rememberPathway().currentSoulVersion();
                     CognitiveHeader header = CognitiveHeader.createSynthetic(
                             System.currentTimeMillis(), 0L, exactNorm, 1.0f,
                             (byte) 0, (byte) 0, procFlags,
                             SynapticHeaderConstants.FLAG_CRYSTALLIZED,
                             soulVer, 0.0f
                     );
-                    signal.ingestionTarget().ingestCognitiveWithHeader(
+                    signal.rememberPathway().ingestCognitiveWithHeader(
                             skillId, skillText, vector, MemoryType.PROCEDURAL, tags, MemorySource.REFLECTED, header
                     );
                     signal.addProceduralCrystallized(1);

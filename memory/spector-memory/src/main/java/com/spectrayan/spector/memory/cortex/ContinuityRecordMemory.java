@@ -108,7 +108,8 @@ public final class ContinuityRecordMemory implements Memory<ContinuityLayout>, A
             throw new SpectorMemoryException(ErrorCode.RECORD_CRC_CORRUPTED, "Region slice too small for ContinuityRecordMemory");
         }
 
-        if (isNew) {
+        boolean effectivelyNew = isNew || !MemoryHeader.isValid(regionSlice, 0L);
+        if (effectivelyNew) {
             long now = System.currentTimeMillis();
             MemoryHeader.write(regionSlice, 0L, ContinuityLayout.SCHEMA_VERSION, MemoryShape.RECORD, 1,
                     ContinuityLayout.RECORD_STRIDE, recordCapacity, 0, ContinuityLayout.LAYOUT_ID, now, now);

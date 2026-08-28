@@ -218,10 +218,14 @@ public final class SpectorMemoryFactory {
         rememberPathway.setPartitionRollCallback(partitionManager::rollPartition);
 
         //  WAL Recovery 
+        java.lang.foreign.MemorySegment ckptSlice = cortex.useBundleMode() && cortex.runtimeBundle() != null
+                ? cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.CHECKPOINT)
+                : null;
         MemoryWalRecovery.recover(wal, cortex.cognitiveRouter(), index, graphs.hebbianGraph(),
                 graphs.temporalChain(), graphs.temporalKnowledgeGraph(),
                 graphs.entityDirectory(), graphs.hyperEntityGraph(),
-                bio.coActivationTracker(), rememberPathway, cortex.basePath(), cortex.initialPartitionSeq());
+                bio.coActivationTracker(), rememberPathway, cortex.basePath(), cortex.initialPartitionSeq(),
+                ckptSlice);
         // ADR-0003 #456 (P2): the EntityDirectory is now the authoritative identity store, WAL-bound
         // and recovered directly (WalRecoveryDispatcher GRAPH_ADD_NODE/LINK repointed to it).
         if (wal != null) {
