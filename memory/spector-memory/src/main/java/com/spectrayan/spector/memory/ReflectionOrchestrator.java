@@ -25,7 +25,7 @@ import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
@@ -157,17 +157,17 @@ final class ReflectionOrchestrator {
      *
      * @param partitionManager the partition manager providing all open partition handles
      * @param index            the memory index (for text lookups and graph slot resolution)
-     * @param ingestionTarget  the ingestion target for promoted semantic memories (active partition)
+     * @param rememberPathway  the ingestion target for promoted semantic memories (active partition)
      * @return a {@link ReflectReport} summarizing what was consolidated, pruned, and promoted
      */
-    ReflectReport reflect(PartitionManager partitionManager, MemoryIndex index, CognitiveIngestionTarget ingestionTarget) {
+    ReflectReport reflect(PartitionManager partitionManager, MemoryIndex index, RememberPathway rememberPathway) {
         log.info("Manual reflection triggered across partitions");
 
         // Create metrics collector for this cycle
         var graphMetrics = new GraphHealthMetrics();
 
         // Phase 1: REM cycle — episodic → semantic consolidation across all partition handles
-        ReflectReport daemonReport = reflectDaemon.runCycle(partitionManager, ingestionTarget, index);
+        ReflectReport daemonReport = reflectDaemon.runCycle(partitionManager, rememberPathway, index);
 
         // Phase 2: Hebbian decay (synaptic homeostasis, arousal-modulated across all partitions)
         decayHebbianEdges(partitionManager, index, graphMetrics);
@@ -211,13 +211,13 @@ final class ReflectionOrchestrator {
     /**
      * Backward-compatible reflect overload using a single cognitive router.
      */
-    ReflectReport reflect(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, CognitiveIngestionTarget ingestionTarget) {
+    ReflectReport reflect(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, RememberPathway rememberPathway) {
         log.info("Manual reflection triggered (single-router fallback)");
 
         var graphMetrics = new GraphHealthMetrics();
 
         ReflectReport daemonReport = reflectDaemon.runCycle(
-                cognitiveRouter != null ? cognitiveRouter.episodic() : null, ingestionTarget,
+                cognitiveRouter != null ? cognitiveRouter.episodic() : null, rememberPathway,
                 offset -> index != null ? index.findTextByOffset(MemoryType.EPISODIC, offset) : null);
 
         decayHebbianEdges(cognitiveRouter, graphMetrics);

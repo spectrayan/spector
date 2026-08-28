@@ -27,7 +27,7 @@ import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -48,7 +48,6 @@ public final class ReflectSignal {
     private final MemoryIndex index;
     private final ScalarQuantizer quantizer;
     private final RememberPathway rememberPathway;
-    private final CognitiveIngestionTarget ingestionTarget;
     private final EmbeddingProvider embeddingProvider;
     private final LlmProvider textGenerator;
     private final ImportanceProvider importanceProvider;
@@ -108,7 +107,6 @@ public final class ReflectSignal {
         this.index = builder.index;
         this.quantizer = builder.quantizer;
         this.rememberPathway = builder.rememberPathway;
-        this.ingestionTarget = builder.ingestionTarget;
         this.embeddingProvider = builder.embeddingProvider;
         this.textGenerator = builder.textGenerator;
         this.importanceProvider = builder.importanceProvider != null ? builder.importanceProvider : ImportanceProvider.baseline();
@@ -169,7 +167,6 @@ public final class ReflectSignal {
     public MemoryIndex index() { return index; }
     public ScalarQuantizer quantizer() { return quantizer; }
     public RememberPathway rememberPathway() { return rememberPathway; }
-    public CognitiveIngestionTarget ingestionTarget() { return ingestionTarget; }
     public EmbeddingProvider embeddingProvider() { return embeddingProvider; }
     public LlmProvider textGenerator() { return textGenerator; }
     public ImportanceProvider importanceProvider() { return importanceProvider; }
@@ -279,7 +276,6 @@ public final class ReflectSignal {
         private MemoryIndex index;
         private ScalarQuantizer quantizer;
         private RememberPathway rememberPathway;
-        private CognitiveIngestionTarget ingestionTarget;
         private EmbeddingProvider embeddingProvider;
         private LlmProvider textGenerator;
         private ImportanceProvider importanceProvider;
@@ -316,7 +312,6 @@ public final class ReflectSignal {
         public Builder index(MemoryIndex idx) { this.index = idx; return this; }
         public Builder quantizer(ScalarQuantizer q) { this.quantizer = q; return this; }
         public Builder rememberPathway(RememberPathway rp) { this.rememberPathway = rp; return this; }
-        public Builder ingestionTarget(CognitiveIngestionTarget cit) { this.ingestionTarget = cit; return this; }
         public Builder embeddingProvider(EmbeddingProvider ep) { this.embeddingProvider = ep; return this; }
         public Builder textGenerator(LlmProvider tg) { this.textGenerator = tg; return this; }
         public Builder importanceProvider(ImportanceProvider ip) { this.importanceProvider = ip; return this; }

@@ -213,13 +213,10 @@ class PerformanceBenchmarkTest {
     void p12_totalCountDirectSum() {
         int quantizedVecBytes = 32;
         var working = new WorkingRecordMemory(quantizedVecBytes, 10);
-        var episodic = new com.spectrayan.spector.memory.cortex.EpisodicRecordMemory(
-                java.nio.file.Path.of(System.getProperty("java.io.tmpdir"),
-                        "perf-test-p12-" + System.nanoTime()),
-                quantizedVecBytes, 100);
+        var episodicLog = com.spectrayan.spector.memory.cortex.EpisodicLogMemory.heap(100 * 256L);
         var semantic = new com.spectrayan.spector.memory.cortex.SemanticRecordMemory(quantizedVecBytes, 10);
         var procedural = new com.spectrayan.spector.memory.cortex.ProceduralRecordMemory(quantizedVecBytes, 10);
-        var router = new CognitiveMemoryRouter(working, episodic, semantic, procedural);
+        var router = new CognitiveMemoryRouter(working, semantic, procedural, episodicLog);
 
         try {
             // Warm up

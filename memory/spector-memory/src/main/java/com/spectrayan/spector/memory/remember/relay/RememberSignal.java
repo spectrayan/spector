@@ -73,7 +73,7 @@ public final class RememberSignal {
         this.text = Objects.requireNonNull(text, "text cannot be null");
         this.vector = vector;
         this.type = type != null ? type : MemoryType.SEMANTIC;
-        this.tags = tags != null ? tags : new String[0];
+        this.tags = tags;
         this.source = source != null ? source : MemorySource.OBSERVED;
         this.hints = hints;
         this.context = context;
@@ -122,6 +122,25 @@ public final class RememberSignal {
                 salienceProfile, soulVersion, ts);
     }
 
+    /**
+     * Factory for cognitive remember requests preserving an existing header.
+     */
+    public static RememberSignal forCognitiveWithHeader(
+            final String id,
+            final String text,
+            final float[] vector,
+            final MemoryType type,
+            final String[] tags,
+            final MemorySource source,
+            final CognitiveHeader header) {
+        final RememberSignal signal = new RememberSignal(
+                id, text, vector, type, tags, source, null, null,
+                SalienceProfile.NEUTRAL, header != null ? header.soulVersion() : 0,
+                header != null ? header.timestampMs() : System.currentTimeMillis());
+        signal.header(header);
+        return signal;
+    }
+
     // ── Getters & Setters ──────────────────────────────────────────
 
     public String id() { return id; }
@@ -145,7 +164,7 @@ public final class RememberSignal {
     public long timestampMs() { return timestampMs; }
 
     public String[] tags() { return tags; }
-    public void tags(final String[] tags) { this.tags = tags != null ? tags : new String[0]; }
+    public void tags(final String[] tags) { this.tags = tags; }
 
     public long synapticTags() { return synapticTags; }
     public void synapticTags(final long synapticTags) { this.synapticTags = synapticTags; }

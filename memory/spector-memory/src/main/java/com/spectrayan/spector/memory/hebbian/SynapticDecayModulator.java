@@ -43,9 +43,9 @@ import java.lang.foreign.MemorySegment;
  * <p><b>Usage:</b> Created once before each decay cycle by {@link com.spectrayan.spector.memory.ReflectionOrchestrator},
  * then discarded. Captures a snapshot of the partition state at creation time.</p>
  *
- * @see HebbianGraph.DecayModulator
+ * @see DecayModulator
  */
-public final class SynapticDecayModulator implements HebbianGraph.DecayModulator {
+public final class SynapticDecayModulator implements DecayModulator {
 
     private final float[] modifiers;
 

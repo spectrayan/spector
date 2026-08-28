@@ -158,24 +158,16 @@ final class CognitiveCortexBuilder {
                 : 0;
 
         //  Cognitive Memory stores 
+        boolean useBundleMode = isDisk && basePath != null;
         CognitiveMemoryRouter cognitiveRouter;
-        WorkingRecordMemory workingStore;
+        WorkingRecordMemory workingStore = new WorkingRecordMemory(quantizedVecBytes, builder.workingCapacity);
         PartitionBundle partitionBundle = null;
         TextAppendMemory textStore = null;
         RuntimeBundle runtimeBundle = null;
         InsularCortex insularCortex = null;
         ContinuityRecordMemory continuityMemory = null;
-        if (isDisk && builder.persistWorkingMemory && basePath != null) {
-            workingStore = new WorkingRecordMemory(quantizedVecBytes, builder.workingCapacity,
-                     StorageLayout.workingMem(basePath));
-        } else {
-            workingStore = new WorkingRecordMemory(quantizedVecBytes, builder.workingCapacity);
-        }
 
-        boolean activeHasBundle = resolvedPartitionDir != null && Files.exists(StorageLayout.partitionBundleFile(resolvedPartitionDir));
-        boolean useBundleMode = builder.useBundleMode || activeHasBundle;
-
-        if (isDisk && basePath != null && resolvedPartitionDir != null && useBundleMode) {
+        if (isDisk && basePath != null && resolvedPartitionDir != null) {
             // ── V4 Runtime Bundle & Insular Cortex ──
             Path runtimeBundleFile = StorageLayout.runtimeBundleFile(basePath);
             boolean isNewRuntime = !Files.exists(runtimeBundleFile);
@@ -221,7 +213,7 @@ final class CognitiveCortexBuilder {
             boolean isWorkingNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(workingSlice, 0L);
             workingStore = WorkingRecordMemory.fromBundle(runtimeBundle.arena(), workingSlice,
                     quantizedVecBytes, builder.workingCapacity,
-                    StorageLayout.workingMem(basePath), isWorkingNew);
+                    runtimeBundleFile, isWorkingNew);
 
             MemorySegment insulaSlice = runtimeBundle.regionSegment(RegionId.INSULA);
             insularCortex = InsularCortex.fromBundle(runtimeBundle.arena(), insulaSlice, isNewRuntime);
@@ -233,6 +225,13 @@ final class CognitiveCortexBuilder {
 
             // ── V4 Partition Bundle ──
             Path bundleFile = StorageLayout.partitionBundleFile(resolvedPartitionDir);
+            if (!Files.exists(bundleFile)) {
+                try {
+                    com.spectrayan.spector.memory.kernel.bundle.BundleMigrationCli.migratePartition(resolvedPartitionDir, quantizedVecBytes);
+                } catch (Exception e) {
+                    log.debug("Partition auto-migration check: {}", e.getMessage());
+                }
+            }
             boolean isNew = !Files.exists(bundleFile);
 
             CognitiveRecordLayout cogLayout = new CognitiveRecordLayout(quantizedVecBytes);
@@ -282,22 +281,6 @@ final class CognitiveCortexBuilder {
             log.info("V4 bundle mode: {} ({}, {} stores, episodic=log-structured)",
                     bundleFile.getFileName(), isNew ? "created" : "opened", 4);
 
-        } else if (isDisk && basePath != null && resolvedPartitionDir != null) {
-            // ── V3 Legacy Mode ──
-            EpisodicRecordMemory episodicStore = new EpisodicRecordMemory(
-                    StorageLayout.episodicMem(resolvedPartitionDir),
-                    quantizedVecBytes, builder.episodicPartitionCapacity);
-            EpisodicLogMemory episodicLogStore = new EpisodicLogMemory(
-                    (long) builder.episodicPartitionCapacity * 256L);
-            ProceduralRecordMemory proceduralStore = new ProceduralRecordMemory(
-                    quantizedVecBytes, builder.proceduralCapacity,
-                    StorageLayout.proceduralMem(resolvedPartitionDir));
-            SemanticRecordMemory semanticStore = new SemanticRecordMemory(
-                    quantizedVecBytes, builder.semanticCapacity,
-                    StorageLayout.semanticMem(resolvedPartitionDir));
-            textStore = new TextAppendMemory(
-                    StorageLayout.textDat(resolvedPartitionDir), builder.dataEncryptor);
-            cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore, episodicLogStore);
         } else {
             EpisodicRecordMemory episodicStore = new EpisodicRecordMemory(
                     quantizedVecBytes, builder.episodicPartitionCapacity);
@@ -390,7 +373,7 @@ final class CognitiveCortexBuilder {
                 ),
                 new RegionSizeSpec(
                         RegionId.HEBBIAN,
-                        64 + 8 + 24L * graphCapacity + 12L * graphCapacity * builder.hebbianMaxDegree,
+                        64 + 16 + (long) (graphCapacity + 1) * Integer.BYTES + (long) graphCapacity * (builder.hebbianMaxDegree > 0 ? builder.hebbianMaxDegree : 16) * 12L,
                         graphCapacity,
                         0,
                         new com.spectrayan.spector.memory.kernel.layout.HebbianLayout().layoutId(),

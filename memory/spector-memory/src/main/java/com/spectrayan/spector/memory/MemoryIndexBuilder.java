@@ -47,22 +47,9 @@ final class MemoryIndexBuilder {
             java.lang.foreign.MemorySegment midxSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.INDEX_MIDX);
             java.lang.foreign.MemorySegment idplSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.INDEX_IDPL);
             boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(midxSlice, 0L);
-            index = com.spectrayan.spector.memory.index.IndexRecordMemory.fromBundle(cortex.runtimeBundle().arena(), midxSlice, idplSlice, StorageLayout.indexMidxRuntime(basePath), isNew);
-        } else if (isDisk && basePath != null) {
-            Path runtimeIndex = StorageLayout.indexMidxRuntime(basePath);
-            Path partitionIndex = resolvedPartitionDir != null ? resolvedPartitionDir.resolve(StorageLayout.FILE_INDEX) : null;
-
-            Path loadFrom = MigrationPathResolver.getNewerPath(runtimeIndex, partitionIndex, null);
-            if (loadFrom != null) {
-                index = MemoryIndex.load(loadFrom);
-                if (loadFrom.equals(partitionIndex)) {
-                    log.info("Loaded index from partition (newer than runtime index): {}", loadFrom);
-                } else {
-                    log.info("Loaded index from runtime: {}", loadFrom);
-                }
-            } else {
-                index = new MemoryIndex();
-            }
+            index = com.spectrayan.spector.memory.index.IndexRecordMemory.fromBundle(
+                    cortex.runtimeBundle().arena(), midxSlice, idplSlice,
+                    cortex.runtimeBundle().bundlePath(), isNew);
         } else {
             index = new MemoryIndex();
         }

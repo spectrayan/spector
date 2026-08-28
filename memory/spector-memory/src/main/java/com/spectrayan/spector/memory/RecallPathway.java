@@ -653,6 +653,17 @@ public final class RecallPathway {
     }
 
     /**
+     * Checks if a memory was recently returned as a lateral thought.
+     *
+     * @param memoryId the memory ID to check
+     * @return true if the memory was a lateral result, false otherwise
+     */
+    public boolean wasLateral(String memoryId) {
+        RetrievalMode mode = recentRetrievalModes.get(memoryId);
+        return mode == RetrievalMode.LATERAL;
+    }
+
+    /**
      * Builder for {@link RecallPathway}.
      */
     public static final class Builder {

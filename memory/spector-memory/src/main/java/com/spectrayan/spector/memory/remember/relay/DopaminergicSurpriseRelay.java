@@ -47,6 +47,11 @@ public final class DopaminergicSurpriseRelay implements SynapticRelay<RememberSi
 
     @Override
     public boolean transmit(final RememberSignal signal) {
+        if (signal.header() != null) {
+            signal.importance(signal.header().importance());
+            signal.flashbulb((signal.header().flags() & com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.FLAG_PINNED) != 0);
+            return true;
+        }
         final float[] vector = signal.vector();
         final float nearestDist;
         if (workingStore != null && workingStore.count() > 0 && vector != null) {

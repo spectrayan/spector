@@ -16,7 +16,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
@@ -59,7 +59,7 @@ class ReflectDaemonClusteringTest {
     private Path storePath;
     private CentroidRouter centroidRouter;
     private MockEmbeddingProvider embeddingProvider;
-    private CognitiveIngestionTarget mockIngestionTarget;
+    private RememberPathway mockIngestionTarget;
     private AtomicInteger ingestCount;
 
     @BeforeEach
@@ -72,11 +72,11 @@ class ReflectDaemonClusteringTest {
     }
 
     /**
-     * Creates a mock CognitiveIngestionTarget that counts ingest calls
+     * Creates a mock RememberPathway that counts ingest calls
      * and provides a no-op quantizer for vector decode.
      */
-    private CognitiveIngestionTarget createMockIngestionTarget() {
-        CognitiveIngestionTarget target = mock(CognitiveIngestionTarget.class);
+    private RememberPathway createMockIngestionTarget() {
+        RememberPathway target = mock(RememberPathway.class);
 
         // Mock quantizer — decode returns a zero vector (sufficient for test)
         ScalarQuantizer mockQuantizer = mock(ScalarQuantizer.class);

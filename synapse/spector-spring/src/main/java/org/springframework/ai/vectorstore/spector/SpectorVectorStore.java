@@ -163,7 +163,7 @@ public class SpectorVectorStore implements VectorStore {
                 .topK(topK)
                 .scoringMode(ScoringMode.SIMILARITY)
                 .build();
-        var recallResults = memory.admin().recallPipeline().recall(queryEmbedding, options);
+        var recallResults = memory.admin().recallPathway().recall(queryEmbedding, options);
         List<Document> results = new ArrayList<>();
         for (var r : recallResults) {
             Map<String, Object> metadata = new HashMap<>();

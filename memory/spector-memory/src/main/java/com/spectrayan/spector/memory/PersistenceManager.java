@@ -79,33 +79,32 @@ final class PersistenceManager {
 
         // ── Phase 1: Persist to disk (DISK mode only) ──
         if (persistenceMode == MemoryPersistenceMode.DISK && persistencePath != null) {
+            Path bundlePath = StorageLayout.runtimeBundleFile(persistencePath);
 
-            // 1. MemoryIndex: runtime/ (V3 layout)
-            saveIndex(index, persistencePath);
+            // 1. MemoryIndex
+            saveIndex(index, bundlePath);
 
-            // 2. HebbianGraph: runtime/
+            // 2. HebbianGraph
             saveSubsystem("HebbianGraph", () ->
-                    hebbianGraph.save(StorageLayout.hebbianGraphRuntime(persistencePath)));
+                    hebbianGraph.save(bundlePath));
 
-            // 3. TemporalChain: runtime/
+            // 3. TemporalChain
             saveSubsystem("TemporalChain", () ->
-                    temporalChain.save(StorageLayout.temporalChainRuntime(persistencePath)));
+                    temporalChain.save(bundlePath));
 
-
-
-            // 5. HyperEntityGraph: runtime/ (if enabled)
+            // 5. HyperEntityGraph (if enabled)
             if (hyperEntityGraph != null) {
                 saveSubsystem("HyperEntityGraph", () ->
-                        hyperEntityGraph.save(StorageLayout.hyperEntityGraphRuntime(persistencePath)));
+                        hyperEntityGraph.save(bundlePath));
             }
 
-            // 5b. EntityDirectory: runtime/ (ADR-0003 #455 — identity companion)
+            // 5b. EntityDirectory (ADR-0003 #455 — identity companion)
             if (entityDirectory != null) {
                 saveSubsystem("EntityDirectory", () ->
-                        entityDirectory.save(StorageLayout.entityDirectoryRuntime(persistencePath)));
+                        entityDirectory.save(bundlePath));
                 saveSubsystem("EntityTypeRegistry", () -> {
                     try {
-                        entityDirectory.entityTypeRegistry().save(StorageLayout.entityTypesRuntime(persistencePath));
+                        entityDirectory.entityTypeRegistry().save(bundlePath);
                     } catch (java.io.IOException e) {
                         throw new java.io.UncheckedIOException(e);
                     }
@@ -115,17 +114,16 @@ final class PersistenceManager {
             if (temporalKnowledgeGraph != null) {
                 saveSubsystem("RelationTypeRegistry", () -> {
                     try {
-                        temporalKnowledgeGraph.predicateRegistry().save(StorageLayout.relationTypesRuntime(persistencePath));
+                        temporalKnowledgeGraph.predicateRegistry().save(bundlePath);
                     } catch (java.io.IOException e) {
                         throw new java.io.UncheckedIOException(e);
                     }
                 });
             }
 
-            // 6. CoActivationTracker: runtime/
+            // 6. CoActivationTracker
             saveSubsystem("CoActivationTracker", () ->
-                    coActivationTracker.save(
-                            StorageLayout.coactivationTracker(persistencePath)));
+                    coActivationTracker.save(bundlePath));
         }
 
         // ── Phase 2: Close resources ──
@@ -146,10 +144,9 @@ final class PersistenceManager {
         if (hyperEntityGraph != null) hyperEntityGraph.close();
     }
 
-    private static void saveIndex(MemoryIndex index, Path persistencePath) {
+    private static void saveIndex(MemoryIndex index, Path bundlePath) {
         try {
-            Path indexPath = StorageLayout.indexMidxRuntime(persistencePath);
-            index.save(indexPath);
+            index.save(bundlePath);
         } catch (Exception e) {
             log.error("Failed to save MemoryIndex on close: {}", e.getMessage(), e);
         }

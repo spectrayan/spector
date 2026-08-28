@@ -23,8 +23,8 @@ import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
-import com.spectrayan.spector.memory.pipeline.RecallPipeline;
+import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.RecallPathway;
 import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -58,10 +58,10 @@ public interface SpectorMemoryAdmin {
     // ══════════════════════════════════════════════════════════════
 
     /** Returns the cognitive ingestion target for use with the unified IngestionPipeline. */
-    CognitiveIngestionTarget target();
+    RememberPathway target();
 
     /** Returns the cognitive ingestion target. */
-    CognitiveIngestionTarget cognitiveTarget();
+    RememberPathway rememberPathway();
 
     // ══════════════════════════════════════════════════════════════
     // SUBSYSTEM ACCESSORS
@@ -88,8 +88,8 @@ public interface SpectorMemoryAdmin {
     /** Returns the scalar quantizer used for vector compression. */
     ScalarQuantizer quantizer();
 
-    /** Returns the recall pipeline. */
-    RecallPipeline recallPipeline();
+    /** Returns the recall pathway. */
+    RecallPathway recallPathway();
 
     /** Returns the cognitive memory router (Working, Episodic, Semantic, Procedural). */
     CognitiveMemoryRouter cognitiveRouter();

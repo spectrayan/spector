@@ -27,7 +27,7 @@ import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.sync.CheckpointDaemon;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
@@ -70,17 +70,25 @@ final class MemoryWalRecovery {
             EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
             CoActivationRecordMemory coActivationTracker,
-            CognitiveIngestionTarget cognitiveTarget,
+            RememberPathway cognitiveTarget,
             Path basePath,
-            int activePartitionSeq) {
+            int activePartitionSeq,
+            java.lang.foreign.MemorySegment checkpointRegion) {
 
         if (wal == null || !wal.isPersistent()) {
             return;
         }
 
         long checkpointHwm = 0;
-        if (basePath != null) {
-            Path metaPath = StorageLayout.checkpointMeta(basePath);
+        if (checkpointRegion != null) {
+            long hwm = CheckpointDaemon.readCheckpointHwm(checkpointRegion);
+            if (hwm > 0) {
+                checkpointHwm = hwm;
+                log.info("WAL recovery: loaded checkpoint HWM {} from bundle region", checkpointHwm);
+            }
+        }
+        if (checkpointHwm == 0 && basePath != null) {
+            Path metaPath = StorageLayout.runtimeDir(basePath).resolve("checkpoint.meta");
             if (Files.exists(metaPath)) {
                 checkpointHwm = CheckpointDaemon.readCheckpointHwm(metaPath);
                 log.info("WAL recovery: loaded checkpoint HWM {}", checkpointHwm);

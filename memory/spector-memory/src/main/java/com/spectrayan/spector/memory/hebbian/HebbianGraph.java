@@ -123,25 +123,14 @@ public final class HebbianGraph implements HebbianGraphBase {
     private final EdgeImportance edgeImportance;
 
     /**
-     * Optional per-node decay modulator — allows the cortex layer to inject
-     * synaptic importance/arousal signals without HebbianGraph knowing the header layout.
-     *
-     * <p>Returns a multiplier in [0.5, 2.0] applied to the decay factor per node.
-     * Values > 1.0 = slower decay (high importance), &lt; 1.0 = faster decay (low importance).
-     * Null means uniform decay (no modulation).</p>
+     * @deprecated Use top-level {@link com.spectrayan.spector.memory.hebbian.DecayModulator} directly.
      */
+    @Deprecated(since = "1.0.0", forRemoval = true)
     @FunctionalInterface
-    public interface DecayModulator {
-        /**
-         * Returns a decay rate modifier for the given memory node.
-         *
-         * @param nodeIndex memory slot index
-         * @return multiplier applied to decay factor (e.g., 1.2 = 20% slower decay)
-         */
-        float modulateDecay(int nodeIndex);
+    public interface DecayModulator extends com.spectrayan.spector.memory.hebbian.DecayModulator {
     }
 
-    private volatile DecayModulator decayModulator;
+    private volatile com.spectrayan.spector.memory.hebbian.DecayModulator decayModulator;
 
     private final Arena arena;
     private final MemorySegment segment;
@@ -521,25 +510,6 @@ public final class HebbianGraph implements HebbianGraphBase {
     }
 
     /**
-     * Immutable Hebbian edge record.
-     *
-     * <p><b>TODO (JDK 28+ / Project Valhalla):</b> Convert to {@code value record}.
-     * As a value class, HebbianEdge would be scalarized in the caller's stack frame
-     * instead of heap-allocated. With specialized generics, {@code List<HebbianEdge>}
-     * would store flattened values instead of boxed pointers.</p>
-     *
-     * @param neighborIndex index of the connected memory
-     * @param weight        association strength
-     */
-    public record HebbianEdge(int neighborIndex, float weight, int bridgeScore) {
-
-        /** Backward-compatible constructor (bridgeScore defaults to 0). */
-        public HebbianEdge(int neighborIndex, float weight) {
-            this(neighborIndex, weight, 0);
-        }
-    }
-
-    /**
      * Sets the per-node decay modulator for arousal-modulated edge decay.
      *
      * <p>Typical usage: the cortex layer reads synaptic header importance/arousal
@@ -547,7 +517,7 @@ public final class HebbianGraph implements HebbianGraphBase {
      *
      * @param modulator per-node modifier (null = uniform decay)
      */
-    public void setDecayModulator(DecayModulator modulator) {
+    public void setDecayModulator(com.spectrayan.spector.memory.hebbian.DecayModulator modulator) {
         this.decayModulator = modulator;
     }
 
@@ -612,7 +582,7 @@ public final class HebbianGraph implements HebbianGraphBase {
             currentCycle++;
             int removed = 0;
             float removalThreshold = 0.01f;
-            DecayModulator mod = this.decayModulator; // snapshot volatile
+            com.spectrayan.spector.memory.hebbian.DecayModulator mod = this.decayModulator; // snapshot volatile
             int activeNodes = 0;
 
             for (int node = 0; node < capacity; node++) {

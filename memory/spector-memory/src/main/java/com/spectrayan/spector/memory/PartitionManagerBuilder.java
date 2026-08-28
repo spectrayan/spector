@@ -16,7 +16,7 @@ import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -50,7 +50,7 @@ final class PartitionManagerBuilder {
             RetrievalIndexBuilder.RetrievalIndices retrieval,
             MemoryIndex index,
             CognitiveGraphBuilder.CognitiveGraphs graphs,
-            CognitiveIngestionTarget cognitiveTarget) {
+            RememberPathway cognitiveTarget) {
 
         boolean isDisk = cortex.isDisk();
         Path basePath = cortex.basePath();

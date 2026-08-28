@@ -49,7 +49,7 @@ public final class SynapticTagTransductionRelay implements SynapticRelay<Remembe
         }
 
         String[] tags = signal.tags();
-        if ((tags == null || tags.length == 0) && tagExtractor != null) {
+        if (tags == null && tagExtractor != null) {
             tags = tagExtractor.extract(signal.id(), signal.text());
             signal.tags(tags);
         }

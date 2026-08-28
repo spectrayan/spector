@@ -36,8 +36,7 @@ import com.spectrayan.spector.memory.model.GraphRecallOptions;
 import com.spectrayan.spector.memory.model.GraphTraversalResult;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
-import com.spectrayan.spector.memory.pipeline.RecallPipeline;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -84,7 +83,7 @@ public interface SpectorMemory extends AutoCloseable {
     // ══════════════════════════════════════════════════════════════
 
     /** Returns the cognitive ingestion target for use with the unified IngestionPipeline. */
-    CognitiveIngestionTarget target();
+    RememberPathway target();
 
     /** Returns the namespace ID of this memory. */
     default String namespaceId() { return "default"; }

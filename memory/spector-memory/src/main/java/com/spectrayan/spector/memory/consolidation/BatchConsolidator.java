@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -55,9 +55,9 @@ public final class BatchConsolidator extends AbstractConsolidator {
      */
     public void consolidate(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, ScalarQuantizer quantizer,
                             EntityDirectory entityDirectory, HyperEntityGraphMemory hyperEntityGraph,
-                            CognitiveIngestionTarget ingestionTarget,
+                            RememberPathway rememberPathway,
                             MemoryWal wal, Function<String, CognitiveRecord> inspectFunction) {
-        consolidate(cognitiveRouter, index, quantizer, entityDirectory, hyperEntityGraph, null, ingestionTarget, wal, inspectFunction);
+        consolidate(cognitiveRouter, index, quantizer, entityDirectory, hyperEntityGraph, null, rememberPathway, wal, inspectFunction);
     }
 
     /**
@@ -66,7 +66,7 @@ public final class BatchConsolidator extends AbstractConsolidator {
     public void consolidate(com.spectrayan.spector.memory.PartitionManager partitionManager, MemoryIndex index, ScalarQuantizer quantizer,
                             EntityDirectory entityDirectory, HyperEntityGraphMemory hyperEntityGraph,
                             TemporalKnowledgeGraph temporalKnowledgeGraph,
-                            CognitiveIngestionTarget ingestionTarget,
+                            RememberPathway rememberPathway,
                             MemoryWal wal, Function<String, CognitiveRecord> inspectFunction) {
         if (partitionManager == null) {
             return;
@@ -122,7 +122,7 @@ public final class BatchConsolidator extends AbstractConsolidator {
                     entityDirectory,
                     hyperEntityGraph,
                     temporalKnowledgeGraph,
-                    ingestionTarget,
+                    rememberPathway,
                     index,
                     wal,
                     true // enable duplicate merge in batch mode
@@ -141,7 +141,7 @@ public final class BatchConsolidator extends AbstractConsolidator {
     public void consolidate(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, ScalarQuantizer quantizer,
                             EntityDirectory entityDirectory, HyperEntityGraphMemory hyperEntityGraph,
                             TemporalKnowledgeGraph temporalKnowledgeGraph,
-                            CognitiveIngestionTarget ingestionTarget,
+                            RememberPathway rememberPathway,
                             MemoryWal wal, Function<String, CognitiveRecord> inspectFunction) {
         CognitiveRecordMemory semanticStore = cognitiveRouter.semantic();
         if (semanticStore == null || semanticStore.visibleCount() < 2) {
@@ -181,7 +181,7 @@ public final class BatchConsolidator extends AbstractConsolidator {
                     entityDirectory,
                     hyperEntityGraph,
                     temporalKnowledgeGraph,
-                    ingestionTarget,
+                    rememberPathway,
                     index,
                     wal,
                     true // enable duplicate merge in batch mode

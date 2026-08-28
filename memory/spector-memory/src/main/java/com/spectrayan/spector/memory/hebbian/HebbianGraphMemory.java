@@ -16,7 +16,6 @@ import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.graph.BridgeDetector;
 import com.spectrayan.spector.memory.graph.EdgeImportance;
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
@@ -123,7 +122,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     private final ReentrantLock graphLock = new ReentrantLock();
     private volatile long lastActivityMs = System.currentTimeMillis();
     private volatile long sessionBoundaryMs = SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_SESSION_BOUNDARY_MS;
-    private volatile HebbianGraph.DecayModulator decayModulator;
+    private volatile DecayModulator decayModulator;
     private volatile long lastCompactionEpochMs = 0L;
     private volatile long bytesReclaimedLastCycle = 0L;
 
@@ -174,12 +173,14 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
               isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0L),
               true, bundlePath, null, true); // bundleManaged=true
         this.bundleManaged = true;
-        this.edgeCapacity = edgeCapacity;
         this.maxDegree = maxDegree;
         this.edgeImportance = edgeImportance;
 
         long offsetBytes = (long) (capacity + 1) * Integer.BYTES;
-        long edgeBytes = (long) edgeCapacity * EDGE_BYTES;
+        long maxEdgeBytes = Math.max(0L, regionSlice.byteSize() - DATA_START - offsetBytes);
+        int availableEdgeCap = (int) (maxEdgeBytes / EDGE_BYTES);
+        this.edgeCapacity = Math.min(edgeCapacity, availableEdgeCap);
+        long edgeBytes = (long) this.edgeCapacity * EDGE_BYTES;
 
         this.offsets = segment().asSlice(DATA_START, offsetBytes);
         this.edges = segment().asSlice(DATA_START + offsetBytes, edgeBytes);
@@ -225,7 +226,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     }
 
     public HebbianGraphMemory(int capacity) {
-        this(capacity, capacity * HebbianLayout.DEFAULT_EDGE_CAPACITY_FACTOR, HebbianGraph.DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
+        this(capacity, capacity * HebbianLayout.DEFAULT_EDGE_CAPACITY_FACTOR, SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_MAX_DEGREE, EdgeImportance.DEFAULT);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -304,7 +305,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     }
 
     @Override
-    public void setDecayModulator(HebbianGraph.DecayModulator modulator) {
+    public void setDecayModulator(DecayModulator modulator) {
         this.decayModulator = modulator;
     }
 
@@ -328,7 +329,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
         graphLock.lock();
         try {
             currentCycle++;
-            HebbianGraph.DecayModulator mod = this.decayModulator;
+            DecayModulator mod = this.decayModulator;
             int removed = 0;
             int activeNodes = 0;
 
@@ -578,7 +579,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     }
 
     public static HebbianGraphMemory load(Path filePath, int defaultCapacity) {
-        return load(filePath, defaultCapacity, HebbianGraph.DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
+        return load(filePath, defaultCapacity, SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_MAX_DEGREE, EdgeImportance.DEFAULT);
     }
 
     public static HebbianGraphMemory load(Path filePath, int defaultCapacity,

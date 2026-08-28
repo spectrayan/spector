@@ -31,7 +31,7 @@ import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
 import com.spectrayan.spector.core.similarity.VectorOps;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 
 import org.slf4j.Logger;
@@ -191,19 +191,19 @@ public final class ReflectDaemon {
      * text lookup (falls back to basic behavior).</p>
      *
      * @param episodicStore the episodic memory store to scan
-     * @param ingestionTarget the cognitive ingestion target to promote into
+     * @param rememberPathway the cognitive ingestion target to promote into
      * @return report summarizing what was done
      */
     /**
      * Runs a single synchronous reflection cycle across all frozen and active partitions (#446).
      *
      * @param partitionManager the partition manager providing frozen and active partition handles
-     * @param ingestionTarget the cognitive ingestion target to promote into (active partition)
+     * @param rememberPathway the cognitive ingestion target to promote into (active partition)
      * @param index memory index for text lookup
      * @return report summarizing what was done
      */
     public ReflectReport runCycle(PartitionManager partitionManager,
-                                   CognitiveIngestionTarget ingestionTarget,
+                                   RememberPathway rememberPathway,
                                    MemoryIndex index) {
         if (partitionManager == null) {
             return ReflectReport.EMPTY;
@@ -227,7 +227,7 @@ public final class ReflectDaemon {
                 if (handle.router() != null && handle.router().isEpisodicLogMode()) {
                     var logStore = handle.router().episodicLog();
                     if (logStore != null) {
-                        int consolidatedTurns = reflectEpisodicLog(logStore, ingestionTarget);
+                        int consolidatedTurns = reflectEpisodicLog(logStore, rememberPathway);
                         totalConsolidated += consolidatedTurns;
                     }
                 }
@@ -249,8 +249,8 @@ public final class ReflectDaemon {
                 for (EpisodicPartition partition : allLegacyPartitions) {
                     totalTombstoned += compactor.pruneDecayed(partition, policy.decayPruneThreshold(), nowMs);
                     int promoted = centroidRouter != null
-                            ? clusterAndSynthesize(partition, ingestionTarget, offset -> index != null ? index.findTextByOffset(MemoryType.EPISODIC, offset) : null)
-                            : promoteHighestImportance(partition, ingestionTarget, offset -> index != null ? index.findTextByOffset(MemoryType.EPISODIC, offset) : null);
+                            ? clusterAndSynthesize(partition, rememberPathway, offset -> index != null ? index.findTextByOffset(MemoryType.EPISODIC, offset) : null)
+                            : promoteHighestImportance(partition, rememberPathway, offset -> index != null ? index.findTextByOffset(MemoryType.EPISODIC, offset) : null);
                     totalConsolidated += promoted;
                 }
             }
@@ -265,8 +265,8 @@ public final class ReflectDaemon {
         }
     }
 
-    private int reflectEpisodicLog(EpisodicLogMemory logStore, CognitiveIngestionTarget ingestionTarget) {
-        if (logStore == null || ingestionTarget == null) return 0;
+    private int reflectEpisodicLog(EpisodicLogMemory logStore, RememberPathway rememberPathway) {
+        if (logStore == null || rememberPathway == null) return 0;
         List<Long> unconsolidatedOffsets = logStore.unconsolidatedTurnOffsets();
         if (unconsolidatedOffsets.isEmpty()) return 0;
 
@@ -308,7 +308,7 @@ public final class ReflectDaemon {
                 if (joinedText.length() > 500) {
                     joinedText = joinedText.substring(0, 500);
                 }
-                float[] vec = embeddingProvider != null ? embeddingProvider.embed(joinedText).vector() : new float[ingestionTarget.quantizer().dimensions()];
+                float[] vec = embeddingProvider != null ? embeddingProvider.embed(joinedText).vector() : new float[rememberPathway.quantizer().dimensions()];
                 CognitiveHeader header = new CognitiveHeader(
                         System.currentTimeMillis(),
                         0L,
@@ -326,7 +326,7 @@ public final class ReflectDaemon {
 
             if (promoted != null && promoted.header() != null) {
                 String newId = "rem-log-" + new com.spectrayan.spector.memory.id.TsidGenerator().generate();
-                ingestionTarget.ingestCognitiveWithHeader(
+                rememberPathway.ingestCognitiveWithHeader(
                         newId,
                         promoted.text(),
                         promoted.vector(),
@@ -360,12 +360,12 @@ public final class ReflectDaemon {
     }
 
     public ReflectReport runCycle(EpisodicRecordMemory episodicStore,
-                                   CognitiveIngestionTarget ingestionTarget) {
-        return runCycle(episodicStore, ingestionTarget, null);
+                                   RememberPathway rememberPathway) {
+        return runCycle(episodicStore, rememberPathway, null);
     }
 
     public ReflectReport runCycle(EpisodicRecordMemory episodicStore,
-                                   CognitiveIngestionTarget ingestionTarget,
+                                   RememberPathway rememberPathway,
                                    Function<Long, String> textLookup) {
         if (!running.compareAndSet(false, true)) {
             log.warn("Reflection cycle already in progress  --  skipping");
@@ -440,9 +440,9 @@ public final class ReflectDaemon {
                 for (EpisodicPartition partition : episodicStore.partitions()) {
                     remTasks.add(() -> {
                         if (centroidRouter != null) {
-                            return clusterAndSynthesize(partition, ingestionTarget, textLookup);
+                            return clusterAndSynthesize(partition, rememberPathway, textLookup);
                         } else {
-                            return promoteHighestImportance(partition, ingestionTarget, textLookup);
+                            return promoteHighestImportance(partition, rememberPathway, textLookup);
                         }
                     });
                 }
@@ -453,8 +453,8 @@ public final class ReflectDaemon {
                 log.warn("Parallel REM failed, falling back to sequential: {}", e.getMessage());
                 for (EpisodicPartition partition : episodicStore.partitions()) {
                     int promoted = centroidRouter != null
-                            ? clusterAndSynthesize(partition, ingestionTarget, textLookup)
-                            : promoteHighestImportance(partition, ingestionTarget, textLookup);
+                            ? clusterAndSynthesize(partition, rememberPathway, textLookup)
+                            : promoteHighestImportance(partition, rememberPathway, textLookup);
                     totalConsolidated += promoted;
                 }
             }
@@ -501,9 +501,9 @@ public final class ReflectDaemon {
     private record PromotedFact(String text, float[] vector, CognitiveHeader header) {}
 
     private int clusterAndSynthesize(EpisodicPartition partition,
-                                      CognitiveIngestionTarget ingestionTarget,
+                                      RememberPathway rememberPathway,
                                       Function<Long, String> textLookup) {
-        if (ingestionTarget == null || partition.count() == 0) return 0;
+        if (rememberPathway == null || partition.count() == 0) return 0;
 
         CognitiveRecordLayout layout = partition.layout();
         var segment = partition.segment();
@@ -589,14 +589,14 @@ public final class ReflectDaemon {
                 int vecBytes = layout.quantizedVecBytes();
                 byte[] quantized = new byte[vecBytes];
                 java.lang.foreign.MemorySegment.copy(segment, layout.vectorOffset(bestOffset), java.lang.foreign.MemorySegment.ofArray(quantized), 0, vecBytes);
-                float[] decodedVector = ingestionTarget.quantizer().decode(quantized);
+                float[] decodedVector = rememberPathway.quantizer().decode(quantized);
                 
                 promotedFact = new PromotedFact(bestText, decodedVector, promotedHeader);
             }
 
             if (promotedFact != null && promotedFact.header() != null) {
                 String newId = "rem-" + new com.spectrayan.spector.memory.id.TsidGenerator().generate();
-                ingestionTarget.ingestCognitiveWithHeader(
+                rememberPathway.ingestCognitiveWithHeader(
                         newId,
                         promotedFact.text(),
                         promotedFact.vector(),
@@ -812,9 +812,9 @@ public final class ReflectDaemon {
      * into the semantic store. Used as fallback when clustering is not configured.
      */
     private int promoteHighestImportance(EpisodicPartition partition,
-                                          CognitiveIngestionTarget ingestionTarget,
+                                          RememberPathway rememberPathway,
                                           Function<Long, String> textLookup) {
-        if (ingestionTarget == null || partition.count() == 0) return 0;
+        if (rememberPathway == null || partition.count() == 0) return 0;
 
         CognitiveRecordLayout layout = partition.layout();
         var segment = partition.segment();
@@ -851,10 +851,10 @@ public final class ReflectDaemon {
             int vecBytes = layout.quantizedVecBytes();
             byte[] quantized = new byte[vecBytes];
             java.lang.foreign.MemorySegment.copy(segment, layout.vectorOffset(offset), java.lang.foreign.MemorySegment.ofArray(quantized), 0, vecBytes);
-            float[] decodedVector = ingestionTarget.quantizer().decode(quantized);
+            float[] decodedVector = rememberPathway.quantizer().decode(quantized);
 
             String newId = "rem-" + new com.spectrayan.spector.memory.id.TsidGenerator().generate();
-            ingestionTarget.ingestCognitiveWithHeader(
+            rememberPathway.ingestCognitiveWithHeader(
                     newId,
                     bestText,
                     decodedVector,

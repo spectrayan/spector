@@ -13,8 +13,6 @@
 package com.spectrayan.spector.memory.hebbian;
 
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph.DecayModulator;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -31,7 +29,6 @@ import java.util.List;
  * <p>All implementations are thread-safe for concurrent reads. Structural mutations
  * (strengthen, decay) are synchronized via {@link java.util.concurrent.locks.ReentrantLock}.</p>
  *
- * @see HebbianGraph The original V2 fixed-width implementation (deprecated)
  * @see HebbianGraphMemory The CSR V3 sparse implementation (preferred)
  */
 public sealed interface HebbianGraphBase extends AutoCloseable

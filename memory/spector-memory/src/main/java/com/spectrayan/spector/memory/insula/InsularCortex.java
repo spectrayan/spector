@@ -58,7 +58,8 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
      */
     public static InsularCortex fromBundle(Arena arena, MemorySegment regionSlice, boolean isNew) {
         MemoryId memoryId = SystemMemoryId.INSULA.id();
-        if (isNew) {
+        boolean effectivelyNew = isNew || !MemoryHeader.isValid(regionSlice, 0L);
+        if (effectivelyNew) {
             long now = System.currentTimeMillis();
             MemoryHeader.write(regionSlice, 0L, InsularLayout.SCHEMA_VERSION, MemoryShape.INSULAR, 1,
                     1, 0, 0, InsularLayout.LAYOUT_ID, now, now);

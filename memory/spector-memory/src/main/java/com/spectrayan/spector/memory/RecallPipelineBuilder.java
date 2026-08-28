@@ -92,7 +92,7 @@ public final class RecallPipelineBuilder {
         return recallPipeline;
     }
 
-    private static void rebuildHnswIfNeeded(SpectorMemoryBuilder builder, PartitionManager partitionManager, MemoryIndex index, ScalarQuantizer quantizer) {
+    static void rebuildHnswIfNeeded(SpectorMemoryBuilder builder, PartitionManager partitionManager, MemoryIndex index, ScalarQuantizer quantizer) {
         if (builder.semanticIndex == null || builder.semanticIndex.isReadOnly() || builder.semanticIndex.size() > 0) {
             return;
         }

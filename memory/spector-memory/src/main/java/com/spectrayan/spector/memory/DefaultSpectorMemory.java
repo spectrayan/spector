@@ -42,7 +42,6 @@ import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker;
 import com.spectrayan.spector.memory.pipeline.reranker.ColBERTTokenCache;
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
@@ -62,7 +61,6 @@ import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
@@ -91,9 +89,8 @@ import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
 import com.spectrayan.spector.memory.pipeline.HebbianCoActivationListener;
 import com.spectrayan.spector.memory.pipeline.ContentTagExtractor;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.pipeline.LtpReconsolidationListener;
-import com.spectrayan.spector.memory.pipeline.RecallPipeline;
 import com.spectrayan.spector.memory.pipeline.GraphScoringPolicy;
 import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.prospective.Reminder;
@@ -173,12 +170,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     private static final Logger log = LoggerFactory.getLogger(DefaultSpectorMemory.class);
 
-    //  Core Subsystems (Façade composition) 
-    private final CognitiveIngestionTarget cognitiveTarget;
+    //  Core Subsystems (Façade composition)
     private final RememberPathway rememberPathway;   // #561 relay-based remember engine (nullable)
     private final EmbeddingProvider embeddingProvider;
-    private final RecallPipeline recallPipeline;
-    private final RecallPathway recallPathway;       // #561 relay-based engine (nullable)
+    private final RecallPathway recallPathway;       // #561 relay-based engine
     private final ReflectPathway reflectPathway;     // #503 relay-based sleep reflection engine
     private final ExpressPathway expressPathway;     // #602 relay-based express engine
     private final DreamPathway dreamPathway;         // #679 relay-based generative dreaming & thought experiment engine
@@ -276,12 +271,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     DefaultSpectorMemory(SpectorMemoryBuilder builder) {
         var bundle = SpectorMemoryFactory.assemble(builder);
-        this.cognitiveTarget = bundle.cognitiveTarget();
         this.rememberPathway = bundle.rememberPathway();
         this.reflectPathway = bundle.reflectPathway();
         this.expressPathway = bundle.expressPathway();
         this.embeddingProvider = bundle.embeddingProvider();
-        this.recallPipeline = bundle.recallPipeline();
         this.recallPathway = bundle.recallPathway();
         this.usePathwayEngine = (builder.usePathwayEngine || bundle.recallPathway() != null || bundle.rememberPathway() != null)
                 && (bundle.recallPathway() != null || bundle.rememberPathway() != null);
@@ -409,8 +402,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // ==============================================================
 
     @Override
-    public CognitiveIngestionTarget target() {
-        return cognitiveTarget;
+    public RememberPathway target() {
+        return rememberPathway;
     }
 
     /** Returns the embedding provider for reconsolidation/update operations. */
@@ -441,7 +434,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             } else {
                 String[] finalTags = tags;
                 if (tags == null || tags.length == 0) {
-                    var tagExtractor = cognitiveTarget.tagExtractor();
+                    var tagExtractor = rememberPathway.tagExtractor();
                     if (tagExtractor != null) {
                         finalTags = tagExtractor.extract(id, text);
                     }
@@ -452,11 +445,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     sessionBuffers.computeIfAbsent(sessionId, k -> new SessionWriteBuffer())
                             .add(id, text, vector, type, System.currentTimeMillis());
                 }
-                if (usePathwayEngine && rememberPathway != null) {
-                    rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, hints);
-                } else {
-                    cognitiveTarget.ingestCognitive(id, text, vector, type, finalTags, source, hints);
-                }
+                rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, hints);
+                
             }
             checkCircadianTrigger(type);
             if (eagerConsolidator != null && (type == MemoryType.SEMANTIC || type == MemoryType.PROCEDURAL)) {
@@ -516,17 +506,14 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             } else {
                 String[] finalTags = tags;
                 if (tags == null || tags.length == 0) {
-                    var tagExtractor = cognitiveTarget.tagExtractor();
+                    var tagExtractor = rememberPathway.tagExtractor();
                     if (tagExtractor != null) {
                         finalTags = tagExtractor.extract(id, text);
                     }
                 }
                 float[] vector = embeddingProvider.embed(text).vector();
-                if (usePathwayEngine && rememberPathway != null) {
-                    rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, context);
-                } else {
-                    cognitiveTarget.ingestCognitive(id, text, vector, type, finalTags, source, context);
-                }
+                rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, context);
+                
             }
 
             // Process attachments if present in context metadata
@@ -702,7 +689,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         // Per-chunk tag extraction  --  each chunk gets its own content-derived tags
         // merged with the shared provenance tags.
         // Use the configured tag extractor (LLM when available, content-based fallback).
-        var chunkTagExtractor = cognitiveTarget.tagExtractor();
+        var chunkTagExtractor = rememberPathway.tagExtractor();
 
         // Split chunks into parent and child chunks
         List<com.spectrayan.spector.commons.chunker.Chunk> parentChunks = new ArrayList<>();
@@ -729,13 +716,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 IngestionContext parentContext = IngestionContext.builder()
                         .metadata(chunk.metadata())
                         .build();
-                if (usePathwayEngine && rememberPathway != null) {
-                    rememberPathway.ingestCognitive(chunk.chunkId(), chunk.text(),
+                rememberPathway.ingestCognitive(chunk.chunkId(), chunk.text(),
                             dummyVector, type, provenanceTags, source, parentContext);
-                } else {
-                    cognitiveTarget.ingestCognitive(chunk.chunkId(), chunk.text(),
-                            dummyVector, type, provenanceTags, source, parentContext);
-                }
+                
                 ingestedChunkIds.add(chunk.chunkId());
             }
 
@@ -782,13 +765,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                             .build();
                 }
 
-                if (usePathwayEngine && rememberPathway != null) {
-                    rememberPathway.ingestCognitive(chunk.chunkId(), chunk.text(),
+                rememberPathway.ingestCognitive(chunk.chunkId(), chunk.text(),
                             embedding.embedding(), type, chunkTags, source, childContext);
-                } else {
-                    cognitiveTarget.ingestCognitive(chunk.chunkId(), chunk.text(),
-                            embedding.embedding(), type, chunkTags, source, childContext);
-                }
+                
                 ingestedChunkIds.add(chunk.chunkId());
             }
 
@@ -858,13 +837,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                         .build();
 
                 float[] vector = embeddingProvider.embed(result.text()).vector();
-                if (usePathwayEngine && rememberPathway != null) {
-                    rememberPathway.ingestCognitive(
+                rememberPathway.ingestCognitive(
                             result.chunkId(), result.text(), vector, type, tags, source, subContext);
-                } else {
-                    cognitiveTarget.ingestCognitive(
-                            result.chunkId(), result.text(), vector, type, tags, source, subContext);
-                }
+                
                 ingested++;
             } catch (RuntimeException e) {
                 log.warn("[Attachment] Failed to ingest chunk '{}': {}", result.chunkId(), e.getMessage());
@@ -899,7 +874,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
 
             // Step 3: Resolve effective salience profile
-            com.spectrayan.spector.memory.model.SalienceProfile profile = cognitiveTarget.salienceProfile();
+            com.spectrayan.spector.memory.model.SalienceProfile profile = rememberPathway.salienceProfile();
 
             // Step 4: Build context and delegate to provider
             // Note: zScore=0.0 placeholder — DefaultImportanceProvider computes it
@@ -927,7 +902,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     // Extract context tags from the query text
                     var tagExtractor = (usePathwayEngine && rememberPathway != null)
                             ? rememberPathway.tagExtractor()
-                            : cognitiveTarget.tagExtractor();
+                            : rememberPathway.tagExtractor();
                     String[] tags = tagExtractor != null
                             ? tagExtractor.extract("query", queryText)
                             : new String[0];
@@ -951,9 +926,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                         .autoProfile(true)
                         .build();
             }
-            List<CognitiveResult> storeResults = usePathwayEngine
-                    ? recallPathway.recall(queryText, options)
-                    : recallPipeline.recall(queryText, options);
+            List<CognitiveResult> storeResults = recallPathway.recall(queryText, options);
             String sessionId = MemoryScope.sessionId();
             if (sessionId != null) {
                 SessionWriteBuffer buffer = sessionBuffers.get(sessionId);
@@ -1010,9 +983,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         acquireLease();
         try {
             if (reflectPathway != null) {
-                return reflectPathway.reflect(partitionManager, index, rememberPathway, cognitiveTarget, salienceProfile());
+                return reflectPathway.reflect(partitionManager, index, rememberPathway, salienceProfile());
             }
-            return reflectionOrchestrator.reflect(partitionManager, index, cognitiveTarget);
+            return reflectionOrchestrator.reflect(partitionManager, index, rememberPathway);
         } finally {
             releaseLease();
         }
@@ -1104,7 +1077,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     entityDirectory,
                     hyperEntityGraph,
                     temporalKnowledgeGraph,
-                    cognitiveTarget,
+                    rememberPathway,
                     wal,
                     this::inspect
             );
@@ -1159,7 +1132,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             if (loc != null) {
                 suppressionSet.registerOffset(loc.type().ordinal(), loc.offset());
             }
-            if (recallPipeline.wasLateral(memoryId)) {
+            if (recallPathway.wasLateral(memoryId)) {
                 lateralEvaluator.recordLateralSuppression();
                 log.debug("Lateral suppression: '{}' (reason={})", memoryId, reason);
             }
@@ -1487,7 +1460,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void setSalienceProfile(SalienceProfile profile) {
-        cognitiveTarget.setSalienceProfile(profile);
         if (rememberPathway != null) {
             rememberPathway.setSalienceProfile(profile);
         }
@@ -1500,7 +1472,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void setSoulVersion(short version) {
-        cognitiveTarget.setSoulVersion(version);
         if (rememberPathway != null) {
             rememberPathway.setSoulVersion(version);
         }
@@ -1511,7 +1482,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         if (usePathwayEngine && rememberPathway != null) {
             return rememberPathway.salienceProfile();
         }
-        return cognitiveTarget.salienceProfile();
+        return rememberPathway.salienceProfile();
     }
 
     @Override
@@ -1551,8 +1522,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public SuppressionSet suppression() { return suppressionSet; }
     @Override public HabituationPenalty habituation() { return habituationPenalty; }
     @Override public ScalarQuantizer quantizer() { return quantizer; }
-    @Override public CognitiveIngestionTarget cognitiveTarget() { return cognitiveTarget; }
-    @Override public RecallPipeline recallPipeline() { return recallPipeline; }
+    @Override public RememberPathway rememberPathway() { return rememberPathway; }
+    @Override public RecallPathway recallPathway() { return recallPathway; }
     @Override public CognitiveMemoryRouter cognitiveRouter() { return partitionManager.cognitiveRouter(); }
     @Override public MemoryIndex index() { return index; }
     @Override public LateralEvaluator lateralEvaluator() { return lateralEvaluator; }
@@ -1824,14 +1795,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
         }
 
-        // Close ingestion target (stops async entity extraction queue)
-        if (cognitiveTarget != null) {
-            try {
-                cognitiveTarget.close();
-            } catch (Exception e) {
-                log.warn("Failed to close CognitiveIngestionTarget on close", e);
-            }
-        }
         if (rememberPathway != null) {
             try {
                 rememberPathway.close();
@@ -1878,17 +1841,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         if (persistenceMode == MemoryPersistenceMode.DISK
                 && partitionManager.activePartitionDir() != null
                 && bm25Index != null && bm25Index.totalDocuments() > 0) {
-            int written = -1;
             if (runtimeBundle != null) {
-                written = bm25Index.persistToBundle(runtimeBundle, null);
-            }
-            if (written <= 0) {
-                try {
-                    bm25Index.partition(0).save(
-                            StorageLayout.bm25BidxRuntime(persistencePath));
-                } catch (Exception e) {
-                    log.warn("Failed to save BM25 index on close", e);
-                }
+                bm25Index.persistToBundle(runtimeBundle, null);
             }
         }
 
