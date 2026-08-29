@@ -29,15 +29,16 @@ import java.lang.foreign.MemorySegment;
  *
  * <h3>Current Implementation</h3>
  * <ul>
- *   <li><b>{@link HeaderLayout64} (64B)</b> — Full cache-line-aligned format.
- *       All fields included. Default for all stores.</li>
+ *   <li><b>{@link HeaderLayout64V2} (64B)</b> — Full cache-line-aligned pure encoding format (V2, default).</li>
+ *   <li><b>{@link HeaderLayout64} (64B)</b> — Legacy mixed-tenancy format (V1).</li>
  * </ul>
  *
+ * @see HeaderLayout64V2
  * @see HeaderLayout64
  * @see CognitiveRecordLayout
  */
 public sealed interface HeaderLayout
-        permits HeaderLayout64 {
+        permits HeaderLayout64, HeaderLayout64V2 {
 
     // ── Layout metadata ──
 
@@ -259,20 +260,41 @@ public sealed interface HeaderLayout
     /** Writes the surprise z-score at encoding time. */
     default void writeEncodingSurprise(MemorySegment seg, long off, float surprise) {}
 
+    /** Reads the low 64 bits of the 128-bit synaptic Bloom filter. */
+    default long readSynapticTagsLo(MemorySegment seg, long off) {
+        return readSynapticTags(seg, off);
+    }
+
+    /** Reads the high 64 bits of the 128-bit synaptic Bloom filter. */
+    default long readSynapticTagsHi(MemorySegment seg, long off) {
+        return 0L;
+    }
+
+    /** Writes a 128-bit synaptic tag filter (low and high 64 bits). */
+    default void writeSynapticTags(MemorySegment seg, long off, long tagsLo, long tagsHi) {
+        mergeSynapticTags(seg, off, tagsLo);
+    }
+
+    /** Merges 128-bit synaptic tags via atomic bitwise OR. */
+    default void mergeSynapticTags128(MemorySegment seg, long off, long additionalLo, long additionalHi) {
+        mergeSynapticTags(seg, off, additionalLo);
+    }
+
     // ── Factory methods ──
 
     /**
      * Returns the layout for the given version number.
      *
-     * @param version layout version (currently only 1 is supported)
+     * @param version layout version (1 for V1 legacy, 2 for V2 pure encoding)
      * @return the corresponding layout instance (singleton)
      * @throws SpectorValidationException if version is unknown
      */
     static HeaderLayout forVersion(int version) {
         return switch (version) {
             case 1 -> HeaderLayout64.INSTANCE;
+            case 2 -> HeaderLayout64V2.INSTANCE;
             default -> throw new SpectorValidationException(
-                    ErrorCode.ARGUMENT_INVALID, "header layout version", version + " (supported: 1)");
+                    ErrorCode.ARGUMENT_INVALID, "header layout version", version + " (supported: 1, 2)");
         };
     }
 
@@ -289,7 +311,7 @@ public sealed interface HeaderLayout
      */
     static HeaderLayout detect(int metadataVersion) {
         if (metadataVersion <= 0) {
-            return HeaderLayout64.INSTANCE; // assume current version
+            return HeaderLayout64.INSTANCE; // default to V1
         }
         return forVersion(metadataVersion);
     }
