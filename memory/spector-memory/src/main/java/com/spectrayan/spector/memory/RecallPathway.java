@@ -162,11 +162,16 @@ public final class RecallPathway {
         final NeuromodulatoryScoringRelay scoringRelay = new NeuromodulatoryScoringRelay(
                 salienceScorer, builder.bio.coActivationTracker(), gsp);
 
+        final com.spectrayan.spector.memory.model.SalienceProfile effectiveSalience = builder.salienceProfile != null
+                ? builder.salienceProfile
+                : (builder.salienceProfileProvider != null ? builder.salienceProfileProvider.effectiveProfile() : null);
+
         final GraphExpansionStage graphExpansionStage = new GraphExpansionStage(
                 builder.graphs.hebbianGraph(), builder.graphs.temporalChain(),
                 builder.graphs.entityDirectory(), builder.graphs.hyperEntityGraph(), builder.graphs.entityExtractor(),
                 gsp, builder.index, builder.partitionManager,
-                this.calibrationMins, this.calibrationScales);
+                this.calibrationMins, this.calibrationScales, effectiveSalience,
+                builder.bio.coActivationTracker());
 
         final TemporalFactWeavingStage temporalFactWeavingStage = new TemporalFactWeavingStage(
                 builder.graphs.temporalKnowledgeGraph(), builder.graphs.entityDirectory(),
@@ -699,8 +704,20 @@ public final class RecallPathway {
         private com.spectrayan.spector.index.VectorIndex semanticIndex;
         private com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle;
         private java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<RecallSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<RecallSignal>> interceptor;
+        private SalienceProfileProvider salienceProfileProvider;
+        private com.spectrayan.spector.memory.model.SalienceProfile salienceProfile;
 
         public Builder() {}
+
+        public Builder salienceProfileProvider(final SalienceProfileProvider provider) {
+            this.salienceProfileProvider = provider;
+            return this;
+        }
+
+        public Builder salienceProfile(final com.spectrayan.spector.memory.model.SalienceProfile profile) {
+            this.salienceProfile = profile;
+            return this;
+        }
 
         public Builder aismeBundle(final com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle) {
             this.aismeBundle = aismeBundle;

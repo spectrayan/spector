@@ -295,6 +295,7 @@ public final class SpectorMemoryFactory {
                 .hook(builder.hook)
                 .semanticIndex(builder.semanticIndex)
                 .aismeBundle(aismeBundle)
+                .salienceProfileProvider(builder.salienceProfileProvider)
                 .build();
 
         if (builder.semanticIndex != null && !builder.semanticIndex.isReadOnly() && builder.semanticIndex.size() == 0) {

@@ -175,6 +175,15 @@ public record CognitiveResult(
     }
 
     /**
+     * Returns a copy of this result with updated text content.
+     */
+    public CognitiveResult withText(String newText) {
+        return new CognitiveResult(id, newText, score, importance, ageDays, agentRecallCount,
+                valence, memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
+                retrievalMode, breakdown, trace, sourceModality, metadata, consolidationFlags);
+    }
+
+    /**
      * Returns a copy of this result with the given modality and metadata.
      */
     public CognitiveResult withModality(SourceModality modality, Map<String, String> metadata) {

@@ -16,6 +16,7 @@ package com.spectrayan.spector.memory.pipeline;
 import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorHebbianException;
 import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
+import com.spectrayan.spector.memory.consolidation.CadpContradictionResolver;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
@@ -87,6 +88,50 @@ public final class GraphExpansionStage {
     private final PartitionRegistry partitionRegistry;   // #443: live registry (nullable in tests)
     private final float[] calibrationMins;
     private final float[] calibrationScales;
+    private final com.spectrayan.spector.memory.model.SalienceProfile salienceProfile;
+    private final com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory coActivationTracker;
+
+    public GraphExpansionStage(HebbianGraphBase hebbianGraph,
+                        TemporalChainMemory temporalChain,
+                        EntityDirectory entityDirectory,
+                        com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
+                        EntityExtractor entityExtractor,
+                        GraphScoringPolicy graphScoringPolicy,
+                        MemoryIndex index,
+                        PartitionRegistry partitionRegistry,
+                        float[] calibrationMins,
+                        float[] calibrationScales,
+                        com.spectrayan.spector.memory.model.SalienceProfile salienceProfile,
+                        com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory coActivationTracker) {
+        this.hebbianGraph = hebbianGraph;
+        this.temporalChain = temporalChain;
+        this.entityDirectory = entityDirectory;
+        this.hyperEntityGraph = hyperEntityGraph;
+        this.entityExtractor = entityExtractor;
+        this.graphScoringPolicy = graphScoringPolicy != null ? graphScoringPolicy : GraphScoringPolicy.DEFAULT;
+        this.index = index;
+        this.partitionRegistry = partitionRegistry;
+        this.calibrationMins = calibrationMins;
+        this.calibrationScales = calibrationScales;
+        this.salienceProfile = salienceProfile;
+        this.coActivationTracker = coActivationTracker;
+    }
+
+    public GraphExpansionStage(HebbianGraphBase hebbianGraph,
+                        TemporalChainMemory temporalChain,
+                        EntityDirectory entityDirectory,
+                        com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
+                        EntityExtractor entityExtractor,
+                        GraphScoringPolicy graphScoringPolicy,
+                        MemoryIndex index,
+                        PartitionRegistry partitionRegistry,
+                        float[] calibrationMins,
+                        float[] calibrationScales,
+                        com.spectrayan.spector.memory.model.SalienceProfile salienceProfile) {
+        this(hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph,
+                entityExtractor, graphScoringPolicy, index, partitionRegistry,
+                calibrationMins, calibrationScales, salienceProfile, null);
+    }
 
     public GraphExpansionStage(HebbianGraphBase hebbianGraph,
                         TemporalChainMemory temporalChain,
@@ -98,16 +143,9 @@ public final class GraphExpansionStage {
                         PartitionRegistry partitionRegistry,
                         float[] calibrationMins,
                         float[] calibrationScales) {
-        this.hebbianGraph = hebbianGraph;
-        this.temporalChain = temporalChain;
-        this.entityDirectory = entityDirectory;
-        this.hyperEntityGraph = hyperEntityGraph;
-        this.entityExtractor = entityExtractor;
-        this.graphScoringPolicy = graphScoringPolicy != null ? graphScoringPolicy : GraphScoringPolicy.DEFAULT;
-        this.index = index;
-        this.partitionRegistry = partitionRegistry;
-        this.calibrationMins = calibrationMins;
-        this.calibrationScales = calibrationScales;
+        this(hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph,
+                entityExtractor, graphScoringPolicy, index, partitionRegistry,
+                calibrationMins, calibrationScales, null, null);
     }
 
     /**
@@ -211,6 +249,11 @@ public final class GraphExpansionStage {
             expandEntity(allResults, existingIds, graphCandidates, queryVector, options, rawQuery);
         }
 
+        // Step 5f: Layer 4 — Synaptic Tagging & Capture (STC) Cross-Capture Graph
+        if (index != null) {
+            expandCrossCaptureSTC(allResults, existingIds, graphCandidates, queryVector, options);
+        }
+
         // Add deduplicated graph candidates to results
         if (!graphCandidates.isEmpty()) {
             allResults.addAll(graphCandidates.values());
@@ -219,7 +262,7 @@ public final class GraphExpansionStage {
             }
             log.debug("Graph expansion added {} candidates (from {} layers)",
                     graphCandidates.size(),
-                    (hebbianGraph != null ? 1 : 0) + (temporalChain != null ? 1 : 0) + (entityDirectory != null ? 1 : 0));
+                    (hebbianGraph != null ? 1 : 0) + (temporalChain != null ? 1 : 0) + (entityDirectory != null ? 1 : 0) + 1);
         }
 
     }
@@ -232,28 +275,54 @@ public final class GraphExpansionStage {
                                  float[] queryVector,
                                  RecallOptions options) {
         try {
-            List<CognitiveResult> seeds = allResults.stream()
-                    .filter(r -> r.memoryType() == MemoryType.SEMANTIC || r.memoryType() == MemoryType.PROCEDURAL)
-                    .limit(8)
-                    .toList();
-            if (seeds.isEmpty()) {
-                seeds = allResults.subList(0, Math.min(8, allResults.size()));
-            }
+            // Self-tune spreading activation based on User Soul Salience & query topicality
+            float soulBoost = (salienceProfile != null && queryVector != null && !salienceProfile.isNeutral())
+                    ? salienceProfile.computeSelfRelevanceBoost(queryVector) : 1.0f;
+            float topicBoost = (salienceProfile != null && queryVector != null && !salienceProfile.isNeutral())
+                    ? salienceProfile.computeTopicBoost(queryVector) : 1.0f;
+
+            float salienceMultiplier = Math.max(1.0f, soulBoost * topicBoost);
+            int seedLimit = (salienceMultiplier > 1.05f) ? 15 : 10;
+            int maxDepth = (salienceMultiplier > 1.15f)
+                    ? Math.min(6, graphScoringPolicy.hebbianMaxDepth() + 1)
+                    : graphScoringPolicy.hebbianMaxDepth();
+
+            float effectiveHebbianBoost = graphScoringPolicy.hebbianBoostFactor() * salienceMultiplier;
+
+            List<CognitiveResult> seeds = allResults.subList(0, Math.min(seedLimit, allResults.size()));
 
             for (CognitiveResult seed : seeds) {
                 MemoryIndex.MemoryLocation loc = index.locate(seed.id());
                 if (loc == null) continue;
 
                 int memIdx = loc.graphSlot();
-                var activated = hebbianGraph.activateNeighbors(memIdx, graphScoringPolicy.hebbianMaxDepth());
+                List<Integer> seedEntities = (entityDirectory != null && memIdx >= 0)
+                        ? CadpContradictionResolver.findEntitiesForSlot(entityDirectory, memIdx) : null;
+
+                var activated = hebbianGraph.activateNeighbors(memIdx, maxDepth);
                 for (var edge : activated) {
                     String neighborId = ((com.spectrayan.spector.memory.index.IndexRecordMemory) index).idAt(edge.neighborIndex());
                     if (neighborId == null) continue;
                     if (!existingIds.contains(neighborId) && matchesFilters(neighborId, options)) {
                         float neighborSim = computeNeighborSimilarity(neighborId, queryVector);
                         float saturatedWeight = Math.min(edge.weight() / 5.0f, 1.0f);
+
+                        // Entity-Coherent multiplier: boosts associative edges sharing core subject entities
+                        float entityMultiplier = 1.0f;
+                        if (entityDirectory != null && seedEntities != null && !seedEntities.isEmpty()) {
+                            List<Integer> neighborEntities = CadpContradictionResolver.findEntitiesForSlot(entityDirectory, edge.neighborIndex());
+                            if (neighborEntities != null && !neighborEntities.isEmpty()) {
+                                for (Integer se : seedEntities) {
+                                    if (neighborEntities.contains(se)) {
+                                        entityMultiplier = 1.35f;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
                         float graphScore = (neighborSim
-                                + seed.score() * saturatedWeight * graphScoringPolicy.hebbianBoostFactor()) * 2.0f;
+                                + seed.score() * saturatedWeight * effectiveHebbianBoost * entityMultiplier) * 2.0f;
 
                         CognitiveResult candidate = buildGraphCandidate(
                                 neighborId, graphScore, seed, MemoryType.SEMANTIC, "HEBBIAN", neighborSim);
@@ -265,6 +334,68 @@ public final class GraphExpansionStage {
         } catch (RuntimeException e) {
             SpectorHebbianException ex = new SpectorHebbianException("spreading activation", e);
             log.debug(ex.getMessage());
+        }
+    }
+
+    /**
+     * Layer 4: Synaptic Tagging & Capture (STC) Cross-Capture Graph.
+     * Traverses tag co-occurrence matrix and inverted index via {@link com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory}.
+     */
+    private void expandCrossCaptureSTC(List<CognitiveResult> allResults,
+                                       Set<String> existingIds,
+                                       Map<String, CognitiveResult> graphCandidates,
+                                       float[] queryVector,
+                                       RecallOptions options) {
+        if (coActivationTracker == null || index == null) return;
+        try {
+            int seedLimit = Math.min(10, allResults.size());
+            List<CognitiveResult> seeds = allResults.subList(0, seedLimit);
+            List<String> seedTags = new java.util.ArrayList<>();
+
+            for (CognitiveResult seed : seeds) {
+                String[] tags = index.tags(seed.id());
+                if (tags != null) {
+                    for (String t : tags) {
+                        if (t != null && t.length() >= com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_CROSS_CAPTURE_MIN_TAG_LENGTH) {
+                            String lower = t.trim().toLowerCase();
+                            boolean ignored = false;
+                            for (String pfx : com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_CROSS_CAPTURE_IGNORED_TAG_PREFIXES) {
+                                if (lower.startsWith(pfx)) {
+                                    ignored = true;
+                                    break;
+                                }
+                            }
+                            if (!ignored) {
+                                seedTags.add(lower);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (seedTags.isEmpty()) return;
+
+            var crossCandidates = coActivationTracker.crossCaptureTraversal(seedTags, 5, 10);
+            for (var cc : crossCandidates) {
+                String neighborId = index.idAt(cc.memorySlotIndex());
+                if (neighborId != null && !existingIds.contains(neighborId) && matchesFilters(neighborId, options)) {
+                    float neighborSim = computeNeighborSimilarity(neighborId, queryVector);
+                    float graphScore = (neighborSim + cc.score()) * 1.8f;
+
+                    MemoryType resolvedType = MemoryType.SEMANTIC;
+                    MemoryIndex.MemoryLocation loc = index.locate(neighborId);
+                    if (loc != null && loc.type() != null) {
+                        resolvedType = loc.type();
+                    }
+
+                    CognitiveResult candidate = buildGraphCandidate(
+                            neighborId, graphScore, null, resolvedType, "STC_CAPTURE", neighborSim);
+                    graphCandidates.merge(neighborId, candidate,
+                            (a, b) -> a.score() >= b.score() ? a : b);
+                }
+            }
+        } catch (RuntimeException e) {
+            log.debug("STC cross-capture expansion encountered non-fatal exception: {}", e.getMessage());
         }
     }
 

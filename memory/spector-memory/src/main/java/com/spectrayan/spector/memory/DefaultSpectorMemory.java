@@ -313,6 +313,20 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.entityDirectory = bundle.entityDirectory();
         this.hyperEntityGraph = bundle.hyperEntityGraph();
         this.graphFacade = bundle.graphFacade();
+        if (this.coActivationTracker != null && this.index != null && this.coActivationTracker.invertedIndexEntryCount() == 0) {
+            java.util.Map<Integer, java.util.Collection<String>> tagMap = new java.util.HashMap<>();
+            for (java.util.Map.Entry<String, com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation> entry : this.index.locationMap().entrySet()) {
+                String entryId = entry.getKey();
+                int slot = entry.getValue().graphSlot();
+                String[] memoryTags = this.index.tags(entryId);
+                if (slot >= 0 && memoryTags != null && memoryTags.length > 0) {
+                    tagMap.put(slot, java.util.Arrays.asList(memoryTags));
+                }
+            }
+            if (!tagMap.isEmpty()) {
+                this.coActivationTracker.rebuildInvertedIndex(tagMap);
+            }
+        }
         this.dimensions = builder.dimensions;
         this.persistenceMode = builder.persistenceMode;
         this.persistencePath = builder.persistencePath;
