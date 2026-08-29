@@ -377,6 +377,14 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_CROSS_CAPTURE_MAX_MEMORIES_PER_TAG = "spector.memory.cross-capture.max-memories-per-tag";
     public static final int DEFAULT_MEMORY_CROSS_CAPTURE_MAX_MEMORIES_PER_TAG = 10;
 
+    /** Ignored tag prefixes for cross-capture expansion (e.g. conversational structural tags). */
+    public static final String MEMORY_CROSS_CAPTURE_IGNORED_TAG_PREFIXES = "spector.memory.cross-capture.ignored-tag-prefixes";
+    public static final List<String> DEFAULT_MEMORY_CROSS_CAPTURE_IGNORED_TAG_PREFIXES = List.of("conv_", "sess_");
+
+    /** Minimum tag length to qualify for cross-capture expansion. */
+    public static final String MEMORY_CROSS_CAPTURE_MIN_TAG_LENGTH = "spector.memory.cross-capture.min-tag-length";
+    public static final int DEFAULT_MEMORY_CROSS_CAPTURE_MIN_TAG_LENGTH = 3;
+
     // ── Spectral Sparsification (#416) ──
 
     /** Whether Tier 1 (actual pruning) is enabled. When false, operates in shadow mode (Tier 0). */
