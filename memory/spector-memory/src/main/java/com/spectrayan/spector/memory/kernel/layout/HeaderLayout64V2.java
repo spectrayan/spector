@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
+import com.spectrayan.spector.config.SpectorPropertyConstants;
+
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.VarHandle;
@@ -292,7 +294,7 @@ public record HeaderLayout64V2() implements HeaderLayout {
                 readValence(seg, off),
                 readFlags(seg, off),
                 readArousal(seg, off),
-                1.0f, // storageStrength lives in audit region
+                SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_INITIAL_STORAGE_STRENGTH, // storageStrength lives in audit region
                 readEncodingProfile(seg, off),
                 readEncodingAlpha(seg, off),
                 readEncodingBeta(seg, off),

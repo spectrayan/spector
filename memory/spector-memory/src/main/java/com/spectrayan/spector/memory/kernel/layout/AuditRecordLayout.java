@@ -501,7 +501,7 @@ public final class AuditRecordLayout implements MemoryLayout {
 
         seg.set(LAYOUT_RECONSOLIDATION_DELTA, recordOffset + OFFSET_RECONSOLIDATION_DELTA, record.reconsolidationDelta());
         // Zero reserved bytes
-        for (long o = 0; o < 16; o += 8) {
+        for (long o = 0; o < SpectorPropertyConstants.DEFAULT_MEMORY_AUDIT_RESERVED_BYTES; o += 8) {
             seg.set(ValueLayout.JAVA_LONG, recordOffset + OFFSET_RESERVED + o, 0L);
         }
     }
@@ -517,7 +517,7 @@ public final class AuditRecordLayout implements MemoryLayout {
                 0,
                 0,
                 baseImportance,
-                1.0f,
+                SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_INITIAL_STORAGE_STRENGTH,
                 0,
                 0L,
                 0L,

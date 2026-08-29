@@ -285,6 +285,15 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_AUDIT_AUTO_LTP_COOLDOWN_MS = "spector.memory.audit.auto-ltp-cooldown-ms";
     public static final long DEFAULT_MEMORY_AUDIT_AUTO_LTP_COOLDOWN_MS = 300_000L;
 
+    public static final String MEMORY_AUTO_LTP_STORAGE_INCREMENT = "spector.memory.audit.auto-ltp-storage-increment";
+    public static final float DEFAULT_MEMORY_AUTO_LTP_STORAGE_INCREMENT = 0.05f;
+
+    public static final String MEMORY_AUDIT_RESERVED_BYTES = "spector.memory.audit.reserved-bytes";
+    public static final int DEFAULT_MEMORY_AUDIT_RESERVED_BYTES = 16;
+
+    public static final String MEMORY_HEADER_V2_RESERVED_BYTES = "spector.memory.header.v2-reserved-bytes";
+    public static final int DEFAULT_MEMORY_HEADER_V2_RESERVED_BYTES = 12;
+
     public static final String MEMORY_DECAY_EXPONENT = "spector.memory.decay.exponent";
     public static final float DEFAULT_MEMORY_DECAY_EXPONENT = 0.15f;
 
@@ -294,8 +303,14 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_TWOFACTOR_S_GAIN = "spector.memory.twofactor.s-gain";
     public static final float DEFAULT_MEMORY_TWOFACTOR_S_GAIN = 0.1f;
 
+    public static final String MEMORY_TWOFACTOR_S_MIN = "spector.memory.twofactor.s-min";
+    public static final float DEFAULT_MEMORY_TWOFACTOR_S_MIN = 0.01f;
+
     public static final String MEMORY_TWOFACTOR_S_MAX = "spector.memory.twofactor.s-max";
     public static final float DEFAULT_MEMORY_TWOFACTOR_S_MAX = 5.0f;
+
+    public static final String MEMORY_TWOFACTOR_INITIAL_STORAGE_STRENGTH = "spector.memory.twofactor.initial-storage-strength";
+    public static final float DEFAULT_MEMORY_TWOFACTOR_INITIAL_STORAGE_STRENGTH = 1.0f;
 
     public static final String MEMORY_TWOFACTOR_S_EXPONENT = "spector.memory.twofactor.s-exponent";
     public static final float DEFAULT_MEMORY_TWOFACTOR_S_EXPONENT = 0.3f;

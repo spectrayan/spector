@@ -31,6 +31,7 @@ import com.spectrayan.spector.memory.sync.MemoryWal;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -128,7 +129,9 @@ final class ReinforcementHandler {
                 int rawBucket = DecayStrategy.ageToBucket(creationTs, nowMs);
                 float currentR = DecayStrategy.decay(rawBucket);
                 float deltaS = twoFactorConfig.sGain() * (1.0f - currentR);
-                cognitiveRouter.audit().casStorageStrength(loc.type(), slotIndex, currentS -> Math.min(twoFactorConfig.sMax(), Math.max(0.01f, currentS + deltaS)));
+                cognitiveRouter.audit().casStorageStrength(loc.type(), slotIndex,
+                        currentS -> Math.min(twoFactorConfig.sMax(),
+                                Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MIN, currentS + deltaS)));
             } else {
                 // Step 1: Valence tracking
                 valenceTracker.reinforce(segment, loc.offset(), layout, valence);
