@@ -230,17 +230,27 @@ public final class BenchmarkSetup implements AutoCloseable {
         log.info("Instantiating GraphScoringPolicy with threshold={}, mode={}", threshold, expansionMode);
         com.spectrayan.spector.memory.pipeline.GraphScoringPolicy scoringPolicy = new com.spectrayan.spector.memory.pipeline.GraphScoringPolicy(
                 0.3f,   // causalBoostWeight
-                0.3f,   // hebbianBoostFactor
-                0.8f,   // temporalForwardFactor
-                0.7f,   // temporalBackwardFactor
+                0.45f,  // hebbianBoostFactor (tuned for cross-session associative recall)
+                0.85f,  // temporalForwardFactor
+                0.75f,  // temporalBackwardFactor
                 0.25f,  // entityHopAttenuation
-                3,      // hebbianMaxDepth  (match resolveDefault — deeper cross-session associations)
+                4,      // hebbianMaxDepth (tuned for deeper cross-session associations)
                 5,      // temporalMaxHops  (match resolveDefault — wider session coverage)
                 2,      // entityMaxHops
                 threshold,
                 expansionMode
         );
         builder.graphScoringPolicy(scoringPolicy);
+
+        if (dataset.persona() != null) {
+            com.spectrayan.spector.memory.model.SalienceProfile salienceProfile =
+                    buildSalienceProfileFromPersona(dataset.persona(), embedder);
+            if (salienceProfile != null) {
+                builder.salienceProfile(salienceProfile);
+                log.info("Configured Persona-Informed SalienceProfile from dataset persona (interests: {}, occupation: '{}')",
+                        dataset.persona().interests(), dataset.persona().occupation());
+            }
+        }
 
         // Resolve persistence parameters
         boolean useDisk = Boolean.parseBoolean(System.getProperty("spector.benchmark.persistence", "true"));
@@ -355,7 +365,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                 log.warn("TemporalChain is null  --  skipping {} chain definitions", dataset.temporalChains().size());
             }
             if (memory.admin().entityDirectory() != null && hyper != null) {
-                loadEntityGraph(memory.admin().entityDirectory(), hyper, dataset.entityRelations(), idToSlot);
+                loadEntityGraph(memory.admin().entityDirectory(), hyper, memory.admin().temporalKnowledgeGraph(), dataset.entityRelations(), idToSlot, dataset.corpus());
             } else {
                 log.warn("EntityGraph is null  --  skipping {} entity relation definitions", dataset.entityRelations().size());
             }
@@ -514,9 +524,35 @@ public final class BenchmarkSetup implements AutoCloseable {
      * @param relations entity relation definitions from the dataset
      * @param corpus    the corpus records (used for entity mention  ->  memory linking)
      */
-    void loadEntityGraph(EntityDirectory dir, HyperEntityGraphMemory hyper, List<EntityRelation> relations,
-                         Map<String, Integer> idToSlot) {
+    /**
+     * Populates the EntityGraph from entities.jsonl definitions.
+     *
+     * <p>Constructs typed entity nodes and typed edges matching specified relation types.
+     * Links entities to their source memory indices and populates the TemporalKnowledgeGraph.</p>
+     *
+     * @param dir       the entity directory to populate
+     * @param hyper     the hyperentity graph memory
+     * @param tkg       the temporal knowledge graph (nullable)
+     * @param relations entity relation definitions from the dataset
+     * @param idToSlot  mapping from corpus record IDs to their slot indices
+     * @param corpus    the corpus records (used for timestamp mapping)
+     */
+    void loadEntityGraph(EntityDirectory dir, HyperEntityGraphMemory hyper,
+                         com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph tkg,
+                         List<EntityRelation> relations,
+                         Map<String, Integer> idToSlot,
+                         List<BenchmarkCorpusRecord> corpus) {
         int relationsLoaded = 0;
+        int tkgFactsLoaded = 0;
+
+        Map<String, Long> corpusTimestamps = new HashMap<>();
+        if (corpus != null) {
+            for (BenchmarkCorpusRecord r : corpus) {
+                if (r.id() != null && r.timestampMs() > 0) {
+                    corpusTimestamps.put(r.id(), r.timestampMs());
+                }
+            }
+        }
 
         for (EntityRelation relation : relations) {
             int fromEntityId = dir.intern(relation.fromEntity().name(), relation.fromEntity().type());
@@ -532,6 +568,7 @@ public final class BenchmarkSetup implements AutoCloseable {
             }
 
             // Link entities to their source memories
+            long earliestTimestamp = 0L;
             for (String memoryId : relation.sourceMemoryIds()) {
                 Integer memIdx = idToSlot.get(memoryId);
                 if (memIdx != null) {
@@ -550,11 +587,34 @@ public final class BenchmarkSetup implements AutoCloseable {
                 } else {
                     log.warn("Entity relation source memory '{}' not found in corpus", memoryId);
                 }
+                Long ts = corpusTimestamps.get(memoryId);
+                if (ts != null && (earliestTimestamp == 0L || ts < earliestTimestamp)) {
+                    earliestTimestamp = ts;
+                }
+            }
+
+            // Populate TemporalKnowledgeGraph with Bi-Temporal facts
+            if (tkg != null && relation.relationType() != null && !relation.relationType().isBlank()) {
+                try {
+                    tkg.assertFact(
+                            fromEntityId,
+                            relation.relationType(),
+                            toEntityId,
+                            -1L, (short) 0,
+                            earliestTimestamp,
+                            Long.MAX_VALUE,
+                            1.0f,
+                            false
+                    );
+                    tkgFactsLoaded++;
+                } catch (Exception e) {
+                    log.debug("Failed to assert temporal fact for relation '{}': {}", relation.relationType(), e.getMessage());
+                }
             }
         }
 
-        log.info("Loaded {} entity relations into graph (entities={})",
-                relationsLoaded, dir.entityCount());
+        log.info("Loaded {} entity relations (hyperedges={}) and {} bitemporal facts into TKG (entities={})",
+                relations.size(), relationsLoaded, tkgFactsLoaded, dir.entityCount());
     }
 
     /**
@@ -592,5 +652,55 @@ public final class BenchmarkSetup implements AutoCloseable {
      */
     public Map<String, Integer> idToSlot() {
         return idToSlot != null ? java.util.Collections.unmodifiableMap(idToSlot) : Map.of();
+    }
+
+    private com.spectrayan.spector.memory.model.SalienceProfile buildSalienceProfileFromPersona(
+            com.spectrayan.spector.bench.cognitive.model.PersonaDef persona,
+            EmbeddingProvider embedder) {
+        if (persona == null) return null;
+
+        var profileBuilder = com.spectrayan.spector.memory.model.SalienceProfile.builder();
+
+        // 1. Add semantic interest domains with pre-computed embeddings
+        if (persona.interests() != null) {
+            for (String interest : persona.interests()) {
+                if (interest != null && !interest.isBlank()) {
+                    try {
+                        float[] interestVec = embedder.embed(interest).vector();
+                        profileBuilder.interest(new com.spectrayan.spector.memory.model.InterestDomain(
+                                interest,
+                                com.spectrayan.spector.memory.model.InterestLevel.HIGH,
+                                interestVec
+                        ));
+                    } catch (Exception e) {
+                        log.warn("Failed to embed persona interest '{}': {}", interest, e.getMessage());
+                    }
+                }
+            }
+        }
+
+        // 2. Build PersonaContext for mPFC self-relevance scoring
+        var personaCtxBuilder = com.spectrayan.spector.memory.model.PersonaContext.builder();
+        if (persona.lifeContext() != null && !persona.lifeContext().isBlank()) {
+            personaCtxBuilder.about(persona.lifeContext());
+            try {
+                personaCtxBuilder.aboutEmbedding(embedder.embed(persona.lifeContext()).vector());
+            } catch (Exception ignored) {}
+        }
+        if (persona.occupation() != null && !persona.occupation().isBlank()) {
+            personaCtxBuilder.occupation(persona.occupation());
+            try {
+                personaCtxBuilder.occupationEmbedding(embedder.embed(persona.occupation()).vector());
+            } catch (Exception ignored) {}
+        }
+        if (persona.personalityTraits() != null && !persona.personalityTraits().isEmpty()) {
+            String traitsText = String.join(", ", persona.personalityTraits());
+            try {
+                personaCtxBuilder.valuesEmbedding(embedder.embed(traitsText).vector());
+            } catch (Exception ignored) {}
+        }
+
+        profileBuilder.persona(personaCtxBuilder.build());
+        return profileBuilder.build();
     }
 }
