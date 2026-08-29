@@ -322,22 +322,10 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
         TextAppendMemory text = TextAppendMemory.fromBundle(
                 bundle.arena(), textSlice, bundleFile, false, encryptor);
 
-        AuditRecordMemory audit = null;
-        if (bundle.hasRegion(RegionId.AUDIT)) {
-            audit = new AuditRecordMemory(
-                    MemoryId.of("default", "partition-" + seq + "-audit"),
-                    AuditRecordLayout.INSTANCE,
-                    semanticCapacity,
-                    episodicPartitionCapacity,
-                    proceduralCapacity,
-                    bundle.arena(),
-                    bundle.regionSegment(RegionId.AUDIT),
-                    0,
-                    true,
-                    bundleFile,
-                    null,
-                    true);
-        }
+        AuditRecordMemory audit = bundle.hasRegion(RegionId.AUDIT)
+                ? AuditRecordMemory.fromBundle(bundle.arena(), bundle.regionSegment(RegionId.AUDIT),
+                        semanticCapacity, episodicPartitionCapacity, proceduralCapacity, bundleFile, "partition-" + seq + "-audit")
+                : null;
 
         CognitiveMemoryRouter router = new CognitiveMemoryRouter(
                 workingStore, episodic, semantic, procedural, episodicLog, audit);
@@ -422,22 +410,10 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                         newBundle.arena(), newBundle.regionSegment(RegionId.TEXT),
                         bundleFile, true, encryptor);
 
-                AuditRecordMemory newAudit = null;
-                if (newBundle.hasRegion(RegionId.AUDIT)) {
-                    newAudit = new AuditRecordMemory(
-                            MemoryId.of("default", "partition-" + nextSeq + "-audit"),
-                            AuditRecordLayout.INSTANCE,
-                            semanticCapacity,
-                            episodicPartitionCapacity,
-                            proceduralCapacity,
-                            newBundle.arena(),
-                            newBundle.regionSegment(RegionId.AUDIT),
-                            0,
-                            true,
-                            bundleFile,
-                            null,
-                            true);
-                }
+                AuditRecordMemory newAudit = newBundle.hasRegion(RegionId.AUDIT)
+                        ? AuditRecordMemory.fromBundle(newBundle.arena(), newBundle.regionSegment(RegionId.AUDIT),
+                                semanticCapacity, episodicPartitionCapacity, proceduralCapacity, bundleFile, "partition-" + nextSeq + "-audit")
+                        : null;
 
                 newRouter = new CognitiveMemoryRouter(
                         workingStore, newEpisodic, newSemantic, newProcedural, newEpisodicLog, newAudit);

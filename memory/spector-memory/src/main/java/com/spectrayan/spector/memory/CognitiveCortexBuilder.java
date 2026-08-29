@@ -281,23 +281,10 @@ final class CognitiveCortexBuilder {
                     partitionBundle.arena(), textSlice, bundleFile, isNew,
                     builder.dataEncryptor);
 
-            AuditRecordMemory auditStore = null;
-            if (partitionBundle.hasRegion(RegionId.AUDIT)) {
-                MemorySegment auditSlice = partitionBundle.regionSegment(RegionId.AUDIT);
-                auditStore = new AuditRecordMemory(
-                        MemoryId.of("default", "bundle-audit"),
-                        AuditRecordLayout.INSTANCE,
-                        builder.semanticCapacity,
-                        builder.episodicPartitionCapacity,
-                        builder.proceduralCapacity,
-                        partitionBundle.arena(),
-                        auditSlice,
-                        0,
-                        true,
-                        bundleFile,
-                        null,
-                        true);
-            }
+            AuditRecordMemory auditStore = partitionBundle.hasRegion(RegionId.AUDIT)
+                    ? AuditRecordMemory.fromBundle(partitionBundle.arena(), partitionBundle.regionSegment(RegionId.AUDIT),
+                            builder.semanticCapacity, builder.episodicPartitionCapacity, builder.proceduralCapacity, bundleFile)
+                    : null;
 
             cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore, episodicLogStore, auditStore);
             log.info("V4 bundle mode: {} ({}, {} stores, episodic=log-structured)",
@@ -313,23 +300,8 @@ final class CognitiveCortexBuilder {
             SemanticRecordMemory semanticStore = new SemanticRecordMemory(
                     quantizedVecBytes, builder.semanticCapacity);
 
-            Arena heapAuditArena = Arena.ofShared();
-            int totalHeapAuditCap = builder.semanticCapacity + builder.episodicPartitionCapacity + builder.proceduralCapacity;
-            long heapAuditBytes = (long) totalHeapAuditCap * AuditRecordLayout.INSTANCE.recordStride();
-            MemorySegment heapAuditSeg = heapAuditArena.allocate(heapAuditBytes, 32);
-            AuditRecordMemory auditStore = new AuditRecordMemory(
-                    MemoryId.of("default", "heap-audit"),
-                    AuditRecordLayout.INSTANCE,
-                    builder.semanticCapacity,
-                    builder.episodicPartitionCapacity,
-                    builder.proceduralCapacity,
-                    heapAuditArena,
-                    heapAuditSeg,
-                    0,
-                    false,
-                    null,
-                    null,
-                    false);
+            AuditRecordMemory auditStore = AuditRecordMemory.heap(
+                    builder.semanticCapacity, builder.episodicPartitionCapacity, builder.proceduralCapacity);
 
             cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore, episodicLogStore, auditStore);
         }

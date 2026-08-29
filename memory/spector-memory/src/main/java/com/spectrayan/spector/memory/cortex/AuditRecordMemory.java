@@ -58,6 +58,60 @@ public final class AuditRecordMemory extends AbstractRecordMemory<AuditRecordLay
         this.proceduralCapacity = proceduralCapacity;
     }
 
+    /**
+     * Creates an in-memory heap-backed AuditRecordMemory for testing or transient runtime.
+     */
+    public static AuditRecordMemory heap(int semanticCapacity, int episodicCapacity, int proceduralCapacity) {
+        Arena arena = Arena.ofShared();
+        int totalCapacity = semanticCapacity + episodicCapacity + proceduralCapacity;
+        long bytes = (long) totalCapacity * AuditRecordLayout.INSTANCE.recordStride();
+        MemorySegment segment = arena.allocate(bytes, 32);
+        return new AuditRecordMemory(
+                MemoryId.of("default", "heap-audit"),
+                AuditRecordLayout.INSTANCE,
+                semanticCapacity,
+                episodicCapacity,
+                proceduralCapacity,
+                arena,
+                segment,
+                0,
+                false,
+                null,
+                null,
+                false);
+    }
+
+    /**
+     * Creates a bundle-backed AuditRecordMemory from a pre-sliced region segment.
+     */
+    public static AuditRecordMemory fromBundle(Arena arena, MemorySegment segment,
+                                               int semanticCapacity, int episodicCapacity, int proceduralCapacity,
+                                               Path bundlePath, String memoryName) {
+        String name = (memoryName != null && !memoryName.isBlank()) ? memoryName : "bundle-audit";
+        return new AuditRecordMemory(
+                MemoryId.of("default", name),
+                AuditRecordLayout.INSTANCE,
+                semanticCapacity,
+                episodicCapacity,
+                proceduralCapacity,
+                arena,
+                segment,
+                0,
+                true,
+                bundlePath,
+                null,
+                true);
+    }
+
+    /**
+     * Creates a bundle-backed AuditRecordMemory from a pre-sliced region segment with default memory name.
+     */
+    public static AuditRecordMemory fromBundle(Arena arena, MemorySegment segment,
+                                               int semanticCapacity, int episodicCapacity, int proceduralCapacity,
+                                               Path bundlePath) {
+        return fromBundle(arena, segment, semanticCapacity, episodicCapacity, proceduralCapacity, bundlePath, "bundle-audit");
+    }
+
     public int semanticCapacity() {
         return semanticCapacity;
     }
