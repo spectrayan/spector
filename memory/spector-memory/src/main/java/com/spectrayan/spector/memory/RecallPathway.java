@@ -24,6 +24,7 @@ import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
@@ -549,12 +550,18 @@ public final class RecallPathway {
             try {
                 final var loc = index.locate(result.id());
                 if (loc == null) continue;
-                final MemorySegment segment = partitionRegistry.routerFor(loc.colocatedPartition())
-                        .segmentFor(loc.type());
-                if (segment != null) {
-                    segment.set(java.lang.foreign.ValueLayout.JAVA_BYTE,
-                            loc.offset() + SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE,
-                            profileOrdinal);
+                var router = partitionRegistry.routerFor(loc.colocatedPartition());
+                if (router.audit() != null) {
+                    int slotIndex = (int) (loc.offset() / router.layoutFor(loc.type()).stride());
+                    long auditOff = router.audit().auditOffset(loc.type(), slotIndex);
+                    AuditRecordLayout.INSTANCE.writeLastRecallProfile(router.audit().segment(), auditOff, profileOrdinal);
+                } else {
+                    final MemorySegment segment = router.segmentFor(loc.type());
+                    if (segment != null) {
+                        segment.set(java.lang.foreign.ValueLayout.JAVA_BYTE,
+                                loc.offset() + SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE,
+                                profileOrdinal);
+                    }
                 }
             } catch (final RuntimeException e) {
                 log.trace("Failed to write profile ordinal for '{}': {}", result.id(), e.getMessage());

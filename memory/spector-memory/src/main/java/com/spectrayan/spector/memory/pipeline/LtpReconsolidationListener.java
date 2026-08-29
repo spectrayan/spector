@@ -74,7 +74,19 @@ public final class LtpReconsolidationListener implements RecallListener {
                 if (segment != null) {
                     CognitiveRecordLayout layout = router.layoutFor(loc.type());
 
-                    if (layout.headerLayout().version() >= 3) {
+                    if (router.audit() != null) {
+                        int slotIndex = (int) (loc.offset() / layout.stride());
+                        long creationMs = layout.readTimestamp(segment, loc.offset());
+                        router.audit().recordRecall(loc.type(), slotIndex, creationMs, nowMs, (byte) 0, 0);
+
+                        long lastAutoLtp = router.audit().readAuditRecord(loc.type(), slotIndex).lastAutoLtp();
+                        if (nowMs - lastAutoLtp >= AUTO_LTP_COOLDOWN_MS) {
+                            router.audit().incrementSpectorRecallCount(loc.type(), slotIndex);
+                            router.audit().casStorageStrength(loc.type(), slotIndex, s -> Math.min(5.0f, s + 0.05f));
+                            long auditOff = router.audit().auditOffset(loc.type(), slotIndex);
+                            com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout.INSTANCE.writeLastAutoLtp(router.audit().segment(), auditOff, nowMs);
+                        }
+                    } else if (layout.headerLayout().version() >= 3) {
                         long creationMs = layout.readTimestamp(segment, loc.offset());
 
                         // Record recall timestamp for ACT-R base-level activation.

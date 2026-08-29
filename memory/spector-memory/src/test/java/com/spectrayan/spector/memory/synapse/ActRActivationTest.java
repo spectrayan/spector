@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -23,12 +23,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests for {@link ActRActivation} — full ACT-R base-level activation
- * using the 3-slot recall-timestamp ring buffer.
+ * using the 8-slot recall-timestamp ring buffer (ADR-0028).
  */
 class ActRActivationTest {
 
-    /** Header is 64 bytes — we need at least that much for the ring buffer. */
-    private static final int HEADER_SIZE = SynapticHeaderConstants.HEADER_BYTES;
+    /** Audit record is 96 bytes — contains the 8-slot ring buffer. */
+    private static final int AUDIT_RECORD_SIZE = AuditRecordLayout.STRIDE_BYTES;
 
     // ══════════════════════════════════════════════════════════════
     // Ring buffer: recordRecall / readRecallTimestamps
@@ -37,10 +37,10 @@ class ActRActivationTest {
     @Test
     void recordRecallFillsEmptySlots() {
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment seg = arena.allocate(HEADER_SIZE);
+            MemorySegment seg = arena.allocate(AUDIT_RECORD_SIZE);
             long creationMs = 1_000_000_000L;
 
-            // Record 3 recalls at different times (fills all 3 slots)
+            // Record 3 recalls at different times (fills first 3 slots)
             ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 10_000L);
             ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 20_000L);
             ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 30_000L);
@@ -55,19 +55,19 @@ class ActRActivationTest {
     @Test
     void recordRecallOverwritesOldestWhenFull() {
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment seg = arena.allocate(HEADER_SIZE);
+            MemorySegment seg = arena.allocate(AUDIT_RECORD_SIZE);
             long creationMs = 1_000_000_000L;
 
-            // Fill all 3 slots
-            ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 10_000L);
-            ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 20_000L);
-            ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 30_000L);
+            // Fill all 8 slots
+            for (int i = 1; i <= 8; i++) {
+                ActRActivation.recordRecall(seg, 0, creationMs, creationMs + (i * 10_000L));
+            }
 
-            // 4th recall should overwrite oldest (slot 0 = 10s)
-            ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 40_000L);
+            // 9th recall should overwrite oldest (slot 0 = 10s)
+            ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 90_000L);
 
             int[] timestamps = ActRActivation.readRecallTimestamps(seg, 0);
-            assertThat(timestamps[0]).isEqualTo(40);  // overwritten
+            assertThat(timestamps[0]).isEqualTo(90);  // overwritten
             assertThat(timestamps[1]).isEqualTo(20);
             assertThat(timestamps[2]).isEqualTo(30);
         }
@@ -76,7 +76,7 @@ class ActRActivationTest {
     @Test
     void emptyRingBufferReadsAllZeros() {
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment seg = arena.allocate(HEADER_SIZE);
+            MemorySegment seg = arena.allocate(AUDIT_RECORD_SIZE);
 
             int[] timestamps = ActRActivation.readRecallTimestamps(seg, 0);
             for (int ts : timestamps) {
@@ -92,7 +92,7 @@ class ActRActivationTest {
     @Test
     void noRecallDataReturnsMinusOne() {
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment seg = arena.allocate(HEADER_SIZE);
+            MemorySegment seg = arena.allocate(AUDIT_RECORD_SIZE);
             long creation = System.currentTimeMillis() - 86_400_000L; // 1 day ago
             long now = System.currentTimeMillis();
 
@@ -106,7 +106,7 @@ class ActRActivationTest {
     @Test
     void recentRecallProducesHighActivation() {
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment seg = arena.allocate(HEADER_SIZE);
+            MemorySegment seg = arena.allocate(AUDIT_RECORD_SIZE);
             long now = System.currentTimeMillis();
             long creation = now - 86_400_000L; // 1 day ago
 
@@ -123,7 +123,7 @@ class ActRActivationTest {
     @Test
     void oldRecallProducesLowerActivation() {
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment seg = arena.allocate(HEADER_SIZE);
+            MemorySegment seg = arena.allocate(AUDIT_RECORD_SIZE);
             long now = System.currentTimeMillis();
             long creation = now - 30L * 86_400_000L; // 30 days ago
 
@@ -140,8 +140,8 @@ class ActRActivationTest {
     @Test
     void moreRecallsProduceHigherActivation() {
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment segOnce = arena.allocate(HEADER_SIZE);
-            MemorySegment segFour = arena.allocate(HEADER_SIZE);
+            MemorySegment segOnce = arena.allocate(AUDIT_RECORD_SIZE);
+            MemorySegment segFour = arena.allocate(AUDIT_RECORD_SIZE);
             long now = System.currentTimeMillis();
             long creation = now - 7L * 86_400_000L; // 1 week ago
 
@@ -168,8 +168,8 @@ class ActRActivationTest {
         // activation footprint that survives longer than massed practice.
         // We test this by measuring at day 90 — well after the last recall.
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment segSpaced = arena.allocate(HEADER_SIZE);
-            MemorySegment segMassed = arena.allocate(HEADER_SIZE);
+            MemorySegment segSpaced = arena.allocate(AUDIT_RECORD_SIZE);
+            MemorySegment segMassed = arena.allocate(AUDIT_RECORD_SIZE);
             long now = System.currentTimeMillis();
             long creation = now - 90L * 86_400_000L; // 90 days ago
 
@@ -197,7 +197,7 @@ class ActRActivationTest {
     @Test
     void activationIsBoundedBetweenZeroAndOne() {
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment seg = arena.allocate(HEADER_SIZE);
+            MemorySegment seg = arena.allocate(AUDIT_RECORD_SIZE);
             long now = System.currentTimeMillis();
             long creation = now - 1000L; // 1 second ago
 
@@ -217,7 +217,7 @@ class ActRActivationTest {
     @Test
     void computeDecayWithActRFallsBackWhenNoRecallData() {
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment seg = arena.allocate(HEADER_SIZE);
+            MemorySegment seg = arena.allocate(AUDIT_RECORD_SIZE);
             long now = System.currentTimeMillis();
             long creation = now - 2L * 86_400_000L; // 2 days ago
 
@@ -234,7 +234,7 @@ class ActRActivationTest {
     @Test
     void computeDecayWithActRUsesFullModelWhenRecallDataExists() {
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment seg = arena.allocate(HEADER_SIZE);
+            MemorySegment seg = arena.allocate(AUDIT_RECORD_SIZE);
             long now = System.currentTimeMillis();
             long creation = now - 7L * 86_400_000L; // 1 week ago
 
@@ -246,8 +246,6 @@ class ActRActivationTest {
 
             // Should NOT equal the bucket fallback (different computation)
             float bucketFallback = DecayStrategy.computeDecay(creation, now, 1);
-            // The ACT-R value should differ from the bucket approximation
-            // (they may be close but are computed differently)
             assertThat(decay).isGreaterThan(0.0f).isLessThanOrEqualTo(1.0f);
         }
     }

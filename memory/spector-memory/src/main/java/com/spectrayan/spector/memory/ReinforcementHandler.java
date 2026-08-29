@@ -110,28 +110,48 @@ final class ReinforcementHandler {
         if (segment != null) {
             CognitiveRecordLayout layout = cognitiveRouter.layoutFor(loc.type());
 
-            // Step 1: Valence tracking
-            valenceTracker.reinforce(segment, loc.offset(), layout, valence);
-
-            // Step 2: LTP — increment agent recall count
-            layout.incrementAgentRecallCount(segment, loc.offset());
-
-            // Step 3: ACT-R — record recall timestamp in ring buffer (V3 only)
-            if (layout.headerLayout().version() >= 3) {
+            if (cognitiveRouter.audit() != null) {
+                int slotIndex = (int) (loc.offset() / layout.stride());
                 long creationTs = layout.readTimestamp(segment, loc.offset());
-                ActRActivation.recordRecall(segment, loc.offset(), creationTs,
-                        System.currentTimeMillis());
-            }
+                long nowMs = System.currentTimeMillis();
 
-            // Step 4: Two-Factor Memory — update storage strength S(t)
-            // ΔS = sGain × (1 - R(t)) → max boost when retrieval was hard
-            var headerLayout = layout.headerLayout();
-            if (headerLayout.headerBytes() > 32) { // V2+ has storage_strength
-                long timestamp = layout.readTimestamp(segment, loc.offset());
-                int rawBucket = DecayStrategy.ageToBucket(timestamp, System.currentTimeMillis());
+                // Step 1: Valence tracking
+                valenceTracker.reinforce(segment, loc.offset(), layout, valence);
+
+                // Step 2: LTP — increment agent recall count in audit region
+                cognitiveRouter.audit().incrementAgentRecallCount(loc.type(), slotIndex);
+
+                // Step 3: ACT-R — record recall timestamp in 8-slot ring buffer
+                cognitiveRouter.audit().recordRecall(loc.type(), slotIndex, creationTs, nowMs, (byte) 0, 0);
+
+                // Step 4: Two-Factor Memory — update storage strength S(t) in audit region
+                int rawBucket = DecayStrategy.ageToBucket(creationTs, nowMs);
                 float currentR = DecayStrategy.decay(rawBucket);
                 float deltaS = twoFactorConfig.sGain() * (1.0f - currentR);
-                headerLayout.casStorageStrength(segment, loc.offset(), currentS -> Math.min(twoFactorConfig.sMax(), Math.max(0.01f, currentS + deltaS)));
+                cognitiveRouter.audit().casStorageStrength(loc.type(), slotIndex, currentS -> Math.min(twoFactorConfig.sMax(), Math.max(0.01f, currentS + deltaS)));
+            } else {
+                // Step 1: Valence tracking
+                valenceTracker.reinforce(segment, loc.offset(), layout, valence);
+
+                // Step 2: LTP — increment agent recall count
+                layout.incrementAgentRecallCount(segment, loc.offset());
+
+                // Step 3: ACT-R — record recall timestamp in ring buffer (V3 only)
+                if (layout.headerLayout().version() >= 3) {
+                    long creationTs = layout.readTimestamp(segment, loc.offset());
+                    ActRActivation.recordRecall(segment, loc.offset(), creationTs,
+                            System.currentTimeMillis());
+                }
+
+                // Step 4: Two-Factor Memory — update storage strength S(t)
+                var headerLayout = layout.headerLayout();
+                if (headerLayout.headerBytes() > 32) { // V2+ has storage_strength
+                    long timestamp = layout.readTimestamp(segment, loc.offset());
+                    int rawBucket = DecayStrategy.ageToBucket(timestamp, System.currentTimeMillis());
+                    float currentR = DecayStrategy.decay(rawBucket);
+                    float deltaS = twoFactorConfig.sGain() * (1.0f - currentR);
+                    headerLayout.casStorageStrength(segment, loc.offset(), currentS -> Math.min(twoFactorConfig.sMax(), Math.max(0.01f, currentS + deltaS)));
+                }
             }
         }
 
@@ -153,10 +173,15 @@ final class ReinforcementHandler {
         // Step 7: ProfileAdaptor — record reinforcement outcome for profile learning
         if (profileAdaptor != null && segment != null) {
             try {
-                // Read profile ordinal from synaptic header byte 60
-                byte profileOrdinal = segment.get(
-                        java.lang.foreign.ValueLayout.JAVA_BYTE,
-                        loc.offset() + com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE);
+                byte profileOrdinal;
+                if (cognitiveRouter.audit() != null) {
+                    int slotIndex = (int) (loc.offset() / cognitiveRouter.layoutFor(loc.type()).stride());
+                    profileOrdinal = cognitiveRouter.audit().readAuditRecord(loc.type(), slotIndex).lastRecallProfile();
+                } else {
+                    profileOrdinal = segment.get(
+                            java.lang.foreign.ValueLayout.JAVA_BYTE,
+                            loc.offset() + com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE);
+                }
                 if (profileOrdinal >= 0 && profileOrdinal < com.spectrayan.spector.memory.model.CognitiveProfile.values().length) {
                     com.spectrayan.spector.memory.model.CognitiveProfile usedProfile =
                             com.spectrayan.spector.memory.model.CognitiveProfile.values()[profileOrdinal];

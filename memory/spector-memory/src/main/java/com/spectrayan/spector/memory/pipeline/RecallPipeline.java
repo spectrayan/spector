@@ -58,6 +58,7 @@ import com.spectrayan.spector.memory.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.ReplaySnapshot;
 import com.spectrayan.spector.memory.sync.WalReplayer;
+import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
@@ -1303,12 +1304,18 @@ public final class RecallPipeline {
             try {
                 var loc = index.locate(result.id());
                 if (loc == null) continue;
-                MemorySegment segment = partitionRegistry.routerFor(loc.colocatedPartition())
-                        .segmentFor(loc.type());
-                if (segment != null) {
-                    segment.set(java.lang.foreign.ValueLayout.JAVA_BYTE,
-                            loc.offset() + SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE,
-                            profileOrdinal);
+                var router = partitionRegistry.routerFor(loc.colocatedPartition());
+                if (router.audit() != null) {
+                    int slotIndex = (int) (loc.offset() / router.layoutFor(loc.type()).stride());
+                    long auditOff = router.audit().auditOffset(loc.type(), slotIndex);
+                    AuditRecordLayout.INSTANCE.writeLastRecallProfile(router.audit().segment(), auditOff, profileOrdinal);
+                } else {
+                    MemorySegment segment = router.segmentFor(loc.type());
+                    if (segment != null) {
+                        segment.set(java.lang.foreign.ValueLayout.JAVA_BYTE,
+                                loc.offset() + SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE,
+                                profileOrdinal);
+                    }
                 }
             } catch (RuntimeException e) {
                 // Non-critical  --  don't fail recall for header writes
