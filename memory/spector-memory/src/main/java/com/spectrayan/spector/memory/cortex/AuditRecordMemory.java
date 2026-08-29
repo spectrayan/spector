@@ -178,6 +178,30 @@ public final class AuditRecordMemory extends AbstractRecordMemory<AuditRecordLay
     }
 
     /**
+     * Reads the explicit agent recall count for (tier, slotIndex).
+     */
+    public int readAgentRecallCount(MemoryType tier, int slotIndex) {
+        long offset = auditOffset(tier, slotIndex);
+        return layout.readAgentRecallCount(segment, offset);
+    }
+
+    /**
+     * Reads the passive spector recall count for (tier, slotIndex).
+     */
+    public int readSpectorRecallCount(MemoryType tier, int slotIndex) {
+        long offset = auditOffset(tier, slotIndex);
+        return layout.readSpectorRecallCount(segment, offset);
+    }
+
+    /**
+     * Reads the Two-Factor storage strength for (tier, slotIndex).
+     */
+    public float readStorageStrength(MemoryType tier, int slotIndex) {
+        long offset = auditOffset(tier, slotIndex);
+        return layout.readStorageStrength(segment, offset);
+    }
+
+    /**
      * Atomically increments the explicit agent recall count for (tier, slotIndex).
      */
     public int incrementAgentRecallCount(MemoryType tier, int slotIndex) {

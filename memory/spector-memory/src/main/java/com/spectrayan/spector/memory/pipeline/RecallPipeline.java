@@ -1103,8 +1103,19 @@ public final class RecallPipeline {
         long nowMs = System.currentTimeMillis();
         float ageDays = (nowMs - header.timestampMs()) / (1000f * 60f * 60f * 24f);
 
+        int recallCount = header.agentRecallCount();
+        if (partitionRegistry != null) {
+            var router = partitionRegistry.routerFor(partitionSeq);
+            if (router != null && router.audit() != null) {
+                int auditCount = router.audit().readAgentRecallCount(type, sr.index());
+                if (auditCount > 0 || header.agentRecallCount() == 0) {
+                    recallCount = auditCount;
+                }
+            }
+        }
+
         int rawBucket = DecayStrategy.ageToBucket(header.timestampMs(), nowMs);
-        int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, header.agentRecallCount());
+        int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, recallCount);
         float rawDecay = DecayStrategy.decay(rawBucket);
         float ltpDecay = DecayStrategy.decay(adjusted);
 
@@ -1157,7 +1168,7 @@ public final class RecallPipeline {
         return new CognitiveResult(
                 id != null ? id : "unknown-" + sr.index(),
                 resultText, sr.score(), header.importance(), ageDays,
-                header.agentRecallCount(), header.valence(), type, source,
+                recallCount, header.valence(), type, source,
                 tags, rawDecay, ltpDecay, mode, breakdown, null,
                 modality, metadata
         );

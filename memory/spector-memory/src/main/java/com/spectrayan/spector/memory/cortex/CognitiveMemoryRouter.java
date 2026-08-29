@@ -139,7 +139,12 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      * @return byte offset where the record was written
      */
     public long write(MemoryType type, CognitiveHeader header, byte[] quantized) {
-        return get(type).write(header, quantized);
+        long offset = get(type).write(header, quantized);
+        if (auditStore != null && type != MemoryType.WORKING) {
+            int slotIndex = (int) ((offset - get(type).dataOffset()) / layoutFor(type).stride());
+            auditStore.initializeDefault(type, slotIndex, header.importance());
+        }
+        return offset;
     }
 
     /**

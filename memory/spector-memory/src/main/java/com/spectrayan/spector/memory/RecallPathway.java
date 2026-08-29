@@ -609,8 +609,19 @@ public final class RecallPathway {
         final long nowMs = System.currentTimeMillis();
         final float ageDays = (nowMs - header.timestampMs()) / (1000f * 60f * 60f * 24f);
 
+        int recallCount = header.agentRecallCount();
+        if (partitionRegistry != null) {
+            var router = partitionRegistry.routerFor(partitionSeq);
+            if (router != null && router.audit() != null) {
+                int auditCount = router.audit().readAgentRecallCount(type, sr.index());
+                if (auditCount > 0 || header.agentRecallCount() == 0) {
+                    recallCount = auditCount;
+                }
+            }
+        }
+
         final int rawBucket = DecayStrategy.ageToBucket(header.timestampMs(), nowMs);
-        final int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, header.agentRecallCount());
+        final int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, recallCount);
         final float rawDecay = DecayStrategy.decay(rawBucket);
         final float ltpDecay = DecayStrategy.decay(adjusted);
 
@@ -655,7 +666,7 @@ public final class RecallPathway {
         return new CognitiveResult(
                 id != null ? id : "unknown-" + sr.index(),
                 resultText, sr.score(), header.importance(), ageDays,
-                header.agentRecallCount(), header.valence(), type, source, tags,
+                recallCount, header.valence(), type, source, tags,
                 rawDecay, ltpDecay, mode, breakdown, null, modality, metadata);
     }
 
