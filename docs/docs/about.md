@@ -57,7 +57,7 @@ Includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) s
 
 | Feature | Python Vector DB MCP | **Spector MCP** |
 |:---|:---|:---|
-| Recall latency | 2–10ms | **0.13ms p50** (15–75× faster) † |
+| Recall latency | 2–10ms | **Ultra-low latency** (in-process SIMD) † |
 | Network overhead | HTTP/gRPC round-trip | **Zero** (in-process) |
 | Concurrent queries | Limited by Python GIL | **61,000 QPS** † |
 | Dependencies | Python framework stack | **Single JAR** |
@@ -97,7 +97,7 @@ Unlike most vector databases that rely on C++, Rust, or Python bindings, Spector
 
 | Recall Type | Average Latency | Throughput |
 |-------------|----------------|------------|
-| Dense | **0.13 ms** | 7,556 QPS |
+| Dense | **Ultra-fast** | High QPS |
 | Lexical | **0.98 ms** | 1,019 QPS |
 | Hybrid | **1.01 ms** | 994 QPS |
 
@@ -137,7 +137,7 @@ Spector offers two quantization paths:
 
 | Engine | Language | Vector Avg | Vector P99 |
 |--------|----------|-----------|-----------| 
-| **⚡ Spector** | **Java 25** | **0.13 ms** | **0.26 ms** |
+| **⚡ Spector** | **Java 25** | **Ultra-low** | **Sub-millisecond** |
 | hnswlib | C++ | 0.1–0.5 ms | ~1 ms |
 | FAISS | C++ | 0.2–0.8 ms | 1–2 ms |
 | Lucene 9+ | Java | 1–5 ms | 5–10 ms |

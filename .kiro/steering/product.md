@@ -6,7 +6,7 @@ Spector is a zero-overhead, agent-ready AI cognitive memory backbone — a SIMD-
 
 - Provides AI agents with persistent cognitive memory (working → episodic → semantic → procedural tiers)
 - Delivers hybrid retrieval: dense HNSW + BM25 + SPLADE + ColBERT with RRF fusion
-- Achieves 0.13ms p50 recall at 1M memories with zero GC pressure (100% off-heap Panama storage)
+- Achieves ultra-low latency in-process recall with zero GC pressure (100% off-heap Panama storage)
 - Exposes 16 MCP tools over stdio and Streamable HTTP for direct agent integration
 
 ## Key Design Principles

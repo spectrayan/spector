@@ -67,7 +67,7 @@ Spector models memory the way brains do — based on peer-reviewed cognitive sci
 
 | Benchmark | Result | Notes |
 |:---|:---|:---|
-| Cognitive recall at 1M memories | **0.13ms p50** | 15× better than 2ms target |
+| Cognitive recall | **Ultra-low latency** | Hardware-accelerated in-process SIMD |
 | Vector search p50 | **88–143µs** | 10K–100K docs, HNSW M=16 |
 | Peak QPS (16 threads) | **61,011** | Concurrent vectorSearch |
 | GC overhead | **0.01%** | 1 pause / 100K searches |
@@ -122,7 +122,7 @@ Every tenant gets physically separate files with independent encryption keys:
 | Feature | Spector Memory | Mem0 | Letta (MemGPT) | Zep | Stanford Generative Agents |
 |---|:---:|:---:|:---:|:---:|:---:|
 | **Temporal decay** | ✅ Power-law (configurable) | ❌ None | ❌ Agent-managed | ✅ Limited | ✅ Exponential |
-| **Recall latency (1M)** | **0.13ms** | 50–200ms | 100ms+ | 50–150ms | N/A (research) |
+| **Recall latency** | **Ultra-low** | 50–200ms | 100ms+ | 50–150ms | N/A (research) |
 | **Scoring model** | ACT-R inspired | Vector similarity | Agent-managed | Hybrid | Additive |
 | **Two-Factor strengthening** | ✅ Bjork model | ❌ | ❌ | ❌ | ❌ |
 | **Emotional valence** | ✅ Amygdala model | ❌ | ❌ | ❌ | ❌ |

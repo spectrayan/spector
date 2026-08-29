@@ -37,7 +37,7 @@ AI memory recall must combine **semantic similarity**, **temporal decay**, **emo
 === "AI Memory Wrappers (Mem0, Zep, Letta)"
     Memory wrapper systems add a thin layer over existing databases. They inherit all the database limitations above and add more:
 
-    1. **Network hop tax**: Every recall crosses a network boundary (REST API → database), adding 1–5ms of latency to a operation that should take 0.13ms.
+    1. **Network hop tax**: Every recall crosses a network boundary (REST API → database), adding 1–5ms of latency to an in-process sub-millisecond operation.
     2. **JSON serialization**: Memories are serialized to JSON for transport, creating allocation pressure and GC pauses.
     3. **No hardware co-design**: These systems cannot exploit CPU cache-line alignment, SIMD vector instructions, or off-heap memory — they operate one abstraction layer too high.
 
@@ -288,7 +288,7 @@ graph TD
     D --> E["Phase 4: Importance pre-screen<br/>−3,000 → 5,000 remain<br/><i>~5 cycles each</i>"]
     E --> F["Phase 5: SIMD L2 distance<br/>5,000 × 200 cycles<br/><i>expensive</i>"]
     F --> G["Phase 6: Fused score<br/>5,000 × 7 cycles"]
-    G --> H["✅ ~0.13ms total"]
+    G --> H["✅ Ultra-fast in-process scan"]
 
     style A fill:#e74c3c,color:white
     style C fill:#f39c12,color:white

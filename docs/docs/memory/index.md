@@ -126,7 +126,7 @@ Spector Memory collapses the entire cognitive stack onto a **zero-overhead, off-
 
 | Metric | Traditional Python Layer | **Spector Memory** |
 |---|---|---|
-| Query latency (1M memories) | 50-200ms | **0.13ms** † |
+| Query latency | 50-200ms | **Ultra-low latency** † |
 | GC pauses | Unpredictable | **≤0.01%** (100% off-heap) † |
 | Scoring pipeline | Post-filter (lossy) | **Fused SIMD** (lossless) |
 | Concurrent queries | Lock-limited | **61,000 QPS** (Virtual Threads) † |

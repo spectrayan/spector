@@ -66,7 +66,7 @@ Spector is an **MCP-native cognitive memory** — not an afterthought adapter. T
 | | Spector (MCP-native) | Typical MCP adapter |
 |:---|:---|:---|
 | **Architecture** | Memory + MCP in one JVM | Python wrapper → HTTP → DB |
-| **Memory recall** | **0.13ms** (fused scoring) | 50–200ms (Mem0/Letta/Zep) |
+| **Memory recall** | **Ultra-low latency** (fused scoring) | 50–200ms (Mem0/Letta/Zep) |
 | **Tools** | **16** (cognitive memory tools) | 3–5 basic CRUD |
 | **Cognitive features** | Decay, Hebbian, consolidation, valence | Key-value store |
 | **GC pressure** | **Zero** (Panama off-heap) | Full GC overhead |
@@ -80,7 +80,7 @@ Spector Memory is a **biologically-inspired cognitive memory system** that gives
 | Capability | What it does |
 |:---|:---|
 | 🧠 **4-Tier Cortex** | Working → Episodic → Semantic → Procedural memory |
-| ⚡ **0.13ms recall** at 1M memories | 15× faster than the 2ms target (vs. 50–200ms for Mem0/Letta/Zep) |
+| ⚡ **Ultra-Fast Recall** | Sub-millisecond in-process execution (vs. 50–200ms for Mem0/Letta/Zep) |
 | 🔗 **Fused SIMD Scoring** | Similarity × importance × decay in a single pass — no truncation trap |
 | 🛏️ **Sleep Consolidation** | Hippocampus-inspired pruning and partition rebuild |
 | 😱 **Emotional Valence** | Amygdala-driven positive/negative/neutral tagging |
@@ -97,7 +97,7 @@ Spector Memory is a **biologically-inspired cognitive memory system** that gives
 | 🧠 **Cognitive memory tiers** | Working → Episodic → Semantic → Procedural, with decay, consolidation, and emotional valence — memory that behaves like memory, not a key-value store |
 | 🔗 **Associative memory graphs** | Hebbian co-activation, temporal chains, and event-episode hyperedges — recall surfaces what's *related*, not just what matches |
 | 🤖 **In-process MCP server** | Cognitive tools over stdio + Streamable HTTP — agents call memory directly, zero network hops |
-| ⚡ **Fused SIMD scoring** | Similarity × importance × decay in one pass — 0.13ms p50 recall at 1M memories |
+| ⚡ **Fused SIMD scoring** | Similarity × importance × decay in one pass — ultra-fast in-process fused recall |
 | 🔍 **Hybrid retrieval** | Dense + sparse + late-interaction reranking, fused with RRF, with graceful degradation |
 | 🔒 **Physical namespace isolation** | Every user, agent, or tenant's memory lives in its own on-disk directory tree — true data separation, not a logical filter — hash-sharded to millions of namespaces, encrypted at rest (AES-256-GCM) |
 | 🧊 **Zero-GC off-heap storage** | 100% off-heap via Panama — ~0.01% GC overhead measured |
@@ -202,7 +202,7 @@ All numbers measured on Intel Core Ultra 9 285K, Java 25, AVX2 256-bit.
 | Benchmark | Result | Notes |
 |:---|:---|:---|
 | Vector search p50 | **88–143µs** | 10K–100K docs, HNSW M=16 |
-| Cognitive recall at 1M | **0.13ms p50** | 15× better than 2ms target |
+| Cognitive recall | **Ultra-low latency** | Hardware-accelerated in-process SIMD |
 | Peak QPS (16 threads) | **61,011** | Concurrent vectorSearch |
 | GC overhead | **0.01%** | 1 pause / 100K searches |
 | vs. Python MCP servers | **23–113× faster** | In-process SIMD, zero network |

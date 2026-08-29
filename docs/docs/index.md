@@ -17,7 +17,7 @@ Connect your agents through the **built-in MCP server** (Claude Desktop, Cursor,
 
 | Metric | Value |
 |:-------|:------|
-| 🧠 Cognitive Recall | **0.13ms** p50 at 1M memories |
+| 🧠 Cognitive Recall | **Ultra-low latency** in-process |
 | ⚡ Similarity Scoring | **88µs** p50 (10K docs, 128-dim) |
 | 🚀 Peak QPS | **61,011** concurrent recalls |
 | 🤖 MCP Tools | **16 tools** (stdio + HTTP Model Context Protocol) |

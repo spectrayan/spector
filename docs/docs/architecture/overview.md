@@ -233,7 +233,7 @@ sequenceDiagram
     MCP->>Tools: Route → MemoryRecallTool
     Tools->>Memory: recall(query, topK)
     Memory->>SIMD: Fused scoring: sim × importance × decay
-    SIMD-->>Agent: 📋 Ranked memories (~0.13ms)
+    SIMD-->>Agent: 📋 Ranked memories (ultra-fast)
 
     Agent->>MCP: tools/call {"name": "memory_introspect", ...}
     MCP->>Tools: Route → MemoryIntrospectTool
@@ -248,7 +248,7 @@ sequenceDiagram
 |:---|:---|:---|
 | **Architecture** | Engine + MCP in one JVM | Python → HTTP → DB → HTTP → agent |
 | **Search latency** | **88µs** (SIMD) | 5–50ms (network round-trip) |
-| **Memory recall** | **0.13ms** (fused scoring) | 50–200ms (Mem0/Letta/Zep) |
+| **Memory recall** | **Ultra-low latency** (fused scoring) | 50–200ms (Mem0/Letta/Zep) |
 | **Tools** | **16** (cognitive memory tools) | 3–5 basic CRUD |
 | **GC pressure** | **Zero** (Panama off-heap) | Full GC overhead |
 | **Deployment** | `java -jar spector.jar` | Python + pip + DB + config |

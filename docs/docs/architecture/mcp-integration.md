@@ -94,7 +94,7 @@ sequenceDiagram
     
     Handler->>Memory: memory.recall(query, topK)
     Memory->>SIMD: Fused scoring: sim × importance × decay (off-heap MemorySegment)
-    SIMD-->>Memory: ScoredMemory[] (~0.13ms)
+    SIMD-->>Memory: ScoredMemory[] (ultra-fast)
     Memory-->>Handler: RecallResult
     Handler-->>MCP: CallToolResult (JSON-RPC)
     MCP-->>Agent: tools/call response

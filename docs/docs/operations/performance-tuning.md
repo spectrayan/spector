@@ -29,7 +29,7 @@
 |-------|---------------|---------------|--------------|
 | **10K docs** | 0.19 ms / 3.79 ms p99 | **0.05 ms** / 0.10 ms p99 | 0.17 ms / 0.37 ms p99 |
 | **50K docs** | 0.42 ms / 0.68 ms p99 | **0.09 ms** / 0.19 ms p99 | 0.50 ms / 0.81 ms p99 |
-| **100K docs** | 0.98 ms / 1.39 ms p99 | **0.13 ms** / 0.26 ms p99 | 1.01 ms / 1.22 ms p99 |
+| **100K docs** | 0.98 ms / 1.39 ms p99 | **Ultra-low** / Sub-ms p99 | 1.01 ms / 1.22 ms p99 |
 
 ### 🚀 Search Throughput (queries/sec)
 

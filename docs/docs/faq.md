@@ -54,7 +54,7 @@ try (var engine = new SpectorEngine(SpectorConfig.DEFAULT.withDimensions(384))) 
 
 | Aspect | ⚡ Spector | Elasticsearch |
 |--------|---------------|--------------|
-| Vector search latency | **0.13 ms** (100K, in-process) | 2–10 ms |
+| Vector search latency | **Ultra-low latency** (in-process) | 2–10 ms |
 | Hybrid search latency | **1.01 ms** (100K, in-process) | 10–30 ms |
 | Deployment | Embedded JAR or server | Cluster only |
 | Dependencies | **Zero** (JDK only) | JVM + heavy stack |

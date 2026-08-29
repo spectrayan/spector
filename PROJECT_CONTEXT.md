@@ -12,7 +12,7 @@ Spector reimagines search by mimicking biological cognitive structures:
 *   **Volatile & Permanent Tiers**: Working Memory (Prefrontal Cortex) acts as a volatile circular buffer, while Episodic/Semantic layers represent permanent memory storage.
 *   **Fused Scoring**: Instead of plain similarity, Spector evaluates `Similarity × Importance × Temporal Decay` in a single pass.
 *   **Synaptic Gating**: Uses a 64-bit inline Bloom filter (Synaptic Tags) to eliminate 99% of candidate records before doing vector computations.
-*   **Zero-GC Performance**: Built on off-heap Panama FFM and SIMD Vector APIs, processing 1M memories in under **0.13ms**.
+*   **Zero-GC Performance**: Built on off-heap Panama FFM and SIMD Vector APIs, processing memories with ultra-low sub-millisecond latency.
 
 ---
 
