@@ -13,11 +13,16 @@ param(
     [switch]$EnableReranker,
     [switch]$DisableMmr,
     [string]$TextSearchMode = "HYBRID",
+    [string]$Timestamp = "",
     [switch]$Fresh
 )
 
 if ($All) {
     $Limit = 0
+}
+
+if (-not $Timestamp) {
+    $Timestamp = Get-Date -Format "yyyyMMddHH"
 }
 
 if (-not $JudgeModel) {
@@ -48,7 +53,10 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SpectorRoot = (Resolve-Path (Join-Path $ScriptDir "..")).Path
 $DatasetsBase = (Resolve-Path (Join-Path $SpectorRoot "../spector-datasets")).Path
 $DatasetDir = Join-Path $DatasetsBase "$Dataset/data"
-$OutputDir = Join-Path $DatasetsBase "$Dataset/results"
+$OutputDir = Join-Path $DatasetsBase "$Dataset/results/$Timestamp"
+if (-not (Test-Path $OutputDir)) {
+    New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
+}
 $CandidatesFile = Join-Path $OutputDir "retrieved_candidates.jsonl"
 $CheckpointFile = Join-Path $OutputDir "qa_eval_checkpoint.jsonl"
 

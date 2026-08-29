@@ -155,7 +155,7 @@ def query_gemini(
     if target_model.startswith("models/"):
         target_model = target_model[len("models/"):]
         
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent"
     
     generation_config = {
         "temperature": 0.0,
@@ -180,12 +180,17 @@ def query_gemini(
         }
     data_bytes = json.dumps(payload).encode("utf-8")
 
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": api_key
+    }
+
     for attempt in range(max_retries):
         try:
             req = urllib.request.Request(
                 url,
                 data=data_bytes,
-                headers={"Content-Type": "application/json"},
+                headers=headers,
                 method="POST"
             )
             open_kwargs = {"timeout": timeout}
