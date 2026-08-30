@@ -138,7 +138,20 @@ public class OllamaLlmProvider implements LlmProvider {
 
     @Override
     public boolean isAvailable() {
-        return adapter.isAvailable();
+        try {
+            java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofMillis(500))
+                    .build();
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(baseUrl + "/api/tags"))
+                    .timeout(Duration.ofMillis(500))
+                    .GET()
+                    .build();
+            var response = client.send(request, java.net.http.HttpResponse.BodyHandlers.discarding());
+            return response.statusCode() >= 200 && response.statusCode() < 400;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public dev.langchain4j.model.chat.ChatModel delegate() {
