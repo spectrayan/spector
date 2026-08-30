@@ -51,6 +51,10 @@
         "type": "boolean",
         "description": "Whether to include superseded (retracted) facts in traversal (default: false).",
         "default": false
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
       }
     }
   }

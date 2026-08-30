@@ -73,6 +73,14 @@ public class GlobalExceptionHandler {
                     ? HttpStatus.NOT_FOUND
                     : HttpStatus.BAD_REQUEST;
             case INGESTION -> HttpStatus.BAD_REQUEST;
+            case NAMESPACE -> switch (code) {
+                case NAMESPACE_NOT_FOUND, NAMESPACE_TOMBSTONED -> HttpStatus.NOT_FOUND;
+                case NAMESPACE_ACCESS_DENIED, TOKEN_NAMESPACE_LOCKED, FEDERATION_DISABLED, IDENTITY_REGION_DENIED -> HttpStatus.FORBIDDEN;
+                case DEFAULT_NAMESPACE_PROTECTED, NAMESPACE_LEGAL_HOLD -> HttpStatus.CONFLICT;
+                case NAMESPACE_QUOTA_EXCEEDED, ACCOUNT_QUOTA_EXCEEDED, TENANT_QUOTA_EXCEEDED, NAMESPACE_HOT_CAP_EXCEEDED -> HttpStatus.TOO_MANY_REQUESTS;
+                case SOUL_STACK_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
+                default -> HttpStatus.BAD_REQUEST;
+            };
             case SERVER -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };

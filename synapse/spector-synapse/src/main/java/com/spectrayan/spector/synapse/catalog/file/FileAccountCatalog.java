@@ -52,8 +52,12 @@ public class FileAccountCatalog implements AccountCatalog {
 
     private static final String FILE_ACCOUNT = "account.json";
     private static final String FILE_SLUGS = "slugs.json";
+    private static final String FILE_NAMESPACES = "namespaces.json";
     private static final String FILE_GRANTS = "grants.jsonl";
     private static final String FILE_LOCK = "LOCK";
+
+    private static final java.util.regex.Pattern SLUG_PATTERN =
+            java.util.regex.Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$");
 
     private final Path basePath;
     private final ObjectMapper objectMapper;
@@ -94,10 +98,17 @@ public class FileAccountCatalog implements AccountCatalog {
                         new TypeReference<Map<String, String>>() {});
             }
 
+            Path namespacesFile = accountDir.resolve(FILE_NAMESPACES);
+            Map<String, NamespaceRecord> namespaces = new HashMap<>();
+            if (Files.exists(namespacesFile)) {
+                namespaces = objectMapper.readValue(namespacesFile.toFile(),
+                        new TypeReference<Map<String, NamespaceRecord>>() {});
+            }
+
             Path grantsFile = accountDir.resolve(FILE_GRANTS);
             List<Grant> grants = GrantLog.parseGrants(grantsFile, objectMapper);
 
-            CatalogSnapshot snapshot = new CatalogSnapshot(account, slugs, grants, mtime);
+            CatalogSnapshot snapshot = new CatalogSnapshot(account, slugs, namespaces, grants, mtime);
             snapshotCache.put(accountId, snapshot);
             return snapshot;
         } catch (IOException e) {
@@ -161,6 +172,15 @@ public class FileAccountCatalog implements AccountCatalog {
                 Map<String, String> slugs = Map.of("default", accountId);
                 atomicWrite(accountDir.resolve(FILE_SLUGS), slugs);
 
+                // Write initial default namespace record
+                Instant now = Instant.now();
+                NamespaceRecord defaultNamespace = new NamespaceRecord(
+                        accountId, "default", accountId, NamespaceType.DEFAULT,
+                        NamespaceStatus.ACTIVE, null, null, null, now, now
+                );
+                Map<String, NamespaceRecord> namespaces = Map.of(accountId, defaultNamespace);
+                atomicWrite(accountDir.resolve(FILE_NAMESPACES), namespaces);
+
                 // Write implicit OWNER grant
                 Grant implicitOwner = new Grant(
                         accountId + "-owner-default",
@@ -171,7 +191,7 @@ public class FileAccountCatalog implements AccountCatalog {
                         GrantRole.OWNER,
                         Set.of(GrantAction.READ, GrantAction.WRITE, GrantAction.ADMIN),
                         accountId,           // grantedBy
-                        Instant.now(),
+                        now,
                         null,                // expiresAt
                         null                 // constraints
                 );
@@ -190,7 +210,6 @@ public class FileAccountCatalog implements AccountCatalog {
 
     @Override
     public Account getAccount(String accountId) {
-        // Phase 1: getAccount delegates to getOrCreateAccount for lazy migration
         return getOrCreateAccount(accountId);
     }
 
@@ -202,32 +221,7 @@ public class FileAccountCatalog implements AccountCatalog {
         } catch (NamespaceNotFoundException e) {
             return Optional.empty();
         }
-
-        Optional<String> resolvedId = snapshot.resolveSlug(slugOrId);
-        if (resolvedId.isEmpty()) {
-            return Optional.empty();
-        }
-
-        String namespaceId = resolvedId.get();
-        // Find the slug for this namespaceId
-        String slug = snapshot.slugToNamespaceId().entrySet().stream()
-                .filter(e -> e.getValue().equals(namespaceId))
-                .map(Map.Entry::getKey)
-                .findFirst()
-                .orElse(slugOrId);
-
-        return Optional.of(new NamespaceRecord(
-                namespaceId,
-                slug,
-                accountId,
-                NamespaceType.DEFAULT,
-                NamespaceStatus.ACTIVE,
-                null,    // displayName
-                null,    // description
-                null,    // bias
-                Instant.now(),
-                Instant.now()
-        ));
+        return snapshot.resolveNamespace(slugOrId);
     }
 
     @Override
@@ -242,7 +236,13 @@ public class FileAccountCatalog implements AccountCatalog {
     }
 
     @Override
-    public NamespaceRecord createNamespace(String accountId, String slug, NamespaceType type) {
+    public NamespaceRecord createNamespace(String accountId, String slug, NamespaceType type,
+            String displayName, String description, NamespaceBias bias) {
+        if (slug == null || !SLUG_PATTERN.matcher(slug).matches()) {
+            throw new IllegalArgumentException(
+                    "Invalid namespace slug: '" + slug + "'. Must be 1-63 alphanumeric/underscore/hyphen characters matching " + SLUG_PATTERN.pattern());
+        }
+
         ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
         jvmLock.lock();
         try {
@@ -264,12 +264,35 @@ public class FileAccountCatalog implements AccountCatalog {
                     throw new IllegalArgumentException("Slug already exists: " + slug);
                 }
 
+                Path namespacesFile = accountDir.resolve(FILE_NAMESPACES);
+                Map<String, NamespaceRecord> namespaces = new HashMap<>();
+                if (Files.exists(namespacesFile)) {
+                    namespaces = new HashMap<>(objectMapper.readValue(namespacesFile.toFile(),
+                            new TypeReference<Map<String, NamespaceRecord>>() {}));
+                }
+
                 // Allocate new namespaceId (UUID-based TSID-like 13-char id)
                 String newNamespaceId = UUID.randomUUID().toString()
                         .replace("-", "").substring(0, 13);
 
                 slugs.put(slug, newNamespaceId);
                 atomicWrite(slugsFile, slugs);
+
+                Instant now = Instant.now();
+                NamespaceRecord newRecord = new NamespaceRecord(
+                        newNamespaceId,
+                        slug,
+                        accountId,
+                        type != null ? type : NamespaceType.PROJECT,
+                        NamespaceStatus.ACTIVE,
+                        displayName,
+                        description,
+                        bias,
+                        now,
+                        now
+                );
+                namespaces.put(newNamespaceId, newRecord);
+                atomicWrite(namespacesFile, namespaces);
 
                 // Create data-plane directory
                 Path namespaceDir = StorageLayout.namespaceDirSharded(basePath, newNamespaceId);
@@ -285,7 +308,7 @@ public class FileAccountCatalog implements AccountCatalog {
                         GrantRole.OWNER,
                         Set.of(GrantAction.READ, GrantAction.WRITE, GrantAction.ADMIN),
                         accountId,
-                        Instant.now(),
+                        now,
                         null,
                         null
                 );
@@ -294,18 +317,136 @@ public class FileAccountCatalog implements AccountCatalog {
                 // Invalidate snapshot cache
                 snapshotCache.remove(accountId);
 
-                Instant now = Instant.now();
                 log.info("[FileAccountCatalog] created namespace: {} (slug={}) for account {}",
                         newNamespaceId, slug, accountId);
-                return new NamespaceRecord(
-                        newNamespaceId, slug, accountId, type, NamespaceStatus.ACTIVE,
-                        null, null, null, now, now
-                );
+                return newRecord;
             }
         } catch (IOException e) {
             log.error("[FileAccountCatalog] failed to create namespace {} for account {}",
                     slug, accountId, e);
             throw new RuntimeException("Failed to create namespace", e);
+        } finally {
+            jvmLock.unlock();
+        }
+    }
+
+    @Override
+    public NamespaceRecord updateNamespace(String accountId, String slugOrId,
+            String displayName, String description, NamespaceType type, NamespaceBias bias) {
+        ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
+        jvmLock.lock();
+        try {
+            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            Path lockFile = accountDir.resolve(FILE_LOCK);
+
+            try (FileChannel channel = FileChannel.open(lockFile,
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                 FileLock fileLock = channel.lock()) {
+
+                Path slugsFile = accountDir.resolve(FILE_SLUGS);
+                Map<String, String> slugs = new HashMap<>();
+                if (Files.exists(slugsFile)) {
+                    slugs = objectMapper.readValue(slugsFile.toFile(),
+                            new TypeReference<Map<String, String>>() {});
+                }
+
+                String namespaceId = slugs.get(slugOrId);
+                if (namespaceId == null) {
+                    if (slugs.containsValue(slugOrId)) {
+                        namespaceId = slugOrId;
+                    } else {
+                        throw new NamespaceNotFoundException(slugOrId);
+                    }
+                }
+
+                Path namespacesFile = accountDir.resolve(FILE_NAMESPACES);
+                Map<String, NamespaceRecord> namespaces = new HashMap<>();
+                if (Files.exists(namespacesFile)) {
+                    namespaces = new HashMap<>(objectMapper.readValue(namespacesFile.toFile(),
+                            new TypeReference<Map<String, NamespaceRecord>>() {}));
+                }
+
+                NamespaceRecord existing = namespaces.get(namespaceId);
+                String slug = existing != null ? existing.slug() : slugOrId;
+                Instant createdAt = existing != null ? existing.createdAt() : Instant.now();
+                NamespaceType currentType = type != null ? type : (existing != null ? existing.type() : NamespaceType.PROJECT);
+
+                NamespaceRecord updated = new NamespaceRecord(
+                        namespaceId,
+                        slug,
+                        accountId,
+                        currentType,
+                        existing != null ? existing.status() : NamespaceStatus.ACTIVE,
+                        displayName != null ? displayName : (existing != null ? existing.displayName() : null),
+                        description != null ? description : (existing != null ? existing.description() : null),
+                        bias != null ? bias : (existing != null ? existing.bias() : null),
+                        createdAt,
+                        Instant.now()
+                );
+
+                namespaces.put(namespaceId, updated);
+                atomicWrite(namespacesFile, namespaces);
+                snapshotCache.remove(accountId);
+
+                log.info("[FileAccountCatalog] updated namespace: {} for account {}", namespaceId, accountId);
+                return updated;
+            }
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] failed to update namespace {} for account {}",
+                    slugOrId, accountId, e);
+            throw new RuntimeException("Failed to update namespace", e);
+        } finally {
+            jvmLock.unlock();
+        }
+    }
+
+    @Override
+    public void resetNamespace(String accountId, String slugOrId) {
+        ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
+        jvmLock.lock();
+        try {
+            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            Path lockFile = accountDir.resolve(FILE_LOCK);
+
+            try (FileChannel channel = FileChannel.open(lockFile,
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                 FileLock fileLock = channel.lock()) {
+
+                Path slugsFile = accountDir.resolve(FILE_SLUGS);
+                Map<String, String> slugs = new HashMap<>();
+                if (Files.exists(slugsFile)) {
+                    slugs = objectMapper.readValue(slugsFile.toFile(),
+                            new TypeReference<Map<String, String>>() {});
+                }
+
+                String namespaceId = slugs.get(slugOrId);
+                if (namespaceId == null) {
+                    if (slugs.containsValue(slugOrId)) {
+                        namespaceId = slugOrId;
+                    } else {
+                        throw new NamespaceNotFoundException(slugOrId);
+                    }
+                }
+
+                // Reset data-plane directory: delete bundle/index files and recreate
+                Path namespaceDir = StorageLayout.namespaceDirSharded(basePath, namespaceId);
+                if (Files.exists(namespaceDir)) {
+                    try (var stream = Files.walk(namespaceDir)) {
+                        stream.sorted(Comparator.reverseOrder())
+                                .filter(p -> !p.equals(namespaceDir))
+                                .forEach(p -> {
+                                    try { Files.deleteIfExists(p); } catch (IOException ignored) {}
+                                });
+                    }
+                }
+                Files.createDirectories(namespaceDir);
+                snapshotCache.remove(accountId);
+                log.info("[FileAccountCatalog] reset namespace data directory: {}", namespaceId);
+            }
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] failed to reset namespace {} for account {}",
+                    slugOrId, accountId, e);
+            throw new RuntimeException("Failed to reset namespace", e);
         } finally {
             jvmLock.unlock();
         }
@@ -408,26 +549,62 @@ public class FileAccountCatalog implements AccountCatalog {
                  FileLock fileLock = channel.lock()) {
 
                 Path slugsFile = accountDir.resolve(FILE_SLUGS);
+                String resolvedNamespaceId = namespaceId;
+                String slugToRemove = null;
+
                 if (Files.exists(slugsFile)) {
                     Map<String, String> slugs = new HashMap<>(objectMapper.readValue(
                             slugsFile.toFile(),
                             new TypeReference<Map<String, String>>() {}));
-                    String slugToRemove = null;
-                    for (Map.Entry<String, String> entry : slugs.entrySet()) {
-                        if (entry.getValue().equals(namespaceId)) {
-                            slugToRemove = entry.getKey();
-                            break;
+
+                    if (slugs.containsKey(namespaceId)) {
+                        slugToRemove = namespaceId;
+                        resolvedNamespaceId = slugs.get(namespaceId);
+                    } else {
+                        for (Map.Entry<String, String> entry : slugs.entrySet()) {
+                            if (entry.getValue().equals(namespaceId)) {
+                                slugToRemove = entry.getKey();
+                                break;
+                            }
                         }
                     }
+
+                    if ("default".equals(slugToRemove) || accountId.equals(resolvedNamespaceId)) {
+                        throw new DefaultNamespaceProtectedException(resolvedNamespaceId);
+                    }
+
                     if (slugToRemove != null) {
-                        if ("default".equals(slugToRemove)) {
-                            throw new DefaultNamespaceProtectedException(namespaceId);
-                        }
                         slugs.remove(slugToRemove);
                         atomicWrite(slugsFile, slugs);
-                        snapshotCache.remove(accountId);
                     }
                 }
+
+                Path namespacesFile = accountDir.resolve(FILE_NAMESPACES);
+                if (Files.exists(namespacesFile)) {
+                    Map<String, NamespaceRecord> namespaces = new HashMap<>(objectMapper.readValue(
+                            namespacesFile.toFile(),
+                            new TypeReference<Map<String, NamespaceRecord>>() {}));
+                    NamespaceRecord existing = namespaces.get(resolvedNamespaceId);
+                    if (existing != null) {
+                        NamespaceRecord tombstoned = new NamespaceRecord(
+                                existing.namespaceId(),
+                                existing.slug(),
+                                existing.ownerAccountId(),
+                                existing.type(),
+                                NamespaceStatus.TOMBSTONED,
+                                existing.displayName(),
+                                existing.description(),
+                                existing.bias(),
+                                existing.createdAt(),
+                                Instant.now()
+                        );
+                        namespaces.put(resolvedNamespaceId, tombstoned);
+                        atomicWrite(namespacesFile, namespaces);
+                    }
+                }
+
+                snapshotCache.remove(accountId);
+                log.info("[FileAccountCatalog] tombstoned namespace {} for account {}", resolvedNamespaceId, accountId);
             }
         } catch (DefaultNamespaceProtectedException e) {
             throw e;

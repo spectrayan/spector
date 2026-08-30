@@ -27,18 +27,21 @@ import java.util.Set;
  * Cached with mtime invalidation.
  *
  * @param account           the account
- * @param slugToNamespaceId immutable map from slugs.json
+ * @param slugToNamespaceId immutable map from slugs.json (slug → namespaceId)
+ * @param namespaces        immutable map from namespaces.json (namespaceId → NamespaceRecord)
  * @param liveGrants        parsed from grants.jsonl, only live/non-expired
  * @param mtimeNanos        file modification time for invalidation
  */
 public record CatalogSnapshot(
         Account account,
         Map<String, String> slugToNamespaceId,
+        Map<String, NamespaceRecord> namespaces,
         List<Grant> liveGrants,
         long mtimeNanos) {
 
     public CatalogSnapshot {
         slugToNamespaceId = Map.copyOf(slugToNamespaceId);
+        namespaces = namespaces != null ? Map.copyOf(namespaces) : Map.of();
         liveGrants = List.copyOf(liveGrants);
     }
 
@@ -52,10 +55,45 @@ public record CatalogSnapshot(
         if (slugToNamespaceId.containsKey(slugOrId)) {
             return Optional.of(slugToNamespaceId.get(slugOrId));
         }
-        if (slugToNamespaceId.containsValue(slugOrId)) {
+        if (slugToNamespaceId.containsValue(slugOrId) || namespaces.containsKey(slugOrId)) {
             return Optional.of(slugOrId);
         }
         return Optional.empty();
+    }
+
+    /**
+     * Resolves a slug or namespace ID directly to its {@link NamespaceRecord}.
+     *
+     * @param slugOrId the slug or namespace ID
+     * @return the namespace record if resolved, or empty otherwise
+     */
+    public Optional<NamespaceRecord> resolveNamespace(String slugOrId) {
+        Optional<String> resolvedId = resolveSlug(slugOrId);
+        if (resolvedId.isEmpty()) {
+            return Optional.empty();
+        }
+        String id = resolvedId.get();
+        if (namespaces.containsKey(id)) {
+            return Optional.of(namespaces.get(id));
+        }
+        // Fallback for legacy directories / missing namespaces.json
+        String slug = slugToNamespaceId.entrySet().stream()
+                .filter(e -> e.getValue().equals(id))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse(slugOrId);
+        return Optional.of(new NamespaceRecord(
+                id,
+                slug,
+                account.id(),
+                id.equals(account.defaultNamespaceId()) ? NamespaceType.DEFAULT : NamespaceType.PROJECT,
+                NamespaceStatus.ACTIVE,
+                null,
+                null,
+                null,
+                Instant.now(),
+                Instant.now()
+        ));
     }
 
     /**
@@ -100,7 +138,7 @@ public record CatalogSnapshot(
      * @return list of accessible namespace records
      */
     public List<NamespaceRecord> accessibleNamespaces(String accountId) {
-        List<NamespaceRecord> namespaces = new ArrayList<>();
+        List<NamespaceRecord> result = new ArrayList<>();
         Set<String> accessibleIds = new HashSet<>();
 
         if (accountId.equals(account.id()) && account.defaultNamespaceId() != null) {
@@ -114,22 +152,30 @@ public record CatalogSnapshot(
         }
 
         for (Map.Entry<String, String> entry : slugToNamespaceId.entrySet()) {
-            if (accessibleIds.contains(entry.getValue())) {
-                namespaces.add(new NamespaceRecord(
-                        entry.getValue(),
-                        entry.getKey(),
-                        account.id(),
-                        NamespaceType.DEFAULT,
-                        NamespaceStatus.ACTIVE,
-                        null,   // displayName
-                        null,   // description
-                        null,   // bias
-                        Instant.now(),
-                        Instant.now()
-                ));
+            String nsId = entry.getValue();
+            if (accessibleIds.contains(nsId)) {
+                if (namespaces.containsKey(nsId)) {
+                    NamespaceRecord record = namespaces.get(nsId);
+                    if (record.status() != NamespaceStatus.TOMBSTONED) {
+                        result.add(record);
+                    }
+                } else {
+                    result.add(new NamespaceRecord(
+                            nsId,
+                            entry.getKey(),
+                            account.id(),
+                            nsId.equals(account.defaultNamespaceId()) ? NamespaceType.DEFAULT : NamespaceType.PROJECT,
+                            NamespaceStatus.ACTIVE,
+                            null,   // displayName
+                            null,   // description
+                            null,   // bias
+                            Instant.now(),
+                            Instant.now()
+                    ));
+                }
             }
         }
 
-        return namespaces;
+        return result;
     }
 }

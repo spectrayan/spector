@@ -19,6 +19,10 @@
       "valence": {
         "type": "string",
         "description": "Outcome: 'strongly_positive' (+100), 'positive' (+50), 'neutral' (0), 'negative' (-50), 'strongly_negative' (-100), or a numeric byte value (-128 to 127)."
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
       }
     }
   }

@@ -212,6 +212,8 @@ class SecurityConfigAuthorizationGatingTest {
         @Test
         void exactlyOneWarnWhenDisabledAndNoneWhenEnabled() {
             Logger secLogger = (Logger) LoggerFactory.getLogger(SecurityConfig.class);
+            Level oldLevel = secLogger.getLevel();
+            secLogger.setLevel(Level.WARN);
             ListAppender<ILoggingEvent> appender = new ListAppender<>();
             appender.start();
             secLogger.addAppender(appender);
@@ -239,6 +241,7 @@ class SecurityConfigAuthorizationGatingTest {
                         .isEqualTo(1);
             } finally {
                 secLogger.detachAppender(appender);
+                secLogger.setLevel(oldLevel);
                 appender.stop();
             }
         }

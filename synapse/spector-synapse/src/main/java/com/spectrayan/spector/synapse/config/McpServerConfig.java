@@ -216,8 +216,9 @@ public class McpServerConfig {
 
                     return new McpStatelessServerFeatures.SyncToolSpecification(tool, (exchange, request) -> {
                         Map<String, Object> args = request.arguments() != null ? request.arguments() : Map.of();
+                        String namespace = args.get("namespace") != null ? String.valueOf(args.get("namespace")) : null;
                         Optional<McpRequestMemory.DenyReason> deny =
-                                McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled);
+                                McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled, namespace, null);
                         if (deny.isPresent()) {
                             return toolError(McpRequestMemory.message(deny.get()));
                         }
@@ -244,8 +245,9 @@ public class McpServerConfig {
 
                     return new McpServerFeatures.SyncToolSpecification(tool, (exchange, request) -> {
                         Map<String, Object> args = request.arguments() != null ? request.arguments() : Map.of();
+                        String namespace = args.get("namespace") != null ? String.valueOf(args.get("namespace")) : null;
                         Optional<McpRequestMemory.DenyReason> deny =
-                                McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled);
+                                McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled, namespace, null);
                         if (deny.isPresent()) {
                             return toolError(McpRequestMemory.message(deny.get()));
                         }

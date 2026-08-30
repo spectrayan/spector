@@ -1,6 +1,6 @@
 {
   "name": "memory_compute_importance",
-  "description": "Compute what importance a memory WOULD receive without actually storing it. Use this BEFORE memory_remember to preview novelty, detect duplicates, and understand how your ICNU hints affect the final score. Returns: novelty score (Spector-native), fused importance, nearest existing memory, and profile-specific importance variations. This is read-only — nothing is stored or modified.",
+  "description": "Compute what importance a memory WOULD receive without actually storing it. Use this BEFORE memory_remember to preview novelty, detect duplicates, and understand how your ICNU hints affect the final score. Returns: novelty score (Spector-native), fused importance, nearest existing memory, and profile-specific importance variations. This is read-only \u2014 nothing is stored or modified.",
   "category": "MEMORY",
   "scopes": [
     "spector:memory:read"
@@ -39,6 +39,10 @@
         "type": "number",
         "description": "Emotional intensity: 0 (calm) to 255 (extreme). 0 = neutral.",
         "default": 0
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
       }
     }
   }

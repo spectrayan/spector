@@ -49,8 +49,26 @@ final class PassthroughCatalog implements AccountCatalog {
     }
 
     @Override
-    public NamespaceRecord createNamespace(String accountId, String slug, NamespaceType type) {
-        throw new UnsupportedOperationException("PassthroughCatalog does not support createNamespace");
+    public NamespaceRecord createNamespace(String accountId, String slug, NamespaceType type,
+            String displayName, String description, NamespaceBias bias) {
+        return new NamespaceRecord(
+                accountId + "-" + slug, slug, accountId, type != null ? type : NamespaceType.PROJECT,
+                NamespaceStatus.ACTIVE, displayName, description, bias, Instant.now(), Instant.now()
+        );
+    }
+
+    @Override
+    public NamespaceRecord updateNamespace(String accountId, String slugOrId,
+            String displayName, String description, NamespaceType type, NamespaceBias bias) {
+        return new NamespaceRecord(
+                slugOrId, "default", accountId, type != null ? type : NamespaceType.DEFAULT,
+                NamespaceStatus.ACTIVE, displayName, description, bias, Instant.now(), Instant.now()
+        );
+    }
+
+    @Override
+    public void resetNamespace(String accountId, String slugOrId) {
+        // no-op
     }
 
     @Override

@@ -63,7 +63,9 @@ public final class McpRequestMemory {
         /** Auth is enabled but the request carries no resolvable authenticated security context. */
         AUTH_REQUIRED,
         /** Per-user memory resolution or lazy construction failed; the call fails closed. */
-        RESOLUTION_FAILED
+        RESOLUTION_FAILED,
+        /** Wildcard '*' was supplied as a namespace selector (ADR-0029 Invariant 7). */
+        WILDCARD_REJECTED
     }
 
     /**
@@ -77,16 +79,47 @@ public final class McpRequestMemory {
      *         {@link DenyReason} describing why the call must be denied (nothing is bound)
      */
     public static Optional<DenyReason> bindForCurrentRequest(MemoryRegistry registry, boolean authEnabled) {
+        return bindForCurrentRequest(registry, authEnabled, null, null);
+    }
+
+    /**
+     * Resolves the caller's memory with an optional explicit namespace selector or connection ID.
+     *
+     * @param registry          the per-user memory registry
+     * @param authEnabled       whether {@code spector.auth.enabled} is {@code true}
+     * @param namespaceSelector optional explicit namespace slug or ID (from tool argument)
+     * @param connectionId      optional MCP connection or session identifier
+     * @return {@link Optional#empty()} when bound; otherwise {@link DenyReason}
+     */
+    public static Optional<DenyReason> bindForCurrentRequest(
+            MemoryRegistry registry,
+            boolean authEnabled,
+            String namespaceSelector,
+            String connectionId) {
         if (authEnabled && !SecurityUtils.isAuthenticated()) {
             return Optional.of(DenyReason.AUTH_REQUIRED);
         }
+
+        if (namespaceSelector != null && "*".equals(namespaceSelector.trim())) {
+            return Optional.of(DenyReason.WILDCARD_REJECTED);
+        }
+
         try {
-            CURRENT.set(registry.resolveForCurrentRequest());
+            String userId = SecurityUtils.getUserId();
+            String selector = (namespaceSelector != null && !namespaceSelector.isBlank())
+                    ? namespaceSelector.trim()
+                    : McpSessionContext.getSessionDefault(connectionId).orElse(null);
+
+            SpectorMemory memory = (selector != null && !selector.isBlank())
+                    ? registry.namespaceResolver().resolve(userId, selector)
+                    : registry.resolveForCurrentRequest();
+
+            CURRENT.set(memory);
             return Optional.empty();
         } catch (RuntimeException e) {
             clear();
             // Never echo the resolved namespace/identifier; message stays generic.
-            log.warn("[McpRequestMemory] per-user memory resolution failed; denying MCP call: {}", e.getMessage());
+            log.warn("[McpRequestMemory] memory resolution failed; denying MCP call: {}", e.getMessage());
             log.debug("[McpRequestMemory] resolution failure detail (id withheld)", e);
             return Optional.of(DenyReason.RESOLUTION_FAILED);
         }
@@ -106,6 +139,7 @@ public final class McpRequestMemory {
     /** Removes any memory bound to the current thread. Must be invoked in a {@code finally} block. */
     public static void clear() {
         CURRENT.remove();
+        McpSessionContext.clearFallback();
     }
 
     /**
@@ -120,6 +154,8 @@ public final class McpRequestMemory {
                     "Authentication is required to invoke MCP tools over /mcp.";
             case RESOLUTION_FAILED ->
                     "Memory resolution failed; the MCP call was denied and no memory was modified.";
+            case WILDCARD_REJECTED ->
+                    "Wildcard namespace '*' is not supported. Please specify a single namespace or omit to use the default.";
         };
     }
 }

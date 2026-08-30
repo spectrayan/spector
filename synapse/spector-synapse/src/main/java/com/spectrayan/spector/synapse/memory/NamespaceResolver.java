@@ -38,7 +38,9 @@ import com.spectrayan.spector.synapse.catalog.Account;
 import com.spectrayan.spector.synapse.catalog.AccountCatalog;
 import com.spectrayan.spector.synapse.catalog.GrantRole;
 import com.spectrayan.spector.synapse.catalog.NamespaceRecord;
+import com.spectrayan.spector.synapse.catalog.NamespaceStatus;
 import com.spectrayan.spector.synapse.catalog.exception.NamespaceNotFoundException;
+import com.spectrayan.spector.synapse.catalog.exception.NamespaceTombstonedException;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -158,6 +160,48 @@ public class NamespaceResolver implements AutoCloseable {
 
         // Step 2: Bind — cache lookup by namespaceId (not userId, not slug)
         return getOrBuild(namespaceId);
+    }
+
+    /**
+     * Resolves an authenticated principal and explicit namespace selector (slug or namespaceId)
+     * to the corresponding {@link SpectorMemory} instance.
+     *
+     * <p>Resolution chain (ADR-0029 §6.1):</p>
+     * <pre>
+     * (accountId, slugOrId) → catalog.resolve → NamespaceRecord → getOrBuild(namespaceId)
+     * </pre>
+     *
+     * @param accountId the authenticated principal's TSID
+     * @param slugOrId  the namespace slug or namespace identifier; null/blank resolves default
+     * @return the cached or newly-built SpectorMemory
+     * @throws NamespaceNotFoundException if the namespace is not found
+     * @throws NamespaceTombstonedException if the namespace is soft-deleted
+     */
+    public SpectorMemory resolve(String accountId, String slugOrId) {
+        if (slugOrId == null || slugOrId.isBlank()) {
+            return resolve(accountId);
+        }
+        catalog.getOrCreateAccount(accountId);
+        NamespaceRecord record = catalog.resolve(accountId, slugOrId)
+                .orElseThrow(() -> new NamespaceNotFoundException(slugOrId));
+        if (record.status() == NamespaceStatus.TOMBSTONED) {
+            throw new NamespaceTombstonedException(record.namespaceId());
+        }
+        catalog.recordAccess(record.namespaceId());
+        return getOrBuild(record.namespaceId());
+    }
+
+    /**
+     * Evicts a namespace instance from the cache and closes it.
+     *
+     * @param namespaceId the namespace identifier
+     */
+    public void evict(String namespaceId) {
+        if (namespaceId == null) return;
+        MemoryHandle handle = cache.remove(namespaceId);
+        if (handle != null) {
+            closeQuietly(handle.memory);
+        }
     }
 
     /**

@@ -19,6 +19,10 @@
       "resolved": {
         "type": "boolean",
         "description": "true = mark resolved (normal decay), false = mark unresolved (stays top-of-mind)."
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
       }
     }
   }

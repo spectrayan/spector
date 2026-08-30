@@ -87,7 +87,23 @@ public class CatalogAutoConfiguration {
         @Override
         public com.spectrayan.spector.synapse.catalog.NamespaceRecord createNamespace(
                 String accountId, String slug,
-                com.spectrayan.spector.synapse.catalog.NamespaceType type) {
+                com.spectrayan.spector.synapse.catalog.NamespaceType type,
+                String displayName, String description,
+                com.spectrayan.spector.synapse.catalog.NamespaceBias bias) {
+            throw new UnsupportedOperationException(MSG);
+        }
+
+        @Override
+        public com.spectrayan.spector.synapse.catalog.NamespaceRecord updateNamespace(
+                String accountId, String slugOrId,
+                String displayName, String description,
+                com.spectrayan.spector.synapse.catalog.NamespaceType type,
+                com.spectrayan.spector.synapse.catalog.NamespaceBias bias) {
+            throw new UnsupportedOperationException(MSG);
+        }
+
+        @Override
+        public void resetNamespace(String accountId, String slugOrId) {
             throw new UnsupportedOperationException(MSG);
         }
 
