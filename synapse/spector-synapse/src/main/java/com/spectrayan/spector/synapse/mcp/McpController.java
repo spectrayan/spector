@@ -94,8 +94,10 @@ public class McpController {
 
         // Resolve + bind the caller's per-user memory on this request thread. Denies
         // (auth-required / resolution-failed) fail closed without touching any user's memory.
+        String namespace = (arguments != null && arguments.containsKey("namespace"))
+                ? String.valueOf(arguments.get("namespace")) : null;
         Optional<McpRequestMemory.DenyReason> deny =
-                McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled);
+                McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled, namespace, null);
         if (deny.isPresent()) {
             return errorResponse(McpRequestMemory.message(deny.get()));
         }

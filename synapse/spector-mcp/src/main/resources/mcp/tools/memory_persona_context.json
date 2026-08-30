@@ -11,6 +11,10 @@
       "userId": {
         "type": "string",
         "description": "Target user ID for persona resolution"
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
       }
     }
   }

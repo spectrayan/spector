@@ -23,6 +23,10 @@
         "type": "integer",
         "description": "Maximum candidate memories to recall",
         "default": 5
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
       }
     }
   }

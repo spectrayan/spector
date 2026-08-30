@@ -37,6 +37,10 @@
         "type": "string",
         "description": "Conflict resolution mode: MULTI_EVIDENCE, HIGHEST_CONFIDENCE, FAIL_CLOSED.",
         "default": "MULTI_EVIDENCE"
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
       }
     }
   }

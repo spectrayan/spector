@@ -1,6 +1,6 @@
 {
   "name": "memory_salience",
-  "description": "Manage the active salience profile — controls what matters to the agent. Operations: 'get' (view current profile), 'set' (replace profile), 'compute_boost' (preview importance boost for text), 'add_interest' (add interest topic), 'add_disinterest' (add dampened topic), 'set_persona' (set personality/identity context). Use this to personalize memory scoring for different users or agents.",
+  "description": "Manage the active salience profile \u2014 controls what matters to the agent. Operations: 'get' (view current profile), 'set' (replace profile), 'compute_boost' (preview importance boost for text), 'add_interest' (add interest topic), 'add_disinterest' (add dampened topic), 'set_persona' (set personality/identity context). Use this to personalize memory scoring for different users or agents.",
   "category": "MEMORY",
   "scopes": [
     "spector:memory:write"
@@ -85,6 +85,10 @@
       "agent_relevance_boost": {
         "type": "string",
         "description": "Agent expertise relevance boost (1.0-1.8). Pre-computed scalar from agent soul expertise matching. Default 1.0 (no effect). Set higher to boost memories matching the agent's domain expertise."
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
       }
     }
   }

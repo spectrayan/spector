@@ -1,6 +1,6 @@
 {
   "name": "memory_inspect",
-  "description": "Inspect a single memory by ID — returns the full cognitive X-ray: text content, cognitive header (importance, valence, arousal, recall counts, synaptic tags bloom filter, storage strength, flags), vector dimensions, physical location, and flag states (tombstoned, consolidated, pinned, resolved). Use this to debug why a memory scores high or low, verify ingestion, or understand the full internal state of a specific memory.",
+  "description": "Inspect a single memory by ID \u2014 returns the full cognitive X-ray: text content, cognitive header (importance, valence, arousal, recall counts, synaptic tags bloom filter, storage strength, flags), vector dimensions, physical location, and flag states (tombstoned, consolidated, pinned, resolved). Use this to debug why a memory scores high or low, verify ingestion, or understand the full internal state of a specific memory.",
   "category": "MEMORY",
   "scopes": [
     "spector:memory:read"
@@ -14,6 +14,10 @@
       "id": {
         "type": "string",
         "description": "The memory ID to inspect."
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
       }
     }
   }

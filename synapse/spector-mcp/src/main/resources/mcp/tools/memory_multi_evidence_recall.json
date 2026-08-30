@@ -27,6 +27,10 @@
         "type": "integer",
         "description": "Number of memory evidence items to return (1-20).",
         "default": 5
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
       }
     }
   }
