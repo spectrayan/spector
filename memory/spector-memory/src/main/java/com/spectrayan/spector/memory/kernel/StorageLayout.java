@@ -458,6 +458,83 @@ public final class StorageLayout {
         return namespacesDir(basePath).resolve(l1).resolve(l2).resolve(tenantId).resolve(namespaceId);
     }
 
+    // ── Catalog and identity plane resolvers (ADR-0029) ──
+
+    /** Directory name for account catalog entries. */
+    public static final String DIR_ACCOUNTS = "accounts";
+
+    /** Directory name for tenant catalog/identity entries. */
+    public static final String DIR_TENANTS = "tenants";
+
+    /** Filename for account identity bundles. */
+    public static final String FILE_IDENTITY_BUNDLE = "identity.bundle";
+
+    /**
+     * Resolves the catalog directory for an account.
+     *
+     * <p>Sharded by SHA-256 of the accountId, same 2-level scheme
+     * as namespace directories:</p>
+     * <pre>
+     *   basePath/accounts/XX/YY/accountId/
+     * </pre>
+     *
+     * @param basePath  root persistence path
+     * @param accountId the account identifier (TSID from JWT {@code sub})
+     * @return sharded account catalog directory
+     * @throws SpectorValidationException if {@code accountId} is invalid
+     */
+    public static Path accountDir(Path basePath, String accountId) {
+        validateNamespaceId(accountId);
+        String hash = sha256Hex(accountId);
+        String l1 = hash.substring(0, SHARD_HEX_DIGITS);
+        String l2 = hash.substring(SHARD_HEX_DIGITS, SHARD_HEX_DIGITS * SHARD_LEVELS);
+        return basePath.resolve(DIR_ACCOUNTS).resolve(l1).resolve(l2).resolve(accountId);
+    }
+
+    /**
+     * Resolves the identity bundle file for an account.
+     *
+     * <pre>
+     *   basePath/accounts/XX/YY/accountId/identity.bundle
+     * </pre>
+     *
+     * <p>The identity bundle is a small mmap file (1 FD) containing the account's
+     * primary soul, salience profile, and continuity trajectory. It is separate
+     * from any data-plane rememberer.</p>
+     *
+     * @param basePath  root persistence path
+     * @param accountId the account identifier (TSID)
+     * @return path to the account identity bundle file
+     * @throws SpectorValidationException if {@code accountId} is invalid
+     */
+    public static Path accountIdentityBundle(Path basePath, String accountId) {
+        return accountDir(basePath, accountId).resolve(FILE_IDENTITY_BUNDLE);
+    }
+
+    /**
+     * Resolves the identity bundle file for a tenant.
+     *
+     * <pre>
+     *   basePath/tenants/XX/YY/tenantId/identity.bundle
+     * </pre>
+     *
+     * <p>The tenant identity bundle stores the {@code TenantSoul}, compliance
+     * policy floors, and the org-unit directory. It is 1 FD when hot.</p>
+     *
+     * @param basePath root persistence path
+     * @param tenantId the tenant identifier (TSID)
+     * @return path to the tenant identity bundle file
+     * @throws SpectorValidationException if {@code tenantId} is invalid
+     */
+    public static Path tenantIdentityBundle(Path basePath, String tenantId) {
+        validateNamespaceId(tenantId);
+        String hash = sha256Hex(tenantId);
+        String l1 = hash.substring(0, SHARD_HEX_DIGITS);
+        String l2 = hash.substring(SHARD_HEX_DIGITS, SHARD_HEX_DIGITS * SHARD_LEVELS);
+        return basePath.resolve(DIR_TENANTS).resolve(l1).resolve(l2).resolve(tenantId)
+                .resolve(FILE_IDENTITY_BUNDLE);
+    }
+
     /**
      * Computes the hex-encoded SHA-256 hash of the input string.
      *
