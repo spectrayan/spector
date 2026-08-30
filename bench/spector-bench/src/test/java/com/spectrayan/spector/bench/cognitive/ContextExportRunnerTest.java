@@ -15,11 +15,26 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
-import org.junit.jupiter.api.Test;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@Tag("bench")
 class ContextExportRunnerTest {
+
+    private static final Logger log = LoggerFactory.getLogger(ContextExportRunnerTest.class);
+
     @Test
     void runExport() {
+        String datasetDir = System.getProperty("corpusPath", "../spector-datasets/locomo/data/corpus.jsonl");
+        if (!Files.exists(Paths.get(datasetDir))) {
+            log.warn("Skipping ContextExportRunnerTest: corpus file not present: {}", datasetDir);
+            return;
+        }
         ContextExportRunner.main(new String[]{});
     }
 }

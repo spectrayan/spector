@@ -15,12 +15,27 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
-import org.junit.jupiter.api.Test;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@Tag("bench")
 public class NaturalIngestionRunnerTest {
+
+    private static final Logger log = LoggerFactory.getLogger(NaturalIngestionRunnerTest.class);
 
     @Test
     void runNaturalIngestion() {
+        String apiKey = System.getProperty("geminiApiKey", System.getenv().getOrDefault("GEMINI_API_KEY", ""));
+        String datasetDir = System.getProperty("datasetDir", "data/locomo");
+        if (apiKey.isBlank() || !Files.exists(Paths.get(datasetDir))) {
+            log.warn("Skipping NaturalIngestionRunnerTest: GEMINI_API_KEY or dataset not present");
+            return;
+        }
         NaturalIngestionRunner.main(new String[0]);
     }
 }
