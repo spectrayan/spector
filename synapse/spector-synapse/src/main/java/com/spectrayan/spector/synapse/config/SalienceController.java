@@ -73,7 +73,7 @@ public class SalienceController {
     /**
      * Temporary bridge for resolving the target {@link SpectorMemory} on the request thread.
      *
-     * <p>TODO(15.2/16.1): replace with per-user {@code UserMemoryRegistry.resolveForCurrentRequest()}.
+     * <p>TODO(15.2/16.1): replace with per-user {@code MemoryRegistry.resolveForCurrentRequest()}.
      * For now this resolves the single shared instance.</p>
      */
     private final ObjectProvider<SpectorMemory> memoryProvider;

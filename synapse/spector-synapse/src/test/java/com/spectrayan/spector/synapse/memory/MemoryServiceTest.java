@@ -52,7 +52,7 @@ import com.spectrayan.spector.synapse.platform.events.EventPublisher;
  *
  * <p>Post multi-user rework: {@link MemoryService} resolves the target {@code SpectorMemory}
  * on the request thread and passes it to each {@link MemoryAccessObject} data-access call.
- * In these unit tests the service is constructed without a {@code UserMemoryRegistry} or
+ * In these unit tests the service is constructed without a {@code MemoryRegistry} or
  * memory provider, so the resolved memory is {@code null}; the DAO memory argument is matched
  * with {@code any()} while the remaining arguments preserve the original assertions.</p>
  */

@@ -98,17 +98,17 @@ public class MemoryService {
 
     /**
      * Per-user memory resolver. Resolves the target {@link SpectorMemory} on the request thread
-     * via {@link UserMemoryRegistry#resolveForCurrentRequest()} — returning the caller's isolated
+     * via {@link MemoryRegistry#resolveForCurrentRequest()} — returning the caller's isolated
      * instance when authenticated, or the single shared instance when auth is disabled or the
      * principal is anonymous. This is the production resolution path (the {@code @Autowired}
      * constructor wires it).
      */
-    private final UserMemoryRegistry userMemoryRegistry;
+    private final MemoryRegistry userMemoryRegistry;
 
     /**
      * Legacy shared-instance provider, retained only for source compatibility with the
      * non-{@code @Autowired} constructors used by tests. Used as a fallback by
-     * {@link #resolveMemory()} when no {@link UserMemoryRegistry} is wired.
+     * {@link #resolveMemory()} when no {@link MemoryRegistry} is wired.
      */
     private final ObjectProvider<SpectorMemory> memoryProvider;
 
@@ -165,13 +165,13 @@ public class MemoryService {
 
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid,
                          JdbcClient jdbc, ObjectProvider<SpectorMemory> memoryProvider,
-                         UserMemoryRegistry userMemoryRegistry) {
+                         MemoryRegistry userMemoryRegistry) {
         this(mao, eventPublisher, tsid, jdbc, memoryProvider, userMemoryRegistry, null, null, null);
     }
 
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid,
                          JdbcClient jdbc, ObjectProvider<SpectorMemory> memoryProvider,
-                         UserMemoryRegistry userMemoryRegistry,
+                         MemoryRegistry userMemoryRegistry,
                          ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider) {
         this(mao, eventPublisher, tsid, jdbc, memoryProvider, userMemoryRegistry, cacheManagerProvider, null, null);
     }
@@ -179,7 +179,7 @@ public class MemoryService {
     @Autowired
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid,
                          JdbcClient jdbc, ObjectProvider<SpectorMemory> memoryProvider,
-                         UserMemoryRegistry userMemoryRegistry,
+                         MemoryRegistry userMemoryRegistry,
                          ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider,
                          ObjectProvider<VectorSpaceProjectionService> projectionServiceProvider,
                          ObjectProvider<com.spectrayan.spector.synapse.platform.events.TelemetryBroadcasterService> telemetryBroadcasterServiceProvider) {
@@ -204,14 +204,14 @@ public class MemoryService {
     /**
      * Resolves the target {@link SpectorMemory} on the calling (request) thread.
      *
-     * <p>Delegates to {@link UserMemoryRegistry#resolveForCurrentRequest()}, which reads the
+     * <p>Delegates to {@link MemoryRegistry#resolveForCurrentRequest()}, which reads the
      * {@code SecurityContextHolder} on <em>this</em> (request) thread and returns the caller's
      * per-user instance (or the single shared instance when auth is disabled / the principal is
      * anonymous). Callers that dispatch asynchronous writes MUST invoke this on the request thread,
      * capture the returned reference in a {@code final} local, and close over it inside the async
      * task — the async task body must never read the security context.</p>
      *
-     * <p>Falls back to the legacy shared-instance provider only when no {@link UserMemoryRegistry}
+     * <p>Falls back to the legacy shared-instance provider only when no {@link MemoryRegistry}
      * is wired (i.e. the non-{@code @Autowired} constructors used by tests).</p>
      */
     private SpectorMemory resolveMemory() {

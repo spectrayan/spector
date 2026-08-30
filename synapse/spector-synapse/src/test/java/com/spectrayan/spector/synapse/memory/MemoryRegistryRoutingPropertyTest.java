@@ -60,7 +60,7 @@ import net.jqwik.api.lifecycle.BeforeContainer;
  *
  * <p>The routing guarantee under test: for ANY authenticated {@code userId} and ANY client-supplied
  * {@code namespace}/{@code workspace_id}/{@code agent_id} values,
- * {@link UserMemoryRegistry#resolveForCurrentRequest()} (and {@link UserMemoryRegistry#resolveFor}
+ * {@link MemoryRegistry#resolveForCurrentRequest()} (and {@link MemoryRegistry#resolveFor}
  * ) routes to the instance rooted at
  * {@link StorageLayout#namespaceDirSharded(Path, String) namespaceDirSharded(base, userId)} — i.e.
  * resolution is a <em>pure function of the authenticated {@code userId}</em>. Adversarial client
@@ -68,7 +68,7 @@ import net.jqwik.api.lifecycle.BeforeContainer;
  * routing for user A never equals user B's and is always a descendant of the base.</p>
  *
  * <h3>Approach and limitation</h3>
- * <p>{@code UserMemoryRegistry} is a {@code final} class whose per-user instances are built inside a
+ * <p>{@code MemoryRegistry} is a {@code final} class whose per-user instances are built inside a
  * {@code private buildInstance(...)} that constructs a heavyweight {@code DefaultSpectorMemory}
  * (off-heap storage, native access). Building real {@link SpectorMemory} instances for every jqwik
  * try would be prohibitively slow and flaky, and a full data-write/read isolation property is
@@ -77,7 +77,7 @@ import net.jqwik.api.lifecycle.BeforeContainer;
  * <ol>
  *   <li><b>Registry routing purity</b> — mock {@link SpectorMemory} instances are injected directly
  *       into the registry's private cache via reflection (the same helper pattern used by
- *       {@code UserMemoryRegistryTest}). For two distinct authenticated users A != B, and for any
+ *       {@code MemoryRegistryTest}). For two distinct authenticated users A != B, and for any
  *       stream of adversarial {@code namespace}/{@code workspace_id}/{@code agent_id} strings
  *       (smuggled onto the {@link Authentication} as authorities/details), resolution for A always
  *       returns the <em>same</em> instance across repeated calls and is always <em>distinct</em>
@@ -92,7 +92,7 @@ import net.jqwik.api.lifecycle.BeforeContainer;
  *
  * <p><b>Validates: Requirements 9.3, 11.2, 11.3</b></p>
  */
-class UserMemoryRegistryRoutingPropertyTest {
+class MemoryRegistryRoutingPropertyTest {
 
     /** Literal user id that resolves to the single shared instance. */
     private static final String DEFAULT_USER_ID = "default";
@@ -209,7 +209,7 @@ class UserMemoryRegistryRoutingPropertyTest {
     }
 
     /**
-     * Requirements 9.3, 11.2, 11.3 — {@link UserMemoryRegistry#resolveFor(String)} is a pure
+     * Requirements 9.3, 11.2, 11.3 — {@link MemoryRegistry#resolveFor(String)} is a pure
      * function of {@code userId}: repeated resolution of the same authenticated user returns the
      * same cached instance, and interleaving resolution of a different user never perturbs it. The
      * adversarial value is threaded through the try only to demonstrate it has no channel into the
@@ -284,7 +284,7 @@ class UserMemoryRegistryRoutingPropertyTest {
      */
     @Example
     void publicApiExposesNoNamespaceOrWorkspaceOrAgentParameter() {
-        List<Method> publicMethodsWithParams = Stream.of(UserMemoryRegistry.class.getDeclaredMethods())
+        List<Method> publicMethodsWithParams = Stream.of(MemoryRegistry.class.getDeclaredMethods())
                 .filter(m -> Modifier.isPublic(m.getModifiers()))
                 .filter(m -> !m.isSynthetic() && !m.isBridge())
                 .filter(m -> m.getParameterCount() > 0)
@@ -305,7 +305,7 @@ class UserMemoryRegistryRoutingPropertyTest {
     // ══════════════════════════════════════════════════════════════
 
     /** Registry-under-test paired with the shared instance it must never route to. */
-    private record Fixture(UserMemoryRegistry registry, SpectorMemory shared) {}
+    private record Fixture(MemoryRegistry registry, SpectorMemory shared) {}
 
     /** Builds an auth-enabled registry backed entirely by mocks (no live build path is taken). */
     private Fixture newFixture() {
@@ -326,7 +326,7 @@ class UserMemoryRegistryRoutingPropertyTest {
                 true, null, null, null, null, null, null, null);
         var synapse = new SynapseProperties(0, null, base.toString(), null, null, auth);
 
-        UserMemoryRegistry registry = new UserMemoryRegistry(
+        MemoryRegistry registry = new MemoryRegistry(
                 sharedProvider, synapse, embedderProvider, textGenProvider, salienceProvider, objectMapperProvider, 512);
         return new Fixture(registry, shared);
     }
@@ -354,19 +354,22 @@ class UserMemoryRegistryRoutingPropertyTest {
         return mock(ObjectProvider.class);
     }
 
-    // --- reflection into the registry's private cache / handle (mirrors UserMemoryRegistryTest) ---
+    // --- reflection into the registry's private cache / handle (mirrors MemoryRegistryTest) ---
 
     @SuppressWarnings("unchecked")
-    private static ConcurrentHashMap<String, Object> cacheOf(UserMemoryRegistry registry) throws Exception {
-        Field field = UserMemoryRegistry.class.getDeclaredField("cache");
+    private static ConcurrentHashMap<String, Object> cacheOf(MemoryRegistry registry) throws Exception {
+        Field resolverField = MemoryRegistry.class.getDeclaredField("resolver");
+        resolverField.setAccessible(true);
+        Object resolver = resolverField.get(registry);
+        Field field = resolver.getClass().getDeclaredField("cache");
         field.setAccessible(true);
-        return (ConcurrentHashMap<String, Object>) field.get(registry);
+        return (ConcurrentHashMap<String, Object>) field.get(resolver);
     }
 
-    private static void injectHandle(UserMemoryRegistry registry, String userId,
+    private static void injectHandle(MemoryRegistry registry, String userId,
                                      SpectorMemory memory, long lastAccessNanos) throws Exception {
         Class<?> handleClass = Class.forName(
-                "com.spectrayan.spector.synapse.memory.UserMemoryRegistry$MemoryHandle");
+                "com.spectrayan.spector.synapse.memory.NamespaceResolver$MemoryHandle");
         Constructor<?> ctor = handleClass.getDeclaredConstructor(SpectorMemory.class);
         ctor.setAccessible(true);
         Object handle = ctor.newInstance(memory);

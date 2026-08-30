@@ -18,7 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.synapse.memory.UserMemoryRegistry;
+import com.spectrayan.spector.synapse.memory.MemoryRegistry;
 import com.spectrayan.spector.synapse.security.SecurityUtils;
 
 /**
@@ -28,7 +28,7 @@ import com.spectrayan.spector.synapse.security.SecurityUtils;
  * <p>MCP tools are executed synchronously on the servlet request thread
  * ({@code transport → SyncToolSpecification lambda → mcpTool.execute(args)}) and resolve
  * their {@link SpectorMemory} independently. This holder lets the invocation site bind the memory
- * resolved for the authenticated caller — via {@link UserMemoryRegistry#resolveForCurrentRequest()}
+ * resolved for the authenticated caller — via {@link MemoryRegistry#resolveForCurrentRequest()}
  * on that same thread — so a memory-aware tool operates exclusively on that user's namespace,
  * regardless of any client-supplied {@code namespace}/{@code workspace_id}/{@code agent_id} hints
  * (those never widen scope to another user; the effective root is always the caller's namespace).</p>
@@ -69,14 +69,14 @@ public final class McpRequestMemory {
     /**
      * Resolves the caller's memory on the current (request/servlet) thread and binds it for the
      * duration of the invocation. Reads {@link SecurityContextHolder} via {@link SecurityUtils} and
-     * {@link UserMemoryRegistry}; never call this from an asynchronous task.
+     * {@link MemoryRegistry}; never call this from an asynchronous task.
      *
      * @param registry    the per-user memory registry
      * @param authEnabled whether {@code spector.auth.enabled} is {@code true}
      * @return {@link Optional#empty()} when a memory instance was resolved and bound; otherwise the
      *         {@link DenyReason} describing why the call must be denied (nothing is bound)
      */
-    public static Optional<DenyReason> bindForCurrentRequest(UserMemoryRegistry registry, boolean authEnabled) {
+    public static Optional<DenyReason> bindForCurrentRequest(MemoryRegistry registry, boolean authEnabled) {
         if (authEnabled && !SecurityUtils.isAuthenticated()) {
             return Optional.of(DenyReason.AUTH_REQUIRED);
         }

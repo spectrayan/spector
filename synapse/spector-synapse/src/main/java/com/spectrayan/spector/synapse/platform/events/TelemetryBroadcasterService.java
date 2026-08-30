@@ -14,7 +14,7 @@ package com.spectrayan.spector.synapse.platform.events;
 
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.synapse.memory.UserMemoryRegistry;
+import com.spectrayan.spector.synapse.memory.MemoryRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -36,7 +36,7 @@ public class TelemetryBroadcasterService {
     private static final Logger log = LoggerFactory.getLogger(TelemetryBroadcasterService.class);
 
     private final EventPublisher eventPublisher;
-    private final UserMemoryRegistry userMemoryRegistry;
+    private final MemoryRegistry userMemoryRegistry;
     private final ObjectProvider<SpectorMemory> memoryProvider;
 
     @Value("${spector.memory.decay.baseline-half-life-days:180}")
@@ -60,7 +60,7 @@ public class TelemetryBroadcasterService {
 
     public TelemetryBroadcasterService(
             EventPublisher eventPublisher,
-            ObjectProvider<UserMemoryRegistry> userMemoryRegistryProvider,
+            ObjectProvider<MemoryRegistry> userMemoryRegistryProvider,
             ObjectProvider<SpectorMemory> memoryProvider) {
         this.eventPublisher = eventPublisher;
         this.userMemoryRegistry = userMemoryRegistryProvider.getIfAvailable();

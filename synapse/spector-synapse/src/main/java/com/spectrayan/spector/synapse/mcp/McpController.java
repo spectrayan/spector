@@ -15,7 +15,7 @@ package com.spectrayan.spector.synapse.mcp;
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.memory.UserMemoryRegistry;
+import com.spectrayan.spector.synapse.memory.MemoryRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -52,11 +52,11 @@ public class McpController {
     private static final Logger log = LoggerFactory.getLogger(McpController.class);
 
     private final ToolRegistry toolRegistry;
-    private final UserMemoryRegistry userMemoryRegistry;
+    private final MemoryRegistry userMemoryRegistry;
     private final boolean authEnabled;
 
     public McpController(ToolRegistry toolRegistry,
-                         UserMemoryRegistry userMemoryRegistry,
+                         MemoryRegistry userMemoryRegistry,
                          SynapseProperties synapseProperties) {
         this.toolRegistry = toolRegistry;
         this.userMemoryRegistry = userMemoryRegistry;

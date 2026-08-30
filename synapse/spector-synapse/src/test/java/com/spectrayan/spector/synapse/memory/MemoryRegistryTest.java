@@ -47,7 +47,7 @@ import com.spectrayan.spector.spring.autoconfigure.SpectorConfigProperties;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 
 /**
- * Unit tests for {@link UserMemoryRegistry}.
+ * Unit tests for {@link MemoryRegistry}.
  *
  * <p>Verifies the registry's <em>routing decisions</em> and <em>lifecycle contract</em> — the
  * observable behavior that isolates each authenticated user's memory:</p>
@@ -57,14 +57,14 @@ import com.spectrayan.spector.synapse.config.SynapseProperties;
  *   <li>authenticated principal → exactly one cached per-user instance, returned identically on
  *       repeat resolution, keyed purely by {@code userId} (Req 9.2, 9.3);</li>
  *   <li>LRU eviction closes the oldest per-user instance and never the shared one (Req 9.6);</li>
- *   <li>{@link UserMemoryRegistry#close()} closes every cached per-user instance exactly once and
+ *   <li>{@link MemoryRegistry#close()} closes every cached per-user instance exactly once and
  *       never the shared instance (Req 9.5);</li>
  *   <li>fail-closed: construction failure propagates, nothing is cached, and neither the shared nor
  *       another user's instance is returned (Req 9.7).</li>
  * </ul>
  *
  * <h3>Approach and limitation</h3>
- * <p>{@code UserMemoryRegistry} is a {@code final} class whose per-user instances are built inside a
+ * <p>{@code MemoryRegistry} is a {@code final} class whose per-user instances are built inside a
  * {@code private} {@code buildInstance(...)} that calls the heavyweight
  * {@code DefaultSpectorMemory.builder().build()} (off-heap storage, native access). Constructing a
  * real {@link SpectorMemory} in a unit test is impractical and flaky, and the class cannot be
@@ -76,8 +76,8 @@ import com.spectrayan.spector.synapse.config.SynapseProperties;
  * embedder), and successful live construction is validated by the routing-isolation property test
  * (task 14.2) and the integration suites.</p>
  */
-@DisplayName("UserMemoryRegistry — Unit Tests")
-class UserMemoryRegistryTest {
+@DisplayName("MemoryRegistry — Unit Tests")
+class MemoryRegistryTest {
 
     private static final String USER_A = "USER0000000AA";
     private static final String USER_B = "USER0000000BB";
@@ -119,7 +119,7 @@ class UserMemoryRegistryTest {
     @Test
     @DisplayName("auth disabled → resolveForCurrentRequest returns the shared instance for every caller")
     void authDisabled_alwaysReturnsSharedInstance() {
-        UserMemoryRegistry registry = buildRegistry(false, 512, null);
+        MemoryRegistry registry = buildRegistry(false, 512, null);
         // Even with an authenticated principal bound, a disabled feature must ignore it entirely.
         bind(authenticated(USER_A, "SCOPE_memory:read"));
 
@@ -138,7 +138,7 @@ class UserMemoryRegistryTest {
     @Test
     @DisplayName("auth enabled + no authentication → shared instance, nothing cached")
     void anonymous_noAuthentication_returnsShared() {
-        UserMemoryRegistry registry = buildRegistry(true, 512, null);
+        MemoryRegistry registry = buildRegistry(true, 512, null);
         // No Authentication bound → SecurityUtils resolves "default".
 
         assertThat(registry.resolveForCurrentRequest()).isSameAs(shared);
@@ -149,7 +149,7 @@ class UserMemoryRegistryTest {
     @Test
     @DisplayName("auth enabled + anonymous token → shared instance, nothing cached")
     void anonymous_anonymousToken_returnsShared() {
-        UserMemoryRegistry registry = buildRegistry(true, 512, null);
+        MemoryRegistry registry = buildRegistry(true, 512, null);
         bind(new AnonymousAuthenticationToken(
                 "key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS")));
 
@@ -160,7 +160,7 @@ class UserMemoryRegistryTest {
     @Test
     @DisplayName("resolveFor(default/null/blank) → shared instance, nothing cached")
     void resolveFor_defaultNullBlank_returnsShared() {
-        UserMemoryRegistry registry = buildRegistry(true, 512, null);
+        MemoryRegistry registry = buildRegistry(true, 512, null);
 
         assertThat(registry.resolveFor("default")).isSameAs(shared);
         assertThat(registry.resolveFor(null)).isSameAs(shared);
@@ -175,7 +175,7 @@ class UserMemoryRegistryTest {
     @Test
     @DisplayName("authenticated user → same cached per-user instance on repeated resolution")
     void authenticatedUser_returnsSameCachedInstance() throws Exception {
-        UserMemoryRegistry registry = buildRegistry(true, 512, null);
+        MemoryRegistry registry = buildRegistry(true, 512, null);
         SpectorMemory perUser = mock(SpectorMemory.class);
         injectHandle(registry, USER_A, perUser, 1_000L);
 
@@ -193,7 +193,7 @@ class UserMemoryRegistryTest {
     @Test
     @DisplayName("authenticated request thread → routes to the principal's cached instance")
     void authenticatedRequest_routesToPrincipalInstance() throws Exception {
-        UserMemoryRegistry registry = buildRegistry(true, 512, null);
+        MemoryRegistry registry = buildRegistry(true, 512, null);
         SpectorMemory perUser = mock(SpectorMemory.class);
         injectHandle(registry, USER_A, perUser, 1_000L);
         bind(authenticated(USER_A, "SCOPE_memory:read"));
@@ -209,7 +209,7 @@ class UserMemoryRegistryTest {
     @Test
     @DisplayName("routing is a pure function of userId — distinct users never collide")
     void routing_isPureFunctionOfUserId() throws Exception {
-        UserMemoryRegistry registry = buildRegistry(true, 512, null);
+        MemoryRegistry registry = buildRegistry(true, 512, null);
         SpectorMemory memA = mock(SpectorMemory.class);
         SpectorMemory memB = mock(SpectorMemory.class);
         injectHandle(registry, USER_A, memA, 1_000L);
@@ -234,7 +234,7 @@ class UserMemoryRegistryTest {
     @Test
     @DisplayName("LRU eviction closes the oldest per-user instance and never the shared instance")
     void lruEviction_closesOldest_neverShared() throws Exception {
-        UserMemoryRegistry registry = buildRegistry(true, 512, null);
+        MemoryRegistry registry = buildRegistry(true, 512, null);
         SpectorMemory oldest = mock(SpectorMemory.class);
         SpectorMemory middle = mock(SpectorMemory.class);
         SpectorMemory newest = mock(SpectorMemory.class);
@@ -261,7 +261,7 @@ class UserMemoryRegistryTest {
     void coldPath_evictsBeforeCaching_whenAtCap() throws Exception {
         // maxInstances=1, one instance already cached, and the new build fails-closed. Eviction
         // happens before the (failing) build, so the pre-existing instance is still evicted+closed.
-        UserMemoryRegistry registry = buildRegistry(true, 1, null); // embedder null → build fails
+        MemoryRegistry registry = buildRegistry(true, 1, null); // embedder null → build fails
         SpectorMemory existing = mock(SpectorMemory.class);
         injectHandle(registry, USER_A, existing, 100L);
 
@@ -280,7 +280,7 @@ class UserMemoryRegistryTest {
     @Test
     @DisplayName("close() closes every cached per-user instance exactly once; shared untouched")
     void close_closesAllPerUserInstancesOnce_sharedUntouched() throws Exception {
-        UserMemoryRegistry registry = buildRegistry(true, 512, null);
+        MemoryRegistry registry = buildRegistry(true, 512, null);
         SpectorMemory memA = mock(SpectorMemory.class);
         SpectorMemory memB = mock(SpectorMemory.class);
         SpectorMemory memC = mock(SpectorMemory.class);
@@ -310,7 +310,7 @@ class UserMemoryRegistryTest {
     @Test
     @DisplayName("fail-closed: missing embedder → resolveFor throws, nothing cached, no shared fallback")
     void failClosed_missingEmbedder_throwsAndCachesNothing() {
-        UserMemoryRegistry registry = buildRegistry(true, 512, null); // no EmbeddingProvider
+        MemoryRegistry registry = buildRegistry(true, 512, null); // no EmbeddingProvider
 
         assertThatThrownBy(() -> registry.resolveFor(USER_A))
                 .isInstanceOf(IllegalStateException.class);
@@ -323,7 +323,7 @@ class UserMemoryRegistryTest {
     @Test
     @DisplayName("fail-closed: unsafe user id is rejected before path resolution, nothing cached")
     void failClosed_unsafeUserId_rejectedAndCachesNothing() {
-        UserMemoryRegistry registry = buildRegistry(true, 512, mock(EmbeddingProvider.class));
+        MemoryRegistry registry = buildRegistry(true, 512, mock(EmbeddingProvider.class));
 
         // Since #438 StorageLayout.validateNamespaceId throws the typed domain exception
         // (SpectorValidationException, SPE-100-013) before any path resolution. The fail-closed
@@ -340,9 +340,9 @@ class UserMemoryRegistryTest {
     // Helpers
     // ══════════════════════════════════════════════════════════════
 
-    private UserMemoryRegistry buildRegistry(boolean authEnabled, int maxInstances, EmbeddingProvider embedder) {
+    private MemoryRegistry buildRegistry(boolean authEnabled, int maxInstances, EmbeddingProvider embedder) {
         when(embedderProvider.getIfAvailable()).thenReturn(embedder);
-        return new UserMemoryRegistry(
+        return new MemoryRegistry(
                 sharedProvider,
                 synapseProps(authEnabled),
                 embedderProvider,
@@ -375,16 +375,19 @@ class UserMemoryRegistryTest {
     // --- reflection into the registry's private cache / handle / eviction ---------------------
 
     @SuppressWarnings("unchecked")
-    private static ConcurrentHashMap<String, Object> cacheOf(UserMemoryRegistry registry) throws Exception {
-        Field field = UserMemoryRegistry.class.getDeclaredField("cache");
+    private static ConcurrentHashMap<String, Object> cacheOf(MemoryRegistry registry) throws Exception {
+        Field resolverField = MemoryRegistry.class.getDeclaredField("resolver");
+        resolverField.setAccessible(true);
+        Object resolver = resolverField.get(registry);
+        Field field = resolver.getClass().getDeclaredField("cache");
         field.setAccessible(true);
-        return (ConcurrentHashMap<String, Object>) field.get(registry);
+        return (ConcurrentHashMap<String, Object>) field.get(resolver);
     }
 
-    private static void injectHandle(UserMemoryRegistry registry, String userId,
+    private static void injectHandle(MemoryRegistry registry, String userId,
                                      SpectorMemory memory, long lastAccessNanos) throws Exception {
         Class<?> handleClass = Class.forName(
-                "com.spectrayan.spector.synapse.memory.UserMemoryRegistry$MemoryHandle");
+                "com.spectrayan.spector.synapse.memory.NamespaceResolver$MemoryHandle");
         Constructor<?> ctor = handleClass.getDeclaredConstructor(SpectorMemory.class);
         ctor.setAccessible(true);
         Object handle = ctor.newInstance(memory);
@@ -394,10 +397,13 @@ class UserMemoryRegistryTest {
         cacheOf(registry).put(userId, handle);
     }
 
-    private static void invokeEvictOldest(UserMemoryRegistry registry) throws Exception {
-        Method method = UserMemoryRegistry.class.getDeclaredMethod("evictOldestLocked");
+    private static void invokeEvictOldest(MemoryRegistry registry) throws Exception {
+        Field resolverField = MemoryRegistry.class.getDeclaredField("resolver");
+        resolverField.setAccessible(true);
+        Object resolver = resolverField.get(registry);
+        Method method = resolver.getClass().getDeclaredMethod("evictOldestLocked");
         method.setAccessible(true);
-        Object evicted = method.invoke(registry);
+        Object evicted = method.invoke(resolver);
         // Mirror the production code path: close the evicted instance outside the lock.
         if (evicted != null) {
             Field memoryField = evicted.getClass().getDeclaredField("memory");

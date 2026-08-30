@@ -63,13 +63,13 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
     private static final Logger log = LoggerFactory.getLogger(SynapseSalienceProvider.class);
 
     private final EmbeddingProvider embeddingProvider;
-    private final org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.synapse.memory.UserMemoryRegistry> registryProvider;
+    private final org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.synapse.memory.MemoryRegistry> registryProvider;
     private final ReentrantLock lock = new ReentrantLock();
 
     private volatile SalienceProfile currentProfile = SalienceProfile.NEUTRAL;
 
     public SynapseSalienceProvider(EmbeddingProvider embeddingProvider,
-                                   org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.synapse.memory.UserMemoryRegistry> registryProvider) {
+                                   org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.synapse.memory.MemoryRegistry> registryProvider) {
         this.embeddingProvider = embeddingProvider;
         this.registryProvider = registryProvider;
         log.info("[SynapseSalience] Provider initialized (profile=NEUTRAL, awaiting user persona)");
@@ -78,7 +78,7 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
     @Override
     public SalienceProfile effectiveProfile() {
         if (registryProvider != null) {
-            com.spectrayan.spector.synapse.memory.UserMemoryRegistry registry = registryProvider.getIfAvailable();
+            com.spectrayan.spector.synapse.memory.MemoryRegistry registry = registryProvider.getIfAvailable();
             if (registry != null) {
                 try {
                     com.spectrayan.spector.memory.SpectorMemory memory = registry.resolveForCurrentRequest();
@@ -292,7 +292,7 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
         currentProfile = builder.build();
 
         if (registryProvider != null) {
-            com.spectrayan.spector.synapse.memory.UserMemoryRegistry registry = registryProvider.getIfAvailable();
+            com.spectrayan.spector.synapse.memory.MemoryRegistry registry = registryProvider.getIfAvailable();
             if (registry != null) {
                 try {
                     com.spectrayan.spector.memory.SpectorMemory memory = registry.resolveForCurrentRequest();

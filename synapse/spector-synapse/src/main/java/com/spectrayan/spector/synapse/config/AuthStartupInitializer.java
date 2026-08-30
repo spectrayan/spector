@@ -113,7 +113,7 @@ public class AuthStartupInitializer {
 
     /**
      * Resolves the base persistence root: {@code spector.memory.persistence-path} when set,
-     * otherwise the Synapse {@code dataDir}. Mirrors {@code UserMemoryRegistry#basePath()} so the
+     * otherwise the Synapse {@code dataDir}. Mirrors {@code MemoryRegistry#basePath()} so the
      * migration relocates the same tree the per-user registry roots its instances at.
      */
     private Path basePath() {

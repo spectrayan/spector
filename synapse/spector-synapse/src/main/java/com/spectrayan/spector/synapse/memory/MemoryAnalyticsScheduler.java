@@ -43,7 +43,7 @@ public class MemoryAnalyticsScheduler {
      * Temporary bridge for resolving the target {@link SpectorMemory}.
      *
      * <p>TODO(15.2/16.1): this background scheduler has no request-bound security context;
-     * once per-user memory routing lands it should iterate the {@code UserMemoryRegistry}.
+     * once per-user memory routing lands it should iterate the {@code MemoryRegistry}.
      * For now it captures analytics for the single shared instance.</p>
      */
     private final ObjectProvider<SpectorMemory> memoryProvider;
