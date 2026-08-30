@@ -48,7 +48,23 @@ public interface AccountCatalog {
      * @param type      the namespace type
      * @return the newly created namespace record
      */
-    NamespaceRecord createNamespace(String accountId, String slug, NamespaceType type);
+    default NamespaceRecord createNamespace(String accountId, String slug, NamespaceType type) {
+        return createNamespace(accountId, slug, type, null, null, null);
+    }
+
+    /**
+     * Creates a new namespace record for the given account with full initial metadata.
+     *
+     * @param accountId   the account identifier
+     * @param slug        the human-readable slug for the namespace, unique within the account
+     * @param type        the namespace type
+     * @param displayName human-readable display name, or null
+     * @param description human-readable description, or null
+     * @param bias        domain bias overlay, or null
+     * @return the newly created namespace record
+     */
+    NamespaceRecord createNamespace(String accountId, String slug, NamespaceType type,
+            String displayName, String description, NamespaceBias bias);
 
     /**
      * Resolves a namespace record by account ID and slug or namespace ID.
@@ -109,6 +125,29 @@ public interface AccountCatalog {
      * @return {@code true} if authorized; {@code false} otherwise
      */
     boolean authorizeIdentity(String accountId, String bundleId, String regionId, GrantAction action);
+
+    /**
+     * Updates an existing namespace record's mutable metadata (display name, description, type, bias).
+     *
+     * @param accountId   the account identifier
+     * @param slugOrId    the namespace slug or namespace identifier
+     * @param displayName the new display name, or null to keep/clear
+     * @param description the new description, or null to keep/clear
+     * @param type        the new namespace type, or null to keep existing
+     * @param bias        the new namespace bias, or null to keep/clear
+     * @return the updated namespace record
+     */
+    NamespaceRecord updateNamespace(String accountId, String slugOrId,
+            String displayName, String description, NamespaceType type, NamespaceBias bias);
+
+    /**
+     * Resets a namespace by clearing its memory state while preserving catalog registration.
+     * Allowed on default and non-default namespaces.
+     *
+     * @param accountId the account identifier
+     * @param slugOrId  the namespace slug or namespace identifier
+     */
+    void resetNamespace(String accountId, String slugOrId);
 
     /**
      * Marks a namespace as tombstoned (soft-deleted) for an account.

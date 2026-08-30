@@ -15,6 +15,8 @@ package com.spectrayan.spector.synapse.catalog;
 import java.time.Instant;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
@@ -36,6 +38,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * @param constraints optional additional constraints restricting this grant, nullable
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record Grant(
         String grantId,
         GrantObjectType objectType,
@@ -55,6 +58,7 @@ public record Grant(
      *
      * @return {@code true} if an expiry timestamp is set and is before the current instant, {@code false} otherwise
      */
+    @JsonIgnore
     public boolean isExpired() {
         return expiresAt != null && Instant.now().isAfter(expiresAt);
     }
