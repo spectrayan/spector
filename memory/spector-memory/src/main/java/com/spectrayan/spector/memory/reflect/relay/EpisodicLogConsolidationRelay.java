@@ -17,6 +17,8 @@ import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -150,24 +152,22 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                     tagSet.add("session-" + Long.toHexString(entry.getKey()));
                     String[] allTags = tagSet.toArray(String[]::new);
 
-                    IngestionHints hints = new IngestionHints(
-                            fact.interest(), fact.challenge(), fact.urgency(),
-                            fact.valence(), fact.arousal()
+                    float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
+                    byte semanticFlags = SynapticHeaderConstants.withMemoryType(
+                            SynapticHeaderConstants.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal());
+                    CognitiveHeader header = new CognitiveHeader(
+                            sessionTimestampMs, 0L, exactNorm, 1.0f, 1,
+                            (short) 0, (byte) 0, semanticFlags, (byte) 0, 1.0f
                     );
 
-                    IngestionContext context = IngestionContext.builder()
-                            .hints(hints)
-                            .overrideTimestampMs(sessionTimestampMs)
-                            .build();
-
-                    signal.rememberPathway().ingestCognitive(
+                    signal.rememberPathway().ingestCognitiveWithHeader(
                             memoryId,
                             fact.text(),
                             vector,
                             MemoryType.SEMANTIC,
                             allTags,
                             MemorySource.REFLECTED,
-                            context
+                            header
                     );
                     signal.addConsolidated(1);
                 }

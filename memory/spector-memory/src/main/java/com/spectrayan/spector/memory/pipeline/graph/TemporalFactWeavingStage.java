@@ -108,11 +108,17 @@ public final class TemporalFactWeavingStage {
                     List<TemporalFact> facts = tkg.factsAbout(entityId).validAt(asOf).resolve();
                     if (facts != null && !facts.isEmpty()) {
                         for (TemporalFact fact : facts) {
-                            String subj = entityDirectory != null ? entityDirectory.entityName(fact.subjectEntityId()) : null;
-                            String pred = tkg.predicateRegistry() != null ? tkg.predicateRegistry().nameOf(fact.predicateId()) : "related_to";
-                            String obj = (fact.objectEntityId() >= 0 && entityDirectory != null) ? entityDirectory.entityName(fact.objectEntityId()) : "";
+                            String subj = (entityDirectory != null && entityDirectory.entityName(fact.subjectEntityId()) != null)
+                                    ? entityDirectory.entityName(fact.subjectEntityId())
+                                    : "entity_" + fact.subjectEntityId();
+                            String pred = (tkg.predicateRegistry() != null && tkg.predicateRegistry().nameOf(fact.predicateId()) != null)
+                                    ? tkg.predicateRegistry().nameOf(fact.predicateId())
+                                    : "related_to";
+                            String obj = (fact.objectEntityId() >= 0 && entityDirectory != null && entityDirectory.entityName(fact.objectEntityId()) != null)
+                                    ? entityDirectory.entityName(fact.objectEntityId())
+                                    : (fact.objectEntityId() >= 0 ? "entity_" + fact.objectEntityId() : "");
                             
-                            if (subj != null && pred != null && !pred.isBlank() && obj != null && !obj.isBlank()) {
+                            if (subj != null && pred != null && !pred.isBlank()) {
                                 String validTimeStr = "";
                                 if (fact.validFrom() > 0) {
                                     if (fact.validFrom() < 3000) {

@@ -165,11 +165,15 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      * Returns the record count for a given memory type.
      */
     public int countFor(MemoryType type) {
-        if (type == MemoryType.EPISODIC && isEpisodicLogMode()) {
-            return episodicLogStore != null ? episodicLogStore.unconsolidatedTurnOffsets().size() : 0;
-        }
+        int count = 0;
         CognitiveRecordMemory store = stores.get(type);
-        return store != null ? store.size() : 0;
+        if (store != null) {
+            count += store.size();
+        }
+        if (type == MemoryType.EPISODIC && episodicLogStore != null) {
+            count += episodicLogStore.unconsolidatedTurnOffsets().size();
+        }
+        return count;
     }
 
     /**
