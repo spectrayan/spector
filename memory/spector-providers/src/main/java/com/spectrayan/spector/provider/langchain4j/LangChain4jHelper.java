@@ -153,10 +153,6 @@ public final class LangChain4jHelper {
         boolean hasProxy = host != null && !host.isBlank() && portStr != null && !portStr.isBlank();
         boolean hasMtls = certPath != null && !certPath.isBlank() && keyPath != null && !keyPath.isBlank();
 
-        if (!hasProxy && !hasMtls) {
-            return null;
-        }
-
         try {
             HttpClient.Builder javaClientBuilder = HttpClient.newBuilder()
                     .connectTimeout(defaultTimeout);

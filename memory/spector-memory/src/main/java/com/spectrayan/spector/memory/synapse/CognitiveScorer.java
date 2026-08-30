@@ -293,6 +293,9 @@ public final class CognitiveScorer {
 
         for (int i = 0; i < recordCount; i++) {
             long offset = baseOffset + (long) i * stride;
+            if (offset + stride > segment.byteSize()) {
+                break;
+            }
 
             // ── Phase 1: Tombstone check (~1 cycle) ──
             byte flags = segment.get(LAYOUT_FLAGS, offset + OFFSET_FLAGS);

@@ -17,10 +17,14 @@ package com.spectrayan.spector.bench.cognitive;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +47,7 @@ import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityType;
 import com.spectrayan.spector.memory.graph.RelationType;
+import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
@@ -230,17 +235,27 @@ public final class BenchmarkSetup implements AutoCloseable {
         log.info("Instantiating GraphScoringPolicy with threshold={}, mode={}", threshold, expansionMode);
         com.spectrayan.spector.memory.pipeline.GraphScoringPolicy scoringPolicy = new com.spectrayan.spector.memory.pipeline.GraphScoringPolicy(
                 0.3f,   // causalBoostWeight
-                0.3f,   // hebbianBoostFactor
-                0.8f,   // temporalForwardFactor
-                0.7f,   // temporalBackwardFactor
+                0.45f,  // hebbianBoostFactor (tuned for cross-session associative recall)
+                0.85f,  // temporalForwardFactor
+                0.75f,  // temporalBackwardFactor
                 0.25f,  // entityHopAttenuation
-                3,      // hebbianMaxDepth  (match resolveDefault — deeper cross-session associations)
+                4,      // hebbianMaxDepth (tuned for deeper cross-session associations)
                 5,      // temporalMaxHops  (match resolveDefault — wider session coverage)
                 2,      // entityMaxHops
                 threshold,
                 expansionMode
         );
         builder.graphScoringPolicy(scoringPolicy);
+
+        if (dataset.persona() != null) {
+            com.spectrayan.spector.memory.model.SalienceProfile salienceProfile =
+                    buildSalienceProfileFromPersona(dataset.persona(), embedder);
+            if (salienceProfile != null) {
+                builder.salienceProfile(salienceProfile);
+                log.info("Configured Persona-Informed SalienceProfile from dataset persona (interests: {}, occupation: '{}')",
+                        dataset.persona().interests(), dataset.persona().occupation());
+            }
+        }
 
         // Resolve persistence parameters
         boolean useDisk = Boolean.parseBoolean(System.getProperty("spector.benchmark.persistence", "true"));
@@ -285,6 +300,42 @@ public final class BenchmarkSetup implements AutoCloseable {
         // Ingest all corpus records or load from persistent store
         Map<String, Integer> idToSlot = new LinkedHashMap<>(corpusSize);
         boolean isDiskLoaded = false;
+
+        // Map memory ID -> Extracted Entity Names from entity relations for synaptic tag transduction
+        Map<String, Set<String>> memoryIdToEntityTags = new HashMap<>();
+        if (dataset.entityRelations() != null) {
+            for (com.spectrayan.spector.bench.cognitive.model.EntityRelation rel : dataset.entityRelations()) {
+                if (rel.sourceMemoryIds() != null) {
+                    for (String memId : rel.sourceMemoryIds()) {
+                        Set<String> entTags = memoryIdToEntityTags.computeIfAbsent(memId, k -> new HashSet<>());
+                        if (rel.fromEntity() != null && rel.fromEntity().name() != null && !rel.fromEntity().name().isBlank()) {
+                            entTags.add(rel.fromEntity().name().toLowerCase().trim());
+                        }
+                        if (rel.toEntity() != null && rel.toEntity().name() != null && !rel.toEntity().name().isBlank()) {
+                            entTags.add(rel.toEntity().name().toLowerCase().trim());
+                        }
+                    }
+                }
+            }
+        }
+
+        Map<String, Set<String>> memIdToEffectiveTags = new HashMap<>();
+        for (BenchmarkCorpusRecord record : corpus) {
+            Set<String> tags = new LinkedHashSet<>();
+            if (record.synapticTags() != null) {
+                for (String t : record.synapticTags()) {
+                    if (t != null && !t.isBlank()) {
+                        tags.add(t.toLowerCase().trim());
+                    }
+                }
+            }
+            Set<String> entTags = memoryIdToEntityTags.get(record.id());
+            if (entTags != null) {
+                tags.addAll(entTags);
+            }
+            memIdToEffectiveTags.put(record.id(), tags);
+        }
+
         if (memory.totalMemories() > 0) {
             isDiskLoaded = true;
             log.info("Discovered pre-ingested memories on disk. Reconstructing slot mappings.");
@@ -316,13 +367,15 @@ public final class BenchmarkSetup implements AutoCloseable {
                             .overrideTimestampMs(record.timestampMs())
                             .build();
 
+                    Set<String> effectiveTags = memIdToEffectiveTags.getOrDefault(record.id(), Set.of());
+
                     memory.remember(
                             record.id(),
                             record.text(),
                             record.memoryType(),
                             MemorySource.OBSERVED,
                             context,
-                            record.synapticTags().toArray(String[]::new)
+                            effectiveTags.toArray(String[]::new)
                     );
 
                     idToSlot.put(record.id(), slot);
@@ -343,6 +396,7 @@ public final class BenchmarkSetup implements AutoCloseable {
             var hg = graph != null ? graph.rawHebbianGraph() : null;
             var tc = graph != null ? graph.rawTemporalChain() : null;
             var hyper = graph != null ? graph.rawHyperEntityGraph() : null;
+            var coact = memory.admin().coActivation();
 
             if (hg != null) {
                 loadHebbianEdges(hg, dataset.hebbianEdges(), idToSlot);
@@ -355,15 +409,24 @@ public final class BenchmarkSetup implements AutoCloseable {
                 log.warn("TemporalChain is null  --  skipping {} chain definitions", dataset.temporalChains().size());
             }
             if (memory.admin().entityDirectory() != null && hyper != null) {
-                loadEntityGraph(memory.admin().entityDirectory(), hyper, dataset.entityRelations(), idToSlot);
+                loadEntityGraph(memory.admin().entityDirectory(), hyper, memory.admin().temporalKnowledgeGraph(), dataset.entityRelations(), idToSlot, dataset.corpus());
             } else {
                 log.warn("EntityGraph is null  --  skipping {} entity relation definitions", dataset.entityRelations().size());
+            }
+            if (coact != null) {
+                loadCoActivationMemory(coact, dataset, idToSlot, memIdToEffectiveTags);
+            } else {
+                log.warn("CoActivationRecordMemory is null  --  skipping co-activation ingestion");
             }
             log.info("Benchmark memory setup complete: hebbian edges={}, temporal chains={}, entity relations={}",
                     dataset.hebbianEdges().size(), dataset.temporalChains().size(),
                     dataset.entityRelations().size());
         } else {
-            log.info("Loaded pre-ingested graph structures from disk. Skipping graph ingestion.");
+            var coact = memory.admin().coActivation();
+            if (coact != null) {
+                loadCoActivationMemory(coact, dataset, idToSlot, memIdToEffectiveTags);
+            }
+            log.info("Loaded pre-ingested graph structures from disk. Populated co-activation tables.");
         }
 
         // Wire salience profile from persona.json if present
@@ -514,9 +577,35 @@ public final class BenchmarkSetup implements AutoCloseable {
      * @param relations entity relation definitions from the dataset
      * @param corpus    the corpus records (used for entity mention  ->  memory linking)
      */
-    void loadEntityGraph(EntityDirectory dir, HyperEntityGraphMemory hyper, List<EntityRelation> relations,
-                         Map<String, Integer> idToSlot) {
+    /**
+     * Populates the EntityGraph from entities.jsonl definitions.
+     *
+     * <p>Constructs typed entity nodes and typed edges matching specified relation types.
+     * Links entities to their source memory indices and populates the TemporalKnowledgeGraph.</p>
+     *
+     * @param dir       the entity directory to populate
+     * @param hyper     the hyperentity graph memory
+     * @param tkg       the temporal knowledge graph (nullable)
+     * @param relations entity relation definitions from the dataset
+     * @param idToSlot  mapping from corpus record IDs to their slot indices
+     * @param corpus    the corpus records (used for timestamp mapping)
+     */
+    void loadEntityGraph(EntityDirectory dir, HyperEntityGraphMemory hyper,
+                         com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph tkg,
+                         List<EntityRelation> relations,
+                         Map<String, Integer> idToSlot,
+                         List<BenchmarkCorpusRecord> corpus) {
         int relationsLoaded = 0;
+        int tkgFactsLoaded = 0;
+
+        Map<String, Long> corpusTimestamps = new HashMap<>();
+        if (corpus != null) {
+            for (BenchmarkCorpusRecord r : corpus) {
+                if (r.id() != null && r.timestampMs() > 0) {
+                    corpusTimestamps.put(r.id(), r.timestampMs());
+                }
+            }
+        }
 
         for (EntityRelation relation : relations) {
             int fromEntityId = dir.intern(relation.fromEntity().name(), relation.fromEntity().type());
@@ -532,6 +621,7 @@ public final class BenchmarkSetup implements AutoCloseable {
             }
 
             // Link entities to their source memories
+            long earliestTimestamp = 0L;
             for (String memoryId : relation.sourceMemoryIds()) {
                 Integer memIdx = idToSlot.get(memoryId);
                 if (memIdx != null) {
@@ -550,11 +640,157 @@ public final class BenchmarkSetup implements AutoCloseable {
                 } else {
                     log.warn("Entity relation source memory '{}' not found in corpus", memoryId);
                 }
+                Long ts = corpusTimestamps.get(memoryId);
+                if (ts != null && (earliestTimestamp == 0L || ts < earliestTimestamp)) {
+                    earliestTimestamp = ts;
+                }
+            }
+
+            // Populate TemporalKnowledgeGraph with Bi-Temporal facts
+            if (tkg != null && relation.relationType() != null && !relation.relationType().isBlank()) {
+                try {
+                    tkg.assertFact(
+                            fromEntityId,
+                            relation.relationType(),
+                            toEntityId,
+                            -1L, (short) 0,
+                            earliestTimestamp,
+                            Long.MAX_VALUE,
+                            1.0f,
+                            false
+                    );
+                    tkgFactsLoaded++;
+                } catch (Exception e) {
+                    log.debug("Failed to assert temporal fact for relation '{}': {}", relation.relationType(), e.getMessage());
+                }
             }
         }
 
-        log.info("Loaded {} entity relations into graph (entities={})",
-                relationsLoaded, dir.entityCount());
+        log.info("Loaded {} entity relations (hyperedges={}) and {} bitemporal facts into TKG (entities={})",
+                relations.size(), relationsLoaded, tkgFactsLoaded, dir.entityCount());
+    }
+
+    /**
+     * Populates CoActivationRecordMemory from dataset definitions:
+     * 1. Undirected tag co-occurrence pairs from Hebbian edges.
+     * 2. Directed STDP causal transitions from Temporal chains.
+     * 3. Reciprocal Neocortical semantic-to-episodic tag bridges.
+     * 4. Rebuilds the Tag -> Memory Slot Inverted Index for Cross-Capture Graph traversal.
+     */
+    void loadCoActivationMemory(CoActivationRecordMemory coact, DatasetLoader.LoadedDataset dataset,
+                                Map<String, Integer> idToSlot,
+                                Map<String, Set<String>> memIdToTags) {
+        if (coact == null) return;
+
+        int pairsLoaded = 0;
+        int stdpLoaded = 0;
+
+        // 1. Undirected Co-Activation Pairs from Hebbian Edges
+        if (dataset.hebbianEdges() != null) {
+            for (HebbianEdgeDef edge : dataset.hebbianEdges()) {
+                Set<String> tagsA = memIdToTags.get(edge.memoryIdA());
+                Set<String> tagsB = memIdToTags.get(edge.memoryIdB());
+                if (tagsA != null && tagsB != null && !tagsA.isEmpty() && !tagsB.isEmpty()) {
+                    int count = Math.clamp(edge.coActivationCount(), 1, 20);
+                    for (String tA : tagsA) {
+                        for (String tB : tagsB) {
+                            if (!tA.equalsIgnoreCase(tB)) {
+                                for (int c = 0; c < count; c++) {
+                                    coact.recordCoActivation(tA, tB);
+                                }
+                                pairsLoaded++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Directed STDP Plasticity Transitions from Temporal Chains
+        if (dataset.temporalChains() != null && dataset.corpus() != null) {
+            Map<String, BenchmarkCorpusRecord> corpusById = dataset.corpus().stream()
+                    .collect(Collectors.toMap(BenchmarkCorpusRecord::id, r -> r, (a, b) -> a));
+
+            for (TemporalChainDef chain : dataset.temporalChains()) {
+                List<String> orderedIds = chain.orderedMemoryIds();
+                for (int i = 0; i < orderedIds.size() - 1; i++) {
+                    String idBefore = orderedIds.get(i);
+                    String idAfter = orderedIds.get(i + 1);
+                    BenchmarkCorpusRecord recBefore = corpusById.get(idBefore);
+                    BenchmarkCorpusRecord recAfter = corpusById.get(idAfter);
+                    if (recBefore != null && recAfter != null) {
+                        Set<String> tagsBefore = memIdToTags.get(idBefore);
+                        Set<String> tagsAfter = memIdToTags.get(idAfter);
+                        long timeBefore = recBefore.timestampMs();
+                        long timeAfter = recAfter.timestampMs();
+                        if (tagsBefore != null && tagsAfter != null && timeAfter >= timeBefore) {
+                            for (String tBefore : tagsBefore) {
+                                for (String tAfter : tagsAfter) {
+                                    if (!tBefore.equalsIgnoreCase(tAfter)) {
+                                        coact.recordSequentialActivation(tBefore, tAfter, timeBefore, timeAfter);
+                                        stdpLoaded++;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Reciprocal Neocortical Semantic-to-Episodic Tag Bridge
+        int bridges = 0;
+        if (dataset.corpus() != null) {
+            for (BenchmarkCorpusRecord record : dataset.corpus()) {
+                if (record.id().startsWith("fact_")) {
+                    int lastUnder = record.id().lastIndexOf('_');
+                    if (lastUnder > 5) {
+                        String sessionKey = record.id().substring(5, lastUnder);
+                        for (BenchmarkCorpusRecord turnRec : dataset.corpus()) {
+                            if (!turnRec.id().startsWith("fact_") && turnRec.id().contains("_D")) {
+                                int dIdx = turnRec.id().indexOf("_D");
+                                int turnLastUnder = turnRec.id().lastIndexOf('_');
+                                if (dIdx > 0 && turnLastUnder > dIdx) {
+                                    String turnSess = turnRec.id().substring(0, dIdx) + "_sess_" + turnRec.id().substring(dIdx + 2, turnLastUnder);
+                                    if (sessionKey.equals(turnSess)) {
+                                        Set<String> factTags = memIdToTags.get(record.id());
+                                        Set<String> turnTags = memIdToTags.get(turnRec.id());
+                                        if (factTags != null && turnTags != null) {
+                                            for (String ft : factTags) {
+                                                for (String tt : turnTags) {
+                                                    if (!ft.equalsIgnoreCase(tt)) {
+                                                        coact.recordCoActivation(ft, tt);
+                                                        bridges++;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Rebuild Tag -> Memory Slot Inverted Index for Cross-Capture Graph Traversal
+        if (dataset.corpus() != null) {
+            Map<Integer, java.util.Collection<String>> slotToTags = new HashMap<>();
+            for (BenchmarkCorpusRecord record : dataset.corpus()) {
+                Integer slot = idToSlot.get(record.id());
+                if (slot != null) {
+                    Set<String> tags = memIdToTags.get(record.id());
+                    if (tags != null && !tags.isEmpty()) {
+                        slotToTags.put(slot, tags);
+                    }
+                }
+            }
+            coact.rebuildInvertedIndex(slotToTags);
+        }
+
+        log.info("CoActivationRecordMemory loaded: pairs={}, STDP edges={}, inverted index tags={}, bridges={}",
+                coact.pairCount(), coact.edgeCount(), coact.invertedIndexTagCount(), bridges);
     }
 
     /**
@@ -592,5 +828,55 @@ public final class BenchmarkSetup implements AutoCloseable {
      */
     public Map<String, Integer> idToSlot() {
         return idToSlot != null ? java.util.Collections.unmodifiableMap(idToSlot) : Map.of();
+    }
+
+    private com.spectrayan.spector.memory.model.SalienceProfile buildSalienceProfileFromPersona(
+            com.spectrayan.spector.bench.cognitive.model.PersonaDef persona,
+            EmbeddingProvider embedder) {
+        if (persona == null) return null;
+
+        var profileBuilder = com.spectrayan.spector.memory.model.SalienceProfile.builder();
+
+        // 1. Add semantic interest domains with pre-computed embeddings
+        if (persona.interests() != null) {
+            for (String interest : persona.interests()) {
+                if (interest != null && !interest.isBlank()) {
+                    try {
+                        float[] interestVec = embedder.embed(interest).vector();
+                        profileBuilder.interest(new com.spectrayan.spector.memory.model.InterestDomain(
+                                interest,
+                                com.spectrayan.spector.memory.model.InterestLevel.HIGH,
+                                interestVec
+                        ));
+                    } catch (Exception e) {
+                        log.warn("Failed to embed persona interest '{}': {}", interest, e.getMessage());
+                    }
+                }
+            }
+        }
+
+        // 2. Build PersonaContext for mPFC self-relevance scoring
+        var personaCtxBuilder = com.spectrayan.spector.memory.model.PersonaContext.builder();
+        if (persona.lifeContext() != null && !persona.lifeContext().isBlank()) {
+            personaCtxBuilder.about(persona.lifeContext());
+            try {
+                personaCtxBuilder.aboutEmbedding(embedder.embed(persona.lifeContext()).vector());
+            } catch (Exception ignored) {}
+        }
+        if (persona.occupation() != null && !persona.occupation().isBlank()) {
+            personaCtxBuilder.occupation(persona.occupation());
+            try {
+                personaCtxBuilder.occupationEmbedding(embedder.embed(persona.occupation()).vector());
+            } catch (Exception ignored) {}
+        }
+        if (persona.personalityTraits() != null && !persona.personalityTraits().isEmpty()) {
+            String traitsText = String.join(", ", persona.personalityTraits());
+            try {
+                personaCtxBuilder.valuesEmbedding(embedder.embed(traitsText).vector());
+            } catch (Exception ignored) {}
+        }
+
+        profileBuilder.persona(personaCtxBuilder.build());
+        return profileBuilder.build();
     }
 }

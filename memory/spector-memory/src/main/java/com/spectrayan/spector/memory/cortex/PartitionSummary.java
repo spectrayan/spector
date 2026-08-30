@@ -15,10 +15,12 @@ package com.spectrayan.spector.memory.cortex;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 import java.nio.file.Path;
 
 /**
@@ -77,16 +79,19 @@ public record PartitionSummary(
      */
     public boolean hasRecordsFor(MemoryType[] targetTypes, CognitiveMemoryRouter router) {
         if (writable && router != null) {
-            boolean hasStore = (router.semantic() != null || router.episodic() != null || router.procedural() != null);
+            boolean hasEpi = router.isEpisodicLogMode()
+                    ? (router.episodicLog() != null && router.episodicLog().writePosition() > 0)
+                    : (router.episodic() != null && router.episodic().visibleCount() > 0);
+            boolean hasStore = (router.semantic() != null || router.procedural() != null || router.isEpisodicLogMode() || router.episodic() != null);
             if (hasStore) {
                 if (targetTypes == null || targetTypes.length == 0) {
                     return (router.semantic() != null && router.semantic().visibleCount() > 0)
-                            || (router.episodic() != null && router.episodic().visibleCount() > 0)
+                            || hasEpi
                             || (router.procedural() != null && router.procedural().visibleCount() > 0);
                 }
                 for (MemoryType t : targetTypes) {
                     if (t == MemoryType.SEMANTIC && router.semantic() != null && router.semantic().visibleCount() > 0) return true;
-                    if (t == MemoryType.EPISODIC && router.episodic() != null && router.episodic().visibleCount() > 0) return true;
+                    if (t == MemoryType.EPISODIC && hasEpi) return true;
                     if (t == MemoryType.PROCEDURAL && router.procedural() != null && router.procedural().visibleCount() > 0) return true;
                 }
                 return false;
@@ -149,7 +154,27 @@ public record PartitionSummary(
         }
 
         // 2. Episodic store
-        if (router.episodic() != null) {
+        if (router.isEpisodicLogMode() && router.episodicLog() != null) {
+            long base = router.episodicLog().dataOffset();
+            long limit = base + router.episodicLog().writePosition();
+            long current = base;
+            while (current + SynapticHeaderConstants.HEADER_BYTES <= limit) {
+                byte flags = router.episodicLog().segment().get(SynapticHeaderConstants.LAYOUT_FLAGS, current + SynapticHeaderConstants.OFFSET_FLAGS);
+                int bodyLength = router.episodicLog().segment().get(ValueLayout.JAVA_INT_UNALIGNED, current + 56);
+                if (bodyLength < 0 || current + SynapticHeaderConstants.HEADER_BYTES + bodyLength > limit) {
+                    break;
+                }
+                if (!SynapticHeaderConstants.isTombstoned(flags)) {
+                    epiCount++;
+                    long ts = EpisodicFieldAccessor.readTimestamp(router.episodicLog().segment(), current);
+                    if (ts > 0) {
+                        minTs = Math.min(minTs, ts);
+                        maxTs = Math.max(maxTs, ts);
+                    }
+                }
+                current += SynapticHeaderConstants.HEADER_BYTES + bodyLength;
+            }
+        } else if (router.episodic() != null) {
             for (EpisodicPartition part : router.episodic().partitions()) {
                 if (part.visibleCount() <= 0) continue;
                 MemorySegment segment = part.segment();

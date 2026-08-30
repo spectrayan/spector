@@ -269,11 +269,11 @@ final class CognitiveCortexBuilder {
             SemanticRecordMemory semanticStore = SemanticRecordMemory.fromBundle(
                     partitionBundle.arena(), semSlice,
                     builder.semanticCapacity, quantizedVecBytes, bundleFile, isNew);
-            EpisodicLogMemory episodicLogStore = EpisodicLogMemory.fromBundle(
-                    partitionBundle.arena(), epiSlice, bundleFile, isNew);
             EpisodicRecordMemory episodicStore = EpisodicRecordMemory.fromBundle(
                     partitionBundle.arena(), epiSlice,
                     builder.episodicPartitionCapacity, quantizedVecBytes, bundleFile, isNew);
+            EpisodicLogMemory episodicLogStore = EpisodicLogMemory.fromBundle(
+                    partitionBundle.arena(), epiSlice, bundleFile, isNew);
             ProceduralRecordMemory proceduralStore = ProceduralRecordMemory.fromBundle(
                     partitionBundle.arena(), procSlice,
                     builder.proceduralCapacity, quantizedVecBytes, bundleFile, isNew);

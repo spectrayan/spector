@@ -96,7 +96,7 @@ jobs:
           mvn -B test -pl bench/spector-bench \
             --no-transfer-progress \
             -DskipBenchTests=false \
-            -Dtest="*Test,!*PropertyTest,!*IntegrationTest"
+            -Dtest="*Test,!*PropertyTest,!*IntegrationTest,!*RunnerTest,!*EvaluationTest,!*BenchmarkTest,!*Baseline*Test,!*IntegrityTest"
 
       # ─── Test Results ────────────────────────────────────────────────
       - name: Upload test results

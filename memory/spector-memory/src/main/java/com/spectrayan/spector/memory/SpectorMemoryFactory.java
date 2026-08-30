@@ -295,7 +295,13 @@ public final class SpectorMemoryFactory {
                 .hook(builder.hook)
                 .semanticIndex(builder.semanticIndex)
                 .aismeBundle(aismeBundle)
+                .salienceProfile(builder.salienceProfile)
+                .salienceProfileProvider(builder.salienceProfileProvider)
                 .build();
+
+        if (bio.coActivationTracker() != null) {
+            recallPathway.addListener(new com.spectrayan.spector.memory.pipeline.HebbianCoActivationListener(bio.coActivationTracker()));
+        }
 
         if (builder.semanticIndex != null && !builder.semanticIndex.isReadOnly() && builder.semanticIndex.size() == 0) {
             RecallPipelineBuilder.rebuildHnswIfNeeded(builder, partitionManager, index, cortex.quantizer());

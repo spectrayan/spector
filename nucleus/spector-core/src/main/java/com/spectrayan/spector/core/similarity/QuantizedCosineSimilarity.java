@@ -75,7 +75,11 @@ public final class QuantizedCosineSimilarity {
         FloatVector sumNormQ = FloatVector.zero(SPECIES);
         FloatVector sumNormD = FloatVector.zero(SPECIES);
 
-        int limit = SPECIES.loopBound(length);
+        int safeLength = Math.min(length, Math.min(query.length, Math.min(mins.length, scales.length)));
+        if (segment == null || offset < 0 || offset + safeLength > segment.byteSize()) {
+            return 0.0f;
+        }
+        int limit = SPECIES.loopBound(safeLength);
         for (int i = 0; i < limit; i += laneCount) {
             FloatVector vQuery = FloatVector.fromArray(SPECIES, query, i);
 

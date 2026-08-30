@@ -364,7 +364,13 @@ public final class SpectorMemoryBuilder {
     public SpectorMemoryBuilder entityExtractionMode(EntityExtractionMode mode) { this.entityExtractionMode = mode; return this; }
 
     /** Custom entity extractor (used when mode = CUSTOM). */
-    public SpectorMemoryBuilder entityExtractor(EntityExtractor extractor) { this.entityExtractor = extractor; return this; }
+    public SpectorMemoryBuilder entityExtractor(EntityExtractor extractor) {
+        this.entityExtractor = extractor;
+        if (this.entityExtractionMode == EntityExtractionMode.NONE || this.entityExtractionMode == null) {
+            this.entityExtractionMode = EntityExtractionMode.CUSTOM;
+        }
+        return this;
+    }
 
     /** Entity graph capacity  --  max entities (default: 50,000). */
     public SpectorMemoryBuilder entityGraphCapacity(int c) { this.entityGraphCapacity = c; return this; }
