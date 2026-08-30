@@ -125,6 +125,21 @@ public final class MemoryRegistry implements AutoCloseable {
         if (!synapseProps.auth().enabled()) {
             return sharedMemory();
         }
+        // Check for bound MemoryBinding in RequestAttributes (Filter + RequestAttributes pattern, ADR §16)
+        try {
+            org.springframework.web.context.request.RequestAttributes attrs =
+                    org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            if (attrs != null) {
+                Object binding = attrs.getAttribute(MemoryBinding.ATTRIBUTE_KEY,
+                        org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+                if (binding instanceof MemoryBinding mb && mb.memory() != null) {
+                    return mb.memory();
+                }
+            }
+        } catch (Exception ignored) {
+            // Fall through to standard resolution
+        }
+
         String userId = SecurityUtils.getUserId();
         if (DEFAULT_USER_ID.equals(userId)) {
             return sharedMemory();
