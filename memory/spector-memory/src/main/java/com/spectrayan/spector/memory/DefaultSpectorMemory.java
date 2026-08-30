@@ -920,7 +920,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 var tagExtractor = (usePathwayEngine && rememberPathway != null)
                         ? rememberPathway.tagExtractor()
                         : (rememberPathway != null ? rememberPathway.tagExtractor() : null);
-                String[] tags = tagExtractor != null ? tagExtractor.extract("query", queryText) : new String[0];
+                String[] extracted = tagExtractor != null ? tagExtractor.extract("query", queryText) : null;
+                String[] tags = extracted != null ? extracted : new String[0];
 
                 if (options.profile() == null) {
                     CognitiveProfile suggested = null;
@@ -939,7 +940,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     log.debug("Auto-profile resolved to {} for query '{}'", suggested, queryText);
                     optBuilder.profile(suggested);
                 }
-                if (tags != null && tags.length > 0 && options.synapticTagMask() == 0L) {
+                if (tags.length > 0 && options.synapticTagMask() == 0L) {
                     optBuilder.synapticFilter(tags);
                 }
                 options = optBuilder.build();

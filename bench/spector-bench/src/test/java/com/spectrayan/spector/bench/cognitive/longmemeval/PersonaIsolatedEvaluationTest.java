@@ -116,7 +116,12 @@ public class PersonaIsolatedEvaluationTest {
                 personaPaths.addAll(stream.filter(Files::isDirectory).sorted().toList());
             }
         }
-        int maxPersonas = Integer.parseInt(System.getProperty("maxPersonas", "-1"));
+        int maxPersonas = -1;
+        try {
+            maxPersonas = Integer.parseInt(System.getProperty("maxPersonas", "-1"));
+        } catch (NumberFormatException ignored) {
+            // Use default -1
+        }
         boolean forceReevaluate = Boolean.parseBoolean(System.getProperty("forceReevaluate", "false"));
         int newlyEvaluated = 0;
 
@@ -384,10 +389,10 @@ public class PersonaIsolatedEvaluationTest {
         log.info("PERSONA ISOLATED EVALUATION RESULTS:");
         log.info("Total Evaluated (cumulative): {}", totalEvaluated);
         log.info("Newly Evaluated in this run: {}", newlyEvaluated);
-        log.info("Passed: {} / {} ({:.2f}%)", passedCount.get(), totalEvaluated, accuracy);
+        log.info("Passed: {} / {} ({}%)", passedCount.get(), totalEvaluated, String.format(java.util.Locale.ROOT, "%.2f", accuracy));
         log.info("Failed: {}", failedCount.get());
-        log.info("Total Tokens Estimated: {} (Answer: {}, Judge: {}, Avg/Query: {:.1f})",
-                grandTotalTokens, totalGenTokens, totalJdgTokens, avgTokensPerQuery);
+        log.info("Total Tokens Estimated: {} (Answer: {}, Judge: {}, Avg/Query: {})",
+                grandTotalTokens, totalGenTokens, totalJdgTokens, String.format(java.util.Locale.ROOT, "%.1f", avgTokensPerQuery));
         log.info("=================================================");
 
         // Write consolidated summary
@@ -513,6 +518,10 @@ public class PersonaIsolatedEvaluationTest {
         int completionChars = response != null ? response.length() : 0;
         int promptTokens = (int) Math.ceil(promptChars / 4.0);
         int completionTokens = (int) Math.ceil(completionChars / 4.0);
+
+        if (response == null || response.isBlank()) {
+            return new JudgeResult(false, "Null or blank LLM response", promptChars, completionChars, promptTokens, completionTokens);
+        }
 
         try {
             String cleanJson = response.trim();

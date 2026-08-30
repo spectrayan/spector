@@ -35,10 +35,19 @@ public class LongMemEvalNaturalRunnerTest {
         String outputDirStr = System.getProperty("outputDir", "target/longmemeval/natural_results");
         String apiKey = System.getProperty("geminiApiKey", System.getenv().getOrDefault("GEMINI_API_KEY", ""));
         String model = System.getProperty("geminiModel", "gemini-3.1-flash-lite");
-        int topK = Integer.parseInt(System.getProperty("topK", "50"));
-        int sessionBatchSize = Integer.parseInt(System.getProperty("sessionBatchSize", "10"));
+        int topK = 50;
+        try {
+            topK = Integer.parseInt(System.getProperty("topK", "50"));
+        } catch (NumberFormatException ignored) {}
+        int sessionBatchSize = 10;
+        try {
+            sessionBatchSize = Integer.parseInt(System.getProperty("sessionBatchSize", "10"));
+        } catch (NumberFormatException ignored) {}
         boolean smokeTest = Boolean.parseBoolean(System.getProperty("smokeTest", "true"));
-        int smokeTestLimit = Integer.parseInt(System.getProperty("smokeTestLimit", "20"));
+        int smokeTestLimit = 20;
+        try {
+            smokeTestLimit = Integer.parseInt(System.getProperty("smokeTestLimit", "20"));
+        } catch (NumberFormatException ignored) {}
 
         Path datasetDir = Paths.get(datasetDirStr);
         Path outputDir = Paths.get(outputDirStr);

@@ -335,8 +335,8 @@ public final class NaturalIngestionRunner {
             writer.flush();
 
             double avgLatencyMs = queriesEvaluated > 0 ? (totalSearchTimeNanos / (double) queriesEvaluated) / 1_000_000.0 : 0.0;
-            log.info("Export complete: {} queries written. Avg pure search latency: {:.2f} ms",
-                    queriesEvaluated, avgLatencyMs);
+            log.info("Export complete: {} queries written. Avg pure search latency: {} ms",
+                    queriesEvaluated, String.format(java.util.Locale.ROOT, "%.2f", avgLatencyMs));
 
         } catch (IOException e) {
             throw new RuntimeException("Failed to export candidate sets to " + outputFile, e);

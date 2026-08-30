@@ -608,13 +608,13 @@ public final class GraphExpansionStage {
                                                             (a, b) -> a.score() >= b.score() ? a : b);
                                                 }
                                             }
-                                            if (sib.vertices() != null && entityDirectory != null) {
+                                            if (sib.vertices() != null) {
                                                 for (var sibVert : sib.vertices()) {
                                                     if (sibVert.entityId() >= 0 && sibVert.entityId() != entityId) {
                                                         int[] directMems = entityDirectory.memoriesForEntity(sibVert.entityId());
-                                                        if (directMems != null) {
+                                                        if (directMems != null && index instanceof com.spectrayan.spector.memory.index.IndexRecordMemory irm) {
                                                             for (int dm : directMems) {
-                                                                String dMemId = ((com.spectrayan.spector.memory.index.IndexRecordMemory) index).idAt(dm);
+                                                                String dMemId = irm.idAt(dm);
                                                                 if (dMemId != null && !existingIds.contains(dMemId) && matchesFilters(dMemId, options)) {
                                                                     float dSim = computeNeighborSimilarity(dMemId, queryVector);
                                                                     float dScore = (dSim + allResults.getFirst().score() * 0.45f) * 1.8f;

@@ -494,7 +494,7 @@ public final class LongMemEvalNaturalRunner {
 
         exportMemory.close();
         double avgSearchMs = (count > 0) ? (totalSearchTimeNanos / (double) count) / 1_000_000.0 : 0.0;
-        log.info("Candidate export complete: {} queries written. Avg pure search latency: {:.2f} ms", count, avgSearchMs);
+        log.info("Candidate export complete: {} queries written. Avg pure search latency: {} ms", count, String.format(java.util.Locale.ROOT, "%.2f", avgSearchMs));
     }
 
     private void runResumableEvaluation(Path candidatesFile, Path evalResultsFile, Path summaryReportFile, LlmProvider llm) throws IOException {
