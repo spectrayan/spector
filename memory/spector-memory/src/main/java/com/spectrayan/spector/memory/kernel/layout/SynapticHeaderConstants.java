@@ -74,10 +74,16 @@ public final class SynapticHeaderConstants {
     /** Header size in bytes (64B = full cache line). */
     public static final int HEADER_BYTES = 64;
 
-    /** Current header format version. */
-    public static final int HEADER_VERSION = 1;
+    /** Legacy V1 header format version. */
+    public static final int HEADER_VERSION_V1 = 1;
 
-    // ── Field offsets (first 32 bytes) ──
+    /** V2 pure encoding header format version (ADR-0028). */
+    public static final int HEADER_VERSION_V2 = 2;
+
+    /** Current default header format version. */
+    public static final int HEADER_VERSION = HEADER_VERSION_V2;
+
+    // ── V1 Field offsets (first 32 bytes) ──
 
     /** Offset of header_version byte (always byte 0). */
     public static final long OFFSET_HEADER_VERSION      = 0L;
@@ -91,14 +97,14 @@ public final class SynapticHeaderConstants {
     public static final long OFFSET_IMPORTANCE          = 4L;
     /** Offset of timestamp_ms long (8B-aligned). */
     public static final long OFFSET_TIMESTAMP           = 8L;
-    /** Offset of agent_recall_count int (4B-aligned). */
+    /** Offset of agent_recall_count int (4B-aligned, V1 only). */
     public static final long OFFSET_AGENT_RECALL_COUNT  = 16L;
     /** Offset of exact_norm float. */
     public static final long OFFSET_EXACT_NORM          = 20L;
     /** Offset of synaptic_tags long (8B-aligned). */
     public static final long OFFSET_SYNAPTIC_TAGS       = 24L;
 
-    // ── Field offsets (bytes 32-63) ──
+    // ── V1 Field offsets (bytes 32-63) ──
 
     /** Offset of centroid_id short (IVF routing). */
     public static final long OFFSET_CENTROID_ID         = 32L;
@@ -106,9 +112,9 @@ public final class SynapticHeaderConstants {
     public static final long OFFSET_CONSOLIDATION_FLAGS = 34L;
     /** Offset of encoding-time cognitive profile byte. */
     public static final long OFFSET_ENCODING_PROFILE    = 35L;
-    /** Offset of storage_strength float (Two-Factor scoring). */
+    /** Offset of storage_strength float (Two-Factor scoring, V1 only). */
     public static final long OFFSET_STORAGE_STRENGTH    = 36L;
-    /** Offset of spector-internal recall count int (auto-LTP). */
+    /** Offset of spector-internal recall count int (auto-LTP, V1 only). */
     public static final long OFFSET_SPECTOR_RECALL_COUNT = 40L;
     /** Offset of quantized alpha weight at encoding time. */
     public static final long OFFSET_ENCODING_ALPHA      = 44L;
@@ -116,12 +122,41 @@ public final class SynapticHeaderConstants {
     public static final long OFFSET_ENCODING_BETA       = 45L;
     /** Offset of monotonic soul configuration version counter (2 bytes). */
     public static final long OFFSET_SOUL_VERSION        = 46L;
-    /** Offset of last auto-LTP timestamp long (8B-aligned). */
+    /** Offset of last auto-LTP timestamp long (8B-aligned, V1 only). */
     public static final long OFFSET_LAST_AUTO_LTP       = 48L;
     /** Offset of surprise z-score at encoding time (float32). */
     public static final long OFFSET_ENCODING_SURPRISE   = 56L;
-    /** Profile ordinal of the CognitiveProfile used during last recall. */
+    /** Profile ordinal of the CognitiveProfile used during last recall (V1 only). */
     public static final long OFFSET_LAST_RECALL_PROFILE = 60L;
+
+    // ── V2 Pure Encoding Field offsets (64B Cache-Line Aligned, ADR-0028) ──
+
+    /** V2: Offset of exact_norm float (16-19). */
+    public static final long OFFSET_V2_EXACT_NORM          = 16L;
+    /** V2: Offset of centroid_id short (20-21). */
+    public static final long OFFSET_V2_CENTROID_ID         = 20L;
+    /** V2: Alignment padding (22-23). */
+    public static final long OFFSET_V2_PAD0                = 22L;
+    /** V2: 128-bit Bloom filter low 64-bits (24-31). */
+    public static final long OFFSET_V2_SYNAPTIC_TAGS_LO    = 24L;
+    /** V2: 128-bit Bloom filter high 64-bits (32-39). */
+    public static final long OFFSET_V2_SYNAPTIC_TAGS_HI    = 32L;
+    /** V2: Offset of consolidation & provenance flags (byte 40). */
+    public static final long OFFSET_V2_CONSOLIDATION_FLAGS = 40L;
+    /** V2: Offset of encoding-time cognitive profile (byte 41). */
+    public static final long OFFSET_V2_ENCODING_PROFILE    = 41L;
+    /** V2: Offset of quantized alpha weight (byte 42). */
+    public static final long OFFSET_V2_ENCODING_ALPHA      = 42L;
+    /** V2: Offset of quantized beta weight (byte 43). */
+    public static final long OFFSET_V2_ENCODING_BETA       = 43L;
+    /** V2: Offset of soul configuration version counter (bytes 44-45). */
+    public static final long OFFSET_V2_SOUL_VERSION        = 44L;
+    /** V2: Reserved for manifold geodesic coordinates (bytes 46-47). */
+    public static final long OFFSET_V2_RESERVED_GEO        = 46L;
+    /** V2: Offset of surprise z-score (float32, bytes 48-51). */
+    public static final long OFFSET_V2_ENCODING_SURPRISE   = 48L;
+    /** V2: Zero-padded reserved block for neural tensor invariants (bytes 52-63). */
+    public static final long OFFSET_V2_RESERVED            = 52L;
 
     // ── Value layouts ──
 

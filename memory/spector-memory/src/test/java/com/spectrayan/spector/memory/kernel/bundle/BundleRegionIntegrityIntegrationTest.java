@@ -164,7 +164,7 @@ class BundleRegionIntegrityIntegrationTest {
                 cogLayoutId, cogSchemaVersion,
                 textLayoutId, textSchemaVersion)) {
 
-            assertThat(bundle.directory().liveRegionCount()).isEqualTo(4);
+            assertThat(bundle.directory().liveRegionCount()).isEqualTo(5);
 
             MemorySegment textSlice = bundle.regionSegment(RegionId.TEXT);
             textSlice.set(ValueLayout.JAVA_BYTE, 0, (byte) 'S');
@@ -175,7 +175,7 @@ class BundleRegionIntegrityIntegrationTest {
 
         // 2. Reopen and verify
         try (PartitionBundle bundle = PartitionBundle.Init.open(bundleFile)) {
-            assertThat(bundle.directory().liveRegionCount()).isEqualTo(4);
+            assertThat(bundle.directory().liveRegionCount()).isEqualTo(5);
 
             MemorySegment textSlice = bundle.regionSegment(RegionId.TEXT);
             assertThat(textSlice.get(ValueLayout.JAVA_BYTE, 0)).isEqualTo((byte) 'S');

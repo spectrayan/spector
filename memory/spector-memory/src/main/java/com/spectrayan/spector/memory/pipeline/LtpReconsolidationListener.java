@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.pipeline;
 
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
@@ -50,7 +51,7 @@ public final class LtpReconsolidationListener implements RecallListener {
      * Minimum interval between auto-LTP reinforcements for the same memory (5 minutes).
      * Prevents runaway LTP from repeated queries hitting the same results.
      */
-    private static final long AUTO_LTP_COOLDOWN_MS = 300_000L; // 5 minutes
+    private static final long AUTO_LTP_COOLDOWN_MS = SpectorPropertyConstants.DEFAULT_MEMORY_AUDIT_AUTO_LTP_COOLDOWN_MS;
 
     private final MemoryIndex index;
     private final PartitionRegistry partitionRegistry;
@@ -74,7 +75,21 @@ public final class LtpReconsolidationListener implements RecallListener {
                 if (segment != null) {
                     CognitiveRecordLayout layout = router.layoutFor(loc.type());
 
-                    if (layout.headerLayout().version() >= 3) {
+                    if (router.audit() != null) {
+                        int slotIndex = (int) (loc.offset() / layout.stride());
+                        long creationMs = layout.readTimestamp(segment, loc.offset());
+                        router.audit().recordRecall(loc.type(), slotIndex, creationMs, nowMs, (byte) 0, 0);
+
+                        long lastAutoLtp = router.audit().readAuditRecord(loc.type(), slotIndex).lastAutoLtp();
+                        if (nowMs - lastAutoLtp >= AUTO_LTP_COOLDOWN_MS) {
+                            router.audit().incrementSpectorRecallCount(loc.type(), slotIndex);
+                            router.audit().casStorageStrength(loc.type(), slotIndex,
+                                    s -> Math.min(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MAX,
+                                            s + SpectorPropertyConstants.DEFAULT_MEMORY_AUTO_LTP_STORAGE_INCREMENT));
+                            long auditOff = router.audit().auditOffset(loc.type(), slotIndex);
+                            com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout.INSTANCE.writeLastAutoLtp(router.audit().segment(), auditOff, nowMs);
+                        }
+                    } else if (layout.headerLayout().version() >= 3) {
                         long creationMs = layout.readTimestamp(segment, loc.offset());
 
                         // Record recall timestamp for ACT-R base-level activation.
@@ -93,7 +108,8 @@ public final class LtpReconsolidationListener implements RecallListener {
                             // S(t+1) = S(t) + α·(1/R(t)) where R(t) = retrieval strength
                             // Simplified: each auto-LTP adds a small fixed increment (0.05)
                             float currentStrength = layout.readStorageStrength(segment, loc.offset());
-                            float newStrength = Math.min(5.0f, currentStrength + 0.05f);
+                            float newStrength = Math.min(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MAX,
+                                    currentStrength + SpectorPropertyConstants.DEFAULT_MEMORY_AUTO_LTP_STORAGE_INCREMENT);
                             layout.writeStorageStrength(segment, loc.offset(), newStrength);
 
                             // Record cooldown timestamp

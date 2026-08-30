@@ -51,6 +51,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     private final SemanticRecordMemory semanticStore;
     private final ProceduralRecordMemory proceduralStore;
     private final EpisodicLogMemory episodicLogStore;
+    private final AuditRecordMemory auditStore;
 
     /**
      * Creates a CognitiveMemoryRouter with the modern log-structured episodic store.
@@ -59,7 +60,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
                                  SemanticRecordMemory semanticStore,
                                  ProceduralRecordMemory proceduralStore,
                                  EpisodicLogMemory episodicLogStore) {
-        this(workingStore, null, semanticStore, proceduralStore, episodicLogStore);
+        this(workingStore, null, semanticStore, proceduralStore, episodicLogStore, null);
     }
 
     /**
@@ -69,7 +70,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
                                  EpisodicRecordMemory episodicStore,
                                  SemanticRecordMemory semanticStore,
                                  ProceduralRecordMemory proceduralStore) {
-        this(workingStore, episodicStore, semanticStore, proceduralStore, null);
+        this(workingStore, episodicStore, semanticStore, proceduralStore, null, null);
     }
 
     /**
@@ -84,11 +85,24 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
                                  SemanticRecordMemory semanticStore,
                                  ProceduralRecordMemory proceduralStore,
                                  EpisodicLogMemory episodicLogStore) {
+        this(workingStore, episodicStore, semanticStore, proceduralStore, episodicLogStore, null);
+    }
+
+    /**
+     * Creates a CognitiveMemoryRouter with all stores and the unified Recall Audit store.
+     */
+    public CognitiveMemoryRouter(WorkingRecordMemory workingStore,
+                                 EpisodicRecordMemory episodicStore,
+                                 SemanticRecordMemory semanticStore,
+                                 ProceduralRecordMemory proceduralStore,
+                                 EpisodicLogMemory episodicLogStore,
+                                 AuditRecordMemory auditStore) {
         this.workingStore = workingStore;
         this.episodicStore = episodicStore;
         this.semanticStore = semanticStore;
         this.proceduralStore = proceduralStore;
         this.episodicLogStore = episodicLogStore;
+        this.auditStore = auditStore;
 
         // Register in EnumMap for polymorphic dispatch
         stores.put(MemoryType.WORKING, workingStore);
@@ -125,7 +139,12 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      * @return byte offset where the record was written
      */
     public long write(MemoryType type, CognitiveHeader header, byte[] quantized) {
-        return get(type).write(header, quantized);
+        long offset = get(type).write(header, quantized);
+        if (auditStore != null && type != MemoryType.WORKING) {
+            int slotIndex = (int) ((offset - get(type).dataOffset()) / layoutFor(type).stride());
+            auditStore.initializeDefault(type, slotIndex, header.importance());
+        }
+        return offset;
     }
 
     /**
@@ -287,6 +306,9 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
 
     /** Returns the Procedural Memory store (for flat scan). */
     public ProceduralRecordMemory procedural() { return proceduralStore; }
+
+    /** Returns the unified Audit Record memory store. Null if not configured. */
+    public AuditRecordMemory audit() { return auditStore; }
 
     /**
      * Forces all persistent, non-frozen memory store segments to be written to disk.

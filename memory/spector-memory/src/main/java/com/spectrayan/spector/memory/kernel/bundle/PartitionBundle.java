@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory.kernel.bundle;
 
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicLogLayout;
 
 import org.slf4j.Logger;
@@ -114,6 +115,11 @@ public final class PartitionBundle implements AutoCloseable {
                                             int cognitiveLayoutId, int cognitiveSchemaVer,
                                             int textLayoutId, int textSchemaVer) {
             int cogStride = computeCognitiveStride(quantizedVecBytes);
+            int auditStride = AuditRecordLayout.INSTANCE.recordStride();
+            int episodicCapEstimate = (int) (episodicBytes / Math.max(1, cogStride));
+            if (episodicCapEstimate <= 0) episodicCapEstimate = 1_000;
+            int totalAuditCapacity = semanticCapacity + episodicCapEstimate + proceduralCapacity;
+
             List<RegionSizeSpec> specs = List.of(
                     new RegionSizeSpec(
                             RegionId.SEMANTIC,
@@ -131,7 +137,12 @@ public final class PartitionBundle implements AutoCloseable {
                     new RegionSizeSpec(
                             RegionId.TEXT,
                             MemoryHeader.HEADER_BYTES + textBytes,
-                            0, 0, textLayoutId, textSchemaVer, false)
+                            0, 0, textLayoutId, textSchemaVer, false),
+                    new RegionSizeSpec(
+                            RegionId.AUDIT,
+                            MemoryHeader.HEADER_BYTES + (long) totalAuditCapacity * auditStride,
+                            totalAuditCapacity, auditStride, AuditRecordLayout.INSTANCE.layoutId(),
+                            AuditRecordLayout.INSTANCE.schemaVersion(), false)
             );
 
             BundleLayoutCalculator.BundleComputedLayout computed =
@@ -206,6 +217,11 @@ public final class PartitionBundle implements AutoCloseable {
                                             int cognitiveLayoutId, int cognitiveSchemaVer,
                                             int textLayoutId, int textSchemaVer) {
             int cogStride = computeCognitiveStride(quantizedVecBytes);
+            int auditStride = AuditRecordLayout.INSTANCE.recordStride();
+            int episodicCapEstimate = (int) (episodicBytes / Math.max(1, cogStride));
+            if (episodicCapEstimate <= 0) episodicCapEstimate = 1_000;
+            int totalAuditCapacity = semanticCapacity + episodicCapEstimate + proceduralCapacity;
+
             List<RegionSizeSpec> specs = List.of(
                     new RegionSizeSpec(
                             RegionId.SEMANTIC,
@@ -223,7 +239,12 @@ public final class PartitionBundle implements AutoCloseable {
                     new RegionSizeSpec(
                             RegionId.TEXT,
                             MemoryHeader.HEADER_BYTES + textBytes,
-                            0, 0, textLayoutId, textSchemaVer, false)
+                            0, 0, textLayoutId, textSchemaVer, false),
+                    new RegionSizeSpec(
+                            RegionId.AUDIT,
+                            MemoryHeader.HEADER_BYTES + (long) totalAuditCapacity * auditStride,
+                            totalAuditCapacity, auditStride, AuditRecordLayout.INSTANCE.layoutId(),
+                            AuditRecordLayout.INSTANCE.schemaVersion(), false)
             );
 
             BundleLayoutCalculator.BundleComputedLayout computed =
@@ -272,6 +293,14 @@ public final class PartitionBundle implements AutoCloseable {
             throw new IllegalStateException("Region is not live: " + id);
         }
         return masterSegment.asSlice(entry.offset(), entry.allocatedSize());
+    }
+
+    /**
+     * Checks whether the specified region exists and is live in this bundle.
+     */
+    public boolean hasRegion(RegionId id) {
+        RegionEntry entry = directory.findRegion(id);
+        return entry != null && entry.isLive();
     }
 
     /**

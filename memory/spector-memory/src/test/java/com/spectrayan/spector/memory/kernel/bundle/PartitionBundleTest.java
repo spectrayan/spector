@@ -53,24 +53,27 @@ class PartitionBundleTest {
 
             // Verify directory
             BundleDirectory dir = bundle.directory();
-            assertThat(dir.liveRegionCount()).isEqualTo(4);
-            assertThat(dir.maxRegions()).isEqualTo(4);
+            assertThat(dir.liveRegionCount()).isEqualTo(5);
+            assertThat(dir.maxRegions()).isEqualTo(5);
             assertThat(dir.bundleMagic()).isEqualTo(BundleSubHeader.MAGIC_PARTITION);
 
-            // Verify all 4 regions are accessible
+            // Verify all 5 regions are accessible
             MemorySegment semSlice = bundle.regionSegment(RegionId.SEMANTIC);
             MemorySegment epiSlice = bundle.regionSegment(RegionId.EPISODIC);
             MemorySegment procSlice = bundle.regionSegment(RegionId.PROCEDURAL);
             MemorySegment textSlice = bundle.regionSegment(RegionId.TEXT);
+            MemorySegment auditSlice = bundle.regionSegment(RegionId.AUDIT);
 
             assertThat(semSlice).isNotNull();
             assertThat(epiSlice).isNotNull();
             assertThat(procSlice).isNotNull();
             assertThat(textSlice).isNotNull();
+            assertThat(auditSlice).isNotNull();
 
             // Region slices should be page-aligned sizes
             assertThat(semSlice.byteSize() % 4096).isEqualTo(0);
             assertThat(epiSlice.byteSize() % 4096).isEqualTo(0);
+            assertThat(auditSlice.byteSize() % 4096).isEqualTo(0);
         }
     }
 
@@ -126,7 +129,7 @@ class PartitionBundleTest {
 
             assertThat(bundle.isNew()).isTrue();
             assertThat(bundle.bundlePath()).isEqualTo(bundlePath);
-            assertThat(bundle.directory().liveRegionCount()).isEqualTo(4);
+            assertThat(bundle.directory().liveRegionCount()).isEqualTo(5);
 
             // Write data to semantic region
             MemorySegment semSlice = bundle.regionSegment(RegionId.SEMANTIC);
@@ -138,7 +141,7 @@ class PartitionBundleTest {
         // Reopen and verify
         try (PartitionBundle reopened = PartitionBundle.Init.open(bundlePath)) {
             assertThat(reopened.isNew()).isFalse();
-            assertThat(reopened.directory().liveRegionCount()).isEqualTo(4);
+            assertThat(reopened.directory().liveRegionCount()).isEqualTo(5);
             assertThat(reopened.directory().bundleMagic()).isEqualTo(BundleSubHeader.MAGIC_PARTITION);
 
             // Read data back
@@ -162,17 +165,20 @@ class PartitionBundleTest {
             RegionEntry epi = dir.findRegion(RegionId.EPISODIC);
             RegionEntry proc = dir.findRegion(RegionId.PROCEDURAL);
             RegionEntry text = dir.findRegion(RegionId.TEXT);
+            RegionEntry audit = dir.findRegion(RegionId.AUDIT);
 
             // Verify no overlap: each region starts after the previous ends
             assertThat(epi.offset()).isGreaterThanOrEqualTo(sem.offset() + sem.allocatedSize());
             assertThat(proc.offset()).isGreaterThanOrEqualTo(epi.offset() + epi.allocatedSize());
             assertThat(text.offset()).isGreaterThanOrEqualTo(proc.offset() + proc.allocatedSize());
+            assertThat(audit.offset()).isGreaterThanOrEqualTo(text.offset() + text.allocatedSize());
 
             // All offsets should be page-aligned
             assertThat(sem.offset() % 4096).isEqualTo(0);
             assertThat(epi.offset() % 4096).isEqualTo(0);
             assertThat(proc.offset() % 4096).isEqualTo(0);
             assertThat(text.offset() % 4096).isEqualTo(0);
+            assertThat(audit.offset() % 4096).isEqualTo(0);
         }
     }
 
@@ -190,7 +196,7 @@ class PartitionBundleTest {
             // The actual SMKM is on the master segment, not on a region slice
             // Let's verify the directory header was written by checking isNew
             assertThat(bundle.isNew()).isTrue();
-            assertThat(bundle.directory().maxRegions()).isEqualTo(4);
+            assertThat(bundle.directory().maxRegions()).isEqualTo(5);
         }
     }
 }

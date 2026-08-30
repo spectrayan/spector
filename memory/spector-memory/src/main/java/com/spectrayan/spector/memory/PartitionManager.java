@@ -12,19 +12,22 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.cortex.AuditRecordMemory;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
-import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
 import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.RememberPathway;
@@ -319,8 +322,13 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
         TextAppendMemory text = TextAppendMemory.fromBundle(
                 bundle.arena(), textSlice, bundleFile, false, encryptor);
 
+        AuditRecordMemory audit = bundle.hasRegion(RegionId.AUDIT)
+                ? AuditRecordMemory.fromBundle(bundle.arena(), bundle.regionSegment(RegionId.AUDIT),
+                        semanticCapacity, episodicPartitionCapacity, proceduralCapacity, bundleFile, "partition-" + seq + "-audit")
+                : null;
+
         CognitiveMemoryRouter router = new CognitiveMemoryRouter(
-                workingStore, episodic, semantic, procedural, episodicLog);
+                workingStore, episodic, semantic, procedural, episodicLog, audit);
         log.info("Opened frozen bundle partition seq={} ({})", seq, dir.getFileName());
         return new PartitionHandle(seq, dir, router, text, false, bundle);
     }
@@ -402,8 +410,13 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                         newBundle.arena(), newBundle.regionSegment(RegionId.TEXT),
                         bundleFile, true, encryptor);
 
+                AuditRecordMemory newAudit = newBundle.hasRegion(RegionId.AUDIT)
+                        ? AuditRecordMemory.fromBundle(newBundle.arena(), newBundle.regionSegment(RegionId.AUDIT),
+                                semanticCapacity, episodicPartitionCapacity, proceduralCapacity, bundleFile, "partition-" + nextSeq + "-audit")
+                        : null;
+
                 newRouter = new CognitiveMemoryRouter(
-                        workingStore, newEpisodic, newSemantic, newProcedural, newEpisodicLog);
+                        workingStore, newEpisodic, newSemantic, newProcedural, newEpisodicLog, newAudit);
 
                 // Flush index + graphs to runtime/ before rolling
                 flushGlobalState();

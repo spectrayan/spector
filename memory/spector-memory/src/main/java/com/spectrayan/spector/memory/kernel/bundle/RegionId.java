@@ -21,6 +21,7 @@ public enum RegionId {
     EPISODIC(1), 
     PROCEDURAL(2), 
     TEXT(3),
+    AUDIT(4),
     
     // Runtime bundle regions
     WORKING(10), 
@@ -38,11 +39,12 @@ public enum RegionId {
     BM25(22), 
     CHECKPOINT(23),
     INSULA(24),
-    CONTINUITY(25);
+    CONTINUITY(25),
+    PROVENANCE_LOG(26);
 
     private final int id;
     
-    private static final RegionId[] LOOKUP = new RegionId[26];
+    private static final RegionId[] LOOKUP = new RegionId[27];
     static {
         for (RegionId region : values()) {
             LOOKUP[region.id()] = region;

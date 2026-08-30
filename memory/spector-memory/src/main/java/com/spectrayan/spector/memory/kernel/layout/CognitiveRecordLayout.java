@@ -126,6 +126,26 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
         return headerLayout.readSynapticTags(segment, offset);
     }
 
+    /** Reads the low 64 bits of the synaptic tags Bloom filter. */
+    public long readSynapticTagsLo(MemorySegment segment, long offset) {
+        return headerLayout.readSynapticTagsLo(segment, offset);
+    }
+
+    /** Reads the high 64 bits of the synaptic tags Bloom filter. */
+    public long readSynapticTagsHi(MemorySegment segment, long offset) {
+        return headerLayout.readSynapticTagsHi(segment, offset);
+    }
+
+    /** Writes a 128-bit synaptic tag filter (low and high 64 bits). */
+    public void writeSynapticTags(MemorySegment segment, long offset, long tagsLo, long tagsHi) {
+        headerLayout.writeSynapticTags(segment, offset, tagsLo, tagsHi);
+    }
+
+    /** Merges 128-bit synaptic tags via atomic bitwise OR. */
+    public void mergeSynapticTags128(MemorySegment segment, long offset, long tagsLo, long tagsHi) {
+        headerLayout.mergeSynapticTags128(segment, offset, tagsLo, tagsHi);
+    }
+
     /**
      * Reads the source modality (TEXT, IMAGE, AUDIO, VIDEO) from the flags byte.
      *
