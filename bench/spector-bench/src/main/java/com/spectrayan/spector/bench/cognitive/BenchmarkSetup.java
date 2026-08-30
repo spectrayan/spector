@@ -17,10 +17,14 @@ package com.spectrayan.spector.bench.cognitive;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +47,7 @@ import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityType;
 import com.spectrayan.spector.memory.graph.RelationType;
+import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
@@ -295,6 +300,42 @@ public final class BenchmarkSetup implements AutoCloseable {
         // Ingest all corpus records or load from persistent store
         Map<String, Integer> idToSlot = new LinkedHashMap<>(corpusSize);
         boolean isDiskLoaded = false;
+
+        // Map memory ID -> Extracted Entity Names from entity relations for synaptic tag transduction
+        Map<String, Set<String>> memoryIdToEntityTags = new HashMap<>();
+        if (dataset.entityRelations() != null) {
+            for (com.spectrayan.spector.bench.cognitive.model.EntityRelation rel : dataset.entityRelations()) {
+                if (rel.sourceMemoryIds() != null) {
+                    for (String memId : rel.sourceMemoryIds()) {
+                        Set<String> entTags = memoryIdToEntityTags.computeIfAbsent(memId, k -> new HashSet<>());
+                        if (rel.fromEntity() != null && rel.fromEntity().name() != null && !rel.fromEntity().name().isBlank()) {
+                            entTags.add(rel.fromEntity().name().toLowerCase().trim());
+                        }
+                        if (rel.toEntity() != null && rel.toEntity().name() != null && !rel.toEntity().name().isBlank()) {
+                            entTags.add(rel.toEntity().name().toLowerCase().trim());
+                        }
+                    }
+                }
+            }
+        }
+
+        Map<String, Set<String>> memIdToEffectiveTags = new HashMap<>();
+        for (BenchmarkCorpusRecord record : corpus) {
+            Set<String> tags = new LinkedHashSet<>();
+            if (record.synapticTags() != null) {
+                for (String t : record.synapticTags()) {
+                    if (t != null && !t.isBlank()) {
+                        tags.add(t.toLowerCase().trim());
+                    }
+                }
+            }
+            Set<String> entTags = memoryIdToEntityTags.get(record.id());
+            if (entTags != null) {
+                tags.addAll(entTags);
+            }
+            memIdToEffectiveTags.put(record.id(), tags);
+        }
+
         if (memory.totalMemories() > 0) {
             isDiskLoaded = true;
             log.info("Discovered pre-ingested memories on disk. Reconstructing slot mappings.");
@@ -326,13 +367,15 @@ public final class BenchmarkSetup implements AutoCloseable {
                             .overrideTimestampMs(record.timestampMs())
                             .build();
 
+                    Set<String> effectiveTags = memIdToEffectiveTags.getOrDefault(record.id(), Set.of());
+
                     memory.remember(
                             record.id(),
                             record.text(),
                             record.memoryType(),
                             MemorySource.OBSERVED,
                             context,
-                            record.synapticTags().toArray(String[]::new)
+                            effectiveTags.toArray(String[]::new)
                     );
 
                     idToSlot.put(record.id(), slot);
@@ -353,6 +396,7 @@ public final class BenchmarkSetup implements AutoCloseable {
             var hg = graph != null ? graph.rawHebbianGraph() : null;
             var tc = graph != null ? graph.rawTemporalChain() : null;
             var hyper = graph != null ? graph.rawHyperEntityGraph() : null;
+            var coact = memory.admin().coActivation();
 
             if (hg != null) {
                 loadHebbianEdges(hg, dataset.hebbianEdges(), idToSlot);
@@ -369,11 +413,20 @@ public final class BenchmarkSetup implements AutoCloseable {
             } else {
                 log.warn("EntityGraph is null  --  skipping {} entity relation definitions", dataset.entityRelations().size());
             }
+            if (coact != null) {
+                loadCoActivationMemory(coact, dataset, idToSlot, memIdToEffectiveTags);
+            } else {
+                log.warn("CoActivationRecordMemory is null  --  skipping co-activation ingestion");
+            }
             log.info("Benchmark memory setup complete: hebbian edges={}, temporal chains={}, entity relations={}",
                     dataset.hebbianEdges().size(), dataset.temporalChains().size(),
                     dataset.entityRelations().size());
         } else {
-            log.info("Loaded pre-ingested graph structures from disk. Skipping graph ingestion.");
+            var coact = memory.admin().coActivation();
+            if (coact != null) {
+                loadCoActivationMemory(coact, dataset, idToSlot, memIdToEffectiveTags);
+            }
+            log.info("Loaded pre-ingested graph structures from disk. Populated co-activation tables.");
         }
 
         // Wire salience profile from persona.json if present
@@ -615,6 +668,129 @@ public final class BenchmarkSetup implements AutoCloseable {
 
         log.info("Loaded {} entity relations (hyperedges={}) and {} bitemporal facts into TKG (entities={})",
                 relations.size(), relationsLoaded, tkgFactsLoaded, dir.entityCount());
+    }
+
+    /**
+     * Populates CoActivationRecordMemory from dataset definitions:
+     * 1. Undirected tag co-occurrence pairs from Hebbian edges.
+     * 2. Directed STDP causal transitions from Temporal chains.
+     * 3. Reciprocal Neocortical semantic-to-episodic tag bridges.
+     * 4. Rebuilds the Tag -> Memory Slot Inverted Index for Cross-Capture Graph traversal.
+     */
+    void loadCoActivationMemory(CoActivationRecordMemory coact, DatasetLoader.LoadedDataset dataset,
+                                Map<String, Integer> idToSlot,
+                                Map<String, Set<String>> memIdToTags) {
+        if (coact == null) return;
+
+        int pairsLoaded = 0;
+        int stdpLoaded = 0;
+
+        // 1. Undirected Co-Activation Pairs from Hebbian Edges
+        if (dataset.hebbianEdges() != null) {
+            for (HebbianEdgeDef edge : dataset.hebbianEdges()) {
+                Set<String> tagsA = memIdToTags.get(edge.memoryIdA());
+                Set<String> tagsB = memIdToTags.get(edge.memoryIdB());
+                if (tagsA != null && tagsB != null && !tagsA.isEmpty() && !tagsB.isEmpty()) {
+                    int count = Math.clamp(edge.coActivationCount(), 1, 20);
+                    for (String tA : tagsA) {
+                        for (String tB : tagsB) {
+                            if (!tA.equalsIgnoreCase(tB)) {
+                                for (int c = 0; c < count; c++) {
+                                    coact.recordCoActivation(tA, tB);
+                                }
+                                pairsLoaded++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Directed STDP Plasticity Transitions from Temporal Chains
+        if (dataset.temporalChains() != null && dataset.corpus() != null) {
+            Map<String, BenchmarkCorpusRecord> corpusById = dataset.corpus().stream()
+                    .collect(Collectors.toMap(BenchmarkCorpusRecord::id, r -> r, (a, b) -> a));
+
+            for (TemporalChainDef chain : dataset.temporalChains()) {
+                List<String> orderedIds = chain.orderedMemoryIds();
+                for (int i = 0; i < orderedIds.size() - 1; i++) {
+                    String idBefore = orderedIds.get(i);
+                    String idAfter = orderedIds.get(i + 1);
+                    BenchmarkCorpusRecord recBefore = corpusById.get(idBefore);
+                    BenchmarkCorpusRecord recAfter = corpusById.get(idAfter);
+                    if (recBefore != null && recAfter != null) {
+                        Set<String> tagsBefore = memIdToTags.get(idBefore);
+                        Set<String> tagsAfter = memIdToTags.get(idAfter);
+                        long timeBefore = recBefore.timestampMs();
+                        long timeAfter = recAfter.timestampMs();
+                        if (tagsBefore != null && tagsAfter != null && timeAfter >= timeBefore) {
+                            for (String tBefore : tagsBefore) {
+                                for (String tAfter : tagsAfter) {
+                                    if (!tBefore.equalsIgnoreCase(tAfter)) {
+                                        coact.recordSequentialActivation(tBefore, tAfter, timeBefore, timeAfter);
+                                        stdpLoaded++;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Reciprocal Neocortical Semantic-to-Episodic Tag Bridge
+        int bridges = 0;
+        if (dataset.corpus() != null) {
+            for (BenchmarkCorpusRecord record : dataset.corpus()) {
+                if (record.id().startsWith("fact_")) {
+                    int lastUnder = record.id().lastIndexOf('_');
+                    if (lastUnder > 5) {
+                        String sessionKey = record.id().substring(5, lastUnder);
+                        for (BenchmarkCorpusRecord turnRec : dataset.corpus()) {
+                            if (!turnRec.id().startsWith("fact_") && turnRec.id().contains("_D")) {
+                                int dIdx = turnRec.id().indexOf("_D");
+                                int turnLastUnder = turnRec.id().lastIndexOf('_');
+                                if (dIdx > 0 && turnLastUnder > dIdx) {
+                                    String turnSess = turnRec.id().substring(0, dIdx) + "_sess_" + turnRec.id().substring(dIdx + 2, turnLastUnder);
+                                    if (sessionKey.equals(turnSess)) {
+                                        Set<String> factTags = memIdToTags.get(record.id());
+                                        Set<String> turnTags = memIdToTags.get(turnRec.id());
+                                        if (factTags != null && turnTags != null) {
+                                            for (String ft : factTags) {
+                                                for (String tt : turnTags) {
+                                                    if (!ft.equalsIgnoreCase(tt)) {
+                                                        coact.recordCoActivation(ft, tt);
+                                                        bridges++;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Rebuild Tag -> Memory Slot Inverted Index for Cross-Capture Graph Traversal
+        if (dataset.corpus() != null) {
+            Map<Integer, java.util.Collection<String>> slotToTags = new HashMap<>();
+            for (BenchmarkCorpusRecord record : dataset.corpus()) {
+                Integer slot = idToSlot.get(record.id());
+                if (slot != null) {
+                    Set<String> tags = memIdToTags.get(record.id());
+                    if (tags != null && !tags.isEmpty()) {
+                        slotToTags.put(slot, tags);
+                    }
+                }
+            }
+            coact.rebuildInvertedIndex(slotToTags);
+        }
+
+        log.info("CoActivationRecordMemory loaded: pairs={}, STDP edges={}, inverted index tags={}, bridges={}",
+                coact.pairCount(), coact.edgeCount(), coact.invertedIndexTagCount(), bridges);
     }
 
     /**

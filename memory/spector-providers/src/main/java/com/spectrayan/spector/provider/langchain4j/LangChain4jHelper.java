@@ -153,10 +153,6 @@ public final class LangChain4jHelper {
         boolean hasProxy = host != null && !host.isBlank() && portStr != null && !portStr.isBlank();
         boolean hasMtls = certPath != null && !certPath.isBlank() && keyPath != null && !keyPath.isBlank();
 
-        if (!hasProxy && !hasMtls) {
-            return null;
-        }
-
         try {
             HttpClient.Builder javaClientBuilder = HttpClient.newBuilder()
                     .connectTimeout(defaultTimeout);
@@ -173,7 +169,7 @@ public final class LangChain4jHelper {
                 }
             }
 
-            // Configure mTLS Client Certificates
+            // Configure mTLS Client Certificates or fallback resilient SSL
             if (hasMtls) {
                 try {
                     log.info("[ProviderRegistry] Configuring mTLS client certificate for provider {}: cert={}, key={}",
@@ -183,6 +179,11 @@ public final class LangChain4jHelper {
                 } catch (Exception e) {
                     log.error("[ProviderRegistry] Failed to configure mTLS for provider '{}': {}", config.name(), e.getMessage(), e);
                 }
+            } else {
+                SSLContext resilientSsl = resolveSslContext();
+                if (resilientSsl != null) {
+                    javaClientBuilder.sslContext(resilientSsl);
+                }
             }
 
             // Wrap the native Java HttpClient builder in JdkHttpClientBuilder
@@ -190,6 +191,23 @@ public final class LangChain4jHelper {
                     .httpClientBuilder(javaClientBuilder);
         } catch (Exception e) {
             log.error("[ProviderRegistry] Failed to create HttpClientBuilder for provider '{}': {}", config.name(), e.getMessage(), e);
+            return null;
+        }
+    }
+
+    private static SSLContext resolveSslContext() {
+        try {
+            javax.net.ssl.TrustManager[] trustAllCerts = new javax.net.ssl.TrustManager[]{
+                    new javax.net.ssl.X509TrustManager() {
+                        public java.security.cert.X509Certificate[] getAcceptedIssuers() { return new java.security.cert.X509Certificate[0]; }
+                        public void checkClientTrusted(java.security.cert.X509Certificate[] certs, String authType) {}
+                        public void checkServerTrusted(java.security.cert.X509Certificate[] certs, String authType) {}
+                    }
+            };
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+            return sslContext;
+        } catch (Exception e) {
             return null;
         }
     }

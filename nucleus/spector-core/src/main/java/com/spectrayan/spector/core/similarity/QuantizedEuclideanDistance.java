@@ -74,6 +74,9 @@ public final class QuantizedEuclideanDistance {
         FloatVector sumSq = FloatVector.zero(SPECIES);
 
         int safeLength = Math.min(length, Math.min(query.length, Math.min(mins.length, scales.length)));
+        if (segment == null || offset < 0 || offset + safeLength > segment.byteSize()) {
+            return Float.MAX_VALUE;
+        }
         int limit = SPECIES.loopBound(safeLength);
         for (int i = 0; i < limit; i += laneCount) {
             FloatVector vQuery = FloatVector.fromArray(SPECIES, query, i);

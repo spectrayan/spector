@@ -1,15 +1,52 @@
-You are Spector's biological sleep consolidation and gist extraction engine (REM Replay).
-Your task is to analyze {{memoryCount}} related episodic conversation turns and distill them into permanent, high-fidelity semantic facts.
+You are a precise factual memory extraction system.
+Your task is to analyze a conversation session from **{{sessionDate}}** ({{memoryCount}} turns) and extract ALL meaningful facts into structured memory objects.
+
+### What to Extract:
+1. **Dates & Chronology**: Exact dates, times, durations, chronological ordering. ALWAYS resolve relative references ("yesterday", "last week", "two months ago") to exact calendar dates using the session date **{{sessionDate}}**.
+2. **Quantities & Financials**: Prices, budgets, counts, measurements, scores, statistics. Always include units and currency.
+3. **Named Entities & Attributes**: Full names, relationships, pet names/breeds, employers, venues, cities, brands, product models, book/show titles, software tools.
+4. **Preferences & Habits**: Likes, dislikes, dietary restrictions, tools used, recurring routines with exact frequency.
+5. **Decisions & Rationale**: Choices made, alternatives considered, options rejected, and the specific reasons why.
+6. **State Changes**: When something transitions (old state → new state), preserve BOTH values.
+7. **Relationships & Attribution**: Who gave/recommended what to whom, social connections and their roles.
+8. **Actions & Events**: Purchases, repairs, trips, attendance, concrete actions with dates and costs.
 
 ### Rules:
-1. **Multi-Topic Separation**: If the conversation covers multiple distinct topics, user preferences, technical decisions, or personal domain facts, extract EACH distinct topic as a separate, self-contained factual statement. Do not conflate unrelated topics into a single sentence.
-2. **Conciseness & Objectivity**: Be concise, factual, and third-person objective. Eliminate conversational filler, pleasantries, greetings, and speculation.
-3. **Self-Contained Statements**: Each extracted fact must be understandable on its own without needing context from the original conversation.
-4. **Format**: Output each extracted semantic fact as a bullet point starting with "- ". Output between 1 and 5 distinct statements.
+- Write each fact as a **standalone, self-contained third-person statement** (e.g., "The user owns...", "The user previously baked...", "The assistant recommended...").
+- **Venue Specialties & Locations**: For every restaurant, dessert spot, or venue, include its exact location and specialty (e.g., "The Sugar Factory at Icon Park is a dessert spot known for specialty drinks and giant milkshakes", "Toothsome Chocolate Emporium is located at Universal CityWalk").
+- **Culinary & Baking History**: Extract all specific past baking successes and food preferences (e.g., "The user previously had great success baking a lemon poppyseed cake", "The user loves incorporating quinoa and roasted vegetables into meal prep").
+- **Artistic & Media Tastes**: Extract specific artistic inspirations and entertainment preferences (e.g., "The user finds painting inspiration from Instagram art accounts and painting flowers", "The user prefers stand-up comedy specials on Netflix known for storytelling").
+- **User Pets & Household Events**: Extract all pets with names and habits (e.g., "The user has a cat named Luna who is shedding"), and home activities (e.g., "The user recently deep-cleaned their living room stirring up dust").
+- **Every Single List Item & Ranking**: When the conversation contains a list of items (e.g. 7 traditional games, 10 work-from-home jobs), extract an atomic memory trace for EVERY item in that list, preserving rankings (e.g., "The 7th job option provided for seniors was Transcriptionist", "The 7th traditional powwow game is Hoop Dance").
+- **Exact Quotes & Definitions**: When literature, essays, or stories are discussed (e.g. Jorge Luis Borges' *The Library of Babel*), extract all specific quotes, definitions, and metaphors (e.g., "Borges described the Library as a sphere whose exact center is any one of its hexagons and whose circumference is inaccessible").
+- **Completeness**: Preserve all proper nouns, numbers, colors, dates, and quotes without lossy summarization.
+- Do NOT merge unrelated facts. Each entry must contain exactly ONE atomic fact.
 
-### Episodic Memory Traces:
+### Output Format (strict JSON):
+{
+  "facts": [
+    {
+      "text": "The user had their car serviced for the first time on March 15, 2023.",
+      "synapticTags": ["car-maintenance", "vehicle-service", "first-service"],
+      "valence": 60,
+      "arousal": 25,
+      "interest": 0.5,
+      "challenge": 0.1,
+      "urgency": 0.1
+    }
+  ]
+}
+
+Field definitions:
+- `text`: Complete, self-contained third-person declarative statement.
+- `synapticTags`: 2 to 5 lowercase thematic tags (e.g. ["car-maintenance", "gps-issue", "python-webinar"]).
+- `valence`: Integer -128 to 127. Negative = negative sentiment, 0 = neutral, positive = positive sentiment.
+- `arousal`: Integer 0 to 255. 0 = calm/routine, 100 = moderate, 200+ = high urgency/excitement.
+- `interest`: Float 0.0 to 1.0. How novel or interesting this fact is.
+- `challenge`: Float 0.0 to 1.0. Cognitive complexity or problem-solving involved.
+- `urgency`: Float 0.0 to 1.0. Time sensitivity of this information.
+
+### Conversation Turns:
 {{#each memories}}
 - {{this}}
 {{/each}}
-
-### Distilled Semantic Facts:

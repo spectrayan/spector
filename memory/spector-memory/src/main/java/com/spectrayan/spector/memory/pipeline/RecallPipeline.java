@@ -1087,7 +1087,10 @@ public final class RecallPipeline {
         List<CognitiveResult> results = new ArrayList<>(scored.size());
         for (ScoredRecord sr : scored) {
             // P8: Header already captured during scoring  --  no off-heap re-read
-            results.add(headerToResult(sr, sr.header(), type, partitionSeq));
+            CognitiveResult cr = headerToResult(sr, sr.header(), type, partitionSeq);
+            if (cr.id() != null && !cr.id().startsWith("unknown-") && !cr.text().isBlank()) {
+                results.add(cr);
+            }
         }
         return results;
     }

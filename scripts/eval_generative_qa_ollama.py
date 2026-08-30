@@ -119,6 +119,8 @@ For activity or event questions (e.g. "a 5K charity run", "career fair at a loca
 
 For speculative, hypothetical, or plausible inference questions (e.g. asking what someone "might", "would", "could" do, like, or pursue, or asking for likely degrees, career paths, financial status, or personality traits), if the generated answer provides a plausible deduction that aligns with the core reasoning or subject matter of the gold answer (e.g. inferring political science / public administration for someone entering policymaking, or inferring shelter coordinator / counselor for someone volunteering at a shelter, or characterizing someone as somewhat religious based on a cross necklace), count it as CORRECT even if phrasing or specific synonyms differ.
 
+For unanswerable, negative, or false-premise questions where the gold answer is empty ("") or indicates no evidence/incorrect premise: if the generated answer correctly identifies that there is no mention in memory, or correctly refutes the false premise (e.g. stating that person X did not do action Y, or that another person did it, or clarifying the true entity involved), count it as CORRECT.
+
 Now it's time for the real question:
 Question: {question}
 Gold answer: {gold_answer}
@@ -466,7 +468,7 @@ def main():
             candidates = item.get("candidates", [])
             context_text = format_candidates_context(candidates, args.top_k_context) if candidates else item.get("context_text", "")
             category = item.get("expected_subsystem", item.get("category", "GENERAL"))
-            recall_latency_ms = float(item.get("recall_latency_ms", 0.0))
+            recall_latency_ms = float(item.get("recall_latency_ms", item.get("search_latency_ms", 0.0)))
             context_tokens = max(1, len(context_text) // 4)
 
             if category not in category_stats:

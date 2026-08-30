@@ -173,12 +173,18 @@ public final class SemanticRecallStrategy {
             float decay;
             float rawDecay;
 
+            float similarity;
+            if (sr.score() >= 0.0f && sr.score() <= 1.0f) {
+                similarity = sr.score();
+            } else {
+                similarity = 1.0f / (1.0f + Math.max(0.0f, sr.score()));
+            }
+
             if (pureSimilarity) {
-                finalScore = sr.score();
+                finalScore = similarity;
                 decay = 1.0f;
                 rawDecay = 1.0f;
             } else {
-                float similarity = sr.score();
                 int rawBucket = DecayStrategy.ageToBucket(timestamp, nowMs);
                 int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, agentRecallCount);
                 decay = DecayStrategy.decay(adjusted);
@@ -199,13 +205,13 @@ public final class SemanticRecallStrategy {
 
             ScoreBreakdown breakdown;
             if (pureSimilarity) {
-                breakdown = new ScoreBreakdown(sr.score(), 0f, 1.0f, 1.0f, 1.0f, 1.0f, finalScore);
+                breakdown = new ScoreBreakdown(similarity, 0f, 1.0f, 1.0f, 1.0f, 1.0f, finalScore);
             } else {
                 float importanceDecay = importance * decay;
                 float tagOverlapForBd = SynapticTagEncoder.overlapRatio(recordTags, queryTagMask);
                 float tagBoostFactor = 1.0f + tagOverlapForBd * tagRelevanceBoost;
                 breakdown = new ScoreBreakdown(
-                        sr.score(), importanceDecay, tagBoostFactor,
+                        similarity, importanceDecay, tagBoostFactor,
                         1.0f, 1.0f, 1.0f, finalScore);
             }
 

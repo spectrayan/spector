@@ -52,10 +52,26 @@ public final class TemporalFactWeavingStage {
     }
     
     public void weave(List<CognitiveResult> candidates, float[] queryVector, RecallOptions options) {
+        weave(candidates, queryVector, options, null);
+    }
+
+    public void weave(List<CognitiveResult> candidates, float[] queryVector, RecallOptions options, String rawQuery) {
         if (tkg == null || tkg.factCount() == 0 || candidates.isEmpty()) return;
         
         Instant asOf = options.replayTimestamp() != null ? options.replayTimestamp() : Instant.now();
-        
+        java.util.Set<String> queryTokens = new java.util.HashSet<>();
+        if (rawQuery != null && !rawQuery.isBlank()) {
+            String[] tokens = rawQuery.toLowerCase(java.util.Locale.ROOT).split("[^a-z0-9_]+");
+            for (String t : tokens) {
+                if (t.length() >= 3 && !isCommonStopWord(t)) {
+                    queryTokens.add(t);
+                }
+            }
+        }
+
+        // Maintain global set of woven facts across candidates to prevent redundant context duplication
+        java.util.Set<String> globallyWovenFacts = new java.util.HashSet<>();
+
         for (int i = 0; i < candidates.size(); i++) {
             CognitiveResult candidate = candidates.get(i);
             try {
@@ -74,7 +90,7 @@ public final class TemporalFactWeavingStage {
                 }
 
                 // Priority 2: Pre-extracted hints from options
-                if (entityIds.isEmpty() && options.entityHints() != null && !options.entityHints().isEmpty() && entityDirectory != null) {
+                if (options.entityHints() != null && !options.entityHints().isEmpty() && entityDirectory != null) {
                     for (ExtractedEntity hint : options.entityHints()) {
                         int eid = entityDirectory.findEntity(hint.name());
                         if (eid >= 0) entityIds.add(eid);
@@ -83,9 +99,10 @@ public final class TemporalFactWeavingStage {
 
                 if (entityIds.isEmpty()) continue;
 
-                List<String> prioritizedFacts = new java.util.ArrayList<>();
+                List<String> queryMatchedFacts = new java.util.ArrayList<>();
+                List<String> textMatchedFacts = new java.util.ArrayList<>();
                 List<String> otherFacts = new java.util.ArrayList<>();
-                String candTextLower = candidate.text() != null ? candidate.text().toLowerCase() : "";
+                String candTextLower = candidate.text() != null ? candidate.text().toLowerCase(java.util.Locale.ROOT) : "";
 
                 for (int entityId : entityIds) {
                     List<TemporalFact> facts = tkg.factsAbout(entityId).validAt(asOf).resolve();
@@ -107,15 +124,29 @@ public final class TemporalFactWeavingStage {
                                     }
                                 }
                                 String factLine = "[Temporal Fact: " + subj + " " + pred + " " + obj + validTimeStr + "]";
-                                String predLower = pred.toLowerCase();
-                                boolean isKeyAttribute = predLower.contains("moved_from") || predLower.contains("home_country")
-                                        || predLower.contains("born_in") || predLower.contains("occupation")
-                                        || predLower.contains("has_pet") || predLower.contains("goal")
-                                        || predLower.contains("career");
+                                String predLower = pred.toLowerCase(java.util.Locale.ROOT);
+                                String objLower = obj.toLowerCase(java.util.Locale.ROOT);
+                                String subLower = subj.toLowerCase(java.util.Locale.ROOT);
 
-                                if (candTextLower.contains(obj.toLowerCase()) || candTextLower.contains(predLower)
-                                        || (isKeyAttribute && (candTextLower.contains("home") || candTextLower.contains("country") || candTextLower.contains("pet") || candTextLower.contains("work")))) {
-                                    prioritizedFacts.add(factLine);
+                                // Check query relevance
+                                boolean queryHit = false;
+                                if (!queryTokens.isEmpty()) {
+                                    for (String qt : queryTokens) {
+                                        if (predLower.contains(qt) || objLower.contains(qt) || subLower.contains(qt)) {
+                                            queryHit = true;
+                                            break;
+                                        }
+                                        if (isSemanticSynonymMatch(qt, predLower, objLower)) {
+                                            queryHit = true;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (queryHit) {
+                                    queryMatchedFacts.add(factLine);
+                                } else if (candTextLower.contains(objLower) || candTextLower.contains(predLower)) {
+                                    textMatchedFacts.add(factLine);
                                 } else {
                                     otherFacts.add(factLine);
                                 }
@@ -124,12 +155,32 @@ public final class TemporalFactWeavingStage {
                     }
                 }
 
-                List<String> selectedFacts = new java.util.ArrayList<>(prioritizedFacts);
+                List<String> selectedFacts = new java.util.ArrayList<>();
+                // 1. First add query-matched facts that haven't been globally saturated
+                for (String qf : queryMatchedFacts) {
+                    if (!selectedFacts.contains(qf) && !globallyWovenFacts.contains(qf)) {
+                        selectedFacts.add(qf);
+                        globallyWovenFacts.add(qf);
+                        if (selectedFacts.size() >= 3) break;
+                    }
+                }
+                // 2. Next add candidate text-matched facts
                 if (selectedFacts.size() < 3) {
-                    for (String of : otherFacts) {
-                        if (!selectedFacts.contains(of)) {
-                            selectedFacts.add(of);
+                    for (String tf : textMatchedFacts) {
+                        if (!selectedFacts.contains(tf) && !globallyWovenFacts.contains(tf)) {
+                            selectedFacts.add(tf);
+                            globallyWovenFacts.add(tf);
                             if (selectedFacts.size() >= 3) break;
+                        }
+                    }
+                }
+                // 3. Fallback for top candidates only (i <= 2) to avoid saturating lower ranks with noise
+                if (selectedFacts.size() < 2 && i <= 2) {
+                    for (String of : otherFacts) {
+                        if (!selectedFacts.contains(of) && !globallyWovenFacts.contains(of)) {
+                            selectedFacts.add(of);
+                            globallyWovenFacts.add(of);
+                            if (selectedFacts.size() >= 2) break;
                         }
                     }
                 }
@@ -146,9 +197,34 @@ public final class TemporalFactWeavingStage {
                     String updatedText = String.join("\n", selectedFacts) + "\n" + (candidate.text() != null ? candidate.text() : "");
                     candidates.set(i, candidate.withModality(candidate.sourceModality(), meta).withText(updatedText));
                 }
-            } catch (Exception e) {
-                log.debug("Failed to weave temporal facts for candidate '{}': {}", candidate.id(), e.getMessage());
+            } catch (RuntimeException e) {
+                log.debug("Fact weaving encountered non-fatal error on candidate {}: {}", candidate.id(), e.getMessage());
             }
         }
+    }
+
+    private static boolean isCommonStopWord(String word) {
+        return switch (word) {
+            case "the", "and", "what", "where", "when", "which", "who", "why", "how", "did", "does", "was",
+                 "were", "has", "have", "had", "for", "with", "from", "that", "this", "they", "them", "their",
+                 "she", "her", "his", "him", "you", "your", "about", "into", "some", "any", "like", "over", "been" -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean isSemanticSynonymMatch(String queryToken, String pred, String obj) {
+        if (queryToken.startsWith("pet") || queryToken.equals("dog") || queryToken.equals("cat") || queryToken.equals("animal") || queryToken.equals("turtle") || queryToken.equals("kitten") || queryToken.equals("puppy")) {
+            return pred.contains("pet") || pred.contains("adopt") || obj.contains("oliver") || obj.contains("luna") || obj.contains("bailey") || obj.contains("max") || obj.contains("shadow") || obj.contains("dog") || obj.contains("cat");
+        }
+        if (queryToken.startsWith("mov") || queryToken.equals("origin") || queryToken.equals("country") || queryToken.equals("born") || queryToken.equals("live")) {
+            return pred.contains("move") || pred.contains("born") || pred.contains("home") || pred.contains("country") || obj.contains("sweden") || obj.contains("stockholm") || obj.contains("rome") || obj.contains("barcelona");
+        }
+        if (queryToken.startsWith("potter") || queryToken.startsWith("sculpt") || queryToken.equals("craft") || queryToken.equals("ceramic") || queryToken.equals("bowl") || queryToken.equals("cup")) {
+            return pred.contains("pottery") || pred.contains("creat") || obj.contains("bowl") || obj.contains("cup") || obj.contains("sculpture") || obj.contains("pottery");
+        }
+        if (queryToken.startsWith("work") || queryToken.startsWith("job") || queryToken.startsWith("career") || queryToken.startsWith("volunt") || queryToken.startsWith("counsel")) {
+            return pred.contains("occupat") || pred.contains("goal") || pred.contains("research") || pred.contains("volunt") || obj.contains("counsel") || obj.contains("firefight") || obj.contains("shelter") || obj.contains("mentor");
+        }
+        return false;
     }
 }

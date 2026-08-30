@@ -461,6 +461,15 @@ public final class SpectorPropertyConstants {
     public static final String CONSOLIDATION_SOUL_DRIFT_REFUSION_BATCH_SIZE = "spector.consolidation.soul-drift-refusion.batch-size";
     public static final int DEFAULT_CONSOLIDATION_SOUL_DRIFT_REFUSION_BATCH_SIZE = 100;
 
+    public static final String CONSOLIDATION_REFLECTION_TEMPERATURE = "spector.consolidation.reflection.temperature";
+    public static final float DEFAULT_CONSOLIDATION_REFLECTION_TEMPERATURE = 0.1f;
+
+    public static final String CONSOLIDATION_REFLECTION_MAX_TOKENS = "spector.consolidation.reflection.max-tokens";
+    public static final int DEFAULT_CONSOLIDATION_REFLECTION_MAX_TOKENS = 2048;
+
+    public static final String CONSOLIDATION_REFLECTION_TOP_P = "spector.consolidation.reflection.top-p";
+    public static final float DEFAULT_CONSOLIDATION_REFLECTION_TOP_P = 0.95f;
+
     public static final String MEMORY_REFLECT_MIN_CLUSTER_SIZE = "spector.memory.reflect.min-cluster-size";
     public static final int DEFAULT_MEMORY_REFLECT_MIN_CLUSTER_SIZE = 5;
 

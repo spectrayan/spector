@@ -374,8 +374,10 @@ public abstract class AbstractCognitiveRecordMemory
         if (frozen) throw new SpectorPartitionFrozenException(type().name());
         writeLock.lock();
         try {
-            if (frozen) throw new SpectorPartitionFrozenException(type().name());
-            if (count >= capacity()) throw new com.spectrayan.spector.memory.error.SpectorMemoryTierFullException(type().name(), capacity());
+            long maxCapacity = Math.min(capacity(), (segment().byteSize() - dataOffset()) / layout.stride());
+            if (count >= maxCapacity) {
+                throw new com.spectrayan.spector.memory.error.SpectorMemoryTierFullException(type().name(), (int) maxCapacity);
+            }
             long offset = dataOffset() + (long) count * layout.stride();
             layout.writeHeader(segment(), offset, header);
             if (quantizedVec != null) {

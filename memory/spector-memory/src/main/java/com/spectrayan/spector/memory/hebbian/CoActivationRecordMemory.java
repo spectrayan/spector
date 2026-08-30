@@ -337,20 +337,24 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
     // ══════════════════════════════════════════════════════════════
 
     public void recordCoActivation(String... tags) {
-        if (tags == null || tags.length < 2) return;
+        if (tags == null || tags.length < 2 || pairTable == null) return;
 
-        for (int i = 0; i < tags.length; i++) {
-            for (int j = i + 1; j < tags.length; j++) {
-                long hashA = hashTag(tags[i]);
-                long hashB = hashTag(tags[j]);
-                registerTag(tags[i], hashA);
-                registerTag(tags[j], hashB);
+        try {
+            for (int i = 0; i < tags.length; i++) {
+                for (int j = i + 1; j < tags.length; j++) {
+                    long hashA = hashTag(tags[i]);
+                    long hashB = hashTag(tags[j]);
+                    registerTag(tags[i], hashA);
+                    registerTag(tags[j], hashB);
 
-                long keyA = Math.min(hashA, hashB);
-                long keyB = Math.max(hashA, hashB);
+                    long keyA = Math.min(hashA, hashB);
+                    long keyB = Math.max(hashA, hashB);
 
-                pairTable.increment(keyA, keyB);
+                    pairTable.increment(keyA, keyB);
+                }
             }
+        } catch (IllegalStateException ignored) {
+            // Memory closed concurrently during background async recording
         }
     }
 
@@ -385,24 +389,28 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
 
     public void recordSequentialActivation(String tagBefore, String tagAfter,
                                             long timeBefore, long timeAfter) {
-        if (tagBefore.equals(tagAfter)) return;
+        if (tagBefore == null || tagAfter == null || tagBefore.equals(tagAfter) || edgeTable == null) return;
         if (timeAfter < timeBefore) return;
 
-        long dt = timeAfter - timeBefore;
-        long hashBefore = hashTag(tagBefore);
-        long hashAfter = hashTag(tagAfter);
-        registerTag(tagBefore, hashBefore);
-        registerTag(tagAfter, hashAfter);
+        try {
+            long dt = timeAfter - timeBefore;
+            long hashBefore = hashTag(tagBefore);
+            long hashAfter = hashTag(tagAfter);
+            registerTag(tagBefore, hashBefore);
+            registerTag(tagAfter, hashAfter);
 
-        float dW_causal = A_PLUS * (float) Math.exp(-dt / TAU_PLUS);
-        edgeTable.update(hashBefore, hashAfter, dW_causal, timeAfter);
+            float dW_causal = A_PLUS * (float) Math.exp(-dt / TAU_PLUS);
+            edgeTable.update(hashBefore, hashAfter, dW_causal, timeAfter);
 
-        float dW_anti = -A_MINUS * (float) Math.exp(-dt / TAU_MINUS);
-        edgeTable.update(hashAfter, hashBefore, dW_anti, timeAfter);
+            float dW_anti = -A_MINUS * (float) Math.exp(-dt / TAU_MINUS);
+            edgeTable.update(hashAfter, hashBefore, dW_anti, timeAfter);
 
-        log.trace("STDP: {}→{} Δt={}ms, causal ΔW={}, anti-causal ΔW={}",
-                tagBefore, tagAfter, dt,
-                String.format("%.4f", dW_causal), String.format("%.4f", dW_anti));
+            log.trace("STDP: {}→{} Δt={}ms, causal ΔW={}, anti-causal ΔW={}",
+                    tagBefore, tagAfter, dt,
+                    String.format("%.4f", dW_causal), String.format("%.4f", dW_anti));
+        } catch (IllegalStateException ignored) {
+            // Memory closed concurrently during background async recording
+        }
     }
 
     public void recordSequentialActivations(List<String> orderedTags, List<Long> timestamps) {
@@ -624,6 +632,9 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
         List<CrossCaptureCandidate> candidates = new java.util.ArrayList<>();
         java.util.Set<Integer> seen = new java.util.HashSet<>();
 
+        int uniqueSlots = (int) tagToMemoryIndex.values().stream().flatMap(java.util.List::stream).distinct().count();
+        int corpusN = Math.max(1, uniqueSlots);
+
         for (String queryTag : queryTags) {
             long qHash = hashTag(queryTag);
 
@@ -631,13 +642,15 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
             List<TagNeighbor> neighbors = traverseRelatedTags(qHash, maxTagNeighbors);
 
             for (TagNeighbor neighbor : neighbors) {
-                // ACT-R fan-factor attenuation: 1/√(degree)
+                // ACT-R fan-factor attenuation: 1/√(degree) + Information Theory IDF attenuation
                 var neighborList = tagToMemoryIndex.get(neighbor.tagHash());
                 int degree = neighborList != null ? neighborList.size() : 0;
                 if (degree == 0) continue;
 
+                float idf = (float) Math.log(1.0 + (double) corpusN / (double) (degree + 1));
                 float fanFactor = 1.0f / (float) Math.pow(degree, SpectorPropertyConstants.DEFAULT_MEMORY_CROSS_CAPTURE_FAN_EXPONENT);
-                float baseScore = (float) neighbor.coOccurrenceCount() * fanFactor;
+                float saturatedCoOccurrence = Math.min((float) neighbor.coOccurrenceCount(), 20.0f);
+                float baseScore = saturatedCoOccurrence * fanFactor * idf;
 
                 int[] memorySlots = findMemoriesByTag(neighbor.tagHash(), maxMemoriesPerTag);
                 for (int slot : memorySlots) {

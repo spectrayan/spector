@@ -600,7 +600,10 @@ public final class RecallPathway {
 
         final List<CognitiveResult> results = new ArrayList<>(scored.size());
         for (final ScoredRecord sr : scored) {
-            results.add(headerToResult(sr, sr.header(), type, partitionSeq));
+            final CognitiveResult cr = headerToResult(sr, sr.header(), type, partitionSeq);
+            if (cr.id() != null && !cr.id().startsWith("unknown-") && !cr.text().isBlank()) {
+                results.add(cr);
+            }
         }
         return results;
     }

@@ -196,7 +196,13 @@ public final class GraphExpansionStage {
             float maxDirectSimilarity = 0f;
             for (CognitiveResult r : allResults) {
                 if (r.hasBreakdown()) {
-                    maxDirectSimilarity = Math.max(maxDirectSimilarity, r.breakdown().similarity());
+                    float s = r.breakdown().similarity();
+                    if (s > 1.0f) {
+                        s = 1.0f / (1.0f + s);
+                    }
+                    if (s >= 0.0f && s <= 1.0f) {
+                        maxDirectSimilarity = Math.max(maxDirectSimilarity, s);
+                    }
                 }
             }
             // Resolve threshold: prefer options value, but fall back to policy if options
@@ -380,7 +386,8 @@ public final class GraphExpansionStage {
                 String neighborId = index.idAt(cc.memorySlotIndex());
                 if (neighborId != null && !existingIds.contains(neighborId) && matchesFilters(neighborId, options)) {
                     float neighborSim = computeNeighborSimilarity(neighborId, queryVector);
-                    float graphScore = (neighborSim + cc.score()) * 1.8f;
+                    float saturatedScore = Math.min(cc.score() / 5.0f, 1.0f);
+                    float graphScore = (neighborSim + saturatedScore * 0.4f) * 1.5f;
 
                     MemoryType resolvedType = MemoryType.SEMANTIC;
                     MemoryIndex.MemoryLocation loc = index.locate(neighborId);
@@ -599,6 +606,26 @@ public final class GraphExpansionStage {
                                                             memId, entityScore, null, MemoryType.SEMANTIC, "PREDICATE_BRIDGE", neighborSim);
                                                     graphCandidates.merge(memId, candidate,
                                                             (a, b) -> a.score() >= b.score() ? a : b);
+                                                }
+                                            }
+                                            if (sib.vertices() != null && entityDirectory != null) {
+                                                for (var sibVert : sib.vertices()) {
+                                                    if (sibVert.entityId() >= 0 && sibVert.entityId() != entityId) {
+                                                        int[] directMems = entityDirectory.memoriesForEntity(sibVert.entityId());
+                                                        if (directMems != null) {
+                                                            for (int dm : directMems) {
+                                                                String dMemId = ((com.spectrayan.spector.memory.index.IndexRecordMemory) index).idAt(dm);
+                                                                if (dMemId != null && !existingIds.contains(dMemId) && matchesFilters(dMemId, options)) {
+                                                                    float dSim = computeNeighborSimilarity(dMemId, queryVector);
+                                                                    float dScore = (dSim + allResults.getFirst().score() * 0.45f) * 1.8f;
+                                                                    CognitiveResult dCandidate = buildGraphCandidate(
+                                                                            dMemId, dScore, null, MemoryType.SEMANTIC, "HYPER_SIBLING", dSim);
+                                                                    graphCandidates.merge(dMemId, dCandidate,
+                                                                            (a, b) -> a.score() >= b.score() ? a : b);
+                                                                }
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }

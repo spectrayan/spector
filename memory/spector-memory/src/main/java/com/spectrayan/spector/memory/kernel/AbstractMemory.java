@@ -338,7 +338,13 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
     @Override
     public void flush() {
         if (persistent && segment != null) {
-            segment.force();
+            try {
+                if (segment.scope().isAlive()) {
+                    segment.force();
+                }
+            } catch (Exception e) {
+                log.debug("Error forcing segment during flush: {}", e.getMessage());
+            }
         }
     }
 

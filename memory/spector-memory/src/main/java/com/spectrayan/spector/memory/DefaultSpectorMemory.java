@@ -727,11 +727,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             // 1. Ingest parent chunks (bypass embedding via zero vector)
             float[] dummyVector = new float[this.dimensions];
             for (var chunk : parentChunks) {
-                IngestionContext parentContext = IngestionContext.builder()
-                        .metadata(chunk.metadata())
-                        .build();
+                var parentBuilder = IngestionContext.builder()
+                        .metadata(chunk.metadata());
+                if (context != null && context.overrideTimestampMs() != null) {
+                    parentBuilder.overrideTimestampMs(context.overrideTimestampMs());
+                }
                 rememberPathway.ingestCognitive(chunk.chunkId(), chunk.text(),
-                            dummyVector, type, provenanceTags, source, parentContext);
+                            dummyVector, type, provenanceTags, source, parentBuilder.build());
                 
                 ingestedChunkIds.add(chunk.chunkId());
             }
@@ -765,13 +767,16 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 if (context != null) {
                     var mergedMeta = new java.util.HashMap<>(context.metadata());
                     mergedMeta.putAll(chunk.metadata());
-                    childContext = IngestionContext.builder()
+                    var childBuilder = IngestionContext.builder()
                             .hints(context.hints())
                             .entities(context.entities())
                             .hebbianEdges(context.hebbianEdges())
                             .temporalLinks(context.temporalLinks())
-                            .metadata(mergedMeta)
-                            .build();
+                            .metadata(mergedMeta);
+                    if (context.overrideTimestampMs() != null) {
+                        childBuilder.overrideTimestampMs(context.overrideTimestampMs());
+                    }
+                    childContext = childBuilder.build();
                 } else {
                     childContext = IngestionContext.builder()
                             .hints(hints)
@@ -909,36 +914,35 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public List<CognitiveResult> recall(String queryText, RecallOptions options) {
         acquireLease();
         try {
-            // Auto-profile resolution: use ProfileAdaptor to suggest best profile
-            if (options.autoProfile() && options.profile() == null) {
-                CognitiveProfile suggested = null;
-                if (profileAdaptor != null) {
-                    // Extract context tags from the query text
-                    var tagExtractor = (usePathwayEngine && rememberPathway != null)
-                            ? rememberPathway.tagExtractor()
-                            : rememberPathway.tagExtractor();
-                    String[] tags = tagExtractor != null
-                            ? tagExtractor.extract("query", queryText)
-                            : new String[0];
-                    suggested = profileAdaptor.suggest(tags);
-                }
-                if (suggested == null) {
-                    SalienceProfile sp = salienceProfile();
-                    if (sp != null) {
-                        suggested = sp.defaultProfile();
+            // Auto-profile & query tag resolution: use ProfileAdaptor and TagExtractor
+            if (options.autoProfile()) {
+                var optBuilder = options.toBuilder();
+                var tagExtractor = (usePathwayEngine && rememberPathway != null)
+                        ? rememberPathway.tagExtractor()
+                        : (rememberPathway != null ? rememberPathway.tagExtractor() : null);
+                String[] tags = tagExtractor != null ? tagExtractor.extract("query", queryText) : new String[0];
+
+                if (options.profile() == null) {
+                    CognitiveProfile suggested = null;
+                    if (profileAdaptor != null && tags.length > 0) {
+                        suggested = profileAdaptor.suggest(tags);
                     }
+                    if (suggested == null) {
+                        SalienceProfile sp = salienceProfile();
+                        if (sp != null) {
+                            suggested = sp.defaultProfile();
+                        }
+                    }
+                    if (suggested == null) {
+                        suggested = CognitiveProfile.BALANCED;
+                    }
+                    log.debug("Auto-profile resolved to {} for query '{}'", suggested, queryText);
+                    optBuilder.profile(suggested);
                 }
-                if (suggested == null) {
-                    suggested = CognitiveProfile.BALANCED;
+                if (tags != null && tags.length > 0 && options.synapticTagMask() == 0L) {
+                    optBuilder.synapticFilter(tags);
                 }
-                log.debug("Auto-profile resolved to {} for query '{}'", suggested, queryText);
-                options = RecallOptions.builder()
-                        .topK(options.topK())
-                        .profile(suggested)
-                        .scoringMode(options.scoringMode())
-                        .recallMode(options.recallMode())
-                        .autoProfile(true)
-                        .build();
+                options = optBuilder.build();
             }
             List<CognitiveResult> storeResults = recallPathway.recall(queryText, options);
             String sessionId = MemoryScope.sessionId();

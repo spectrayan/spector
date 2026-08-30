@@ -133,13 +133,7 @@ public class LangChain4jGenerationAdapter implements LlmProvider {
 
     @Override
     public boolean isAvailable() {
-        try {
-            delegate.chat("ping");
-            return true;
-        } catch (Exception e) {
-            log.debug("LangChain4j model availability check failed: {}", e.getMessage());
-            return false;
-        }
+        return delegate != null;
     }
 
     public ChatModel delegate() {
