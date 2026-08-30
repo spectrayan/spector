@@ -1,0 +1,145 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Business Source License 1.1 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://github.com/spectrayan/spector/blob/main/spector-synapse/LICENSE
+ *
+ * Change Date: July 6, 2030
+ * Change License: Apache License, Version 2.0
+ */
+package com.spectrayan.spector.synapse.config;
+
+import java.nio.file.Path;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spectrayan.spector.synapse.catalog.AccountCatalog;
+import com.spectrayan.spector.synapse.catalog.file.FileAccountCatalog;
+
+/**
+ * Auto-configuration for the namespace catalog plane (ADR-0029).
+ *
+ * <p>When {@code spector.auth.enabled=true} (the default for multi-user deployments),
+ * a {@link FileAccountCatalog} bean is created rooted at the configured persistence
+ * path. When auth is disabled, a no-op catalog is provided to satisfy dependency
+ * injection while ensuring no catalog files are written.</p>
+ */
+@Configuration
+public class CatalogAutoConfiguration {
+
+    private static final Logger log = LoggerFactory.getLogger(CatalogAutoConfiguration.class);
+
+    /**
+     * File-backed catalog for authenticated deployments.
+     * Rooted at the same persistence path as the memory data plane.
+     */
+    @Bean
+    @ConditionalOnProperty(name = "spector.auth.enabled", havingValue = "true", matchIfMissing = false)
+    public AccountCatalog fileAccountCatalog(SynapseProperties synapseProps, ObjectMapper objectMapper) {
+        String path = synapseProps.getMemory().getPersistencePath();
+        if (path == null || path.isBlank()) {
+            path = synapseProps.dataDir();
+        }
+        Path basePath = Path.of(path);
+        log.info("[CatalogAutoConfiguration] creating FileAccountCatalog at basePath={}", basePath);
+        return new FileAccountCatalog(basePath, objectMapper);
+    }
+
+    /**
+     * No-op catalog for auth-disabled deployments (single shared bean mode).
+     * All methods throw {@link UnsupportedOperationException} — they should never be
+     * called because {@link com.spectrayan.spector.synapse.memory.MemoryRegistry}
+     * short-circuits to the shared bean when auth is disabled.
+     */
+    @Bean
+    @ConditionalOnProperty(name = "spector.auth.enabled", havingValue = "false", matchIfMissing = true)
+    public AccountCatalog noopAccountCatalog() {
+        log.info("[CatalogAutoConfiguration] auth disabled — using no-op AccountCatalog");
+        return new NoopAccountCatalog();
+    }
+
+    /**
+     * No-op catalog implementation for auth-disabled deployments.
+     * All methods throw — the resolution chain never reaches the catalog when auth is off.
+     */
+    private static final class NoopAccountCatalog implements AccountCatalog {
+
+        private static final String MSG = "AccountCatalog is not available when auth is disabled";
+
+        @Override
+        public com.spectrayan.spector.synapse.catalog.Account getOrCreateAccount(String accountId) {
+            throw new UnsupportedOperationException(MSG);
+        }
+
+        @Override
+        public com.spectrayan.spector.synapse.catalog.Account getAccount(String accountId) {
+            throw new UnsupportedOperationException(MSG);
+        }
+
+        @Override
+        public com.spectrayan.spector.synapse.catalog.NamespaceRecord createNamespace(
+                String accountId, String slug,
+                com.spectrayan.spector.synapse.catalog.NamespaceType type) {
+            throw new UnsupportedOperationException(MSG);
+        }
+
+        @Override
+        public java.util.Optional<com.spectrayan.spector.synapse.catalog.NamespaceRecord> resolve(
+                String accountId, String slugOrId) {
+            return java.util.Optional.empty();
+        }
+
+        @Override
+        public java.util.List<com.spectrayan.spector.synapse.catalog.NamespaceRecord> listAccessible(
+                String accountId) {
+            return java.util.List.of();
+        }
+
+        @Override
+        public void setDefaultNamespace(String accountId, String namespaceId) {
+            throw new UnsupportedOperationException(MSG);
+        }
+
+        @Override
+        public void addGrant(com.spectrayan.spector.synapse.catalog.Grant grant) {
+            throw new UnsupportedOperationException(MSG);
+        }
+
+        @Override
+        public void revokeGrant(String grantId) {
+            throw new UnsupportedOperationException(MSG);
+        }
+
+        @Override
+        public java.util.Optional<com.spectrayan.spector.synapse.catalog.Grant> authorize(
+                String accountId, String namespaceId,
+                com.spectrayan.spector.synapse.catalog.GrantRole minimumRole) {
+            return java.util.Optional.empty();
+        }
+
+        @Override
+        public boolean authorizeIdentity(String accountId, String bundleId,
+                String regionId,
+                com.spectrayan.spector.synapse.catalog.GrantAction action) {
+            return false;
+        }
+
+        @Override
+        public void tombstone(String accountId, String namespaceId) {
+            throw new UnsupportedOperationException(MSG);
+        }
+
+        @Override
+        public void recordAccess(String namespaceId) {
+            // no-op
+        }
+    }
+}

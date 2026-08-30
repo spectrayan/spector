@@ -1,0 +1,457 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Business Source License 1.1 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://github.com/spectrayan/spector/blob/main/spector-synapse/LICENSE
+ *
+ * Change Date: July 6, 2030
+ * Change License: Apache License, Version 2.0
+ */
+package com.spectrayan.spector.synapse.catalog.file;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.synapse.catalog.*;
+import com.spectrayan.spector.synapse.catalog.exception.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.file.*;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+
+/**
+ * File-backed implementation of {@link AccountCatalog} using per-account JSON files
+ * (ADR-0029 §4.2, §19).
+ *
+ * <p>Catalog layout per account:</p>
+ * <pre>
+ * accounts/{shard}/{accountId}/
+ * ├── account.json     # Account record
+ * ├── slugs.json       # Map&lt;slug, namespaceId&gt;
+ * ├── grants.jsonl     # Append-only grant log
+ * └── LOCK             # File lock token
+ * </pre>
+ *
+ * <p>Concurrency: one {@link ReentrantLock} per accountId (JVM) plus an exclusive
+ * {@link FileLock} on the per-account {@code LOCK} file (OS). Reads are lock-free
+ * on a cached snapshot invalidated by mtime.</p>
+ */
+public class FileAccountCatalog implements AccountCatalog {
+
+    private static final Logger log = LoggerFactory.getLogger(FileAccountCatalog.class);
+
+    private static final String FILE_ACCOUNT = "account.json";
+    private static final String FILE_SLUGS = "slugs.json";
+    private static final String FILE_GRANTS = "grants.jsonl";
+    private static final String FILE_LOCK = "LOCK";
+
+    private final Path basePath;
+    private final ObjectMapper objectMapper;
+    private final ConcurrentHashMap<String, ReentrantLock> accountLocks = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, CatalogSnapshot> snapshotCache = new ConcurrentHashMap<>();
+
+    public FileAccountCatalog(Path basePath, ObjectMapper objectMapper) {
+        this.basePath = basePath;
+        this.objectMapper = objectMapper;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Read operations (lock-free on cached snapshot)
+    // ══════════════════════════════════════════════════════════════
+
+    private CatalogSnapshot loadSnapshot(String accountId) {
+        Path accountDir = StorageLayout.accountDir(basePath, accountId);
+        Path accountFile = accountDir.resolve(FILE_ACCOUNT);
+
+        if (!Files.exists(accountFile)) {
+            throw new NamespaceNotFoundException("account:" + accountId);
+        }
+
+        try {
+            long mtime = Files.getLastModifiedTime(accountFile).toMillis();
+            CatalogSnapshot cached = snapshotCache.get(accountId);
+            if (cached != null && cached.mtimeNanos() == mtime) {
+                log.debug("[FileAccountCatalog] snapshot cache hit for account {}", accountId);
+                return cached;
+            }
+
+            Account account = objectMapper.readValue(accountFile.toFile(), Account.class);
+
+            Path slugsFile = accountDir.resolve(FILE_SLUGS);
+            Map<String, String> slugs = new HashMap<>();
+            if (Files.exists(slugsFile)) {
+                slugs = objectMapper.readValue(slugsFile.toFile(),
+                        new TypeReference<Map<String, String>>() {});
+            }
+
+            Path grantsFile = accountDir.resolve(FILE_GRANTS);
+            List<Grant> grants = GrantLog.parseGrants(grantsFile, objectMapper);
+
+            CatalogSnapshot snapshot = new CatalogSnapshot(account, slugs, grants, mtime);
+            snapshotCache.put(accountId, snapshot);
+            return snapshot;
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] failed to load snapshot for account {}", accountId, e);
+            throw new RuntimeException("Failed to load catalog snapshot", e);
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // AccountCatalog SPI implementation
+    // ══════════════════════════════════════════════════════════════
+
+    @Override
+    public Account getOrCreateAccount(String accountId) {
+        Path accountDir = StorageLayout.accountDir(basePath, accountId);
+        Path accountFile = accountDir.resolve(FILE_ACCOUNT);
+
+        // Fast path: account already exists
+        if (Files.exists(accountFile)) {
+            try {
+                return objectMapper.readValue(accountFile.toFile(), Account.class);
+            } catch (IOException e) {
+                log.error("[FileAccountCatalog] failed to read account file: {}", accountFile, e);
+                throw new RuntimeException(e);
+            }
+        }
+
+        // Cold path: create account under lock
+        ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
+        jvmLock.lock();
+        try {
+            // Double-check after acquiring lock
+            if (Files.exists(accountFile)) {
+                return objectMapper.readValue(accountFile.toFile(), Account.class);
+            }
+
+            Files.createDirectories(accountDir);
+            Path lockFile = accountDir.resolve(FILE_LOCK);
+            if (!Files.exists(lockFile)) {
+                Files.createFile(lockFile);
+            }
+
+            try (FileChannel channel = FileChannel.open(lockFile,
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                 FileLock fileLock = channel.lock()) {
+
+                // Create account with HUMAN_SOLO profile defaults
+                Account account = new Account(
+                        accountId,
+                        PrincipalKind.HUMAN,
+                        AccountProfile.HUMAN_SOLO,
+                        null,  // displayName
+                        AccountQuotas.forProfile(AccountProfile.HUMAN_SOLO),
+                        AccountFlags.forProfile(AccountProfile.HUMAN_SOLO),
+                        accountId,  // defaultNamespaceId == accountId (invariant §12)
+                        Instant.now()
+                );
+                atomicWrite(accountFile, account);
+
+                // Write slug map: default → accountId
+                Map<String, String> slugs = Map.of("default", accountId);
+                atomicWrite(accountDir.resolve(FILE_SLUGS), slugs);
+
+                // Write implicit OWNER grant
+                Grant implicitOwner = new Grant(
+                        accountId + "-owner-default",
+                        GrantObjectType.NAMESPACE,
+                        accountId,           // objectId = namespaceId
+                        accountId,           // principalId
+                        PrincipalType.ACCOUNT,
+                        GrantRole.OWNER,
+                        Set.of(GrantAction.READ, GrantAction.WRITE, GrantAction.ADMIN),
+                        accountId,           // grantedBy
+                        Instant.now(),
+                        null,                // expiresAt
+                        null                 // constraints
+                );
+                GrantLog.appendGrant(accountDir.resolve(FILE_GRANTS), implicitOwner, objectMapper);
+
+                log.info("[FileAccountCatalog] created account: {}", accountId);
+                return account;
+            }
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] failed to create account {}", accountId, e);
+            throw new RuntimeException("Failed to create account", e);
+        } finally {
+            jvmLock.unlock();
+        }
+    }
+
+    @Override
+    public Account getAccount(String accountId) {
+        // Phase 1: getAccount delegates to getOrCreateAccount for lazy migration
+        return getOrCreateAccount(accountId);
+    }
+
+    @Override
+    public Optional<NamespaceRecord> resolve(String accountId, String slugOrId) {
+        CatalogSnapshot snapshot;
+        try {
+            snapshot = loadSnapshot(accountId);
+        } catch (NamespaceNotFoundException e) {
+            return Optional.empty();
+        }
+
+        Optional<String> resolvedId = snapshot.resolveSlug(slugOrId);
+        if (resolvedId.isEmpty()) {
+            return Optional.empty();
+        }
+
+        String namespaceId = resolvedId.get();
+        // Find the slug for this namespaceId
+        String slug = snapshot.slugToNamespaceId().entrySet().stream()
+                .filter(e -> e.getValue().equals(namespaceId))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse(slugOrId);
+
+        return Optional.of(new NamespaceRecord(
+                namespaceId,
+                slug,
+                accountId,
+                NamespaceType.DEFAULT,
+                NamespaceStatus.ACTIVE,
+                null,    // displayName
+                null,    // description
+                null,    // bias
+                Instant.now(),
+                Instant.now()
+        ));
+    }
+
+    @Override
+    public Optional<Grant> authorize(String accountId, String namespaceId, GrantRole minimum) {
+        CatalogSnapshot snapshot;
+        try {
+            snapshot = loadSnapshot(accountId);
+        } catch (NamespaceNotFoundException e) {
+            return Optional.empty();
+        }
+        return snapshot.findGrant(accountId, namespaceId, minimum);
+    }
+
+    @Override
+    public NamespaceRecord createNamespace(String accountId, String slug, NamespaceType type) {
+        ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
+        jvmLock.lock();
+        try {
+            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            Path lockFile = accountDir.resolve(FILE_LOCK);
+
+            try (FileChannel channel = FileChannel.open(lockFile,
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                 FileLock fileLock = channel.lock()) {
+
+                Path slugsFile = accountDir.resolve(FILE_SLUGS);
+                Map<String, String> slugs = new HashMap<>();
+                if (Files.exists(slugsFile)) {
+                    slugs = new HashMap<>(objectMapper.readValue(slugsFile.toFile(),
+                            new TypeReference<Map<String, String>>() {}));
+                }
+
+                if (slugs.containsKey(slug)) {
+                    throw new IllegalArgumentException("Slug already exists: " + slug);
+                }
+
+                // Allocate new namespaceId (UUID-based TSID-like 13-char id)
+                String newNamespaceId = UUID.randomUUID().toString()
+                        .replace("-", "").substring(0, 13);
+
+                slugs.put(slug, newNamespaceId);
+                atomicWrite(slugsFile, slugs);
+
+                // Create data-plane directory
+                Path namespaceDir = StorageLayout.namespaceDirSharded(basePath, newNamespaceId);
+                Files.createDirectories(namespaceDir);
+
+                // Write implicit OWNER grant for new namespace
+                Grant implicitOwner = new Grant(
+                        newNamespaceId + "-owner",
+                        GrantObjectType.NAMESPACE,
+                        newNamespaceId,
+                        accountId,
+                        PrincipalType.ACCOUNT,
+                        GrantRole.OWNER,
+                        Set.of(GrantAction.READ, GrantAction.WRITE, GrantAction.ADMIN),
+                        accountId,
+                        Instant.now(),
+                        null,
+                        null
+                );
+                GrantLog.appendGrant(accountDir.resolve(FILE_GRANTS), implicitOwner, objectMapper);
+
+                // Invalidate snapshot cache
+                snapshotCache.remove(accountId);
+
+                Instant now = Instant.now();
+                log.info("[FileAccountCatalog] created namespace: {} (slug={}) for account {}",
+                        newNamespaceId, slug, accountId);
+                return new NamespaceRecord(
+                        newNamespaceId, slug, accountId, type, NamespaceStatus.ACTIVE,
+                        null, null, null, now, now
+                );
+            }
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] failed to create namespace {} for account {}",
+                    slug, accountId, e);
+            throw new RuntimeException("Failed to create namespace", e);
+        } finally {
+            jvmLock.unlock();
+        }
+    }
+
+    @Override
+    public List<NamespaceRecord> listAccessible(String accountId) {
+        CatalogSnapshot snapshot;
+        try {
+            snapshot = loadSnapshot(accountId);
+        } catch (NamespaceNotFoundException e) {
+            return List.of();
+        }
+        return snapshot.accessibleNamespaces(accountId);
+    }
+
+    @Override
+    public void setDefaultNamespace(String accountId, String namespaceId) {
+        ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
+        jvmLock.lock();
+        try {
+            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            Path lockFile = accountDir.resolve(FILE_LOCK);
+            Path accountFile = accountDir.resolve(FILE_ACCOUNT);
+
+            try (FileChannel channel = FileChannel.open(lockFile,
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                 FileLock fileLock = channel.lock()) {
+
+                Account account = objectMapper.readValue(accountFile.toFile(), Account.class);
+                Account updated = new Account(
+                        account.id(),
+                        account.kind(),
+                        account.profile(),
+                        account.displayName(),
+                        account.quotas(),
+                        account.flags(),
+                        namespaceId,
+                        account.createdAt()
+                );
+                atomicWrite(accountFile, updated);
+                snapshotCache.remove(accountId);
+            }
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] failed to set default namespace for account {}",
+                    accountId, e);
+            throw new RuntimeException("Failed to set default namespace", e);
+        } finally {
+            jvmLock.unlock();
+        }
+    }
+
+    @Override
+    public void addGrant(Grant grant) {
+        String ownerAccountId = grant.grantedBy();
+        ReentrantLock jvmLock = accountLocks.computeIfAbsent(ownerAccountId, k -> new ReentrantLock());
+        jvmLock.lock();
+        try {
+            Path accountDir = StorageLayout.accountDir(basePath, ownerAccountId);
+            Path lockFile = accountDir.resolve(FILE_LOCK);
+
+            try (FileChannel channel = FileChannel.open(lockFile,
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                 FileLock fileLock = channel.lock()) {
+
+                GrantLog.appendGrant(accountDir.resolve(FILE_GRANTS), grant, objectMapper);
+                snapshotCache.remove(ownerAccountId);
+            }
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] failed to add grant {}", grant.grantId(), e);
+            throw new RuntimeException("Failed to add grant", e);
+        } finally {
+            jvmLock.unlock();
+        }
+    }
+
+    @Override
+    public void revokeGrant(String grantId) {
+        // Phase 5: full revoke implementation. For now, log and no-op.
+        log.warn("[FileAccountCatalog] revokeGrant not implemented in Phase 1: {}", grantId);
+    }
+
+    @Override
+    public boolean authorizeIdentity(String accountId, String bundleId,
+            String regionId, GrantAction action) {
+        // Phase 6: identity authorization via PEP/PDP
+        return false;
+    }
+
+    @Override
+    public void tombstone(String accountId, String namespaceId) {
+        ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
+        jvmLock.lock();
+        try {
+            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            Path lockFile = accountDir.resolve(FILE_LOCK);
+
+            try (FileChannel channel = FileChannel.open(lockFile,
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                 FileLock fileLock = channel.lock()) {
+
+                Path slugsFile = accountDir.resolve(FILE_SLUGS);
+                if (Files.exists(slugsFile)) {
+                    Map<String, String> slugs = new HashMap<>(objectMapper.readValue(
+                            slugsFile.toFile(),
+                            new TypeReference<Map<String, String>>() {}));
+                    String slugToRemove = null;
+                    for (Map.Entry<String, String> entry : slugs.entrySet()) {
+                        if (entry.getValue().equals(namespaceId)) {
+                            slugToRemove = entry.getKey();
+                            break;
+                        }
+                    }
+                    if (slugToRemove != null) {
+                        if ("default".equals(slugToRemove)) {
+                            throw new DefaultNamespaceProtectedException(namespaceId);
+                        }
+                        slugs.remove(slugToRemove);
+                        atomicWrite(slugsFile, slugs);
+                        snapshotCache.remove(accountId);
+                    }
+                }
+            }
+        } catch (DefaultNamespaceProtectedException e) {
+            throw e;
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] failed to tombstone namespace {} for account {}",
+                    namespaceId, accountId, e);
+            throw new RuntimeException("Failed to tombstone namespace", e);
+        } finally {
+            jvmLock.unlock();
+        }
+    }
+
+    @Override
+    public void recordAccess(String namespaceId) {
+        // Phase 3: update lastAccessedAt in the catalog record
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Internal helpers
+    // ══════════════════════════════════════════════════════════════
+
+    private void atomicWrite(Path target, Object data) throws IOException {
+        Path temp = target.resolveSibling(target.getFileName() + ".tmp");
+        objectMapper.writeValue(temp.toFile(), data);
+        Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    }
+}
