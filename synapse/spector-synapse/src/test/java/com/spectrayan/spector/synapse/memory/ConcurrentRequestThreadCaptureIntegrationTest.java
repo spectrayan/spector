@@ -57,7 +57,7 @@ import com.spectrayan.spector.synapse.platform.events.EventPublisher;
  * Integration test for <strong>request-thread capture of asynchronous writes</strong> (Requirement 10).
  *
  * <p>Exercises the full {@link MemoryService#remember(RememberRequest)} write path wired to a real
- * {@link UserMemoryRegistry} (auth enabled). It proves that when two authenticated users issue
+ * {@link MemoryRegistry} (auth enabled). It proves that when two authenticated users issue
  * concurrent writes, each async write is directed to the {@link SpectorMemory} instance resolved for
  * that write's originating {@code userId} — never another user's instance (Req 10.4) — and that the
  * target instance is captured on the request thread <em>before</em> the async task runs, so the async
@@ -68,9 +68,9 @@ import com.spectrayan.spector.synapse.platform.events.EventPublisher;
  * native access, embedder/LLM providers) is heavyweight and flaky, and does not add signal for the
  * property under test — which is purely about <em>which</em> instance each write is routed to and
  * <em>on which thread</em> that instance is resolved. This test therefore uses a genuine
- * {@code UserMemoryRegistry} whose per-user cache is pre-seeded with two distinct Mockito
+ * {@code MemoryRegistry} whose per-user cache is pre-seeded with two distinct Mockito
  * {@link SpectorMemory} mocks (one per user) injected via reflection — mirroring the approach in
- * {@code UserMemoryRegistryTest} — and a mocked {@link MemoryAccessObject} so the resolved instance
+ * {@code MemoryRegistryTest} — and a mocked {@link MemoryAccessObject} so the resolved instance
  * passed into the async {@code mao.remember(...)} call can be captured and verified deterministically.
  * The registry's own real resolution/caching logic (reading {@code SecurityContextHolder} on the
  * calling thread and keying strictly off the authenticated {@code userId}) runs unmocked.</p>
@@ -109,7 +109,7 @@ class ConcurrentRequestThreadCaptureIntegrationTest {
         when(mao.remember(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(inv -> inv.getArgument(1));
 
-        UserMemoryRegistry registry = buildRegistry(true);
+        MemoryRegistry registry = buildRegistry(true);
         SpectorMemory memA = mock(SpectorMemory.class);
         SpectorMemory memB = mock(SpectorMemory.class);
         injectHandle(registry, USER_A, memA);
@@ -168,7 +168,7 @@ class ConcurrentRequestThreadCaptureIntegrationTest {
             return inv.getArgument(1);
         });
 
-        UserMemoryRegistry registry = buildRegistry(true);
+        MemoryRegistry registry = buildRegistry(true);
         SpectorMemory memA = mock(SpectorMemory.class);
         injectHandle(registry, USER_A, memA);
         MemoryService service = newService(mao, registry);
@@ -205,7 +205,7 @@ class ConcurrentRequestThreadCaptureIntegrationTest {
         };
     }
 
-    private MemoryService newService(MemoryAccessObject mao, UserMemoryRegistry registry) {
+    private MemoryService newService(MemoryAccessObject mao, MemoryRegistry registry) {
         EventPublisher eventPublisher = mock(EventPublisher.class);
         return new MemoryService(mao, eventPublisher, new TsidGenerator(), null, null, registry);
     }
@@ -214,7 +214,7 @@ class ConcurrentRequestThreadCaptureIntegrationTest {
         return new RememberRequest(id, text, null, null, null, null, null, null, null, null);
     }
 
-    private UserMemoryRegistry buildRegistry(boolean authEnabled) {
+    private MemoryRegistry buildRegistry(boolean authEnabled) {
         ObjectProvider<SpectorMemory> sharedProvider = mockProvider();
         when(sharedProvider.getIfAvailable()).thenReturn(mock(SpectorMemory.class));
         ObjectProvider<EmbeddingProvider> embedderProvider = mockProvider();
@@ -223,7 +223,7 @@ class ConcurrentRequestThreadCaptureIntegrationTest {
         ObjectProvider<ObjectMapper> objectMapperProvider = mockProvider();
         when(objectMapperProvider.getIfAvailable()).thenReturn(new ObjectMapper());
 
-        return new UserMemoryRegistry(
+        return new MemoryRegistry(
                 sharedProvider,
                 synapseProps(authEnabled),
                 embedderProvider,
@@ -253,19 +253,22 @@ class ConcurrentRequestThreadCaptureIntegrationTest {
         return mock(ObjectProvider.class);
     }
 
-    // --- reflection into the registry's private cache / handle (mirrors UserMemoryRegistryTest) ---
+    // --- reflection into the registry's private cache / handle (mirrors MemoryRegistryTest) ---
 
     @SuppressWarnings("unchecked")
-    private static ConcurrentHashMap<String, Object> cacheOf(UserMemoryRegistry registry) throws Exception {
-        Field field = UserMemoryRegistry.class.getDeclaredField("cache");
+    private static ConcurrentHashMap<String, Object> cacheOf(MemoryRegistry registry) throws Exception {
+        Field resolverField = MemoryRegistry.class.getDeclaredField("resolver");
+        resolverField.setAccessible(true);
+        Object resolver = resolverField.get(registry);
+        Field field = resolver.getClass().getDeclaredField("cache");
         field.setAccessible(true);
-        return (ConcurrentHashMap<String, Object>) field.get(registry);
+        return (ConcurrentHashMap<String, Object>) field.get(resolver);
     }
 
-    private static void injectHandle(UserMemoryRegistry registry, String userId,
+    private static void injectHandle(MemoryRegistry registry, String userId,
                                      SpectorMemory memory) throws Exception {
         Class<?> handleClass = Class.forName(
-                "com.spectrayan.spector.synapse.memory.UserMemoryRegistry$MemoryHandle");
+                "com.spectrayan.spector.synapse.memory.NamespaceResolver$MemoryHandle");
         Constructor<?> ctor = handleClass.getDeclaredConstructor(SpectorMemory.class);
         ctor.setAccessible(true);
         Object handle = ctor.newInstance(memory);

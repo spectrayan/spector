@@ -44,14 +44,14 @@ import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.spring.autoconfigure.SpectorConfigProperties;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.memory.UserMemoryRegistry;
+import com.spectrayan.spector.synapse.memory.MemoryRegistry;
 
 /**
  * Integration test for <strong>MCP tool isolation</strong> (Requirement 11).
  *
  * <p>Exercises the exact request-thread binding seam that {@code McpServerConfig}'s tool lambda and
  * {@code McpController#callTool} use to route an MCP tool invocation to the caller's per-user
- * memory: {@link McpRequestMemory#bindForCurrentRequest(UserMemoryRegistry, boolean)} followed by
+ * memory: {@link McpRequestMemory#bindForCurrentRequest(MemoryRegistry, boolean)} followed by
  * {@link McpRequestMemory#current()} and {@link McpRequestMemory#clear()}. It proves that:</p>
  * <ul>
  *   <li>an authenticated {@code /mcp} call binds the memory instance rooted at the caller's own
@@ -70,9 +70,9 @@ import com.spectrayan.spector.synapse.memory.UserMemoryRegistry;
  * and native access) is heavyweight, flaky, and adds no signal for the property under test — which
  * is purely about <em>which</em> memory instance the invocation is bound to <em>on the request
  * thread</em>, and how deny paths fail closed. This test therefore drives the genuine
- * {@link McpRequestMemory} binding logic against a real {@link UserMemoryRegistry} whose per-user
+ * {@link McpRequestMemory} binding logic against a real {@link MemoryRegistry} whose per-user
  * cache is pre-seeded with distinct Mockito {@link SpectorMemory} mocks (one per user) injected via
- * reflection — mirroring {@code UserMemoryRegistryTest} and
+ * reflection — mirroring {@code MemoryRegistryTest} and
  * {@code ConcurrentRequestThreadCaptureIntegrationTest}. The registry's own real resolution logic
  * (reading {@code SecurityContextHolder} on the calling thread and keying strictly off the
  * authenticated {@code userId}) runs unmocked, and the deny paths drive the genuine fail-closed
@@ -104,7 +104,7 @@ class McpToolIsolationIntegrationTest {
     @Test
     @DisplayName("authenticated /mcp call binds the caller's own per-user memory instance")
     void authenticatedCall_bindsCallersOwnInstance() throws Exception {
-        UserMemoryRegistry registry = buildRegistry(true);
+        MemoryRegistry registry = buildRegistry(true);
         SpectorMemory memA = mock(SpectorMemory.class);
         injectHandle(registry, USER_A, memA);
 
@@ -131,7 +131,7 @@ class McpToolIsolationIntegrationTest {
     @Test
     @DisplayName("two authenticated users invoking concurrently each bind their own instance, never crossing")
     void concurrentAuthenticatedCalls_neverCross() throws Exception {
-        UserMemoryRegistry registry = buildRegistry(true);
+        MemoryRegistry registry = buildRegistry(true);
         SpectorMemory memA = mock(SpectorMemory.class);
         SpectorMemory memB = mock(SpectorMemory.class);
         injectHandle(registry, USER_A, memA);
@@ -168,7 +168,7 @@ class McpToolIsolationIntegrationTest {
     @Test
     @DisplayName("unauthenticated /mcp call while auth enabled → auth-required deny, nothing bound, no fallback")
     void unauthenticatedCall_authEnabled_deniedAuthRequired_noFallback() throws Exception {
-        UserMemoryRegistry registry = buildRegistry(true);
+        MemoryRegistry registry = buildRegistry(true);
         SpectorMemory shared = sharedInstanceOf(registry);
         // No Authentication bound → SecurityUtils resolves anonymous/"default".
 
@@ -187,7 +187,7 @@ class McpToolIsolationIntegrationTest {
     @Test
     @DisplayName("anonymous token while auth enabled → auth-required deny, nothing bound")
     void anonymousToken_authEnabled_deniedAuthRequired() throws Exception {
-        UserMemoryRegistry registry = buildRegistry(true);
+        MemoryRegistry registry = buildRegistry(true);
         bind(new AnonymousAuthenticationToken(
                 "key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS")));
 
@@ -207,7 +207,7 @@ class McpToolIsolationIntegrationTest {
     void authenticatedCall_resolutionFails_deniedResolutionFailed_noFallback() throws Exception {
         // Auth enabled, no EmbeddingProvider → buildInstance throws for a not-yet-cached user, so
         // resolveForCurrentRequest fails and bindForCurrentRequest denies with RESOLUTION_FAILED.
-        UserMemoryRegistry registry = buildRegistry(true);
+        MemoryRegistry registry = buildRegistry(true);
         SpectorMemory shared = sharedInstanceOf(registry);
         bind(authenticated(USER_A, "SCOPE_memory:read"));
 
@@ -232,7 +232,7 @@ class McpToolIsolationIntegrationTest {
     @Test
     @DisplayName("stdio invocation (no security context, auth disabled) → routes to the single shared memory")
     void stdioInvocation_authDisabled_routesToSharedMemory() throws Exception {
-        UserMemoryRegistry registry = buildRegistry(false);
+        MemoryRegistry registry = buildRegistry(false);
         SpectorMemory shared = sharedInstanceOf(registry);
         // No security context bound — mirrors the stdio transport path (auth disabled).
 
@@ -249,7 +249,7 @@ class McpToolIsolationIntegrationTest {
     // Helpers
     // ══════════════════════════════════════════════════════════════
 
-    private static Runnable invokeAsUser(String userId, UserMemoryRegistry registry,
+    private static Runnable invokeAsUser(String userId, MemoryRegistry registry,
                                          CyclicBarrier startLine, AtomicReference<Throwable> failure,
                                          AtomicReference<SpectorMemory> boundInstance) {
         return () -> {
@@ -271,7 +271,7 @@ class McpToolIsolationIntegrationTest {
         };
     }
 
-    private UserMemoryRegistry buildRegistry(boolean authEnabled) {
+    private MemoryRegistry buildRegistry(boolean authEnabled) {
         ObjectProvider<SpectorMemory> sharedProvider = mockProvider();
         when(sharedProvider.getIfAvailable()).thenReturn(mock(SpectorMemory.class));
         ObjectProvider<EmbeddingProvider> embedderProvider = mockProvider();
@@ -281,7 +281,7 @@ class McpToolIsolationIntegrationTest {
         ObjectProvider<ObjectMapper> objectMapperProvider = mockProvider();
         when(objectMapperProvider.getIfAvailable()).thenReturn(new ObjectMapper());
 
-        return new UserMemoryRegistry(
+        return new MemoryRegistry(
                 sharedProvider,
                 synapseProps(authEnabled),
                 embedderProvider,
@@ -314,8 +314,8 @@ class McpToolIsolationIntegrationTest {
     // --- reflection into the registry's private cache / handle / shared provider ------------------
 
     /** Reads the shared instance the registry hands out for anonymous/disabled resolution. */
-    private static SpectorMemory sharedInstanceOf(UserMemoryRegistry registry) throws Exception {
-        Field field = UserMemoryRegistry.class.getDeclaredField("sharedProvider");
+    private static SpectorMemory sharedInstanceOf(MemoryRegistry registry) throws Exception {
+        Field field = MemoryRegistry.class.getDeclaredField("sharedProvider");
         field.setAccessible(true);
         @SuppressWarnings("unchecked")
         ObjectProvider<SpectorMemory> provider = (ObjectProvider<SpectorMemory>) field.get(registry);
@@ -323,16 +323,19 @@ class McpToolIsolationIntegrationTest {
     }
 
     @SuppressWarnings("unchecked")
-    private static ConcurrentHashMap<String, Object> cacheOf(UserMemoryRegistry registry) throws Exception {
-        Field field = UserMemoryRegistry.class.getDeclaredField("cache");
+    private static ConcurrentHashMap<String, Object> cacheOf(MemoryRegistry registry) throws Exception {
+        Field resolverField = MemoryRegistry.class.getDeclaredField("resolver");
+        resolverField.setAccessible(true);
+        Object resolver = resolverField.get(registry);
+        Field field = resolver.getClass().getDeclaredField("cache");
         field.setAccessible(true);
-        return (ConcurrentHashMap<String, Object>) field.get(registry);
+        return (ConcurrentHashMap<String, Object>) field.get(resolver);
     }
 
-    private static void injectHandle(UserMemoryRegistry registry, String userId,
+    private static void injectHandle(MemoryRegistry registry, String userId,
                                      SpectorMemory memory) throws Exception {
         Class<?> handleClass = Class.forName(
-                "com.spectrayan.spector.synapse.memory.UserMemoryRegistry$MemoryHandle");
+                "com.spectrayan.spector.synapse.memory.NamespaceResolver$MemoryHandle");
         Constructor<?> ctor = handleClass.getDeclaredConstructor(SpectorMemory.class);
         ctor.setAccessible(true);
         Object handle = ctor.newInstance(memory);

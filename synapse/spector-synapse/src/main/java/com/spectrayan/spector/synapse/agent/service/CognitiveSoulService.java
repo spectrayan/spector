@@ -21,7 +21,7 @@ import com.spectrayan.spector.memory.model.UserSoul;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.synapse.config.SynapseSalienceProvider;
-import com.spectrayan.spector.synapse.memory.UserMemoryRegistry;
+import com.spectrayan.spector.synapse.memory.MemoryRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -61,12 +61,12 @@ public class CognitiveSoulService {
             .updatedAt(java.time.Instant.now())
             .build();
 
-    private final UserMemoryRegistry userMemoryRegistry;
+    private final MemoryRegistry userMemoryRegistry;
     private final ObjectMapper mapper;
     private final SynapseSalienceProvider salienceProvider;
     private final SynapseProperties synapseProps;
 
-    public CognitiveSoulService(UserMemoryRegistry userMemoryRegistry,
+    public CognitiveSoulService(MemoryRegistry userMemoryRegistry,
                                 ObjectMapper mapper,
                                 SynapseSalienceProvider salienceProvider,
                                 SynapseProperties synapseProps) {

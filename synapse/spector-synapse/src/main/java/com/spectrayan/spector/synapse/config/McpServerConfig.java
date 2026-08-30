@@ -25,7 +25,7 @@ import org.springframework.context.annotation.Configuration;
 
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
 import com.spectrayan.spector.synapse.mcp.McpRequestMemory;
-import com.spectrayan.spector.synapse.memory.UserMemoryRegistry;
+import com.spectrayan.spector.synapse.memory.MemoryRegistry;
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
 import com.spectrayan.spector.mcp.tools.SpectorToolRegistry;
 import com.spectrayan.spector.memory.SpectorMemory;
@@ -97,7 +97,7 @@ public class McpServerConfig {
     @Bean
     public McpStatelessSyncServer mcpStatelessServer(HttpServletStatelessServerTransport transport,
                                                       ToolRegistry toolRegistry,
-                                                      UserMemoryRegistry userMemoryRegistry,
+                                                      MemoryRegistry userMemoryRegistry,
                                                       SynapseProperties synapseProperties) {
         boolean authEnabled = synapseProperties.auth().enabled();
         List<McpStatelessServerFeatures.SyncToolSpecification> toolSpecs =
@@ -141,7 +141,7 @@ public class McpServerConfig {
     @Bean
     public McpSyncServer mcpSseServer(HttpServletSseServerTransportProvider transportProvider,
                                       ToolRegistry toolRegistry,
-                                      UserMemoryRegistry userMemoryRegistry,
+                                      MemoryRegistry userMemoryRegistry,
                                       SynapseProperties synapseProperties) {
         boolean authEnabled = synapseProperties.auth().enabled();
         List<McpServerFeatures.SyncToolSpecification> toolSpecs =
@@ -184,7 +184,7 @@ public class McpServerConfig {
     @Bean
     public McpSyncServer mcpStreamableServer(HttpServletStreamableServerTransportProvider transportProvider,
                                              ToolRegistry toolRegistry,
-                                             UserMemoryRegistry userMemoryRegistry,
+                                             MemoryRegistry userMemoryRegistry,
                                              SynapseProperties synapseProperties) {
         boolean authEnabled = synapseProperties.auth().enabled();
         List<McpServerFeatures.SyncToolSpecification> toolSpecs =
@@ -206,7 +206,7 @@ public class McpServerConfig {
     // ─────────────────────────────────────────────────────────────
 
     private static List<McpStatelessServerFeatures.SyncToolSpecification> buildStatelessToolSpecs(
-            ToolRegistry toolRegistry, UserMemoryRegistry userMemoryRegistry, boolean authEnabled) {
+            ToolRegistry toolRegistry, MemoryRegistry userMemoryRegistry, boolean authEnabled) {
         return toolRegistry.all().values().stream()
                 .map(mcpTool -> {
                     var tool = McpSchema.Tool.builder(mcpTool.name())
@@ -234,7 +234,7 @@ public class McpServerConfig {
     }
 
     private static List<McpServerFeatures.SyncToolSpecification> buildSyncToolSpecs(
-            ToolRegistry toolRegistry, UserMemoryRegistry userMemoryRegistry, boolean authEnabled) {
+            ToolRegistry toolRegistry, MemoryRegistry userMemoryRegistry, boolean authEnabled) {
         return toolRegistry.all().values().stream()
                 .map(mcpTool -> {
                     var tool = McpSchema.Tool.builder(mcpTool.name())

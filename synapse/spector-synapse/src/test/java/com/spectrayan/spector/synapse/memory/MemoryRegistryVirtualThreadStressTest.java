@@ -39,8 +39,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-@DisplayName("UserMemoryRegistryVirtualThreadStressTest")
-class UserMemoryRegistryVirtualThreadStressTest {
+@DisplayName("MemoryRegistryVirtualThreadStressTest")
+class MemoryRegistryVirtualThreadStressTest {
 
     @TempDir
     Path tempDir;
@@ -76,7 +76,7 @@ class UserMemoryRegistryVirtualThreadStressTest {
         synapseProps.auth().setEnabled(true);
         synapseProps.getMemory().setPersistencePath(tempDir.toString());
 
-        UserMemoryRegistry registry = new UserMemoryRegistry(
+        MemoryRegistry registry = new MemoryRegistry(
                 sharedProvider, synapseProps, embedderProvider, textGenProvider,
                 salienceProvider, objectMapperProvider, 100
         );
@@ -125,7 +125,7 @@ class UserMemoryRegistryVirtualThreadStressTest {
         synapseProps.auth().setEnabled(true);
         synapseProps.getMemory().setPersistencePath(tempDir.toString());
 
-        UserMemoryRegistry registry = new UserMemoryRegistry(
+        MemoryRegistry registry = new MemoryRegistry(
                 sharedProvider, synapseProps, embedderProvider, textGenProvider,
                 salienceProvider, objectMapperProvider, maxCap
         );
@@ -163,14 +163,17 @@ class UserMemoryRegistryVirtualThreadStressTest {
     }
 
     @SuppressWarnings("unchecked")
-    private void injectMockIntoCache(UserMemoryRegistry registry, String userId, SpectorMemory mockMemory) {
+    private void injectMockIntoCache(MemoryRegistry registry, String userId, SpectorMemory mockMemory) {
         try {
-            Field cacheField = UserMemoryRegistry.class.getDeclaredField("cache");
+            Field resolverField = MemoryRegistry.class.getDeclaredField("resolver");
+            resolverField.setAccessible(true);
+            Object resolver = resolverField.get(registry);
+            Field cacheField = resolver.getClass().getDeclaredField("cache");
             cacheField.setAccessible(true);
-            Map<String, Object> map = (Map<String, Object>) cacheField.get(registry);
+            Map<String, Object> map = (Map<String, Object>) cacheField.get(resolver);
 
             // Construct the private MemoryHandle
-            Class<?> entryClass = Class.forName("com.spectrayan.spector.synapse.memory.UserMemoryRegistry$MemoryHandle");
+            Class<?> entryClass = Class.forName("com.spectrayan.spector.synapse.memory.NamespaceResolver$MemoryHandle");
             var constructor = entryClass.getDeclaredConstructor(SpectorMemory.class);
             constructor.setAccessible(true);
             Object entry = constructor.newInstance(mockMemory);

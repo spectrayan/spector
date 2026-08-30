@@ -27,7 +27,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
 import com.spectrayan.spector.synapse.config.McpServerConfig;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.memory.UserMemoryRegistry;
+import com.spectrayan.spector.synapse.memory.MemoryRegistry;
 import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
 
@@ -108,7 +108,7 @@ class McpMultiTransportIntegrationTest {
         McpJsonMapper jsonMapper = config.mcpJsonMapper();
 
         ToolRegistry toolRegistry = mock(ToolRegistry.class);
-        UserMemoryRegistry userMemoryRegistry = mock(UserMemoryRegistry.class);
+        MemoryRegistry userMemoryRegistry = mock(MemoryRegistry.class);
         SynapseProperties synapseProperties = mock(SynapseProperties.class);
         AuthProperties authProperties = mock(AuthProperties.class);
 

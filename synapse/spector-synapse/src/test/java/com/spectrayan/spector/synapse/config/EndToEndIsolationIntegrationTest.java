@@ -71,7 +71,7 @@ import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.config.properties.AuthProperties.DefaultAdminProperties;
 import com.spectrayan.spector.config.properties.AuthProperties.JwtProperties;
 import com.spectrayan.spector.config.properties.AuthProperties.OidcProperties;
-import com.spectrayan.spector.synapse.memory.UserMemoryRegistry;
+import com.spectrayan.spector.synapse.memory.MemoryRegistry;
 import com.spectrayan.spector.synapse.security.UserAccountStore;
 import com.sun.net.httpserver.HttpServer;
 
@@ -89,15 +89,15 @@ import com.sun.net.httpserver.HttpServer;
  *   <li><b>Per-user memory isolation (Reqs 8.2, 9.2)</b> — asserted at the
  *       <em>routing + path</em> layer. Standing up two live {@link SpectorMemory} engines (off-heap
  *       storage, native access, an embedding provider) and performing a real write/recall is
- *       heavyweight and flaky in a unit/integration harness, and {@code UserMemoryRegistry} is a
+ *       heavyweight and flaky in a unit/integration harness, and {@code MemoryRegistry} is a
  *       {@code final} class whose per-user instances are built by a private heavyweight builder.
  *       Instead we assert the two properties that <em>guarantee</em> "write as A → recall as B
  *       returns nothing": (1) {@link StorageLayout#namespaceDirSharded(Path, String)} resolves two
  *       distinct, non-overlapping directories for two distinct users so their on-disk state can
- *       never coincide, and (2) {@link UserMemoryRegistry} returns a distinct cached instance per
+ *       never coincide, and (2) {@link MemoryRegistry} returns a distinct cached instance per
  *       authenticated principal and never crosses — so a write routed through A's instance is
  *       physically unreachable through B's instance. Mocks are injected into the registry's private
- *       cache via reflection exactly as in {@code UserMemoryRegistryTest}.</li>
+ *       cache via reflection exactly as in {@code MemoryRegistryTest}.</li>
  *   <li><b>External OIDC (Reqs 4.1, 4.4)</b> — asserted end-to-end against the production
  *       {@code JwtDecoderConfig.oidcJwtDecoder} using an in-process {@link HttpServer} serving a
  *       real in-memory RSA JWKS (the same harness pattern as {@code JwtDecoderConfigTest}). A token
@@ -176,7 +176,7 @@ class EndToEndIsolationIntegrationTest {
         @Test
         @DisplayName("Req 9.2: writing as A then recalling as B cannot cross — each principal routes to its own instance")
         void writeAsARecallAsBReturnsNothing() throws Exception {
-            UserMemoryRegistry registry = buildRegistry(true, 512);
+            MemoryRegistry registry = buildRegistry(true, 512);
             // Two physically distinct per-user instances rooted at the two distinct sharded dirs.
             SpectorMemory memA = mock(SpectorMemory.class);
             SpectorMemory memB = mock(SpectorMemory.class);
@@ -203,9 +203,9 @@ class EndToEndIsolationIntegrationTest {
             assertThat(registry.cachedInstanceCount()).isEqualTo(2);
         }
 
-        private UserMemoryRegistry buildRegistry(boolean authEnabled, int maxInstances) {
+        private MemoryRegistry buildRegistry(boolean authEnabled, int maxInstances) {
             when(embedderProvider.getIfAvailable()).thenReturn(null);
-            return new UserMemoryRegistry(
+            return new MemoryRegistry(
                     sharedProvider,
                     synapseProps(authEnabled),
                     embedderProvider,
@@ -480,19 +480,22 @@ class EndToEndIsolationIntegrationTest {
         return mock(ObjectProvider.class);
     }
 
-    // --- reflection into the registry's private cache / handle (mirrors UserMemoryRegistryTest) --
+    // --- reflection into the registry's private cache / handle (mirrors MemoryRegistryTest) --
 
     @SuppressWarnings("unchecked")
-    private static ConcurrentHashMap<String, Object> cacheOf(UserMemoryRegistry registry) throws Exception {
-        Field field = UserMemoryRegistry.class.getDeclaredField("cache");
+    private static ConcurrentHashMap<String, Object> cacheOf(MemoryRegistry registry) throws Exception {
+        Field resolverField = MemoryRegistry.class.getDeclaredField("resolver");
+        resolverField.setAccessible(true);
+        Object resolver = resolverField.get(registry);
+        Field field = resolver.getClass().getDeclaredField("cache");
         field.setAccessible(true);
-        return (ConcurrentHashMap<String, Object>) field.get(registry);
+        return (ConcurrentHashMap<String, Object>) field.get(resolver);
     }
 
-    private static void injectHandle(UserMemoryRegistry registry, String userId,
+    private static void injectHandle(MemoryRegistry registry, String userId,
                                      SpectorMemory memory, long lastAccessNanos) throws Exception {
         Class<?> handleClass = Class.forName(
-                "com.spectrayan.spector.synapse.memory.UserMemoryRegistry$MemoryHandle");
+                "com.spectrayan.spector.synapse.memory.NamespaceResolver$MemoryHandle");
         Constructor<?> ctor = handleClass.getDeclaredConstructor(SpectorMemory.class);
         ctor.setAccessible(true);
         Object handle = ctor.newInstance(memory);
