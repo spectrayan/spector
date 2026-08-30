@@ -77,7 +77,10 @@ public enum ErrorCategory {
     CLUSTER     ("Cluster",        700, 709),
 
     /** Internal bugs, invariant violations, and unreachable code paths. */
-    INTERNAL    ("Internal",       900, 909);
+    INTERNAL    ("Internal",       900, 909),
+
+    /** Namespace catalog, identity, and authorization errors. */
+    NAMESPACE   ("Namespace",      800, 809);
 
     private final String displayName;
     private final int rangeStart;

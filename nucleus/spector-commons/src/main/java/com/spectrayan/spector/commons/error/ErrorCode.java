@@ -526,7 +526,63 @@ public enum ErrorCode {
 
     /** A concurrent execution subtask failed. */
     CONCURRENT_EXECUTION_FAILED(900_004, ErrorCategory.INTERNAL,
-            "Concurrent execution failed: {}");
+            "Concurrent execution failed: {}"),
+
+    // ══════════════════════════════════════════════════════════════════════
+    // NAMESPACE (SPE-800-xxx)
+    // ══════════════════════════════════════════════════════════════════════
+
+    /** The requested namespace does not exist in the catalog. */
+    NAMESPACE_NOT_FOUND           (800_001, ErrorCategory.NAMESPACE,
+            "Namespace not found: {}"),
+
+    /** The principal does not have sufficient access to the namespace. */
+    NAMESPACE_ACCESS_DENIED       (800_002, ErrorCategory.NAMESPACE,
+            "Access denied to namespace '{}' for principal '{}'"),
+
+    /** Namespace-level quota exceeded (maxMemories, maxStorageBytes). */
+    NAMESPACE_QUOTA_EXCEEDED      (800_003, ErrorCategory.NAMESPACE,
+            "Namespace quota exceeded for '{}': {}"),
+
+    /** Account-level quota exceeded (maxNamespaces, maxTotalStorageBytes). */
+    ACCOUNT_QUOTA_EXCEEDED        (800_004, ErrorCategory.NAMESPACE,
+            "Account quota exceeded for '{}': {}"),
+
+    /** Tenant-level quota exceeded. */
+    TENANT_QUOTA_EXCEEDED         (800_005, ErrorCategory.NAMESPACE,
+            "Tenant quota exceeded for '{}': {}"),
+
+    /** Hot namespace cap exhausted — no idle instances to evict. */
+    NAMESPACE_HOT_CAP_EXCEEDED    (800_006, ErrorCategory.NAMESPACE,
+            "Hot namespace cap exceeded for account '{}': max {} mapped instances"),
+
+    /** Operation on a tombstoned namespace. */
+    NAMESPACE_TOMBSTONED          (800_007, ErrorCategory.NAMESPACE,
+            "Namespace '{}' is tombstoned and cannot be accessed"),
+
+    /** Operation blocked by legal hold on the namespace. */
+    NAMESPACE_LEGAL_HOLD          (800_008, ErrorCategory.NAMESPACE,
+            "Namespace '{}' is under legal hold — modification blocked"),
+
+    /** Federated recall attempted on an account without federation enabled. */
+    FEDERATION_DISABLED           (800_009, ErrorCategory.NAMESPACE,
+            "Federation is not enabled for account '{}'"),
+
+    /** Token-locked namespace cannot be widened by client signals. */
+    TOKEN_NAMESPACE_LOCKED        (800_010, ErrorCategory.NAMESPACE,
+            "Token is locked to namespace(s) '{}' — cannot switch to '{}'"),
+
+    /** Attempt to delete or tombstone the default namespace. */
+    DEFAULT_NAMESPACE_PROTECTED   (800_011, ErrorCategory.NAMESPACE,
+            "Default namespace '{}' cannot be deleted — use reset instead"),
+
+    /** Access denied to an identity bundle region. */
+    IDENTITY_REGION_DENIED        (800_012, ErrorCategory.NAMESPACE,
+            "Access denied to identity region '{}' on bundle '{}'"),
+
+    /** Soul stack could not be assembled for the request. */
+    SOUL_STACK_UNAVAILABLE        (800_013, ErrorCategory.NAMESPACE,
+            "Soul stack unavailable for account '{}': {}");
 
     // ══════════════════════════════════════════════════════════════════════
 
