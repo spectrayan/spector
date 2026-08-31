@@ -136,6 +136,29 @@ public class ServerAccessTokenMinter {
      * @return the minted token together with its {@code jti} and expiry
      */
     public MintedAccessToken mint(String userId, Collection<String> scopes, Collection<String> roles) {
+        return mintScoped(userId, scopes, roles, null, null, null, null);
+    }
+
+    /**
+     * Mints an access token with custom namespace, tenant, and organizational claims.
+     *
+     * @param userId the User_Id (TSID) to set as the {@code sub} claim
+     * @param scopes scope names
+     * @param roles  role names
+     * @param ns     allowed namespace slugs (null or empty for unrestricted)
+     * @param nsid   allowed namespace TSIDs (null or empty for unrestricted)
+     * @param tid    tenant ID (nullable)
+     * @param org    claimed org unit IDs (nullable)
+     * @return minted access token
+     */
+    public MintedAccessToken mintScoped(
+            String userId,
+            Collection<String> scopes,
+            Collection<String> roles,
+            Collection<String> ns,
+            Collection<String> nsid,
+            String tid,
+            Collection<String> org) {
         if (userId == null || userId.isBlank()) {
             throw new IllegalArgumentException("userId must not be null or blank");
         }
@@ -144,7 +167,7 @@ public class ServerAccessTokenMinter {
         Instant expiresAt = now.plus(accessTtl);
         String jti = UUID.randomUUID().toString();
 
-        JWTClaimsSet.Builder claims = new JWTClaimsSet.Builder()
+        JWTClaimsSet.Builder builder = new JWTClaimsSet.Builder()
                 .subject(userId)
                 .issuer(JwtDecoderConfig.SERVER_ISSUER)
                 .jwtID(jti)
@@ -153,7 +176,20 @@ public class ServerAccessTokenMinter {
                 .claim(CLAIM_SCOPE, joinScopes(scopes))
                 .claim(CLAIM_ROLES, sanitize(roles));
 
-        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims.build());
+        if (ns != null && !ns.isEmpty()) {
+            builder.claim("ns", sanitize(ns));
+        }
+        if (nsid != null && !nsid.isEmpty()) {
+            builder.claim("nsid", sanitize(nsid));
+        }
+        if (tid != null && !tid.isBlank()) {
+            builder.claim("tid", tid.trim());
+        }
+        if (org != null && !org.isEmpty()) {
+            builder.claim("org", sanitize(org));
+        }
+
+        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), builder.build());
         try {
             jwt.sign(signer);
         } catch (JOSEException e) {

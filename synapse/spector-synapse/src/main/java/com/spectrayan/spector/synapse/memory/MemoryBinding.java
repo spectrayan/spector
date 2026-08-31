@@ -16,19 +16,30 @@ import com.spectrayan.spector.memory.SpectorMemory;
 
 /**
  * Immutable per-request memory binding context holding the resolved {@link SpectorMemory}
- * instance along with its owning account and resolved namespace identifier (ADR-0029 §16).
+ * instance along with its owning account, resolved namespace identifier, lease, and context (ADR-0029 §16).
  *
- * @param memory      the active SpectorMemory engine
- * @param accountId   the authenticated account identifier
- * @param namespaceId the resolved data-plane namespace TSID
- * @param slug        the requested or resolved namespace slug
+ * @param memory               the active SpectorMemory engine
+ * @param accountId            the authenticated account identifier
+ * @param namespaceId          the resolved data-plane namespace TSID
+ * @param slug                 the requested or resolved namespace slug
+ * @param lease                the active engine lease handle (released on unbind)
+ * @param requestMemoryContext the full resolved memory request context
  */
 public record MemoryBinding(
         SpectorMemory memory,
         String accountId,
         String namespaceId,
-        String slug) {
+        String slug,
+        AutoCloseable lease,
+        RequestMemoryContext requestMemoryContext) {
 
     /** RequestAttributes attribute key for the bound context. */
     public static final String ATTRIBUTE_KEY = "com.spectrayan.spector.synapse.memory.MemoryBinding";
+
+    /**
+     * Backward-compatible constructor without lease or request context.
+     */
+    public MemoryBinding(SpectorMemory memory, String accountId, String namespaceId, String slug) {
+        this(memory, accountId, namespaceId, slug, null, null);
+    }
 }

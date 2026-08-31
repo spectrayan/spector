@@ -77,6 +77,7 @@ import java.util.List;
  *                               a doctor's brain automatically gives higher salience to medical
  *                               information. The agent's expertise domains act the same way.</p>
  */
+@com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
 public record SalienceProfile(
         List<InterestDomain> interests,
         List<InterestDomain> disinterests,
@@ -210,6 +211,7 @@ public record SalienceProfile(
     /**
      * Returns true if this profile has any configured interests or disinterests.
      */
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public boolean hasInterests() {
         return !interests.isEmpty() || !disinterests.isEmpty();
     }
@@ -217,6 +219,7 @@ public record SalienceProfile(
     /**
      * Returns true if this profile overrides ICNU weights.
      */
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public boolean hasIcnuOverride() {
         return icnuWeights != null;
     }
@@ -224,6 +227,7 @@ public record SalienceProfile(
     /**
      * Returns true if this profile overrides alpha/beta scoring weights.
      */
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public boolean hasScoringOverride() {
         return alpha != null || beta != null;
     }
@@ -231,6 +235,7 @@ public record SalienceProfile(
     /**
      * Returns true if this profile has a persona set.
      */
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public boolean hasPersona() {
         return persona != null && persona.isPresent();
     }
@@ -238,6 +243,7 @@ public record SalienceProfile(
     /**
      * Returns true if an agent relevance boost is active (> 1.0).
      */
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public boolean hasAgentRelevanceBoost() {
         return agentRelevanceBoost > DEFAULT_AGENT_RELEVANCE_BOOST;
     }
@@ -245,6 +251,7 @@ public record SalienceProfile(
     /**
      * Returns true if this profile is effectively neutral (no effect).
      */
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public boolean isNeutral() {
         return !hasInterests()
                 && !hasIcnuOverride()

@@ -89,3 +89,6 @@ spector-data-backup.tar.gz
 # ──────────── Python ────────────
 __pycache__/
 *.pyc
+
+# ──────────── Inspections ────────────
+code-inspection/

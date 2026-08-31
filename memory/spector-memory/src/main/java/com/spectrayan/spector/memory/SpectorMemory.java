@@ -88,6 +88,15 @@ public interface SpectorMemory extends AutoCloseable {
     /** Returns the namespace ID of this memory. */
     default String namespaceId() { return "default"; }
 
+    /**
+     * Acquires an active lease on this memory engine, preventing eviction while held.
+     *
+     * @return AutoCloseable handle that releases the lease upon close
+     */
+    default AutoCloseable acquireLease() {
+        return () -> {};
+    }
+
     // ══════════════════════════════════════════════════════════════
     // CORE API — remember / recall / forget / reflect
     // ══════════════════════════════════════════════════════════════
