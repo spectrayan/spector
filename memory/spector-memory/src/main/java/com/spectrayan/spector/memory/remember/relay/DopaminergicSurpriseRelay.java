@@ -72,7 +72,8 @@ public final class DopaminergicSurpriseRelay implements SynapticRelay<RememberSi
                 signal.type(),
                 nearestDist,
                 surpriseDetector.stats().zScore(nearestDist),
-                false);
+                false,
+                signal.soulContexts());
 
         final ImportanceResult importanceResult = importanceProvider.score(importanceCtx);
         signal.importance(importanceResult.importance());

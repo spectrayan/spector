@@ -25,12 +25,13 @@ import com.spectrayan.spector.synapse.catalog.AccountCatalog;
 import com.spectrayan.spector.synapse.catalog.file.FileAccountCatalog;
 
 /**
- * Auto-configuration for the namespace catalog plane (ADR-0029).
+ * Auto-configuration for the namespace catalog plane (ADR-0029 §6).
  *
  * <p>When {@code spector.auth.enabled=true} (the default for multi-user deployments),
- * a {@link FileAccountCatalog} bean is created rooted at the configured persistence
- * path. When auth is disabled, a no-op catalog is provided to satisfy dependency
- * injection while ensuring no catalog files are written.</p>
+ * a {@link com.spectrayan.spector.synapse.catalog.jdbc.JdbcAccountCatalog} bean is created
+ * as the production default. A {@link FileAccountCatalog} is available for legacy/test
+ * environments only via {@code spector.catalog.type=file}. When auth is disabled, a no-op catalog
+ * is provided to satisfy dependency injection.</p>
  */
 @Configuration
 public class CatalogAutoConfiguration {

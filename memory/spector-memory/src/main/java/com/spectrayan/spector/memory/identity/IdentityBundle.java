@@ -308,7 +308,7 @@ public final class IdentityBundle implements AutoCloseable {
                         .map(s -> (SoulContext) s)
                         .findFirst();
             } catch (Exception e) {
-                log.warn("Failed to deserialize OrgUnitSoul list from ORG_DIR for orgUnitId={}: {}", orgUnitId, e.getMessage());
+                log.warn("Failed to deserialize OrgUnitSoul list from ORG_DIR");
                 return Optional.empty();
             }
         });

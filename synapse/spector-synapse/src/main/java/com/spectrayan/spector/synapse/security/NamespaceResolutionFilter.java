@@ -35,15 +35,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Servlet filter that resolves the active namespace for REST memory requests
+ * Servlet filter that resolves the active namespace for REST requests
  * and attaches the resulting {@link MemoryBinding} to {@link RequestAttributes} (ADR-0029 §16, Q19).
- *
- * <p>Selection order per ADR §6.1:</p>
- * <pre>
- * HTTP: X-Spector-Namespace > ?namespace= > account.defaultNamespaceId
- * </pre>
- *
- * <p>Cleans up the bound context in a {@code finally} block upon filter completion.</p>
  */
 @Component
 @Order(Ordered.LOWEST_PRECEDENCE - 10)
@@ -63,7 +56,12 @@ public class NamespaceResolutionFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path == null || !path.startsWith("/api/v1/memory");
+        if (path == null || !path.startsWith("/api/v1/")) {
+            return true;
+        }
+        return path.startsWith("/api/v1/auth")
+                || path.startsWith("/api/v1/events")
+                || path.contains("/health");
     }
 
     @Override

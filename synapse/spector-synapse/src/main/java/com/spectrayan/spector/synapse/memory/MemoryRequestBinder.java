@@ -12,11 +12,9 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -44,10 +42,6 @@ import com.spectrayan.spector.synapse.identity.IdentityPlane;
 /**
  * Shared binder that resolves an authenticated request to a {@link MemoryBinding}
  * holding the target {@link SpectorMemory}, lease, and security context (ADR-0029 §16).
- *
- * <p>Both REST filters and MCP sessions delegate resolution to this component,
- * ensuring consistent resolution order:
- * {@code client signal (header/arg) > session default > account default}.</p>
  */
 @Component
 public class MemoryRequestBinder {
@@ -74,25 +68,10 @@ public class MemoryRequestBinder {
         this.identityPlane = identityPlaneProvider != null ? identityPlaneProvider.getIfAvailable() : null;
     }
 
-    /**
-     * Binds a memory instance for the given authentication and optional namespace selector.
-     *
-     * @param auth     the current authentication, or null if unauthenticated
-     * @param selector optional namespace slug or namespaceId
-     * @return the bound memory context
-     */
     public MemoryBinding bind(Authentication auth, Optional<String> selector) {
         return bind(auth, selector, null);
     }
 
-    /**
-     * Binds a memory instance with optional session identifier.
-     *
-     * @param auth      the current authentication
-     * @param selector  optional namespace slug or namespaceId
-     * @param sessionId optional MCP connection or session identifier
-     * @return the bound memory context
-     */
     public MemoryBinding bind(Authentication auth, Optional<String> selector, String sessionId) {
         if (selector != null && selector.isPresent() && !selector.get().isBlank()) {
             String slugOrId = selector.get().trim();
@@ -121,9 +100,7 @@ public class MemoryRequestBinder {
             return new MemoryBinding(sharedMemory, DEFAULT_USER_ID, DEFAULT_USER_ID, "default", lease, reqCtx);
         }
 
-        // Extract JWT claims
         TokenClaims tokenClaims = extractTokenClaims(auth);
-
         Account account = catalog.getOrCreateAccount(accountId);
 
         String targetSlug;
@@ -145,8 +122,17 @@ public class MemoryRequestBinder {
             targetSlug = record != null ? record.slug() : "default";
         }
 
-        // Validate Token Allow-Sets (ns and nsid claims)
         validateTokenAllowSets(tokenClaims, targetSlug, targetNamespaceId);
+
+        Optional<com.spectrayan.spector.synapse.catalog.Grant> authGrant =
+                catalog.authorize(accountId, targetNamespaceId, GrantRole.READER);
+        if (authGrant.isEmpty()) {
+            log.warn("[MemoryRequestBinder] Access denied: account={} has no grant on namespace={}",
+                    accountId, targetNamespaceId);
+            throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException(
+                    targetNamespaceId, accountId);
+        }
+        GrantRole role = authGrant.get().role();
 
         if (record != null) {
             catalog.recordAccess(record.namespaceId());
@@ -156,46 +142,68 @@ public class MemoryRequestBinder {
         SpectorMemory memory = resolver.resolve(accountId, targetNamespaceId);
         AutoCloseable lease = memory != null ? memory.acquireLease() : null;
 
-        // Perform Region 24 copy-once migration on default namespace bind
-        if (identityPlane != null && ("default".equals(targetSlug) || targetNamespaceId.equals(account.defaultNamespaceId()))) {
-            identityPlane.checkAndMigrateRegion24(accountId, memory);
+        try {
+            if (identityPlane != null && ("default".equals(targetSlug)
+                    || targetNamespaceId.equals(account.defaultNamespaceId()))) {
+                identityPlane.checkAndMigrateRegion24(accountId, memory);
+            }
+
+            List<String> tokenOrgs = tokenClaims.orgUnitIds();
+            List<String> catalogOrgs = catalog.orgUnitIdsForAccount(accountId);
+            List<String> effectiveOrgs;
+            if (catalogOrgs != null && !catalogOrgs.isEmpty()) {
+                if (tokenOrgs != null && !tokenOrgs.isEmpty()) {
+                    java.util.Set<String> catalogSet = new java.util.HashSet<>(catalogOrgs);
+                    effectiveOrgs = tokenOrgs.stream().filter(catalogSet::contains).toList();
+                } else {
+                    effectiveOrgs = catalogOrgs;
+                }
+            } else {
+                effectiveOrgs = tokenOrgs != null ? tokenOrgs : List.of();
+            }
+
+            SoulContext primarySoul = identityPlane != null
+                    ? identityPlane.primarySoulFor(accountId).orElse(null) : null;
+            List<SoulContext> soulStack = identityPlane != null
+                    ? identityPlane.soulsFor(tokenClaims.tenantId(), effectiveOrgs, accountId)
+                    : List.of();
+
+            com.spectrayan.spector.memory.model.SalienceProfile salience = identityPlane != null
+                    ? identityPlane.salienceFor(accountId).orElse(null) : null;
+            if (record != null && record.bias() != null
+                    && record.bias() != com.spectrayan.spector.synapse.catalog.NamespaceBias.EMPTY) {
+                salience = NamespaceBiasApplier.apply(salience, record.bias());
+            }
+            if (memory != null) {
+                memory.applyIdentity(primarySoul, soulStack, salience);
+            }
+
+            RequestMemoryContext requestContext = new RequestMemoryContext(
+                    tokenClaims.tenantId(),
+                    effectiveOrgs,
+                    accountId,
+                    targetNamespaceId,
+                    targetSlug,
+                    role,
+                    tokenClaims.allowSet(),
+                    sessionId,
+                    soulStack,
+                    primarySoul
+            );
+            return new MemoryBinding(memory, accountId, targetNamespaceId, targetSlug, lease, requestContext);
+        } catch (RuntimeException e) {
+            if (lease != null) {
+                try {
+                    lease.close();
+                } catch (Exception closeErr) {
+                    log.warn("[MemoryRequestBinder] Failed to release lease after bind failure: {}",
+                            closeErr.getMessage());
+                }
+            }
+            throw e;
         }
-
-        // Assemble Soul Stack and Request Context
-        SoulContext primarySoul = identityPlane != null ? identityPlane.primarySoulFor(accountId).orElse(null) : null;
-        List<SoulContext> soulStack = identityPlane != null
-                ? identityPlane.soulsFor(tokenClaims.tenantId(), tokenClaims.orgUnitIds(), accountId)
-                : List.of();
-
-        // Authorize access on target namespace — fail-closed (ADR-0029 §24)
-        Optional<com.spectrayan.spector.synapse.catalog.Grant> authGrant = catalog.authorize(accountId, targetNamespaceId, GrantRole.READER);
-        if (authGrant.isEmpty()) {
-            log.warn("[MemoryRequestBinder] Access denied: account={} has no grant on namespace={}", accountId, targetNamespaceId);
-            throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException(targetNamespaceId, accountId);
-        }
-        GrantRole role = authGrant.get().role();
-
-        RequestMemoryContext requestContext = new RequestMemoryContext(
-                tokenClaims.tenantId(),
-                tokenClaims.orgUnitIds(),
-                accountId,
-                targetNamespaceId,
-                targetSlug,
-                role,
-                tokenClaims.allowSet(),
-                sessionId,
-                soulStack,
-                primarySoul
-        );
-
-        return new MemoryBinding(memory, accountId, targetNamespaceId, targetSlug, lease, requestContext);
     }
 
-    /**
-     * Unbinds the given memory binding and safely releases its lease handle.
-     *
-     * @param binding the binding to release
-     */
     public void unbind(MemoryBinding binding) {
         if (binding != null && binding.lease() != null) {
             try {
@@ -211,13 +219,11 @@ public class MemoryRequestBinder {
     private void validateTokenAllowSets(TokenClaims claims, String targetSlug, String targetNamespaceId) {
         if (claims.nsSlugs() != null && !claims.nsSlugs().isEmpty()) {
             if (!claims.nsSlugs().contains(targetSlug)) {
-                log.warn("[TokenLock] Slug '{}' is outside token allowed slugs {}", targetSlug, claims.nsSlugs());
                 throw new TokenNamespaceLockedException("ns=" + claims.nsSlugs(), targetSlug);
             }
         }
         if (claims.nsIds() != null && !claims.nsIds().isEmpty()) {
             if (!claims.nsIds().contains(targetNamespaceId)) {
-                log.warn("[TokenLock] NamespaceId '{}' is outside token allowed IDs {}", targetNamespaceId, claims.nsIds());
                 throw new TokenNamespaceLockedException("nsid=" + claims.nsIds(), targetSlug);
             }
         }
@@ -232,20 +238,16 @@ public class MemoryRequestBinder {
         } else if (auth.getCredentials() instanceof Jwt credJwt) {
             jwt = credJwt;
         }
-
         if (jwt == null) {
             return new TokenClaims(null, List.of(), Set.of(), null, null);
         }
-
         String tenantId = jwt.getClaimAsString("tid");
         List<String> orgUnitIds = jwt.getClaimAsStringList("org");
         if (orgUnitIds == null) {
             orgUnitIds = List.of();
         }
-
         List<String> nsSlugs = jwt.getClaimAsStringList("ns");
         List<String> nsIds = jwt.getClaimAsStringList("nsid");
-
         Set<String> combinedAllowSet = new HashSet<>();
         if (nsSlugs != null) {
             combinedAllowSet.addAll(nsSlugs);
@@ -253,7 +255,6 @@ public class MemoryRequestBinder {
         if (nsIds != null) {
             combinedAllowSet.addAll(nsIds);
         }
-
         return new TokenClaims(tenantId, orgUnitIds, Collections.unmodifiableSet(combinedAllowSet), nsSlugs, nsIds);
     }
 

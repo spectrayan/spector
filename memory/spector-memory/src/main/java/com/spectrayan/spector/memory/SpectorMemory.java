@@ -610,6 +610,26 @@ public interface SpectorMemory extends AutoCloseable {
     void setSoulVersion(short version);
 
     /**
+     * Applies the resolved request-time identity state (primary soul, soul stack,
+     * and overlayed salience profile) to this memory instance for subsequent operations (ADR-0029 §2.5, §23).
+     *
+     * @param primarySoul the primary soul context (user or agent)
+     * @param soulStack the ordered soul hierarchy [TenantSoul, OrgUnitSoul..., UserSoul]
+     * @param salience the effective salience profile overlayed with namespace bias
+     */
+    default void applyIdentity(
+            com.spectrayan.spector.memory.model.SoulContext primarySoul,
+            java.util.List<com.spectrayan.spector.memory.model.SoulContext> soulStack,
+            com.spectrayan.spector.memory.model.SalienceProfile salience) {
+        if (salience != null) {
+            setSalienceProfile(salience);
+        }
+        if (primarySoul != null) {
+            setSoulVersion(primarySoul.soulVersion());
+        }
+    }
+
+    /**
      * Returns the currently active salience profile.
      *
      * @return the effective salience profile (never null — NEUTRAL if unset)

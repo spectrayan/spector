@@ -34,8 +34,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import com.spectrayan.spector.synapse.identity.IdentityPlane;
+import org.springframework.beans.factory.ObjectProvider;
+
 /**
- * Service for managing agent and user souls using Spector's INSULA cortex memory region.
+ * Service for managing agent and user souls using IdentityPlane (ADR-0029 §23)
+ * with INSULA cortex memory region fallback/mirroring.
  */
 @Service
 public class CognitiveSoulService {
@@ -65,21 +69,32 @@ public class CognitiveSoulService {
     private final ObjectMapper mapper;
     private final SynapseSalienceProvider salienceProvider;
     private final SynapseProperties synapseProps;
+    private final ObjectProvider<IdentityPlane> identityPlaneProvider;
 
     public CognitiveSoulService(MemoryRegistry userMemoryRegistry,
                                 ObjectMapper mapper,
                                 SynapseSalienceProvider salienceProvider,
-                                SynapseProperties synapseProps) {
+                                SynapseProperties synapseProps,
+                                ObjectProvider<IdentityPlane> identityPlaneProvider) {
         this.userMemoryRegistry = userMemoryRegistry;
         this.mapper = mapper;
         this.salienceProvider = salienceProvider;
         this.synapseProps = synapseProps;
+        this.identityPlaneProvider = identityPlaneProvider;
     }
 
     /** Loads an agent soul by ID (or the default if ID is null). */
     public Optional<AgentSoul> loadAgentSoul(String id) {
-        String namespaceId = "agent-" + (id != null ? id : "default");
-        SpectorMemory memory = userMemoryRegistry.resolveFor(namespaceId);
+        String agentKey = "agent-" + (id != null ? id : "default");
+        IdentityPlane identityPlane = identityPlaneProvider.getIfAvailable();
+        if (identityPlane != null) {
+            var soulOpt = identityPlane.primarySoulFor(agentKey);
+            if (soulOpt.isPresent() && soulOpt.get() instanceof AgentSoul agentSoul) {
+                return Optional.of(agentSoul);
+            }
+        }
+
+        SpectorMemory memory = userMemoryRegistry.resolveFor(agentKey);
         if (memory == null) {
             return Optional.empty();
         }
@@ -151,13 +166,18 @@ public class CognitiveSoulService {
                 .updatedAt(java.time.Instant.now())
                 .build();
 
+        IdentityPlane identityPlane = identityPlaneProvider.getIfAvailable();
+        if (identityPlane != null) {
+            identityPlane.updateAccountSoul("agent-" + soul.id(), savedSoul);
+        }
+
         InsulaSelfModel selfModel = new InsulaSelfModel("AGENT", savedSoul, null, Map.of());
         byte[] bytes = toJsonBytes(selfModel);
         if (bytes != null && insula != null) {
             insula.put(bytes);
         }
         memory.setSoulVersion(nextVersion);
-        log.info("[CognitiveSoul] Saved agent soul '{}' v{} in INSULA", soul.name(), nextVersion);
+        log.info("[CognitiveSoul] Saved agent soul '{}' v{} in IdentityPlane and INSULA", soul.name(), nextVersion);
     }
 
     /**
@@ -165,6 +185,16 @@ public class CognitiveSoulService {
      */
     public Optional<PersonaContext> loadUserSoul() {
         String nsId = currentNamespaceId();
+        IdentityPlane identityPlane = identityPlaneProvider.getIfAvailable();
+        if (identityPlane != null) {
+            var soulOpt = identityPlane.primarySoulFor(nsId);
+            if (soulOpt.isPresent() && soulOpt.get() instanceof UserSoul userSoul && userSoul.persona() != null) {
+                salienceProvider.updateUserPersona(userSoul.persona());
+                log.info("[CognitiveSoul] User persona loaded from IdentityPlane and applied to salience provider");
+                return Optional.of(userSoul.persona());
+            }
+        }
+
         SpectorMemory memory = userMemoryRegistry.resolveFor(nsId);
         if (memory == null) {
             return Optional.empty();
@@ -194,36 +224,29 @@ public class CognitiveSoulService {
      */
     public void saveUserSoul(PersonaContext persona) {
         String nsId = currentNamespaceId();
-        SpectorMemory memory = userMemoryRegistry.resolveFor(nsId);
-        if (memory == null) {
-            log.warn("[CognitiveSoul] Memory not resolved for namespace: {}", nsId);
-            return;
-        }
+        IdentityPlane identityPlane = identityPlaneProvider.getIfAvailable();
 
         if (persona == null) {
-            var insula = memory.admin().insularCortex();
-            if (insula != null) {
-                insula.clear();
+            if (identityPlane != null) {
+                identityPlane.updateAccountSoul(nsId, null);
+            }
+            SpectorMemory memory = userMemoryRegistry.resolveFor(nsId);
+            if (memory != null) {
+                var insula = memory.admin().insularCortex();
+                if (insula != null) {
+                    insula.clear();
+                }
             }
             salienceProvider.updateUserPersona(null);
-            log.info("[CognitiveSoul] Cleared user persona context in INSULA for namespace: {}", nsId);
+            log.info("[CognitiveSoul] Cleared user persona context in IdentityPlane and INSULA for namespace: {}", nsId);
             return;
         }
 
         short nextVersion = 1;
         java.time.Instant createdAt = java.time.Instant.now();
-        var insula = memory.admin().insularCortex();
-        if (insula != null) {
-            var existingOpt = insula.get()
-                .flatMap(bytes -> fromJsonBytes(bytes, InsulaSelfModel.class))
-                .map(model -> {
-                    if (model.soul() instanceof UserSoul us) {
-                        return us;
-                    }
-                    return null;
-                });
-            if (existingOpt.isPresent()) {
-                UserSoul us = existingOpt.get();
+        if (identityPlane != null) {
+            var existing = identityPlane.primarySoulFor(nsId);
+            if (existing.isPresent() && existing.get() instanceof UserSoul us) {
                 nextVersion = (short)(us.soulVersion() + 1);
                 if (us.createdAt() != null) {
                     createdAt = us.createdAt();
@@ -232,17 +255,24 @@ public class CognitiveSoulService {
         }
 
         UserSoul userSoul = new UserSoul(nsId, "User", "User Persona", persona, persona.aboutEmbedding(), nextVersion, createdAt, java.time.Instant.now());
-        InsulaSelfModel selfModel = new InsulaSelfModel("USER", userSoul, salienceProvider.effectiveProfile(), Map.of());
-        
-        byte[] bytes = toJsonBytes(selfModel);
-        if (bytes != null && insula != null) {
-            insula.put(bytes);
+        if (identityPlane != null) {
+            identityPlane.updateAccountSoul(nsId, userSoul);
         }
-        memory.setSoulVersion(nextVersion);
+
+        SpectorMemory memory = userMemoryRegistry.resolveFor(nsId);
+        if (memory != null) {
+            var insula = memory.admin().insularCortex();
+            InsulaSelfModel selfModel = new InsulaSelfModel("USER", userSoul, salienceProvider.effectiveProfile(), Map.of());
+            byte[] bytes = toJsonBytes(selfModel);
+            if (bytes != null && insula != null) {
+                insula.put(bytes);
+            }
+            memory.setSoulVersion(nextVersion);
+        }
 
         // Propagate to salience provider
         salienceProvider.updateUserPersona(persona);
-        log.info("[CognitiveSoul] Saved user persona v{} to INSULA — salience profile updated", nextVersion);
+        log.info("[CognitiveSoul] Saved user persona v{} to IdentityPlane and INSULA — salience profile updated", nextVersion);
     }
 
     /** Get the current active agent soul, or a default fallback. */
