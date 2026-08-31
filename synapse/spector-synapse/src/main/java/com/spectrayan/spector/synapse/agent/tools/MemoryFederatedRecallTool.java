@@ -28,8 +28,11 @@ import java.util.Map;
 
 /**
  * Declarative MCP tool handler for cross-rememberer federated recall (ADR-0029 §7).
+ * Only loaded when federation is explicitly enabled.
  */
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "spector.federation.enabled", havingValue = "true", matchIfMissing = false)
 public class MemoryFederatedRecallTool extends McpToolHandler {
 
     private static final Logger log = LoggerFactory.getLogger(MemoryFederatedRecallTool.class);

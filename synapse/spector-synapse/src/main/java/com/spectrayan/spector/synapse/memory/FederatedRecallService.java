@@ -49,6 +49,8 @@ import java.util.Optional;
  * with virtual threads, and provenance-annotated heuristic merging.</p>
  */
 @Service
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "spector.federation.enabled", havingValue = "true", matchIfMissing = false)
 public class FederatedRecallService {
 
     private static final Logger log = LoggerFactory.getLogger(FederatedRecallService.class);
