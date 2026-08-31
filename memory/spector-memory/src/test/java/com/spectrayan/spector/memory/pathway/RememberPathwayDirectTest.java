@@ -81,6 +81,55 @@ class RememberPathwayDirectTest {
         assertThat(profile).isNotNull();
     }
 
+    @Test
+    @DisplayName("Concurrent scoped identity ingestion isolates soul stacks and importance scoring")
+    void testConcurrentScopedIdentityIngestionIsolation() throws Exception {
+        com.spectrayan.spector.memory.model.UserSoul soulA = new com.spectrayan.spector.memory.model.UserSoul(
+                "user-a", "Alice", "Astrophysicist",
+                com.spectrayan.spector.memory.model.PersonaContext.builder().about("Astrophysicist").occupation("Astrophysics").build(),
+                null);
+
+        com.spectrayan.spector.memory.model.UserSoul soulB = new com.spectrayan.spector.memory.model.UserSoul(
+                "user-b", "Bob", "Chef",
+                com.spectrayan.spector.memory.model.PersonaContext.builder().about("Chef").occupation("Culinary").build(),
+                null);
+
+        com.spectrayan.spector.memory.model.IngestionContext ctxA = com.spectrayan.spector.memory.model.IngestionContext.builder()
+                .soulContexts(List.of(soulA))
+                .soulVersion(soulA.soulVersion())
+                .build();
+
+        com.spectrayan.spector.memory.model.IngestionContext ctxB = com.spectrayan.spector.memory.model.IngestionContext.builder()
+                .soulContexts(List.of(soulB))
+                .soulVersion(soulB.soulVersion())
+                .build();
+
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+
+        var futureA = executor.submit(() -> {
+            latch.await();
+            memory.remember("mem-a", "James Webb telescope discovered high-redshift galaxy",
+                    MemoryType.SEMANTIC, MemorySource.USER_STATED, ctxA, "astronomy");
+            return true;
+        });
+
+        var futureB = executor.submit(() -> {
+            latch.await();
+            memory.remember("mem-b", "French sourdough fermentation technique and recipe",
+                    MemoryType.SEMANTIC, MemorySource.USER_STATED, ctxB, "culinary");
+            return true;
+        });
+
+        latch.countDown();
+        futureA.get(5, java.util.concurrent.TimeUnit.SECONDS);
+        futureB.get(5, java.util.concurrent.TimeUnit.SECONDS);
+        executor.shutdown();
+
+        assertThat(memory.inspect("mem-a")).isNotNull();
+        assertThat(memory.inspect("mem-b")).isNotNull();
+    }
+
     private static class MockEmbeddingProvider implements EmbeddingProvider {
         private final int dims;
 

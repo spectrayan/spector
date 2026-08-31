@@ -120,4 +120,20 @@ class McpRequestMemoryBinderTest {
         assertThat(deny).contains(McpRequestMemory.DenyReason.TOKEN_LOCKED);
         assertThat(McpRequestMemory.current()).isNull();
     }
+
+    @Test
+    @DisplayName("bindForCurrentRequest fails closed with RESOLUTION_FAILED if registry binder is null under enabled auth")
+    void testFailClosedWhenBinderNullAndAuthEnabled() {
+        com.spectrayan.spector.synapse.memory.MemoryRegistry registry =
+                mock(com.spectrayan.spector.synapse.memory.MemoryRegistry.class);
+        when(registry.binder()).thenReturn(null);
+
+        Authentication auth = new UsernamePasswordAuthenticationToken("user-1", "pass", AuthorityUtils.NO_AUTHORITIES);
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        Optional<McpRequestMemory.DenyReason> deny =
+                McpRequestMemory.bindForCurrentRequest(registry, true, "ns-1", "conn-1");
+        assertThat(deny).contains(McpRequestMemory.DenyReason.RESOLUTION_FAILED);
+        assertThat(McpRequestMemory.current()).isNull();
+    }
 }
