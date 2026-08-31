@@ -9,7 +9,8 @@ SELECT
     description,
     bias_json,
     created_at,
-    last_accessed_at
+    last_accessed_at,
+    legal_hold
 FROM namespaces
 WHERE owner_account_id = :ownerAccountId
   AND slug = :slug

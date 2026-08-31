@@ -126,6 +126,21 @@ public class IdentityPlane {
     }
 
     /**
+     * Updates or sets the tenant's primary soul in {@code identity.bundle}.
+     *
+     * @param tenantId tenant TSID
+     * @param soul     the tenant soul context
+     */
+    public void updateTenantSoul(String tenantId, SoulContext soul) {
+        if (tenantId == null || tenantId.isBlank()) {
+            return;
+        }
+        IdentityBundle bundle = identityCache.getOrOpenTenant(tenantId);
+        bundle.writeSoul(soul);
+        log.debug("[IdentityPlane] Updated primary soul for tenant {}", tenantId);
+    }
+
+    /**
      * Performs copy-once migration from default rememberer Region 24 to {@code identity.bundle} (ADR-0029 §23.6).
      *
      * @param accountId     the account TSID

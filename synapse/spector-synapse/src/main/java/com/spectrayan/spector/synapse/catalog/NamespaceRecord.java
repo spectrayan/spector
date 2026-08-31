@@ -31,6 +31,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * @param bias optional soft domain tilt for salience scoring, nullable
  * @param createdAt timestamp when the namespace was created
  * @param lastAccessedAt timestamp when the namespace was last accessed
+ * @param legalHold whether the namespace is placed under enterprise legal hold
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record NamespaceRecord(
@@ -43,6 +44,20 @@ public record NamespaceRecord(
         String description,
         NamespaceBias bias,
         Instant createdAt,
-        Instant lastAccessedAt
+        Instant lastAccessedAt,
+        boolean legalHold
 ) {
+    public NamespaceRecord(
+            String namespaceId,
+            String slug,
+            String ownerAccountId,
+            NamespaceType type,
+            NamespaceStatus status,
+            String displayName,
+            String description,
+            NamespaceBias bias,
+            Instant createdAt,
+            Instant lastAccessedAt) {
+        this(namespaceId, slug, ownerAccountId, type, status, displayName, description, bias, createdAt, lastAccessedAt, false);
+    }
 }

@@ -9,7 +9,8 @@ INSERT INTO namespaces (
     description,
     bias_json,
     created_at,
-    last_accessed_at
+    last_accessed_at,
+    legal_hold
 ) VALUES (
     :namespaceId,
     :ownerAccountId,
@@ -20,5 +21,6 @@ INSERT INTO namespaces (
     :description,
     :biasJson,
     :createdAt,
-    :lastAccessedAt
+    :lastAccessedAt,
+    :legalHold
 )

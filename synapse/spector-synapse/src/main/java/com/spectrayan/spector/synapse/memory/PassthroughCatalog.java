@@ -136,6 +136,12 @@ final class PassthroughCatalog implements AccountCatalog {
     }
 
     @Override
+    public NamespaceRecord setLegalHold(String accountId, String slugOrId, boolean legalHold) {
+        return new NamespaceRecord(slugOrId, slugOrId, accountId, NamespaceType.PROJECT, NamespaceStatus.ACTIVE,
+                slugOrId, "Passthrough namespace", null, java.time.Instant.now(), java.time.Instant.now(), legalHold);
+    }
+
+    @Override
     public boolean authorizeIdentity(String accountId, String bundleId, String regionId, GrantAction action) {
         return false;
     }

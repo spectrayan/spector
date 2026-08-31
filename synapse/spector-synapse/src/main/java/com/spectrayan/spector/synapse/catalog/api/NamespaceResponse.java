@@ -33,6 +33,7 @@ import com.spectrayan.spector.synapse.catalog.NamespaceType;
  * @param bias           domain bias overlay
  * @param createdAt      creation timestamp
  * @param lastAccessedAt last access timestamp
+ * @param legalHold      whether the namespace is under enterprise legal hold
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record NamespaceResponse(
@@ -45,7 +46,8 @@ public record NamespaceResponse(
         String description,
         NamespaceBias bias,
         Instant createdAt,
-        Instant lastAccessedAt) {
+        Instant lastAccessedAt,
+        boolean legalHold) {
 
     public static NamespaceResponse from(NamespaceRecord record) {
         return new NamespaceResponse(
@@ -58,7 +60,8 @@ public record NamespaceResponse(
                 record.description(),
                 record.bias(),
                 record.createdAt(),
-                record.lastAccessedAt()
+                record.lastAccessedAt(),
+                record.legalHold()
         );
     }
 }

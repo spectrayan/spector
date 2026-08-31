@@ -182,6 +182,17 @@ public interface AccountCatalog {
     void revokeNamespaceGrant(String callerAccountId, String slugOrId, String grantId);
 
     /**
+     * Toggles legal hold status for a namespace. When legal hold is true, the namespace
+     * cannot be deleted, tombstoned, reset, or purged (ADR-0029 §19, §23). Requires at least ADMIN on the namespace.
+     *
+     * @param accountId calling account identifier
+     * @param slugOrId  namespace slug or identifier
+     * @param legalHold true to place under legal hold, false to release
+     * @return updated namespace record
+     */
+    NamespaceRecord setLegalHold(String accountId, String slugOrId, boolean legalHold);
+
+    /**
      * Marks a namespace as tombstoned (soft-deleted) for an account.
      *
      * @param accountId   the account identifier

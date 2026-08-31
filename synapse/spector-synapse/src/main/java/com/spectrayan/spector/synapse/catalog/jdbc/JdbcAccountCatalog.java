@@ -381,6 +381,10 @@ public class JdbcAccountCatalog implements AccountCatalog {
         NamespaceRecord record = resolve(accountId, slugOrId)
                 .orElseThrow(() -> new NamespaceNotFoundException(slugOrId));
 
+        if (record.legalHold()) {
+            throw new NamespaceLegalHoldException(record.namespaceId());
+        }
+
         if (!record.ownerAccountId().equals(accountId)) {
             throw new NamespaceAccessDeniedException(record.namespaceId(), "Only owner may reset namespace");
         }
@@ -391,12 +395,41 @@ public class JdbcAccountCatalog implements AccountCatalog {
 
     @Override
     @Transactional
+    public NamespaceRecord setLegalHold(String accountId, String slugOrId, boolean legalHold) {
+        Objects.requireNonNull(accountId, "accountId must not be null");
+        Objects.requireNonNull(slugOrId, "slugOrId must not be null");
+
+        NamespaceRecord record = resolve(accountId, slugOrId)
+                .orElseThrow(() -> new NamespaceNotFoundException(slugOrId));
+
+        if (!record.ownerAccountId().equals(accountId)) {
+            boolean hasAdmin = authorize(accountId, record.namespaceId(), GrantRole.ADMIN).isPresent();
+            if (!hasAdmin) {
+                throw new NamespaceAccessDeniedException(record.namespaceId(), "Admin or Owner required to toggle legal hold");
+            }
+        }
+
+        jdbc.sql("UPDATE namespaces SET legal_hold = :legalHold WHERE namespace_id = :namespaceId")
+                .param("legalHold", legalHold)
+                .param("namespaceId", record.namespaceId())
+                .update();
+
+        log.info("[JdbcAccountCatalog] Updated legal hold for namespace {}: {}", record.namespaceId(), legalHold);
+        return resolve(accountId, record.namespaceId()).orElseThrow();
+    }
+
+    @Override
+    @Transactional
     public void tombstone(String accountId, String namespaceId) {
         Objects.requireNonNull(accountId, "accountId must not be null");
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
 
         NamespaceRecord record = resolve(accountId, namespaceId)
                 .orElseThrow(() -> new NamespaceNotFoundException("namespace:" + namespaceId));
+
+        if (record.legalHold()) {
+            throw new NamespaceLegalHoldException(record.namespaceId());
+        }
 
         Account account = getAccount(accountId);
 
@@ -660,6 +693,7 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 .param("biasJson", serializeBias(record.bias()))
                 .param("createdAt", Timestamp.from(record.createdAt()))
                 .param("lastAccessedAt", record.lastAccessedAt() != null ? Timestamp.from(record.lastAccessedAt()) : null)
+                .param("legalHold", record.legalHold())
                 .update();
     }
 
@@ -697,6 +731,16 @@ public class JdbcAccountCatalog implements AccountCatalog {
         Integer maxNs = rs.getObject("max_namespaces", Integer.class);
         Integer maxHotNs = rs.getObject("max_hot_namespaces", Integer.class);
         Timestamp createdAt = rs.getTimestamp("created_at");
+        String tenantId = null;
+        try {
+            tenantId = rs.getString("tenant_id");
+        } catch (SQLException ignored) {
+        }
+        boolean legalHold = false;
+        try {
+            legalHold = rs.getBoolean("legal_hold");
+        } catch (SQLException ignored) {
+        }
 
         PrincipalKind kind = kindStr != null ? PrincipalKind.valueOf(kindStr) : PrincipalKind.HUMAN;
         AccountProfile profile = profileStr != null ? AccountProfile.valueOf(profileStr) : AccountProfile.HUMAN_SOLO;
@@ -711,7 +755,9 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 quotas,
                 flags,
                 defaultNsId != null ? defaultNsId : userId,
-                createdAt != null ? createdAt.toInstant() : Instant.now()
+                createdAt != null ? createdAt.toInstant() : Instant.now(),
+                tenantId,
+                legalHold
         );
     }
 
@@ -726,6 +772,11 @@ public class JdbcAccountCatalog implements AccountCatalog {
         String biasJson = rs.getString("bias_json");
         Timestamp createdAt = rs.getTimestamp("created_at");
         Timestamp lastAccessedAt = rs.getTimestamp("last_accessed_at");
+        boolean legalHold = false;
+        try {
+            legalHold = rs.getBoolean("legal_hold");
+        } catch (SQLException ignored) {
+        }
 
         return new NamespaceRecord(
                 namespaceId,
@@ -737,7 +788,8 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 description,
                 parseBias(biasJson),
                 createdAt != null ? createdAt.toInstant() : Instant.now(),
-                lastAccessedAt != null ? lastAccessedAt.toInstant() : null
+                lastAccessedAt != null ? lastAccessedAt.toInstant() : null,
+                legalHold
         );
     }
 

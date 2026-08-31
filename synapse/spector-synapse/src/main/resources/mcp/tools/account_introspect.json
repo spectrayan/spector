@@ -1,0 +1,12 @@
+{
+  "name": "account_introspect",
+  "description": "Retrieves account-level introspection metadata including profile, feature flags, quotas, slug map, accessible namespaces, and composite soul version.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:account:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "properties": {}
+  }
+}

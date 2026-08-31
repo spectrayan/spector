@@ -9,7 +9,8 @@ SELECT DISTINCT
     n.description,
     n.bias_json,
     n.created_at,
-    n.last_accessed_at
+    n.last_accessed_at,
+    n.legal_hold
 FROM namespaces n
 LEFT JOIN grants g
     ON g.object_type = 'NAMESPACE'
