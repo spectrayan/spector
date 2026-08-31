@@ -55,6 +55,12 @@ public class SynapseCacheProperties {
         specs.put(SynapseCacheConstants.CACHE_MEMORY_TOPOLOGY_STATS, new CacheSpec(Duration.ofSeconds(5), 10));
         specs.put(SynapseCacheConstants.CACHE_MEMORY_STATS, new CacheSpec(Duration.ofSeconds(5), 100));
         specs.put(SynapseCacheConstants.CACHE_MEMORY_SCORING_STATS, new CacheSpec(Duration.ofSeconds(5), 100));
+        specs.put(SynapseCacheConstants.CACHE_CATALOG_ACCOUNTS, new CacheSpec(SynapseCacheConstants.TTL_CATALOG_ACCOUNTS, SynapseCacheConstants.MAX_SIZE_CATALOG_ACCOUNTS));
+        specs.put(SynapseCacheConstants.CACHE_CATALOG_NAMESPACES, new CacheSpec(SynapseCacheConstants.TTL_CATALOG_NAMESPACES, SynapseCacheConstants.MAX_SIZE_CATALOG_NAMESPACES));
+        specs.put(SynapseCacheConstants.CACHE_CATALOG_GRANTS, new CacheSpec(SynapseCacheConstants.TTL_CATALOG_GRANTS, SynapseCacheConstants.MAX_SIZE_CATALOG_GRANTS));
+        specs.put(SynapseCacheConstants.CACHE_CATALOG_ORG_MEMBERSHIP, new CacheSpec(SynapseCacheConstants.TTL_CATALOG_ORG_MEMBERSHIP, SynapseCacheConstants.MAX_SIZE_CATALOG_ORG_MEMBERSHIP));
+        specs.put(SynapseCacheConstants.CACHE_PEP_NAMESPACE, new CacheSpec(SynapseCacheConstants.TTL_PEP_NAMESPACE, SynapseCacheConstants.MAX_SIZE_PEP_NAMESPACE));
+        specs.put(SynapseCacheConstants.CACHE_PEP_IDENTITY, new CacheSpec(SynapseCacheConstants.TTL_PEP_IDENTITY, SynapseCacheConstants.MAX_SIZE_PEP_IDENTITY));
     }
 
     public boolean isEnabled() {
