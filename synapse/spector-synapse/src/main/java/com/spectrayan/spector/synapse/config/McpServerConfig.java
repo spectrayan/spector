@@ -98,10 +98,11 @@ public class McpServerConfig {
     public McpStatelessSyncServer mcpStatelessServer(HttpServletStatelessServerTransport transport,
                                                       ToolRegistry toolRegistry,
                                                       MemoryRegistry userMemoryRegistry,
+                                                      ObjectProvider<com.spectrayan.spector.synapse.memory.MemoryRequestBinder> binderProvider,
                                                       SynapseProperties synapseProperties) {
         boolean authEnabled = synapseProperties.auth().enabled();
         List<McpStatelessServerFeatures.SyncToolSpecification> toolSpecs =
-                buildStatelessToolSpecs(toolRegistry, userMemoryRegistry, authEnabled);
+                buildStatelessToolSpecs(toolRegistry, binderProvider, userMemoryRegistry, authEnabled);
 
         return McpServer.sync(transport)
                 .serverInfo(SERVER_NAME, SERVER_VERSION)
@@ -112,6 +113,13 @@ public class McpServerConfig {
                         .build())
                 .tools(toolSpecs)
                 .build();
+    }
+
+    public McpStatelessSyncServer mcpStatelessServer(HttpServletStatelessServerTransport transport,
+                                                      ToolRegistry toolRegistry,
+                                                      MemoryRegistry userMemoryRegistry,
+                                                      SynapseProperties synapseProperties) {
+        return mcpStatelessServer(transport, toolRegistry, userMemoryRegistry, null, synapseProperties);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -142,10 +150,11 @@ public class McpServerConfig {
     public McpSyncServer mcpSseServer(HttpServletSseServerTransportProvider transportProvider,
                                       ToolRegistry toolRegistry,
                                       MemoryRegistry userMemoryRegistry,
+                                      ObjectProvider<com.spectrayan.spector.synapse.memory.MemoryRequestBinder> binderProvider,
                                       SynapseProperties synapseProperties) {
         boolean authEnabled = synapseProperties.auth().enabled();
         List<McpServerFeatures.SyncToolSpecification> toolSpecs =
-                buildSyncToolSpecs(toolRegistry, userMemoryRegistry, authEnabled);
+                buildSyncToolSpecs(toolRegistry, binderProvider, userMemoryRegistry, authEnabled);
 
         return McpServer.sync(transportProvider)
                 .serverInfo(SERVER_NAME, SERVER_VERSION)
@@ -156,6 +165,13 @@ public class McpServerConfig {
                         .build())
                 .tools(toolSpecs)
                 .build();
+    }
+
+    public McpSyncServer mcpSseServer(HttpServletSseServerTransportProvider transportProvider,
+                                      ToolRegistry toolRegistry,
+                                      MemoryRegistry userMemoryRegistry,
+                                      SynapseProperties synapseProperties) {
+        return mcpSseServer(transportProvider, toolRegistry, userMemoryRegistry, null, synapseProperties);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -185,10 +201,11 @@ public class McpServerConfig {
     public McpSyncServer mcpStreamableServer(HttpServletStreamableServerTransportProvider transportProvider,
                                              ToolRegistry toolRegistry,
                                              MemoryRegistry userMemoryRegistry,
+                                             ObjectProvider<com.spectrayan.spector.synapse.memory.MemoryRequestBinder> binderProvider,
                                              SynapseProperties synapseProperties) {
         boolean authEnabled = synapseProperties.auth().enabled();
         List<McpServerFeatures.SyncToolSpecification> toolSpecs =
-                buildSyncToolSpecs(toolRegistry, userMemoryRegistry, authEnabled);
+                buildSyncToolSpecs(toolRegistry, binderProvider, userMemoryRegistry, authEnabled);
 
         return McpServer.sync(transportProvider)
                 .serverInfo(SERVER_NAME, SERVER_VERSION)
@@ -201,12 +218,22 @@ public class McpServerConfig {
                 .build();
     }
 
+    public McpSyncServer mcpStreamableServer(HttpServletStreamableServerTransportProvider transportProvider,
+                                             ToolRegistry toolRegistry,
+                                             MemoryRegistry userMemoryRegistry,
+                                             SynapseProperties synapseProperties) {
+        return mcpStreamableServer(transportProvider, toolRegistry, userMemoryRegistry, null, synapseProperties);
+    }
+
     // ─────────────────────────────────────────────────────────────
     // TOOL SPECIFICATION BUILDERS & MEMORY BINDING
     // ─────────────────────────────────────────────────────────────
 
     private static List<McpStatelessServerFeatures.SyncToolSpecification> buildStatelessToolSpecs(
-            ToolRegistry toolRegistry, MemoryRegistry userMemoryRegistry, boolean authEnabled) {
+            ToolRegistry toolRegistry,
+            ObjectProvider<com.spectrayan.spector.synapse.memory.MemoryRequestBinder> binderProvider,
+            MemoryRegistry userMemoryRegistry,
+            boolean authEnabled) {
         return toolRegistry.all().values().stream()
                 .map(mcpTool -> {
                     var tool = McpSchema.Tool.builder(mcpTool.name())
@@ -217,8 +244,10 @@ public class McpServerConfig {
                     return new McpStatelessServerFeatures.SyncToolSpecification(tool, (exchange, request) -> {
                         Map<String, Object> args = request.arguments() != null ? request.arguments() : Map.of();
                         String namespace = args.get("namespace") != null ? String.valueOf(args.get("namespace")) : null;
-                        Optional<McpRequestMemory.DenyReason> deny =
-                                McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled, namespace, null);
+                        var binder = binderProvider != null ? binderProvider.getIfAvailable() : null;
+                        Optional<McpRequestMemory.DenyReason> deny = binder != null
+                                ? McpRequestMemory.bindForCurrentRequest(binder, authEnabled, namespace, null)
+                                : McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled, namespace, null);
                         if (deny.isPresent()) {
                             return toolError(McpRequestMemory.message(deny.get()));
                         }
@@ -235,7 +264,10 @@ public class McpServerConfig {
     }
 
     private static List<McpServerFeatures.SyncToolSpecification> buildSyncToolSpecs(
-            ToolRegistry toolRegistry, MemoryRegistry userMemoryRegistry, boolean authEnabled) {
+            ToolRegistry toolRegistry,
+            ObjectProvider<com.spectrayan.spector.synapse.memory.MemoryRequestBinder> binderProvider,
+            MemoryRegistry userMemoryRegistry,
+            boolean authEnabled) {
         return toolRegistry.all().values().stream()
                 .map(mcpTool -> {
                     var tool = McpSchema.Tool.builder(mcpTool.name())
@@ -246,8 +278,10 @@ public class McpServerConfig {
                     return new McpServerFeatures.SyncToolSpecification(tool, (exchange, request) -> {
                         Map<String, Object> args = request.arguments() != null ? request.arguments() : Map.of();
                         String namespace = args.get("namespace") != null ? String.valueOf(args.get("namespace")) : null;
-                        Optional<McpRequestMemory.DenyReason> deny =
-                                McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled, namespace, null);
+                        var binder = binderProvider != null ? binderProvider.getIfAvailable() : null;
+                        Optional<McpRequestMemory.DenyReason> deny = binder != null
+                                ? McpRequestMemory.bindForCurrentRequest(binder, authEnabled, namespace, null)
+                                : McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled, namespace, null);
                         if (deny.isPresent()) {
                             return toolError(McpRequestMemory.message(deny.get()));
                         }

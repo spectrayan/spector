@@ -16,47 +16,34 @@ import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException;
 import com.spectrayan.spector.synapse.catalog.exception.TokenNamespaceLockedException;
+import com.spectrayan.spector.synapse.memory.MemoryBinding;
 import com.spectrayan.spector.synapse.memory.MemoryRegistry;
+import com.spectrayan.spector.synapse.memory.MemoryRequestBinder;
 import com.spectrayan.spector.synapse.security.SecurityUtils;
 
 /**
  * Request-thread holder that routes an MCP tool invocation to the caller's per-user
- * {@link SpectorMemory} namespace.
+ * {@link MemoryBinding} and {@link SpectorMemory} namespace (ADR-0029 §16, §24).
  *
  * <p>MCP tools are executed synchronously on the servlet request thread
  * ({@code transport → SyncToolSpecification lambda → mcpTool.execute(args)}) and resolve
- * their {@link SpectorMemory} independently. This holder lets the invocation site bind the memory
- * resolved for the authenticated caller — via {@link MemoryRegistry#resolveForCurrentRequest()}
- * on that same thread — so a memory-aware tool operates exclusively on that user's namespace,
- * regardless of any client-supplied {@code namespace}/{@code workspace_id}/{@code agent_id} hints
- * (those never widen scope to another user; the effective root is always the caller's namespace).</p>
- *
- * <h3>Resolution and deny semantics</h3>
- * <ul>
- *   <li>When {@code spector.auth.enabled=false} or the principal is anonymous, the registry returns
- *       the single shared instance — byte-for-byte the legacy single-user behavior (also the stdio
- *       path, which never binds through this holder).</li>
- *   <li>When auth is enabled and no resolvable authenticated context is present, the call is
- *       denied with {@link DenyReason#AUTH_REQUIRED} and nothing is bound.</li>
- *   <li>When per-user memory resolution fails, the call is denied with
- *       {@link DenyReason#RESOLUTION_FAILED}, nothing is bound, and no memory is modified — the
- *       registry never falls back to the shared or another user's instance.</li>
- *   <li>When a token is locked to specific namespaces and an unauthorized namespace is requested,
- *       the call is denied with {@link DenyReason#TOKEN_LOCKED}.</li>
- * </ul>
- *
- * <p>The bound reference is confined to the current thread. Callers <strong>must</strong>
- * {@link #clear()} in a {@code finally} block after the tool completes so the thread-local never
- * leaks across pooled request threads.</p>
+ * their {@link MemoryBinding} via {@link MemoryRequestBinder}. This holder lets the invocation site
+ * bind the memory, lease, and identity context resolved for the authenticated caller on that same
+ * thread — so a memory-aware tool operates exclusively on that user's authorized namespace,
+ * with full soul stack, bias overlay, and org intersection.</p>
  */
 public final class McpRequestMemory {
 
     private static final Logger log = LoggerFactory.getLogger(McpRequestMemory.class);
 
-    private static final ThreadLocal<SpectorMemory> CURRENT = new ThreadLocal<>();
+    private static final ThreadLocal<MemoryBinding> CURRENT_BINDING = new ThreadLocal<>();
+    private static final ThreadLocal<MemoryRequestBinder> CURRENT_BINDER = new ThreadLocal<>();
 
     private McpRequestMemory() {
     }
@@ -65,6 +52,8 @@ public final class McpRequestMemory {
     public enum DenyReason {
         /** Auth is enabled but the request carries no resolvable authenticated security context. */
         AUTH_REQUIRED,
+        /** Caller does not have sufficient grant permissions to access the requested namespace. */
+        ACCESS_DENIED,
         /** Per-user memory resolution or lazy construction failed; the call fails closed. */
         RESOLUTION_FAILED,
         /** Wildcard '*' was supplied as a namespace selector (ADR-0029 Invariant 7). */
@@ -75,29 +64,17 @@ public final class McpRequestMemory {
 
     /**
      * Resolves the caller's memory on the current (request/servlet) thread and binds it for the
-     * duration of the invocation. Reads {@link SecurityContextHolder} via {@link SecurityUtils} and
-     * {@link MemoryRegistry}; never call this from an asynchronous task.
-     *
-     * @param registry    the per-user memory registry
-     * @param authEnabled whether {@code spector.auth.enabled} is {@code true}
-     * @return {@link Optional#empty()} when a memory instance was resolved and bound; otherwise the
-     *         {@link DenyReason} describing why the call must be denied (nothing is bound)
+     * duration of the invocation using {@link MemoryRequestBinder}.
      */
-    public static Optional<DenyReason> bindForCurrentRequest(MemoryRegistry registry, boolean authEnabled) {
-        return bindForCurrentRequest(registry, authEnabled, null, null);
+    public static Optional<DenyReason> bindForCurrentRequest(MemoryRequestBinder binder, boolean authEnabled) {
+        return bindForCurrentRequest(binder, authEnabled, null, null);
     }
 
     /**
-     * Resolves the caller's memory with an optional explicit namespace selector or connection ID.
-     *
-     * @param registry          the per-user memory registry
-     * @param authEnabled       whether {@code spector.auth.enabled} is {@code true}
-     * @param namespaceSelector optional explicit namespace slug or ID (from tool argument)
-     * @param connectionId      optional MCP connection or session identifier
-     * @return {@link Optional#empty()} when bound; otherwise {@link DenyReason}
+     * Resolves the caller's memory using {@link MemoryRequestBinder}.
      */
     public static Optional<DenyReason> bindForCurrentRequest(
-            MemoryRegistry registry,
+            MemoryRequestBinder binder,
             boolean authEnabled,
             String namespaceSelector,
             String connectionId) {
@@ -110,12 +87,72 @@ public final class McpRequestMemory {
         }
 
         try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String selector = (namespaceSelector != null && !namespaceSelector.isBlank())
+                    ? namespaceSelector.trim()
+                    : McpSessionContext.getSessionDefault(connectionId).orElse(null);
+
+            MemoryBinding binding;
+            if (binder != null) {
+                binding = binder.bind(auth, Optional.ofNullable(selector), connectionId);
+                CURRENT_BINDER.set(binder);
+            } else {
+                return Optional.of(DenyReason.RESOLUTION_FAILED);
+            }
+
+            CURRENT_BINDING.set(binding);
+            return Optional.empty();
+        } catch (NamespaceAccessDeniedException e) {
+            clear();
+            log.warn("[McpRequestMemory] access denied: {}", e.getMessage());
+            return Optional.of(DenyReason.ACCESS_DENIED);
+        } catch (TokenNamespaceLockedException e) {
+            clear();
+            log.warn("[McpRequestMemory] token namespace locked: {}", e.getMessage());
+            return Optional.of(DenyReason.TOKEN_LOCKED);
+        } catch (com.spectrayan.spector.commons.error.SpectorValidationException e) {
+            clear();
+            log.warn("[McpRequestMemory] validation error: {}", e.getMessage());
+            return Optional.of(DenyReason.WILDCARD_REJECTED);
+        } catch (RuntimeException e) {
+            clear();
+            log.warn("[McpRequestMemory] memory resolution failed; denying MCP call: {}", e.getMessage());
+            log.debug("[McpRequestMemory] resolution failure detail", e);
+            return Optional.of(DenyReason.RESOLUTION_FAILED);
+        }
+    }
+
+    /**
+     * Adapter method for callers that provide {@link MemoryRegistry}.
+     */
+    public static Optional<DenyReason> bindForCurrentRequest(MemoryRegistry registry, boolean authEnabled) {
+        return bindForCurrentRequest(registry, authEnabled, null, null);
+    }
+
+    /**
+     * Adapter method for callers that provide {@link MemoryRegistry}.
+     */
+    public static Optional<DenyReason> bindForCurrentRequest(
+            MemoryRegistry registry,
+            boolean authEnabled,
+            String namespaceSelector,
+            String connectionId) {
+        if (registry != null && registry.binder() != null) {
+            return bindForCurrentRequest(registry.binder(), authEnabled, namespaceSelector, connectionId);
+        }
+        if (authEnabled && !SecurityUtils.isAuthenticated()) {
+            return Optional.of(DenyReason.AUTH_REQUIRED);
+        }
+        if (namespaceSelector != null && "*".equals(namespaceSelector.trim())) {
+            return Optional.of(DenyReason.WILDCARD_REJECTED);
+        }
+        try {
             String userId = SecurityUtils.getUserId();
             String selector = (namespaceSelector != null && !namespaceSelector.isBlank())
                     ? namespaceSelector.trim()
                     : McpSessionContext.getSessionDefault(connectionId).orElse(null);
 
-            var catalog = registry.catalog();
+            var catalog = registry != null ? registry.catalog() : null;
             String targetNamespaceId = userId;
             if (selector != null && !selector.isBlank()) {
                 if (catalog != null && userId != null) {
@@ -127,12 +164,11 @@ public final class McpRequestMemory {
                 }
             }
 
-            // Fail-closed authorization on MCP path (ADR-0029 §24) — mirrors MemoryRequestBinder
             if (authEnabled && userId != null && catalog != null) {
                 var authGrant = catalog.authorize(userId, targetNamespaceId, com.spectrayan.spector.synapse.catalog.GrantRole.READER);
                 if (authGrant.isEmpty()) {
                     log.warn("[McpRequestMemory] Access denied: account={} has no grant on namespace={}", userId, targetNamespaceId);
-                    return Optional.of(DenyReason.RESOLUTION_FAILED);
+                    return Optional.of(DenyReason.ACCESS_DENIED);
                 }
             }
 
@@ -140,39 +176,58 @@ public final class McpRequestMemory {
                     ? registry.namespaceResolver().resolve(userId, targetNamespaceId)
                     : registry.resolveForCurrentRequest();
 
-            CURRENT.set(memory);
+            AutoCloseable lease = memory != null ? memory.acquireLease() : null;
+            MemoryBinding binding = new MemoryBinding(memory, userId, targetNamespaceId, selector != null ? selector : "default", lease, null);
+            CURRENT_BINDING.set(binding);
             return Optional.empty();
-        } catch (com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException e) {
+        } catch (NamespaceAccessDeniedException e) {
             clear();
             log.warn("[McpRequestMemory] access denied: {}", e.getMessage());
-            return Optional.of(DenyReason.RESOLUTION_FAILED);
+            return Optional.of(DenyReason.ACCESS_DENIED);
         } catch (TokenNamespaceLockedException e) {
             clear();
             log.warn("[McpRequestMemory] token namespace locked: {}", e.getMessage());
             return Optional.of(DenyReason.TOKEN_LOCKED);
         } catch (RuntimeException e) {
             clear();
-            // Never echo the resolved namespace/identifier; message stays generic.
             log.warn("[McpRequestMemory] memory resolution failed; denying MCP call: {}", e.getMessage());
-            log.debug("[McpRequestMemory] resolution failure detail (id withheld)", e);
             return Optional.of(DenyReason.RESOLUTION_FAILED);
         }
     }
 
     /**
-     * The memory bound for the current request thread, or {@code null} when none is bound (e.g. the
-     * stdio transport or any non-servlet caller). Memory-aware tools consult this first and fall
-     * back to their own shared provider when it is {@code null}.
+     * The memory bound for the current request thread, or {@code null} when none is bound.
      *
      * @return the request-scoped {@link SpectorMemory}, or {@code null}
      */
     public static SpectorMemory current() {
-        return CURRENT.get();
+        MemoryBinding binding = CURRENT_BINDING.get();
+        return binding != null ? binding.memory() : null;
     }
 
-    /** Removes any memory bound to the current thread. Must be invoked in a {@code finally} block. */
+    /**
+     * The full memory binding for the current request thread, or {@code null} when none is bound.
+     */
+    public static MemoryBinding currentBinding() {
+        return CURRENT_BINDING.get();
+    }
+
+    /** Removes any memory bound to the current thread and closes its lease. */
     public static void clear() {
-        CURRENT.remove();
+        MemoryBinding binding = CURRENT_BINDING.get();
+        MemoryRequestBinder binder = CURRENT_BINDER.get();
+        if (binding != null) {
+            if (binder != null) {
+                binder.unbind(binding);
+            } else if (binding.lease() != null) {
+                try {
+                    binding.lease().close();
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        CURRENT_BINDING.remove();
+        CURRENT_BINDER.remove();
         McpSessionContext.clearFallback();
     }
 
@@ -186,6 +241,8 @@ public final class McpRequestMemory {
         return switch (reason) {
             case AUTH_REQUIRED ->
                     "Authentication is required to invoke MCP tools over /mcp.";
+            case ACCESS_DENIED ->
+                    "Access denied: caller does not have sufficient permissions to access the requested namespace.";
             case RESOLUTION_FAILED ->
                     "Memory resolution failed; the MCP call was denied and no memory was modified.";
             case WILDCARD_REJECTED ->
