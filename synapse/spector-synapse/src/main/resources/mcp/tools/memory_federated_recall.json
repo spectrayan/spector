@@ -1,0 +1,47 @@
+{
+  "name": "memory_federated_recall",
+  "description": "Executes cross-rememberer federated recall across multiple isolated namespaces within execution and budget boundaries (ADR-0029 §7).",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Natural language query to recall across memory spaces."
+      },
+      "namespaces": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "List of namespace slugs or IDs to query, or ['granted'] to query all accessible namespaces."
+      },
+      "topK": {
+        "type": "integer",
+        "description": "Total number of global merged memories to return across all namespaces (default: 10).",
+        "default": 10
+      },
+      "perNamespaceTopK": {
+        "type": "integer",
+        "description": "Maximum number of memories to retrieve per queried namespace (default: 5).",
+        "default": 5
+      },
+      "timeoutMs": {
+        "type": "integer",
+        "description": "Maximum query timeout budget in milliseconds (default: 3000).",
+        "default": 3000
+      },
+      "maxColdOpens": {
+        "type": "integer",
+        "description": "Maximum number of cold (uncached) namespaces allowed to open (default: 2).",
+        "default": 2
+      }
+    },
+    "required": [
+      "query"
+    ]
+  }
+}

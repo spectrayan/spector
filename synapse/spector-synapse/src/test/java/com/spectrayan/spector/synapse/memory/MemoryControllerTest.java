@@ -53,6 +53,7 @@ class MemoryControllerTest {
     @Autowired WebApplicationContext wac;
     @Autowired ObjectMapper mapper;
     @MockitoBean MemoryService memoryService;
+    @MockitoBean FederatedRecallService federatedRecallService;
 
     MockMvc mvc;
 
@@ -366,6 +367,55 @@ class MemoryControllerTest {
                 .andExpect(jsonPath("$.avgValence", is(4.5)));
 
         verify(memoryService).getScoringStats();
+    }
+
+    @Test
+    @DisplayName("POST /memory/federated-recall — returns 200 with federated hits and summary")
+    void federatedRecall_returnsHits() throws Exception {
+        var cr = new com.spectrayan.spector.memory.model.CognitiveResult(
+                "mem-123",
+                "Cross-rememberer knowledge",
+                0.92f,
+                0.85f,
+                0.1f,
+                (short) 1,
+                (byte) 0,
+                com.spectrayan.spector.memory.model.MemoryType.SEMANTIC,
+                com.spectrayan.spector.memory.cortex.MemorySource.OBSERVED,
+                new String[]{"federation"},
+                1.0f,
+                1.0f
+        );
+        var hit = new FederatedRecallHit(
+                "01JXYZNS00001",
+                "default",
+                com.spectrayan.spector.synapse.catalog.GrantRole.OWNER,
+                1,
+                1,
+                cr
+        );
+        var summary = new FederatedRecallSummary(
+                1,
+                List.of("default"),
+                List.of(),
+                List.of(),
+                List.of(),
+                25L
+        );
+        var response = new FederatedRecallResponse(List.of(hit), summary);
+
+        when(federatedRecallService.federatedRecall(Mockito.anyString(), Mockito.any(FederatedRecallRequest.class)))
+                .thenReturn(response);
+
+        var request = new FederatedRecallRequest("cross-rememberer knowledge", List.of("default"), 5, 5, 3000, 2, null, null);
+
+        mvc.perform(post("/api/v1/memory/federated-recall")
+                        .contentType(APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.hits[0].result.id", is("mem-123")))
+                .andExpect(jsonPath("$.hits[0].namespaceId", is("01JXYZNS00001")))
+                .andExpect(jsonPath("$.summary.openedNamespaces[0]", is("default")));
     }
 }
 

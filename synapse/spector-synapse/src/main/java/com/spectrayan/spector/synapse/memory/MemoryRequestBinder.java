@@ -70,8 +70,8 @@ public class MemoryRequestBinder {
         this.catalog = catalog;
         this.registry = registry;
         this.synapseProps = synapseProps;
-        this.sharedMemory = sharedMemoryProvider.getIfAvailable();
-        this.identityPlane = identityPlaneProvider.getIfAvailable();
+        this.sharedMemory = sharedMemoryProvider != null ? sharedMemoryProvider.getIfAvailable() : null;
+        this.identityPlane = identityPlaneProvider != null ? identityPlaneProvider.getIfAvailable() : null;
     }
 
     /**
@@ -94,6 +94,15 @@ public class MemoryRequestBinder {
      * @return the bound memory context
      */
     public MemoryBinding bind(Authentication auth, Optional<String> selector, String sessionId) {
+        if (selector != null && selector.isPresent() && !selector.get().isBlank()) {
+            String slugOrId = selector.get().trim();
+            if ("*".equals(slugOrId) || slugOrId.contains("*") || slugOrId.contains(",")) {
+                throw new com.spectrayan.spector.commons.error.SpectorValidationException(
+                        com.spectrayan.spector.commons.error.ErrorCode.ARGUMENT_INVALID,
+                        "Wildcard '*' or multi-namespace selection is not permitted on single-namespace memory operations. Use memory_federated_recall.");
+            }
+        }
+
         if (!synapseProps.auth().enabled() || auth == null || !auth.isAuthenticated()
                 || auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
             AutoCloseable lease = sharedMemory != null ? sharedMemory.acquireLease() : null;
@@ -123,9 +132,6 @@ public class MemoryRequestBinder {
 
         if (selector != null && selector.isPresent() && !selector.get().isBlank()) {
             String slugOrId = selector.get().trim();
-            if ("*".equals(slugOrId)) {
-                throw new IllegalArgumentException("Wildcard namespace '*' is not supported for memory operations");
-            }
             record = catalog.resolve(accountId, slugOrId)
                     .orElseThrow(() -> new NamespaceNotFoundException(slugOrId));
             if (record.status() == NamespaceStatus.TOMBSTONED) {
