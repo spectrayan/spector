@@ -76,6 +76,12 @@ public class JdbcAccountCatalog implements AccountCatalog {
     @Override
     @Transactional
     public Account getOrCreateAccount(String accountId) {
+        return getOrCreateAccount(accountId, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN);
+    }
+
+    @Override
+    @Transactional
+    public Account getOrCreateAccount(String accountId, AccountProfile profile, PrincipalKind kind) {
         Objects.requireNonNull(accountId, "accountId must not be null");
 
         Optional<Account> existing = findAccountById(accountId);
@@ -84,6 +90,9 @@ public class JdbcAccountCatalog implements AccountCatalog {
             ensureDefaultNamespaceExists(account);
             return account;
         }
+
+        AccountProfile effProfile = profile != null ? profile : AccountProfile.HUMAN_SOLO;
+        PrincipalKind effKind = kind != null ? kind : PrincipalKind.HUMAN;
 
         log.info("[JdbcAccountCatalog] Auto-provisioning account for ID: {}", accountId);
         Instant now = Instant.now();
@@ -95,7 +104,7 @@ public class JdbcAccountCatalog implements AccountCatalog {
                     profile, kind, flags, default_namespace_id, created_at, updated_at
                 ) VALUES (
                     :userId, :username, '', :displayName, 'ROLE_USER', '',
-                    'HUMAN_SOLO', 'HUMAN', '{}', :defaultNamespaceId, :now, :now
+                    :profile, :kind, '{}', :defaultNamespaceId, :now, :now
                 )
                 """;
 
@@ -103,6 +112,8 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 .param("userId", accountId)
                 .param("username", accountId)
                 .param("displayName", accountId)
+                .param("profile", effProfile.name())
+                .param("kind", effKind.name())
                 .param("defaultNamespaceId", accountId)
                 .param("now", Timestamp.from(now))
                 .update();
@@ -126,10 +137,10 @@ public class JdbcAccountCatalog implements AccountCatalog {
 
         Account newAccount = new Account(
                 accountId,
-                PrincipalKind.HUMAN,
-                AccountProfile.HUMAN_SOLO,
+                effKind,
+                effProfile,
                 accountId,
-                defaultQuotas(AccountProfile.HUMAN_SOLO, null, null),
+                defaultQuotas(effProfile, null, null),
                 new AccountFlags(true, true, true),
                 accountId,
                 now
@@ -490,6 +501,7 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 .param("revokedAt", null)
                 .param("constraintsJson", serializeConstraints(grant.constraints()))
                 .update();
+        bumpMembershipVersion(grant.principalId());
         log.info("[JdbcAccountCatalog] Added grant: id={}, object={}:{}, principal={}",
                 grant.grantId(), grant.objectType(), grant.objectId(), grant.principalId());
     }
@@ -565,6 +577,17 @@ public class JdbcAccountCatalog implements AccountCatalog {
     @Transactional
     public void revokeGrant(String grantId) {
         Objects.requireNonNull(grantId, "grantId must not be null");
+        try {
+            String findSql = "SELECT principal_id FROM grants WHERE grant_id = :grantId";
+            String principalId = jdbc.sql(findSql)
+                    .param("grantId", grantId)
+                    .query(String.class)
+                    .optional().orElse(null);
+            if (principalId != null) {
+                bumpMembershipVersion(principalId);
+            }
+        } catch (Exception ignored) {
+        }
         String sql = sqlLoader.load("catalog/grants/revoke-grant");
         jdbc.sql(sql)
                 .param("grantId", grantId)
@@ -644,20 +667,50 @@ public class JdbcAccountCatalog implements AccountCatalog {
         Objects.requireNonNull(bundleId, "bundleId must not be null");
         Objects.requireNonNull(action, "action must not be null");
 
-        // Account owner has full access to own identity bundle
+        // 1. Account owner has full access to own identity bundle
         if (accountId.equals(bundleId)) {
             return true;
         }
 
+        // 2. Direct region grant (IDENTITY_REGION objectId=bundleId:regionId)
+        if (regionId != null && !regionId.isBlank()) {
+            String findGrantSql = sqlLoader.load("catalog/grants/find-active-grant");
+            List<Grant> regionGrants = jdbc.sql(findGrantSql)
+                    .param("objectType", GrantObjectType.IDENTITY_REGION.name())
+                    .param("objectId", bundleId + ":" + regionId)
+                    .param("principalId", accountId)
+                    .query(this::mapGrantRow)
+                    .list();
+
+            if (regionGrants.stream().anyMatch(g -> g.actions() != null
+                    && (g.actions().contains(action) || g.actions().contains(GrantAction.ADMIN)))) {
+                return true;
+            }
+        }
+
+        // 3. Bundle-level grant (IDENTITY_BUNDLE objectId=bundleId with optional region constraints)
         String findGrantSql = sqlLoader.load("catalog/grants/find-active-grant");
-        List<Grant> grants = jdbc.sql(findGrantSql)
+        List<Grant> bundleGrants = jdbc.sql(findGrantSql)
                 .param("objectType", GrantObjectType.IDENTITY_BUNDLE.name())
                 .param("objectId", bundleId)
                 .param("principalId", accountId)
                 .query(this::mapGrantRow)
                 .list();
 
-        return grants.stream().anyMatch(g -> g.actions() != null && g.actions().contains(action));
+        for (Grant grant : bundleGrants) {
+            if (grant.actions() == null || (!grant.actions().contains(action) && !grant.actions().contains(GrantAction.ADMIN))) {
+                continue;
+            }
+            if (regionId != null && !regionId.isBlank() && grant.constraints() != null) {
+                Set<String> allowedRegions = grant.constraints().regionIds();
+                if (allowedRegions != null && !allowedRegions.isEmpty() && !allowedRegions.contains(regionId)) {
+                    continue;
+                }
+            }
+            return true;
+        }
+
+        return false;
     }
 
     @Override
@@ -670,6 +723,67 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 .param("accountId", accountId)
                 .query((rs, rowNum) -> rs.getString("org_unit_id"))
                 .list();
+    }
+
+    @Override
+    @Transactional
+    public void addOrgMember(String accountId, String orgUnitId) {
+        Objects.requireNonNull(accountId, "accountId must not be null");
+        Objects.requireNonNull(orgUnitId, "orgUnitId must not be null");
+
+        // Ensure user account exists
+        getOrCreateAccount(accountId);
+
+        // Ensure org_unit exists in org_units table
+        String checkOrgSql = "SELECT COUNT(*) FROM org_units WHERE org_unit_id = :orgUnitId";
+        Integer count = jdbc.sql(checkOrgSql)
+                .param("orgUnitId", orgUnitId)
+                .query(Integer.class)
+                .optional().orElse(0);
+        if (count == null || count == 0) {
+            jdbc.sql("INSERT INTO org_units (org_unit_id, tenant_id, name) VALUES (:orgUnitId, :tenantId, :name)")
+                    .param("orgUnitId", orgUnitId)
+                    .param("tenantId", "default")
+                    .param("name", orgUnitId)
+                    .update();
+        }
+
+        // Insert membership (ignore duplicate)
+        try {
+            jdbc.sql("INSERT INTO org_unit_members (org_unit_id, account_id) VALUES (:orgUnitId, :accountId)")
+                    .param("orgUnitId", orgUnitId)
+                    .param("accountId", accountId)
+                    .update();
+        } catch (Exception e) {
+            log.debug("[JdbcAccountCatalog] Org member insert duplicate or ignored: {}", e.getMessage());
+        }
+
+        bumpMembershipVersion(accountId);
+    }
+
+    @Override
+    @Transactional
+    public void removeOrgMember(String accountId, String orgUnitId) {
+        Objects.requireNonNull(accountId, "accountId must not be null");
+        Objects.requireNonNull(orgUnitId, "orgUnitId must not be null");
+
+        jdbc.sql("DELETE FROM org_unit_members WHERE org_unit_id = :orgUnitId AND account_id = :accountId")
+                .param("orgUnitId", orgUnitId)
+                .param("accountId", accountId)
+                .update();
+
+        bumpMembershipVersion(accountId);
+    }
+
+    private void bumpMembershipVersion(String accountId) {
+        if (accountId == null) return;
+        try {
+            jdbc.sql("UPDATE users SET membership_version = membership_version + 1 WHERE user_id = :accountId")
+                    .param("accountId", accountId)
+                    .update();
+        } catch (Exception e) {
+            log.warn("[JdbcAccountCatalog] Failed to bump membership_version: {}", e.getMessage());
+        }
     }
 
     private boolean hasActiveGrant(String accountId, String namespaceId) {
@@ -718,7 +832,7 @@ public class JdbcAccountCatalog implements AccountCatalog {
                     accountId,
                     PrincipalType.ACCOUNT,
                     GrantRole.OWNER,
-                    Set.of(GrantAction.READ, GrantAction.WRITE, GrantAction.ADMIN),
+                    Set.of(GrantAction.READ, GrantAction.WRITE, GrantAction.ADMIN, GrantAction.INJECT),
                     accountId,
                     Instant.now(),
                     null,
