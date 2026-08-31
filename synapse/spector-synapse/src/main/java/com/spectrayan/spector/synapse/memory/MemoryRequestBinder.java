@@ -161,13 +161,17 @@ public class MemoryRequestBinder {
                 ? identityPlane.soulsFor(tokenClaims.tenantId(), tokenClaims.orgUnitIds(), accountId)
                 : List.of();
 
+        // Authorize access on target namespace
+        Optional<com.spectrayan.spector.synapse.catalog.Grant> authGrant = catalog.authorize(accountId, targetNamespaceId, GrantRole.READER);
+        GrantRole role = authGrant.map(com.spectrayan.spector.synapse.catalog.Grant::role).orElse(GrantRole.OWNER);
+
         RequestMemoryContext requestContext = new RequestMemoryContext(
                 tokenClaims.tenantId(),
                 tokenClaims.orgUnitIds(),
                 accountId,
                 targetNamespaceId,
                 targetSlug,
-                GrantRole.OWNER,
+                role,
                 tokenClaims.allowSet(),
                 sessionId,
                 soulStack,
