@@ -139,6 +139,9 @@ class MeteredSpectorMemoryTest {
         metered.assertFact("s", "p", "o", 0, 100, 1.0f, false);
         metered.factHistory("s", "p");
 
+        com.spectrayan.spector.memory.model.SoulContext soul = new com.spectrayan.spector.memory.model.UserSoul("user-1", "primary", "desc", null, null);
+        metered.applyIdentity(soul, List.of(soul), SalienceProfile.NEUTRAL);
+
         metered.admin();
         metered.close();
     }
