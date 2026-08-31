@@ -92,6 +92,13 @@ class MemoryRequestBinderTest {
         when(catalog.getOrCreateAccount(accountId)).thenReturn(account);
         when(registry.resolveFor(accountId)).thenReturn(memory);
         when(resolver.resolve(accountId, "default-ns-id")).thenReturn(memory);
+        // Fail-closed authorization mock — OWNER grant for own default namespace
+        when(catalog.authorize(accountId, "default-ns-id", com.spectrayan.spector.synapse.catalog.GrantRole.READER))
+                .thenReturn(Optional.of(new com.spectrayan.spector.synapse.catalog.Grant(
+                        "grant-" + accountId, com.spectrayan.spector.synapse.catalog.GrantObjectType.NAMESPACE, "default-ns-id",
+                        accountId, com.spectrayan.spector.synapse.catalog.PrincipalType.ACCOUNT,
+                        com.spectrayan.spector.synapse.catalog.GrantRole.OWNER,
+                        null, accountId, Instant.now(), null, null)));
 
         Authentication auth = mock(Authentication.class);
         when(auth.isAuthenticated()).thenReturn(true);
@@ -126,6 +133,12 @@ class MemoryRequestBinderTest {
                 NamespaceType.PROJECT, NamespaceStatus.ACTIVE, "Alpha", "Project Alpha", null, Instant.now(), Instant.now());
         when(catalog.resolve(accountId, "project-alpha")).thenReturn(Optional.of(projectAlpha));
         when(resolver.resolve(accountId, "ns-alpha")).thenReturn(memory);
+        when(catalog.authorize(accountId, "ns-alpha", com.spectrayan.spector.synapse.catalog.GrantRole.READER))
+                .thenReturn(Optional.of(new com.spectrayan.spector.synapse.catalog.Grant(
+                        "grant-alpha", com.spectrayan.spector.synapse.catalog.GrantObjectType.NAMESPACE, "ns-alpha",
+                        accountId, com.spectrayan.spector.synapse.catalog.PrincipalType.ACCOUNT,
+                        com.spectrayan.spector.synapse.catalog.GrantRole.OWNER,
+                        null, accountId, Instant.now(), null, null)));
 
         NamespaceRecord projectBeta = new NamespaceRecord("ns-beta", "project-beta", accountId,
                 NamespaceType.PROJECT, NamespaceStatus.ACTIVE, "Beta", "Project Beta", null, Instant.now(), Instant.now());

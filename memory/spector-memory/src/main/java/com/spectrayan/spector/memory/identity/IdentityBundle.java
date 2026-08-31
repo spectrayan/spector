@@ -286,6 +286,35 @@ public final class IdentityBundle implements AutoCloseable {
     }
 
     /**
+     * Reads an organizational unit soul by ID from {@link IdentityRegionId#ORG_DIR}.
+     *
+     * <p>The ORG_DIR region stores a JSON array of {@link com.spectrayan.spector.memory.model.OrgUnitSoul}
+     * records. This method reads the array and filters by {@code orgUnitId}.</p>
+     *
+     * @param orgUnitId the organizational unit identifier
+     * @return optional matching OrgUnitSoul as a SoulContext
+     */
+    public Optional<SoulContext> readOrgUnitSoul(String orgUnitId) {
+        if (orgUnitId == null || orgUnitId.isBlank()) {
+            return Optional.empty();
+        }
+        return readRaw(IdentityRegionId.ORG_DIR).flatMap(bytes -> {
+            try {
+                var type = MAPPER.getTypeFactory()
+                        .constructCollectionType(java.util.List.class, com.spectrayan.spector.memory.model.OrgUnitSoul.class);
+                java.util.List<com.spectrayan.spector.memory.model.OrgUnitSoul> orgSouls = MAPPER.readValue(bytes, type);
+                return orgSouls.stream()
+                        .filter(s -> orgUnitId.equals(s.id()))
+                        .map(s -> (SoulContext) s)
+                        .findFirst();
+            } catch (Exception e) {
+                log.warn("Failed to deserialize OrgUnitSoul list from ORG_DIR for orgUnitId={}: {}", orgUnitId, e.getMessage());
+                return Optional.empty();
+            }
+        });
+    }
+
+    /**
      * Checks if the given region has no payload.
      *
      * @param regionId the target region

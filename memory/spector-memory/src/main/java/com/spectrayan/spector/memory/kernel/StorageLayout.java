@@ -492,40 +492,21 @@ public final class StorageLayout {
     }
 
     /**
-     * Resolves the identity bundle file for an account.
-     *
-     * <pre>
-     *   basePath/accounts/XX/YY/accountId/identity.bundle
-     * </pre>
-     *
-     * <p>The identity bundle is a small mmap file (1 FD) containing the account's
-     * primary soul, salience profile, and continuity trajectory. It is separate
-     * from any data-plane rememberer.</p>
-     *
-     * @param basePath  root persistence path
-     * @param accountId the account identifier (TSID)
-     * @return path to the account identity bundle file
-     * @throws SpectorValidationException if {@code accountId} is invalid
+     * @deprecated Use {@code com.spectrayan.spector.synapse.identity.IdentityPaths.accountIdentityBundle} instead.
+     *             StorageLayout uses SHA-256 sharding; IdentityPaths uses character-prefix sharding (ADR-0029 §23.2).
+     *             This method is retained only for FileAccountCatalog backward compatibility and must not be used
+     *             for identity bundle paths.
      */
+    @Deprecated(since = "0.13.0", forRemoval = true)
     public static Path accountIdentityBundle(Path basePath, String accountId) {
         return accountDir(basePath, accountId).resolve(FILE_IDENTITY_BUNDLE);
     }
 
     /**
-     * Resolves the identity bundle file for a tenant.
-     *
-     * <pre>
-     *   basePath/tenants/XX/YY/tenantId/identity.bundle
-     * </pre>
-     *
-     * <p>The tenant identity bundle stores the {@code TenantSoul}, compliance
-     * policy floors, and the org-unit directory. It is 1 FD when hot.</p>
-     *
-     * @param basePath root persistence path
-     * @param tenantId the tenant identifier (TSID)
-     * @return path to the tenant identity bundle file
-     * @throws SpectorValidationException if {@code tenantId} is invalid
+     * @deprecated Use {@code com.spectrayan.spector.synapse.identity.IdentityPaths.tenantIdentityBundle} instead.
+     *             StorageLayout uses SHA-256 sharding; IdentityPaths uses character-prefix sharding (ADR-0029 §23.2).
      */
+    @Deprecated(since = "0.13.0", forRemoval = true)
     public static Path tenantIdentityBundle(Path basePath, String tenantId) {
         validateNamespaceId(tenantId);
         String hash = sha256Hex(tenantId);

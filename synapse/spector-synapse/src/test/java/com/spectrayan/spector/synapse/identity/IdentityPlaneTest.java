@@ -40,18 +40,30 @@ import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.memory.model.TenantSoul;
 import com.spectrayan.spector.memory.model.UserSoul;
 
+import com.spectrayan.spector.synapse.catalog.AccountCatalog;
+import com.spectrayan.spector.synapse.catalog.GrantAction;
+
 @DisplayName("IdentityPlane Specifications")
 class IdentityPlaneTest {
 
     private IdentityCache identityCache;
     private IdentityPlane identityPlane;
     private ObjectMapper mapper;
+    private AccountCatalog catalog;
 
     @BeforeEach
     void setUp(@TempDir Path tempDir) {
         identityCache = new IdentityCache(tempDir);
         mapper = JsonMapper.builder().findAndAddModules().build();
-        identityPlane = new IdentityPlane(identityCache, mapper);
+        catalog = mock(AccountCatalog.class);
+        // Permit all identity reads for tests
+        when(catalog.authorizeIdentity(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(GrantAction.class)))
+                .thenReturn(true);
+        identityPlane = new IdentityPlane(identityCache, mapper, catalog);
     }
 
     @AfterEach
