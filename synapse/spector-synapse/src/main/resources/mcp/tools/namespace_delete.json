@@ -1,0 +1,20 @@
+{
+  "name": "namespace_delete",
+  "description": "Deletes (tombstones) an isolated memory namespace by slug or ID. The default namespace cannot be deleted.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:namespace:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "namespace"
+    ],
+    "properties": {
+      "namespace": {
+        "type": "string",
+        "description": "The slug or TSID identifier of the namespace to delete."
+      }
+    }
+  }
+}

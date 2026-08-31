@@ -1,0 +1,20 @@
+{
+  "name": "namespace_switch",
+  "description": "Switches the active memory namespace context for the current session.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:namespace:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "slug"
+    ],
+    "properties": {
+      "slug": {
+        "type": "string",
+        "description": "The namespace slug or TSID identifier to switch to."
+      }
+    }
+  }
+}

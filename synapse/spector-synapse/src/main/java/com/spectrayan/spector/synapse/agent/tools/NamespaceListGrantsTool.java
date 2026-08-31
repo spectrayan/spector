@@ -40,43 +40,9 @@ public class NamespaceListGrantsTool extends McpToolHandler {
     private final ObjectMapper objectMapper;
 
     public NamespaceListGrantsTool(AccountCatalog catalog, ObjectMapper objectMapper) {
+        super("namespace_list_grants");
         this.catalog = catalog;
         this.objectMapper = objectMapper;
-    }
-
-    @Override
-    public String name() {
-        return "namespace_list_grants";
-    }
-
-    @Override
-    public String description() {
-        return "Lists all active grants on a memory namespace. "
-                + "Requires the caller to have ADMIN or OWNER role on the namespace.";
-    }
-
-    @Override
-    public McpToolCategory category() {
-        return McpToolCategory.MEMORY;
-    }
-
-    @Override
-    public boolean isWriteTool() {
-        return false;
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return Map.of(
-                "type", "object",
-                "properties", Map.of(
-                        "slug", Map.of(
-                                "type", "string",
-                                "description", "Namespace slug or identifier"
-                        )
-                ),
-                "required", List.of("slug")
-        );
     }
 
     @Override

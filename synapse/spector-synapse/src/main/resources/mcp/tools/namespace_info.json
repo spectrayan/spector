@@ -1,0 +1,20 @@
+{
+  "name": "namespace_info",
+  "description": "Gets detailed metadata and status for a memory namespace by slug or TSID identifier.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:namespace:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "namespace"
+    ],
+    "properties": {
+      "namespace": {
+        "type": "string",
+        "description": "The slug or TSID identifier of the namespace to inspect."
+      }
+    }
+  }
+}

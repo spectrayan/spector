@@ -38,47 +38,9 @@ public class NamespaceRevokeTool extends McpToolHandler {
     private final ObjectMapper objectMapper;
 
     public NamespaceRevokeTool(AccountCatalog catalog, ObjectMapper objectMapper) {
+        super("namespace_revoke");
         this.catalog = catalog;
         this.objectMapper = objectMapper;
-    }
-
-    @Override
-    public String name() {
-        return "namespace_revoke";
-    }
-
-    @Override
-    public String description() {
-        return "Revokes a previously granted access permission on a memory namespace. "
-                + "Requires the caller to have ADMIN or OWNER role on the namespace.";
-    }
-
-    @Override
-    public McpToolCategory category() {
-        return McpToolCategory.MEMORY;
-    }
-
-    @Override
-    public boolean isWriteTool() {
-        return true;
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return Map.of(
-                "type", "object",
-                "properties", Map.of(
-                        "slug", Map.of(
-                                "type", "string",
-                                "description", "Namespace slug or identifier"
-                        ),
-                        "grantId", Map.of(
-                                "type", "string",
-                                "description", "Unique identifier of the grant to revoke"
-                        )
-                ),
-                "required", List.of("slug", "grantId")
-        );
     }
 
     @Override

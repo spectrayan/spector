@@ -44,47 +44,16 @@ public class NamespaceSwitchTool extends McpToolHandler {
     private final AccountCatalog catalog;
 
     public NamespaceSwitchTool(AccountCatalog catalog) {
+        super("namespace_switch");
         this.catalog = catalog;
     }
 
     @Override
-    public String name() {
-        return "namespace_switch";
-    }
-
-    @Override
-    public String description() {
-        return "Sets the connection-scoped active default namespace for subsequent memory tool invocations "
-                + "(remember, recall, forget, etc.) in the current session. Non-durable.";
-    }
-
-    @Override
-    public McpToolCategory category() {
-        return McpToolCategory.MEMORY;
-    }
-
-    @Override
-    public boolean isWriteTool() {
-        return false;
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return Map.of(
-                "type", "object",
-                "properties", Map.of(
-                        "namespace", Map.of(
-                                "type", "string",
-                                "description", "Namespace slug or identifier to switch to as connection default"
-                        )
-                ),
-                "required", List.of("namespace")
-        );
-    }
-
-    @Override
     public McpSchema.CallToolResult execute(Map<String, Object> args) throws Exception {
-        String target = requireString(args, "namespace");
+        String target = optionalString(args, "namespace", null);
+        if (target == null || target.isBlank()) {
+            target = requireString(args, "slug");
+        }
         if ("*".equals(target.trim())) {
             return errorResult("Wildcard namespace '*' cannot be set as connection default.");
         }

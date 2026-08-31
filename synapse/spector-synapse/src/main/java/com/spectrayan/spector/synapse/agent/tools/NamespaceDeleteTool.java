@@ -37,42 +37,8 @@ public class NamespaceDeleteTool extends McpToolHandler {
     private final AccountCatalog catalog;
 
     public NamespaceDeleteTool(AccountCatalog catalog) {
+        super("namespace_delete");
         this.catalog = catalog;
-    }
-
-    @Override
-    public String name() {
-        return "namespace_delete";
-    }
-
-    @Override
-    public String description() {
-        return "Soft-deletes (tombstones) a memory namespace for the authenticated account. "
-                + "The default namespace cannot be deleted (returns 409 DefaultNamespaceProtected).";
-    }
-
-    @Override
-    public McpToolCategory category() {
-        return McpToolCategory.MEMORY;
-    }
-
-    @Override
-    public boolean isWriteTool() {
-        return true;
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return Map.of(
-                "type", "object",
-                "properties", Map.of(
-                        "namespace", Map.of(
-                                "type", "string",
-                                "description", "Namespace slug or identifier to delete/tombstone"
-                        )
-                ),
-                "required", List.of("namespace")
-        );
     }
 
     @Override

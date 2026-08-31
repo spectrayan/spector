@@ -43,60 +43,9 @@ public class NamespaceGrantTool extends McpToolHandler {
     private final ObjectMapper objectMapper;
 
     public NamespaceGrantTool(AccountCatalog catalog, ObjectMapper objectMapper) {
+        super("namespace_grant");
         this.catalog = catalog;
         this.objectMapper = objectMapper;
-    }
-
-    @Override
-    public String name() {
-        return "namespace_grant";
-    }
-
-    @Override
-    public String description() {
-        return "Grants access permissions (READER, WRITER, ADMIN) for a memory namespace to another account TSID. "
-                + "Requires the caller to have ADMIN or OWNER role on the namespace.";
-    }
-
-    @Override
-    public McpToolCategory category() {
-        return McpToolCategory.MEMORY;
-    }
-
-    @Override
-    public boolean isWriteTool() {
-        return true;
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return Map.of(
-                "type", "object",
-                "properties", Map.of(
-                        "slug", Map.of(
-                                "type", "string",
-                                "description", "Namespace slug or namespace identifier"
-                        ),
-                        "granteeAccountId", Map.of(
-                                "type", "string",
-                                "description", "The TSID account identifier receiving the grant"
-                        ),
-                        "role", Map.of(
-                                "type", "string",
-                                "description", "Grant role to assign: READER, WRITER, ADMIN",
-                                "enum", List.of("READER", "WRITER", "ADMIN")
-                        ),
-                        "expiresInSeconds", Map.of(
-                                "type", "integer",
-                                "description", "Optional expiration duration in seconds from now"
-                        ),
-                        "tagPrefix", Map.of(
-                                "type", "string",
-                                "description", "Optional tag prefix filter constraint"
-                        )
-                ),
-                "required", List.of("slug", "granteeAccountId", "role")
-        );
     }
 
     @Override
