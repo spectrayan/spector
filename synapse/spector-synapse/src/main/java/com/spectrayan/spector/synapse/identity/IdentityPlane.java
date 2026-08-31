@@ -49,6 +49,20 @@ public class IdentityPlane {
         this.catalog = catalog;
     }
 
+    private IdentityCache.IdentityHandle openAccountHandle(String accountId) {
+        IdentityCache.IdentityHandle handle = identityCache.openAccount(accountId);
+        if (handle != null) return handle;
+        IdentityBundle bundle = identityCache.getOrOpenAccount(accountId);
+        return bundle != null ? IdentityCache.IdentityHandle.of(bundle) : null;
+    }
+
+    private IdentityCache.IdentityHandle openTenantHandle(String tenantId) {
+        IdentityCache.IdentityHandle handle = identityCache.openTenant(tenantId);
+        if (handle != null) return handle;
+        IdentityBundle bundle = identityCache.getOrOpenTenant(tenantId);
+        return bundle != null ? IdentityCache.IdentityHandle.of(bundle) : null;
+    }
+
     /**
      * Reads the primary soul for the given account with PEP authorization check (ADR-0029 §24).
      *
@@ -64,8 +78,9 @@ public class IdentityPlane {
             log.warn("[IdentityPlane] Identity read denied on SOUL region");
             return Optional.empty();
         }
-        IdentityBundle bundle = identityCache.getOrOpenAccount(accountId);
-        return bundle.readSoul();
+        try (var handle = openAccountHandle(accountId)) {
+            return handle != null ? handle.bundle().readSoul() : Optional.empty();
+        }
     }
 
     /**
@@ -82,8 +97,9 @@ public class IdentityPlane {
             log.warn("[IdentityPlane] Identity read denied on SALIENCE region");
             return Optional.empty();
         }
-        IdentityBundle bundle = identityCache.getOrOpenAccount(accountId);
-        return bundle.readSalience();
+        try (var handle = openAccountHandle(accountId)) {
+            return handle != null ? handle.bundle().readSalience() : Optional.empty();
+        }
     }
 
     /**
@@ -99,17 +115,21 @@ public class IdentityPlane {
 
         if (tenantId != null && !tenantId.isBlank()) {
             if (catalog.authorizeIdentity(accountId, tenantId, IdentityRegionId.SOUL.name(), GrantAction.INJECT)) {
-                IdentityBundle tenantBundle = identityCache.getOrOpenTenant(tenantId);
-                tenantBundle.readSoul().ifPresent(stack::add);
+                try (var handle = openTenantHandle(tenantId)) {
+                    if (handle != null) {
+                        IdentityBundle tenantBundle = handle.bundle();
+                        tenantBundle.readSoul().ifPresent(stack::add);
 
-                // Process org unit souls from tenant ORG_DIR region (ADR-0029 §2.5.2)
-                if (orgUnitIds != null && !orgUnitIds.isEmpty()) {
-                    for (String orgUnitId : orgUnitIds) {
-                        if (orgUnitId == null || orgUnitId.isBlank()) {
-                            continue;
-                        }
-                        if (catalog.authorizeIdentity(accountId, tenantId, IdentityRegionId.ORG_DIR.name(), GrantAction.INJECT)) {
-                            tenantBundle.readOrgUnitSoul(orgUnitId).ifPresent(stack::add);
+                        // Process org unit souls from tenant ORG_DIR region (ADR-0029 §2.5.2)
+                        if (orgUnitIds != null && !orgUnitIds.isEmpty()) {
+                            for (String orgUnitId : orgUnitIds) {
+                                if (orgUnitId == null || orgUnitId.isBlank()) {
+                                    continue;
+                                }
+                                if (catalog.authorizeIdentity(accountId, tenantId, IdentityRegionId.ORG_DIR.name(), GrantAction.INJECT)) {
+                                    tenantBundle.readOrgUnitSoul(orgUnitId).ifPresent(stack::add);
+                                }
+                            }
                         }
                     }
                 }
@@ -139,9 +159,12 @@ public class IdentityPlane {
             log.warn("[IdentityPlane] Identity write denied on SOUL region");
             return;
         }
-        IdentityBundle bundle = identityCache.getOrOpenAccount(accountId);
-        bundle.writeSoul(soul);
-        log.debug("[IdentityPlane] Updated primary soul");
+        try (var handle = openAccountHandle(accountId)) {
+            if (handle != null) {
+                handle.bundle().writeSoul(soul);
+                log.debug("[IdentityPlane] Updated primary soul");
+            }
+        }
     }
 
     /**
@@ -158,9 +181,12 @@ public class IdentityPlane {
             log.warn("[IdentityPlane] Identity write denied on SALIENCE region");
             return;
         }
-        IdentityBundle bundle = identityCache.getOrOpenAccount(accountId);
-        bundle.writeSalience(salience);
-        log.debug("[IdentityPlane] Updated salience profile");
+        try (var handle = openAccountHandle(accountId)) {
+            if (handle != null) {
+                handle.bundle().writeSalience(salience);
+                log.debug("[IdentityPlane] Updated salience profile");
+            }
+        }
     }
 
     /**
@@ -177,9 +203,12 @@ public class IdentityPlane {
             log.warn("[IdentityPlane] Identity write denied on tenant SOUL region");
             return;
         }
-        IdentityBundle bundle = identityCache.getOrOpenTenant(tenantId);
-        bundle.writeSoul(soul);
-        log.debug("[IdentityPlane] Updated primary soul for tenant");
+        try (var handle = openTenantHandle(tenantId)) {
+            if (handle != null) {
+                handle.bundle().writeSoul(soul);
+                log.debug("[IdentityPlane] Updated primary soul for tenant");
+            }
+        }
     }
 
     /**
@@ -194,25 +223,36 @@ public class IdentityPlane {
         }
 
         try {
-            IdentityBundle bundle = identityCache.getOrOpenAccount(accountId);
-            if (!bundle.isEmpty(IdentityRegionId.SOUL)) {
-                return; // Already migrated or has soul
-            }
-
-            Optional<byte[]> insulaBytes = defaultMemory.admin().insularCortex().get();
-            if (insulaBytes.isEmpty()) {
+            // WRITE PEP check before executing migration write
+            if (!catalog.authorizeIdentity(accountId, accountId, IdentityRegionId.SOUL.name(), GrantAction.WRITE)) {
+                log.debug("[IdentityPlane] Skipping Region 24 migration: WRITE permission denied on SOUL region");
                 return;
             }
 
-            InsulaSelfModel model = mapper.readValue(insulaBytes.get(), InsulaSelfModel.class);
-            if (model != null) {
-                if (model.soul() != null) {
-                    bundle.writeSoul(model.soul());
-                    log.info("[IdentityPlane] Migrated Region 24 soul to identity.bundle for account {}", accountId);
+            try (var handle = openAccountHandle(accountId)) {
+                if (handle == null) {
+                    return;
                 }
-                if (model.salience() != null) {
-                    bundle.writeSalience(model.salience());
-                    log.info("[IdentityPlane] Migrated Region 24 salience to identity.bundle for account {}", accountId);
+                IdentityBundle bundle = handle.bundle();
+                if (!bundle.isEmpty(IdentityRegionId.SOUL)) {
+                    return; // Already migrated or has soul
+                }
+
+                Optional<byte[]> insulaBytes = defaultMemory.admin().insularCortex().get();
+                if (insulaBytes.isEmpty()) {
+                    return;
+                }
+
+                InsulaSelfModel model = mapper.readValue(insulaBytes.get(), InsulaSelfModel.class);
+                if (model != null) {
+                    if (model.soul() != null) {
+                        bundle.writeSoul(model.soul());
+                        log.info("[IdentityPlane] Migrated Region 24 soul to identity.bundle for account {}", accountId);
+                    }
+                    if (model.salience() != null && catalog.authorizeIdentity(accountId, accountId, IdentityRegionId.SALIENCE.name(), GrantAction.WRITE)) {
+                        bundle.writeSalience(model.salience());
+                        log.info("[IdentityPlane] Migrated Region 24 salience to identity.bundle for account {}", accountId);
+                    }
                 }
             }
         } catch (Exception e) {

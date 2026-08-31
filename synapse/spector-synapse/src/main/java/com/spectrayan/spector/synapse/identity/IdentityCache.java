@@ -14,6 +14,7 @@ package com.spectrayan.spector.synapse.identity;
 
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -30,9 +31,10 @@ import com.spectrayan.spector.synapse.config.SynapseProperties;
 /**
  * Process pin table for open {@link IdentityBundle} instances (ADR-0029 §23.7, §25).
  *
- * <p>Pins up to 256 accounts and 32 tenants using a Caffeine-backed LRU with a removal listener
- * that safely closes bundles on eviction. Identity bundles map only 1 FD each and
- * <strong>do not</strong> count against the data-plane {@code maxHotNamespaces} quota.</p>
+ * <p>Pins up to 256 accounts and 32 tenants using a Caffeine-backed LRU with reference-counted
+ * pin handles so active readers/writers never encounter an unmapped memory segment on eviction.
+ * Identity bundles map only 1 FD each and <strong>do not</strong> count against the data-plane
+ * {@code maxHotNamespaces} quota.</p>
  */
 @Component
 public class IdentityCache implements AutoCloseable {
@@ -43,8 +45,8 @@ public class IdentityCache implements AutoCloseable {
     public static final int MAX_HOT_TENANTS = 32;
 
     private final Path dataDir;
-    private final Cache<String, IdentityBundle> accountBundles;
-    private final Cache<String, IdentityBundle> tenantBundles;
+    private final Cache<String, PinnedBundle> accountBundles;
+    private final Cache<String, PinnedBundle> tenantBundles;
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     @Autowired
@@ -56,47 +58,53 @@ public class IdentityCache implements AutoCloseable {
         this.dataDir = dataDir;
         this.accountBundles = Caffeine.newBuilder()
                 .maximumSize(MAX_HOT_ACCOUNTS)
-                .removalListener((String key, IdentityBundle bundle, RemovalCause cause) -> {
-                    if (bundle != null) {
-                        try {
-                            bundle.close();
-                        } catch (Exception e) {
-                            log.warn("[IdentityCache] Error closing account bundle on eviction (id withheld): {}", e.getMessage());
-                        }
+                .removalListener((String key, PinnedBundle pinned, RemovalCause cause) -> {
+                    if (pinned != null) {
+                        pinned.markEvicted();
                     }
                 })
                 .build();
 
         this.tenantBundles = Caffeine.newBuilder()
                 .maximumSize(MAX_HOT_TENANTS)
-                .removalListener((String key, IdentityBundle bundle, RemovalCause cause) -> {
-                    if (bundle != null) {
-                        try {
-                            bundle.close();
-                        } catch (Exception e) {
-                            log.warn("[IdentityCache] Error closing tenant bundle on eviction (id withheld): {}", e.getMessage());
-                        }
+                .removalListener((String key, PinnedBundle pinned, RemovalCause cause) -> {
+                    if (pinned != null) {
+                        pinned.markEvicted();
                     }
                 })
                 .build();
     }
 
-    public IdentityBundle getOrOpenAccount(String accountId) {
+    public IdentityHandle openAccount(String accountId) {
         ensureOpen();
-        return accountBundles.get(accountId, id -> {
+        PinnedBundle pinned = accountBundles.get(accountId, id -> {
             Path path = IdentityPaths.accountIdentityBundle(dataDir, id);
             log.debug("[IdentityCache] Opening account identity bundle at {}", path);
-            return IdentityBundle.open(path, true);
+            IdentityBundle bundle = IdentityBundle.open(path, true);
+            return new PinnedBundle(bundle);
         });
+        return pinned != null ? pinned.acquire() : null;
+    }
+
+    public IdentityHandle openTenant(String tenantId) {
+        ensureOpen();
+        PinnedBundle pinned = tenantBundles.get(tenantId, id -> {
+            Path path = IdentityPaths.tenantIdentityBundle(dataDir, id);
+            log.debug("[IdentityCache] Opening tenant identity bundle at {}", path);
+            IdentityBundle bundle = IdentityBundle.open(path, true);
+            return new PinnedBundle(bundle);
+        });
+        return pinned != null ? pinned.acquire() : null;
+    }
+
+    public IdentityBundle getOrOpenAccount(String accountId) {
+        IdentityHandle handle = openAccount(accountId);
+        return handle != null ? handle.bundle() : null;
     }
 
     public IdentityBundle getOrOpenTenant(String tenantId) {
-        ensureOpen();
-        return tenantBundles.get(tenantId, id -> {
-            Path path = IdentityPaths.tenantIdentityBundle(dataDir, id);
-            log.debug("[IdentityCache] Opening tenant identity bundle at {}", path);
-            return IdentityBundle.open(path, true);
-        });
+        IdentityHandle handle = openTenant(tenantId);
+        return handle != null ? handle.bundle() : null;
     }
 
     public void invalidateAccount(String accountId) {
@@ -124,4 +132,69 @@ public class IdentityCache implements AutoCloseable {
             tenantBundles.cleanUp();
         }
     }
+
+    public static final class PinnedBundle {
+        private final IdentityBundle bundle;
+        private final AtomicInteger pinCount = new AtomicInteger(0);
+        private final AtomicBoolean evicted = new AtomicBoolean(false);
+
+        public PinnedBundle(IdentityBundle bundle) {
+            this.bundle = bundle;
+        }
+
+        public IdentityBundle bundle() {
+            return bundle;
+        }
+
+        public IdentityHandle acquire() {
+            pinCount.incrementAndGet();
+            return new IdentityHandle(this);
+        }
+
+        void release() {
+            if (pinCount.decrementAndGet() == 0 && evicted.get()) {
+                closeBundle();
+            }
+        }
+
+        void markEvicted() {
+            evicted.set(true);
+            if (pinCount.get() == 0) {
+                closeBundle();
+            }
+        }
+
+        private void closeBundle() {
+            try {
+                bundle.close();
+            } catch (Exception e) {
+                log.warn("[IdentityCache] Error closing bundle on eviction: {}", e.getMessage());
+            }
+        }
+    }
+
+    public static final class IdentityHandle implements AutoCloseable {
+        private final PinnedBundle pinned;
+        private final AtomicBoolean closedHandle = new AtomicBoolean(false);
+
+        public IdentityHandle(PinnedBundle pinned) {
+            this.pinned = pinned;
+        }
+
+        public static IdentityHandle of(IdentityBundle bundle) {
+            return bundle != null ? new IdentityHandle(new PinnedBundle(bundle)) : null;
+        }
+
+        public IdentityBundle bundle() {
+            return pinned.bundle();
+        }
+
+        @Override
+        public void close() {
+            if (closedHandle.compareAndSet(false, true)) {
+                pinned.release();
+            }
+        }
+    }
 }
+
