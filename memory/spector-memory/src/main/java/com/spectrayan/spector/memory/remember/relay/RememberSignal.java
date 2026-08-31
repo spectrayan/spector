@@ -19,6 +19,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
 
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -26,7 +27,6 @@ import java.util.Objects;
  */
 public final class RememberSignal {
 
-    // ── Immutable Ingestion Request ────────────────────────────────
     private final String id;
     private final String text;
     private final float[] vector;
@@ -38,7 +38,6 @@ public final class RememberSignal {
     private final short soulVersion;
     private final long timestampMs;
 
-    // ── Mutable Pipeline Working State ─────────────────────────────
     private String sanitizedText;
     private String[] tags;
     private long synapticTags;
@@ -56,6 +55,7 @@ public final class RememberSignal {
     private com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics eventDensityMetrics;
     private boolean gated = false;
     private com.spectrayan.spector.memory.aisme.segmentation.EpisodicSegment episodicSegment;
+    private List<com.spectrayan.spector.memory.model.SoulContext> soulContexts = List.of();
 
     private RememberSignal(
             final String id,
@@ -82,9 +82,6 @@ public final class RememberSignal {
         this.timestampMs = timestampMs > 0 ? timestampMs : System.currentTimeMillis();
     }
 
-    /**
-     * Factory for standard cognitive remember requests.
-     */
     public static RememberSignal forCognitive(
             final String id,
             final String text,
@@ -100,9 +97,6 @@ public final class RememberSignal {
                 salienceProfile, soulVersion, System.currentTimeMillis());
     }
 
-    /**
-     * Factory for rich context-aware cognitive remember requests.
-     */
     public static RememberSignal forCognitiveWithContext(
             final String id,
             final String text,
@@ -122,9 +116,6 @@ public final class RememberSignal {
                 salienceProfile, soulVersion, ts);
     }
 
-    /**
-     * Factory for cognitive remember requests preserving an existing header.
-     */
     public static RememberSignal forCognitiveWithHeader(
             final String id,
             final String text,
@@ -140,8 +131,6 @@ public final class RememberSignal {
         signal.header(header);
         return signal;
     }
-
-    // ── Getters & Setters ──────────────────────────────────────────
 
     public String id() { return id; }
     public String text() { return sanitizedText != null ? sanitizedText : text; }
@@ -160,6 +149,10 @@ public final class RememberSignal {
     public IngestionHints hints() { return hints; }
     public IngestionContext context() { return context; }
     public SalienceProfile salienceProfile() { return salienceProfile; }
+    public List<com.spectrayan.spector.memory.model.SoulContext> soulContexts() { return soulContexts; }
+    public void soulContexts(List<com.spectrayan.spector.memory.model.SoulContext> soulContexts) {
+        this.soulContexts = soulContexts != null ? List.copyOf(soulContexts) : List.of();
+    }
     public short soulVersion() { return soulVersion; }
     public long timestampMs() { return timestampMs; }
 
