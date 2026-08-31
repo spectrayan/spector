@@ -48,54 +48,34 @@ public class IdentityCache implements AutoCloseable {
         this.dataDir = properties.dataDir() != null ? Path.of(properties.dataDir()) : Path.of("./spector-data");
     }
 
-    /**
-     * Testing constructor with explicit root data directory.
-     */
     public IdentityCache(Path dataDir) {
         this.dataDir = dataDir;
     }
 
-    /**
-     * Retrieves or opens the {@link IdentityBundle} for the given account.
-     *
-     * @param accountId the unique account TSID
-     * @return the open IdentityBundle
-     */
     public IdentityBundle getOrOpenAccount(String accountId) {
         ensureOpen();
+        if (accountBundles.size() >= MAX_HOT_ACCOUNTS && !accountBundles.containsKey(accountId)) {
+            evictOldestAccount();
+        }
         return accountBundles.computeIfAbsent(accountId, id -> {
-            if (accountBundles.size() >= MAX_HOT_ACCOUNTS) {
-                evictOldestAccount();
-            }
             Path path = IdentityPaths.accountIdentityBundle(dataDir, id);
             log.debug("[IdentityCache] Opening account identity bundle at {}", path);
             return IdentityBundle.open(path, true);
         });
     }
 
-    /**
-     * Retrieves or opens the {@link IdentityBundle} for the given tenant.
-     *
-     * @param tenantId the unique tenant TSID
-     * @return the open IdentityBundle
-     */
     public IdentityBundle getOrOpenTenant(String tenantId) {
         ensureOpen();
+        if (tenantBundles.size() >= MAX_HOT_TENANTS && !tenantBundles.containsKey(tenantId)) {
+            evictOldestTenant();
+        }
         return tenantBundles.computeIfAbsent(tenantId, id -> {
-            if (tenantBundles.size() >= MAX_HOT_TENANTS) {
-                evictOldestTenant();
-            }
             Path path = IdentityPaths.tenantIdentityBundle(dataDir, id);
             log.debug("[IdentityCache] Opening tenant identity bundle at {}", path);
             return IdentityBundle.open(path, true);
         });
     }
 
-    /**
-     * Closes and removes a specific account's identity bundle from the cache.
-     *
-     * @param accountId the account identifier
-     */
     public void invalidateAccount(String accountId) {
         IdentityBundle bundle = accountBundles.remove(accountId);
         if (bundle != null) {
@@ -108,11 +88,9 @@ public class IdentityCache implements AutoCloseable {
     }
 
     private void evictOldestAccount() {
-        // Evict one arbitrary entry if cap reached
         var it = accountBundles.keySet().iterator();
         if (it.hasNext()) {
-            String key = it.next();
-            invalidateAccount(key);
+            invalidateAccount(it.next());
         }
     }
 
@@ -143,18 +121,13 @@ public class IdentityCache implements AutoCloseable {
         if (closed.compareAndSet(false, true)) {
             log.info("[IdentityCache] Closing all cached identity bundles");
             accountBundles.forEach((id, bundle) -> {
-                try {
-                    bundle.close();
-                } catch (Exception e) {
+                try { bundle.close(); } catch (Exception e) {
                     log.warn("[IdentityCache] Error closing account bundle for {}: {}", id, e.getMessage());
                 }
             });
             accountBundles.clear();
-
             tenantBundles.forEach((id, bundle) -> {
-                try {
-                    bundle.close();
-                } catch (Exception e) {
+                try { bundle.close(); } catch (Exception e) {
                     log.warn("[IdentityCache] Error closing tenant bundle for {}: {}", id, e.getMessage());
                 }
             });
