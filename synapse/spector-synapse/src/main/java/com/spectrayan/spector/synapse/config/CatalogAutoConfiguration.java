@@ -48,9 +48,10 @@ public class CatalogAutoConfiguration {
     public AccountCatalog jdbcAccountCatalog(
             org.springframework.jdbc.core.simple.JdbcClient jdbc,
             com.spectrayan.spector.synapse.config.sql.SqlQueryLoader sqlLoader,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider) {
         log.info("[CatalogAutoConfiguration] creating JdbcAccountCatalog");
-        return new com.spectrayan.spector.synapse.catalog.jdbc.JdbcAccountCatalog(jdbc, sqlLoader, objectMapper);
+        return new com.spectrayan.spector.synapse.catalog.jdbc.JdbcAccountCatalog(jdbc, sqlLoader, objectMapper, null, cacheManagerProvider);
     }
 
     /**
