@@ -123,12 +123,62 @@ public final class DefaultImportanceProvider implements ImportanceProvider {
             }
         }
 
+        // Multi-soul hierarchy processing (ADR-0029 §2.5.2)
+        float tenantFloor = 0.0f;
+        float orgBoost = 1.0f;
+        if (ctx.soulContexts() != null && !ctx.soulContexts().isEmpty()) {
+            for (com.spectrayan.spector.memory.model.SoulContext soul : ctx.soulContexts()) {
+                if (soul instanceof com.spectrayan.spector.memory.model.TenantSoul tenantSoul) {
+                    if (tenantSoul.complianceRules() != null && !tenantSoul.complianceRules().isEmpty()) {
+                        String text = ctx.text();
+                        if (text != null) {
+                            String lowerText = text.toLowerCase();
+                            for (String rule : tenantSoul.complianceRules()) {
+                                if (rule != null && !rule.isBlank() && lowerText.contains(rule.toLowerCase())) {
+                                    tenantFloor = Math.max(tenantFloor, 7.0f);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                } else if (soul instanceof com.spectrayan.spector.memory.model.OrgUnitSoul orgUnitSoul) {
+                    float[] orgEmb = orgUnitSoul.identityEmbedding();
+                    float[] ctxVec = ctx.vector();
+                    if (orgEmb != null && ctxVec != null && orgEmb.length == ctxVec.length) {
+                        float dot = 0.0f;
+                        float normA = 0.0f;
+                        float normB = 0.0f;
+                        for (int i = 0; i < orgEmb.length; i++) {
+                            dot += orgEmb[i] * ctxVec[i];
+                            normA += orgEmb[i] * orgEmb[i];
+                            normB += ctxVec[i] * ctxVec[i];
+                        }
+                        if (normA > 0 && normB > 0) {
+                            float sim = dot / (float) (Math.sqrt(normA) * Math.sqrt(normB));
+                            if (sim > 0.0f) {
+                                orgBoost = Math.max(orgBoost, 1.0f + 0.5f * sim);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (orgBoost != 1.0f) {
+            fusedImportance = Math.clamp(fusedImportance * orgBoost, 0.05f, 10.0f);
+        }
+
         // Step 5: Flashbulb check
         boolean wouldBeFlashbulb = false;
         var flashbulbResult = flashbulbPolicy.evaluate(zScore);
         if (flashbulbResult.isFlashbulb()) {
             wouldBeFlashbulb = true;
             fusedImportance = flashbulbResult.importance();
+        }
+
+        // Step 6: Apply Tenant non-negotiable compliance floor (ADR-0029 §2.5.2)
+        if (tenantFloor > 0.0f) {
+            fusedImportance = Math.max(tenantFloor, fusedImportance);
         }
 
         // Build ICNU weights description

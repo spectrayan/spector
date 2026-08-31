@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import java.util.List;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
 
 /**
@@ -25,6 +26,7 @@ import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
  * @param nearestDistance the distance to the nearest existing memory
  * @param noveltyZScore   the novelty z-score based on existing memories
  * @param readOnly        whether this context is evaluated in a read-only scenario
+ * @param soulContexts    hierarchical soul context stack (TenantSoul, OrgUnitSoul, UserSoul/AgentSoul)
  */
 public record ImportanceContext(
     String text,
@@ -34,8 +36,18 @@ public record ImportanceContext(
     MemoryType targetTier,
     float nearestDistance,
     double noveltyZScore,
-    boolean readOnly
+    boolean readOnly,
+    List<SoulContext> soulContexts
 ) {
+    public ImportanceContext(String text, float[] vector, IngestionHints hints,
+                             SalienceProfile salienceProfile, MemoryType targetTier,
+                             float nearestDistance, double noveltyZScore, boolean readOnly) {
+        this(text, vector, hints, salienceProfile, targetTier, nearestDistance, noveltyZScore, readOnly, List.of());
+    }
+
+    public ImportanceContext {
+        soulContexts = soulContexts != null ? List.copyOf(soulContexts) : List.of();
+    }
     /**
      * Returns true if ICNU hints were provided by the caller.
      *
