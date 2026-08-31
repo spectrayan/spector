@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.synapse.mcp;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -19,17 +23,26 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Manages connection-scoped session state for MCP transports (ADR-0029 §6.2, §16).
+ * Manages connection-scoped session state and the volatile active working set for MCP transports (ADR-0029 §6.2, §16).
  *
- * <p>{@code namespace_switch} sets the connection-scoped default on this context.
- * It is tied to the MCP connection/session lifecycle and dies with the session.
- * For stateless transports without a connection ID, a request-scoped fallback is used.</p>
+ * <p>Key features:</p>
+ * <ul>
+ *   <li>Connection-scoped default namespace (set by {@code namespace_switch})</li>
+ *   <li>Active working set (FIFO bounded to 100 items, persists across {@code namespace_switch})</li>
+ *   <li>Thread fallback for stateless requests</li>
+ * </ul>
  */
 public final class McpSessionContext {
 
     private static final Logger log = LoggerFactory.getLogger(McpSessionContext.class);
 
+    public static final int MAX_ACTIVE_WORKING_ITEMS = 100;
+
+    /** Working memory record in the volatile session working set. */
+    public record ActiveWorkingItem(String id, String text, Map<String, Object> metadata, long timestampMs) {}
+
     private static final ConcurrentHashMap<String, String> SESSION_DEFAULTS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Deque<ActiveWorkingItem>> SESSION_WORKING_SETS = new ConcurrentHashMap<>();
     private static final ThreadLocal<String> FALLBACK_DEFAULT = new ThreadLocal<>();
 
     private McpSessionContext() {
@@ -69,6 +82,56 @@ public final class McpSessionContext {
     }
 
     /**
+     * Appends an item to the session's active volatile working set (FIFO bounded to 100).
+     *
+     * @param connectionId the connection or session identifier
+     * @param item         the working memory item
+     */
+    public static void addWorkingItem(String connectionId, ActiveWorkingItem item) {
+        if (connectionId == null || connectionId.isBlank()) {
+            return;
+        }
+        SESSION_WORKING_SETS.compute(connectionId, (key, queue) -> {
+            Deque<ActiveWorkingItem> q = queue != null ? queue : new ArrayDeque<>();
+            synchronized (q) {
+                if (q.size() >= MAX_ACTIVE_WORKING_ITEMS) {
+                    q.pollFirst(); // FIFO eviction
+                }
+                q.addLast(item);
+            }
+            return q;
+        });
+    }
+
+    /**
+     * Gets a snapshot of the active working set for the given connection ID.
+     *
+     * @param connectionId the connection or session identifier
+     * @return ordered list of active working items
+     */
+    public static List<ActiveWorkingItem> getWorkingItems(String connectionId) {
+        if (connectionId == null || connectionId.isBlank()) {
+            return List.of();
+        }
+        Deque<ActiveWorkingItem> q = SESSION_WORKING_SETS.get(connectionId);
+        if (q == null) {
+            return List.of();
+        }
+        synchronized (q) {
+            return List.copyOf(q);
+        }
+    }
+
+    /**
+     * Clears the active working set for the specified connection ID.
+     */
+    public static void clearWorkingItems(String connectionId) {
+        if (connectionId != null) {
+            SESSION_WORKING_SETS.remove(connectionId);
+        }
+    }
+
+    /**
      * Clears session state when an MCP connection terminates.
      *
      * @param connectionId the MCP connection or session identifier
@@ -76,6 +139,7 @@ public final class McpSessionContext {
     public static void clearSession(String connectionId) {
         if (connectionId != null) {
             SESSION_DEFAULTS.remove(connectionId);
+            SESSION_WORKING_SETS.remove(connectionId);
             log.debug("[McpSessionContext] cleared session: {}", connectionId);
         }
         FALLBACK_DEFAULT.remove();

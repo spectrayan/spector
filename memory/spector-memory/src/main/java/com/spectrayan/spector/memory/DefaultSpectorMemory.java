@@ -1597,8 +1597,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         return namespaceId;
     }
 
-    public void acquireLease() {
+    @Override
+    public AutoCloseable acquireLease() {
         activeLeases.incrementAndGet();
+        return this::releaseLease;
     }
 
     public void releaseLease() {

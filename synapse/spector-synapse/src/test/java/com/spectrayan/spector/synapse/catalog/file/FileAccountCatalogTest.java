@@ -37,8 +37,8 @@ import com.spectrayan.spector.synapse.catalog.NamespaceType;
 import com.spectrayan.spector.synapse.catalog.exception.DefaultNamespaceProtectedException;
 import com.spectrayan.spector.synapse.catalog.exception.NamespaceNotFoundException;
 
-@DisplayName("FileAccountCatalog Phase 2 Tests")
-class FileAccountCatalogPhase2Test {
+@DisplayName("FileAccountCatalog Specifications")
+class FileAccountCatalogTest {
 
     @TempDir
     Path tempDir;

@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.synapse.catalog.exception.TokenNamespaceLockedException;
 import com.spectrayan.spector.synapse.memory.MemoryRegistry;
 import com.spectrayan.spector.synapse.security.SecurityUtils;
 
@@ -43,6 +44,8 @@ import com.spectrayan.spector.synapse.security.SecurityUtils;
  *   <li>When per-user memory resolution fails, the call is denied with
  *       {@link DenyReason#RESOLUTION_FAILED}, nothing is bound, and no memory is modified — the
  *       registry never falls back to the shared or another user's instance.</li>
+ *   <li>When a token is locked to specific namespaces and an unauthorized namespace is requested,
+ *       the call is denied with {@link DenyReason#TOKEN_LOCKED}.</li>
  * </ul>
  *
  * <p>The bound reference is confined to the current thread. Callers <strong>must</strong>
@@ -65,7 +68,9 @@ public final class McpRequestMemory {
         /** Per-user memory resolution or lazy construction failed; the call fails closed. */
         RESOLUTION_FAILED,
         /** Wildcard '*' was supplied as a namespace selector (ADR-0029 Invariant 7). */
-        WILDCARD_REJECTED
+        WILDCARD_REJECTED,
+        /** Token namespace allow-set locked and request is outside allowed namespaces. */
+        TOKEN_LOCKED
     }
 
     /**
@@ -116,6 +121,10 @@ public final class McpRequestMemory {
 
             CURRENT.set(memory);
             return Optional.empty();
+        } catch (TokenNamespaceLockedException e) {
+            clear();
+            log.warn("[McpRequestMemory] token namespace locked: {}", e.getMessage());
+            return Optional.of(DenyReason.TOKEN_LOCKED);
         } catch (RuntimeException e) {
             clear();
             // Never echo the resolved namespace/identifier; message stays generic.
@@ -156,6 +165,8 @@ public final class McpRequestMemory {
                     "Memory resolution failed; the MCP call was denied and no memory was modified.";
             case WILDCARD_REJECTED ->
                     "Wildcard namespace '*' is not supported. Please specify a single namespace or omit to use the default.";
+            case TOKEN_LOCKED ->
+                    "Token is locked to specific namespaces and access to the requested namespace was denied.";
         };
     }
 }
