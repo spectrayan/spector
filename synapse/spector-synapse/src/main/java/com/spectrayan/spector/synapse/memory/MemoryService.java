@@ -306,6 +306,12 @@ public class MemoryService {
         final IngestionHints finalHints = hints;
         final String finalId = effectiveId;
 
+        final RequestMemoryContext capturedContext = MemoryBinding.current()
+                .map(MemoryBinding::requestMemoryContext)
+                .or(() -> java.util.Optional.ofNullable(com.spectrayan.spector.synapse.mcp.McpRequestMemory.currentBinding())
+                        .map(MemoryBinding::requestMemoryContext))
+                .orElse(null);
+
         CompletableFuture.runAsync(() -> {
             try {
                 eventPublisher.broadcast("ingestion.progress", Map.of(
@@ -316,7 +322,7 @@ public class MemoryService {
                         "timestamp", Instant.now().toEpochMilli()
                 ));
                  long t0 = System.currentTimeMillis();
-                 mao.remember(memory, finalId, request.text(), tier, source, finalHints, tags, request.timestampMs());
+                 mao.remember(memory, finalId, request.text(), tier, source, finalHints, tags, request.timestampMs(), capturedContext);
                  long elapsed = System.currentTimeMillis() - t0;
                  rememberCount.incrementAndGet();
                  totalLatencyMs.addAndGet(elapsed);
@@ -744,6 +750,11 @@ public class MemoryService {
 
             MemoryType tier = MemoryTypeParser.safeMemoryType(tierName, MemoryType.SEMANTIC);
             MemorySource source = MemoryTypeParser.safeMemorySource(sourceName, MemorySource.OBSERVED);
+            final RequestMemoryContext capturedContext = MemoryBinding.current()
+                    .map(MemoryBinding::requestMemoryContext)
+                    .or(() -> java.util.Optional.ofNullable(com.spectrayan.spector.synapse.mcp.McpRequestMemory.currentBinding())
+                            .map(MemoryBinding::requestMemoryContext))
+                    .orElse(null);
 
             CompletableFuture.runAsync(() -> {
                 try {
@@ -754,7 +765,7 @@ public class MemoryService {
                             "progress", 50.0,
                             "timestamp", Instant.now().toEpochMilli()
                     ));
-                    mao.remember(memory, documentId, content, tier, source, null, new String[]{originalName});
+                    mao.remember(memory, documentId, content, tier, source, null, new String[]{originalName}, null, capturedContext);
                     log.info("[MemoryService] Async ingestion completed: file={}, id={}", originalName, documentId);
                     eventPublisher.broadcast("ingestion.completed", Map.of(
                             "taskId", taskId,

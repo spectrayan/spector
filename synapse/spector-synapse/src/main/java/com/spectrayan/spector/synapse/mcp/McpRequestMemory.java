@@ -140,8 +140,11 @@ public final class McpRequestMemory {
         if (registry != null && registry.binder() != null) {
             return bindForCurrentRequest(registry.binder(), authEnabled, namespaceSelector, connectionId);
         }
-        if (authEnabled && !SecurityUtils.isAuthenticated()) {
-            return Optional.of(DenyReason.AUTH_REQUIRED);
+        if (authEnabled) {
+            log.warn("[McpRequestMemory] Denying MCP call: MemoryRequestBinder unavailable under enabled auth");
+            return !SecurityUtils.isAuthenticated()
+                    ? Optional.of(DenyReason.AUTH_REQUIRED)
+                    : Optional.of(DenyReason.RESOLUTION_FAILED);
         }
         if (namespaceSelector != null && "*".equals(namespaceSelector.trim())) {
             return Optional.of(DenyReason.WILDCARD_REJECTED);
@@ -152,42 +155,14 @@ public final class McpRequestMemory {
                     ? namespaceSelector.trim()
                     : McpSessionContext.getSessionDefault(connectionId).orElse(null);
 
-            var catalog = registry != null ? registry.catalog() : null;
-            String targetNamespaceId = userId;
-            if (selector != null && !selector.isBlank()) {
-                if (catalog != null && userId != null) {
-                    targetNamespaceId = catalog.resolve(userId, selector)
-                            .map(com.spectrayan.spector.synapse.catalog.NamespaceRecord::namespaceId)
-                            .orElse(selector);
-                } else {
-                    targetNamespaceId = selector;
-                }
-            }
-
-            if (authEnabled && userId != null && catalog != null) {
-                var authGrant = catalog.authorize(userId, targetNamespaceId, com.spectrayan.spector.synapse.catalog.GrantRole.READER);
-                if (authGrant.isEmpty()) {
-                    log.warn("[McpRequestMemory] Access denied: account={} has no grant on namespace={}", userId, targetNamespaceId);
-                    return Optional.of(DenyReason.ACCESS_DENIED);
-                }
-            }
-
-            SpectorMemory memory = (selector != null && !selector.isBlank())
-                    ? registry.namespaceResolver().resolve(userId, targetNamespaceId)
-                    : registry.resolveForCurrentRequest();
+            SpectorMemory memory = (selector != null && !selector.isBlank()) && registry != null
+                    ? registry.namespaceResolver().resolve(userId, selector)
+                    : (registry != null ? registry.resolveForCurrentRequest() : null);
 
             AutoCloseable lease = memory != null ? memory.acquireLease() : null;
-            MemoryBinding binding = new MemoryBinding(memory, userId, targetNamespaceId, selector != null ? selector : "default", lease, null);
+            MemoryBinding binding = new MemoryBinding(memory, userId, userId, selector != null ? selector : "default", lease, null);
             CURRENT_BINDING.set(binding);
             return Optional.empty();
-        } catch (NamespaceAccessDeniedException e) {
-            clear();
-            log.warn("[McpRequestMemory] access denied: {}", e.getMessage());
-            return Optional.of(DenyReason.ACCESS_DENIED);
-        } catch (TokenNamespaceLockedException e) {
-            clear();
-            log.warn("[McpRequestMemory] token namespace locked: {}", e.getMessage());
-            return Optional.of(DenyReason.TOKEN_LOCKED);
         } catch (RuntimeException e) {
             clear();
             log.warn("[McpRequestMemory] memory resolution failed; denying MCP call: {}", e.getMessage());
