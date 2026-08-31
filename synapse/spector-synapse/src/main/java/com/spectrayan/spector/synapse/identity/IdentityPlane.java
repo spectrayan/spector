@@ -98,7 +98,7 @@ public class IdentityPlane {
         List<SoulContext> stack = new ArrayList<>();
 
         if (tenantId != null && !tenantId.isBlank()) {
-            if (catalog.authorizeIdentity(accountId, tenantId, IdentityRegionId.SOUL.name(), GrantAction.READ)) {
+            if (catalog.authorizeIdentity(accountId, tenantId, IdentityRegionId.SOUL.name(), GrantAction.INJECT)) {
                 IdentityBundle tenantBundle = identityCache.getOrOpenTenant(tenantId);
                 tenantBundle.readSoul().ifPresent(stack::add);
 
@@ -108,11 +108,13 @@ public class IdentityPlane {
                         if (orgUnitId == null || orgUnitId.isBlank()) {
                             continue;
                         }
-                        tenantBundle.readOrgUnitSoul(orgUnitId).ifPresent(stack::add);
+                        if (catalog.authorizeIdentity(accountId, tenantId, IdentityRegionId.ORG_DIR.name(), GrantAction.INJECT)) {
+                            tenantBundle.readOrgUnitSoul(orgUnitId).ifPresent(stack::add);
+                        }
                     }
                 }
             } else {
-                log.warn("[IdentityPlane] Access denied on tenant SOUL region");
+                log.warn("[IdentityPlane] Access denied on tenant SOUL region for injection");
             }
         }
 
