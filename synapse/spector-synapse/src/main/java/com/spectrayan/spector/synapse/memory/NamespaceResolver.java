@@ -159,7 +159,7 @@ public class NamespaceResolver implements AutoCloseable {
         String namespaceId = account.defaultNamespaceId();
 
         // Step 2: Bind — cache lookup by namespaceId (not userId, not slug)
-        return getOrBuild(namespaceId);
+        return getOrBuild(accountId, namespaceId, accountId);
     }
 
     /**
@@ -188,7 +188,7 @@ public class NamespaceResolver implements AutoCloseable {
             throw new NamespaceTombstonedException(record.namespaceId());
         }
         catalog.recordAccess(record.namespaceId());
-        return getOrBuild(record.namespaceId());
+        return getOrBuild(accountId, record.namespaceId(), record.ownerAccountId());
     }
 
     /**
@@ -205,16 +205,19 @@ public class NamespaceResolver implements AutoCloseable {
     }
 
     /**
-     * Gets or builds the SpectorMemory instance for the given namespaceId.
+     * Gets or builds the SpectorMemory instance for the given namespaceId with hot cap
+     * and lease-aware eviction checks.
      *
-     * @param namespaceId the globally unique namespace identifier
+     * @param accountId       the principal requesting resolution
+     * @param namespaceId     the globally unique namespace identifier
+     * @param ownerAccountId  the owner account of the namespace
      * @return the cached or newly-built SpectorMemory
      */
-    private SpectorMemory getOrBuild(String namespaceId) {
+    private SpectorMemory getOrBuild(String accountId, String namespaceId, String ownerAccountId) {
         // Fast path: lock-free cache hit
         MemoryHandle handle = cache.get(namespaceId);
         if (handle != null) {
-            handle.touch();
+            handle.touch(accountId);
             return handle.memory;
         }
 
@@ -222,10 +225,47 @@ public class NamespaceResolver implements AutoCloseable {
         try {
             coldPathLock.lock();
             try {
-                if (!cache.containsKey(namespaceId) && cache.size() >= maxInstances) {
-                    evicted = evictOldestLocked();
+                handle = cache.get(namespaceId);
+                if (handle != null) {
+                    handle.touch(accountId);
+                    return handle.memory;
                 }
-                handle = cache.computeIfAbsent(namespaceId, id -> new MemoryHandle(buildInstance(id)));
+
+                // 1. Account-level hot cap check (ADR-0029 §2.6, §6.3, Q4)
+                if (accountId != null) {
+                    Account account = catalog.getOrCreateAccount(accountId);
+                    int maxHot = account.quotas().maxHotNamespaces();
+                    if (maxHot > 0) {
+                        long currentAccountHot = cache.values().stream()
+                                .filter(h -> h.associatedWith(accountId))
+                                .count();
+                        if (currentAccountHot >= maxHot) {
+                            MemoryHandle accountEvicted = evictOldestAccountUnleasedLocked(accountId);
+                            if (accountEvicted == null) {
+                                throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceHotCapExceededException(
+                                        accountId, maxHot);
+                            }
+                            evicted = accountEvicted;
+                        }
+                    }
+                }
+
+                // 2. Process-wide instance cap check (ADR-0029 §6.3)
+                if (cache.size() >= maxInstances) {
+                    MemoryHandle processEvicted = evictOldestProcessUnleasedLocked();
+                    if (processEvicted == null) {
+                        throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceHotCapExceededException(
+                                "process", maxInstances);
+                    }
+                    if (evicted != null && evicted != processEvicted) {
+                        closeQuietly(evicted.memory);
+                    }
+                    evicted = processEvicted;
+                }
+
+                SpectorMemory instance = buildInstance(namespaceId);
+                handle = new MemoryHandle(namespaceId, ownerAccountId, accountId, instance);
+                cache.put(namespaceId, handle);
             } finally {
                 coldPathLock.unlock();
             }
@@ -234,7 +274,7 @@ public class NamespaceResolver implements AutoCloseable {
                 closeQuietly(evicted.memory);
             }
         }
-        handle.touch();
+        handle.touch(accountId);
         return handle.memory;
     }
 
@@ -313,7 +353,7 @@ public class NamespaceResolver implements AutoCloseable {
             builder.aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(memory.getAisme()));
         }
 
-        LlmProvider textGen = textGenProvider.getIfAvailable();
+        LlmProvider textGen = textGenProvider != null ? textGenProvider.getIfAvailable() : null;
         if (textGen != null) {
             builder.entityExtractionMode(EntityExtractionMode.LLM);
             builder.LlmProvider(textGen);
@@ -321,7 +361,7 @@ public class NamespaceResolver implements AutoCloseable {
             builder.entityExtractionMode(EntityExtractionMode.NONE);
         }
 
-        SalienceProfileProvider salience = salienceProvider.getIfAvailable();
+        SalienceProfileProvider salience = salienceProvider != null ? salienceProvider.getIfAvailable() : null;
         if (salience != null) {
             builder.salienceProfileProvider(salience);
         }
@@ -410,22 +450,67 @@ public class NamespaceResolver implements AutoCloseable {
         return Path.of(path);
     }
 
-    private MemoryHandle evictOldestLocked() {
+    private MemoryHandle evictOldestAccountUnleasedLocked(String accountId) {
         String oldestKey = null;
         long oldestAccess = Long.MAX_VALUE;
         for (Map.Entry<String, MemoryHandle> entry : cache.entrySet()) {
-            long access = entry.getValue().lastAccessNanos;
-            if (access < oldestAccess) {
-                oldestAccess = access;
-                oldestKey = entry.getKey();
+            MemoryHandle h = entry.getValue();
+            if (h.associatedWith(accountId) && !isLeased(h.memory)) {
+                if (h.lastAccessNanos < oldestAccess) {
+                    oldestAccess = h.lastAccessNanos;
+                    oldestKey = entry.getKey();
+                }
             }
         }
         if (oldestKey != null) {
-            MemoryHandle evicted = cache.remove(oldestKey);
-            if (evicted != null) {
-                log.debug("[NamespaceResolver] evicting LRU namespace memory instance (cap={})", maxInstances);
-                return evicted;
+            MemoryHandle ev = cache.remove(oldestKey);
+            if (ev != null) {
+                log.info("[NamespaceResolver] Evicting unleased hot namespace '{}' for account '{}' (hot cap reached)",
+                        oldestKey, accountId);
+                return ev;
             }
+        }
+        return null;
+    }
+
+    private MemoryHandle evictOldestProcessUnleasedLocked() {
+        String oldestKey = null;
+        long oldestAccess = Long.MAX_VALUE;
+        for (Map.Entry<String, MemoryHandle> entry : cache.entrySet()) {
+            MemoryHandle h = entry.getValue();
+            if (!isLeased(h.memory)) {
+                if (h.lastAccessNanos < oldestAccess) {
+                    oldestAccess = h.lastAccessNanos;
+                    oldestKey = entry.getKey();
+                }
+            }
+        }
+        if (oldestKey != null) {
+            MemoryHandle ev = cache.remove(oldestKey);
+            if (ev != null) {
+                log.info("[NamespaceResolver] Evicting unleased hot namespace '{}' (process capacity={})",
+                        oldestKey, maxInstances);
+                return ev;
+            }
+        }
+        return null;
+    }
+
+    MemoryHandle evictOldestLocked() {
+        return evictOldestProcessUnleasedLocked();
+    }
+
+    private static boolean isLeased(SpectorMemory memory) {
+        DefaultSpectorMemory dsm = unwrapDefaultMemory(memory);
+        return dsm != null && dsm.hasActiveLeases();
+    }
+
+    private static DefaultSpectorMemory unwrapDefaultMemory(SpectorMemory mem) {
+        if (mem instanceof DefaultSpectorMemory dsm) {
+            return dsm;
+        }
+        if (mem instanceof com.spectrayan.spector.metrics.ObservedSpectorMemory osm) {
+            return unwrapDefaultMemory(osm.unwrap());
         }
         return null;
     }
@@ -440,18 +525,38 @@ public class NamespaceResolver implements AutoCloseable {
         }
     }
 
-    /** Cache entry pairing a namespace instance with its last-access time (for LRU eviction). */
+    /** Cache entry pairing a namespace instance with its accessing accounts and access time. */
     private static final class MemoryHandle {
+        private final String namespaceId;
+        private final String ownerAccountId;
+        private final java.util.Set<String> accessingAccounts = ConcurrentHashMap.newKeySet();
         private final SpectorMemory memory;
         private volatile long lastAccessNanos;
 
         MemoryHandle(SpectorMemory memory) {
+            this(null, null, null, memory);
+        }
+
+        MemoryHandle(String namespaceId, String ownerAccountId, String initialAccountId, SpectorMemory memory) {
+            this.namespaceId = namespaceId;
+            this.ownerAccountId = ownerAccountId != null ? ownerAccountId : initialAccountId;
+            if (initialAccountId != null) {
+                this.accessingAccounts.add(initialAccountId);
+            }
             this.memory = memory;
             this.lastAccessNanos = System.nanoTime();
         }
 
-        void touch() {
+        void touch(String accountId) {
             this.lastAccessNanos = System.nanoTime();
+            if (accountId != null) {
+                this.accessingAccounts.add(accountId);
+            }
+        }
+
+        boolean associatedWith(String accountId) {
+            if (accountId == null) return false;
+            return accountId.equals(ownerAccountId) || accessingAccounts.contains(accountId);
         }
     }
 }
