@@ -150,6 +150,38 @@ public interface AccountCatalog {
     void resetNamespace(String accountId, String slugOrId);
 
     /**
+     * Lists all active grants on a namespace. Requires caller to have at least {@link GrantRole#ADMIN} on the namespace.
+     *
+     * @param accountId the calling account identifier
+     * @param slugOrId  the namespace slug or namespace identifier
+     * @return list of active grants on the namespace
+     */
+    java.util.List<Grant> listGrants(String accountId, String slugOrId);
+
+    /**
+     * Creates or updates a grant on a namespace. Requires caller to have at least {@link GrantRole#ADMIN} on the namespace.
+     *
+     * @param callerAccountId  the calling account identifier
+     * @param slugOrId         the namespace slug or namespace identifier
+     * @param granteeAccountId the account identifier receiving the grant
+     * @param role             the grant role being granted (READER, WRITER, ADMIN)
+     * @param expiresAt        optional expiration timestamp, or null for no expiry
+     * @param constraints      optional grant constraints, nullable
+     * @return the created {@link Grant}
+     */
+    Grant grantNamespace(String callerAccountId, String slugOrId, String granteeAccountId,
+            GrantRole role, java.time.Instant expiresAt, GrantConstraints constraints);
+
+    /**
+     * Revokes a grant on a namespace. Requires caller to have at least {@link GrantRole#ADMIN} on the namespace.
+     *
+     * @param callerAccountId the calling account identifier
+     * @param slugOrId        the namespace slug or namespace identifier
+     * @param grantId         the grant identifier to revoke
+     */
+    void revokeNamespaceGrant(String callerAccountId, String slugOrId, String grantId);
+
+    /**
      * Marks a namespace as tombstoned (soft-deleted) for an account.
      *
      * @param accountId   the account identifier

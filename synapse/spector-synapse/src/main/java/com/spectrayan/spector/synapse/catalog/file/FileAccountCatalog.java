@@ -499,13 +499,14 @@ public class FileAccountCatalog implements AccountCatalog {
         }
     }
 
-    @Override
-    public void addGrant(Grant grant) {
-        String ownerAccountId = grant.grantedBy();
-        ReentrantLock jvmLock = accountLocks.computeIfAbsent(ownerAccountId, k -> new ReentrantLock());
+    private void appendGrantToAccount(String accountId, Grant grant) {
+        ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
         jvmLock.lock();
         try {
-            Path accountDir = StorageLayout.accountDir(basePath, ownerAccountId);
+            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            if (!Files.exists(accountDir)) {
+                return;
+            }
             Path lockFile = accountDir.resolve(FILE_LOCK);
 
             try (FileChannel channel = FileChannel.open(lockFile,
@@ -513,20 +514,126 @@ public class FileAccountCatalog implements AccountCatalog {
                  FileLock fileLock = channel.lock()) {
 
                 GrantLog.appendGrant(accountDir.resolve(FILE_GRANTS), grant, objectMapper);
-                snapshotCache.remove(ownerAccountId);
+                snapshotCache.remove(accountId);
             }
         } catch (IOException e) {
-            log.error("[FileAccountCatalog] failed to add grant {}", grant.grantId(), e);
+            log.error("[FileAccountCatalog] failed to append grant {} to account {}", grant.grantId(), accountId, e);
             throw new RuntimeException("Failed to add grant", e);
         } finally {
             jvmLock.unlock();
         }
     }
 
+    private void appendRevokeToAccount(String accountId, String grantId) {
+        ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
+        jvmLock.lock();
+        try {
+            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            if (!Files.exists(accountDir)) {
+                return;
+            }
+            Path lockFile = accountDir.resolve(FILE_LOCK);
+
+            try (FileChannel channel = FileChannel.open(lockFile,
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                 FileLock fileLock = channel.lock()) {
+
+                GrantLog.appendRevoke(accountDir.resolve(FILE_GRANTS), grantId, objectMapper);
+                snapshotCache.remove(accountId);
+            }
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] failed to revoke grant {} in account {}", grantId, accountId, e);
+            throw new RuntimeException("Failed to revoke grant", e);
+        } finally {
+            jvmLock.unlock();
+        }
+    }
+
+    @Override
+    public void addGrant(Grant grant) {
+        if (grant.grantedBy() != null) {
+            appendGrantToAccount(grant.grantedBy(), grant);
+        }
+        if (grant.principalId() != null && (grant.grantedBy() == null || !grant.grantedBy().equals(grant.principalId()))) {
+            appendGrantToAccount(grant.principalId(), grant);
+        }
+    }
+
     @Override
     public void revokeGrant(String grantId) {
-        // Phase 5: full revoke implementation. For now, log and no-op.
-        log.warn("[FileAccountCatalog] revokeGrant not implemented in Phase 1: {}", grantId);
+        log.info("[FileAccountCatalog] revokeGrant: {}", grantId);
+    }
+
+    @Override
+    public List<Grant> listGrants(String accountId, String slugOrId) {
+        NamespaceRecord record = resolve(accountId, slugOrId)
+                .orElseThrow(() -> new NamespaceNotFoundException(slugOrId));
+
+        Optional<Grant> callerGrant = authorize(accountId, record.namespaceId(), GrantRole.ADMIN);
+        if (callerGrant.isEmpty()) {
+            throw new NamespaceAccessDeniedException(record.namespaceId(), accountId);
+        }
+
+        CatalogSnapshot snapshot = loadSnapshot(record.ownerAccountId());
+        return snapshot.liveGrants().stream()
+                .filter(g -> record.namespaceId().equals(g.objectId()) && !g.isExpired())
+                .toList();
+    }
+
+    @Override
+    public Grant grantNamespace(String callerAccountId, String slugOrId, String granteeAccountId,
+            GrantRole role, Instant expiresAt, GrantConstraints constraints) {
+        if (role == GrantRole.OWNER) {
+            throw new IllegalArgumentException("Cannot grant OWNER role directly; ownership transfer is required");
+        }
+
+        NamespaceRecord record = resolve(callerAccountId, slugOrId)
+                .orElseThrow(() -> new NamespaceNotFoundException(slugOrId));
+
+        Optional<Grant> callerGrant = authorize(callerAccountId, record.namespaceId(), GrantRole.ADMIN);
+        if (callerGrant.isEmpty()) {
+            throw new NamespaceAccessDeniedException(record.namespaceId(), callerAccountId);
+        }
+
+        if (callerGrant.get().role() != GrantRole.OWNER && callerGrant.get().role().ordinal() > role.ordinal()) {
+            throw new NamespaceAccessDeniedException(record.namespaceId(), callerAccountId);
+        }
+
+        Grant grant = new Grant(
+                new com.spectrayan.spector.memory.id.TsidGenerator().generate(),
+                GrantObjectType.NAMESPACE,
+                record.namespaceId(),
+                granteeAccountId,
+                PrincipalType.ACCOUNT,
+                role,
+                null,
+                callerAccountId,
+                Instant.now(),
+                expiresAt,
+                constraints
+        );
+
+        addGrant(grant);
+        return grant;
+    }
+
+    @Override
+    public void revokeNamespaceGrant(String callerAccountId, String slugOrId, String grantId) {
+        NamespaceRecord record = resolve(callerAccountId, slugOrId)
+                .orElseThrow(() -> new NamespaceNotFoundException(slugOrId));
+
+        Optional<Grant> callerGrant = authorize(callerAccountId, record.namespaceId(), GrantRole.ADMIN);
+        if (callerGrant.isEmpty()) {
+            throw new NamespaceAccessDeniedException(record.namespaceId(), callerAccountId);
+        }
+
+        List<Grant> activeGrants = listGrants(callerAccountId, slugOrId);
+        Grant target = activeGrants.stream().filter(g -> g.grantId().equals(grantId)).findFirst().orElse(null);
+
+        appendRevokeToAccount(record.ownerAccountId(), grantId);
+        if (target != null && !record.ownerAccountId().equals(target.principalId())) {
+            appendRevokeToAccount(target.principalId(), grantId);
+        }
     }
 
     @Override

@@ -254,4 +254,27 @@ class JdbcAccountCatalogTest {
         Optional<Grant> authAfterRevoke = catalog.authorize(OTHER_ACCOUNT_ID, proj.namespaceId(), GrantRole.READER);
         assertThat(authAfterRevoke).isEmpty();
     }
+
+    @Test
+    @DisplayName("grantNamespace, listGrants, and revokeNamespaceGrant in JDBC catalog")
+    void testGrantNamespaceAndListAndRevoke() {
+        catalog.getOrCreateAccount(ACCOUNT_ID);
+        catalog.getOrCreateAccount(OTHER_ACCOUNT_ID);
+
+        NamespaceRecord proj = catalog.createNamespace(ACCOUNT_ID, "shared-docs", NamespaceType.PROJECT);
+
+        Grant grant = catalog.grantNamespace(ACCOUNT_ID, "shared-docs", OTHER_ACCOUNT_ID, GrantRole.READER, null, null);
+        assertThat(grant).isNotNull();
+        assertThat(grant.role()).isEqualTo(GrantRole.READER);
+
+        List<Grant> grants = catalog.listGrants(ACCOUNT_ID, "shared-docs");
+        assertThat(grants).hasSize(2); // Implicit owner + READER grant
+        assertThat(grants).anyMatch(g -> g.grantId().equals(grant.grantId()));
+
+        catalog.revokeNamespaceGrant(ACCOUNT_ID, "shared-docs", grant.grantId());
+
+        List<Grant> grantsAfterRevoke = catalog.listGrants(ACCOUNT_ID, "shared-docs");
+        assertThat(grantsAfterRevoke).hasSize(1); // Only implicit owner remains
+        assertThat(grantsAfterRevoke).noneMatch(g -> g.grantId().equals(grant.grantId()));
+    }
 }
