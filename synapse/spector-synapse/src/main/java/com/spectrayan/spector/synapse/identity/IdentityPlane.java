@@ -28,6 +28,9 @@ import com.spectrayan.spector.memory.model.InsulaSelfModel;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
 
+import com.spectrayan.spector.synapse.catalog.AccountCatalog;
+import com.spectrayan.spector.synapse.catalog.GrantAction;
+
 /**
  * Service coordinating identity bundle lifecycle, soul stack assembly, and Region 24 migration (ADR-0029 §23, §24).
  */
@@ -38,20 +41,27 @@ public class IdentityPlane {
 
     private final IdentityCache identityCache;
     private final ObjectMapper mapper;
+    private final AccountCatalog catalog;
 
-    public IdentityPlane(IdentityCache identityCache, ObjectMapper mapper) {
+    public IdentityPlane(IdentityCache identityCache, ObjectMapper mapper, AccountCatalog catalog) {
         this.identityCache = identityCache;
         this.mapper = mapper;
+        this.catalog = catalog;
     }
 
     /**
-     * Reads the primary soul for the given account.
+     * Reads the primary soul for the given account with PEP authorization check (ADR-0029 §24).
      *
-     * @param accountId account TSID
+     * @param accountId account TSID (also used as caller for own-account access)
      * @return optional primary soul
      */
     public Optional<SoulContext> primarySoulFor(String accountId) {
         if (accountId == null || accountId.isBlank() || "default".equals(accountId)) {
+            return Optional.empty();
+        }
+        // PEP check: caller must have READ on their own SOUL region
+        if (!catalog.authorizeIdentity(accountId, accountId, IdentityRegionId.SOUL.name(), GrantAction.READ)) {
+            log.warn("[IdentityPlane] Identity read denied for account {} on SOUL region", accountId);
             return Optional.empty();
         }
         IdentityBundle bundle = identityCache.getOrOpenAccount(accountId);
@@ -86,6 +96,19 @@ public class IdentityPlane {
         if (tenantId != null && !tenantId.isBlank()) {
             IdentityBundle tenantBundle = identityCache.getOrOpenTenant(tenantId);
             tenantBundle.readSoul().ifPresent(stack::add);
+
+            // Process org unit souls from tenant ORG_DIR region (ADR-0029 §2.5.2)
+            if (orgUnitIds != null && !orgUnitIds.isEmpty()) {
+                for (String orgUnitId : orgUnitIds) {
+                    if (orgUnitId == null || orgUnitId.isBlank()) {
+                        continue;
+                    }
+                    tenantBundle.readOrgUnitSoul(orgUnitId).ifPresent(orgSoul -> {
+                        stack.add(orgSoul);
+                        log.trace("[IdentityPlane] Added org unit soul for tenantId={}, orgUnitId={}", tenantId, orgUnitId);
+                    });
+                }
+            }
         }
 
         if (accountId != null && !accountId.isBlank() && !"default".equals(accountId)) {

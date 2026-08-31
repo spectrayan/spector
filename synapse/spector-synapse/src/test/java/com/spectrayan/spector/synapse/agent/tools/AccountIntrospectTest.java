@@ -57,7 +57,7 @@ class AccountIntrospectTest {
 
         catalog = new FileAccountCatalog(tempDir, objectMapper);
         IdentityCache identityCache = new IdentityCache(tempDir);
-        identityPlane = new IdentityPlane(identityCache, objectMapper);
+        identityPlane = new IdentityPlane(identityCache, objectMapper, catalog);
 
         controller = new AccountDefaultController(catalog, identityPlane);
         mcpTool = new AccountIntrospectTool(catalog, identityPlane, objectMapper);

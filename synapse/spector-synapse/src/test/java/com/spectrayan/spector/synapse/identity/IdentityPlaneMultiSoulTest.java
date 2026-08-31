@@ -28,6 +28,12 @@ import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.memory.model.TenantSoul;
 import com.spectrayan.spector.memory.model.UserSoul;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import com.spectrayan.spector.synapse.catalog.AccountCatalog;
+import com.spectrayan.spector.synapse.catalog.GrantAction;
+
 @DisplayName("IdentityPlane Multi-Soul Hierarchy Specification (ADR-0029 §2.5)")
 class IdentityPlaneMultiSoulTest {
 
@@ -41,7 +47,14 @@ class IdentityPlaneMultiSoulTest {
         ObjectMapper mapper = new ObjectMapper();
         mapper.findAndRegisterModules();
         IdentityCache identityCache = new IdentityCache(tempDir);
-        identityPlane = new IdentityPlane(identityCache, mapper);
+        AccountCatalog catalog = mock(AccountCatalog.class);
+        when(catalog.authorizeIdentity(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(GrantAction.class)))
+                .thenReturn(true);
+        identityPlane = new IdentityPlane(identityCache, mapper, catalog);
     }
 
     @Test
