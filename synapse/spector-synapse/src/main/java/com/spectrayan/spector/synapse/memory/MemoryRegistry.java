@@ -186,6 +186,11 @@ public final class MemoryRegistry implements AutoCloseable {
         return resolver;
     }
 
+    /** Returns the AccountCatalog for authorization checks. */
+    public AccountCatalog catalog() {
+        return resolver.catalog();
+    }
+
     // ══════════════════════════════════════════════════════════════
     // Internals
     // ══════════════════════════════════════════════════════════════

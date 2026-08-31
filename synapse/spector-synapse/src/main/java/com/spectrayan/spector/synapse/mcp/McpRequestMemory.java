@@ -119,8 +119,23 @@ public final class McpRequestMemory {
                     ? registry.namespaceResolver().resolve(userId, selector)
                     : registry.resolveForCurrentRequest();
 
+            // Fail-closed authorization on MCP path (ADR-0029 §24) — mirrors MemoryRequestBinder
+            if (authEnabled && userId != null && memory != null && registry.catalog() != null) {
+                String resolvedNsId = (selector != null && !selector.isBlank()) ? selector : userId;
+                var catalog = registry.catalog();
+                var authGrant = catalog.authorize(userId, resolvedNsId, com.spectrayan.spector.synapse.catalog.GrantRole.READER);
+                if (authGrant.isEmpty()) {
+                    log.warn("[McpRequestMemory] Access denied: account={} has no grant on namespace={}", userId, resolvedNsId);
+                    return Optional.of(DenyReason.RESOLUTION_FAILED);
+                }
+            }
+
             CURRENT.set(memory);
             return Optional.empty();
+        } catch (com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException e) {
+            clear();
+            log.warn("[McpRequestMemory] access denied: {}", e.getMessage());
+            return Optional.of(DenyReason.RESOLUTION_FAILED);
         } catch (TokenNamespaceLockedException e) {
             clear();
             log.warn("[McpRequestMemory] token namespace locked: {}", e.getMessage());

@@ -167,9 +167,13 @@ public class MemoryRequestBinder {
                 ? identityPlane.soulsFor(tokenClaims.tenantId(), tokenClaims.orgUnitIds(), accountId)
                 : List.of();
 
-        // Authorize access on target namespace
+        // Authorize access on target namespace — fail-closed (ADR-0029 §24)
         Optional<com.spectrayan.spector.synapse.catalog.Grant> authGrant = catalog.authorize(accountId, targetNamespaceId, GrantRole.READER);
-        GrantRole role = authGrant.map(com.spectrayan.spector.synapse.catalog.Grant::role).orElse(GrantRole.OWNER);
+        if (authGrant.isEmpty()) {
+            log.warn("[MemoryRequestBinder] Access denied: account={} has no grant on namespace={}", accountId, targetNamespaceId);
+            throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException(targetNamespaceId, accountId);
+        }
+        GrantRole role = authGrant.get().role();
 
         RequestMemoryContext requestContext = new RequestMemoryContext(
                 tokenClaims.tenantId(),

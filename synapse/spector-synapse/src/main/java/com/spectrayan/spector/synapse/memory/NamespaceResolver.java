@@ -50,19 +50,18 @@ import org.springframework.beans.factory.ObjectProvider;
  * Resolves an authenticated principal's request to a {@link SpectorMemory} instance
  * via the catalog-mediated resolution chain (ADR-0029 §6.1).
  *
- * <h3>Resolution chain (Phase 1)</h3>
+ * <h3>Resolution chain</h3>
  * <pre>
  * 1. Authenticate: SecurityUtils.getUserId() → accountId
  * 2. Catalog:      AccountCatalog.getOrCreateAccount(accountId)
  *                  → account.defaultNamespaceId → namespaceId
- * 3. Authorize:    implicit OWNER (Phase 1 — full grant APIs in Phase 5)
+ * 3. Authorize:    catalog.authorize(accountId, namespaceId, minimumRole)
  * 4. Bind:         cache.getOrOpen(namespaceId, () → buildInstance(namespaceId))
  * </pre>
  *
- * <p>Phase 1 always resolves to the account's default namespace. Namespace selection
- * via tool argument, header, or {@code namespace_switch} is added in Phase 2.
- * Soul stack assembly is added in Phase 4. The resolution semantics for existing
- * single-namespace users are identical: {@code namespaceId == accountId == userId}.</p>
+ * <p>Namespace selection via tool argument, header, or {@code namespace_switch}
+ * resolves through catalog slugs. Soul stack assembly occurs at bind time via
+ * {@link com.spectrayan.spector.synapse.identity.IdentityPlane}.</p>
  *
  * <p>The hot cache is keyed by {@code namespaceId} (ADR §6.3, Q7). Two principals
  * with grants on the same namespace share one {@code SpectorMemory} instance.</p>
@@ -148,7 +147,7 @@ public class NamespaceResolver implements AutoCloseable {
     /**
      * Resolves an authenticated principal to their default namespace's {@link SpectorMemory}.
      *
-     * <p>Phase 1 chain: accountId → catalog → defaultNamespaceId → cached engine.</p>
+     * <p>Chain: accountId → catalog → defaultNamespaceId → cached engine.</p>
      *
      * @param accountId the authenticated principal's TSID (from JWT sub)
      * @return the cached or newly-built SpectorMemory for the account's default namespace
@@ -431,23 +430,26 @@ public class NamespaceResolver implements AutoCloseable {
         log.info("[NamespaceResolver] built namespace memory instance nsId={} (dims={}, persistenceMode={})",
                 namespaceId, memory.getDimensions(), memory.getPersistenceMode());
 
-        // Load saved salience profile from the INSULA region
+        // INSULA fallback: only restore salience/soul from Region 24 when no identity bundle
+        // exists for this namespace's owner. Post-migration, IdentityPlane supplies the soul
+        // stack at bind time — Region 24 is not authoritative (ADR-0029 §23.6).
         try {
             java.util.Optional<byte[]> bytes = built.admin().insularCortex().get();
             if (bytes.isPresent() && mapper != null) {
                 InsulaSelfModel model = mapper.readValue(bytes.get(), InsulaSelfModel.class);
                 if (model != null && model.salience() != null) {
                     built.setSalienceProfile(model.salience());
-                    log.info("[NamespaceResolver] restored salience profile from INSULA for nsId={}", namespaceId);
+                    log.debug("[NamespaceResolver] restored salience from INSULA fallback for nsId={} "
+                            + "(identity bundle should be authoritative post-migration)", namespaceId);
                 }
                 if (model != null && model.soul() != null) {
                     built.setSoulVersion(model.soul().soulVersion());
-                    log.info("[NamespaceResolver] restored soul version {} from INSULA for nsId={}",
+                    log.debug("[NamespaceResolver] restored soul version {} from INSULA fallback for nsId={}",
                             model.soul().soulVersion(), namespaceId);
                 }
             }
         } catch (Exception e) {
-            log.warn("[NamespaceResolver] failed to restore salience profile from INSULA: {}", e.getMessage());
+            log.warn("[NamespaceResolver] failed to restore salience from INSULA fallback: {}", e.getMessage());
         }
 
         return built;
@@ -538,6 +540,9 @@ public class NamespaceResolver implements AutoCloseable {
 
     /** Cache entry pairing a namespace instance with its accessing accounts and access time. */
     private static final class MemoryHandle {
+        /** Maximum tracked accessing accounts per handle — prevents unbounded growth. */
+        private static final int MAX_ACCESSING_ACCOUNTS = 64;
+
         private final String namespaceId;
         private final String ownerAccountId;
         private final java.util.Set<String> accessingAccounts = ConcurrentHashMap.newKeySet();
@@ -560,8 +565,15 @@ public class NamespaceResolver implements AutoCloseable {
 
         void touch(String accountId) {
             this.lastAccessNanos = System.nanoTime();
-            if (accountId != null) {
+            if (accountId != null && accessingAccounts.size() < MAX_ACCESSING_ACCOUNTS) {
                 this.accessingAccounts.add(accountId);
+            }
+        }
+
+        /** Removes an account from the accessing set (e.g., on grant revoke). */
+        void removeAccessing(String accountId) {
+            if (accountId != null) {
+                this.accessingAccounts.remove(accountId);
             }
         }
 
