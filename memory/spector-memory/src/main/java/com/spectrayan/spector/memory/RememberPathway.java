@@ -66,6 +66,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
 
     private volatile SalienceProfile salienceProfile = SalienceProfile.NEUTRAL;
     private volatile short currentSoulVersion = 0;
+    private volatile java.util.List<com.spectrayan.spector.memory.model.SoulContext> soulContexts = java.util.List.of();
 
     private RememberPathway(final Builder builder) {
         final ScalarQuantizer quantizer = builder.cortex.quantizer();
@@ -190,6 +191,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
                 id, text, vector, type, tags, source, hints,
                 salienceProfile, currentSoulVersion
         );
+        signal.soulContexts(this.soulContexts);
         pathway.conduct(signal);
     }
 
@@ -216,6 +218,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
                 id, text, vector, type, tags, source, context,
                 salienceProfile, currentSoulVersion
         );
+        signal.soulContexts(this.soulContexts);
         pathway.conduct(signal);
     }
 
@@ -261,6 +264,14 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
 
     public short currentSoulVersion() {
         return currentSoulVersion;
+    }
+
+    public void setSoulContexts(final java.util.List<com.spectrayan.spector.memory.model.SoulContext> contexts) {
+        this.soulContexts = contexts != null ? java.util.List.copyOf(contexts) : java.util.List.of();
+    }
+
+    public java.util.List<com.spectrayan.spector.memory.model.SoulContext> soulContexts() {
+        return soulContexts;
     }
 
     public TagExtractor tagExtractor() {

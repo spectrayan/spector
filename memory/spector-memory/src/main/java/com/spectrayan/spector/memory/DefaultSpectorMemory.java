@@ -1497,6 +1497,22 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     @Override
+    public void applyIdentity(
+            com.spectrayan.spector.memory.model.SoulContext primarySoul,
+            java.util.List<com.spectrayan.spector.memory.model.SoulContext> soulStack,
+            SalienceProfile salience) {
+        if (salience != null) {
+            setSalienceProfile(salience);
+        }
+        if (primarySoul != null) {
+            setSoulVersion(primarySoul.soulVersion());
+        }
+        if (rememberPathway != null && soulStack != null) {
+            rememberPathway.setSoulContexts(soulStack);
+        }
+    }
+
+    @Override
     public SalienceProfile salienceProfile() {
         if (usePathwayEngine && rememberPathway != null) {
             return rememberPathway.salienceProfile();
