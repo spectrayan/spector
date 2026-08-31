@@ -177,6 +177,20 @@ public class NamespaceController {
     }
 
     /**
+     * Toggles legal hold on a namespace (Requires ADMIN+).
+     */
+    @PostMapping(value = "/{slugOrId}/legal-hold", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<NamespaceResponse> setLegalHold(
+            @PathVariable String slugOrId,
+            @RequestBody LegalHoldRequest request) {
+        String accountId = SecurityUtils.getUserId();
+        log.info("[NamespaceController] setLegalHold: account={}, slugOrId={}, legalHold={}",
+                accountId, slugOrId, request.legalHold());
+        NamespaceRecord updated = catalog.setLegalHold(accountId, slugOrId, request.legalHold());
+        return ResponseEntity.ok(NamespaceResponse.from(updated));
+    }
+
+    /**
      * Revokes a grant on a namespace (Requires ADMIN+).
      */
     @DeleteMapping("/{slugOrId}/grants/{grantId}")

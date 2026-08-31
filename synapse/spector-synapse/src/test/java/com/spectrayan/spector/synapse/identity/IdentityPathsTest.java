@@ -48,4 +48,22 @@ class IdentityPathsTest {
 
         assertThat(path).isEqualTo(Path.of("/data/spector/identity/accounts/00/00/a/identity.bundle"));
     }
+
+    @Test
+    @DisplayName("Shards tenant-scoped account identity bundle path")
+    void tenantAccountIdentitySharded() {
+        Path root = Path.of("/data/spector");
+        Path path = IdentityPaths.tenantAccountIdentityBundle(root, "ten-hospital-99", "0123456789abc");
+
+        assertThat(path).isEqualTo(Path.of("/data/spector/identity/tenants/te/n-/ten-hospital-99/accounts/01/23/0123456789abc/identity.bundle"));
+    }
+
+    @Test
+    @DisplayName("Shards enterprise tenant-rooted namespace directory")
+    void enterpriseNamespaceDirSharded() {
+        Path root = Path.of("/data/spector");
+        Path path = IdentityPaths.enterpriseNamespaceDir(root, "ten-hospital-99", "0123456789abc");
+
+        assertThat(path).isEqualTo(Path.of("/data/spector/tenants/te/n-/ten-hospital-99/namespaces/01/23/0123456789abc"));
+    }
 }

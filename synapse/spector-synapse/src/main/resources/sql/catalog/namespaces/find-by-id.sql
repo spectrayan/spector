@@ -9,6 +9,7 @@ SELECT
     description,
     bias_json,
     created_at,
-    last_accessed_at
+    last_accessed_at,
+    legal_hold
 FROM namespaces
 WHERE namespace_id = :namespaceId

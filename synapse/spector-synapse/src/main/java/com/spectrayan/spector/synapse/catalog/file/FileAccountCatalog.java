@@ -428,6 +428,17 @@ public class FileAccountCatalog implements AccountCatalog {
                     }
                 }
 
+                Path namespacesFile = accountDir.resolve(FILE_NAMESPACES);
+                if (Files.exists(namespacesFile)) {
+                    Map<String, NamespaceRecord> namespaces = objectMapper.readValue(
+                            namespacesFile.toFile(),
+                            new TypeReference<Map<String, NamespaceRecord>>() {});
+                    NamespaceRecord existing = namespaces.get(namespaceId);
+                    if (existing != null && existing.legalHold()) {
+                        throw new NamespaceLegalHoldException(namespaceId);
+                    }
+                }
+
                 // Reset data-plane directory: delete bundle/index files and recreate
                 Path namespaceDir = StorageLayout.namespaceDirSharded(basePath, namespaceId);
                 if (Files.exists(namespaceDir)) {
@@ -443,10 +454,82 @@ public class FileAccountCatalog implements AccountCatalog {
                 snapshotCache.remove(accountId);
                 log.info("[FileAccountCatalog] reset namespace data directory: {}", namespaceId);
             }
+        } catch (NamespaceLegalHoldException e) {
+            throw e;
         } catch (IOException e) {
             log.error("[FileAccountCatalog] failed to reset namespace {} for account {}",
                     slugOrId, accountId, e);
             throw new RuntimeException("Failed to reset namespace", e);
+        } finally {
+            jvmLock.unlock();
+        }
+    }
+
+    @Override
+    public NamespaceRecord setLegalHold(String accountId, String slugOrId, boolean legalHold) {
+        ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
+        jvmLock.lock();
+        try {
+            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            Path lockFile = accountDir.resolve(FILE_LOCK);
+
+            try (FileChannel channel = FileChannel.open(lockFile,
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                 FileLock fileLock = channel.lock()) {
+
+                Path slugsFile = accountDir.resolve(FILE_SLUGS);
+                Map<String, String> slugs = new HashMap<>();
+                if (Files.exists(slugsFile)) {
+                    slugs = objectMapper.readValue(slugsFile.toFile(),
+                            new TypeReference<Map<String, String>>() {});
+                }
+
+                String namespaceId = slugs.get(slugOrId);
+                if (namespaceId == null) {
+                    if (slugs.containsValue(slugOrId)) {
+                        namespaceId = slugOrId;
+                    } else {
+                        throw new NamespaceNotFoundException(slugOrId);
+                    }
+                }
+
+                Path namespacesFile = accountDir.resolve(FILE_NAMESPACES);
+                Map<String, NamespaceRecord> namespaces = new HashMap<>();
+                if (Files.exists(namespacesFile)) {
+                    namespaces = new HashMap<>(objectMapper.readValue(namespacesFile.toFile(),
+                            new TypeReference<Map<String, NamespaceRecord>>() {}));
+                }
+
+                NamespaceRecord existing = namespaces.get(namespaceId);
+                if (existing == null) {
+                    throw new NamespaceNotFoundException(slugOrId);
+                }
+
+                NamespaceRecord updated = new NamespaceRecord(
+                        existing.namespaceId(),
+                        existing.slug(),
+                        existing.ownerAccountId(),
+                        existing.type(),
+                        existing.status(),
+                        existing.displayName(),
+                        existing.description(),
+                        existing.bias(),
+                        existing.createdAt(),
+                        Instant.now(),
+                        legalHold
+                );
+
+                namespaces.put(namespaceId, updated);
+                atomicWrite(namespacesFile, namespaces);
+                snapshotCache.remove(accountId);
+
+                log.info("[FileAccountCatalog] updated legal hold for namespace {}: {}", namespaceId, legalHold);
+                return updated;
+            }
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] failed to set legal hold on namespace {} for account {}",
+                    slugOrId, accountId, e);
+            throw new RuntimeException("Failed to set legal hold", e);
         } finally {
             jvmLock.unlock();
         }
@@ -658,9 +741,10 @@ public class FileAccountCatalog implements AccountCatalog {
                 Path slugsFile = accountDir.resolve(FILE_SLUGS);
                 String resolvedNamespaceId = namespaceId;
                 String slugToRemove = null;
+                Map<String, String> slugs = new HashMap<>();
 
                 if (Files.exists(slugsFile)) {
-                    Map<String, String> slugs = new HashMap<>(objectMapper.readValue(
+                    slugs = new HashMap<>(objectMapper.readValue(
                             slugsFile.toFile(),
                             new TypeReference<Map<String, String>>() {}));
 
@@ -679,11 +763,6 @@ public class FileAccountCatalog implements AccountCatalog {
                     if ("default".equals(slugToRemove) || accountId.equals(resolvedNamespaceId)) {
                         throw new DefaultNamespaceProtectedException(resolvedNamespaceId);
                     }
-
-                    if (slugToRemove != null) {
-                        slugs.remove(slugToRemove);
-                        atomicWrite(slugsFile, slugs);
-                    }
                 }
 
                 Path namespacesFile = accountDir.resolve(FILE_NAMESPACES);
@@ -693,6 +772,9 @@ public class FileAccountCatalog implements AccountCatalog {
                             new TypeReference<Map<String, NamespaceRecord>>() {}));
                     NamespaceRecord existing = namespaces.get(resolvedNamespaceId);
                     if (existing != null) {
+                        if (existing.legalHold()) {
+                            throw new NamespaceLegalHoldException(resolvedNamespaceId);
+                        }
                         NamespaceRecord tombstoned = new NamespaceRecord(
                                 existing.namespaceId(),
                                 existing.slug(),
@@ -703,17 +785,23 @@ public class FileAccountCatalog implements AccountCatalog {
                                 existing.description(),
                                 existing.bias(),
                                 existing.createdAt(),
-                                Instant.now()
+                                Instant.now(),
+                                existing.legalHold()
                         );
                         namespaces.put(resolvedNamespaceId, tombstoned);
                         atomicWrite(namespacesFile, namespaces);
                     }
                 }
 
+                if (slugToRemove != null && Files.exists(slugsFile)) {
+                    slugs.remove(slugToRemove);
+                    atomicWrite(slugsFile, slugs);
+                }
+
                 snapshotCache.remove(accountId);
                 log.info("[FileAccountCatalog] tombstoned namespace {} for account {}", resolvedNamespaceId, accountId);
             }
-        } catch (DefaultNamespaceProtectedException e) {
+        } catch (DefaultNamespaceProtectedException | NamespaceLegalHoldException e) {
             throw e;
         } catch (IOException e) {
             log.error("[FileAccountCatalog] failed to tombstone namespace {} for account {}",

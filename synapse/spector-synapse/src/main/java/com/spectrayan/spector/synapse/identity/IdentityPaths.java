@@ -82,6 +82,64 @@ public final class IdentityPaths {
                 .resolve(FILE_IDENTITY_BUNDLE);
     }
 
+    /**
+     * Resolves the path to an account's {@code identity.bundle} under a specific tenant hierarchy (ADR-0029 §4.3).
+     *
+     * @param dataDir   synapse root data directory
+     * @param tenantId  the unique tenant identifier
+     * @param accountId the account identifier
+     * @return absolute path to the tenant-scoped account identity.bundle
+     */
+    public static Path tenantAccountIdentityBundle(Path dataDir, String tenantId, String accountId) {
+        Objects.requireNonNull(dataDir, "dataDir must not be null");
+        Objects.requireNonNull(tenantId, "tenantId must not be null");
+        Objects.requireNonNull(accountId, "accountId must not be null");
+
+        String ts1 = shard1(tenantId);
+        String ts2 = shard2(tenantId);
+        String as1 = shard1(accountId);
+        String as2 = shard2(accountId);
+
+        return dataDir.resolve(DIR_IDENTITY)
+                .resolve(DIR_TENANTS)
+                .resolve(ts1)
+                .resolve(ts2)
+                .resolve(tenantId)
+                .resolve(DIR_ACCOUNTS)
+                .resolve(as1)
+                .resolve(as2)
+                .resolve(accountId)
+                .resolve(FILE_IDENTITY_BUNDLE);
+    }
+
+    /**
+     * Resolves the enterprise tenant-rooted namespace directory (ADR-0029 §4.3).
+     *
+     * @param dataDir     synapse root data directory
+     * @param tenantId    the unique tenant identifier
+     * @param namespaceId the unique namespace identifier (TSID)
+     * @return absolute path to the enterprise namespace data directory
+     */
+    public static Path enterpriseNamespaceDir(Path dataDir, String tenantId, String namespaceId) {
+        Objects.requireNonNull(dataDir, "dataDir must not be null");
+        Objects.requireNonNull(tenantId, "tenantId must not be null");
+        Objects.requireNonNull(namespaceId, "namespaceId must not be null");
+
+        String ts1 = shard1(tenantId);
+        String ts2 = shard2(tenantId);
+        String ns1 = shard1(namespaceId);
+        String ns2 = shard2(namespaceId);
+
+        return dataDir.resolve(DIR_TENANTS)
+                .resolve(ts1)
+                .resolve(ts2)
+                .resolve(tenantId)
+                .resolve("namespaces")
+                .resolve(ns1)
+                .resolve(ns2)
+                .resolve(namespaceId);
+    }
+
     private static String shard1(String id) {
         if (id.length() < 2) {
             return "00";

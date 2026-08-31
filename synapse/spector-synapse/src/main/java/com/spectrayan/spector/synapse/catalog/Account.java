@@ -26,6 +26,8 @@ import java.time.Instant;
  * @param flags the feature flags and account-level overrides
  * @param defaultNamespaceId the identifier of the default namespace owned by this account
  * @param createdAt the timestamp when the account was created
+ * @param tenantId optional tenant identifier this account belongs to, nullable
+ * @param legalHold whether the account is placed under enterprise legal hold
  */
 public record Account(
         String id,
@@ -35,6 +37,19 @@ public record Account(
         AccountQuotas quotas,
         AccountFlags flags,
         String defaultNamespaceId,
-        Instant createdAt
+        Instant createdAt,
+        String tenantId,
+        boolean legalHold
 ) {
+    public Account(
+            String id,
+            PrincipalKind kind,
+            AccountProfile profile,
+            String displayName,
+            AccountQuotas quotas,
+            AccountFlags flags,
+            String defaultNamespaceId,
+            Instant createdAt) {
+        this(id, kind, profile, displayName, quotas, flags, defaultNamespaceId, createdAt, null, false);
+    }
 }

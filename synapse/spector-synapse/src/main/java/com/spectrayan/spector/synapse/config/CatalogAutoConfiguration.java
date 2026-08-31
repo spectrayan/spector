@@ -172,6 +172,12 @@ public class CatalogAutoConfiguration {
         }
 
         @Override
+        public com.spectrayan.spector.synapse.catalog.NamespaceRecord setLegalHold(
+                String accountId, String slugOrId, boolean legalHold) {
+            throw new UnsupportedOperationException(MSG);
+        }
+
+        @Override
         public java.util.Optional<com.spectrayan.spector.synapse.catalog.Grant> authorize(
                 String accountId, String namespaceId,
                 com.spectrayan.spector.synapse.catalog.GrantRole minimumRole) {
