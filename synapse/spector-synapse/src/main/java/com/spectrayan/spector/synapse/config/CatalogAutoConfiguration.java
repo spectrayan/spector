@@ -38,11 +38,28 @@ public class CatalogAutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(CatalogAutoConfiguration.class);
 
     /**
-     * File-backed catalog for authenticated deployments.
+     * JDBC-backed catalog for production and enterprise deployments (default).
+     */
+    @Bean
+    @ConditionalOnProperty(name = "spector.auth.enabled", havingValue = "true", matchIfMissing = false)
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            name = "spector.catalog.type", havingValue = "jdbc", matchIfMissing = true)
+    public AccountCatalog jdbcAccountCatalog(
+            org.springframework.jdbc.core.simple.JdbcClient jdbc,
+            com.spectrayan.spector.synapse.config.sql.SqlQueryLoader sqlLoader,
+            ObjectMapper objectMapper) {
+        log.info("[CatalogAutoConfiguration] creating JdbcAccountCatalog");
+        return new com.spectrayan.spector.synapse.catalog.jdbc.JdbcAccountCatalog(jdbc, sqlLoader, objectMapper);
+    }
+
+    /**
+     * File-backed catalog for standalone or file-based deployments.
      * Rooted at the same persistence path as the memory data plane.
      */
     @Bean
     @ConditionalOnProperty(name = "spector.auth.enabled", havingValue = "true", matchIfMissing = false)
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            name = "spector.catalog.type", havingValue = "file", matchIfMissing = false)
     public AccountCatalog fileAccountCatalog(SynapseProperties synapseProps, ObjectMapper objectMapper) {
         String path = synapseProps.getMemory().getPersistencePath();
         if (path == null || path.isBlank()) {
