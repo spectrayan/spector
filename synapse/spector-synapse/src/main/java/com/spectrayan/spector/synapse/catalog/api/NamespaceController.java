@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.spectrayan.spector.synapse.catalog.AccountCatalog;
+import com.spectrayan.spector.synapse.catalog.Grant;
 import com.spectrayan.spector.synapse.catalog.NamespaceRecord;
 import com.spectrayan.spector.synapse.catalog.NamespaceType;
 import com.spectrayan.spector.synapse.catalog.exception.NamespaceNotFoundException;
@@ -139,5 +140,53 @@ public class NamespaceController {
         log.info("[NamespaceController] resetNamespace: account={}, slugOrId={}", accountId, slugOrId);
         catalog.resetNamespace(accountId, slugOrId);
         return ResponseEntity.ok(Map.of("status", "reset", "namespace", slugOrId));
+    }
+
+    /**
+     * Lists active grants for a namespace (Requires ADMIN+).
+     */
+    @GetMapping("/{slugOrId}/grants")
+    public ResponseEntity<List<GrantResponse>> listGrants(@PathVariable String slugOrId) {
+        String accountId = SecurityUtils.getUserId();
+        log.debug("[NamespaceController] listGrants: account={}, slugOrId={}", accountId, slugOrId);
+        List<GrantResponse> responses = catalog.listGrants(accountId, slugOrId).stream()
+                .map(GrantResponse::from)
+                .toList();
+        return ResponseEntity.ok(responses);
+    }
+
+    /**
+     * Grants access to a namespace for another account (Requires ADMIN+).
+     */
+    @PostMapping(value = "/{slugOrId}/grants", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<GrantResponse> createGrant(
+            @PathVariable String slugOrId,
+            @RequestBody CreateGrantRequest request) {
+        String accountId = SecurityUtils.getUserId();
+        log.info("[NamespaceController] createGrant: account={}, slugOrId={}, grantee={}, role={}",
+                accountId, slugOrId, request.granteeAccountId(), request.role());
+        Grant created = catalog.grantNamespace(
+                accountId,
+                slugOrId,
+                request.granteeAccountId(),
+                request.role(),
+                request.expiresAt(),
+                request.constraints()
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(GrantResponse.from(created));
+    }
+
+    /**
+     * Revokes a grant on a namespace (Requires ADMIN+).
+     */
+    @DeleteMapping("/{slugOrId}/grants/{grantId}")
+    public ResponseEntity<Void> revokeGrant(
+            @PathVariable String slugOrId,
+            @PathVariable String grantId) {
+        String accountId = SecurityUtils.getUserId();
+        log.info("[NamespaceController] revokeGrant: account={}, slugOrId={}, grantId={}",
+                accountId, slugOrId, grantId);
+        catalog.revokeNamespaceGrant(accountId, slugOrId, grantId);
+        return ResponseEntity.noContent().build();
     }
 }

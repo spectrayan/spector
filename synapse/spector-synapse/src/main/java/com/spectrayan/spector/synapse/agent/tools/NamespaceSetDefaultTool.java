@@ -38,47 +38,16 @@ public class NamespaceSetDefaultTool extends McpToolHandler {
     private final AccountCatalog catalog;
 
     public NamespaceSetDefaultTool(AccountCatalog catalog) {
+        super("namespace_set_default");
         this.catalog = catalog;
     }
 
     @Override
-    public String name() {
-        return "namespace_set_default";
-    }
-
-    @Override
-    public String description() {
-        return "Persistently sets the default namespace for the authenticated account in the catalog. "
-                + "Durable across restarts and new sessions.";
-    }
-
-    @Override
-    public McpToolCategory category() {
-        return McpToolCategory.MEMORY;
-    }
-
-    @Override
-    public boolean isWriteTool() {
-        return true;
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return Map.of(
-                "type", "object",
-                "properties", Map.of(
-                        "namespace", Map.of(
-                                "type", "string",
-                                "description", "Namespace slug or identifier to set as the durable account default"
-                        )
-                ),
-                "required", List.of("namespace")
-        );
-    }
-
-    @Override
     public McpSchema.CallToolResult execute(Map<String, Object> args) throws Exception {
-        String target = requireString(args, "namespace");
+        String target = optionalString(args, "namespace", null);
+        if (target == null || target.isBlank()) {
+            target = requireString(args, "slug");
+        }
         String accountId = SecurityUtils.getUserId();
         log.info("[NamespaceSetDefaultTool] set default namespace: account={}, target={}", accountId, target);
 

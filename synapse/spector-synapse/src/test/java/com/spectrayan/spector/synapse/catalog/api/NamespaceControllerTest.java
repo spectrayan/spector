@@ -157,4 +157,67 @@ class NamespaceControllerTest {
         assertThat(response.getBody()).containsEntry("status", "reset");
         verify(catalog).resetNamespace(TEST_ACCOUNT, "default");
     }
+
+    @Test
+    @DisplayName("GET /api/v1/namespaces/{slugOrId}/grants returns active grants")
+    void testListGrants() {
+        var grant = new com.spectrayan.spector.synapse.catalog.Grant(
+                "grant-1",
+                com.spectrayan.spector.synapse.catalog.GrantObjectType.NAMESPACE,
+                "0195500000002",
+                "0195500000099",
+                com.spectrayan.spector.synapse.catalog.PrincipalType.ACCOUNT,
+                com.spectrayan.spector.synapse.catalog.GrantRole.READER,
+                null,
+                TEST_ACCOUNT,
+                Instant.now(),
+                null,
+                null
+        );
+        when(catalog.listGrants(TEST_ACCOUNT, "project-x")).thenReturn(List.of(grant));
+
+        ResponseEntity<List<GrantResponse>> response = controller.listGrants("project-x");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).hasSize(1);
+        assertThat(response.getBody().get(0).grantId()).isEqualTo("grant-1");
+        assertThat(response.getBody().get(0).role()).isEqualTo(com.spectrayan.spector.synapse.catalog.GrantRole.READER);
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/namespaces/{slugOrId}/grants creates grant and returns 201 CREATED")
+    void testCreateGrant() {
+        var grant = new com.spectrayan.spector.synapse.catalog.Grant(
+                "grant-2",
+                com.spectrayan.spector.synapse.catalog.GrantObjectType.NAMESPACE,
+                "0195500000002",
+                "0195500000099",
+                com.spectrayan.spector.synapse.catalog.PrincipalType.ACCOUNT,
+                com.spectrayan.spector.synapse.catalog.GrantRole.WRITER,
+                null,
+                TEST_ACCOUNT,
+                Instant.now(),
+                null,
+                null
+        );
+        when(catalog.grantNamespace(eq(TEST_ACCOUNT), eq("project-x"), eq("0195500000099"),
+                eq(com.spectrayan.spector.synapse.catalog.GrantRole.WRITER), any(), any())).thenReturn(grant);
+
+        var request = new CreateGrantRequest("0195500000099", com.spectrayan.spector.synapse.catalog.GrantRole.WRITER, null, null);
+        ResponseEntity<GrantResponse> response = controller.createGrant("project-x", request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().grantId()).isEqualTo("grant-2");
+        assertThat(response.getBody().granteeAccountId()).isEqualTo("0195500000099");
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/namespaces/{slugOrId}/grants/{grantId} revokes grant and returns 204 NO_CONTENT")
+    void testRevokeGrant() {
+        ResponseEntity<Void> response = controller.revokeGrant("project-x", "grant-1");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(catalog).revokeNamespaceGrant(TEST_ACCOUNT, "project-x", "grant-1");
+    }
 }

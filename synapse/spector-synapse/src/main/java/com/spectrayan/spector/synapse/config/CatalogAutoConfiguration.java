@@ -152,6 +152,26 @@ public class CatalogAutoConfiguration {
         }
 
         @Override
+        public java.util.List<com.spectrayan.spector.synapse.catalog.Grant> listGrants(
+                String accountId, String slugOrId) {
+            return java.util.List.of();
+        }
+
+        @Override
+        public com.spectrayan.spector.synapse.catalog.Grant grantNamespace(
+                String callerAccountId, String slugOrId, String granteeAccountId,
+                com.spectrayan.spector.synapse.catalog.GrantRole role,
+                java.time.Instant expiresAt,
+                com.spectrayan.spector.synapse.catalog.GrantConstraints constraints) {
+            throw new UnsupportedOperationException(MSG);
+        }
+
+        @Override
+        public void revokeNamespaceGrant(String callerAccountId, String slugOrId, String grantId) {
+            throw new UnsupportedOperationException(MSG);
+        }
+
+        @Override
         public java.util.Optional<com.spectrayan.spector.synapse.catalog.Grant> authorize(
                 String accountId, String namespaceId,
                 com.spectrayan.spector.synapse.catalog.GrantRole minimumRole) {

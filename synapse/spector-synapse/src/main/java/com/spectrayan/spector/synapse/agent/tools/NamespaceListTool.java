@@ -40,37 +40,9 @@ public class NamespaceListTool extends McpToolHandler {
     private final ObjectMapper objectMapper;
 
     public NamespaceListTool(AccountCatalog catalog, ObjectMapper objectMapper) {
+        super("namespace_list");
         this.catalog = catalog;
         this.objectMapper = objectMapper;
-    }
-
-    @Override
-    public String name() {
-        return "namespace_list";
-    }
-
-    @Override
-    public String description() {
-        return "Lists all accessible memory namespaces for the authenticated account (owned and granted). "
-                + "Returns slugs, IDs, types, and descriptions.";
-    }
-
-    @Override
-    public McpToolCategory category() {
-        return McpToolCategory.MEMORY;
-    }
-
-    @Override
-    public boolean isWriteTool() {
-        return false;
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return Map.of(
-                "type", "object",
-                "properties", Map.of()
-        );
     }
 
     @Override

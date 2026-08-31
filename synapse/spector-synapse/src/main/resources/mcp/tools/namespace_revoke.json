@@ -1,0 +1,25 @@
+{
+  "name": "namespace_revoke",
+  "description": "Revokes an active trace access grant on a memory namespace. Requires the caller to have ADMIN or OWNER role on the namespace.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:namespace:admin"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "slug",
+      "grantId"
+    ],
+    "properties": {
+      "slug": {
+        "type": "string",
+        "description": "The namespace slug or TSID identifier."
+      },
+      "grantId": {
+        "type": "string",
+        "description": "The unique TSID identifier of the grant to revoke."
+      }
+    }
+  }
+}

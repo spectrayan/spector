@@ -1,0 +1,12 @@
+{
+  "name": "namespace_list",
+  "description": "Lists all memory namespaces accessible to the current authenticated account.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:namespace:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "properties": {}
+  }
+}

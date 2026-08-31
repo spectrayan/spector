@@ -41,42 +41,9 @@ public class NamespaceInfoTool extends McpToolHandler {
     private final ObjectMapper objectMapper;
 
     public NamespaceInfoTool(AccountCatalog catalog, ObjectMapper objectMapper) {
+        super("namespace_info");
         this.catalog = catalog;
         this.objectMapper = objectMapper;
-    }
-
-    @Override
-    public String name() {
-        return "namespace_info";
-    }
-
-    @Override
-    public String description() {
-        return "Retrieves metadata and status details for a specified memory namespace (slug or ID).";
-    }
-
-    @Override
-    public McpToolCategory category() {
-        return McpToolCategory.MEMORY;
-    }
-
-    @Override
-    public boolean isWriteTool() {
-        return false;
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return Map.of(
-                "type", "object",
-                "properties", Map.of(
-                        "namespace", Map.of(
-                                "type", "string",
-                                "description", "Namespace slug or identifier to inspect"
-                        )
-                ),
-                "required", List.of("namespace")
-        );
     }
 
     @Override

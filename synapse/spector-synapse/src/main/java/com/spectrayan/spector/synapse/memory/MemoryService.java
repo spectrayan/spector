@@ -221,6 +221,18 @@ public class MemoryService {
         return memoryProvider != null ? memoryProvider.getIfAvailable() : null;
     }
 
+    private void assertRoleAtLeast(com.spectrayan.spector.synapse.catalog.GrantRole minimumRole) {
+        MemoryBinding.current().ifPresent(binding -> {
+            if (binding.requestMemoryContext() != null && binding.requestMemoryContext().role() != null) {
+                com.spectrayan.spector.synapse.catalog.GrantRole role = binding.requestMemoryContext().role();
+                if (!role.isAtLeast(minimumRole)) {
+                    throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException(
+                            binding.namespaceId(), binding.accountId());
+                }
+            }
+        });
+    }
+
     public long getAndResetRecallCount() { return recallCount.getAndSet(0); }
     public long getAndResetRememberCount() { return rememberCount.getAndSet(0); }
     public long getAndResetTotalLatencyMs() { return totalLatencyMs.getAndSet(0); }
@@ -234,6 +246,7 @@ public class MemoryService {
      * Store a memory (legacy simple form).
      */
     public StoreResponse store(StoreRequest request) {
+        assertRoleAtLeast(com.spectrayan.spector.synapse.catalog.GrantRole.WRITER);
         if (request.text() == null || request.text().isBlank()) {
             throw new IllegalArgumentException("Memory text cannot be blank");
         }
@@ -256,6 +269,7 @@ public class MemoryService {
      * Remember a memory via the full Cortex UI flow (async 202 Accepted).
      */
     public AcceptedResponse remember(RememberRequest request) {
+        assertRoleAtLeast(com.spectrayan.spector.synapse.catalog.GrantRole.WRITER);
         if (request.text() == null || request.text().isBlank()) {
             throw new IllegalArgumentException("Memory text cannot be blank");
         }
@@ -541,6 +555,7 @@ public class MemoryService {
      * Tombstone (forget) a memory by ID.
      */
     public void forget(String id) {
+        assertRoleAtLeast(com.spectrayan.spector.synapse.catalog.GrantRole.WRITER);
         requireId(id);
         log.debug("[MemoryService] forget: id={}", id);
         mao.forget(resolveMemory(), id);
@@ -551,6 +566,7 @@ public class MemoryService {
      * Bulk forget/tombstone.
      */
     public void bulkForget(List<String> ids) {
+        assertRoleAtLeast(com.spectrayan.spector.synapse.catalog.GrantRole.WRITER);
         if (ids == null || ids.isEmpty()) return;
         log.info("[MemoryService] Bulk forget: count={}", ids.size());
         SpectorMemory memory = resolveMemory();
@@ -564,6 +580,7 @@ public class MemoryService {
      * Reinforce a memory via dopamine feedback.
      */
     public void reinforce(String id, int valence) {
+        assertRoleAtLeast(com.spectrayan.spector.synapse.catalog.GrantRole.WRITER);
         requireId(id);
         log.debug("[MemoryService] reinforce: id={}, valence={}", id, valence);
         mao.reinforce(resolveMemory(), id, valence);
@@ -574,6 +591,7 @@ public class MemoryService {
      * Bulk reinforce.
      */
     public void bulkReinforce(List<String> ids, int valence) {
+        assertRoleAtLeast(com.spectrayan.spector.synapse.catalog.GrantRole.WRITER);
         if (ids == null || ids.isEmpty()) return;
         log.info("[MemoryService] Bulk reinforce: count={}, valence={}", ids.size(), valence);
         SpectorMemory memory = resolveMemory();
@@ -587,6 +605,7 @@ public class MemoryService {
      * Suppress or unsuppress a memory.
      */
     public void suppress(String id, SuppressRequest request) {
+        assertRoleAtLeast(com.spectrayan.spector.synapse.catalog.GrantRole.WRITER);
         requireId(id);
         log.debug("[MemoryService] suppress: id={}, action={}", id,
                 request != null ? request.action() : "SUPPRESS");

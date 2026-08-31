@@ -1,0 +1,39 @@
+{
+  "name": "namespace_grant",
+  "description": "Grants access permissions (READER, WRITER, ADMIN) for a memory namespace to another account TSID. Requires the caller to have ADMIN or OWNER role on the namespace.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:namespace:admin"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "slug",
+      "granteeAccountId",
+      "role"
+    ],
+    "properties": {
+      "slug": {
+        "type": "string",
+        "description": "The namespace slug or TSID identifier to grant access on."
+      },
+      "granteeAccountId": {
+        "type": "string",
+        "description": "The TSID identifier of the account being granted access."
+      },
+      "role": {
+        "type": "string",
+        "enum": [
+          "READER",
+          "WRITER",
+          "ADMIN"
+        ],
+        "description": "Permission role level: READER (read-only), WRITER (read-write), ADMIN (full admin)."
+      },
+      "expiresAt": {
+        "type": "string",
+        "description": "Optional ISO-8601 timestamp when this grant automatically expires."
+      }
+    }
+  }
+}

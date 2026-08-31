@@ -30,6 +30,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.synapse.catalog.Account;
+import com.spectrayan.spector.synapse.catalog.Grant;
+import com.spectrayan.spector.synapse.catalog.GrantRole;
 import com.spectrayan.spector.synapse.catalog.NamespaceBias;
 import com.spectrayan.spector.synapse.catalog.NamespaceRecord;
 import com.spectrayan.spector.synapse.catalog.NamespaceStatus;
@@ -178,5 +180,40 @@ class FileAccountCatalogTest {
 
         assertThatThrownBy(() -> catalog.tombstone(ACCOUNT_ID, ACCOUNT_ID))
                 .isInstanceOf(DefaultNamespaceProtectedException.class);
+    }
+
+    @Test
+    @DisplayName("grantNamespace, listGrants, and revokeNamespaceGrant manage trace permissions")
+    void testGrantAndRevokeLifecycle() {
+        catalog.getOrCreateAccount(ACCOUNT_ID);
+        String granteeId = "0HD7XJ9A2B002";
+        catalog.getOrCreateAccount(granteeId);
+
+        NamespaceRecord created = catalog.createNamespace(ACCOUNT_ID, "shared-proj", NamespaceType.PROJECT);
+
+        // Grant READER access to grantee
+        Grant grant = catalog.grantNamespace(ACCOUNT_ID, "shared-proj", granteeId, GrantRole.READER, null, null);
+        assertThat(grant.grantId()).isNotNull();
+        assertThat(grant.role()).isEqualTo(GrantRole.READER);
+
+        // List grants
+        List<Grant> grants = catalog.listGrants(ACCOUNT_ID, "shared-proj");
+        assertThat(grants).hasSize(2); // Implicit owner + READER grant
+
+        // Grantee authorizes READER
+        Optional<Grant> auth = catalog.authorize(granteeId, created.namespaceId(), GrantRole.READER);
+        assertThat(auth).isPresent();
+        assertThat(auth.get().role()).isEqualTo(GrantRole.READER);
+
+        // Grantee not authorized for WRITER
+        Optional<Grant> authWriter = catalog.authorize(granteeId, created.namespaceId(), GrantRole.WRITER);
+        assertThat(authWriter).isEmpty();
+
+        // Revoke grant
+        catalog.revokeNamespaceGrant(ACCOUNT_ID, "shared-proj", grant.grantId());
+
+        // Grantee no longer authorized
+        Optional<Grant> authAfterRevoke = catalog.authorize(granteeId, created.namespaceId(), GrantRole.READER);
+        assertThat(authAfterRevoke).isEmpty();
     }
 }

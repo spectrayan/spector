@@ -1,0 +1,20 @@
+{
+  "name": "namespace_list_grants",
+  "description": "Lists all active grants on a memory namespace. Requires the caller to have ADMIN or OWNER role on the namespace.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:namespace:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "slug"
+    ],
+    "properties": {
+      "slug": {
+        "type": "string",
+        "description": "The namespace slug or TSID identifier to list grants for."
+      }
+    }
+  }
+}

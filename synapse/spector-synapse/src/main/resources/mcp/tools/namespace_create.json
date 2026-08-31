@@ -1,0 +1,39 @@
+{
+  "name": "namespace_create",
+  "description": "Creates a new isolated memory namespace for the authenticated account with the given slug. The slug is a human-readable alias (1-63 alphanumeric/hyphen/underscore).",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:namespace:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "slug"
+    ],
+    "properties": {
+      "slug": {
+        "type": "string",
+        "description": "The slug (name) for the new namespace (1-63 alphanumeric/hyphen/underscore)."
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "STANDARD",
+          "TEMPORARY",
+          "ARCHIVE",
+          "SHARED"
+        ],
+        "description": "Namespace type: STANDARD, TEMPORARY, ARCHIVE, SHARED.",
+        "default": "STANDARD"
+      },
+      "displayName": {
+        "type": "string",
+        "description": "Optional human-readable display name."
+      },
+      "description": {
+        "type": "string",
+        "description": "Optional description of the namespace purpose."
+      }
+    }
+  }
+}

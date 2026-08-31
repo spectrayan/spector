@@ -108,6 +108,34 @@ final class PassthroughCatalog implements AccountCatalog {
     }
 
     @Override
+    public List<Grant> listGrants(String accountId, String slugOrId) {
+        return List.of();
+    }
+
+    @Override
+    public Grant grantNamespace(String callerAccountId, String slugOrId, String granteeAccountId,
+            GrantRole role, java.time.Instant expiresAt, GrantConstraints constraints) {
+        return new Grant(
+                "grant-" + granteeAccountId,
+                GrantObjectType.NAMESPACE,
+                slugOrId,
+                granteeAccountId,
+                PrincipalType.ACCOUNT,
+                role,
+                null,
+                callerAccountId,
+                java.time.Instant.now(),
+                expiresAt,
+                constraints
+        );
+    }
+
+    @Override
+    public void revokeNamespaceGrant(String callerAccountId, String slugOrId, String grantId) {
+        // no-op
+    }
+
+    @Override
     public boolean authorizeIdentity(String accountId, String bundleId, String regionId, GrantAction action) {
         return false;
     }

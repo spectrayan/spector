@@ -448,4 +448,22 @@ export class SynapseApiService {
   benchmarkResults(): Observable<any> {
     return this.http.get<any>(`${this.baseUrl}/benchmarks/results`);
   }
+
+  // ─── Namespaces & Grants (ADR-0029 §8.1) ───
+
+  listNamespaces(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/namespaces`);
+  }
+
+  listNamespaceGrants(slugOrId: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/namespaces/${slugOrId}/grants`);
+  }
+
+  createNamespaceGrant(slugOrId: string, request: { granteeAccountId: string; role: string; expiresAt?: string; constraints?: any }): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/namespaces/${slugOrId}/grants`, request);
+  }
+
+  revokeNamespaceGrant(slugOrId: string, grantId: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/namespaces/${slugOrId}/grants/${grantId}`);
+  }
 }

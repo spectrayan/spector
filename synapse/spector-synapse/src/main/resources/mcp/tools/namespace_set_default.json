@@ -1,0 +1,20 @@
+{
+  "name": "namespace_set_default",
+  "description": "Sets the default memory namespace for the authenticated account.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:namespace:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "slug"
+    ],
+    "properties": {
+      "slug": {
+        "type": "string",
+        "description": "The namespace slug or TSID identifier to set as default."
+      }
+    }
+  }
+}

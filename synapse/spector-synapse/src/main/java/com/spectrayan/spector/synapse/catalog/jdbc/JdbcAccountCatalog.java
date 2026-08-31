@@ -462,6 +462,73 @@ public class JdbcAccountCatalog implements AccountCatalog {
     }
 
     @Override
+    public List<Grant> listGrants(String accountId, String slugOrId) {
+        Objects.requireNonNull(accountId, "accountId must not be null");
+        Objects.requireNonNull(slugOrId, "slugOrId must not be null");
+
+        NamespaceRecord record = resolve(accountId, slugOrId)
+                .orElseThrow(() -> new NamespaceNotFoundException(slugOrId));
+
+        // Require ADMIN or OWNER
+        Optional<Grant> callerGrant = authorize(accountId, record.namespaceId(), GrantRole.ADMIN);
+        if (callerGrant.isEmpty()) {
+            throw new NamespaceAccessDeniedException(record.namespaceId(), accountId);
+        }
+
+        String sql = sqlLoader.load("catalog/grants/list-by-object");
+        return jdbc.sql(sql)
+                .param("objectType", GrantObjectType.NAMESPACE.name())
+                .param("objectId", record.namespaceId())
+                .query(this::mapGrantRow)
+                .list();
+    }
+
+    @Override
+    @Transactional
+    public Grant grantNamespace(String callerAccountId, String slugOrId, String granteeAccountId,
+            GrantRole role, Instant expiresAt, GrantConstraints constraints) {
+        Objects.requireNonNull(callerAccountId, "callerAccountId must not be null");
+        Objects.requireNonNull(slugOrId, "slugOrId must not be null");
+        Objects.requireNonNull(granteeAccountId, "granteeAccountId must not be null");
+        Objects.requireNonNull(role, "role must not be null");
+
+        if (role == GrantRole.OWNER) {
+            throw new IllegalArgumentException("Cannot grant OWNER role directly; ownership transfer is required");
+        }
+
+        NamespaceRecord record = resolve(callerAccountId, slugOrId)
+                .orElseThrow(() -> new NamespaceNotFoundException(slugOrId));
+
+        // Caller must be ADMIN or OWNER
+        Optional<Grant> callerGrant = authorize(callerAccountId, record.namespaceId(), GrantRole.ADMIN);
+        if (callerGrant.isEmpty()) {
+            throw new NamespaceAccessDeniedException(record.namespaceId(), callerAccountId);
+        }
+
+        // Caller cannot grant role higher than their own
+        if (callerGrant.get().role() != GrantRole.OWNER && callerGrant.get().role().ordinal() > role.ordinal()) {
+            throw new NamespaceAccessDeniedException(record.namespaceId(), callerAccountId);
+        }
+
+        Grant grant = new Grant(
+                tsid.generate(),
+                GrantObjectType.NAMESPACE,
+                record.namespaceId(),
+                granteeAccountId,
+                PrincipalType.ACCOUNT,
+                role,
+                null,
+                callerAccountId,
+                Instant.now(),
+                expiresAt,
+                constraints
+        );
+
+        addGrant(grant);
+        return grant;
+    }
+
+    @Override
     @Transactional
     public void revokeGrant(String grantId) {
         Objects.requireNonNull(grantId, "grantId must not be null");
@@ -470,6 +537,25 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 .param("grantId", grantId)
                 .update();
         log.info("[JdbcAccountCatalog] Revoked grant: id={}", grantId);
+    }
+
+    @Override
+    @Transactional
+    public void revokeNamespaceGrant(String callerAccountId, String slugOrId, String grantId) {
+        Objects.requireNonNull(callerAccountId, "callerAccountId must not be null");
+        Objects.requireNonNull(slugOrId, "slugOrId must not be null");
+        Objects.requireNonNull(grantId, "grantId must not be null");
+
+        NamespaceRecord record = resolve(callerAccountId, slugOrId)
+                .orElseThrow(() -> new NamespaceNotFoundException(slugOrId));
+
+        // Caller must be ADMIN or OWNER
+        Optional<Grant> callerGrant = authorize(callerAccountId, record.namespaceId(), GrantRole.ADMIN);
+        if (callerGrant.isEmpty()) {
+            throw new NamespaceAccessDeniedException(record.namespaceId(), callerAccountId);
+        }
+
+        revokeGrant(grantId);
     }
 
     @Override

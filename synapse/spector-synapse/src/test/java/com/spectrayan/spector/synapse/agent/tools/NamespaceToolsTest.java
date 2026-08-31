@@ -207,4 +207,72 @@ class NamespaceToolsTest {
 
         assertThat(result.isError()).isTrue();
     }
+
+    @Test
+    @DisplayName("namespace_grant creates grant via MCP tool")
+    void testNamespaceGrantTool() throws Exception {
+        var grant = new com.spectrayan.spector.synapse.catalog.Grant(
+                "grant-mcp-1",
+                com.spectrayan.spector.synapse.catalog.GrantObjectType.NAMESPACE,
+                "0195500000002",
+                "0195500000099",
+                com.spectrayan.spector.synapse.catalog.PrincipalType.ACCOUNT,
+                com.spectrayan.spector.synapse.catalog.GrantRole.READER,
+                null,
+                TEST_ACCOUNT,
+                Instant.now(),
+                null,
+                null
+        );
+        when(catalog.grantNamespace(eq(TEST_ACCOUNT), eq("research"), eq("0195500000099"),
+                eq(com.spectrayan.spector.synapse.catalog.GrantRole.READER), any(), any())).thenReturn(grant);
+
+        var tool = new NamespaceGrantTool(catalog, objectMapper);
+        CallToolResult result = tool.execute(Map.of(
+                "slug", "research",
+                "granteeAccountId", "0195500000099",
+                "role", "READER"
+        ));
+
+        assertThat(result.isError()).isFalse();
+        assertThat(result.content()).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("namespace_revoke revokes grant via MCP tool")
+    void testNamespaceRevokeTool() throws Exception {
+        var tool = new NamespaceRevokeTool(catalog, objectMapper);
+        CallToolResult result = tool.execute(Map.of(
+                "slug", "research",
+                "grantId", "grant-mcp-1"
+        ));
+
+        assertThat(result.isError()).isFalse();
+        verify(catalog).revokeNamespaceGrant(TEST_ACCOUNT, "research", "grant-mcp-1");
+    }
+
+    @Test
+    @DisplayName("namespace_list_grants lists grants via MCP tool")
+    void testNamespaceListGrantsTool() throws Exception {
+        var grant = new com.spectrayan.spector.synapse.catalog.Grant(
+                "grant-mcp-1",
+                com.spectrayan.spector.synapse.catalog.GrantObjectType.NAMESPACE,
+                "0195500000002",
+                "0195500000099",
+                com.spectrayan.spector.synapse.catalog.PrincipalType.ACCOUNT,
+                com.spectrayan.spector.synapse.catalog.GrantRole.READER,
+                null,
+                TEST_ACCOUNT,
+                Instant.now(),
+                null,
+                null
+        );
+        when(catalog.listGrants(TEST_ACCOUNT, "research")).thenReturn(List.of(grant));
+
+        var tool = new NamespaceListGrantsTool(catalog, objectMapper);
+        CallToolResult result = tool.execute(Map.of("slug", "research"));
+
+        assertThat(result.isError()).isFalse();
+        assertThat(result.content()).isNotEmpty();
+    }
 }

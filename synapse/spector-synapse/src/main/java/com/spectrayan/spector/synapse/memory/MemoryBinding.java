@@ -42,4 +42,21 @@ public record MemoryBinding(
     public MemoryBinding(SpectorMemory memory, String accountId, String namespaceId, String slug) {
         this(memory, accountId, namespaceId, slug, null, null);
     }
+
+    /**
+     * Retrieves the current request's bound {@link MemoryBinding} from RequestContextHolder if available.
+     *
+     * @return optional containing the active MemoryBinding, or empty if none bound
+     */
+    public static java.util.Optional<MemoryBinding> current() {
+        org.springframework.web.context.request.RequestAttributes attrs =
+                org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        if (attrs != null) {
+            Object binding = attrs.getAttribute(ATTRIBUTE_KEY, org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+            if (binding instanceof MemoryBinding mb) {
+                return java.util.Optional.of(mb);
+            }
+        }
+        return java.util.Optional.empty();
+    }
 }

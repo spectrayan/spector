@@ -41,56 +41,9 @@ public class NamespaceCreateTool extends McpToolHandler {
     private final ObjectMapper objectMapper;
 
     public NamespaceCreateTool(AccountCatalog catalog, ObjectMapper objectMapper) {
+        super("namespace_create");
         this.catalog = catalog;
         this.objectMapper = objectMapper;
-    }
-
-    @Override
-    public String name() {
-        return "namespace_create";
-    }
-
-    @Override
-    public String description() {
-        return "Creates a new isolated memory namespace for the authenticated account with the given slug. "
-                + "The slug is a human-readable alias (1-63 alphanumeric/hyphen/underscore).";
-    }
-
-    @Override
-    public McpToolCategory category() {
-        return McpToolCategory.MEMORY;
-    }
-
-    @Override
-    public boolean isWriteTool() {
-        return true;
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return Map.of(
-                "type", "object",
-                "properties", Map.of(
-                        "slug", Map.of(
-                                "type", "string",
-                                "description", "Unique human-readable alias for the namespace (e.g. 'project-alpha', 'agent-coder')"
-                        ),
-                        "type", Map.of(
-                                "type", "string",
-                                "description", "Namespace type: PROJECT (default), AGENT, SHARED, ARCHIVE",
-                                "enum", List.of("PROJECT", "AGENT", "SHARED", "ARCHIVE")
-                        ),
-                        "displayName", Map.of(
-                                "type", "string",
-                                "description", "Optional human-friendly display name"
-                        ),
-                        "description", Map.of(
-                                "type", "string",
-                                "description", "Optional description of what this namespace holds"
-                        )
-                ),
-                "required", List.of("slug")
-        );
     }
 
     @Override
