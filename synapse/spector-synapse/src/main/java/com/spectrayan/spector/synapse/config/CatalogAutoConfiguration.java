@@ -188,7 +188,8 @@ public class CatalogAutoConfiguration {
         public boolean authorizeIdentity(String accountId, String bundleId,
                 String regionId,
                 com.spectrayan.spector.synapse.catalog.GrantAction action) {
-            return false;
+            // Auth disabled → permit everything
+            return true;
         }
 
         @Override

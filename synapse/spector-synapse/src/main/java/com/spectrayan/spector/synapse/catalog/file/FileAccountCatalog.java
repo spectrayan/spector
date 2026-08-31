@@ -722,7 +722,11 @@ public class FileAccountCatalog implements AccountCatalog {
     @Override
     public boolean authorizeIdentity(String accountId, String bundleId,
             String regionId, GrantAction action) {
-        // Phase 6: identity authorization via PEP/PDP
+        // PEP: own-account identity access is always permitted (ADR-0029 §24)
+        if (accountId != null && accountId.equals(bundleId)) {
+            return true;
+        }
+        // Cross-account identity access denied by default in file-backed catalog
         return false;
     }
 

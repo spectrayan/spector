@@ -16,11 +16,12 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Service provider interface for the catalog plane. Manages accounts, namespace records,
- * grants, and access authorization. OSS uses a file-backed implementation (account.json,
- * slugs.json, grants.jsonl). Enterprise uses a DB-backed implementation. Both share the
- * same interface and invariants: one OWNER per namespace, slug unique per account, default
- * namespaceId equals accountId.
+ * Service provider interface for the catalog plane (ADR-0029 §6). Manages accounts,
+ * namespace records, grants, and access authorization. The default production implementation
+ * is JDBC-backed ({@code JdbcAccountCatalog}). A file-backed implementation exists for
+ * legacy/test purposes only and should not be used at runtime. Both share the same interface
+ * and invariants: one OWNER per namespace, slug unique per account, default namespaceId
+ * equals accountId.
  */
 public interface AccountCatalog {
 

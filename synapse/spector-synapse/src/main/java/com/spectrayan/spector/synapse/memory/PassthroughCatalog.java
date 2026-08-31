@@ -104,7 +104,11 @@ final class PassthroughCatalog implements AccountCatalog {
 
     @Override
     public Optional<Grant> authorize(String accountId, String namespaceId, GrantRole minimumRole) {
-        return Optional.empty();
+        // Passthrough: implicit OWNER on every namespace for backward compatibility
+        return Optional.of(new Grant(
+                "passthrough-" + accountId, GrantObjectType.NAMESPACE, namespaceId,
+                accountId, PrincipalType.ACCOUNT, GrantRole.OWNER,
+                null, accountId, Instant.now(), null, null));
     }
 
     @Override
@@ -143,7 +147,8 @@ final class PassthroughCatalog implements AccountCatalog {
 
     @Override
     public boolean authorizeIdentity(String accountId, String bundleId, String regionId, GrantAction action) {
-        return false;
+        // Passthrough: permit all identity access for backward compatibility
+        return true;
     }
 
     @Override
