@@ -78,6 +78,10 @@ public class IdentityPlane {
         if (accountId == null || accountId.isBlank() || "default".equals(accountId)) {
             return Optional.empty();
         }
+        if (!catalog.authorizeIdentity(accountId, accountId, IdentityRegionId.SALIENCE.name(), GrantAction.READ)) {
+            log.warn("[IdentityPlane] Identity read denied for account {} on SALIENCE region", accountId);
+            return Optional.empty();
+        }
         IdentityBundle bundle = identityCache.getOrOpenAccount(accountId);
         return bundle.readSalience();
     }
@@ -94,20 +98,24 @@ public class IdentityPlane {
         List<SoulContext> stack = new ArrayList<>();
 
         if (tenantId != null && !tenantId.isBlank()) {
-            IdentityBundle tenantBundle = identityCache.getOrOpenTenant(tenantId);
-            tenantBundle.readSoul().ifPresent(stack::add);
+            if (catalog.authorizeIdentity(accountId, tenantId, IdentityRegionId.SOUL.name(), GrantAction.READ)) {
+                IdentityBundle tenantBundle = identityCache.getOrOpenTenant(tenantId);
+                tenantBundle.readSoul().ifPresent(stack::add);
 
-            // Process org unit souls from tenant ORG_DIR region (ADR-0029 §2.5.2)
-            if (orgUnitIds != null && !orgUnitIds.isEmpty()) {
-                for (String orgUnitId : orgUnitIds) {
-                    if (orgUnitId == null || orgUnitId.isBlank()) {
-                        continue;
+                // Process org unit souls from tenant ORG_DIR region (ADR-0029 §2.5.2)
+                if (orgUnitIds != null && !orgUnitIds.isEmpty()) {
+                    for (String orgUnitId : orgUnitIds) {
+                        if (orgUnitId == null || orgUnitId.isBlank()) {
+                            continue;
+                        }
+                        tenantBundle.readOrgUnitSoul(orgUnitId).ifPresent(orgSoul -> {
+                            stack.add(orgSoul);
+                            log.trace("[IdentityPlane] Added org unit soul for tenantId={}, orgUnitId={}", tenantId, orgUnitId);
+                        });
                     }
-                    tenantBundle.readOrgUnitSoul(orgUnitId).ifPresent(orgSoul -> {
-                        stack.add(orgSoul);
-                        log.trace("[IdentityPlane] Added org unit soul for tenantId={}, orgUnitId={}", tenantId, orgUnitId);
-                    });
                 }
+            } else {
+                log.warn("[IdentityPlane] Access denied for account {} on tenant {} SOUL region", accountId, tenantId);
             }
         }
 
@@ -128,6 +136,10 @@ public class IdentityPlane {
         if (accountId == null || accountId.isBlank()) {
             return;
         }
+        if (!catalog.authorizeIdentity(accountId, accountId, IdentityRegionId.SOUL.name(), GrantAction.WRITE)) {
+            log.warn("[IdentityPlane] Identity write denied for account {} on SOUL region", accountId);
+            return;
+        }
         IdentityBundle bundle = identityCache.getOrOpenAccount(accountId);
         bundle.writeSoul(soul);
         log.debug("[IdentityPlane] Updated primary soul for account {}", accountId);
@@ -143,6 +155,10 @@ public class IdentityPlane {
         if (accountId == null || accountId.isBlank()) {
             return;
         }
+        if (!catalog.authorizeIdentity(accountId, accountId, IdentityRegionId.SALIENCE.name(), GrantAction.WRITE)) {
+            log.warn("[IdentityPlane] Identity write denied for account {} on SALIENCE region", accountId);
+            return;
+        }
         IdentityBundle bundle = identityCache.getOrOpenAccount(accountId);
         bundle.writeSalience(salience);
         log.debug("[IdentityPlane] Updated salience profile for account {}", accountId);
@@ -156,6 +172,10 @@ public class IdentityPlane {
      */
     public void updateTenantSoul(String tenantId, SoulContext soul) {
         if (tenantId == null || tenantId.isBlank()) {
+            return;
+        }
+        if (!catalog.authorizeIdentity(tenantId, tenantId, IdentityRegionId.SOUL.name(), GrantAction.WRITE)) {
+            log.warn("[IdentityPlane] Identity write denied for tenant {} on SOUL region", tenantId);
             return;
         }
         IdentityBundle bundle = identityCache.getOrOpenTenant(tenantId);

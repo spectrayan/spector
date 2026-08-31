@@ -148,10 +148,24 @@ public class MemoryRequestBinder {
                 identityPlane.checkAndMigrateRegion24(accountId, memory);
             }
 
+            List<String> tokenOrgs = tokenClaims.orgUnitIds();
+            List<String> catalogOrgs = catalog.orgUnitIdsForAccount(accountId);
+            List<String> effectiveOrgs;
+            if (catalogOrgs != null && !catalogOrgs.isEmpty()) {
+                if (tokenOrgs != null && !tokenOrgs.isEmpty()) {
+                    java.util.Set<String> catalogSet = new java.util.HashSet<>(catalogOrgs);
+                    effectiveOrgs = tokenOrgs.stream().filter(catalogSet::contains).toList();
+                } else {
+                    effectiveOrgs = catalogOrgs;
+                }
+            } else {
+                effectiveOrgs = tokenOrgs != null ? tokenOrgs : List.of();
+            }
+
             SoulContext primarySoul = identityPlane != null
                     ? identityPlane.primarySoulFor(accountId).orElse(null) : null;
             List<SoulContext> soulStack = identityPlane != null
-                    ? identityPlane.soulsFor(tokenClaims.tenantId(), tokenClaims.orgUnitIds(), accountId)
+                    ? identityPlane.soulsFor(tokenClaims.tenantId(), effectiveOrgs, accountId)
                     : List.of();
 
             com.spectrayan.spector.memory.model.SalienceProfile salience = identityPlane != null
@@ -166,7 +180,7 @@ public class MemoryRequestBinder {
 
             RequestMemoryContext requestContext = new RequestMemoryContext(
                     tokenClaims.tenantId(),
-                    tokenClaims.orgUnitIds(),
+                    effectiveOrgs,
                     accountId,
                     targetNamespaceId,
                     targetSlug,

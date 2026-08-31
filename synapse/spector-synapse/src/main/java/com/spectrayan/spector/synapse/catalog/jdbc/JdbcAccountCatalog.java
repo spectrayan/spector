@@ -660,6 +660,18 @@ public class JdbcAccountCatalog implements AccountCatalog {
         return grants.stream().anyMatch(g -> g.actions() != null && g.actions().contains(action));
     }
 
+    @Override
+    public List<String> orgUnitIdsForAccount(String accountId) {
+        if (accountId == null || accountId.isBlank()) {
+            return List.of();
+        }
+        String sql = sqlLoader.load("catalog/org/list-org-units-for-account");
+        return jdbc.sql(sql)
+                .param("accountId", accountId)
+                .query((rs, rowNum) -> rs.getString("org_unit_id"))
+                .list();
+    }
+
     private boolean hasActiveGrant(String accountId, String namespaceId) {
         String findGrantSql = sqlLoader.load("catalog/grants/find-active-grant");
         List<Grant> grants = jdbc.sql(findGrantSql)

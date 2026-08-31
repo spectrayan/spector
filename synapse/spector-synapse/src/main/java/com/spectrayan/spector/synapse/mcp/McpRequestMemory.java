@@ -115,20 +115,30 @@ public final class McpRequestMemory {
                     ? namespaceSelector.trim()
                     : McpSessionContext.getSessionDefault(connectionId).orElse(null);
 
-            SpectorMemory memory = (selector != null && !selector.isBlank())
-                    ? registry.namespaceResolver().resolve(userId, selector)
-                    : registry.resolveForCurrentRequest();
+            var catalog = registry.catalog();
+            String targetNamespaceId = userId;
+            if (selector != null && !selector.isBlank()) {
+                if (catalog != null && userId != null) {
+                    targetNamespaceId = catalog.resolve(userId, selector)
+                            .map(com.spectrayan.spector.synapse.catalog.NamespaceRecord::namespaceId)
+                            .orElse(selector);
+                } else {
+                    targetNamespaceId = selector;
+                }
+            }
 
             // Fail-closed authorization on MCP path (ADR-0029 §24) — mirrors MemoryRequestBinder
-            if (authEnabled && userId != null && memory != null && registry.catalog() != null) {
-                String resolvedNsId = (selector != null && !selector.isBlank()) ? selector : userId;
-                var catalog = registry.catalog();
-                var authGrant = catalog.authorize(userId, resolvedNsId, com.spectrayan.spector.synapse.catalog.GrantRole.READER);
+            if (authEnabled && userId != null && catalog != null) {
+                var authGrant = catalog.authorize(userId, targetNamespaceId, com.spectrayan.spector.synapse.catalog.GrantRole.READER);
                 if (authGrant.isEmpty()) {
-                    log.warn("[McpRequestMemory] Access denied: account={} has no grant on namespace={}", userId, resolvedNsId);
+                    log.warn("[McpRequestMemory] Access denied: account={} has no grant on namespace={}", userId, targetNamespaceId);
                     return Optional.of(DenyReason.RESOLUTION_FAILED);
                 }
             }
+
+            SpectorMemory memory = (selector != null && !selector.isBlank())
+                    ? registry.namespaceResolver().resolve(userId, targetNamespaceId)
+                    : registry.resolveForCurrentRequest();
 
             CURRENT.set(memory);
             return Optional.empty();

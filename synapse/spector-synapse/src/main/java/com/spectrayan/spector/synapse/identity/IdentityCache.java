@@ -52,11 +52,17 @@ public class IdentityCache implements AutoCloseable {
         this.dataDir = dataDir;
     }
 
+    private final Object evictionLock = new Object();
+    private final java.util.concurrent.ConcurrentLinkedDeque<String> accountLru = new java.util.concurrent.ConcurrentLinkedDeque<>();
+    private final java.util.concurrent.ConcurrentLinkedDeque<String> tenantLru = new java.util.concurrent.ConcurrentLinkedDeque<>();
+
     public IdentityBundle getOrOpenAccount(String accountId) {
         ensureOpen();
         if (accountBundles.size() >= MAX_HOT_ACCOUNTS && !accountBundles.containsKey(accountId)) {
             evictOldestAccount();
         }
+        accountLru.remove(accountId);
+        accountLru.addLast(accountId);
         return accountBundles.computeIfAbsent(accountId, id -> {
             Path path = IdentityPaths.accountIdentityBundle(dataDir, id);
             log.debug("[IdentityCache] Opening account identity bundle at {}", path);
@@ -69,6 +75,8 @@ public class IdentityCache implements AutoCloseable {
         if (tenantBundles.size() >= MAX_HOT_TENANTS && !tenantBundles.containsKey(tenantId)) {
             evictOldestTenant();
         }
+        tenantLru.remove(tenantId);
+        tenantLru.addLast(tenantId);
         return tenantBundles.computeIfAbsent(tenantId, id -> {
             Path path = IdentityPaths.tenantIdentityBundle(dataDir, id);
             log.debug("[IdentityCache] Opening tenant identity bundle at {}", path);
@@ -77,6 +85,7 @@ public class IdentityCache implements AutoCloseable {
     }
 
     public void invalidateAccount(String accountId) {
+        accountLru.remove(accountId);
         IdentityBundle bundle = accountBundles.remove(accountId);
         if (bundle != null) {
             try {
@@ -88,22 +97,28 @@ public class IdentityCache implements AutoCloseable {
     }
 
     private void evictOldestAccount() {
-        var it = accountBundles.keySet().iterator();
-        if (it.hasNext()) {
-            invalidateAccount(it.next());
+        synchronized (evictionLock) {
+            while (accountBundles.size() >= MAX_HOT_ACCOUNTS) {
+                String oldest = accountLru.pollFirst();
+                if (oldest == null) break;
+                invalidateAccount(oldest);
+            }
         }
     }
 
     private void evictOldestTenant() {
-        var it = tenantBundles.keySet().iterator();
-        if (it.hasNext()) {
-            String key = it.next();
-            IdentityBundle bundle = tenantBundles.remove(key);
-            if (bundle != null) {
-                try {
-                    bundle.close();
-                } catch (Exception e) {
-                    log.warn("[IdentityCache] Failed to close evicted tenant bundle {}: {}", key, e.getMessage());
+        synchronized (evictionLock) {
+            while (tenantBundles.size() >= MAX_HOT_TENANTS) {
+                String oldest = tenantLru.pollFirst();
+                if (oldest == null) break;
+                tenantLru.remove(oldest);
+                IdentityBundle bundle = tenantBundles.remove(oldest);
+                if (bundle != null) {
+                    try {
+                        bundle.close();
+                    } catch (Exception e) {
+                        log.warn("[IdentityCache] Failed to close evicted tenant bundle {}: {}", oldest, e.getMessage());
+                    }
                 }
             }
         }
