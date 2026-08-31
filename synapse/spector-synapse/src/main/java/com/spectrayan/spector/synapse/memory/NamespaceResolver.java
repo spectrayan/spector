@@ -434,6 +434,7 @@ public class NamespaceResolver implements AutoCloseable {
         // exists for this namespace's owner. Post-migration, IdentityPlane supplies the soul
         // stack at bind time — Region 24 is not authoritative (ADR-0029 §23.6).
         try {
+            StorageLayout.validateNamespaceId(namespaceId);
             Path idBundlePath = com.spectrayan.spector.synapse.identity.IdentityPaths.accountIdentityBundle(basePath(), namespaceId);
             if (java.nio.file.Files.exists(idBundlePath)) {
                 return built;

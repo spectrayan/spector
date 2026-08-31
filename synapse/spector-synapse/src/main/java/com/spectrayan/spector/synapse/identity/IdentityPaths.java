@@ -47,17 +47,12 @@ public final class IdentityPaths {
      */
     public static Path accountIdentityBundle(Path dataDir, String accountId) {
         Objects.requireNonNull(dataDir, "dataDir must not be null");
-        Objects.requireNonNull(accountId, "accountId must not be null");
+        validateId(accountId);
 
         String s1 = shard1(accountId);
         String s2 = shard2(accountId);
 
-        return dataDir.resolve(DIR_IDENTITY)
-                .resolve(DIR_ACCOUNTS)
-                .resolve(s1)
-                .resolve(s2)
-                .resolve(accountId)
-                .resolve(FILE_IDENTITY_BUNDLE);
+        return safeResolve(dataDir, DIR_IDENTITY, DIR_ACCOUNTS, s1, s2, accountId, FILE_IDENTITY_BUNDLE);
     }
 
     /**
@@ -69,17 +64,12 @@ public final class IdentityPaths {
      */
     public static Path tenantIdentityBundle(Path dataDir, String tenantId) {
         Objects.requireNonNull(dataDir, "dataDir must not be null");
-        Objects.requireNonNull(tenantId, "tenantId must not be null");
+        validateId(tenantId);
 
         String s1 = shard1(tenantId);
         String s2 = shard2(tenantId);
 
-        return dataDir.resolve(DIR_IDENTITY)
-                .resolve(DIR_TENANTS)
-                .resolve(s1)
-                .resolve(s2)
-                .resolve(tenantId)
-                .resolve(FILE_IDENTITY_BUNDLE);
+        return safeResolve(dataDir, DIR_IDENTITY, DIR_TENANTS, s1, s2, tenantId, FILE_IDENTITY_BUNDLE);
     }
 
     /**
@@ -92,24 +82,15 @@ public final class IdentityPaths {
      */
     public static Path tenantAccountIdentityBundle(Path dataDir, String tenantId, String accountId) {
         Objects.requireNonNull(dataDir, "dataDir must not be null");
-        Objects.requireNonNull(tenantId, "tenantId must not be null");
-        Objects.requireNonNull(accountId, "accountId must not be null");
+        validateId(tenantId);
+        validateId(accountId);
 
         String ts1 = shard1(tenantId);
         String ts2 = shard2(tenantId);
         String as1 = shard1(accountId);
         String as2 = shard2(accountId);
 
-        return dataDir.resolve(DIR_IDENTITY)
-                .resolve(DIR_TENANTS)
-                .resolve(ts1)
-                .resolve(ts2)
-                .resolve(tenantId)
-                .resolve(DIR_ACCOUNTS)
-                .resolve(as1)
-                .resolve(as2)
-                .resolve(accountId)
-                .resolve(FILE_IDENTITY_BUNDLE);
+        return safeResolve(dataDir, DIR_IDENTITY, DIR_TENANTS, ts1, ts2, tenantId, DIR_ACCOUNTS, as1, as2, accountId, FILE_IDENTITY_BUNDLE);
     }
 
     /**
@@ -122,22 +103,42 @@ public final class IdentityPaths {
      */
     public static Path enterpriseNamespaceDir(Path dataDir, String tenantId, String namespaceId) {
         Objects.requireNonNull(dataDir, "dataDir must not be null");
-        Objects.requireNonNull(tenantId, "tenantId must not be null");
-        Objects.requireNonNull(namespaceId, "namespaceId must not be null");
+        validateId(tenantId);
+        validateId(namespaceId);
 
         String ts1 = shard1(tenantId);
         String ts2 = shard2(tenantId);
         String ns1 = shard1(namespaceId);
         String ns2 = shard2(namespaceId);
 
-        return dataDir.resolve(DIR_TENANTS)
-                .resolve(ts1)
-                .resolve(ts2)
-                .resolve(tenantId)
-                .resolve("namespaces")
-                .resolve(ns1)
-                .resolve(ns2)
-                .resolve(namespaceId);
+        return safeResolve(dataDir, DIR_TENANTS, ts1, ts2, tenantId, "namespaces", ns1, ns2, namespaceId);
+    }
+
+    /**
+     * Validates that an identifier does not contain path separators, traversal dots, or control characters.
+     */
+    public static void validateId(String id) {
+        if (id == null || id.isBlank()) {
+            throw new IllegalArgumentException("identifier must not be null, empty, or whitespace-only");
+        }
+        for (int i = 0; i < id.length(); i++) {
+            char c = id.charAt(i);
+            if (c == '/' || c == '\\' || c == '.' || c <= '\u001F') {
+                throw new IllegalArgumentException("illegal character in identifier at index " + i);
+            }
+        }
+    }
+
+    private static Path safeResolve(Path base, String... elements) {
+        Path resolved = base;
+        for (String el : elements) {
+            resolved = resolved.resolve(el);
+        }
+        Path normalized = resolved.normalize();
+        if (!normalized.startsWith(base.normalize())) {
+            throw new IllegalArgumentException("Path traversal attempt detected: " + resolved);
+        }
+        return normalized;
     }
 
     private static String shard1(String id) {
