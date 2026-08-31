@@ -205,6 +205,17 @@ public class NamespaceResolver implements AutoCloseable {
     }
 
     /**
+     * Checks if a namespace instance is currently cached and hot.
+     *
+     * @param namespaceId the namespace identifier
+     * @return true if currently in the active instance cache
+     */
+    public boolean isHot(String namespaceId) {
+        if (namespaceId == null) return false;
+        return cache.containsKey(namespaceId);
+    }
+
+    /**
      * Gets or builds the SpectorMemory instance for the given namespaceId with hot cap
      * and lease-aware eviction checks.
      *

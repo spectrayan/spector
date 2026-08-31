@@ -88,9 +88,18 @@ public class MemoryController {
     private static final Logger log = LoggerFactory.getLogger(MemoryController.class);
 
     private final MemoryService memoryService;
+    private final FederatedRecallService federatedRecallService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public MemoryController(
+            MemoryService memoryService,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) FederatedRecallService federatedRecallService) {
+        this.memoryService = memoryService;
+        this.federatedRecallService = federatedRecallService;
+    }
 
     public MemoryController(MemoryService memoryService) {
-        this.memoryService = memoryService;
+        this(memoryService, null);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -178,6 +187,20 @@ public class MemoryController {
     @PostMapping("/recall")
     public ResponseEntity<List<RecallResult>> recall(@RequestBody RecallRequest request) {
         return ResponseEntity.ok(memoryService.recall(request));
+    }
+
+    /**
+     * Cross-rememberer federated recall (ADR-0029 §7).
+     *
+     * <p>{@code POST /api/v1/memory/federated-recall}</p>
+     */
+    @PostMapping("/federated-recall")
+    public ResponseEntity<FederatedRecallResponse> federatedRecall(@RequestBody FederatedRecallRequest request) {
+        if (federatedRecallService == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_IMPLEMENTED).build();
+        }
+        String accountId = com.spectrayan.spector.synapse.security.SecurityUtils.getUserId();
+        return ResponseEntity.ok(federatedRecallService.federatedRecall(accountId, request));
     }
 
     /**
