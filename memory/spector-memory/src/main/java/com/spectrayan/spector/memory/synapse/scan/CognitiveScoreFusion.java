@@ -49,7 +49,7 @@ public final class CognitiveScoreFusion {
     }
 
     /**
-     * Computes the continuous mass-dilated recency decay factor.
+     * Computes the continuous mass-dilated recency decay factor (default λ = 1.0).
      *
      * <p>Formula: R(Δt, M_i) = 1 / (1 + ln(1 + Δt_days) / (1 + M_i)) * arousalModifier</p>
      *
@@ -64,16 +64,39 @@ public final class CognitiveScoreFusion {
     public static float computeMassDilatedDecay(
             final long timestampMs, final long nowMs, final float cognitiveMass,
             final byte arousal, final int agentRecallCount, final boolean zeroTimeDecay) {
+        return computeMassDilatedDecay(
+                timestampMs, nowMs, cognitiveMass, arousal, agentRecallCount, zeroTimeDecay, 1.0f);
+    }
 
-        if (zeroTimeDecay) {
-            return 1.0f * DecayStrategy.arousalModifier(arousal);
+    /**
+     * Computes the continuous mass-dilated recency decay factor with continuous lambda recency scaling (ADR-0031).
+     *
+     * <p>Formula: R_λ(Δt, M_i) = 1 / (1 + λ * ln(1 + Δt_days) / (1 + M_i)) * arousalModifier * reconsolidationBoost</p>
+     *
+     * @param timestampMs       creation timestamp in epoch millis
+     * @param nowMs             reference query clock in epoch millis
+     * @param cognitiveMass     dynamic cognitive mass M_i
+     * @param arousal           arousal intensity byte
+     * @param agentRecallCount  number of prior agent recalls for reconsolidation
+     * @param zeroTimeDecay     true if time decay is suspended (focus match, unpinned/unresolved)
+     * @param lambda            continuous recency scaling factor (1.0 for recall, 0.3 for wander/dream, 0.0 for timeless)
+     * @return decay multiplier in (0.0..1.0]
+     */
+    public static float computeMassDilatedDecay(
+            final long timestampMs, final long nowMs, final float cognitiveMass,
+            final byte arousal, final int agentRecallCount, final boolean zeroTimeDecay,
+            final float lambda) {
+
+        if (zeroTimeDecay || lambda <= 0.0f) {
+            final float reconsolidationBoost = 1.0f + 0.05f * Math.min(agentRecallCount, 10);
+            return Math.min(1.0f, 1.0f * DecayStrategy.arousalModifier(arousal) * reconsolidationBoost);
         }
 
         final double elapsedDays = Math.max(0.0, (nowMs - timestampMs) / MS_PER_DAY);
         final float logTerm = (float) Math.log1p(elapsedDays);
         final float massDenominator = 1.0f + Math.max(0.0f, cognitiveMass);
 
-        final float dilatedDecay = 1.0f / (1.0f + (logTerm / massDenominator));
+        final float dilatedDecay = 1.0f / (1.0f + ((lambda * logTerm) / massDenominator));
         final float reconsolidationBoost = 1.0f + 0.05f * Math.min(agentRecallCount, 10);
         final float finalDecay = dilatedDecay * DecayStrategy.arousalModifier(arousal) * reconsolidationBoost;
 

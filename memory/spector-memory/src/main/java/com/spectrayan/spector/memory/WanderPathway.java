@@ -33,6 +33,8 @@ import com.spectrayan.spector.memory.wander.relay.ManifoldSynergyRelay;
 import com.spectrayan.spector.memory.wander.relay.WanderGates;
 import com.spectrayan.spector.memory.wander.relay.WanderReport;
 import com.spectrayan.spector.memory.wander.relay.WanderSignal;
+import com.spectrayan.spector.memory.pathway.RelayNames;
+import com.spectrayan.spector.memory.simulation.relay.SpacetimeSeedRelay;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 
 import org.slf4j.Logger;
@@ -89,6 +91,9 @@ public final class WanderPathway implements AutoCloseable {
 
         // 2. Autobiographical Sampling
         pathwayBuilder.gated("autobiographical_sampling", WanderGates.DMN_ENABLED, new AutobiographicalSamplingRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
+
+        // 2b. Spacetime Shortlist Seed Selection (ADR-0031)
+        pathwayBuilder.gated(RelayNames.SPACETIME_SEED, WanderGates.DMN_ENABLED, new SpacetimeSeedRelay.WanderSeedRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
         // 3. Hopfield Mind Wandering
         pathwayBuilder.gated("hopfield_mind_wandering", WanderGates.DMN_ENABLED, new HopfieldMindWanderingRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);

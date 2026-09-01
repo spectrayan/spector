@@ -234,7 +234,7 @@ public final class SemanticRecallStrategy {
         }
 
         // Sort by fused score descending
-        results.sort(Comparator.comparing(CognitiveResult::score).reversed());
+        results.sort(Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
 
         log.debug("Semantic partition-aware fused recall: {} HNSW candidates → {} after filtering",
                 hnswResults.length, results.size());

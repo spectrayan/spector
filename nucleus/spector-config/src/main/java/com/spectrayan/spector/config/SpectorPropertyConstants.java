@@ -1294,6 +1294,25 @@ public final class SpectorPropertyConstants {
     public static final String RECALL_FLASHBULB_MASS_FLOOR = "spector.recall.flashbulb.mass-floor";
     public static final float DEFAULT_RECALL_FLASHBULB_MASS_FLOOR = 0.30f;
 
+    // Spacetime Simulation (ADR-0031)
+    public static final String RECALL_SPACETIME_SIMULATION_ENABLED = "spector.recall.spacetime.simulation.enabled";
+    public static final boolean DEFAULT_RECALL_SPACETIME_SIMULATION_ENABLED = true;
+
+    public static final String RECALL_SPACETIME_WANDER_RHO_PLUS = "spector.recall.spacetime.wander.rho-plus";
+    public static final float DEFAULT_RECALL_SPACETIME_WANDER_RHO_PLUS = 0.35f;
+
+    public static final String RECALL_SPACETIME_WANDER_RHO_MINUS = "spector.recall.spacetime.wander.rho-minus";
+    public static final float DEFAULT_RECALL_SPACETIME_WANDER_RHO_MINUS = 0.35f;
+
+    public static final String RECALL_SPACETIME_WANDER_LAMBDA = "spector.recall.spacetime.wander.lambda";
+    public static final float DEFAULT_RECALL_SPACETIME_WANDER_LAMBDA = 0.30f;
+
+    public static final String RECALL_SPACETIME_DREAM_REM_LAMBDA = "spector.recall.spacetime.dream.rem.lambda";
+    public static final float DEFAULT_RECALL_SPACETIME_DREAM_REM_LAMBDA = 0.30f;
+
+    public static final String RECALL_SPACETIME_DREAM_NREM_LAMBDA = "spector.recall.spacetime.dream.nrem.lambda";
+    public static final float DEFAULT_RECALL_SPACETIME_DREAM_NREM_LAMBDA = 1.00f;
+
     // Server
     public static final String SERVER_PORT = "spector.server.port";
     public static final int DEFAULT_SERVER_PORT = 7070;

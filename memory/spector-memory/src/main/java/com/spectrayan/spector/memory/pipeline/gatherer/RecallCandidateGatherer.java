@@ -171,7 +171,7 @@ public class RecallCandidateGatherer {
             }
         }
 
-        vectorResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
+        vectorResults.sort(Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
 
         log.debug("RRF fused {} vector + {} BM25 candidates -> {} unique results",
                 existingById.size(), bm25Hits.size(), vectorResults.size());

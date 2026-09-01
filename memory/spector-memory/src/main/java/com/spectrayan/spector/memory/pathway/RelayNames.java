@@ -85,4 +85,7 @@ public final class RelayNames {
     public static final String DIFFERENTIAL_PRIVACY             = "differential_privacy";
     public static final String COMPOSITE_IMPORTANCE             = "composite_importance";
     public static final String LIFESPAN_ADAPTIVE_PRUNING        = "lifespan_adaptive_pruning";
+
+    // Spacetime Simulation Relays (ADR-0031)
+    public static final String SPACETIME_SEED                   = "spacetime_seed";
 }

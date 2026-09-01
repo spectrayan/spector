@@ -18,6 +18,10 @@ import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.memory.model.PersonaContext;
 import com.spectrayan.spector.memory.model.SourceModality;
 
+import com.spectrayan.spector.core.spacetime.ExpressTense;
+import com.spectrayan.spector.core.spacetime.SpacetimeSimulationMode;
+import com.spectrayan.spector.core.spacetime.Time2VecProjector;
+
 import java.util.List;
 import java.util.Set;
 import java.util.Map;
@@ -31,8 +35,35 @@ public record ExpressSignal(
         SoulContext soulContext,
         PersonaContext personaContext,
         Set<SourceModality> requestedModalities,
-        Map<String, Object> attributes
+        Map<String, Object> attributes,
+        ExpressTense expressTense,
+        long simulationTimeMs,
+        float[] queryTau,
+        SpacetimeSimulationMode spacetimeMode
 ) {
+
+    public ExpressSignal(
+            String queryText,
+            List<CognitiveResult> candidates,
+            InteroceptiveState interoceptiveState,
+            SoulContext soulContext,
+            PersonaContext personaContext,
+            Set<SourceModality> requestedModalities,
+            Map<String, Object> attributes) {
+        this(
+                queryText,
+                candidates,
+                interoceptiveState,
+                soulContext,
+                personaContext,
+                requestedModalities,
+                attributes,
+                ExpressTense.FACT,
+                System.currentTimeMillis(),
+                Time2VecProjector.project(System.currentTimeMillis()),
+                SpacetimeSimulationMode.EXPRESS_FACT
+        );
+    }
 
     public static Builder forQuery(String query, InteroceptiveState state, SoulContext soul) {
         return new Builder().queryText(query).interoceptiveState(state).soulContext(soul);
@@ -46,6 +77,10 @@ public record ExpressSignal(
         private PersonaContext personaContext;
         private Set<SourceModality> requestedModalities = Collections.emptySet();
         private Map<String, Object> attributes = new HashMap<>();
+        private ExpressTense expressTense = ExpressTense.FACT;
+        private long simulationTimeMs = 0L;
+        private float[] queryTau = null;
+        private SpacetimeSimulationMode spacetimeMode = null;
 
         public Builder queryText(String queryText) {
             this.queryText = queryText;
@@ -87,8 +122,49 @@ public record ExpressSignal(
             return this;
         }
 
+        public Builder expressTense(ExpressTense tense) {
+            this.expressTense = tense;
+            return this;
+        }
+
+        public Builder simulationTimeMs(long simTime) {
+            this.simulationTimeMs = simTime;
+            return this;
+        }
+
+        public Builder queryTau(float[] tau) {
+            this.queryTau = tau;
+            return this;
+        }
+
+        public Builder spacetimeMode(SpacetimeSimulationMode mode) {
+            this.spacetimeMode = mode;
+            return this;
+        }
+
         public ExpressSignal build() {
-            return new ExpressSignal(queryText, candidates, interoceptiveState, soulContext, personaContext, requestedModalities, attributes);
+            final long simTime = simulationTimeMs > 0L ? simulationTimeMs : System.currentTimeMillis();
+            final ExpressTense tense = expressTense != null ? expressTense : ExpressTense.FACT;
+            final SpacetimeSimulationMode mode = spacetimeMode != null ? spacetimeMode : switch (tense) {
+                case FACT -> SpacetimeSimulationMode.EXPRESS_FACT;
+                case SIM -> SpacetimeSimulationMode.EXPRESS_SIM;
+                case REPLAY -> SpacetimeSimulationMode.EXPRESS_REPLAY;
+            };
+            final float[] tau = queryTau != null ? queryTau : Time2VecProjector.project(simTime);
+
+            return new ExpressSignal(
+                    queryText,
+                    candidates,
+                    interoceptiveState,
+                    soulContext,
+                    personaContext,
+                    requestedModalities,
+                    attributes,
+                    tense,
+                    simTime,
+                    tau,
+                    mode
+            );
         }
     }
 }

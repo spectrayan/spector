@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.memory.dream.DreamJournalMemory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -47,7 +48,16 @@ public final class DreamJournalRelay implements SynapticRelay<DreamSignal> {
                 signal.mode(), scene.triageOutcome(), scene.qualityScore(), scene.sourceIds(), narrative);
                 
             if (journalEnabled && signal.dreamJournalMemory() != null) {
-                signal.dreamJournalMemory().appendScene(scene);
+                signal.dreamJournalMemory().append(new DreamJournalMemory.DreamJournalEntry(
+                        scene.id(),
+                        java.time.Instant.ofEpochMilli(signal.simulationTimeMs()),
+                        signal.mode(),
+                        scene.triageOutcome(),
+                        scene.qualityScore(),
+                        scene.narrative(),
+                        scene.insightText(),
+                        scene.sourceIds()
+                ));
             }
             written++;
         }

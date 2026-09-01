@@ -46,9 +46,30 @@ public class PhenomenologicalStreamRelay implements SynapticRelay<ExpressSignal>
         ProsodyParameterVector prosodyVector = (ProsodyParameterVector) signal.attributes().get("prosodyVector");
         BlendshapeVector blendshapeVector = (BlendshapeVector) signal.attributes().get("blendshapeVector");
 
-        List<CognitiveResult> groundedMemories = signal.candidates() != null
+        List<CognitiveResult> rawMemories = signal.candidates() != null
                 ? signal.candidates()
                 : List.of();
+
+        List<CognitiveResult> groundedMemories;
+        final com.spectrayan.spector.core.spacetime.ExpressTense tense = signal.expressTense() != null
+                ? signal.expressTense()
+                : com.spectrayan.spector.core.spacetime.ExpressTense.FACT;
+
+        if (tense == com.spectrayan.spector.core.spacetime.ExpressTense.FACT) {
+            final long clock = signal.simulationTimeMs() > 0L ? signal.simulationTimeMs() : System.currentTimeMillis();
+            groundedMemories = rawMemories.stream()
+                    .filter(r -> !r.isSimulated() && !r.isDreamed())
+                    .filter(r -> r.timestampMs() <= 0L || r.timestampMs() <= clock)
+                    .toList();
+        } else {
+            groundedMemories = rawMemories;
+        }
+
+        if (tense == com.spectrayan.spector.core.spacetime.ExpressTense.SIM) {
+            monologue += " [Tense: SIMULATION / COUNTERFACTUAL]";
+        } else if (tense == com.spectrayan.spector.core.spacetime.ExpressTense.REPLAY) {
+            monologue += " [Tense: REPLAY / HISTORICAL]";
+        }
 
         String soulId = signal.soulContext() != null ? signal.soulContext().id() : "default-soul";
 
