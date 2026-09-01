@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Mutable synaptic execution signal passed along the {@link com.spectrayan.spector.memory.DreamPathway}.
@@ -100,6 +101,7 @@ public final class DreamSignal {
     private List<com.spectrayan.spector.memory.model.CognitiveResult> candidateSeeds = new ArrayList<>();
 
     private final Instant startTime;
+    private final ReentrantLock sceneLock = new ReentrantLock();
 
     private DreamSignal(Builder builder) {
         this.mode = builder.mode;
@@ -223,32 +225,61 @@ public final class DreamSignal {
     public AtomicInteger failedPairs() { return failedPairs; }
     public Instant startTime() { return startTime; }
 
-    public synchronized void addFragment(SceneFragment fragment) {
-        fragments.add(fragment);
+    public void addFragment(SceneFragment fragment) {
+        sceneLock.lock();
+        try {
+            fragments.add(fragment);
+        } finally {
+            sceneLock.unlock();
+        }
     }
     
-    public synchronized void addExtractedInsight(ExtractedInsight insight) {
-        extractedInsights.add(insight);
+    public void addExtractedInsight(ExtractedInsight insight) {
+        sceneLock.lock();
+        try {
+            extractedInsights.add(insight);
+        } finally {
+            sceneLock.unlock();
+        }
     }
 
-    public synchronized void addConstructedScene(DreamScene scene) {
-        constructedScenes.add(scene);
-        dreamsGenerated.incrementAndGet();
+    public void addConstructedScene(DreamScene scene) {
+        sceneLock.lock();
+        try {
+            constructedScenes.add(scene);
+            dreamsGenerated.incrementAndGet();
+        } finally {
+            sceneLock.unlock();
+        }
     }
     
-    public synchronized void addSurvivingScene(DreamScene scene) {
-        survivingScenes.add(scene);
-        dreamsIngested.incrementAndGet();
+    public void addSurvivingScene(DreamScene scene) {
+        sceneLock.lock();
+        try {
+            survivingScenes.add(scene);
+            dreamsIngested.incrementAndGet();
+        } finally {
+            sceneLock.unlock();
+        }
     }
 
     public DreamReport buildReport() {
         Duration elapsed = Duration.between(startTime, Instant.now());
+        int constructedCount;
+        int survivingCount;
+        sceneLock.lock();
+        try {
+            constructedCount = constructedScenes.size();
+            survivingCount = survivingScenes.size();
+        } finally {
+            sceneLock.unlock();
+        }
         return new DreamReport(
                 seedMemoryIds.size(),
-                constructedScenes.size(),
-                survivingScenes.size(),
+                constructedCount,
+                survivingCount,
                 dreamsIngested.get(),
-                config.journalEnabled() ? survivingScenes.size() : 0,
+                config.journalEnabled() ? survivingCount : 0,
                 failedPairs.get(),
                 elapsed,
                 mode

@@ -328,6 +328,26 @@ public enum ErrorCode {
     PARTITION_FROZEN           (310_014, ErrorCategory.MEMORY,
             "Partition frozen for tier: {}"),
 
+    /** Memory namespace operation or registry failure. */
+    MEMORY_NAMESPACE_FAILED    (310_015, ErrorCategory.MEMORY,
+            "Memory namespace operation failed: {}"),
+
+    /** Quartz memory scheduler lifecycle or execution failure. */
+    MEMORY_SCHEDULER_FAILED    (310_016, ErrorCategory.MEMORY,
+            "Memory scheduler operation failed: {}"),
+
+    /** Cognitive pathway execution or relay chain failure. */
+    MEMORY_PATHWAY_FAILED      (310_017, ErrorCategory.MEMORY,
+            "Cognitive pathway execution failed for {}: {}"),
+
+    /** Memory layout migration or version resolution failure. */
+    MEMORY_LAYOUT_MIGRATION_FAILED(310_018, ErrorCategory.MEMORY,
+            "Memory layout migration failed from version {} to {}: {}"),
+
+    /** Memory encryption or decryption failure. */
+    MEMORY_ENCRYPTION_FAILED   (310_019, ErrorCategory.MEMORY,
+            "Memory encryption operation failed: {}"),
+
     // ══════════════════════════════════════════════════════════════════════
     // GPU (SPE-400-xxx)
     // ══════════════════════════════════════════════════════════════════════

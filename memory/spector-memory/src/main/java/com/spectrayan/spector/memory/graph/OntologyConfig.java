@@ -97,10 +97,10 @@ public final class OntologyConfig {
         }
 
         try (InputStream in = OntologyConfig.class.getResourceAsStream("/ontology.yaml")) {
-            if (in == null) throw new IllegalStateException("Neither modular ontology YAMLs nor ontology.yaml found on classpath");
+            if (in == null) throw new com.spectrayan.spector.memory.error.SpectorEntityGraphException("Neither modular ontology YAMLs nor ontology.yaml found on classpath");
             return load(in);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to load ontology.yaml", e);
+            throw new com.spectrayan.spector.memory.error.SpectorEntityGraphException("Failed to load ontology.yaml", e);
         }
     }
 
@@ -225,7 +225,7 @@ public final class OntologyConfig {
 
             return new OntologyConfig(strictness, entityTypes, predicates);
         } catch (IOException e) {
-            throw new RuntimeException("Error reading ontology config", e);
+            throw new com.spectrayan.spector.memory.error.SpectorEntityGraphException("Error reading ontology config", e);
         }
     }
 

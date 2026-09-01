@@ -148,7 +148,7 @@ public interface SpectorMemoryAdmin {
      * Vacuums (compacts) a specific memory tier by removing tombstoned records.
      *
      * <p>Copies only live records to a new segment, updates the index,
-     * and reclaims space. The operation is synchronized with writers.</p>
+     * and reclaims space. The operation is coordinated with writers via explicit locks.</p>
      *
      * @param tier the memory tier to compact
      * @return compaction result with statistics, or null if no compaction needed

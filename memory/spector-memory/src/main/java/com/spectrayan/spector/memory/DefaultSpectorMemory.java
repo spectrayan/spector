@@ -599,7 +599,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                   int latencyMs, long userId,
                                   short soulVersion, SourceModality modality) {
         if (episodicLogStore == null) {
-            throw new IllegalStateException("Episodic log store not available (legacy mode?)");
+            throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
+                    com.spectrayan.spector.commons.error.ErrorCode.MEMORY_TIER_FULL, "Episodic log store not available (legacy mode?)");
         }
 
         long offset = episodicLogStore.appendTurn(role, sequenceId,

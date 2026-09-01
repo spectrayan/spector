@@ -50,7 +50,7 @@ import java.util.regex.Pattern;
  * }</pre>
  *
  * <h3>Thread Safety</h3>
- * <p>Migration is synchronized on the namespace directory path to prevent
+ * <p>Migration is guarded by per-namespace {@link java.util.concurrent.locks.ReentrantLock} instances to prevent
  * concurrent migrations of the same namespace.</p>
  */
 public class MigrationPipeline {
