@@ -956,7 +956,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                         List<CognitiveResult> bufferedResults = buffer.search(queryText, queryVector, options);
                         List<CognitiveResult> merged = new java.util.ArrayList<>(storeResults);
                         merged.addAll(bufferedResults);
-                        merged.sort(java.util.Comparator.comparing(CognitiveResult::score).reversed());
+                        merged.sort(java.util.Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
                         storeResults = merged.stream().limit(options.topK()).collect(java.util.stream.Collectors.toList());
                     }
                 }

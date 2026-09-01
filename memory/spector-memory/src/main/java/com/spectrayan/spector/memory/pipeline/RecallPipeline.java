@@ -1279,7 +1279,7 @@ public final class RecallPipeline {
             }
 
             // Step 4: Sort by importance (score) and limit to topK
-            results.sort(java.util.Comparator.comparing(CognitiveResult::score).reversed());
+            results.sort(java.util.Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
             if (results.size() > options.topK()) {
                 results = new ArrayList<>(results.subList(0, options.topK()));
             }
@@ -1425,7 +1425,7 @@ public final class RecallPipeline {
         }
 
         // Step 6: Sort, topK, record in recallHistory
-        associativeResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
+        associativeResults.sort(Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
         if (associativeResults.size() > options.topK()) {
             associativeResults = new ArrayList<>(associativeResults.subList(0, options.topK()));
         }

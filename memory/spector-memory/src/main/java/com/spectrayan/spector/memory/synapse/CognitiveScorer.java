@@ -258,7 +258,7 @@ public final class CognitiveScorer {
         if (lateralHeap != null && !lateralHeap.isEmpty()) {
             results.addAll(lateralHeap);
         }
-        results.sort(Comparator.comparing(ScoredRecord::score).reversed());
+        results.sort(Comparator.comparing(ScoredRecord::score).reversed().thenComparingLong(ScoredRecord::offset));
         return results;
     }
 

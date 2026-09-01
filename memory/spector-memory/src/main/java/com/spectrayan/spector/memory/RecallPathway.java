@@ -410,7 +410,7 @@ public final class RecallPathway {
                 }
             }
 
-            results.sort(Comparator.comparing(CognitiveResult::score).reversed());
+            results.sort(Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
             if (results.size() > options.topK()) {
                 return new ArrayList<>(results.subList(0, options.topK()));
             }
@@ -483,7 +483,7 @@ public final class RecallPathway {
             }
         }
 
-        associativeResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
+        associativeResults.sort(Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
         List<CognitiveResult> finalResults = associativeResults;
         if (finalResults.size() > options.topK()) {
             finalResults = new ArrayList<>(finalResults.subList(0, options.topK()));
