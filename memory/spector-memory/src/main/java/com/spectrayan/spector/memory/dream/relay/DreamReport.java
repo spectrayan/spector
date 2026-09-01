@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.dream.relay;
 import java.time.Duration;
 
 /**
- * Immutable execution telemetry report returned upon completing a {@link com.spectrayan.spector.memory.DreamPathway} cycle.
+ * Immutable execution telemetry report returned upon completing a {@link com.spectrayan.spector.memory.pathway.DreamPathway} cycle.
  *
  * <h3>Biological Analog: Post-Sleep Metrics</h3>
  * <p>Telemetry reflecting memory consolidation efficiency during rest cycles.</p>

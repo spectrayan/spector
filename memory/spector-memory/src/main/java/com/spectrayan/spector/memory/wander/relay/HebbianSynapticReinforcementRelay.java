@@ -19,7 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Stage 5 relay in {@link com.spectrayan.spector.memory.WanderPathway} that reinforces Hebbian synaptic edges for discovered associations.
+ * Stage 5 relay in {@link com.spectrayan.spector.memory.pathway.WanderPathway} that reinforces Hebbian synaptic edges for discovered associations.
  *
  * <h3>Biological Analog: Long-Term Potentiation (LTP) during Wakeful Rest</h3>
  * <p>Reinforces synaptic connections between concepts co-activated in the Default Mode Network,

@@ -16,7 +16,7 @@ import com.spectrayan.spector.commons.pathway.Specification;
 
 /**
  * Predicate specifications guarding execution of {@link com.spectrayan.spector.commons.pathway.SynapticRelay}
- * stages within the {@link com.spectrayan.spector.memory.DreamPathway}.
+ * stages within the {@link com.spectrayan.spector.memory.pathway.DreamPathway}.
  *
  * <h3>Biological Analog: Thalamic Gating during Sleep</h3>
  * <p>Blocks sensory input and regulates entry into different phases of sleep and consolidation.</p>

@@ -18,7 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Stage 1 relay in {@link com.spectrayan.spector.memory.WanderPathway} that enforces cognitive quiescence.
+ * Stage 1 relay in {@link com.spectrayan.spector.memory.pathway.WanderPathway} that enforces cognitive quiescence.
  *
  * <h3>Biological Analog: Task-Negative Default Network Disinhibition</h3>
  * <p>Ensures that mind-wandering processes only initiate when the external sensory and query

@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Mutable synaptic execution signal passed along the {@link com.spectrayan.spector.memory.WanderPathway}.
+ * Mutable synaptic execution signal passed along the {@link com.spectrayan.spector.memory.pathway.WanderPathway}.
  *
  * <h3>Biological Analog: Default Mode Network Spontaneous Activation State</h3>
  * <p>Carries the state of spontaneous associative search during wakeful rest, collecting

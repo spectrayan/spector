@@ -19,7 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Stage relay in {@link com.spectrayan.spector.memory.DecidePathway}.
+ * Stage relay in {@link com.spectrayan.spector.memory.pathway.DecidePathway}.
  *
  * <h3>Biological Analog: Deliberate Waking Thought Experimentation (Constructive Prospection)</h3>
  * <p>Executes tight-constraint, low-temperature counterfactual simulations over candidate decision

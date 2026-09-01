@@ -22,7 +22,7 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Stage 4 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Stage 4 relay in {@link com.spectrayan.spector.memory.pathway.DreamPathway}.
  *
  * <h3>Biological Analog: Lewis &amp; Bendor REM Anti-Centroid Pairing</h3>
  * <p>Discovers hyper-associations by intentionally binding semantic fragments that exhibit

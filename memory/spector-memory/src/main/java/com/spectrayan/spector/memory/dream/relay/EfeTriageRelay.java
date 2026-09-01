@@ -22,7 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Stage 9 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Stage 9 relay in {@link com.spectrayan.spector.memory.pathway.DreamPathway}.
  *
  * <h3>Biological Analog: Prefrontal Executive Dream Evaluation via Multi-Soul Expected Free Energy</h3>
  * <p>Triages constructed dream scenarios into four canonical cognitive outcomes:

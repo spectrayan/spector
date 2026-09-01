@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Mutable synaptic execution signal passed along the {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Mutable synaptic execution signal passed along the {@link com.spectrayan.spector.memory.pathway.DreamPathway}.
  *
  * <h3>Biological Analog: Activation during Sleep Consolidation</h3>
  * <p>Carries the state of spontaneous offline generative replay, tracking counterfactual

@@ -18,7 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Stage 12 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Stage 12 relay in {@link com.spectrayan.spector.memory.pathway.DreamPathway}.
  *
  * <h3>Biological Analog: Dream-to-Memory Consolidation Gate &amp; Synaptic Downscaling</h3>
  * <p>Persists verified high-utility dream insights with {@code FLAG_DREAMED} provenance and applies

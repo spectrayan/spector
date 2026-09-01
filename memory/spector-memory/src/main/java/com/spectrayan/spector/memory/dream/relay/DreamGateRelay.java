@@ -17,7 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Stage 1 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Stage 1 relay in {@link com.spectrayan.spector.memory.pathway.DreamPathway}.
  *
  * <h3>Biological Analog: Circadian Sleep Pressure Gate</h3>
  * <p>Checks if dreaming conditions are met. Allows the pipeline to proceed.</p>

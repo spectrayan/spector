@@ -107,7 +107,7 @@ public final class MemoryRegistry implements AutoCloseable {
             ObjectProvider<SalienceProfileProvider> salienceProvider,
             ObjectProvider<ObjectMapper> objectMapperProvider,
             ObjectProvider<org.springframework.cache.CacheManager> cacheManagerProvider,
-            ObjectProvider<com.spectrayan.spector.memory.DataEncryptor> encryptorProvider,
+            ObjectProvider<com.spectrayan.spector.memory.persist.DataEncryptor> encryptorProvider,
             ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistryProvider,
             ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider,
             ObjectProvider<org.quartz.Scheduler> quartzSchedulerProvider,

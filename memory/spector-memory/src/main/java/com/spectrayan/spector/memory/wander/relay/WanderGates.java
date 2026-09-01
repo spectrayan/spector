@@ -16,7 +16,7 @@ import com.spectrayan.spector.commons.pathway.Specification;
 
 /**
  * Predicate specifications guarding execution of {@link com.spectrayan.spector.commons.pathway.SynapticRelay}
- * stages within the {@link com.spectrayan.spector.memory.WanderPathway}.
+ * stages within the {@link com.spectrayan.spector.memory.pathway.WanderPathway}.
  *
  * @since 1.2.0
  */

@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 
 /**
- * Stage 3 relay in {@link com.spectrayan.spector.memory.WanderPathway} that performs continuous Hopfield energy relaxation.
+ * Stage 3 relay in {@link com.spectrayan.spector.memory.pathway.WanderPathway} that performs continuous Hopfield energy relaxation.
  *
  * <h3>Biological Analog: CA3 Autoassociative Pattern Completion & Attractor Hopping</h3>
  * <p>Relaxes sampled episodic memory vectors into collective energy basins across the memory pool,

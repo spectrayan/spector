@@ -16,7 +16,7 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * Immutable execution telemetry report returned upon completing a {@link com.spectrayan.spector.memory.WanderPathway} cycle.
+ * Immutable execution telemetry report returned upon completing a {@link com.spectrayan.spector.memory.pathway.WanderPathway} cycle.
  *
  * @param memoriesSampled number of memories sampled from active stores
  * @param associationsFormed number of new or reinforced Hebbian synaptic edges

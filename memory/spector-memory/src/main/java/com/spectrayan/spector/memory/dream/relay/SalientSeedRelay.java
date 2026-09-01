@@ -31,7 +31,7 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Stage 2 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Stage 2 relay in {@link com.spectrayan.spector.memory.pathway.DreamPathway}.
  *
  * <h3>Biological Analog: Targeted Memory Reactivation (TMR) &amp; Soul-Salience Gating</h3>
  * <p>Scans autobiographical and episodic stores for salient memories, evaluating recency,

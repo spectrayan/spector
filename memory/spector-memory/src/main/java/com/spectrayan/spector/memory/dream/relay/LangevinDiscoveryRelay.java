@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * Stage 8 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Stage 8 relay in {@link com.spectrayan.spector.memory.pathway.DreamPathway}.
  *
  * <h3>Biological Analog: Langevin Stochastic Diffusion over Holographic Energy Landscape (Pribram Holonomic Brain)</h3>
  * <p>Executes continuous Langevin dynamics over the distributed holographic memory tensor:

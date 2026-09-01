@@ -143,7 +143,7 @@ import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker.RerankRes
  *   <li><b>Observer</b>: Post-recall hooks via {@link RecallListener}</li>
  * </ul>
  *
- * @deprecated Superceded by {@link com.spectrayan.spector.memory.RecallPathway} as part of the
+ * @deprecated Superceded by {@link com.spectrayan.spector.memory.pathway.RecallPathway} as part of the
  *             Cognitive Pathway Engine redesign (#561). Will be removed in a future major release.
  */
 @Deprecated(since = "0.2.0-alpha", forRemoval = false)

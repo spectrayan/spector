@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.dream.relay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 
 /**
- * Stage 10 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Stage 10 relay in {@link com.spectrayan.spector.memory.pathway.DreamPathway}.
  *
  * <h3>Biological Analog: Persist the Residue, Discard the Scaffold (Insight Extraction)</h3>
  * <p>Distills clean ExtractedInsight records from surviving scenes.</p>

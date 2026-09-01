@@ -28,7 +28,7 @@ import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 /**
- * Stage 2 relay in {@link com.spectrayan.spector.memory.WanderPathway} that samples seed autobiographical and episodic memories.
+ * Stage 2 relay in {@link com.spectrayan.spector.memory.pathway.WanderPathway} that samples seed autobiographical and episodic memories.
  *
  * <h3>Biological Analog: Spontaneous Episodic Memory Replay</h3>
  * <p>Randomly selects seed memory representations from high-salience semantic and autobiographical
