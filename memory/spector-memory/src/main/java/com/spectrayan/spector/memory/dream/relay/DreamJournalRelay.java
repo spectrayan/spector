@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Stage 5 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Stage 5 relay in {@link com.spectrayan.spector.memory.pathway.DreamPathway}.
  *
  * <h3>Biological Analog: Dream Journal / Audit Trail</h3>
  * <p>Logs constructed scenes.</p>

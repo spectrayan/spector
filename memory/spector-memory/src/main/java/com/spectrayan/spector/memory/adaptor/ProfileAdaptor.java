@@ -24,7 +24,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.ReentrantLock;
 
-
 /**
  * Contextual bandit that learns the optimal {@link CognitiveProfile} per tag context.
  *

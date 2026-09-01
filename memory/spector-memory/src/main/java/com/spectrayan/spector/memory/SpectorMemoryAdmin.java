@@ -12,6 +12,30 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
+import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.memory.habituation.HabituationPenalty;
+import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.inhibition.SuppressionSet;
+import com.spectrayan.spector.memory.insula.InsularCortex;
+import com.spectrayan.spector.memory.kernel.Memory;
+import com.spectrayan.spector.memory.model.CognitiveRecord;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
+import com.spectrayan.spector.memory.pathway.RecallPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
+import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
+import com.spectrayan.spector.memory.scheduler.MemoryScheduler;
+import com.spectrayan.spector.memory.sync.CompactionResult;
+import com.spectrayan.spector.memory.sync.MemoryWal;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
+
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
@@ -23,8 +47,8 @@ import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.RememberPathway;
-import com.spectrayan.spector.memory.RecallPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RecallPathway;
 import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -94,8 +118,6 @@ public interface SpectorMemoryAdmin {
     /** Returns the cognitive memory router (Working, Episodic, Semantic, Procedural). */
     CognitiveMemoryRouter cognitiveRouter();
 
-
-
     /** Returns the memory index. */
     MemoryIndex index();
 
@@ -148,7 +170,7 @@ public interface SpectorMemoryAdmin {
      * Vacuums (compacts) a specific memory tier by removing tombstoned records.
      *
      * <p>Copies only live records to a new segment, updates the index,
-     * and reclaims space. The operation is synchronized with writers.</p>
+     * and reclaims space. The operation is coordinated with writers via explicit locks.</p>
      *
      * @param tier the memory tier to compact
      * @return compaction result with statistics, or null if no compaction needed

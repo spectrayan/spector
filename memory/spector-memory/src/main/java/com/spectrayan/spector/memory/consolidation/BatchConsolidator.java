@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -63,7 +63,7 @@ public final class BatchConsolidator extends AbstractConsolidator {
     /**
      * Executes the consolidation cycle across all partitions (frozen + active) (#446).
      */
-    public void consolidate(com.spectrayan.spector.memory.PartitionManager partitionManager, MemoryIndex index, ScalarQuantizer quantizer,
+    public void consolidate(com.spectrayan.spector.memory.persist.PartitionManager partitionManager, MemoryIndex index, ScalarQuantizer quantizer,
                             EntityDirectory entityDirectory, HyperEntityGraphMemory hyperEntityGraph,
                             TemporalKnowledgeGraph temporalKnowledgeGraph,
                             RememberPathway rememberPathway,

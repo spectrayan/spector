@@ -26,7 +26,7 @@ public final class DecideSignal {
     private final List<SoulContext> soulContexts;
     
     private final Instant startTime;
-    private PolicyDecisionReport report;
+    private volatile PolicyDecisionReport report;
 
     private DecideSignal(Builder builder) {
         this.policyInferenceEngine = builder.policyInferenceEngine;
@@ -45,8 +45,8 @@ public final class DecideSignal {
     
     public Instant startTime() { return startTime; }
     
-    public synchronized PolicyDecisionReport report() { return report; }
-    public synchronized void setReport(PolicyDecisionReport report) { this.report = report; }
+    public PolicyDecisionReport report() { return report; }
+    public void setReport(PolicyDecisionReport report) { this.report = report; }
 
     public static final class Builder {
         private PolicyInferenceEngine policyInferenceEngine;

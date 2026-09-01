@@ -61,7 +61,6 @@ public final class HyperEntityLayout implements MemoryLayout {
     /** Byte offset where the hyperedge slab begins in an SMKM v2 file (64 + 16). */
     public static final long DATA_START = MemoryHeader.HEADER_BYTES + GRAPH_SUBHEADER_BYTES;
 
-
     @Override
     public int layoutId() {
         return LAYOUT_ID;

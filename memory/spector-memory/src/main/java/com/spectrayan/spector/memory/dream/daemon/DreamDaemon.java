@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.dream.daemon;
 
-import com.spectrayan.spector.memory.DreamPathway;
-import com.spectrayan.spector.memory.PartitionManager;
+import com.spectrayan.spector.memory.pathway.DreamPathway;
+import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.dream.relay.DreamMode;
 import com.spectrayan.spector.memory.dream.relay.DreamReport;

@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
-import com.spectrayan.spector.memory.DataEncryptor;
+import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
@@ -130,8 +130,6 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
     private static final MemoryId MEMORY_ID = SystemMemoryId.ENTITY.id();
     /** Shared record layout — identifies entity records inside an SMKM container. */
     private static final EntityLayout LAYOUT = new EntityLayout();
-
-
 
     /** Default adjacency slots allocated per entity on first link. */
     static final int DEFAULT_ADJ_PER_ENTITY = 8;
@@ -1329,7 +1327,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
      * blocks become dead space. This method copies all live adjacency data into a
      * fresh contiguous segment, eliminating fragmentation.</p>
      *
-     * <p>Should be called during {@link com.spectrayan.spector.memory.ReflectionOrchestrator#reflect}
+     * <p>Should be called during {@link com.spectrayan.spector.memory.reflect.ReflectionOrchestrator#reflect}
      * after {@link #decayAdjacencyWeights} has pruned weak links.</p>
      *
      * @return bytes reclaimed by compaction

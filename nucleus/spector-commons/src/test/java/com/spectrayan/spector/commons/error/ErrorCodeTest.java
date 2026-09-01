@@ -87,6 +87,11 @@ class ErrorCodeTest {
         assertThat(ErrorCode.SEGMENT_CLOSED.id()).isEqualTo("SPE-210-001");
         assertThat(ErrorCode.EMBEDDING_UNAVAILABLE.id()).isEqualTo("SPE-300-001");
         assertThat(ErrorCode.MEMORY_TIER_FULL.id()).isEqualTo("SPE-310-001");
+        assertThat(ErrorCode.MEMORY_NAMESPACE_FAILED.id()).isEqualTo("SPE-310-015");
+        assertThat(ErrorCode.MEMORY_SCHEDULER_FAILED.id()).isEqualTo("SPE-310-016");
+        assertThat(ErrorCode.MEMORY_PATHWAY_FAILED.id()).isEqualTo("SPE-310-017");
+        assertThat(ErrorCode.MEMORY_LAYOUT_MIGRATION_FAILED.id()).isEqualTo("SPE-310-018");
+        assertThat(ErrorCode.MEMORY_ENCRYPTION_FAILED.id()).isEqualTo("SPE-310-019");
         assertThat(ErrorCode.CUDA_DRIVER_NOT_FOUND.id()).isEqualTo("SPE-400-001");
         assertThat(ErrorCode.API_BAD_REQUEST.id()).isEqualTo("SPE-500-001");
         assertThat(ErrorCode.CLIENT_CONNECTION_FAILED.id()).isEqualTo("SPE-510-001");

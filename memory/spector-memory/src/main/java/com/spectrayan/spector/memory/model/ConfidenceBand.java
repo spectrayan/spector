@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.model;
 
-
 import java.util.List;
 
 /**

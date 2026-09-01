@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.Cogniti
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.recall.relay.RecallSignal;
 
 import org.slf4j.Logger;

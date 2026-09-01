@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.persist.DataEncryptor;
+import com.spectrayan.spector.memory.persist.PartitionManager;
+
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
@@ -24,7 +27,7 @@ import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 import org.junit.jupiter.api.AfterEach;

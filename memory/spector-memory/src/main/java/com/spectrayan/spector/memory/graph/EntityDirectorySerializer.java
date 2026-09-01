@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.graph;
 
-import com.spectrayan.spector.memory.DataEncryptor;
+import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 
 import org.slf4j.Logger;

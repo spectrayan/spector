@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.dopamine;
 
-import com.spectrayan.spector.memory.ImportanceProvider;
+import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.model.ImportanceBreakdown;
 import com.spectrayan.spector.memory.model.ImportanceContext;
 import com.spectrayan.spector.memory.model.ImportanceResult;

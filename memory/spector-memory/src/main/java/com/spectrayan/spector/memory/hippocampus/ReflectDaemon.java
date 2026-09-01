@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.hippocampus;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
-import com.spectrayan.spector.memory.PartitionManager;
+import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
@@ -31,7 +31,7 @@ import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
 import com.spectrayan.spector.core.similarity.VectorOps;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 
 import org.slf4j.Logger;
@@ -105,7 +105,7 @@ import java.util.stream.Collectors;
  *   <li>When {@code LlmProvider} is available:
  *       sends cluster texts to LLM for factual summarization</li>
  *   <li>When no LLM: falls back to highest-importance selection</li>
- * @deprecated As of 1.3.0, replaced by {@link com.spectrayan.spector.memory.ReflectPathway} and its composable relays.
+ * @deprecated As of 1.3.0, replaced by {@link com.spectrayan.spector.memory.pathway.ReflectPathway} and its composable relays.
  */
 @Deprecated(since = "1.3.0", forRemoval = true)
 public final class ReflectDaemon {

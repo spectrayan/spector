@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.pipeline.reranker;
 
-
 /**
  * Handles late-stage multi-vector reranking using ColBERT SIMD acceleration.
  */

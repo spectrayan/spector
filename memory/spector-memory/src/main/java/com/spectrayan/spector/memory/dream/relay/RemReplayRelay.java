@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * Stage 3 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Stage 3 relay in {@link com.spectrayan.spector.memory.pathway.DreamPathway}.
  *
  * <h3>Biological Analog: Sharp-Wave Ripple Compressed Replay with Hoel Overfitted Brain Noise Injection</h3>
  * <p>Injects Hartmann boundary-modulated noise into seed vectors to prevent representational overfitting.</p>

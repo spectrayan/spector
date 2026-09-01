@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.spi.AcceleratorRegistry;
-import com.spectrayan.spector.memory.PartitionManager;
+import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
@@ -31,7 +31,7 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Stage 2 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Stage 2 relay in {@link com.spectrayan.spector.memory.pathway.DreamPathway}.
  *
  * <h3>Biological Analog: Targeted Memory Reactivation (TMR) &amp; Soul-Salience Gating</h3>
  * <p>Scans autobiographical and episodic stores for salient memories, evaluating recency,

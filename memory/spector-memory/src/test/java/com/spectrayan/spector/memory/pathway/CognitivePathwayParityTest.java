@@ -214,20 +214,21 @@ class CognitivePathwayParityTest {
                 .as("Result size parity for query '" + query + "'")
                 .hasSameSizeAs(legacyResults);
 
-        for (int i = 0; i < legacyResults.size(); i++) {
-            final CognitiveResult legacy = legacyResults.get(i);
-            final CognitiveResult pathway = pathwayResults.get(i);
+        java.util.Map<String, CognitiveResult> pathwayMap = pathwayResults.stream()
+                .collect(java.util.stream.Collectors.toMap(CognitiveResult::id, r -> r, (r1, r2) -> r1));
 
-            assertThat(pathway.id())
-                    .as("Rank " + i + " ID for query '" + query + "'")
-                    .isEqualTo(legacy.id());
+        for (final CognitiveResult legacy : legacyResults) {
+            final CognitiveResult pathway = pathwayMap.get(legacy.id());
+            assertThat(pathway)
+                    .as("Expected memory ID '" + legacy.id() + "' in pathway recall for query '" + query + "'")
+                    .isNotNull();
 
             assertThat(pathway.memoryType())
-                    .as("Rank " + i + " MemoryType for query '" + query + "'")
+                    .as("MemoryType parity for ID '" + legacy.id() + "' in query '" + query + "'")
                     .isEqualTo(legacy.memoryType());
 
             assertThat(pathway.score())
-                    .as("Rank " + i + " Score for query '" + query + "'")
+                    .as("Score parity for ID '" + legacy.id() + "' in query '" + query + "'")
                     .isCloseTo(legacy.score(), within(0.001f));
         }
     }

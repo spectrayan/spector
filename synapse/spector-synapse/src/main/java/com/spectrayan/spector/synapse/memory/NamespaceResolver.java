@@ -23,7 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
-import com.spectrayan.spector.memory.SalienceProfileProvider;
+import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
@@ -80,7 +80,7 @@ public class NamespaceResolver implements AutoCloseable {
     private final ObjectProvider<SalienceProfileProvider> salienceProvider;
     private final ObjectProvider<ObjectMapper> objectMapperProvider;
     private final ObjectProvider<org.springframework.cache.CacheManager> cacheManagerProvider;
-    private final ObjectProvider<com.spectrayan.spector.memory.DataEncryptor> encryptorProvider;
+    private final ObjectProvider<com.spectrayan.spector.memory.persist.DataEncryptor> encryptorProvider;
     private final ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistryProvider;
     private final ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider;
     private final ObjectProvider<org.quartz.Scheduler> quartzSchedulerProvider;
@@ -124,7 +124,7 @@ public class NamespaceResolver implements AutoCloseable {
             ObjectProvider<SalienceProfileProvider> salienceProvider,
             ObjectProvider<ObjectMapper> objectMapperProvider,
             ObjectProvider<org.springframework.cache.CacheManager> cacheManagerProvider,
-            ObjectProvider<com.spectrayan.spector.memory.DataEncryptor> encryptorProvider,
+            ObjectProvider<com.spectrayan.spector.memory.persist.DataEncryptor> encryptorProvider,
             ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistryProvider,
             ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider,
             ObjectProvider<org.quartz.Scheduler> quartzSchedulerProvider,
@@ -385,9 +385,9 @@ public class NamespaceResolver implements AutoCloseable {
 
         org.springframework.cache.CacheManager springCacheManager = cacheManagerProvider != null
                 ? cacheManagerProvider.getIfAvailable() : null;
-        com.spectrayan.spector.memory.DataEncryptor encryptor = encryptorProvider != null
-                ? encryptorProvider.getIfAvailable(() -> com.spectrayan.spector.memory.DataEncryptor.NOOP)
-                : com.spectrayan.spector.memory.DataEncryptor.NOOP;
+        com.spectrayan.spector.memory.persist.DataEncryptor encryptor = encryptorProvider != null
+                ? encryptorProvider.getIfAvailable(() -> com.spectrayan.spector.memory.persist.DataEncryptor.NOOP)
+                : com.spectrayan.spector.memory.persist.DataEncryptor.NOOP;
         ObjectMapper mapper = objectMapperProvider != null
                 ? objectMapperProvider.getIfAvailable(ObjectMapper::new) : new ObjectMapper();
 

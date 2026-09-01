@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Signal carrying the state of a recall operation through the memory pipeline.
@@ -45,7 +46,8 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
     private boolean textSearchExecuted = false;
     private boolean rrfFused = false;
     private float effectiveTemperature = 1.0f;
-    private final List<RelayTrace> traces = Collections.synchronizedList(new ArrayList<>());
+    private final List<RelayTrace> traces = new ArrayList<>();
+    private final ReentrantLock tracesLock = new ReentrantLock();
 
     private final java.util.Map<String, Object> attributes = new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -92,8 +94,16 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
         fork.rrfFused = this.rrfFused;
         fork.effectiveTemperature = this.effectiveTemperature;
         fork.attributes.putAll(this.attributes);
-        synchronized (this.traces) {
-            fork.traces.addAll(this.traces);
+        this.tracesLock.lock();
+        try {
+            fork.tracesLock.lock();
+            try {
+                fork.traces.addAll(this.traces);
+            } finally {
+                fork.tracesLock.unlock();
+            }
+        } finally {
+            this.tracesLock.unlock();
         }
         return fork;
     }
@@ -116,12 +126,16 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
             if (fork.rrfFused) {
                 this.rrfFused = true;
             }
-            synchronized (fork.traces) {
-                for (final RelayTrace trace : fork.traces) {
+            List<RelayTrace> forkTraces = fork.traces();
+            this.tracesLock.lock();
+            try {
+                for (final RelayTrace trace : forkTraces) {
                     if (!this.traces.contains(trace)) {
                         this.traces.add(trace);
                     }
                 }
+            } finally {
+                this.tracesLock.unlock();
             }
         }
     }
@@ -134,14 +148,22 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
     @Override
     public void recordTrace(final RelayTrace trace) {
         if (trace != null) {
-            traces.add(trace);
+            tracesLock.lock();
+            try {
+                traces.add(trace);
+            } finally {
+                tracesLock.unlock();
+            }
         }
     }
 
     @Override
     public List<RelayTrace> traces() {
-        synchronized (traces) {
+        tracesLock.lock();
+        try {
             return List.copyOf(traces);
+        } finally {
+            tracesLock.unlock();
         }
     }
 

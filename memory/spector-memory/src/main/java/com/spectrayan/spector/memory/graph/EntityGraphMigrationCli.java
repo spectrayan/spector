@@ -76,7 +76,7 @@ public final class EntityGraphMigrationCli {
      * @return a {@link MigrationResult}
      * @throws MigrationException if the migration fails
      */
-    public static MigrationResult migrate(Path namespacePath, com.spectrayan.spector.memory.DataEncryptor encryptor) {
+    public static MigrationResult migrate(Path namespacePath, com.spectrayan.spector.memory.persist.DataEncryptor encryptor) {
         Path runtimeDir = StorageLayout.runtimeDir(namespacePath);
         Path legacyFile = runtimeDir.resolve(StorageLayout.FILE_ENTITY);
         Path edirFile = runtimeDir.resolve(StorageLayout.FILE_ENTITY_DIRECTORY);

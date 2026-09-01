@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.hebbian;
 
-import com.spectrayan.spector.memory.PartitionManager;
+import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.index.MemoryIndex;
@@ -40,7 +40,7 @@ import java.lang.foreign.MemorySegment;
  * <p>Result is clamped to [0.5, 2.0] by HebbianGraph. A modifier of 1.5 means
  * edges to this memory decay 33% slower than the base rate.</p>
  *
- * <p><b>Usage:</b> Created once before each decay cycle by {@link com.spectrayan.spector.memory.ReflectionOrchestrator},
+ * <p><b>Usage:</b> Created once before each decay cycle by {@link com.spectrayan.spector.memory.reflect.ReflectionOrchestrator},
  * then discarded. Captures a snapshot of the partition state at creation time.</p>
  *
  * @see DecayModulator

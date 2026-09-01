@@ -20,7 +20,6 @@ import com.spectrayan.spector.commons.error.SpectorValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 /**
  * Thread-safe circular buffer tracking recent recall context tags.
  *

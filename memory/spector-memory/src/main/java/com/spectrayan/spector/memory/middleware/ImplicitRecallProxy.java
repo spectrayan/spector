@@ -12,9 +12,9 @@
  */
 package com.spectrayan.spector.memory.middleware;
 
+import com.spectrayan.spector.memory.api.MemoryRecall;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.SpectorMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +33,7 @@ import java.util.List;
  * <p>This class sits between the user prompt and the LLM. For each incoming
  * prompt, it:</p>
  * <ol>
- *   <li>Calls {@link SpectorMemory#recall} with the prompt text</li>
+ *   <li>Calls {@link MemoryRecall#recall} with the prompt text</li>
  *   <li>Formats top-K memories as a system message prefix</li>
  *   <li>Returns the enriched prompt for the caller to forward to the LLM</li>
  * </ol>
@@ -55,27 +55,27 @@ public final class ImplicitRecallProxy {
     private static final String MEMORY_HEADER = "\n\n--- Agent Memory Context ---\n";
     private static final String MEMORY_FOOTER = "\n--- End Memory Context ---\n\n";
 
-    private final SpectorMemory memory;
+    private final MemoryRecall memory;
     private final int defaultTopK;
     private final float minImportance;
 
     /**
      * Creates a proxy with default settings.
      *
-     * @param memory the cognitive memory instance
+     * @param memory the cognitive memory or recall instance
      */
-    public ImplicitRecallProxy(SpectorMemory memory) {
+    public ImplicitRecallProxy(MemoryRecall memory) {
         this(memory, 5, 0.1f);
     }
 
     /**
      * Creates a proxy with custom settings.
      *
-     * @param memory        the cognitive memory instance
+     * @param memory        the cognitive memory or recall instance
      * @param defaultTopK   number of memories to inject
      * @param minImportance minimum importance threshold for injection
      */
-    public ImplicitRecallProxy(SpectorMemory memory, int defaultTopK, float minImportance) {
+    public ImplicitRecallProxy(MemoryRecall memory, int defaultTopK, float minImportance) {
         this.memory = memory;
         this.defaultTopK = defaultTopK;
         this.minImportance = minImportance;

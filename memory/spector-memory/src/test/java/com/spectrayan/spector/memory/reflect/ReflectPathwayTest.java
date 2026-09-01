@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.reflect;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
-import com.spectrayan.spector.memory.ReflectPathway;
+import com.spectrayan.spector.memory.pathway.ReflectPathway;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;

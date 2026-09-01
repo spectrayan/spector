@@ -13,9 +13,9 @@
 package com.spectrayan.spector.memory.reflect.relay;
 
 import com.spectrayan.spector.commons.template.TemplateEngine;
-import com.spectrayan.spector.memory.ImportanceProvider;
-import com.spectrayan.spector.memory.PartitionManager;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.api.ImportanceProvider;
+import com.spectrayan.spector.memory.persist.PartitionManager;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
@@ -27,7 +27,7 @@ import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -37,6 +37,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Mutable context payload propagating through the biological sleep consolidation (Reflect) pathway.
@@ -95,6 +96,7 @@ public final class ReflectSignal {
     private final AtomicInteger corePreservedCount = new AtomicInteger(0);
     private final AtomicInteger flavourConsolidatedCount = new AtomicInteger(0);
     private final AtomicInteger ephemeralPrunedCount = new AtomicInteger(0);
+    private final ReentrantLock statsLock = new ReentrantLock();
     private double sumImportanceDelta = 0.0;
     private int pinnedCount = 0;
     private float identityAnchorDistance = 0.0f;
@@ -232,21 +234,47 @@ public final class ReflectSignal {
     public int ephemeralPrunedCount() { return ephemeralPrunedCount.get(); }
     public void addEphemeralPruned(int count) { ephemeralPrunedCount.addAndGet(count); }
 
-    public synchronized void recordImportanceDelta(double delta) {
-        this.sumImportanceDelta += Math.abs(delta);
+    public void recordImportanceDelta(double delta) {
+        statsLock.lock();
+        try {
+            this.sumImportanceDelta += Math.abs(delta);
+        } finally {
+            statsLock.unlock();
+        }
     }
 
-    public synchronized float averageImportanceDelta() {
+    public float averageImportanceDelta() {
         int count = soulRefusedCount.get();
-        return count > 0 ? (float) (sumImportanceDelta / count) : 0.0f;
+        if (count <= 0) {
+            return 0.0f;
+        }
+        statsLock.lock();
+        try {
+            return (float) (sumImportanceDelta / count);
+        } finally {
+            statsLock.unlock();
+        }
     }
 
-    public synchronized boolean canPin() {
-        return pinSourceEpisodes && pinnedCount < pinnedQuota;
+    public boolean canPin() {
+        if (!pinSourceEpisodes) {
+            return false;
+        }
+        statsLock.lock();
+        try {
+            return pinnedCount < pinnedQuota;
+        } finally {
+            statsLock.unlock();
+        }
     }
 
-    public synchronized void incrementPinned() {
-        pinnedCount++;
+    public void incrementPinned() {
+        statsLock.lock();
+        try {
+            pinnedCount++;
+        } finally {
+            statsLock.unlock();
+        }
     }
 
     /**

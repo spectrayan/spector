@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * Stage 6 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Stage 6 relay in {@link com.spectrayan.spector.memory.pathway.DreamPathway}.
  *
  * <h3>Biological Analog: Compositional Episodic Scene Construction</h3>
  * <p>Recombines fragmented memory primitives into synthetic scenario representations,

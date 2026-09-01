@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.pipeline;
 
-
 import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorHebbianException;
 import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
@@ -40,7 +39,6 @@ import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.*;
-
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -236,7 +234,6 @@ public final class GraphExpansionStage {
 
         // Cross-layer dedup: track best score per graph-expanded candidate
         Map<String, CognitiveResult> graphCandidates = new HashMap<>();
-
 
         // Step 5c: Hebbian spreading activation
         if (hebbianGraph != null) {

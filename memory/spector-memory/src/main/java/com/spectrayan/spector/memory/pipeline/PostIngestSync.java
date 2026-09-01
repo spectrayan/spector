@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.pipeline;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingResult;
 import com.spectrayan.spector.index.VectorIndex;
-import com.spectrayan.spector.memory.DataEncryptor;
+import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;

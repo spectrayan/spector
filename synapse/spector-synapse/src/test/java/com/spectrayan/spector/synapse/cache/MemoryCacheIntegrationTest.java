@@ -16,7 +16,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.commons.cache.SpectorCache;
 import com.spectrayan.spector.commons.cache.SpectorCacheErrorHandler;
 import com.spectrayan.spector.commons.cache.SpectorCacheKeyGenerator;
-import com.spectrayan.spector.memory.DataEncryptor;
+import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.cache.MemoryCacheNames;
 import com.spectrayan.spector.spring.cache.EncryptingJsonCacheSerializer;
 import com.spectrayan.spector.spring.cache.SpringSpectorCacheManagerAdapter;

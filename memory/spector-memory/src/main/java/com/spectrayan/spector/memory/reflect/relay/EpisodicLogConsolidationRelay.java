@@ -47,7 +47,7 @@ import java.util.Set;
  *
  * <p>Consolidates variable-length conversation turns in {@link EpisodicLogMemory} into permanent
  * semantic facts via template-driven LLM synthesis or high-salience fallback, and ingests them
- * through {@link com.spectrayan.spector.memory.RememberPathway}.</p>
+ * through {@link com.spectrayan.spector.memory.pathway.RememberPathway}.</p>
  */
 public final class EpisodicLogConsolidationRelay implements SynapticRelay<ReflectSignal> {
 

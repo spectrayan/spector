@@ -24,7 +24,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.Cogniti
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -98,7 +98,7 @@ public abstract class AbstractConsolidator implements Consolidator {
     protected boolean evaluateAndResolvePair(
             CognitiveRecord recordA,
             CognitiveRecord recordB,
-            com.spectrayan.spector.memory.PartitionManager partitionManager,
+            com.spectrayan.spector.memory.persist.PartitionManager partitionManager,
             CognitiveRecordMemory store,
             ScalarQuantizer quantizer,
             EntityDirectory entityDirectory,
@@ -156,7 +156,7 @@ public abstract class AbstractConsolidator implements Consolidator {
     protected void mergeDuplicate(
             CognitiveRecord recordA,
             CognitiveRecord recordB,
-            com.spectrayan.spector.memory.PartitionManager partitionManager,
+            com.spectrayan.spector.memory.persist.PartitionManager partitionManager,
             CognitiveRecordMemory store,
             ScalarQuantizer quantizer,
             RememberPathway rememberPathway,
@@ -219,7 +219,7 @@ public abstract class AbstractConsolidator implements Consolidator {
      */
     protected void tombstoneRecord(
             CognitiveRecord record,
-            com.spectrayan.spector.memory.PartitionManager partitionManager,
+            com.spectrayan.spector.memory.persist.PartitionManager partitionManager,
             CognitiveRecordMemory fallbackStore,
             MemoryIndex index,
             MemoryWal wal) {

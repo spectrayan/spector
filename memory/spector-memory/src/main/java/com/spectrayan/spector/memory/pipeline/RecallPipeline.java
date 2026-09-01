@@ -15,8 +15,6 @@ package com.spectrayan.spector.memory.pipeline;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 
-
-
 import com.spectrayan.spector.memory.model.RecallTrace;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
@@ -110,8 +108,6 @@ import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker;
 import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker.RerankCandidate;
 import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker.RerankResult;
 
-
-
 /**
  * 8-step recall pipeline for cognitive memory retrieval.
  *
@@ -143,10 +139,10 @@ import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker.RerankRes
  *   <li><b>Observer</b>: Post-recall hooks via {@link RecallListener}</li>
  * </ul>
  *
- * @deprecated Superceded by {@link com.spectrayan.spector.memory.RecallPathway} as part of the
+ * @deprecated Superceded by {@link com.spectrayan.spector.memory.pathway.RecallPathway} as part of the
  *             Cognitive Pathway Engine redesign (#561). Will be removed in a future major release.
  */
-@Deprecated(since = "0.2.0-alpha", forRemoval = false)
+@Deprecated(since = "0.1.0-alpha", forRemoval = true)
 public final class RecallPipeline {
 
     private static final Logger log = LoggerFactory.getLogger(RecallPipeline.class);
@@ -226,8 +222,8 @@ public final class RecallPipeline {
     /**
      * Creates a new fluent builder for assembling a {@link RecallPipeline}.
      */
-    public static com.spectrayan.spector.memory.RecallPipelineBuilder builder() {
-        return new com.spectrayan.spector.memory.RecallPipelineBuilder();
+    public static com.spectrayan.spector.memory.bootstrap.RecallPipelineBuilder builder() {
+        return new com.spectrayan.spector.memory.bootstrap.RecallPipelineBuilder();
     }
 
     /**

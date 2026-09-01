@@ -93,7 +93,7 @@ public final class CadpContradictionResolver {
     public static ResolutionResult resolve(
             CognitiveRecord recordA,
             CognitiveRecord recordB,
-            com.spectrayan.spector.memory.PartitionManager partitionManager,
+            com.spectrayan.spector.memory.persist.PartitionManager partitionManager,
             CognitiveRecordMemory store,
             HyperEntityGraphMemory hyperEntityGraph,
             EntityDirectory entityDirectory,

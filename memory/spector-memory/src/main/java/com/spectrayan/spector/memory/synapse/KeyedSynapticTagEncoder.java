@@ -52,7 +52,7 @@ import java.security.NoSuchAlgorithmException;
  * pre-initialized {@link Mac} to avoid contention.</p>
  *
  * @see SynapticTagEncoder
- * @see com.spectrayan.spector.memory.DataEncryptor#encodeTag(String)
+ * @see com.spectrayan.spector.memory.persist.DataEncryptor#encodeTag(String)
  */
 public final class KeyedSynapticTagEncoder {
 

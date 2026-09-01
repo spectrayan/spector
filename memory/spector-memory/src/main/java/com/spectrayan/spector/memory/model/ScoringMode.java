@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.model;
 
-
 /**
  * Controls how recall results are scored after retrieval.
  *

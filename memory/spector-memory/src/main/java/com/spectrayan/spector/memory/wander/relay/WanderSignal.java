@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.wander.relay;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.PartitionManager;
+import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
 import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;
@@ -30,9 +30,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Mutable synaptic execution signal passed along the {@link com.spectrayan.spector.memory.WanderPathway}.
+ * Mutable synaptic execution signal passed along the {@link com.spectrayan.spector.memory.pathway.WanderPathway}.
  *
  * <h3>Biological Analog: Default Mode Network Spontaneous Activation State</h3>
  * <p>Carries the state of spontaneous associative search during wakeful rest, collecting
@@ -78,6 +79,7 @@ public final class WanderSignal {
 
     private final AtomicInteger associationsFormed = new AtomicInteger(0);
     private final AtomicBoolean snapshotRecorded = new AtomicBoolean(false);
+    private final ReentrantLock statsLock = new ReentrantLock();
     private double totalSynapticWeightDelta = 0.0;
 
     private WanderSignal(final Builder builder) {
@@ -153,12 +155,22 @@ public final class WanderSignal {
     public int associationsFormed() { return associationsFormed.get(); }
     public void addAssociationsFormed(int count) { associationsFormed.addAndGet(count); }
 
-    public synchronized void recordWeightDelta(double delta) {
-        totalSynapticWeightDelta += delta;
+    public void recordWeightDelta(double delta) {
+        statsLock.lock();
+        try {
+            totalSynapticWeightDelta += delta;
+        } finally {
+            statsLock.unlock();
+        }
     }
 
-    public synchronized double totalSynapticWeightDelta() {
-        return totalSynapticWeightDelta;
+    public double totalSynapticWeightDelta() {
+        statsLock.lock();
+        try {
+            return totalSynapticWeightDelta;
+        } finally {
+            statsLock.unlock();
+        }
     }
 
     public boolean isSnapshotRecorded() { return snapshotRecorded.get(); }
@@ -169,10 +181,17 @@ public final class WanderSignal {
      */
     public WanderReport buildReport() {
         Duration elapsed = Duration.between(startTime, Instant.now());
+        float weightDelta;
+        statsLock.lock();
+        try {
+            weightDelta = (float) totalSynapticWeightDelta;
+        } finally {
+            statsLock.unlock();
+        }
         return new WanderReport(
                 sampledVectors.size(),
                 associationsFormed.get(),
-                (float) totalSynapticWeightDelta,
+                weightDelta,
                 snapshotRecorded.get(),
                 elapsed,
                 Collections.unmodifiableList(new ArrayList<>(discoveredAssociations))

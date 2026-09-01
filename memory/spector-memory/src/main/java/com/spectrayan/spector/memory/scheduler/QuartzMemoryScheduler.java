@@ -14,13 +14,19 @@ package com.spectrayan.spector.memory.scheduler;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.concurrent.VirtualThreadPool;
-import com.spectrayan.spector.memory.DreamPathway;
-import com.spectrayan.spector.memory.PartitionManager;
+import com.spectrayan.spector.memory.pathway.DreamPathway;
+import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
 import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
 import com.spectrayan.spector.memory.model.ReflectReport;
-import com.spectrayan.spector.memory.scheduler.jobs.*;
+import com.spectrayan.spector.memory.scheduler.jobs.CheckpointJob;
+import com.spectrayan.spector.memory.scheduler.jobs.DmnWanderingJob;
+import com.spectrayan.spector.memory.scheduler.jobs.GraphEnrichmentJob;
+import com.spectrayan.spector.memory.scheduler.jobs.HomeostaticDecayJob;
+import com.spectrayan.spector.memory.scheduler.jobs.RemDreamJob;
+import com.spectrayan.spector.memory.scheduler.jobs.SleepConsolidationJob;
+import com.spectrayan.spector.memory.error.SpectorSchedulerException;
 import com.spectrayan.spector.memory.sync.CheckpointDaemon;
 import org.quartz.*;
 import org.quartz.impl.DirectSchedulerFactory;
@@ -34,6 +40,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 /**
@@ -105,17 +112,20 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             log.info("QuartzMemoryScheduler initialized for namespace [{}]", this.namespaceId);
 
         } catch (SchedulerException e) {
-            throw new RuntimeException("Failed to initialize QuartzMemoryScheduler for namespace " + this.namespaceId, e);
+            throw new SpectorSchedulerException("Failed to initialize QuartzMemoryScheduler for namespace " + this.namespaceId, e);
         }
     }
+
+    private static final ReentrantLock DEFAULT_SCHEDULER_LOCK = new ReentrantLock();
 
     public static Builder builder() {
         return new Builder();
     }
 
-    private static synchronized Scheduler resolveDefaultStandaloneScheduler(Executor suppliedExecutor) {
-        DirectSchedulerFactory factory = DirectSchedulerFactory.getInstance();
+    private static Scheduler resolveDefaultStandaloneScheduler(Executor suppliedExecutor) {
+        DEFAULT_SCHEDULER_LOCK.lock();
         try {
+            DirectSchedulerFactory factory = DirectSchedulerFactory.getInstance();
             Scheduler existing = factory.getScheduler(DEFAULT_STANDALONE_SCHEDULER_NAME);
             if (existing != null && !existing.isShutdown()) {
                 return existing;
@@ -132,7 +142,9 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             scheduler.start();
             return scheduler;
         } catch (SchedulerException e) {
-            throw new RuntimeException("Failed to initialize default standalone Quartz scheduler", e);
+            throw new SpectorSchedulerException("Failed to initialize default standalone Quartz scheduler", e);
+        } finally {
+            DEFAULT_SCHEDULER_LOCK.unlock();
         }
     }
 
@@ -378,7 +390,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             quartzScheduler.triggerJob(jobKey);
             log.debug("Triggered immediate execution for task [{}] in namespace [{}]", taskId, namespaceId);
         } catch (SchedulerException e) {
-            throw new RuntimeException("Failed to trigger task " + taskId + " in namespace " + namespaceId, e);
+            throw new SpectorSchedulerException("Failed to trigger task " + taskId + " in namespace " + namespaceId, e);
         }
     }
 
@@ -389,7 +401,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             quartzScheduler.pauseJob(jobKey);
             log.info("Paused task [{}] in namespace [{}]", taskId, namespaceId);
         } catch (SchedulerException e) {
-            throw new RuntimeException("Failed to pause task " + taskId, e);
+            throw new SpectorSchedulerException("Failed to pause task " + taskId, e);
         }
     }
 
@@ -400,7 +412,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             quartzScheduler.resumeJob(jobKey);
             log.info("Resumed task [{}] in namespace [{}]", taskId, namespaceId);
         } catch (SchedulerException e) {
-            throw new RuntimeException("Failed to resume task " + taskId, e);
+            throw new SpectorSchedulerException("Failed to resume task " + taskId, e);
         }
     }
 
@@ -420,7 +432,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             quartzScheduler.rescheduleJob(triggerKey, newTrigger);
             log.info("Rescheduled task [{}] in namespace [{}] with interval {}ms", taskId, namespaceId, newInterval.toMillis());
         } catch (SchedulerException e) {
-            throw new RuntimeException("Failed to reschedule task " + taskId, e);
+            throw new SpectorSchedulerException("Failed to reschedule task " + taskId, e);
         }
     }
 
@@ -437,7 +449,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             quartzScheduler.rescheduleJob(triggerKey, newTrigger);
             log.info("Rescheduled task [{}] in namespace [{}] with cron [{}]", taskId, namespaceId, cronExpression);
         } catch (SchedulerException e) {
-            throw new RuntimeException("Failed to reschedule task " + taskId + " with cron " + cronExpression, e);
+            throw new SpectorSchedulerException("Failed to reschedule task " + taskId + " with cron " + cronExpression, e);
         }
     }
 

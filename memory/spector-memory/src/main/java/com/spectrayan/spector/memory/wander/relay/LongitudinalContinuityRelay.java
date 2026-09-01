@@ -20,7 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Stage 6 relay in {@link com.spectrayan.spector.memory.WanderPathway} that captures and persists longitudinal identity and consciousness continuity metrics.
+ * Stage 6 relay in {@link com.spectrayan.spector.memory.pathway.WanderPathway} that captures and persists longitudinal identity and consciousness continuity metrics.
  *
  * <h3>Biological Analog: Multi-Epoch Self-Model Metacognitive Auditing</h3>
  * <p>Periodically records Integrated Information Theory cohesion (\(\Phi_{CC}\)), personal Riemannian

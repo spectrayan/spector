@@ -23,7 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Stage 7 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Stage 7 relay in {@link com.spectrayan.spector.memory.pathway.DreamPathway}.
  *
  * <h3>Biological Analog: Predictive Coding Reality Testing &amp; Expected Free Energy Verification</h3>
  * <p>Validates synthetic counterfactual simulations against stored priors and soul identity,

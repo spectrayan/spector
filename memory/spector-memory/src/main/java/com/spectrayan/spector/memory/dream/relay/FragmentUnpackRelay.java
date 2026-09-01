@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 
 /**
- * Stage 3 relay in {@link com.spectrayan.spector.memory.DreamPathway}.
+ * Stage 3 relay in {@link com.spectrayan.spector.memory.pathway.DreamPathway}.
  *
  * <h3>Biological Analog: Constructive Episodic Simulation Fragment Decomposition (Schacter &amp; Addis, 2007)</h3>
  * <p>Decomposes intact episodic traces into typed constituent semantic primitives (AGENT, ACTION,

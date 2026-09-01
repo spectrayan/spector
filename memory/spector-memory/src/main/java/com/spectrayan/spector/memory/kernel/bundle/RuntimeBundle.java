@@ -166,7 +166,7 @@ public final class RuntimeBundle implements AutoCloseable {
 
                     BundleDirectory dir = BundleDirectory.read(mapped);
                     if (dir.bundleMagic() != BundleSubHeader.MAGIC_RUNTIME) {
-                        throw new IllegalStateException("Not a runtime bundle: magic=0x"
+                        throw new com.spectrayan.spector.memory.error.SpectorWalCorruptionException("Not a runtime bundle: magic=0x"
                                 + Integer.toHexString(dir.bundleMagic()));
                     }
                     log.info("Opened runtime bundle: {} ({} live regions, {}KB)",
@@ -233,7 +233,8 @@ public final class RuntimeBundle implements AutoCloseable {
                 if (entry == null) {
                     throw new IllegalArgumentException("Region not found in runtime bundle: " + id);
                 }
-                throw new IllegalStateException("Region is not live: " + id);
+                throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
+                        com.spectrayan.spector.commons.error.ErrorCode.MEMORY_ID_NOT_FOUND, "Region is not live: " + id);
             }
             return slice;
         } finally {

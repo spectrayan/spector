@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.adaptor;
 
-
 /**
  * Immutable running statistics for reinforcement-based profile adaptation.
  *

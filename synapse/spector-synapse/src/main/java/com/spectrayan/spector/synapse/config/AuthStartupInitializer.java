@@ -21,7 +21,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-import com.spectrayan.spector.memory.LayoutMigrator;
+import com.spectrayan.spector.memory.persist.LayoutMigrator;
 import com.spectrayan.spector.spring.autoconfigure.SpectorConfigProperties;
 import com.spectrayan.spector.synapse.security.UserAccountStore;
 

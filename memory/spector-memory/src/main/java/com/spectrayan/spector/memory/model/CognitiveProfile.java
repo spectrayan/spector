@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.model;
 
-
 /**
  * Preset cognitive scoring profiles for thalamic modulation.
  *

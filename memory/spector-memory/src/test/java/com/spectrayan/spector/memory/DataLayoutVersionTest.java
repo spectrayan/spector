@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.persist.DataLayoutVersion;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;

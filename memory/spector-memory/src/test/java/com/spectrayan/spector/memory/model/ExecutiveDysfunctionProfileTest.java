@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.model;
 
 import static org.assertj.core.api.Assertions.*;
 
-import com.spectrayan.spector.memory.CognitiveProfileConfig;
+import com.spectrayan.spector.memory.api.CognitiveProfileConfig;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

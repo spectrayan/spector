@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.model;
 
-
 /**
  * Provides a detailed breakdown of how the importance score was calculated.
  *

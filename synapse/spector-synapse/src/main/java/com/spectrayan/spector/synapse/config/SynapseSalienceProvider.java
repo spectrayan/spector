@@ -13,7 +13,7 @@
 package com.spectrayan.spector.synapse.config;
 
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
-import com.spectrayan.spector.memory.SalienceProfileProvider;
+import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.model.InterestDomain;
 import com.spectrayan.spector.memory.model.InterestLevel;
 import com.spectrayan.spector.memory.model.PersonaContext;

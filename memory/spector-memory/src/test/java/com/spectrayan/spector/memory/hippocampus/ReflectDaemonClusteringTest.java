@@ -16,7 +16,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;

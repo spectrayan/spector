@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.memory.pathway.DreamPathway;
 import com.spectrayan.spector.memory.dream.DreamJournalMemory;
 import com.spectrayan.spector.memory.dream.relay.DreamConfig;
 import com.spectrayan.spector.memory.dream.relay.DreamMode;

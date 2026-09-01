@@ -16,7 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
-import com.spectrayan.spector.memory.DataEncryptor;
+import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.pathway.WanderPathway;
+
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.aisme.fegr.GenerativeSelfModel;

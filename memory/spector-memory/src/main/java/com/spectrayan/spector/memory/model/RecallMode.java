@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.model;
 
-
 /**
  * Controls whether recall mutates memory state.
  *

@@ -13,6 +13,134 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.adaptor.ProfileAdaptor;
+import com.spectrayan.spector.memory.aisme.continuity.IdentityTrajectorySnapshot;
+import com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon;
+import com.spectrayan.spector.memory.aisme.dmn.HomeostaticDecayDaemon;
+import com.spectrayan.spector.memory.amygdala.ValenceTracker;
+import com.spectrayan.spector.memory.api.CognitiveProfileConfig;
+import com.spectrayan.spector.memory.api.ImportanceEstimator;
+import com.spectrayan.spector.memory.api.ImportanceProvider;
+import com.spectrayan.spector.memory.bootstrap.SpectorMemoryFactory;
+import com.spectrayan.spector.memory.consolidation.BatchConsolidator;
+import com.spectrayan.spector.memory.consolidation.EagerConsolidator;
+import com.spectrayan.spector.memory.cortex.CentroidRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
+import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
+import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
+import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
+import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
+import com.spectrayan.spector.memory.cortex.TextAppendMemory;
+import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
+import com.spectrayan.spector.memory.decide.relay.DecideReport;
+import com.spectrayan.spector.memory.decide.relay.DecideSignal;
+import com.spectrayan.spector.memory.dopamine.DefaultImportanceProvider;
+import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
+import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
+import com.spectrayan.spector.memory.dream.relay.DreamMode;
+import com.spectrayan.spector.memory.dream.relay.DreamReport;
+import com.spectrayan.spector.memory.error.SpectorGraphDecayException;
+import com.spectrayan.spector.memory.express.relay.ExpressReport;
+import com.spectrayan.spector.memory.express.relay.ExpressSignal;
+import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
+import com.spectrayan.spector.memory.graph.EntityExtractionMode;
+import com.spectrayan.spector.memory.graph.EntityExtractor;
+import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
+import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
+import com.spectrayan.spector.memory.habituation.HabituationPenalty;
+import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
+import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
+import com.spectrayan.spector.memory.id.IdStrategy;
+import com.spectrayan.spector.memory.id.MemoryIdGenerator;
+import com.spectrayan.spector.memory.index.IndexRecordMemory;
+import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.inhibition.SuppressionSet;
+import com.spectrayan.spector.memory.insula.InsularCortex;
+import com.spectrayan.spector.memory.interference.SemanticDeduplicator;
+import com.spectrayan.spector.memory.kernel.Memory;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.metamemory.MemoryInsight;
+import com.spectrayan.spector.memory.metamemory.MemoryIntrospector;
+import com.spectrayan.spector.memory.model.CognitiveProfile;
+import com.spectrayan.spector.memory.model.CognitiveRecord;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.ConversationRole;
+import com.spectrayan.spector.memory.model.FactHistory;
+import com.spectrayan.spector.memory.model.ImportanceContext;
+import com.spectrayan.spector.memory.model.ImportanceResult;
+import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.RecallMode;
+import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.ReflectReport;
+import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.model.SoulContext;
+import com.spectrayan.spector.memory.model.SourceModality;
+import com.spectrayan.spector.memory.model.WhyNotExplanation;
+import com.spectrayan.spector.memory.namespace.NamespaceQuotas;
+import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
+import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
+import com.spectrayan.spector.memory.pathway.DecidePathway;
+import com.spectrayan.spector.memory.pathway.DreamPathway;
+import com.spectrayan.spector.memory.pathway.ExpressPathway;
+import com.spectrayan.spector.memory.pathway.RecallPathway;
+import com.spectrayan.spector.memory.pathway.ReflectPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
+import com.spectrayan.spector.memory.pathway.WanderPathway;
+import com.spectrayan.spector.memory.persist.PartitionManager;
+import com.spectrayan.spector.memory.persist.PersistenceManager;
+import com.spectrayan.spector.memory.pipeline.AttachmentProcessor;
+import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.pipeline.ContentTagExtractor;
+import com.spectrayan.spector.memory.pipeline.GraphScoringPolicy;
+import com.spectrayan.spector.memory.pipeline.HebbianCoActivationListener;
+import com.spectrayan.spector.memory.pipeline.LtpReconsolidationListener;
+import com.spectrayan.spector.memory.pipeline.RecallPipeline;
+import com.spectrayan.spector.memory.pipeline.TagExtractor;
+import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker;
+import com.spectrayan.spector.memory.pipeline.reranker.ColBERTTokenCache;
+import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
+import com.spectrayan.spector.memory.prospective.Reminder;
+import com.spectrayan.spector.memory.reflect.ReflectionOrchestrator;
+import com.spectrayan.spector.memory.reflect.ReinforcementHandler;
+import com.spectrayan.spector.memory.scheduler.MemoryScheduler;
+import com.spectrayan.spector.memory.scheduler.QuartzMemoryScheduler;
+import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
+import com.spectrayan.spector.memory.session.SessionWriteBuffer;
+import com.spectrayan.spector.memory.synapse.ActRActivation;
+import com.spectrayan.spector.memory.sync.CheckpointDaemon;
+import com.spectrayan.spector.memory.sync.CompactionResult;
+import com.spectrayan.spector.memory.sync.MemoryWal;
+import com.spectrayan.spector.memory.sync.VacuumCompactor;
+import com.spectrayan.spector.memory.sync.WalEvent;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.temporal.TemporalFact;
+import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
+import com.spectrayan.spector.memory.wander.relay.WanderReport;
+
+import com.spectrayan.spector.memory.bootstrap.SpectorMemoryFactory;
+import com.spectrayan.spector.memory.persist.PersistenceManager;
+import com.spectrayan.spector.memory.persist.PartitionManager;
+import com.spectrayan.spector.memory.reflect.ReflectionOrchestrator;
+import com.spectrayan.spector.memory.reflect.ReinforcementHandler;
+
+import com.spectrayan.spector.memory.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 
@@ -89,7 +217,7 @@ import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
 import com.spectrayan.spector.memory.pipeline.HebbianCoActivationListener;
 import com.spectrayan.spector.memory.pipeline.ContentTagExtractor;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.pipeline.LtpReconsolidationListener;
 import com.spectrayan.spector.memory.pipeline.GraphScoringPolicy;
 import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
@@ -177,7 +305,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final ReflectPathway reflectPathway;     // #503 relay-based sleep reflection engine
     private final ExpressPathway expressPathway;     // #602 relay-based express engine
     private final DreamPathway dreamPathway;         // #679 relay-based generative dreaming & thought experiment engine
-    private final boolean usePathwayEngine;
     private final MemoryIndex index;
     private final ScalarQuantizer quantizer;
 
@@ -189,7 +316,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final BatchConsolidator batchConsolidator;
     private final com.spectrayan.spector.memory.consolidation.EagerConsolidator eagerConsolidator;
     private final com.spectrayan.spector.memory.scheduler.MemoryScheduler memoryScheduler;
-
 
     //  Biological Subsystems 
     private final ValenceTracker valenceTracker;
@@ -276,15 +402,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.expressPathway = bundle.expressPathway();
         this.embeddingProvider = bundle.embeddingProvider();
         this.recallPathway = bundle.recallPathway();
-        this.usePathwayEngine = (builder.usePathwayEngine || bundle.recallPathway() != null || bundle.rememberPathway() != null)
-                && (bundle.recallPathway() != null || bundle.rememberPathway() != null);
-        this.index = bundle.index();
+                this.index = bundle.index();
         this.quantizer = bundle.quantizer();
         this.partitionManager = bundle.partitionManager();
         this.importanceProvider = bundle.importanceProvider();
         this.reflectionOrchestrator = bundle.reflectionOrchestrator();
         this.reinforcementHandler = bundle.reinforcementHandler();
-        this.batchConsolidator = new BatchConsolidator(builder.LlmProvider, this.embeddingProvider);
+        this.batchConsolidator = new BatchConsolidator(builder.LlmProvider(), this.embeddingProvider);
         this.eagerConsolidator = new com.spectrayan.spector.memory.consolidation.EagerConsolidator(
                 bundle.partitionManager().cognitiveRouter(),
                 bundle.index(),
@@ -292,11 +416,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 bundle.entityDirectory(),
                 bundle.hyperEntityGraph(),
                 bundle.temporalKnowledgeGraph(),
-                builder.LlmProvider,
+                builder.LlmProvider(),
                 this.embeddingProvider,
                 this::inspect,
-                builder.deduplicationRadius,
-                builder.eagerConsolidationQueueCapacity
+                builder.deduplicationRadius(),
+                builder.eagerConsolidationQueueCapacity()
         );
 
         this.valenceTracker = bundle.valenceTracker();
@@ -327,13 +451,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 this.coActivationTracker.rebuildInvertedIndex(tagMap);
             }
         }
-        this.dimensions = builder.dimensions;
-        this.persistenceMode = builder.persistenceMode;
-        this.persistencePath = builder.persistencePath;
-        this.circadianPolicy = builder.circadianPolicy;
-        this.profileConfig = builder.profileConfig;
+        this.dimensions = builder.dimensions();
+        this.persistenceMode = builder.persistenceMode();
+        this.persistencePath = builder.persistencePath();
+        this.circadianPolicy = builder.circadianPolicy();
+        this.profileConfig = builder.profileConfig();
         this.namespaceManager = bundle.namespaceManager();
-        this.namespaceId = builder.namespaceId;
+        this.namespaceId = builder.namespaceId();
         this.idGenerator = bundle.idGenerator();
         this.checkpointDaemon = bundle.checkpointDaemon();
         if (this.checkpointDaemon != null) {
@@ -342,24 +466,24 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.graphEnrichmentDaemon = bundle.graphEnrichmentDaemon();
         this.daemonSupervisor = bundle.daemonSupervisor();
         this.bm25Index = bundle.bm25Index();
-        this.chunker = builder.chunker;
-        this.chunkConfig = builder.chunkConfig;
+        this.chunker = builder.chunker();
+        this.chunkConfig = builder.chunkConfig();
         this.parallelPipeline = bundle.parallelPipeline();
         this.embedConfig = bundle.embedConfig();
         this.attachmentProcessor = bundle.attachmentProcessor();
         this.profileAdaptor = bundle.profileAdaptor();
-        this.semanticIndex = builder.semanticIndex;
+        this.semanticIndex = builder.semanticIndex();
         this.runtimeBundle = bundle.runtimeBundle();
         this.insularCortex = bundle.insularCortex();
         this.wanderPathway = bundle.wanderPathway();
         this.continuityMemory = bundle.continuityMemory();
         this.decidePathway = bundle.decidePathway();
         this.dreamPathway = bundle.dreamPathway();
-        this.hook = builder.hook != null ? builder.hook : MemoryObservationHook.NOOP;
+        this.hook = builder.hook() != null ? builder.hook() : MemoryObservationHook.NOOP;
 
         //  Quartz Memory Scheduler (In-Memory Multi-Tenant Background Scheduling & Auditing)
-        if (builder.scheduler != null) {
-            this.memoryScheduler = builder.scheduler;
+        if (builder.scheduler() != null) {
+            this.memoryScheduler = builder.scheduler();
         } else {
             this.memoryScheduler = com.spectrayan.spector.memory.scheduler.QuartzMemoryScheduler.builder()
                     .namespaceId(this.namespaceId)
@@ -367,25 +491,25 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     .circadianPolicy(circadianPolicy)
                     .dreamPathway(this.dreamPathway)
                     .partitionManager(this.partitionManager)
-                    .aismeConfig(builder.aismeConfig)
+                    .aismeConfig(builder.aismeConfig())
                     .checkpointDaemon(this.checkpointDaemon)
                     .graphEnrichmentDaemon(this.graphEnrichmentDaemon)
-                    .dmnDaemon((this.wanderPathway != null && builder.aismeConfig != null && builder.aismeConfig.enabled() && builder.aismeConfig.enableDmnSpontaneous())
+                    .dmnDaemon((this.wanderPathway != null && builder.aismeConfig() != null && builder.aismeConfig().enabled() && builder.aismeConfig().enableDmnSpontaneous())
                             ? new com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon(this.wanderPathway, this.partitionManager, System::currentTimeMillis) : null)
-                    .decayDaemon((bundle.aismeBundle() != null && builder.aismeConfig != null && builder.aismeConfig.backgroundDecayEnabled())
+                    .decayDaemon((bundle.aismeBundle() != null && builder.aismeConfig() != null && builder.aismeConfig().backgroundDecayEnabled())
                             ? new com.spectrayan.spector.memory.aisme.dmn.HomeostaticDecayDaemon(
                                     bundle.aismeBundle().mentalStateTracker(),
                                     bundle.aismeBundle().homeostaticCore(),
-                                    builder.aismeConfig.backgroundDecayFactor()) : null)
-                    .checkpointIntervalSeconds(builder.checkpointIntervalSeconds)
-                    .suppliedExecutor(builder.suppliedExecutor)
-                    .quartzScheduler(builder.customQuartzScheduler)
+                                    builder.aismeConfig().backgroundDecayFactor()) : null)
+                    .checkpointIntervalSeconds(builder.checkpointIntervalSeconds())
+                    .suppliedExecutor(builder.suppliedExecutor())
+                    .quartzScheduler(builder.customQuartzScheduler())
                     .build();
         }
 
         //  JVM Shutdown Hook  (DISK mode only)
         if (persistenceMode == MemoryPersistenceMode.DISK && bundle.basePath() != null) {
-            if (!builder.managedByRegistry) {
+            if (!builder.managedByRegistry()) {
                 this.shutdownHook = new Thread(() -> {
                     if (closed.compareAndSet(false, true)) {
                         log.info("JVM shutdown hook: flushing SpectorMemory...");
@@ -599,7 +723,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                   int latencyMs, long userId,
                                   short soulVersion, SourceModality modality) {
         if (episodicLogStore == null) {
-            throw new IllegalStateException("Episodic log store not available (legacy mode?)");
+            throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
+                    com.spectrayan.spector.commons.error.ErrorCode.MEMORY_PATHWAY_FAILED, "Episodic log store not available (store missing)");
         }
 
         long offset = episodicLogStore.appendTurn(role, sequenceId,
@@ -917,7 +1042,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             // Auto-profile & query tag resolution: use ProfileAdaptor and TagExtractor
             if (options.autoProfile()) {
                 var optBuilder = options.toBuilder();
-                var tagExtractor = (usePathwayEngine && rememberPathway != null)
+                var tagExtractor = (rememberPathway != null)
                         ? rememberPathway.tagExtractor()
                         : (rememberPathway != null ? rememberPathway.tagExtractor() : null);
                 String[] extracted = tagExtractor != null ? tagExtractor.extract("query", queryText) : null;
@@ -1113,7 +1238,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     config.maxChunkSize(), config.overlap(), config.parentChildLinking());
         }
     }
-
 
     // ==============================================================
     // EXTENDED API  --  reinforce / suppress / introspect
@@ -1514,7 +1638,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public SalienceProfile salienceProfile() {
-        if (usePathwayEngine && rememberPathway != null) {
+        if (rememberPathway != null) {
             return rememberPathway.salienceProfile();
         }
         return rememberPathway.salienceProfile();

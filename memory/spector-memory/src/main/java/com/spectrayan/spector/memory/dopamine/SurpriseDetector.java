@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
  * automatically.</p>
  *
  * <h3>Thread Safety</h3>
- * <p>This class is thread-safe. The internal {@link WelfordStats} uses synchronized
+ * <p>This class is thread-safe. The internal {@link WelfordStats} uses {@link java.util.concurrent.locks.ReentrantLock}
  * updates, and reads are volatile.</p>
  */
 public final class SurpriseDetector {

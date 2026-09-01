@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.persist.DataEncryptor;
+import com.spectrayan.spector.memory.persist.NoopDataEncryptor;
+
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 import org.junit.jupiter.api.Test;
 

@@ -34,7 +34,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import com.spectrayan.spector.memory.SalienceProfileProvider;
+import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;

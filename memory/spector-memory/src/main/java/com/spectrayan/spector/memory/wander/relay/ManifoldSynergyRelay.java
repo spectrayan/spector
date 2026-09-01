@@ -22,7 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Stage 4 relay in {@link com.spectrayan.spector.memory.WanderPathway} that validates associative attractors against the Riemannian cognitive manifold.
+ * Stage 4 relay in {@link com.spectrayan.spector.memory.pathway.WanderPathway} that validates associative attractors against the Riemannian cognitive manifold.
  *
  * <h3>Biological Analog: Entorhinal Grid Cell & Medial Prefrontal Schema Mapping</h3>
  * <p>Ensures that spontaneous associative hops conform to the agent's internalized Riemannian

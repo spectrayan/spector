@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.wander.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.PartitionManager;
+import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.core.similarity.CosineSimilarity;
@@ -28,7 +28,7 @@ import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 /**
- * Stage 2 relay in {@link com.spectrayan.spector.memory.WanderPathway} that samples seed autobiographical and episodic memories.
+ * Stage 2 relay in {@link com.spectrayan.spector.memory.pathway.WanderPathway} that samples seed autobiographical and episodic memories.
  *
  * <h3>Biological Analog: Spontaneous Episodic Memory Replay</h3>
  * <p>Randomly selects seed memory representations from high-salience semantic and autobiographical

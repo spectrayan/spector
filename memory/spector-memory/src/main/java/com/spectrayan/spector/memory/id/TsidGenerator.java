@@ -43,7 +43,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * 5 bits, so 64 bits → ceil(64/5) = 13 characters.</p>
  *
  * <h3>Thread Safety</h3>
- * <p>Internally synchronized on the generator instance. For maximum throughput under
+ * <p>Internally synchronized via {@link java.util.concurrent.locks.ReentrantLock} ({@code idLock}). For maximum throughput under
  * heavy contention, consider creating one generator per thread (or per virtual thread
  * carrier), each with a different node ID.</p>
  *

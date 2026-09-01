@@ -12,6 +12,62 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.aisme.continuity.IdentityTrajectorySnapshot;
+import com.spectrayan.spector.memory.api.MemoryAdminView;
+import com.spectrayan.spector.memory.api.MemoryRecall;
+import com.spectrayan.spector.memory.api.MemoryReflection;
+import com.spectrayan.spector.memory.api.MemoryRemember;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.memory.decide.relay.DecideReport;
+import com.spectrayan.spector.memory.decide.relay.DecideSignal;
+import com.spectrayan.spector.memory.dream.relay.DreamMode;
+import com.spectrayan.spector.memory.dream.relay.DreamReport;
+import com.spectrayan.spector.memory.express.relay.ExpressReport;
+import com.spectrayan.spector.memory.express.relay.ExpressSignal;
+import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
+import com.spectrayan.spector.memory.habituation.HabituationPenalty;
+import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.id.MemoryIdGenerator;
+import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.inhibition.SuppressionSet;
+import com.spectrayan.spector.memory.kernel.Memory;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
+import com.spectrayan.spector.memory.metamemory.MemoryInsight;
+import com.spectrayan.spector.memory.model.AgentSoul;
+import com.spectrayan.spector.memory.model.CognitiveProfile;
+import com.spectrayan.spector.memory.model.CognitiveRecord;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.ConversationRole;
+import com.spectrayan.spector.memory.model.FactHistory;
+import com.spectrayan.spector.memory.model.GraphRecallOptions;
+import com.spectrayan.spector.memory.model.GraphTraversalResult;
+import com.spectrayan.spector.memory.model.ImportanceResult;
+import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.OrgUnitSoul;
+import com.spectrayan.spector.memory.model.PersonalityModifiers;
+import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.ReflectReport;
+import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.model.SoulContext;
+import com.spectrayan.spector.memory.model.SourceModality;
+import com.spectrayan.spector.memory.model.TenantSoul;
+import com.spectrayan.spector.memory.model.UserSoul;
+import com.spectrayan.spector.memory.model.WhyNotExplanation;
+import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
+import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
+import com.spectrayan.spector.memory.prospective.Reminder;
+import com.spectrayan.spector.memory.scheduler.MemoryScheduler;
+import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
+import com.spectrayan.spector.memory.sync.MemoryWal;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.temporal.TemporalFact;
+import com.spectrayan.spector.memory.wander.relay.WanderReport;
+
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
@@ -36,7 +92,7 @@ import com.spectrayan.spector.memory.model.GraphRecallOptions;
 import com.spectrayan.spector.memory.model.GraphTraversalResult;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -45,6 +101,10 @@ import com.spectrayan.spector.memory.temporal.TemporalFact;
 import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
+import com.spectrayan.spector.memory.api.MemoryAdminView;
+import com.spectrayan.spector.memory.api.MemoryRemember;
+import com.spectrayan.spector.memory.api.MemoryRecall;
+import com.spectrayan.spector.memory.api.MemoryReflection;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 
 import java.time.Duration;
@@ -76,7 +136,7 @@ import java.util.List;
  *
  * @see DefaultSpectorMemory
  */
-public interface SpectorMemory extends AutoCloseable {
+public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryReflection, MemoryAdminView, AutoCloseable {
 
     // ══════════════════════════════════════════════════════════════
     // INGESTION TARGET
@@ -333,7 +393,6 @@ public interface SpectorMemory extends AutoCloseable {
 
     /** Updates the chunking configuration at runtime. */
     default void updateChunkConfig(com.spectrayan.spector.commons.chunker.ChunkConfig config) {}
-
 
     // ══════════════════════════════════════════════════════════════
     // IMPORTANCE ESTIMATION — pre-ingestion computation
@@ -677,8 +736,6 @@ public interface SpectorMemory extends AutoCloseable {
      * @since 1.0.0
      */
     SpectorMemoryAdmin admin();
-
-
 
     /**
      * Assert a temporal fact about an entity relationship.

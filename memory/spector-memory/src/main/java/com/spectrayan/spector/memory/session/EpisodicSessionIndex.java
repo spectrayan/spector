@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Per-session ordered offset index for episodic conversation turns.
@@ -74,7 +75,7 @@ public final class EpisodicSessionIndex {
      * @param offset    the byte offset of the turn's 64B header in the episodic region
      */
     public void appendTurn(long sessionId, long offset) {
-        sessionOffsets.computeIfAbsent(sessionId, k -> Collections.synchronizedList(new ArrayList<>()))
+        sessionOffsets.computeIfAbsent(sessionId, k -> new CopyOnWriteArrayList<>())
                 .add(offset);
     }
 

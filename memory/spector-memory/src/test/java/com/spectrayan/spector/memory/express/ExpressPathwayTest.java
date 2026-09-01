@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.express;
 
-import com.spectrayan.spector.memory.ExpressPathway;
+import com.spectrayan.spector.memory.pathway.ExpressPathway;
 import com.spectrayan.spector.memory.express.relay.ExpressSignal;
 import com.spectrayan.spector.memory.express.relay.ExpressReport;
 import com.spectrayan.spector.memory.aisme.homeostasis.InteroceptiveState;

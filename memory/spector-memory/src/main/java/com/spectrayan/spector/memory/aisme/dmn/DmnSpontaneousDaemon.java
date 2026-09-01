@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.aisme.dmn;
 
-import com.spectrayan.spector.memory.PartitionManager;
-import com.spectrayan.spector.memory.WanderPathway;
+import com.spectrayan.spector.memory.persist.PartitionManager;
+import com.spectrayan.spector.memory.pathway.WanderPathway;
 import com.spectrayan.spector.memory.wander.relay.WanderReport;
 
 import org.slf4j.Logger;

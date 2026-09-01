@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.api.CognitiveProfileConfig;
+
 import static org.assertj.core.api.Assertions.*;
 
 import com.spectrayan.spector.commons.error.SpectorValidationException;

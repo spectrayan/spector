@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.simulation;
 import com.spectrayan.spector.core.spacetime.ExpressTense;
 import com.spectrayan.spector.core.spacetime.SpacetimeSimulationMode;
 import com.spectrayan.spector.core.spacetime.Time2VecProjector;
-import com.spectrayan.spector.memory.ExpressPathway;
+import com.spectrayan.spector.memory.pathway.ExpressPathway;
 import com.spectrayan.spector.memory.aisme.homeostasis.InteroceptiveState;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
