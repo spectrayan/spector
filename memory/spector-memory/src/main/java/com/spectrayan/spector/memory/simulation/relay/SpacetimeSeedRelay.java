@@ -184,6 +184,11 @@ public final class SpacetimeSeedRelay {
             finalResults.add(sc.result().withScore(finalScore));
         }
 
+        if (log.isDebugEnabled()) {
+            log.debug("SPACETIME_SEED trace: t_s={}, mode={}, lambda={}, rho+=({}), rho-=({}), candidate_count={}, selected_seeds={}",
+                    simulationTimeMs, mode, recencyLambda, rhoPlus, rhoMinus, candidates.size(), unionMap.keySet());
+        }
+
         return Collections.unmodifiableList(finalResults);
     }
 
