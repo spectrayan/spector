@@ -36,7 +36,7 @@ import com.spectrayan.spector.memory.model.GraphRecallOptions;
 import com.spectrayan.spector.memory.model.GraphTraversalResult;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -46,7 +46,7 @@ import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
 import com.spectrayan.spector.memory.api.MemoryAdminView;
-import com.spectrayan.spector.memory.api.MemoryIngestion;
+import com.spectrayan.spector.memory.api.MemoryRemember;
 import com.spectrayan.spector.memory.api.MemoryRecall;
 import com.spectrayan.spector.memory.api.MemoryReflection;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
@@ -80,7 +80,7 @@ import java.util.List;
  *
  * @see DefaultSpectorMemory
  */
-public interface SpectorMemory extends MemoryIngestion, MemoryRecall, MemoryReflection, MemoryAdminView, AutoCloseable {
+public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryReflection, MemoryAdminView, AutoCloseable {
 
     // ══════════════════════════════════════════════════════════════
     // INGESTION TARGET

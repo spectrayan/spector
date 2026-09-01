@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.api;
 
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.ImportanceResult;
@@ -24,11 +24,11 @@ import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
 import java.nio.file.Path;
 
 /**
- * Interface Segregation (ISP): Ingestion operations on cognitive memory.
+ * Interface Segregation (ISP): Ingestion and memory encoding operations (remember) on cognitive memory.
  *
  * @since 1.4.0
  */
-public interface MemoryIngestion {
+public interface MemoryRemember {
 
     RememberPathway target();
 
