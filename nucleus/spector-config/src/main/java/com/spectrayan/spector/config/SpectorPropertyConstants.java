@@ -1283,7 +1283,7 @@ public final class SpectorPropertyConstants {
 
     // Spacetime Vector Search (ADR-0030 v1)
     public static final String RECALL_SPACETIME_ENABLED = "spector.recall.spacetime.enabled";
-    public static final boolean DEFAULT_RECALL_SPACETIME_ENABLED = true;
+    public static final boolean DEFAULT_RECALL_SPACETIME_ENABLED = false;
 
     public static final String RECALL_SPACETIME_HARMONIC_WEIGHT = "spector.recall.spacetime.harmonic-weight";
     public static final float DEFAULT_RECALL_SPACETIME_HARMONIC_WEIGHT = 0.15f;

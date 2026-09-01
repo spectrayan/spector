@@ -675,7 +675,8 @@ public final class RecallPathway {
                 id != null ? id : "unknown-" + sr.index(),
                 resultText, sr.score(), header.importance(), ageDays,
                 recallCount, header.valence(), type, source, tags,
-                rawDecay, ltpDecay, mode, breakdown, null, modality, metadata);
+                rawDecay, ltpDecay, mode, breakdown, null, modality, metadata,
+                (byte) 0, header.timestampMs());
     }
 
     /**

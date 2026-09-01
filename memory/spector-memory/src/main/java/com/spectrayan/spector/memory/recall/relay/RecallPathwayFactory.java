@@ -175,6 +175,45 @@ public final class RecallPathwayFactory {
             final SynapticRelay<RecallSignal> constructiveMemoryPersistenceRelay,
             final SynapticRelay<RecallSignal> epistemicLearningRelay,
             final ConsolidationRelay<RecallSignal> consolidationRelay) {
+        return create(interceptor, transductionRelay, prospectiveRelay, governedReleaseGateRelay,
+                homeostaticBiasRelay, vectorSearchRelay, freeEnergyGuidedRelay, null, scoringRelay,
+                graphExpansionRelay, hopfieldAssociativeRelay, evidenceFusionRelay, lateralInhibitionRelay,
+                bm25SearchRelay, rrfRescoreRelay, manifoldRerankRelay, constructiveSimulationRelay,
+                consciousnessContinuityRelay, sortAndTruncateRelay, cognitiveRerankRelay,
+                mmrDiversityRelay, temperatureSoftmaxRelay, consciousAccessRelay,
+                constructiveMemoryPersistenceRelay, epistemicLearningRelay, consolidationRelay);
+    }
+
+    /**
+     * Creates the full cognitive recall pathway with custom spacetime scoring relay injection.
+     */
+    public static CognitivePathway<RecallSignal> create(
+            final Function<SynapticRelay<RecallSignal>, SynapticRelay<RecallSignal>> interceptor,
+            final SynapticRelay<RecallSignal> transductionRelay,
+            final SynapticRelay<RecallSignal> prospectiveRelay,
+            final SynapticRelay<RecallSignal> governedReleaseGateRelay,
+            final SynapticRelay<RecallSignal> homeostaticBiasRelay,
+            final SynapticRelay<RecallSignal> vectorSearchRelay,
+            final SynapticRelay<RecallSignal> freeEnergyGuidedRelay,
+            final SynapticRelay<RecallSignal> spacetimeScoringRelay,
+            final SynapticRelay<RecallSignal> scoringRelay,
+            final SynapticRelay<RecallSignal> graphExpansionRelay,
+            final SynapticRelay<RecallSignal> hopfieldAssociativeRelay,
+            final SynapticRelay<RecallSignal> evidenceFusionRelay,
+            final SynapticRelay<RecallSignal> lateralInhibitionRelay,
+            final SynapticRelay<RecallSignal> bm25SearchRelay,
+            final RrfRescoreRelay rrfRescoreRelay,
+            final SynapticRelay<RecallSignal> manifoldRerankRelay,
+            final SynapticRelay<RecallSignal> constructiveSimulationRelay,
+            final SynapticRelay<RecallSignal> consciousnessContinuityRelay,
+            final SortAndTruncateRelay sortAndTruncateRelay,
+            final CognitiveRerankRelay cognitiveRerankRelay,
+            final MmrDiversityRelay mmrDiversityRelay,
+            final TemperatureSoftmaxRelay temperatureSoftmaxRelay,
+            final SynapticRelay<RecallSignal> consciousAccessRelay,
+            final SynapticRelay<RecallSignal> constructiveMemoryPersistenceRelay,
+            final SynapticRelay<RecallSignal> epistemicLearningRelay,
+            final ConsolidationRelay<RecallSignal> consolidationRelay) {
 
         final var builder = CognitivePathway.<RecallSignal>pathway("recall");
         if (interceptor != null) {
@@ -194,7 +233,8 @@ public final class RecallPathwayFactory {
             builder.gated(RelayNames.FREE_ENERGY_GUIDED, RecallGates.FREE_ENERGY_ENABLED, freeEnergyGuidedRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
         }
 
-        builder.gated(RelayNames.SPACETIME_SCORING, RecallGates.SPACETIME_ENABLED, new SpacetimeScoringRelay(), ErrorPolicy.DEGRADE_GRACEFULLY)
+        final var effectiveSpacetimeRelay = spacetimeScoringRelay != null ? spacetimeScoringRelay : new SpacetimeScoringRelay();
+        builder.gated(RelayNames.SPACETIME_SCORING, RecallGates.SPACETIME_ENABLED, effectiveSpacetimeRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                .relay(RelayNames.SCORING, scoringRelay)
                .relay(RelayNames.GRAPH_EXPANSION, graphExpansionRelay);
 

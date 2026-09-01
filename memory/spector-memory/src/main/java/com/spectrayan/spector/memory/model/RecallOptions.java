@@ -1160,69 +1160,36 @@ public record RecallOptions(
         return warnings;
     }
 
-    // ==============================================================
-    // Factory presets for common recall archetypes
-    // ==============================================================
-
     /**
-     * Preset for strict factual verification.
-     */
-    public static RecallOptions factual(int topK) {
-        return builder()
-                .topK(topK)
-                .profile(CognitiveProfile.SYSTEMATIZER)
-                .strictnessCoefficient(5.0f)
-                .build();
-    }
-
-    /**
-     * Preset for broad exploration / brainstorming.
-     */
-    public static RecallOptions exploratory(int topK) {
-        return builder()
-                .topK(topK)
-                .profile(CognitiveProfile.DIVERGENT)
-                .lateralMode(true)
-                .build();
-    }
-
-    /**
-     * Preset for emotional debugging / incident investigation.
-     */
-    public static RecallOptions postMortem(int topK, String... tags) {
-        return builder()
-                .topK(topK)
-                .synapticFilter(tags)
-                .maxValence((byte) -1)
-                .build();
-    }
-
-    /**
-     * Preset for associative recall without text or LLM calls.
-     */
-    public static RecallOptions associative(int topK, float minImportance) {
-        return builder()
-                .topK(topK)
-                .minImportance(minImportance)
-                .build();
-    }
-
-    /**
-     * Parses a string profile name into a {@link CognitiveProfile}.
+     * Parses a profile name string (case-insensitive) into a {@link CognitiveProfile}.
+     *
+     * <p>Intended for MCP/REST integrations where profile arrives as a string.
+     * Returns {@code null} if the name is null, empty, or doesn't match any profile.</p>
+     *
+     * @param profileName profile name (e.g., "DEBUGGING", "debugging", "Debugging")
+     * @return the matching profile, or {@code null} if not found
      */
     public static CognitiveProfile parseProfile(String profileName) {
-        if (profileName == null || profileName.isBlank()) {
-            return null;
-        }
+        if (profileName == null || profileName.isBlank()) return null;
+        if ("AUTO".equalsIgnoreCase(profileName.strip())) return null;
         try {
             return CognitiveProfile.valueOf(profileName.strip().toUpperCase());
         } catch (IllegalArgumentException e) {
+            VALIDATION_LOG.warn("Unknown CognitiveProfile: '" + profileName
+                    + "'. Available: " + java.util.Arrays.toString(CognitiveProfile.values()));
             return null;
         }
     }
 
     /**
      * Checks if the given profile name represents the AUTO detection mode.
+     *
+     * <p>Use in combination with {@link #parseProfile} and {@link Builder#autoProfile}:
+     * if this returns {@code true}, set {@code autoProfile(true)} on the builder
+     * instead of applying a specific profile.</p>
+     *
+     * @param profileName profile name string (may be null)
+     * @return true if the name is "AUTO" (case-insensitive)
      */
     public static boolean isAutoProfile(String profileName) {
         return profileName != null && "AUTO".equalsIgnoreCase(profileName.strip());

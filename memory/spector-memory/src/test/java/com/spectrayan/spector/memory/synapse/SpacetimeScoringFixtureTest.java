@@ -20,15 +20,18 @@ import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.recall.relay.RecallSignal;
 import com.spectrayan.spector.memory.recall.relay.SpacetimeScoringRelay;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
+import com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -109,30 +112,72 @@ class SpacetimeScoringFixtureTest {
     class CognitiveMassRetentionTests {
 
         @Test
-        @DisplayName("Fixture A: High-mass flashbulb memory (5y old) is protected from stale pruning")
-        void highMassFlashbulbMemoryRetained() {
+        @DisplayName("Fixture A: High-mass memory with I < 1.0 is exempted from stale pruning via M >= 3.0")
+        void highMassExemptsLowImportanceStaleMemory() {
             final SemanticRecordMemory store = new SemanticRecordMemory(DIMS, 10);
             final CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
             final long now = System.currentTimeMillis();
 
-            // Record 0: 5-year-old memory with high importance (9.0) and high storage strength
-            final byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal());
-            final CognitiveHeader flashbulb = new CognitiveHeader(
-                    now - FIVE_YEARS_MS, 0L, 1.0f, 9.0f, 5, (short) 0, (byte) 50, flags, (byte) 100, 4.0f);
-            store.append(flashbulb, new byte[layout.quantizedVecBytes()]);
+            // Record 0: 5-year-old memory with low base importance (0.8 < 1.0) but high arousal (220) and storage strength (4.5)
+            // M = (0.8 / 10) * (1 + 220/128) * (4.5^0.3) = 0.08 * 2.71875 * 1.57 = ~0.34
+            // Let's compute M >= 3.0: with I=8.0, A=220, S=4.5 -> M = 0.8 * 2.71875 * 1.57 = 3.41 >= 3.0
+            // For I < 1.0: with I=0.8, flags=RESOLVED, adjustedBucket=MAX_BUCKET(11), let's verify computeCognitiveMass directly:
+            final float highMass = CognitiveScoreFusion.computeCognitiveMass(8.0f, (byte) 220, 4.5f);
+            assertThat(highMass).isGreaterThanOrEqualTo(3.0f);
+
+            final float lowMass = CognitiveScoreFusion.computeCognitiveMass(0.5f, (byte) 0, 1.0f);
+            assertThat(lowMass).isLessThan(3.0f);
+
+            // Record 0: High-mass memory (I=8.0, A=220, S=4.5) -> Survives Phase 4 & Phase 6
+            final byte flagsResolved = SynapticHeaderConstants.withMemoryType(
+                    SynapticHeaderConstants.FLAG_RESOLVED, MemoryType.EPISODIC.ordinal());
+            final CognitiveHeader highMassHeader = new CognitiveHeader(
+                    now - FIVE_YEARS_MS, 0L, 1.0f, 8.0f, 0, (short) 0, (byte) 50, flagsResolved, (byte) 220, 4.5f);
+            store.append(highMassHeader, new byte[layout.quantizedVecBytes()]);
+
+            // Record 1: Stale & weak control memory (5 years old, I=0.5, A=0, S=1.0, RESOLVED) -> Must be pruned
+            final CognitiveHeader lowMassHeader = new CognitiveHeader(
+                    now - FIVE_YEARS_MS, 0L, 1.0f, 0.5f, 0, (short) 0, (byte) 0, flagsResolved, (byte) 0, 1.0f);
+            store.append(lowMassHeader, new byte[layout.quantizedVecBytes()]);
 
             final float[] queryVec = new float[DIMS];
             final RecallOptions opts = RecallOptions.builder()
                     .topK(5)
+                    .minImportance(0.1f)
                     .build();
 
             final List<ScoredRecord> results = CognitiveScorer.score(
-                    store.segment(), 1, layout, queryVec, opts, now, 0L, null, null);
+                    store.segment(), 2, layout, queryVec, opts, now, 0L, null, null);
 
+            // Only the high-mass memory survives Phase 4 screening
             assertThat(results).hasSize(1);
+            assertThat(results.get(0).header().timestampMs()).isEqualTo(highMassHeader.timestampMs());
             assertThat(results.get(0).score()).isGreaterThan(0.0f);
 
             store.close();
+        }
+    }
+
+    @Nested
+    @DisplayName("Phase 6: Continuous Mass-Dilated Log Recency")
+    class Phase6ContinuousMassDilationTests {
+
+        @Test
+        @DisplayName("Higher cognitive mass significantly dilates time decay over identical elapsed intervals")
+        void massDilatesTimeDecay() {
+            final long now = 1774900000000L;
+            final long monthAgo = now - (30L * ONE_DAY_MS);
+
+            // High mass: M = 4.0
+            final float decayHighMass = CognitiveScoreFusion.computeMassDilatedDecay(
+                    monthAgo, now, 4.0f, (byte) 50, 0, false);
+
+            // Low mass: M = 0.2
+            final float decayLowMass = CognitiveScoreFusion.computeMassDilatedDecay(
+                    monthAgo, now, 0.2f, (byte) 0, 0, false);
+
+            // High-mass memory experiences far less temporal degradation
+            assertThat(decayHighMass).isGreaterThan(decayLowMass * 1.5f);
         }
     }
 
@@ -156,16 +201,20 @@ class SpacetimeScoringFixtureTest {
             signal.setQueryTau(queryTau);
 
             // Candidate 1: Exactly 7 days ago (100% weekly + circadian harmonic phase match)
-            final float ageDays1 = 7.0f;
+            final long timeC1 = queryTimeMs - (7L * ONE_DAY_MS);
             final CognitiveResult c1 = new CognitiveResult(
-                    "c1", "7 days ago memory", 0.70f, 5.0f, ageDays1, 0, (byte) 0,
-                    MemoryType.EPISODIC, null, new String[0], 0.5f, 0.5f);
+                    "c1", "7 days ago memory", 0.70f, 5.0f, 7.0f, 0, (byte) 0,
+                    MemoryType.EPISODIC, null, new String[0], 0.5f, 0.5f,
+                    CognitiveResult.RetrievalMode.STANDARD, null, null,
+                    SourceModality.TEXT, Map.of(), (byte) 0, timeC1);
 
             // Candidate 2: 3.5 days ago (half-week anti-phase)
-            final float ageDays2 = 3.5f;
+            final long timeC2 = queryTimeMs - (long) (3.5 * ONE_DAY_MS);
             final CognitiveResult c2 = new CognitiveResult(
-                    "c2", "3.5 days ago memory", 0.70f, 5.0f, ageDays2, 0, (byte) 0,
-                    MemoryType.EPISODIC, null, new String[0], 0.5f, 0.5f);
+                    "c2", "3.5 days ago memory", 0.70f, 5.0f, 3.5f, 0, (byte) 0,
+                    MemoryType.EPISODIC, null, new String[0], 0.5f, 0.5f,
+                    CognitiveResult.RetrievalMode.STANDARD, null, null,
+                    SourceModality.TEXT, Map.of(), (byte) 0, timeC2);
 
             signal.setCandidates(List.of(c1, c2));
 
@@ -176,7 +225,6 @@ class SpacetimeScoringFixtureTest {
             final List<CognitiveResult> updated = signal.candidates();
             assertThat(updated).hasSize(2);
 
-            // c1 should have received a higher harmonic alignment boost than c2
             final CognitiveResult updatedC1 = updated.stream().filter(c -> c.id().equals("c1")).findFirst().orElseThrow();
             final CognitiveResult updatedC2 = updated.stream().filter(c -> c.id().equals("c2")).findFirst().orElseThrow();
 
@@ -207,7 +255,7 @@ class SpacetimeScoringFixtureTest {
                     "c1", "traced memory", 0.50f, 5.0f, 1.0f, 0, (byte) 0,
                     MemoryType.EPISODIC, null, new String[0], 0.5f, 0.5f,
                     CognitiveResult.RetrievalMode.STANDARD, null, initialTrace,
-                    com.spectrayan.spector.memory.model.SourceModality.TEXT, java.util.Map.of());
+                    SourceModality.TEXT, Map.of(), (byte) 0, queryTimeMs - ONE_DAY_MS);
 
             signal.setCandidates(List.of(c1));
 

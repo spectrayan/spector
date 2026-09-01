@@ -40,7 +40,7 @@ import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstant
  *   Phase 3:     Valence range filter            (~2 cycles) — {@link RecordGates#isValenceGated}
  *   Phase 4:     Age decay with high-mass exempt (~2 cycles) — {@link RecordGates#isStaleAndWeak}
  *   Phase 5:     Zero-copy SIMD L2 distance      (~200 cyc)  — {@link SimilarityFunction#computeQuantizedFromSegment}
- *   Phase 6:     Fused neuromodulatory score     (~7 cycles) — {@link CognitiveScoreFusion#computeFusedScore}
+ *   Phase 6:     Fused mass-dilated score        (~7 cycles) — {@link CognitiveScoreFusion#computeFusedScore}
  * </pre>
  */
 public final class CognitiveScorer {
@@ -125,6 +125,9 @@ public final class CognitiveScorer {
         final boolean enableAssociativePrior = options.enableAssociativePrior() && priorProvider != null && priorContext != null;
         final float associativePriorDelta = options.associativePriorDelta();
 
+        final boolean twoFactorEnabled = options.twoFactorConfig() != null && options.twoFactorConfig().enabled();
+        final float sExponent = options.twoFactorConfig() != null ? options.twoFactorConfig().sExponent() : 0.3f;
+
         final boolean valenceAlign = options.enableValenceAlignment();
         final byte queryValence = options.queryValence();
 
@@ -141,7 +144,7 @@ public final class CognitiveScorer {
         final float[] effectiveScales = scales != null ? scales : IdentityCalibration.scales(dims);
 
         final int stride = layout.stride();
-        final boolean hasArousal = layout.headerLayout().headerBytes() > HEADER_BYTES;
+        final boolean hasArousal = layout.headerLayout().version() >= 2;
         final boolean hasStorageStrength = hasArousal;
 
         final FlatMinHeap heap = new FlatMinHeap(topK);
@@ -155,11 +158,18 @@ public final class CognitiveScorer {
                 break;
             }
 
-            // Phase 1 & 1c: Tombstone and Contradiction checks
+            // Phase 1: Tombstone check (~1 cycle)
             final byte flags = segment.get(LAYOUT_FLAGS, offset + OFFSET_FLAGS);
-            final byte cFlags = segment.get(LAYOUT_CONSOLIDATION_FLAGS, offset + OFFSET_CONSOLIDATION_FLAGS);
-            if (RecordGates.isDeletedOrContradicted(flags, cFlags, options.includeContradictions())) {
+            if (isTombstoned(flags)) {
                 continue;
+            }
+
+            // Phase 1c: Contradiction check (short-circuit: only read cFlags when filtering contradictions)
+            if (!options.includeContradictions()) {
+                final byte cFlags = segment.get(LAYOUT_CONSOLIDATION_FLAGS, offset + OFFSET_CONSOLIDATION_FLAGS);
+                if (isContradicted(cFlags)) {
+                    continue;
+                }
             }
 
             // Phase 1b: Temporal gating & Future causal horizon gate
@@ -199,9 +209,7 @@ public final class CognitiveScorer {
             }
 
             final boolean focusMatch = hyperfocusMask != 0 && (recordTags & hyperfocusMask) == hyperfocusMask;
-            if (focusMatch || (!isResolved(flags) && !isPinned(flags))) {
-                adjustedBucket = 0;
-            }
+            final boolean zeroTimeDecay = focusMatch || (!isResolved(flags) && !isPinned(flags));
 
             final byte arousal = hasArousal ? segment.get(LAYOUT_AROUSAL, offset + OFFSET_AROUSAL) : (byte) 0;
             final float storageStrength = hasStorageStrength
@@ -218,7 +226,7 @@ public final class CognitiveScorer {
                     queryVector, segment, layout.vectorOffset(offset),
                     effectiveMins, effectiveScales, layout.quantizedVecBytes());
 
-            // Phase 6: Fused score composition
+            // Phase 6: Fused score composition with mass-dilated continuous log recency
             final float tagOverlap = SynapticTagEncoder.overlapRatio(recordTags, queryTagMask);
 
             if (lateralMode && l2dist > lateralDistanceThreshold && tagOverlap >= lateralMinTagOverlap) {
@@ -229,11 +237,12 @@ public final class CognitiveScorer {
             }
 
             final float finalScore = CognitiveScoreFusion.computeFusedScore(
-                    l2dist, strictness, pureSimilarity, adjustedBucket, arousal, storageStrength,
-                    hasStorageStrength, options.twoFactorConfig().enabled(), options.twoFactorConfig().sExponent(),
-                    importance, beta, alpha, tagOverlap, fusionMode, valenceAlign, queryValence,
-                    valence, tagRelevanceBoost, focusMatch, hyperfocusBoost, flags,
-                    enableAssociativePrior, priorProvider, offset, recordTags, priorContext, associativePriorDelta);
+                    l2dist, strictness, pureSimilarity, timestamp, nowMs, cognitiveMass,
+                    arousal, storageStrength, hasStorageStrength, twoFactorEnabled, sExponent,
+                    agentRecallCount, importance, beta, alpha, tagOverlap, fusionMode,
+                    valenceAlign, queryValence, valence, tagRelevanceBoost, focusMatch,
+                    zeroTimeDecay, hyperfocusBoost, flags, enableAssociativePrior,
+                    priorProvider, offset, recordTags, priorContext, associativePriorDelta);
 
             // Top-K insertion
             if (heap.shouldInsert(finalScore)) {

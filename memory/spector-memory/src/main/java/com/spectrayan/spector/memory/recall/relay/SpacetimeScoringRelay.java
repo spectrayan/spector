@@ -58,13 +58,15 @@ public final class SpacetimeScoringRelay implements SynapticRelay<RecallSignal> 
         final List<CognitiveResult> updated = new ArrayList<>(candidates.size());
 
         for (final CognitiveResult candidate : candidates) {
-            // Reconstruct candidate timestamp from age in days
-            final long candidateTimeMs = queryTimeMs - (long) (candidate.ageDays() * MS_PER_DAY);
+            // Direct candidate timestamp lookup (fallback to ageDays reconstruction only if timestampMs is unset)
+            final long candidateTimeMs = candidate.timestampMs() > 0
+                    ? candidate.timestampMs()
+                    : queryTimeMs - (long) (candidate.ageDays() * MS_PER_DAY);
             final float[] candidateTau = Time2VecProjector.project(candidateTimeMs);
             final float harmonicAlignment = Time2VecProjector.dot(queryTau, candidateTau);
 
             final float harmonicDelta = rho * harmonicAlignment;
-            final float newScore = Math.max(0.0f, candidate.score() + harmonicDelta);
+            final float newScore = candidate.score() + harmonicDelta;
 
             if (candidate.trace() != null) {
                 final java.util.List<com.spectrayan.spector.memory.model.RecallTrace.TraceStep> steps =

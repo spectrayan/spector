@@ -20,9 +20,11 @@ import com.spectrayan.spector.memory.synapse.QueryAssociativeContext;
 import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.memoryTypeOrdinal;
 
 /**
- * Fused SIMD cognitive score composition, mass calculation, and neuromodulatory weighting (Phase 6).
+ * Fused SIMD cognitive score composition, dynamic mass calculation, and mass-dilated log recency (Phase 6).
  */
 public final class CognitiveScoreFusion {
+
+    private static final double MS_PER_DAY = 86_400_000.0;
 
     private CognitiveScoreFusion() {
         // utility class
@@ -30,6 +32,8 @@ public final class CognitiveScoreFusion {
 
     /**
      * Computes the dynamic Cognitive Mass M_i from L1 cache fields.
+     *
+     * <p>M_i = (I_i / 10) * (1 + (A_i mod 256) / 128) * S_i^0.3</p>
      *
      * @param importance      raw importance score [0.0..10.0]
      * @param arousal         unsigned 8-bit arousal [0..255]
@@ -45,26 +49,60 @@ public final class CognitiveScoreFusion {
     }
 
     /**
-     * Computes the final fused cognitive score for a candidate memory.
+     * Computes the continuous mass-dilated recency decay factor.
+     *
+     * <p>Formula: R(Δt, M_i) = 1 / (1 + ln(1 + Δt_days) / (1 + M_i)) * arousalModifier</p>
+     *
+     * @param timestampMs       creation timestamp in epoch millis
+     * @param nowMs             reference query clock in epoch millis
+     * @param cognitiveMass     dynamic cognitive mass M_i
+     * @param arousal           arousal intensity byte
+     * @param agentRecallCount  number of prior agent recalls for reconsolidation
+     * @param zeroTimeDecay     true if time decay is suspended (focus match, unpinned/unresolved)
+     * @return decay multiplier in (0.0..1.0]
+     */
+    public static float computeMassDilatedDecay(
+            final long timestampMs, final long nowMs, final float cognitiveMass,
+            final byte arousal, final int agentRecallCount, final boolean zeroTimeDecay) {
+
+        if (zeroTimeDecay) {
+            return 1.0f * DecayStrategy.arousalModifier(arousal);
+        }
+
+        final double elapsedDays = Math.max(0.0, (nowMs - timestampMs) / MS_PER_DAY);
+        final float logTerm = (float) Math.log1p(elapsedDays);
+        final float massDenominator = 1.0f + Math.max(0.0f, cognitiveMass);
+
+        final float dilatedDecay = 1.0f / (1.0f + (logTerm / massDenominator));
+        final float reconsolidationBoost = 1.0f + 0.05f * Math.min(agentRecallCount, 10);
+        final float finalDecay = dilatedDecay * DecayStrategy.arousalModifier(arousal) * reconsolidationBoost;
+
+        return Math.min(1.0f, Math.max(0.0f, finalDecay));
+    }
+
+    /**
+     * Computes the final fused cognitive score for a candidate memory (Phase 6).
      */
     public static float computeFusedScore(
             final float l2dist, final float strictness, final boolean pureSimilarity,
-            final int adjustedBucket, final byte arousal, final float storageStrength,
-            final boolean hasStorageStrength, final boolean twoFactorEnabled, final float sExponent,
+            final long timestampMs, final long nowMs, final float cognitiveMass,
+            final byte arousal, final float storageStrength, final boolean hasStorageStrength,
+            final boolean twoFactorEnabled, final float sExponent, final int agentRecallCount,
             final float importance, final float beta, final float alpha, final float tagOverlap,
             final ScoreFusionMode fusionMode, final boolean valenceAlign, final byte queryValence,
             final byte valence, final float tagRelevanceBoost, final boolean focusMatch,
-            final float hyperfocusBoost, final byte flags, final boolean enableAssociativePrior,
-            final AssociativePriorProvider priorProvider, final long offset, final long recordTags,
-            final QueryAssociativeContext priorContext, final float associativePriorDelta) {
+            final boolean zeroTimeDecay, final float hyperfocusBoost, final byte flags,
+            final boolean enableAssociativePrior, final AssociativePriorProvider priorProvider,
+            final long offset, final long recordTags, final QueryAssociativeContext priorContext,
+            final float associativePriorDelta) {
 
         final float similarity = 1.0f / (1.0f + l2dist * strictness);
         if (pureSimilarity) {
             return similarity;
         }
 
-        float decay = DecayStrategy.decay(adjustedBucket) * DecayStrategy.arousalModifier(arousal);
-        decay = Math.min(1.0f, decay);
+        final float decay = computeMassDilatedDecay(
+                timestampMs, nowMs, cognitiveMass, arousal, agentRecallCount, zeroTimeDecay);
 
         float storageBoost = 1.0f;
         if (hasStorageStrength && twoFactorEnabled && storageStrength > 1.0f) {

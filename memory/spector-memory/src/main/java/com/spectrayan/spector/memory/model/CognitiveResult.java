@@ -20,7 +20,7 @@ import java.util.Map;
  * Immutable result record returned by {@link com.spectrayan.spector.memory.SpectorMemory#recall}.
  *
  * <p>Contains the memory text, cognitive scoring metadata, provenance information,
- * and biological state (recall count, valence, decay factor). Designed to give
+ * and biological state (recall count, valence, decay factor, timestampMs). Designed to give
  * the LLM maximum contextual grounding for reasoning about memory reliability.</p>
  *
  * @param id              unique memory identifier
@@ -28,7 +28,7 @@ import java.util.Map;
  * @param score           final fused cognitive score (similarity × decay × importance)
  * @param importance      base importance weight (auto-set by Prediction Error engine)
  * @param ageDays         age of the memory in days
- * @param agentRecallCount     number of times this memory has been recalled (LTP/reconsolidation)
+ * @param agentRecallCount number of times this memory has been recalled (LTP/reconsolidation)
  * @param valence         emotional valence (-128 to +127)
  * @param memoryType      cognitive memory tier (Working, Episodic, Semantic, Procedural)
  * @param source          provenance source (Observed, UserStated, Reflected, etc.)
@@ -40,6 +40,8 @@ import java.util.Map;
  * @param trace           per-step pipeline scoring trace (nullable — only populated when enableTrace=true)
  * @param sourceModality  what the memory originally was before ingestion (TEXT, IMAGE, AUDIO, VIDEO)
  * @param metadata        multimodal metadata (source_uri, etc.) — empty map for text-only memories
+ * @param consolidationFlags consolidation provenance flags
+ * @param timestampMs     epoch millisecond timestamp when the memory was formed (ADR-0030 v1)
  */
 public record CognitiveResult(
         String id,
@@ -59,13 +61,33 @@ public record CognitiveResult(
         RecallTrace trace,
         SourceModality sourceModality,
         Map<String, String> metadata,
-        byte consolidationFlags
+        byte consolidationFlags,
+        long timestampMs
 ) {
 
-    /** Compact constructor — defaults null modality/metadata. */
+    /** Compact constructor — defaults null modality/metadata and derives timestampMs if omitted. */
     public CognitiveResult {
         if (sourceModality == null) sourceModality = SourceModality.TEXT;
         if (metadata == null) metadata = Map.of();
+        if (timestampMs == 0L && ageDays > 0.0f) {
+            timestampMs = System.currentTimeMillis() - (long) (ageDays * 86_400_000.0);
+        }
+    }
+
+    /**
+     * Backward-compatible 18-argument constructor.
+     */
+    public CognitiveResult(String id, String text, float score, float importance,
+                           float ageDays, int agentRecallCount, byte valence,
+                           MemoryType memoryType, MemorySource source,
+                           String[] synapticTags, float decayFactor,
+                           float ltpAdjustedDecay, RetrievalMode retrievalMode,
+                           ScoreBreakdown breakdown, RecallTrace trace,
+                           SourceModality sourceModality, Map<String, String> metadata,
+                           byte consolidationFlags) {
+        this(id, text, score, importance, ageDays, agentRecallCount, valence,
+                memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
+                retrievalMode, breakdown, trace, sourceModality, metadata, consolidationFlags, 0L);
     }
 
     /**
@@ -80,20 +102,11 @@ public record CognitiveResult(
                            SourceModality sourceModality, Map<String, String> metadata) {
         this(id, text, score, importance, ageDays, agentRecallCount, valence,
                 memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
-                retrievalMode, breakdown, trace, sourceModality, metadata, (byte) 0);
+                retrievalMode, breakdown, trace, sourceModality, metadata, (byte) 0, 0L);
     }
 
     /**
      * How a memory was retrieved — enables the LLM to reason about result provenance.
-     *
-     * <h3>Neurodivergent Cognitive Profiles</h3>
-     * <ul>
-     *   <li>{@code STANDARD} — normal similarity-based retrieval</li>
-     *   <li>{@code LATERAL} — cross-domain retrieval via orthogonal tag matching
-     *       (divergent thinking / ADHD profile)</li>
-     *   <li>{@code HYPERFOCUS} — zero-decay retrieval for focus-matched memories
-     *       (monotropism / autistic profile)</li>
-     * </ul>
      */
     public enum RetrievalMode {
         /** Standard similarity-based retrieval. */
@@ -114,7 +127,7 @@ public record CognitiveResult(
                             float ltpAdjustedDecay) {
         this(id, text, score, importance, ageDays, agentRecallCount, valence,
                 memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
-                RetrievalMode.STANDARD, null, null, null, null, (byte) 0);
+                RetrievalMode.STANDARD, null, null, null, null, (byte) 0, 0L);
     }
 
     /**
@@ -127,7 +140,7 @@ public record CognitiveResult(
                             float ltpAdjustedDecay, RetrievalMode retrievalMode) {
         this(id, text, score, importance, ageDays, agentRecallCount, valence,
                 memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
-                retrievalMode, null, null, null, null, (byte) 0);
+                retrievalMode, null, null, null, null, (byte) 0, 0L);
     }
 
     /**
@@ -141,7 +154,7 @@ public record CognitiveResult(
                             ScoreBreakdown breakdown) {
         this(id, text, score, importance, ageDays, agentRecallCount, valence,
                 memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
-                retrievalMode, breakdown, null, null, null, (byte) 0);
+                retrievalMode, breakdown, null, null, null, (byte) 0, 0L);
     }
 
     /**
@@ -171,7 +184,7 @@ public record CognitiveResult(
     public CognitiveResult withTrace(RecallTrace trace) {
         return new CognitiveResult(id, text, score, importance, ageDays, agentRecallCount,
                 valence, memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
-                retrievalMode, breakdown, trace, sourceModality, metadata, consolidationFlags);
+                retrievalMode, breakdown, trace, sourceModality, metadata, consolidationFlags, timestampMs);
     }
 
     /**
@@ -180,7 +193,7 @@ public record CognitiveResult(
     public CognitiveResult withScore(float newScore) {
         return new CognitiveResult(id, text, newScore, importance, ageDays, agentRecallCount,
                 valence, memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
-                retrievalMode, breakdown, trace, sourceModality, metadata, consolidationFlags);
+                retrievalMode, breakdown, trace, sourceModality, metadata, consolidationFlags, timestampMs);
     }
 
     /**
@@ -189,7 +202,7 @@ public record CognitiveResult(
     public CognitiveResult withScoreAndTrace(float newScore, RecallTrace newTrace) {
         return new CognitiveResult(id, text, newScore, importance, ageDays, agentRecallCount,
                 valence, memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
-                retrievalMode, breakdown, newTrace, sourceModality, metadata, consolidationFlags);
+                retrievalMode, breakdown, newTrace, sourceModality, metadata, consolidationFlags, timestampMs);
     }
 
     /**
@@ -198,7 +211,16 @@ public record CognitiveResult(
     public CognitiveResult withScoreAndBreakdown(float newScore, ScoreBreakdown newBreakdown) {
         return new CognitiveResult(id, text, newScore, importance, ageDays, agentRecallCount,
                 valence, memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
-                retrievalMode, newBreakdown, trace, sourceModality, metadata, consolidationFlags);
+                retrievalMode, newBreakdown, trace, sourceModality, metadata, consolidationFlags, timestampMs);
+    }
+
+    /**
+     * Returns a copy of this result with updated timestampMs.
+     */
+    public CognitiveResult withTimestampMs(long timestampMs) {
+        return new CognitiveResult(id, text, score, importance, ageDays, agentRecallCount,
+                valence, memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
+                retrievalMode, breakdown, trace, sourceModality, metadata, consolidationFlags, timestampMs);
     }
 
     /**
@@ -207,7 +229,7 @@ public record CognitiveResult(
     public CognitiveResult withText(String newText) {
         return new CognitiveResult(id, newText, score, importance, ageDays, agentRecallCount,
                 valence, memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
-                retrievalMode, breakdown, trace, sourceModality, metadata, consolidationFlags);
+                retrievalMode, breakdown, trace, sourceModality, metadata, consolidationFlags, timestampMs);
     }
 
     /**
@@ -216,7 +238,7 @@ public record CognitiveResult(
     public CognitiveResult withModality(SourceModality modality, Map<String, String> metadata) {
         return new CognitiveResult(id, text, score, importance, ageDays, agentRecallCount,
                 valence, memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
-                retrievalMode, breakdown, trace, modality, metadata, consolidationFlags);
+                retrievalMode, breakdown, trace, modality, metadata, consolidationFlags, timestampMs);
     }
 
     /**
@@ -225,7 +247,7 @@ public record CognitiveResult(
     public CognitiveResult withConsolidationFlags(byte flags) {
         return new CognitiveResult(id, text, score, importance, ageDays, agentRecallCount,
                 valence, memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
-                retrievalMode, breakdown, trace, sourceModality, metadata, flags);
+                retrievalMode, breakdown, trace, sourceModality, metadata, flags, timestampMs);
     }
 
     /**
@@ -270,4 +292,3 @@ public record CognitiveResult(
         return retrievalMode == RetrievalMode.HYPERFOCUS;
     }
 }
-

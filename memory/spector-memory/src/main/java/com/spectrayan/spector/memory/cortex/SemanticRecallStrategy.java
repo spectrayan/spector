@@ -24,6 +24,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.model.ScoringMode;
+import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 import org.slf4j.Logger;
@@ -33,6 +34,7 @@ import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Fused HNSW + Cognitive Scoring recall strategy for Semantic Memory (ADR-0009, #445).
@@ -147,10 +149,12 @@ public final class SemanticRecallStrategy {
                 if (SynapticHeaderConstants.isContradicted(cFlags)) continue;
             }
 
-            // Phase 1b: Temporal gating (absolute timestamp bounds)
+            // Phase 1b: Temporal gating & Future causal horizon gate
             long timestamp = header.timestampMs();
-            if (minTimestamp != null && timestamp < minTimestamp) continue;
-            if (maxTimestamp != null && timestamp > maxTimestamp) continue;
+            if (com.spectrayan.spector.memory.synapse.scan.RecordGates.isTemporalGated(
+                    timestamp, minTimestamp, maxTimestamp, nowMs, options.allowFuture())) {
+                continue;
+            }
 
             // Phase 2: Synaptic tag gating
             long recordTags = header.synapticTags();
@@ -219,7 +223,8 @@ public final class SemanticRecallStrategy {
                     id, text, finalScore, importance, ageDays,
                     agentRecallCount, valence, MemoryType.SEMANTIC, source,
                     tags, rawDecay, decay,
-                    CognitiveResult.RetrievalMode.STANDARD, breakdown));
+                    CognitiveResult.RetrievalMode.STANDARD, breakdown, null,
+                    SourceModality.TEXT, Map.of(), (byte) 0, timestamp));
         }
 
         // Sort by fused score descending
