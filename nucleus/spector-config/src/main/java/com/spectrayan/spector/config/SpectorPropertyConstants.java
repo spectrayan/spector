@@ -1281,6 +1281,16 @@ public final class SpectorPropertyConstants {
     public static final String PERSISTENCE_FILES_SHARD_DIR = "spector.persistence.files.shard-dir-name";
     public static final String DEFAULT_PERSISTENCE_FILES_SHARD_DIR = "index_shards";
 
+    // Spacetime Vector Search (ADR-0030 v1)
+    public static final String RECALL_SPACETIME_ENABLED = "spector.recall.spacetime.enabled";
+    public static final boolean DEFAULT_RECALL_SPACETIME_ENABLED = true;
+
+    public static final String RECALL_SPACETIME_HARMONIC_WEIGHT = "spector.recall.spacetime.harmonic-weight";
+    public static final float DEFAULT_RECALL_SPACETIME_HARMONIC_WEIGHT = 0.15f;
+
+    public static final String RECALL_ALLOW_FUTURE = "spector.recall.allow-future";
+    public static final boolean DEFAULT_RECALL_ALLOW_FUTURE = false;
+
     // Server
     public static final String SERVER_PORT = "spector.server.port";
     public static final int DEFAULT_SERVER_PORT = 7070;
@@ -1288,3 +1298,4 @@ public final class SpectorPropertyConstants {
     public static final String SERVER_DATA_DIR = "spector.server.data-dir";
     public static final String DEFAULT_SERVER_DATA_DIR = "./spector-data";
 }
+
