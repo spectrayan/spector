@@ -27,7 +27,15 @@ public interface AccountCatalog {
 
     Account getOrCreateAccount(String accountId);
 
+    default Account getOrCreateAccount(String accountId, AccountProfile profile, PrincipalKind kind) {
+        return getOrCreateAccount(accountId);
+    }
+
     Account getAccount(String accountId);
+
+    default void addOrgMember(String accountId, String orgUnitId) {}
+
+    default void removeOrgMember(String accountId, String orgUnitId) {}
 
     default NamespaceRecord createNamespace(String accountId, String slug, NamespaceType type) {
         return createNamespace(accountId, slug, type, null, null, null);

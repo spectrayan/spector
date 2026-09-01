@@ -30,9 +30,11 @@ import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.synapse.catalog.Account;
 import com.spectrayan.spector.synapse.catalog.AccountCatalog;
+import com.spectrayan.spector.synapse.catalog.AccountProfile;
 import com.spectrayan.spector.synapse.catalog.GrantRole;
 import com.spectrayan.spector.synapse.catalog.NamespaceRecord;
 import com.spectrayan.spector.synapse.catalog.NamespaceStatus;
+import com.spectrayan.spector.synapse.catalog.PrincipalKind;
 import com.spectrayan.spector.synapse.catalog.exception.NamespaceNotFoundException;
 import com.spectrayan.spector.synapse.catalog.exception.NamespaceTombstonedException;
 import com.spectrayan.spector.synapse.catalog.exception.TokenNamespaceLockedException;
@@ -101,7 +103,10 @@ public class MemoryRequestBinder {
         }
 
         TokenClaims tokenClaims = extractTokenClaims(auth);
-        Account account = catalog.getOrCreateAccount(accountId);
+        Account account = catalog.getOrCreateAccount(accountId, tokenClaims.profile(), tokenClaims.kind());
+        if (account == null) {
+            account = catalog.getOrCreateAccount(accountId);
+        }
 
         String targetSlug;
         String targetNamespaceId;
@@ -174,9 +179,6 @@ public class MemoryRequestBinder {
                     && record.bias() != com.spectrayan.spector.synapse.catalog.NamespaceBias.EMPTY) {
                 salience = NamespaceBiasApplier.apply(salience, record.bias());
             }
-            if (memory != null) {
-                memory.applyIdentity(primarySoul, soulStack, salience);
-            }
 
             RequestMemoryContext requestContext = new RequestMemoryContext(
                     tokenClaims.tenantId(),
@@ -188,7 +190,8 @@ public class MemoryRequestBinder {
                     tokenClaims.allowSet(),
                     sessionId,
                     soulStack,
-                    primarySoul
+                    primarySoul,
+                    salience
             );
             return new MemoryBinding(memory, accountId, targetNamespaceId, targetSlug, lease, requestContext);
         } catch (RuntimeException e) {
@@ -239,7 +242,7 @@ public class MemoryRequestBinder {
             jwt = credJwt;
         }
         if (jwt == null) {
-            return new TokenClaims(null, List.of(), Set.of(), null, null);
+            return new TokenClaims(null, List.of(), Set.of(), null, null, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN);
         }
         String tenantId = jwt.getClaimAsString("tid");
         List<String> orgUnitIds = jwt.getClaimAsStringList("org");
@@ -255,7 +258,28 @@ public class MemoryRequestBinder {
         if (nsIds != null) {
             combinedAllowSet.addAll(nsIds);
         }
-        return new TokenClaims(tenantId, orgUnitIds, Collections.unmodifiableSet(combinedAllowSet), nsSlugs, nsIds);
+
+        String profileStr = jwt.getClaimAsString("profile");
+        if (profileStr == null) {
+            profileStr = jwt.getClaimAsString("acct_type");
+        }
+        AccountProfile profile = AccountProfile.HUMAN_SOLO;
+        if (profileStr != null) {
+            try {
+                profile = AccountProfile.valueOf(profileStr.toUpperCase());
+            } catch (IllegalArgumentException ignored) {}
+        }
+
+        String kindStr = jwt.getClaimAsString("kind");
+        PrincipalKind kind = PrincipalKind.HUMAN;
+        if (kindStr != null) {
+            try {
+                kind = PrincipalKind.valueOf(kindStr.toUpperCase());
+            } catch (IllegalArgumentException ignored) {}
+        }
+
+        return new TokenClaims(tenantId, orgUnitIds, Collections.unmodifiableSet(combinedAllowSet),
+                nsSlugs, nsIds, profile, kind);
     }
 
     private record TokenClaims(
@@ -263,6 +287,8 @@ public class MemoryRequestBinder {
             List<String> orgUnitIds,
             Set<String> allowSet,
             List<String> nsSlugs,
-            List<String> nsIds
+            List<String> nsIds,
+            AccountProfile profile,
+            PrincipalKind kind
     ) {}
 }

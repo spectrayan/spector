@@ -66,6 +66,9 @@ import java.util.Map;
  *                            When null, the ingestion pipeline uses wall-clock time. Essential for benchmark
  *                            data and historical memory import where the original event time must be preserved
  *                            for correct temporal decay, circadian scoring, and temporal chain ordering.
+ * @param soulContexts        request-scoped soul hierarchy for multi-soul ICNU importance evaluation
+ * @param salienceProfile     request-scoped effective salience profile
+ * @param soulVersion         request-scoped soul version
  */
 public record IngestionContext(
         IngestionHints hints,
@@ -73,29 +76,40 @@ public record IngestionContext(
         List<HebbianEdgeHint> hebbianEdges,
         List<TemporalLinkHint> temporalLinks,
         Long overrideTimestampMs,
-        Map<String, String> metadata
+        Map<String, String> metadata,
+        List<SoulContext> soulContexts,
+        SalienceProfile salienceProfile,
+        Short soulVersion
 ) {
 
-    /** Canonical constructor — enforces unmodifiable metadata. */
+    /** Canonical constructor — enforces unmodifiable metadata and defensive copies. */
     public IngestionContext {
         metadata = metadata != null ? Collections.unmodifiableMap(new HashMap<>(metadata)) : Map.of();
+        soulContexts = soulContexts != null ? List.copyOf(soulContexts) : List.of();
+    }
+
+    /** Constructor with metadata — no request-scoped identity. */
+    public IngestionContext(IngestionHints hints, List<ExtractedEntity> entities,
+                            List<HebbianEdgeHint> hebbianEdges, List<TemporalLinkHint> temporalLinks,
+                            Long overrideTimestampMs, Map<String, String> metadata) {
+        this(hints, entities, hebbianEdges, temporalLinks, overrideTimestampMs, metadata, List.of(), null, null);
     }
 
     /** Backward-compatible constructor — no timestamp override, no metadata. */
     public IngestionContext(IngestionHints hints, List<ExtractedEntity> entities,
                             List<HebbianEdgeHint> hebbianEdges, List<TemporalLinkHint> temporalLinks) {
-        this(hints, entities, hebbianEdges, temporalLinks, null, null);
+        this(hints, entities, hebbianEdges, temporalLinks, null, null, List.of(), null, null);
     }
 
     /** Backward-compatible constructor — timestamp override, no metadata. */
     public IngestionContext(IngestionHints hints, List<ExtractedEntity> entities,
                             List<HebbianEdgeHint> hebbianEdges, List<TemporalLinkHint> temporalLinks,
                             Long overrideTimestampMs) {
-        this(hints, entities, hebbianEdges, temporalLinks, overrideTimestampMs, null);
+        this(hints, entities, hebbianEdges, temporalLinks, overrideTimestampMs, null, List.of(), null, null);
     }
 
     /** Empty context — triggers all automatic pipelines with novelty-only importance. */
-    public static final IngestionContext EMPTY = new IngestionContext(null, null, null, null, null, null);
+    public static final IngestionContext EMPTY = new IngestionContext(null, null, null, null, null, null, List.of(), null, null);
 
     /** Returns true if pre-extracted entities are provided. */
     public boolean hasEntities() { return entities != null && !entities.isEmpty(); }
@@ -299,9 +313,28 @@ public record IngestionContext(
             return this;
         }
 
+        private java.util.List<SoulContext> soulContexts;
+        private SalienceProfile salienceProfile;
+        private Short soulVersion;
+
+        public Builder soulContexts(List<SoulContext> soulContexts) {
+            this.soulContexts = soulContexts;
+            return this;
+        }
+
+        public Builder salienceProfile(SalienceProfile salienceProfile) {
+            this.salienceProfile = salienceProfile;
+            return this;
+        }
+
+        public Builder soulVersion(Short soulVersion) {
+            this.soulVersion = soulVersion;
+            return this;
+        }
+
         public IngestionContext build() {
             return new IngestionContext(hints, entities, hebbianEdges, temporalLinks,
-                    overrideTimestampMs, metadata);
+                    overrideTimestampMs, metadata, soulContexts, salienceProfile, soulVersion);
         }
     }
 }

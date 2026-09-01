@@ -360,6 +360,13 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
     }
 
     @Override
+    public void applyIdentity(com.spectrayan.spector.memory.model.SoulContext primarySoul,
+                              List<com.spectrayan.spector.memory.model.SoulContext> soulStack,
+                              SalienceProfile salience) {
+        delegate.applyIdentity(primarySoul, soulStack, salience);
+    }
+
+    @Override
     public SalienceProfile salienceProfile() {
         return delegate.salienceProfile();
     }

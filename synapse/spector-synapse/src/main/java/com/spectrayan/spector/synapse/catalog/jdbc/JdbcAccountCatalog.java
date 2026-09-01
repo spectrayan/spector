@@ -29,6 +29,8 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.*;
 import java.util.regex.Pattern;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 /**
  * JDBC-backed implementation of {@link AccountCatalog} for enterprise and production
@@ -50,23 +52,38 @@ public class JdbcAccountCatalog implements AccountCatalog {
 
     private static final Logger log = LoggerFactory.getLogger(JdbcAccountCatalog.class);
 
-    private static final Pattern SLUG_PATTERN =
-            Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$");
+    private static final Pattern SLUG_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$");
 
     private final JdbcClient jdbc;
     private final SqlQueryLoader sqlLoader;
     private final ObjectMapper objectMapper;
     private final TsidGenerator tsid;
+    private final org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider;
 
-    public JdbcAccountCatalog(JdbcClient jdbc, SqlQueryLoader sqlLoader, ObjectMapper objectMapper, TsidGenerator tsid) {
+    private final Cache<String, Long> membershipVersionCache = Caffeine.newBuilder()
+            .maximumSize(4096)
+            .expireAfterWrite(java.time.Duration.ofSeconds(5))
+            .build();
+
+    public JdbcAccountCatalog(
+            JdbcClient jdbc,
+            SqlQueryLoader sqlLoader,
+            ObjectMapper objectMapper,
+            TsidGenerator tsid,
+            org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider) {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc must not be null");
         this.sqlLoader = Objects.requireNonNull(sqlLoader, "sqlLoader must not be null");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
         this.tsid = tsid != null ? tsid : new TsidGenerator();
+        this.cacheManagerProvider = cacheManagerProvider;
+    }
+
+    public JdbcAccountCatalog(JdbcClient jdbc, SqlQueryLoader sqlLoader, ObjectMapper objectMapper, TsidGenerator tsid) {
+        this(jdbc, sqlLoader, objectMapper, tsid, null);
     }
 
     public JdbcAccountCatalog(JdbcClient jdbc, SqlQueryLoader sqlLoader, ObjectMapper objectMapper) {
-        this(jdbc, sqlLoader, objectMapper, new TsidGenerator());
+        this(jdbc, sqlLoader, objectMapper, new TsidGenerator(), null);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -76,6 +93,12 @@ public class JdbcAccountCatalog implements AccountCatalog {
     @Override
     @Transactional
     public Account getOrCreateAccount(String accountId) {
+        return getOrCreateAccount(accountId, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN);
+    }
+
+    @Override
+    @Transactional
+    public Account getOrCreateAccount(String accountId, AccountProfile profile, PrincipalKind kind) {
         Objects.requireNonNull(accountId, "accountId must not be null");
 
         Optional<Account> existing = findAccountById(accountId);
@@ -84,6 +107,9 @@ public class JdbcAccountCatalog implements AccountCatalog {
             ensureDefaultNamespaceExists(account);
             return account;
         }
+
+        AccountProfile effProfile = profile != null ? profile : AccountProfile.HUMAN_SOLO;
+        PrincipalKind effKind = kind != null ? kind : PrincipalKind.HUMAN;
 
         log.info("[JdbcAccountCatalog] Auto-provisioning account for ID: {}", accountId);
         Instant now = Instant.now();
@@ -95,7 +121,7 @@ public class JdbcAccountCatalog implements AccountCatalog {
                     profile, kind, flags, default_namespace_id, created_at, updated_at
                 ) VALUES (
                     :userId, :username, '', :displayName, 'ROLE_USER', '',
-                    'HUMAN_SOLO', 'HUMAN', '{}', :defaultNamespaceId, :now, :now
+                    :profile, :kind, '{}', :defaultNamespaceId, :now, :now
                 )
                 """;
 
@@ -103,6 +129,8 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 .param("userId", accountId)
                 .param("username", accountId)
                 .param("displayName", accountId)
+                .param("profile", effProfile.name())
+                .param("kind", effKind.name())
                 .param("defaultNamespaceId", accountId)
                 .param("now", Timestamp.from(now))
                 .update();
@@ -126,10 +154,10 @@ public class JdbcAccountCatalog implements AccountCatalog {
 
         Account newAccount = new Account(
                 accountId,
-                PrincipalKind.HUMAN,
-                AccountProfile.HUMAN_SOLO,
+                effKind,
+                effProfile,
                 accountId,
-                defaultQuotas(AccountProfile.HUMAN_SOLO, null, null),
+                defaultQuotas(effProfile, null, null),
                 new AccountFlags(true, true, true),
                 accountId,
                 now
@@ -490,6 +518,7 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 .param("revokedAt", null)
                 .param("constraintsJson", serializeConstraints(grant.constraints()))
                 .update();
+        bumpMembershipVersion(grant.principalId());
         log.info("[JdbcAccountCatalog] Added grant: id={}, object={}:{}, principal={}",
                 grant.grantId(), grant.objectType(), grant.objectId(), grant.principalId());
     }
@@ -565,6 +594,18 @@ public class JdbcAccountCatalog implements AccountCatalog {
     @Transactional
     public void revokeGrant(String grantId) {
         Objects.requireNonNull(grantId, "grantId must not be null");
+        try {
+            String findSql = "SELECT principal_id FROM grants WHERE grant_id = :grantId";
+            String principalId = jdbc.sql(findSql)
+                    .param("grantId", grantId)
+                    .query(String.class)
+                    .optional().orElse(null);
+            if (principalId != null) {
+                bumpMembershipVersion(principalId);
+            }
+        } catch (Exception e) {
+            log.warn("[JdbcAccountCatalog] Error querying principal for grant bump: {}", e.getMessage());
+        }
         String sql = sqlLoader.load("catalog/grants/revoke-grant");
         jdbc.sql(sql)
                 .param("grantId", grantId)
@@ -597,6 +638,16 @@ public class JdbcAccountCatalog implements AccountCatalog {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
         Objects.requireNonNull(minimumRole, "minimumRole must not be null");
 
+        long version = getMembershipVersion(accountId);
+        String cacheKey = accountId + ":" + namespaceId + ":" + minimumRole.name() + ":v" + version;
+        var cache = getCache(com.spectrayan.spector.synapse.config.cache.SynapseCacheConstants.CACHE_PEP_NAMESPACE);
+        if (cache != null) {
+            Optional<Grant> cached = cache.get(cacheKey, Grant.class);
+            if (cached != null && cached.isPresent()) {
+                return cached;
+            }
+        }
+
         // 1. Check if owner in namespaces table
         String findNsSql = sqlLoader.load("catalog/namespaces/find-by-id");
         Optional<NamespaceRecord> ns = jdbc.sql(findNsSql)
@@ -605,19 +656,23 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 .optional();
 
         if (ns.isPresent() && ns.get().ownerAccountId().equals(accountId)) {
-            return Optional.of(new Grant(
+            Grant ownerGrant = new Grant(
                     "implicit-owner-" + accountId + "-" + namespaceId,
                     GrantObjectType.NAMESPACE,
                     namespaceId,
                     accountId,
                     PrincipalType.ACCOUNT,
                     GrantRole.OWNER,
-                    Set.of(GrantAction.READ, GrantAction.WRITE, GrantAction.ADMIN),
+                    Set.of(GrantAction.READ, GrantAction.WRITE, GrantAction.ADMIN, GrantAction.INJECT),
                     accountId,
                     ns.get().createdAt(),
                     null,
                     null
-            ));
+            );
+            if (cache != null) {
+                cache.put(cacheKey, ownerGrant);
+            }
+            return Optional.of(ownerGrant);
         }
 
         // 2. Query active grants
@@ -631,6 +686,9 @@ public class JdbcAccountCatalog implements AccountCatalog {
 
         for (Grant grant : grants) {
             if (grant.role() != null && grant.role().ordinal() <= minimumRole.ordinal()) {
+                if (cache != null) {
+                    cache.put(cacheKey, grant);
+                }
                 return Optional.of(grant);
             }
         }
@@ -644,20 +702,76 @@ public class JdbcAccountCatalog implements AccountCatalog {
         Objects.requireNonNull(bundleId, "bundleId must not be null");
         Objects.requireNonNull(action, "action must not be null");
 
-        // Account owner has full access to own identity bundle
+        long version = getMembershipVersion(accountId);
+        String cacheKey = accountId + ":" + bundleId + ":" + (regionId != null ? regionId : "*") + ":" + action.name() + ":v" + version;
+        var cache = getCache(com.spectrayan.spector.synapse.config.cache.SynapseCacheConstants.CACHE_PEP_IDENTITY);
+        if (cache != null) {
+            Optional<Boolean> cached = cache.get(cacheKey, Boolean.class);
+            if (cached != null && cached.isPresent()) {
+                return cached.get();
+            }
+        }
+
+        boolean result = evaluateAuthorizeIdentity(accountId, bundleId, regionId, action);
+        if (cache != null) {
+            cache.put(cacheKey, result);
+        }
+        return result;
+    }
+
+    private boolean evaluateAuthorizeIdentity(String accountId, String bundleId, String regionId, GrantAction action) {
+        // 1. Account owner has full access to own identity bundle
         if (accountId.equals(bundleId)) {
             return true;
         }
 
+        // 2. Direct region grant (IDENTITY_REGION objectId=bundleId:regionId)
+        if (regionId != null && !regionId.isBlank()) {
+            String findGrantSql = sqlLoader.load("catalog/grants/find-active-grant");
+            List<Grant> regionGrants = jdbc.sql(findGrantSql)
+                    .param("objectType", GrantObjectType.IDENTITY_REGION.name())
+                    .param("objectId", bundleId + ":" + regionId)
+                    .param("principalId", accountId)
+                    .query(this::mapGrantRow)
+                    .list();
+
+            if (regionGrants.stream().anyMatch(g -> isActionPermitted(g, action))) {
+                return true;
+            }
+        }
+
+        // 3. Bundle-level grant (IDENTITY_BUNDLE objectId=bundleId with optional region constraints)
         String findGrantSql = sqlLoader.load("catalog/grants/find-active-grant");
-        List<Grant> grants = jdbc.sql(findGrantSql)
+        List<Grant> bundleGrants = jdbc.sql(findGrantSql)
                 .param("objectType", GrantObjectType.IDENTITY_BUNDLE.name())
                 .param("objectId", bundleId)
                 .param("principalId", accountId)
                 .query(this::mapGrantRow)
                 .list();
 
-        return grants.stream().anyMatch(g -> g.actions() != null && g.actions().contains(action));
+        for (Grant grant : bundleGrants) {
+            if (!isActionPermitted(grant, action)) {
+                continue;
+            }
+            if (regionId != null && !regionId.isBlank() && grant.constraints() != null) {
+                Set<String> allowedRegions = grant.constraints().regionIds();
+                if (allowedRegions != null && !allowedRegions.isEmpty() && !allowedRegions.contains(regionId)) {
+                    continue;
+                }
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    private boolean isActionPermitted(Grant g, GrantAction action) {
+        if (g == null || g.actions() == null) return false;
+        if (action == GrantAction.INJECT) {
+            // ADMIN does NOT imply INJECT. INJECT must be explicitly granted.
+            return g.actions().contains(GrantAction.INJECT);
+        }
+        return g.actions().contains(action) || g.actions().contains(GrantAction.ADMIN);
     }
 
     @Override
@@ -670,6 +784,85 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 .param("accountId", accountId)
                 .query((rs, rowNum) -> rs.getString("org_unit_id"))
                 .list();
+    }
+
+    @Override
+    @Transactional
+    public void addOrgMember(String accountId, String orgUnitId) {
+        Objects.requireNonNull(accountId, "accountId must not be null");
+        Objects.requireNonNull(orgUnitId, "orgUnitId must not be null");
+
+        // Ensure user account exists
+        getOrCreateAccount(accountId);
+
+        // Ensure org_unit exists in org_units table
+        String checkOrgSql = "SELECT COUNT(*) FROM org_units WHERE org_unit_id = :orgUnitId";
+        Integer count = jdbc.sql(checkOrgSql)
+                .param("orgUnitId", orgUnitId)
+                .query(Integer.class)
+                .optional().orElse(0);
+        if (count == null || count == 0) {
+            throw new IllegalArgumentException("OrgUnit '" + orgUnitId + "' does not exist in catalog");
+        }
+
+        // Insert membership (ignore duplicate)
+        try {
+            jdbc.sql("INSERT INTO org_unit_members (org_unit_id, account_id) VALUES (:orgUnitId, :accountId)")
+                    .param("orgUnitId", orgUnitId)
+                    .param("accountId", accountId)
+                    .update();
+        } catch (Exception e) {
+            log.debug("[JdbcAccountCatalog] Org member insert duplicate or ignored: {}", e.getMessage());
+        }
+
+        bumpMembershipVersion(accountId);
+    }
+
+    private com.spectrayan.spector.commons.cache.SpectorCache getCache(String name) {
+        if (cacheManagerProvider == null) return null;
+        var cm = cacheManagerProvider.getIfAvailable();
+        return cm != null ? cm.getCache(name) : null;
+    }
+
+    private long getMembershipVersion(String accountId) {
+        if (accountId == null) return 0L;
+        return membershipVersionCache.get(accountId, id -> {
+            try {
+                Long v = jdbc.sql("SELECT membership_version FROM users WHERE user_id = :userId")
+                        .param("userId", id)
+                        .query(Long.class)
+                        .optional().orElse(0L);
+                return v != null ? v : 0L;
+            } catch (Exception e) {
+                return 0L;
+            }
+        });
+    }
+
+    @Override
+    @Transactional
+    public void removeOrgMember(String accountId, String orgUnitId) {
+        Objects.requireNonNull(accountId, "accountId must not be null");
+        Objects.requireNonNull(orgUnitId, "orgUnitId must not be null");
+
+        jdbc.sql("DELETE FROM org_unit_members WHERE org_unit_id = :orgUnitId AND account_id = :accountId")
+                .param("orgUnitId", orgUnitId)
+                .param("accountId", accountId)
+                .update();
+
+        bumpMembershipVersion(accountId);
+    }
+
+    private void bumpMembershipVersion(String accountId) {
+        if (accountId == null) return;
+        membershipVersionCache.invalidate(accountId);
+        try {
+            jdbc.sql("UPDATE users SET membership_version = membership_version + 1 WHERE user_id = :accountId")
+                    .param("accountId", accountId)
+                    .update();
+        } catch (Exception e) {
+            log.warn("[JdbcAccountCatalog] Failed to bump membership_version: {}", e.getMessage());
+        }
     }
 
     private boolean hasActiveGrant(String accountId, String namespaceId) {
@@ -718,7 +911,7 @@ public class JdbcAccountCatalog implements AccountCatalog {
                     accountId,
                     PrincipalType.ACCOUNT,
                     GrantRole.OWNER,
-                    Set.of(GrantAction.READ, GrantAction.WRITE, GrantAction.ADMIN),
+                    Set.of(GrantAction.READ, GrantAction.WRITE, GrantAction.ADMIN, GrantAction.INJECT),
                     accountId,
                     Instant.now(),
                     null,

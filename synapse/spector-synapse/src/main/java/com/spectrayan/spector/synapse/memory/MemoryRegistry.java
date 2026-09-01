@@ -63,6 +63,16 @@ public final class MemoryRegistry implements AutoCloseable {
     private final ObjectProvider<SpectorMemory> sharedProvider;
     private final SynapseProperties synapseProps;
     private final NamespaceResolver resolver;
+    private ObjectProvider<MemoryRequestBinder> binderProvider;
+
+    @Autowired(required = false)
+    void setBinderProvider(ObjectProvider<MemoryRequestBinder> binderProvider) {
+        this.binderProvider = binderProvider;
+    }
+
+    public MemoryRequestBinder binder() {
+        return binderProvider != null ? binderProvider.getIfAvailable() : null;
+    }
 
     /**
      * Test/non-Spring constructor that bypasses the catalog plane. When auth is enabled,

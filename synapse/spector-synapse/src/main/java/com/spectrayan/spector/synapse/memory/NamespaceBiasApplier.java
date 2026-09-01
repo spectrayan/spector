@@ -30,7 +30,9 @@ public final class NamespaceBiasApplier {
         if (bias == null || bias == NamespaceBias.EMPTY) {
             return base;
         }
-        if (bias.domainFocus() == null || bias.domainFocus().isEmpty()) {
+        boolean hasDomainFocus = bias.domainFocus() != null && !bias.domainFocus().isEmpty();
+        boolean hasTagWeights = bias.tagWeights() != null && !bias.tagWeights().isEmpty();
+        if (!hasDomainFocus && !hasTagWeights) {
             return base;
         }
         SalienceProfile src = base != null ? base : SalienceProfile.NEUTRAL;
@@ -52,9 +54,28 @@ public final class NamespaceBiasApplier {
         for (InterestDomain domain : src.disinterests()) {
             builder.disinterest(domain);
         }
-        for (String domain : bias.domainFocus()) {
-            if (domain != null && !domain.isBlank()) {
-                builder.interest(domain.trim(), InterestLevel.MEDIUM);
+        if (hasDomainFocus) {
+            for (String domain : bias.domainFocus()) {
+                if (domain != null && !domain.isBlank()) {
+                    builder.interest(domain.trim(), InterestLevel.MEDIUM);
+                }
+            }
+        }
+        if (hasTagWeights) {
+            for (java.util.Map.Entry<String, Float> entry : bias.tagWeights().entrySet()) {
+                String tag = entry.getKey();
+                Float weight = entry.getValue();
+                if (tag != null && !tag.isBlank() && weight != null) {
+                    if (weight <= 0.0f) {
+                        builder.disinterest(tag.trim(), InterestLevel.HIGH);
+                    } else if (weight >= 1.5f) {
+                        builder.interest(tag.trim(), InterestLevel.HIGH);
+                    } else if (weight >= 1.0f) {
+                        builder.interest(tag.trim(), InterestLevel.MEDIUM);
+                    } else {
+                        builder.interest(tag.trim(), InterestLevel.LOW);
+                    }
+                }
             }
         }
         return builder.build();

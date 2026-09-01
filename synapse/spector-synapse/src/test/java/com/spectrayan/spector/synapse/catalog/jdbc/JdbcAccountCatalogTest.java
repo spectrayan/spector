@@ -277,4 +277,104 @@ class JdbcAccountCatalogTest {
         assertThat(grantsAfterRevoke).hasSize(1); // Only implicit owner remains
         assertThat(grantsAfterRevoke).noneMatch(g -> g.grantId().equals(grant.grantId()));
     }
+
+    @Test
+    @DisplayName("authorizeIdentity enforces region PEP, constraints, and ADMIN !=> INJECT")
+    void testAuthorizeIdentityRules() {
+        catalog.getOrCreateAccount(ACCOUNT_ID);
+        catalog.getOrCreateAccount(OTHER_ACCOUNT_ID);
+
+        // 1. Owner always authorized on own bundle
+        assertThat(catalog.authorizeIdentity(ACCOUNT_ID, ACCOUNT_ID, "SOUL", GrantAction.READ)).isTrue();
+        assertThat(catalog.authorizeIdentity(ACCOUNT_ID, ACCOUNT_ID, "SOUL", GrantAction.WRITE)).isTrue();
+        assertThat(catalog.authorizeIdentity(ACCOUNT_ID, ACCOUNT_ID, "SOUL", GrantAction.INJECT)).isTrue();
+
+        // 2. Cross-account unauthorized before grant
+        assertThat(catalog.authorizeIdentity(OTHER_ACCOUNT_ID, ACCOUNT_ID, "SOUL", GrantAction.READ)).isFalse();
+
+        // 3. Grant direct region grant for SOUL READ
+        catalog.addGrant(new Grant(
+                "0195500000004",
+                GrantObjectType.IDENTITY_REGION,
+                ACCOUNT_ID + ":SOUL",
+                OTHER_ACCOUNT_ID,
+                PrincipalType.ACCOUNT,
+                GrantRole.READER,
+                Set.of(GrantAction.READ),
+                ACCOUNT_ID,
+                Instant.now(),
+                null,
+                null
+        ));
+        assertThat(catalog.authorizeIdentity(OTHER_ACCOUNT_ID, ACCOUNT_ID, "SOUL", GrantAction.READ)).isTrue();
+        assertThat(catalog.authorizeIdentity(OTHER_ACCOUNT_ID, ACCOUNT_ID, "SOUL", GrantAction.WRITE)).isFalse();
+        assertThat(catalog.authorizeIdentity(OTHER_ACCOUNT_ID, ACCOUNT_ID, "SOUL", GrantAction.INJECT)).isFalse();
+
+        // 4. Grant ADMIN on bundle with region constraints: only SALIENCE
+        catalog.addGrant(new Grant(
+                "0195500000005",
+                GrantObjectType.IDENTITY_BUNDLE,
+                ACCOUNT_ID,
+                OTHER_ACCOUNT_ID,
+                PrincipalType.ACCOUNT,
+                GrantRole.ADMIN,
+                Set.of(GrantAction.READ, GrantAction.WRITE, GrantAction.ADMIN),
+                ACCOUNT_ID,
+                Instant.now(),
+                null,
+                new GrantConstraints(null, null, null, Set.of("SALIENCE"))
+        ));
+
+        // SALIENCE allows READ, WRITE, ADMIN
+        assertThat(catalog.authorizeIdentity(OTHER_ACCOUNT_ID, ACCOUNT_ID, "SALIENCE", GrantAction.READ)).isTrue();
+        assertThat(catalog.authorizeIdentity(OTHER_ACCOUNT_ID, ACCOUNT_ID, "SALIENCE", GrantAction.WRITE)).isTrue();
+        // ADMIN does NOT imply INJECT
+        assertThat(catalog.authorizeIdentity(OTHER_ACCOUNT_ID, ACCOUNT_ID, "SALIENCE", GrantAction.INJECT)).isFalse();
+        // POLICY is not in region constraints
+        assertThat(catalog.authorizeIdentity(OTHER_ACCOUNT_ID, ACCOUNT_ID, "POLICY", GrantAction.READ)).isFalse();
+
+        // 5. Grant explicit INJECT on bundle
+        catalog.addGrant(new Grant(
+                "0195500000006",
+                GrantObjectType.IDENTITY_BUNDLE,
+                ACCOUNT_ID,
+                OTHER_ACCOUNT_ID,
+                PrincipalType.ACCOUNT,
+                GrantRole.READER,
+                Set.of(GrantAction.INJECT),
+                ACCOUNT_ID,
+                Instant.now(),
+                null,
+                null
+        ));
+        assertThat(catalog.authorizeIdentity(OTHER_ACCOUNT_ID, ACCOUNT_ID, "SOUL", GrantAction.INJECT)).isTrue();
+    }
+
+    @Test
+    @DisplayName("addOrgMember validates org unit existence and throws when missing")
+    void testAddOrgMemberValidation() {
+        catalog.getOrCreateAccount(ACCOUNT_ID);
+
+        // Non-existent org unit should throw IllegalArgumentException
+        assertThatThrownBy(() -> catalog.addOrgMember(ACCOUNT_ID, "non-existent-org"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("does not exist in catalog");
+
+        // Insert legitimate org unit into DB
+        jdbc.sql("INSERT INTO org_units (org_unit_id, tenant_id, name) VALUES (:id, :tid, :name)")
+                .param("id", "engineering")
+                .param("tid", "tenant-1")
+                .param("name", "Engineering")
+                .update();
+
+        // Now addOrgMember succeeds
+        catalog.addOrgMember(ACCOUNT_ID, "engineering");
+        List<String> orgs = catalog.orgUnitIdsForAccount(ACCOUNT_ID);
+        assertThat(orgs).contains("engineering");
+
+        // Remove org member
+        catalog.removeOrgMember(ACCOUNT_ID, "engineering");
+        assertThat(catalog.orgUnitIdsForAccount(ACCOUNT_ID)).doesNotContain("engineering");
+    }
 }
+

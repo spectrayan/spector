@@ -171,4 +171,16 @@ class ObservedSpectorMemoryTest {
                 .hasLowCardinalityKeyValue("spector.namespace", "ns-42")
                 .hasHighCardinalityKeyValue("custom_key", "custom_val");
     }
+
+    @Test
+    @DisplayName("applyIdentity() delegates to wrapped memory instance")
+    void testApplyIdentityDelegation() {
+        com.spectrayan.spector.memory.model.SoulContext soul = new com.spectrayan.spector.memory.model.UserSoul("user-1", "primary", "desc", null, null);
+        List<com.spectrayan.spector.memory.model.SoulContext> soulStack = List.of(soul);
+        var salience = com.spectrayan.spector.memory.model.SalienceProfile.NEUTRAL;
+
+        memory.applyIdentity(soul, soulStack, salience);
+
+        verify(delegate).applyIdentity(soul, soulStack, salience);
+    }
 }

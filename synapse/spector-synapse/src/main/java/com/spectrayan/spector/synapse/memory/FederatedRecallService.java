@@ -189,11 +189,22 @@ public class FederatedRecallService {
         // 4. Parallel Fan-Out Execution via ConcurrentTasks (Structured Concurrency & Virtual Threads)
         final List<String> opened = new ArrayList<>();
         final List<FederatedRecallHit> allHits = new ArrayList<>();
-        final RecallOptions recallOptions = RecallOptions.builder()
+        RequestMemoryContext reqCtx = MemoryBinding.current()
+                .map(MemoryBinding::requestMemoryContext)
+                .orElse(null);
+        final RecallOptions.Builder optBuilder = RecallOptions.builder()
                 .topK(request.perNamespaceTopK())
                 .profile(request.profile() != null ? request.profile() : CognitiveProfile.BALANCED)
-                .scoringMode(request.scoringMode() != null ? request.scoringMode() : ScoringMode.COGNITIVE)
-                .build();
+                .scoringMode(request.scoringMode() != null ? request.scoringMode() : ScoringMode.COGNITIVE);
+        if (reqCtx != null) {
+            if (reqCtx.effectiveSalience() != null) {
+                optBuilder.salienceProfile(reqCtx.effectiveSalience());
+            }
+            if (reqCtx.primarySoul() != null && reqCtx.primarySoul().id() != null) {
+                optBuilder.personaId(reqCtx.primarySoul().id());
+            }
+        }
+        final RecallOptions recallOptions = optBuilder.build();
 
         if (!executableTargets.isEmpty()) {
             final Map<String, TargetNamespace> targetMap = new LinkedHashMap<>();

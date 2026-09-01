@@ -89,23 +89,37 @@ public class MemoryAccessObject {
     }
 
     /**
-     * Store/remember a memory synchronously with optional timestamp override.
+     * Store/remember a memory synchronously with optional timestamp override and request context.
      */
-    public String remember(SpectorMemory memory, String id, String text, MemoryType type, MemorySource source, IngestionHints hints, String[] tags, Long timestampMs) {
+    public String remember(SpectorMemory memory, String id, String text, MemoryType type, MemorySource source,
+                           IngestionHints hints, String[] tags, Long timestampMs, RequestMemoryContext requestContext) {
         if (!isAvailable(memory)) {
             log.warn("[MemoryAccessObject] Stub mode: remember ignored (id={})", id);
             return id;
         }
         try {
+            RequestMemoryContext reqCtx = requestContext != null ? requestContext : resolveCurrentRequestContext();
+            com.spectrayan.spector.memory.model.IngestionContext.Builder ctxBuilder =
+                    com.spectrayan.spector.memory.model.IngestionContext.builder()
+                            .hints(hints);
             if (timestampMs != null && timestampMs > 0) {
-                com.spectrayan.spector.memory.model.IngestionContext ctx = com.spectrayan.spector.memory.model.IngestionContext.builder()
-                        .hints(hints)
-                        .overrideTimestampMs(timestampMs)
-                        .build();
-                memory.remember(id, text, type, source, ctx, tags);
-            } else {
-                memory.remember(id, text, type, source, (IngestionHints) hints, tags);
+                ctxBuilder.overrideTimestampMs(timestampMs);
             }
+
+            if (reqCtx != null) {
+                if (reqCtx.soulStack() != null && !reqCtx.soulStack().isEmpty()) {
+                    ctxBuilder.soulContexts(reqCtx.soulStack());
+                }
+                if (reqCtx.effectiveSalience() != null) {
+                    ctxBuilder.salienceProfile(reqCtx.effectiveSalience());
+                }
+                if (reqCtx.primarySoul() != null) {
+                    ctxBuilder.soulVersion(reqCtx.primarySoul().soulVersion());
+                }
+            }
+
+            com.spectrayan.spector.memory.model.IngestionContext ctx = ctxBuilder.build();
+            memory.remember(id, text, type, source, ctx, tags);
             log.debug("[MemoryAccessObject] Remembered memory: id={}", id);
             return id;
         } catch (Exception e) {
@@ -115,10 +129,27 @@ public class MemoryAccessObject {
     }
 
     /**
+     * Store/remember a memory synchronously with optional timestamp override.
+     */
+    public String remember(SpectorMemory memory, String id, String text, MemoryType type, MemorySource source,
+                           IngestionHints hints, String[] tags, Long timestampMs) {
+        return remember(memory, id, text, type, source, hints, tags, timestampMs, null);
+    }
+
+    /**
      * Backward-compatible overload without timestamp override.
      */
-    public String remember(SpectorMemory memory, String id, String text, MemoryType type, MemorySource source, IngestionHints hints, String[] tags) {
-        return remember(memory, id, text, type, source, hints, tags, null);
+    public String remember(SpectorMemory memory, String id, String text, MemoryType type, MemorySource source,
+                           IngestionHints hints, String[] tags) {
+        return remember(memory, id, text, type, source, hints, tags, null, null);
+    }
+
+    private RequestMemoryContext resolveCurrentRequestContext() {
+        return MemoryBinding.current()
+                .map(MemoryBinding::requestMemoryContext)
+                .or(() -> java.util.Optional.ofNullable(com.spectrayan.spector.synapse.mcp.McpRequestMemory.currentBinding())
+                        .map(MemoryBinding::requestMemoryContext))
+                .orElse(null);
     }
 
     /**
@@ -213,10 +244,14 @@ public class MemoryAccessObject {
     }
 
     /**
-     * Call cognitive recall synchronously.
+     * Call cognitive recall synchronously with request-scoped identity and salience overlay (ADR-0029 §2.5).
      */
     public List<CognitiveResult> recall(SpectorMemory memory, String query) {
         if (!isAvailable(memory)) return List.of();
+        RequestMemoryContext reqCtx = resolveCurrentRequestContext();
+        if (reqCtx != null && (reqCtx.effectiveSalience() != null || reqCtx.primarySoul() != null)) {
+            return recall(memory, query, RecallOptions.DEFAULT);
+        }
         try {
             return memory.recall(query);
         } catch (Exception e) {
@@ -226,7 +261,7 @@ public class MemoryAccessObject {
     }
 
     /**
-     * Call cognitive recall with explicit {@link RecallOptions}.
+     * Call cognitive recall with explicit {@link RecallOptions} and request-scoped identity/salience overlay (ADR-0029 §2.5).
      *
      * <p>Enables tag-filtered recall via
      * {@link RecallOptions.Builder#synapticFilter(String...)}, scoring mode
@@ -236,7 +271,18 @@ public class MemoryAccessObject {
     public List<CognitiveResult> recall(SpectorMemory memory, String query, RecallOptions options) {
         if (!isAvailable(memory)) return List.of();
         try {
-            return memory.recall(query, options);
+            RequestMemoryContext reqCtx = resolveCurrentRequestContext();
+            if (reqCtx != null) {
+                RecallOptions.Builder builder = (options != null ? options : RecallOptions.DEFAULT).toBuilder();
+                if (reqCtx.effectiveSalience() != null) {
+                    builder.salienceProfile(reqCtx.effectiveSalience());
+                }
+                if (reqCtx.primarySoul() != null && reqCtx.primarySoul().id() != null && (options == null || options.personaId() == null)) {
+                    builder.personaId(reqCtx.primarySoul().id());
+                }
+                options = builder.build();
+            }
+            return options != null ? memory.recall(query, options) : memory.recall(query);
         } catch (Exception e) {
             log.error("[MemoryAccessObject] Recall with options failed: {}", e.getMessage(), e);
             return List.of();

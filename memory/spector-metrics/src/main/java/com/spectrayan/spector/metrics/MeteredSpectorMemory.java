@@ -409,6 +409,13 @@ public class MeteredSpectorMemory implements SpectorMemory {
     }
 
     @Override
+    public void applyIdentity(com.spectrayan.spector.memory.model.SoulContext primarySoul,
+                              java.util.List<com.spectrayan.spector.memory.model.SoulContext> soulStack,
+                              com.spectrayan.spector.memory.model.SalienceProfile salience) {
+        delegate.applyIdentity(primarySoul, soulStack, salience);
+    }
+
+    @Override
     public com.spectrayan.spector.memory.model.SalienceProfile salienceProfile() {
         return delegate.salienceProfile();
     }

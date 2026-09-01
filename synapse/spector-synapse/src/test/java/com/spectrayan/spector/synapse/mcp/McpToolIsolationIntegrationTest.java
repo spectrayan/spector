@@ -14,6 +14,7 @@ package com.spectrayan.spector.synapse.mcp;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.ObjectProvider;
@@ -45,6 +47,7 @@ import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.spring.autoconfigure.SpectorConfigProperties;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.synapse.memory.MemoryRegistry;
+import com.spectrayan.spector.synapse.memory.NamespaceResolver;
 
 /**
  * Integration test for <strong>MCP tool isolation</strong> (Requirement 11).
@@ -281,14 +284,63 @@ class McpToolIsolationIntegrationTest {
         ObjectProvider<ObjectMapper> objectMapperProvider = mockProvider();
         when(objectMapperProvider.getIfAvailable()).thenReturn(new ObjectMapper());
 
-        return new MemoryRegistry(
+        SynapseProperties props = synapseProps(authEnabled);
+        MemoryRegistry registry = new MemoryRegistry(
                 sharedProvider,
-                synapseProps(authEnabled),
+                props,
                 embedderProvider,
                 textGenProvider,
                 salienceProvider,
                 objectMapperProvider,
                 512);
+
+        try {
+            Field resolverField = MemoryRegistry.class.getDeclaredField("resolver");
+            resolverField.setAccessible(true);
+            NamespaceResolver resolver = (NamespaceResolver) resolverField.get(registry);
+
+            com.spectrayan.spector.synapse.catalog.AccountCatalog catalog = mock(com.spectrayan.spector.synapse.catalog.AccountCatalog.class);
+            when(catalog.getOrCreateAccount(any())).thenAnswer(inv -> {
+                String id = inv.getArgument(0);
+                return new com.spectrayan.spector.synapse.catalog.Account(id,
+                        com.spectrayan.spector.synapse.catalog.PrincipalKind.HUMAN,
+                        com.spectrayan.spector.synapse.catalog.AccountProfile.HUMAN_SOLO, id,
+                        com.spectrayan.spector.synapse.catalog.AccountQuotas.forProfile(com.spectrayan.spector.synapse.catalog.AccountProfile.HUMAN_SOLO),
+                        com.spectrayan.spector.synapse.catalog.AccountFlags.forProfile(com.spectrayan.spector.synapse.catalog.AccountProfile.HUMAN_SOLO),
+                        id, java.time.Instant.now());
+            });
+            when(catalog.authorize(any(), any(), any())).thenAnswer(inv -> {
+                String id = inv.getArgument(0);
+                String ns = inv.getArgument(1);
+                return Optional.of(new com.spectrayan.spector.synapse.catalog.Grant("g-" + id,
+                        com.spectrayan.spector.synapse.catalog.GrantObjectType.NAMESPACE, ns, id,
+                        com.spectrayan.spector.synapse.catalog.PrincipalType.ACCOUNT,
+                        com.spectrayan.spector.synapse.catalog.GrantRole.OWNER,
+                        java.util.Set.of(), id, java.time.Instant.now(), null, null));
+            });
+            when(catalog.resolve(any(), any())).thenAnswer(inv -> {
+                String id = inv.getArgument(0);
+                String slug = inv.getArgument(1);
+                return Optional.of(new com.spectrayan.spector.synapse.catalog.NamespaceRecord(id, slug, id,
+                        com.spectrayan.spector.synapse.catalog.NamespaceType.DEFAULT,
+                        com.spectrayan.spector.synapse.catalog.NamespaceStatus.ACTIVE, slug, "", null,
+                        java.time.Instant.now(), java.time.Instant.now()));
+            });
+
+            com.spectrayan.spector.synapse.memory.MemoryRequestBinder binder =
+                    new com.spectrayan.spector.synapse.memory.MemoryRequestBinder(
+                            catalog, registry, props, sharedProvider, null);
+            ObjectProvider<com.spectrayan.spector.synapse.memory.MemoryRequestBinder> binderProvider = mockProvider();
+            when(binderProvider.getIfAvailable()).thenReturn(binder);
+
+            Method setBinder = MemoryRegistry.class.getDeclaredMethod("setBinderProvider", ObjectProvider.class);
+            setBinder.setAccessible(true);
+            setBinder.invoke(registry, binderProvider);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        return registry;
     }
 
     private SynapseProperties synapseProps(boolean authEnabled) {

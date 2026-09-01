@@ -114,6 +114,48 @@ public final class SynapseCacheConstants {
     public static final long MAX_SIZE_MEMORY_SCORING_STATS = 100;
 
     /**
+     * Cache for catalog accounts (profiles, quotas, default namespace).
+     */
+    public static final String CACHE_CATALOG_ACCOUNTS = "catalog.accounts";
+    public static final Duration TTL_CATALOG_ACCOUNTS = Duration.ofMinutes(10);
+    public static final long MAX_SIZE_CATALOG_ACCOUNTS = 5_000;
+
+    /**
+     * Cache for catalog namespace records by (accountId, slugOrId).
+     */
+    public static final String CACHE_CATALOG_NAMESPACES = "catalog.namespaces";
+    public static final Duration TTL_CATALOG_NAMESPACES = Duration.ofMinutes(10);
+    public static final long MAX_SIZE_CATALOG_NAMESPACES = 10_000;
+
+    /**
+     * Cache for catalog active grants.
+     */
+    public static final String CACHE_CATALOG_GRANTS = "catalog.grants";
+    public static final Duration TTL_CATALOG_GRANTS = Duration.ofSeconds(30);
+    public static final long MAX_SIZE_CATALOG_GRANTS = 10_000;
+
+    /**
+     * Cache for org unit memberships by account ID.
+     */
+    public static final String CACHE_CATALOG_ORG_MEMBERSHIP = "catalog.org-membership";
+    public static final Duration TTL_CATALOG_ORG_MEMBERSHIP = Duration.ofMinutes(5);
+    public static final long MAX_SIZE_CATALOG_ORG_MEMBERSHIP = 5_000;
+
+    /**
+     * Cache for PEP namespace authorization decisions.
+     */
+    public static final String CACHE_PEP_NAMESPACE = "pep.namespace";
+    public static final Duration TTL_PEP_NAMESPACE = Duration.ofSeconds(15);
+    public static final long MAX_SIZE_PEP_NAMESPACE = 10_000;
+
+    /**
+     * Cache for PEP identity region authorization decisions.
+     */
+    public static final String CACHE_PEP_IDENTITY = "pep.identity";
+    public static final Duration TTL_PEP_IDENTITY = Duration.ofSeconds(15);
+    public static final long MAX_SIZE_PEP_IDENTITY = 10_000;
+
+    /**
      * All managed cache names in Synapse.
      */
     public static final String[] ALL_CACHES = {
@@ -129,6 +171,12 @@ public final class SynapseCacheConstants {
             CACHE_MEMORY_GRAPH_OVERVIEW,
             CACHE_MEMORY_TOPOLOGY_STATS,
             CACHE_MEMORY_STATS,
-            CACHE_MEMORY_SCORING_STATS
+            CACHE_MEMORY_SCORING_STATS,
+            CACHE_CATALOG_ACCOUNTS,
+            CACHE_CATALOG_NAMESPACES,
+            CACHE_CATALOG_GRANTS,
+            CACHE_CATALOG_ORG_MEMBERSHIP,
+            CACHE_PEP_NAMESPACE,
+            CACHE_PEP_IDENTITY
     };
 }

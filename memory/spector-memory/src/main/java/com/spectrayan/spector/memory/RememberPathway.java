@@ -214,11 +214,22 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
             final String[] tags,
             final MemorySource source,
             final IngestionContext context) {
+        final SalienceProfile effectiveSalience = (context != null && context.salienceProfile() != null)
+                ? context.salienceProfile()
+                : this.salienceProfile;
+        final short effectiveSoulVersion = (context != null && context.soulVersion() != null)
+                ? context.soulVersion()
+                : this.currentSoulVersion;
+        final java.util.List<com.spectrayan.spector.memory.model.SoulContext> effectiveSoulStack =
+                (context != null && context.soulContexts() != null && !context.soulContexts().isEmpty())
+                ? context.soulContexts()
+                : this.soulContexts;
+
         final RememberSignal signal = RememberSignal.forCognitiveWithContext(
                 id, text, vector, type, tags, source, context,
-                salienceProfile, currentSoulVersion
+                effectiveSalience, effectiveSoulVersion
         );
-        signal.soulContexts(this.soulContexts);
+        signal.soulContexts(effectiveSoulStack);
         pathway.conduct(signal);
     }
 

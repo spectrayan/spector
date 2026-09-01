@@ -33,19 +33,9 @@ import java.util.concurrent.locks.ReentrantLock;
  * File-backed implementation of {@link AccountCatalog} using per-account JSON files
  * (ADR-0029 §4.2, §19).
  *
- * <p>Catalog layout per account:</p>
- * <pre>
- * accounts/{shard}/{accountId}/
- * ├── account.json     # Account record
- * ├── slugs.json       # Map&lt;slug, namespaceId&gt;
- * ├── grants.jsonl     # Append-only grant log
- * └── LOCK             # File lock token
- * </pre>
- *
- * <p>Concurrency: one {@link ReentrantLock} per accountId (JVM) plus an exclusive
- * {@link FileLock} on the per-account {@code LOCK} file (OS). Reads are lock-free
- * on a cached snapshot invalidated by mtime.</p>
+ * @deprecated Legacy standalone mode only. In enterprise deployments, use {@link com.spectrayan.spector.synapse.catalog.jdbc.JdbcAccountCatalog}.
  */
+@Deprecated(since = "0.1.0-alpha")
 public class FileAccountCatalog implements AccountCatalog {
 
     private static final Logger log = LoggerFactory.getLogger(FileAccountCatalog.class);
@@ -106,41 +96,50 @@ public class FileAccountCatalog implements AccountCatalog {
             }
 
             Path grantsFile = accountDir.resolve(FILE_GRANTS);
-            List<Grant> grants = GrantLog.parseGrants(grantsFile, objectMapper);
+            List<Grant> grants = new ArrayList<>();
+            if (Files.exists(grantsFile)) {
+                grants = GrantLog.parseGrants(grantsFile, objectMapper);
+            }
 
-            CatalogSnapshot snapshot = new CatalogSnapshot(account, slugs, namespaces, grants, mtime);
+            CatalogSnapshot snapshot = new CatalogSnapshot(
+                    account,
+                    Collections.unmodifiableMap(slugs),
+                    Collections.unmodifiableMap(namespaces),
+                    Collections.unmodifiableList(grants),
+                    mtime
+            );
             snapshotCache.put(accountId, snapshot);
             return snapshot;
         } catch (IOException e) {
             log.error("[FileAccountCatalog] failed to load snapshot for account {}", accountId, e);
-            throw new RuntimeException("Failed to load catalog snapshot", e);
+            throw new RuntimeException("Failed to read account catalog snapshot", e);
         }
     }
 
     // ══════════════════════════════════════════════════════════════
-    // AccountCatalog SPI implementation
+    // Write operations (JVM + file lock guarded)
     // ══════════════════════════════════════════════════════════════
 
     @Override
     public Account getOrCreateAccount(String accountId) {
-        Path accountDir = StorageLayout.accountDir(basePath, accountId);
-        Path accountFile = accountDir.resolve(FILE_ACCOUNT);
+        return getOrCreateAccount(accountId, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN);
+    }
 
-        // Fast path: account already exists
-        if (Files.exists(accountFile)) {
-            try {
-                return objectMapper.readValue(accountFile.toFile(), Account.class);
-            } catch (IOException e) {
-                log.error("[FileAccountCatalog] failed to read account file: {}", accountFile, e);
-                throw new RuntimeException(e);
-            }
+    @Override
+    public Account getOrCreateAccount(String accountId, AccountProfile profile, PrincipalKind kind) {
+        if (accountId == null || accountId.isBlank()) {
+            throw new IllegalArgumentException("accountId must not be null or blank");
         }
 
-        // Cold path: create account under lock
+        AccountProfile effProfile = profile != null ? profile : AccountProfile.HUMAN_SOLO;
+        PrincipalKind effKind = kind != null ? kind : PrincipalKind.HUMAN;
+
         ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
         jvmLock.lock();
         try {
-            // Double-check after acquiring lock
+            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            Path accountFile = accountDir.resolve(FILE_ACCOUNT);
+
             if (Files.exists(accountFile)) {
                 return objectMapper.readValue(accountFile.toFile(), Account.class);
             }
@@ -155,14 +154,14 @@ public class FileAccountCatalog implements AccountCatalog {
                     StandardOpenOption.CREATE, StandardOpenOption.WRITE);
                  FileLock fileLock = channel.lock()) {
 
-                // Create account with HUMAN_SOLO profile defaults
+                // Create account with requested profile defaults
                 Account account = new Account(
                         accountId,
-                        PrincipalKind.HUMAN,
-                        AccountProfile.HUMAN_SOLO,
+                        effKind,
+                        effProfile,
                         null,  // displayName
-                        AccountQuotas.forProfile(AccountProfile.HUMAN_SOLO),
-                        AccountFlags.forProfile(AccountProfile.HUMAN_SOLO),
+                        AccountQuotas.forProfile(effProfile),
+                        AccountFlags.forProfile(effProfile),
                         accountId,  // defaultNamespaceId == accountId (invariant §12)
                         Instant.now()
                 );
