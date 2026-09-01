@@ -102,13 +102,7 @@ public class RecallCandidateGatherer {
 
             if (existing != null) {
                 float tierBoost = (existing.memoryType() == MemoryType.SEMANTIC || existing.memoryType() == MemoryType.PROCEDURAL) ? 2.0f : 1.0f;
-                vectorResults.add(new CognitiveResult(
-                        existing.id(), existing.text(), rrfScore * tierBoost, existing.importance(),
-                        existing.ageDays(), existing.agentRecallCount(), existing.valence(),
-                        existing.memoryType(), existing.source(), existing.synapticTags(),
-                        existing.decayFactor(), existing.ltpAdjustedDecay(),
-                        existing.retrievalMode(), existing.breakdown(), existing.trace(),
-                        existing.sourceModality(), existing.metadata()));
+                vectorResults.add(existing.withScore(rrfScore * tierBoost));
             } else if (index != null) {
                 MemoryIndex.MemoryLocation loc = index.locate(id);
                 if (loc == null) continue;
@@ -120,6 +114,7 @@ public class RecallCandidateGatherer {
                 byte valence = 0;
                 float ageDays = 0f;
                 short recallCount = 0;
+                long ts = 0L;
 
                 if (partitionRegistry != null) {
                     CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
@@ -134,7 +129,7 @@ public class RecallCandidateGatherer {
                             importance = header.importance();
                             valence = header.valence();
                             recallCount = (short) header.agentRecallCount();
-                            long ts = header.timestampMs();
+                            ts = header.timestampMs();
                             if (options.minTimestamp() != null && ts < options.minTimestamp()) continue;
                             if (options.maxTimestamp() != null && ts > options.maxTimestamp()) continue;
                             if (ts > 0) {
@@ -172,7 +167,7 @@ public class RecallCandidateGatherer {
                         id, text, rrfScore * tierBoost, importance, ageDays,
                         recallCount, valence, type, source,
                         tags, 1.0f, 1.0f, CognitiveResult.RetrievalMode.STANDARD, null, null,
-                        bm25Modality, bm25Meta));
+                        bm25Modality, bm25Meta, (byte) 0, ts));
             }
         }
 

@@ -783,13 +783,7 @@ public final class RecallPipeline {
                             CognitiveResult r = toRerank.get(i);
                             Float newScore = rerankScores.get(r.id());
                             if (newScore != null) {
-                                allResults.set(i, new CognitiveResult(
-                                        r.id(), r.text(), newScore, r.importance(),
-                                        r.ageDays(), r.agentRecallCount(), r.valence(),
-                                        r.memoryType(), r.source(), r.synapticTags(),
-                                        r.decayFactor(), r.ltpAdjustedDecay(),
-                                        r.retrievalMode(), r.breakdown(), r.trace(),
-                                        r.sourceModality(), r.metadata()));
+                                allResults.set(i, r.withScore(newScore));
                             }
                         }
 
@@ -1421,17 +1415,11 @@ public final class RecallPipeline {
             List<String> contextTagList = new ArrayList<>(contextTags.keySet());
             for (int i = 0; i < associativeResults.size(); i++) {
                 CognitiveResult r = associativeResults.get(i);
-                if (r.synapticTags() == null || r.synapticTags().length == 0) continue;
-
                 float predictive = coActivationTracker.getPredictiveStrength(
                         contextTagList, r.synapticTags());
                 if (predictive > 0) {
-                    float boosted = r.score() * (1.0f + predictive * 0.5f);
-                    associativeResults.set(i, new CognitiveResult(
-                            r.id(), r.text(), boosted, r.importance(), r.ageDays(),
-                            r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
-                            r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
-                            r.retrievalMode(), r.breakdown(), r.trace(), r.sourceModality(), r.metadata()));
+                    final float boosted = r.score() * (1.0f + predictive * 0.5f);
+                    associativeResults.set(i, r.withScore(boosted));
                 }
             }
         }
