@@ -12,18 +12,43 @@
  */
 package com.spectrayan.spector.memory.pathway;
 
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.bootstrap.*;
-
-import com.spectrayan.spector.memory.api.*;
+import com.spectrayan.spector.memory.api.ImportanceProvider;
+import com.spectrayan.spector.memory.bootstrap.BiologicalSubsystemsBuilder;
+import com.spectrayan.spector.memory.bootstrap.CognitiveCortexBuilder;
+import com.spectrayan.spector.memory.bootstrap.CognitiveGraphBuilder;
+import com.spectrayan.spector.memory.bootstrap.RetrievalIndexBuilder;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.memory.cortex.TextAppendMemory;
+import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
+import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
+import com.spectrayan.spector.memory.graph.EntityExtractor;
+import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.model.SoulContext;
+import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.persist.DataEncryptor;
+import com.spectrayan.spector.memory.pipeline.AsyncEntityExtractionQueue;
+import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.pipeline.ContentTagExtractor;
+import com.spectrayan.spector.memory.pipeline.PostIngestSync;
+import com.spectrayan.spector.memory.pipeline.TagExtractor;
+import com.spectrayan.spector.memory.remember.relay.CorticalWriteTransactionRelay;
+import com.spectrayan.spector.memory.remember.relay.DedupGuardRelay;
+import com.spectrayan.spector.memory.remember.relay.DopaminergicSurpriseRelay;
+import com.spectrayan.spector.memory.remember.relay.KnowledgeGraphEnrichmentRelay;
+import com.spectrayan.spector.memory.remember.relay.RememberPathwayFactory;
+import com.spectrayan.spector.memory.remember.relay.RememberSignal;
+import com.spectrayan.spector.memory.remember.relay.SynapticGraphLinkingRelay;
+import com.spectrayan.spector.memory.remember.relay.SynapticTagTransductionRelay;
+import com.spectrayan.spector.memory.session.SessionRegistry;
+import com.spectrayan.spector.memory.sync.MemoryWal;
 
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
-
-import com.spectrayan.spector.memory.*;
 
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;

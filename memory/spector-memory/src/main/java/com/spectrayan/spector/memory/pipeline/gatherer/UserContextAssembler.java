@@ -12,8 +12,13 @@
  */
 package com.spectrayan.spector.memory.pipeline.gatherer;
 
-import com.spectrayan.spector.memory.model.*;
-import com.spectrayan.spector.memory.temporal.*;
+import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.temporal.TemporalFact;
+
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.UserContext;
+import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
+import com.spectrayan.spector.memory.temporal.TemporalFact;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 
 import java.util.*;

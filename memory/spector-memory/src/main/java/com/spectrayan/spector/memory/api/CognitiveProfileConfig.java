@@ -12,7 +12,8 @@
  */
 package com.spectrayan.spector.memory.api;
 
-import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.DefaultSpectorMemory;
+import com.spectrayan.spector.memory.model.CognitiveProfile;
 
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 

@@ -12,17 +12,15 @@
  */
 package com.spectrayan.spector.memory.bootstrap;
 
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.api.*;
-
+import com.spectrayan.spector.memory.SpectorMemoryBuilder;
+import com.spectrayan.spector.memory.cortex.PartitionHandle;
+import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 
-import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.persist.PartitionManager;
 
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.index.MemoryIndex;
@@ -85,8 +83,8 @@ public final class PartitionManagerBuilder {
                 try {
                     frozenHandles.add(PartitionManager.openFrozenPartition(
                             frozenDir, frozenSeq, workingStore, quantizedVecBytes,
-                            builder.semanticCapacity, builder.episodicPartitionCapacity,
-                            builder.proceduralCapacity, builder.dataEncryptor));
+                            builder.semanticCapacity(), builder.episodicPartitionCapacity(),
+                            builder.proceduralCapacity(), builder.dataEncryptor()));
                 } catch (RuntimeException e) {
                     log.error("Failed to open frozen partition {} — records there will be unreadable: {}",
                             frozenDir.getFileName(), e.getMessage(), e);
@@ -98,21 +96,21 @@ public final class PartitionManagerBuilder {
         PartitionManager partitionManager;
         if (isDisk) {
             partitionManager = new PartitionManager(
-                    basePath, quantizedVecBytes, builder.semanticCapacity,
-                    builder.episodicPartitionCapacity, builder.proceduralCapacity,
+                    basePath, quantizedVecBytes, builder.semanticCapacity(),
+                    builder.episodicPartitionCapacity(), builder.proceduralCapacity(),
                     cognitiveRouter, resolvedPartitionDir, textDataStore, initialPartitionSeq,
                     frozenHandles,
                     index, graphs.hebbianGraph(), graphs.temporalChain(), cognitiveTarget,
-                    builder.dataEncryptor, useBundleMode, activeBundle);
+                    builder.dataEncryptor(), useBundleMode, activeBundle);
             cognitiveTarget.setPartitionRollCallback(partitionManager::rollPartition);
         } else {
             partitionManager = new PartitionManager(
-                    null, quantizedVecBytes, builder.semanticCapacity,
-                    builder.episodicPartitionCapacity, builder.proceduralCapacity,
+                    null, quantizedVecBytes, builder.semanticCapacity(),
+                    builder.episodicPartitionCapacity(), builder.proceduralCapacity(),
                     cognitiveRouter, null, textDataStore, initialPartitionSeq,
                     List.of(),
                     index, graphs.hebbianGraph(), graphs.temporalChain(), cognitiveTarget,
-                    builder.dataEncryptor, false, null);
+                    builder.dataEncryptor(), false, null);
         }
 
         // #443 (D3b): resolve MemoryIndex.text(id) via the memory's colocated partition,

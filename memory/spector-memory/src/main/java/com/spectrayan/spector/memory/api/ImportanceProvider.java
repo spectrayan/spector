@@ -12,7 +12,8 @@
  */
 package com.spectrayan.spector.memory.api;
 
-import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.model.ImportanceContext;
+import com.spectrayan.spector.memory.model.ImportanceResult;
 
 import com.spectrayan.spector.memory.model.ImportanceContext;
 import com.spectrayan.spector.memory.model.ImportanceResult;

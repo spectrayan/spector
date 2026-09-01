@@ -12,18 +12,28 @@
  */
 package com.spectrayan.spector.memory.bootstrap;
 
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.api.*;
+import com.spectrayan.spector.memory.SpectorMemoryBuilder;
+import com.spectrayan.spector.memory.amygdala.ValenceTracker;
+import com.spectrayan.spector.memory.api.ImportanceEstimator;
+import com.spectrayan.spector.memory.cortex.CentroidRouter;
+import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
+import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
+import com.spectrayan.spector.memory.habituation.HabituationPenalty;
+import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
+import com.spectrayan.spector.memory.inhibition.SuppressionSet;
+import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.metamemory.MemoryIntrospector;
+import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
+import com.spectrayan.spector.memory.persist.PartitionManager;
+import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
+import com.spectrayan.spector.memory.reflect.ReinforcementHandler;
 
 import com.spectrayan.spector.memory.reflect.ReinforcementHandler;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-
-import com.spectrayan.spector.memory.*;
 
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
@@ -49,7 +59,7 @@ import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
  * <p>Extracted verbatim from {@code SpectorMemoryFactory.assemble} as part of the
  * #437 god-class decomposition. Note that the resolved {@link IcnuWeights}
  * returned here is the one consumed by the {@code ImportanceEstimator}; the
- * ingestion target continues to receive {@code builder.icnuWeights} directly, as
+ * ingestion target continues to receive {@code builder.icnuWeights()} directly, as
  * before.</p>
  *
  * @since 1.1.0
@@ -80,10 +90,10 @@ public final class BiologicalSubsystemsBuilder {
         var basePath = cortex.basePath();
 
         //  Biological Subsystems 
-        SurpriseDetector surpriseDetector = new SurpriseDetector(builder.surpriseWarmup);
-        IcnuWeights icnuWeights = builder.icnuWeights != null ? builder.icnuWeights : IcnuWeights.DEFAULT;
-        FlashbulbPolicy flashbulbPolicy = new FlashbulbPolicy(builder.flashbulbThreshold);
-        ValenceTracker valenceTracker = new ValenceTracker(builder.valenceLearningRate);
+        SurpriseDetector surpriseDetector = new SurpriseDetector(builder.surpriseWarmup());
+        IcnuWeights icnuWeights = builder.icnuWeights() != null ? builder.icnuWeights() : IcnuWeights.DEFAULT;
+        FlashbulbPolicy flashbulbPolicy = new FlashbulbPolicy(builder.flashbulbThreshold());
+        ValenceTracker valenceTracker = new ValenceTracker(builder.valenceLearningRate());
 
         CoActivationRecordMemory coActivationTracker;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
@@ -97,19 +107,19 @@ public final class BiologicalSubsystemsBuilder {
             coActivationTracker = new CoActivationRecordMemory();
         }
         SuppressionSet suppressionSet = new SuppressionSet();
-        HabituationPenalty habituationPenalty = new HabituationPenalty(0.2f, builder.inhibitionTtlMs, builder.inhibitionFloor);
+        HabituationPenalty habituationPenalty = new HabituationPenalty(0.2f, builder.inhibitionTtlMs(), builder.inhibitionFloor());
         ProspectiveScheduler prospectiveScheduler = new ProspectiveScheduler();
         MemoryIntrospector introspector = new MemoryIntrospector(coActivationTracker);
         LateralEvaluator lateralEvaluator = new LateralEvaluator();
 
         ReflectDaemon reflectDaemon = new ReflectDaemon(
-                builder.circadianPolicy,
-                builder.dimensions > 0 ? new CentroidRouter(builder.dimensions) : null,
-                builder.LlmProvider,
+                builder.circadianPolicy(),
+                builder.dimensions() > 0 ? new CentroidRouter(builder.dimensions()) : null,
+                builder.LlmProvider(),
                 embeddingProvider,
                 5, // minClusterSize
-                builder.pinSourceEpisodes,
-                builder.pinnedQuota);
+                builder.pinSourceEpisodes(),
+                builder.pinnedQuota());
 
         return new BiologicalSubsystems(
                 surpriseDetector, icnuWeights, flashbulbPolicy, valenceTracker,

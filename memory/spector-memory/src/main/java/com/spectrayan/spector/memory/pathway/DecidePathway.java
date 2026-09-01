@@ -12,15 +12,12 @@
  */
 package com.spectrayan.spector.memory.pathway;
 
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.bootstrap.*;
-
-import com.spectrayan.spector.memory.api.*;
-
-import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.aisme.policy.PolicyInferenceEngine;
+import com.spectrayan.spector.memory.aisme.relay.PolicyInferenceRelay;
+import com.spectrayan.spector.memory.decide.relay.DecideGates;
+import com.spectrayan.spector.memory.decide.relay.DecideReport;
+import com.spectrayan.spector.memory.decide.relay.DecideSignal;
+import com.spectrayan.spector.memory.decide.relay.ExperimentRelay;
 
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
@@ -84,7 +81,7 @@ public final class DecidePathway implements AutoCloseable {
             return new DecideReport(report, elapsed, report.selectedPolicy() != null);
         } catch (Exception e) {
             log.error("DecidePathway: decision cycle aborted due to error: {}", e.getMessage(), e);
-            throw new IllegalStateException("DecidePathway execution failed: " + e.getMessage(), e);
+            throw new com.spectrayan.spector.memory.error.SpectorPathwayException("DecidePathway execution failed: " + e.getMessage(), e);
         }
     }
 

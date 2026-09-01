@@ -12,15 +12,20 @@
  */
 package com.spectrayan.spector.memory.bootstrap;
 
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.api.*;
-
-import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.SpectorMemoryBuilder;
+import com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon;
+import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
+import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
+import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.pathway.WanderPathway;
+import com.spectrayan.spector.memory.persist.PartitionManager;
+import com.spectrayan.spector.memory.scheduler.jobs.CheckpointJob;
+import com.spectrayan.spector.memory.scheduler.jobs.DmnWanderingJob;
+import com.spectrayan.spector.memory.scheduler.jobs.GraphEnrichmentJob;
+import com.spectrayan.spector.memory.sync.CheckpointDaemon;
+import com.spectrayan.spector.memory.sync.MemoryWal;
 
 import com.spectrayan.spector.commons.concurrent.DaemonPolicy;
 import com.spectrayan.spector.commons.concurrent.DaemonSupervisor;
@@ -86,7 +91,7 @@ public final class DaemonSupervisorBuilder {
         if (isDisk && basePath != null) {
             daemonSupervisor = new DaemonSupervisor("memory");
 
-            if (builder.checkpointIntervalSeconds > 0) {
+            if (builder.checkpointIntervalSeconds() > 0) {
                 java.lang.foreign.MemorySegment ckptSlice = cortex.useBundleMode() && cortex.runtimeBundle() != null
                         ? cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.CHECKPOINT)
                         : null;
@@ -101,7 +106,7 @@ public final class DaemonSupervisorBuilder {
                         resolvedPartitionDir, basePath, ckptSlice);
                 // Deprecated: Checkpointing is now scheduled and managed exclusively by Quartz CheckpointJob (#683)
                 // daemonSupervisor.schedule("checkpoint", checkpointDaemon::checkpoint,
-                //         java.time.Duration.ofSeconds(builder.checkpointIntervalSeconds), DaemonPolicy.CRITICAL);
+                //         java.time.Duration.ofSeconds(builder.checkpointIntervalSeconds()), DaemonPolicy.CRITICAL);
             } else {
                 checkpointDaemon = null;
             }
@@ -112,13 +117,13 @@ public final class DaemonSupervisorBuilder {
                 //         java.time.Duration.ofSeconds(30), DaemonPolicy.DEFAULT);
             }
 
-            if (wanderPathway != null && builder.aismeConfig != null && builder.aismeConfig.enabled() && builder.aismeConfig.enableDmnSpontaneous()) {
+            if (wanderPathway != null && builder.aismeConfig() != null && builder.aismeConfig().enabled() && builder.aismeConfig().enableDmnSpontaneous()) {
                 // Deprecated: DMN spontaneous wandering is now scheduled and managed exclusively by Quartz DmnWanderingJob (#683)
                 // com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon dmnDaemon =
                 //         new com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon(
                 //                 wanderPathway, partitionManager, System::currentTimeMillis);
                 // daemonSupervisor.schedule("dmn-wandering", dmnDaemon,
-                //         java.time.Duration.ofSeconds(Math.max(10, builder.aismeConfig.dmnIdleIntervalSeconds())), DaemonPolicy.DEFAULT);
+                //         java.time.Duration.ofSeconds(Math.max(10, builder.aismeConfig().dmnIdleIntervalSeconds())), DaemonPolicy.DEFAULT);
             }
         } else {
             checkpointDaemon = null;

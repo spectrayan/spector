@@ -12,7 +12,14 @@
  */
 package com.spectrayan.spector.memory.api;
 
-import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
+import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
+import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.model.ImportanceEstimate;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.VectorOps;
@@ -48,7 +55,7 @@ import org.slf4j.LoggerFactory;
  *
  * @see ImportanceEstimate
  */
-final class ImportanceEstimator {
+public final class ImportanceEstimator {
 
     private static final Logger log = LoggerFactory.getLogger(ImportanceEstimator.class);
 
@@ -57,10 +64,10 @@ final class ImportanceEstimator {
     private final IcnuWeights icnuWeights;
     private final ScalarQuantizer quantizer;
 
-    ImportanceEstimator(SurpriseDetector surpriseDetector,
-                        FlashbulbPolicy flashbulbPolicy,
-                        IcnuWeights icnuWeights,
-                        ScalarQuantizer quantizer) {
+    public ImportanceEstimator(SurpriseDetector surpriseDetector,
+                               FlashbulbPolicy flashbulbPolicy,
+                               IcnuWeights icnuWeights,
+                               ScalarQuantizer quantizer) {
         this.surpriseDetector = surpriseDetector;
         this.flashbulbPolicy = flashbulbPolicy;
         this.icnuWeights = icnuWeights;

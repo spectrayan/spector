@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.api;
 
-import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.model.SalienceProfile;
 
 import com.spectrayan.spector.memory.model.SalienceProfile;
 

@@ -12,17 +12,39 @@
  */
 package com.spectrayan.spector.memory.pathway;
 
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.bootstrap.*;
-
-import com.spectrayan.spector.memory.api.*;
+import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
+import com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold;
+import com.spectrayan.spector.memory.aisme.relay.ManifoldConsolidationRelay;
+import com.spectrayan.spector.memory.aisme.relay.SoftIdentityAnchorRelay;
+import com.spectrayan.spector.memory.api.ImportanceProvider;
+import com.spectrayan.spector.memory.cortex.CentroidRouter;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.memory.graph.TypeNormalizer;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
+import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.model.ReflectReport;
+import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.persist.PartitionManager;
+import com.spectrayan.spector.memory.reflect.relay.CrossLayerPromotionRelay;
+import com.spectrayan.spector.memory.reflect.relay.EntityMaintenanceRelay;
+import com.spectrayan.spector.memory.reflect.relay.EpisodicLogConsolidationRelay;
+import com.spectrayan.spector.memory.reflect.relay.HebbianHomeostasisRelay;
+import com.spectrayan.spector.memory.reflect.relay.IdiolectLearningRelay;
+import com.spectrayan.spector.memory.reflect.relay.ProactiveInterferenceRelay;
+import com.spectrayan.spector.memory.reflect.relay.ProceduralCrystallizationRelay;
+import com.spectrayan.spector.memory.reflect.relay.ReflectPathwayFactory;
+import com.spectrayan.spector.memory.reflect.relay.ReflectSignal;
+import com.spectrayan.spector.memory.reflect.relay.SoulDriftRefusionRelay;
+import com.spectrayan.spector.memory.reflect.relay.SpectralSparsificationRelay;
+import com.spectrayan.spector.memory.reflect.relay.SynapticPruningRelay;
+import com.spectrayan.spector.memory.reflect.relay.TemporalPruningRelay;
+import com.spectrayan.spector.memory.reflect.relay.WalJournalRelay;
+import com.spectrayan.spector.memory.sync.MemoryWal;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 import com.spectrayan.spector.memory.api.ImportanceProvider;
-
-import com.spectrayan.spector.memory.*;
 
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.template.TemplateEngine;
@@ -187,7 +209,7 @@ public final class ReflectPathway implements AutoCloseable {
             return report;
         } catch (Exception e) {
             log.error("ReflectPathway: reflection cycle aborted due to error: {}", e.getMessage(), e);
-            throw new IllegalStateException("ReflectPathway execution failed: " + e.getMessage(), e);
+            throw new com.spectrayan.spector.memory.error.SpectorPathwayException("ReflectPathway execution failed: " + e.getMessage(), e);
         }
     }
 

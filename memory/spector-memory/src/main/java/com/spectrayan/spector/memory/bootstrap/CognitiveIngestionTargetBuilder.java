@@ -12,17 +12,17 @@
  */
 package com.spectrayan.spector.memory.bootstrap;
 
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.api.*;
+import com.spectrayan.spector.memory.SpectorMemoryBuilder;
+import com.spectrayan.spector.memory.api.ImportanceProvider;
+import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.persist.PartitionManager;
+import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.session.SessionRegistry;
+import com.spectrayan.spector.memory.sync.MemoryWal;
 
 import com.spectrayan.spector.memory.persist.PartitionManager;
-
-import com.spectrayan.spector.memory.*;
 
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.SalienceProfile;
@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p>Extracted verbatim from {@code SpectorMemoryFactory.assemble} as part of the
  * #437 god-class decomposition. Note the target continues to receive
- * {@code builder.icnuWeights} (not the {@code IcnuWeights.DEFAULT}-resolved value
+ * {@code builder.icnuWeights()} (not the {@code IcnuWeights.DEFAULT}-resolved value
  * used by the importance estimator), exactly as before.</p>
  *
  * @since 1.1.0
@@ -65,19 +65,19 @@ public final class CognitiveIngestionTargetBuilder {
         //  Ingestion Target 
         CognitiveIngestionTarget cognitiveTarget = new CognitiveIngestionTarget(
                 cortex.quantizer(), bio.surpriseDetector(), bio.flashbulbPolicy(),
-                cortex.cognitiveRouter(), index, wal, cortex.workingStore(), builder.icnuWeights,
-                builder.semanticIndex, builder.tagExtractor, true,
+                cortex.cognitiveRouter(), index, wal, cortex.workingStore(), builder.icnuWeights(),
+                builder.semanticIndex(), builder.tagExtractor(), true,
                 graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityExtractor(),
                 graphs.entityDirectory(), graphs.hyperEntityGraph(), graphs.temporalKnowledgeGraph(),
                 retrieval.bm25Index(), retrieval.textDataStore(), activePartitionIndex,
-                retrieval.memorySpladeIndex(), builder.SparseEmbeddingProvider,
-                builder.dataEncryptor, importanceProvider,
+                retrieval.memorySpladeIndex(), builder.SparseEmbeddingProvider(),
+                builder.dataEncryptor(), importanceProvider,
                 new com.spectrayan.spector.memory.session.SessionRegistry(),
-                builder.entityExtractionParallelism, builder.entityExtractionQueueCapacity);
+                builder.entityExtractionParallelism(), builder.entityExtractionQueueCapacity());
 
         //  Wire Salience Profile Provider 
-        if (builder.salienceProfileProvider != null) {
-            SalienceProfile effective = builder.salienceProfileProvider.effectiveProfile();
+        if (builder.salienceProfileProvider() != null) {
+            SalienceProfile effective = builder.salienceProfileProvider().effectiveProfile();
             if (effective != null && !effective.isNeutral()) {
                 cognitiveTarget.setSalienceProfile(effective);
                 log.info("Salience profile applied: interests={}, disinterests={}, icnuOverride={}",

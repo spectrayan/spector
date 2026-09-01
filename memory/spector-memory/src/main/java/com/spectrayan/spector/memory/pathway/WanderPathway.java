@@ -12,15 +12,25 @@
  */
 package com.spectrayan.spector.memory.pathway;
 
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.bootstrap.*;
-
-import com.spectrayan.spector.memory.api.*;
-
-import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
+import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;
+import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
+import com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold;
+import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.kernel.Memory;
+import com.spectrayan.spector.memory.persist.PartitionManager;
+import com.spectrayan.spector.memory.simulation.relay.SpacetimeSeedRelay;
+import com.spectrayan.spector.memory.wander.relay.AutobiographicalSamplingRelay;
+import com.spectrayan.spector.memory.wander.relay.HebbianSynapticReinforcementRelay;
+import com.spectrayan.spector.memory.wander.relay.HopfieldMindWanderingRelay;
+import com.spectrayan.spector.memory.wander.relay.IdleGateRelay;
+import com.spectrayan.spector.memory.wander.relay.LongitudinalContinuityRelay;
+import com.spectrayan.spector.memory.wander.relay.ManifoldSynergyRelay;
+import com.spectrayan.spector.memory.wander.relay.WanderGates;
+import com.spectrayan.spector.memory.wander.relay.WanderReport;
+import com.spectrayan.spector.memory.wander.relay.WanderSignal;
 
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
@@ -145,7 +155,7 @@ public final class WanderPathway implements AutoCloseable {
             return report;
         } catch (Exception e) {
             log.error("WanderPathway: wandering cycle aborted due to error: {}", e.getMessage(), e);
-            throw new IllegalStateException("WanderPathway execution failed: " + e.getMessage(), e);
+            throw new com.spectrayan.spector.memory.error.SpectorPathwayException("WanderPathway execution failed: " + e.getMessage(), e);
         }
     }
 

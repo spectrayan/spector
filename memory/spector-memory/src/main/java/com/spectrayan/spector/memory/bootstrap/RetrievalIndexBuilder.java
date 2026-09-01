@@ -12,17 +12,17 @@
  */
 package com.spectrayan.spector.memory.bootstrap;
 
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.api.*;
+import com.spectrayan.spector.memory.SpectorMemoryBuilder;
+import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
+import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
+import com.spectrayan.spector.memory.cortex.TextAppendMemory;
+import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.persist.PartitionManager;
+import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker;
+import com.spectrayan.spector.memory.pipeline.reranker.ColBERTTokenCache;
 
 import com.spectrayan.spector.memory.persist.PartitionManager;
-
-import com.spectrayan.spector.memory.*;
 
 import com.spectrayan.spector.index.BM25Index;
 import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker;
@@ -115,20 +115,20 @@ public final class RetrievalIndexBuilder {
 
         //  SPLADE Index 
         MemorySpladeIndex memorySpladeIndex = null;
-        if (builder.SparseEmbeddingProvider != null) {
+        if (builder.SparseEmbeddingProvider() != null) {
             memorySpladeIndex = new MemorySpladeIndex(1);
-            log.info("SPLADE index enabled: provider={}", builder.SparseEmbeddingProvider.modelName());
+            log.info("SPLADE index enabled: provider={}", builder.SparseEmbeddingProvider().modelName());
         }
 
         //  ColBERT Reranker 
         ColBERTReranker colbertReranker = null;
-        if (builder.tokenEmbeddingProvider != null) {
+        if (builder.tokenEmbeddingProvider() != null) {
             ColBERTTokenCache tokenCache = new ColBERTTokenCache(
-                    builder.tokenEmbeddingProvider.tokenDimensions(), 10_000);
-            colbertReranker = new ColBERTReranker(builder.tokenEmbeddingProvider, tokenCache);
+                    builder.tokenEmbeddingProvider().tokenDimensions(), 10_000);
+            colbertReranker = new ColBERTReranker(builder.tokenEmbeddingProvider(), tokenCache);
             log.info("ColBERT reranker enabled: provider={}, tokenDims={}",
-                    builder.tokenEmbeddingProvider.modelName(),
-                    builder.tokenEmbeddingProvider.tokenDimensions());
+                    builder.tokenEmbeddingProvider().modelName(),
+                    builder.tokenEmbeddingProvider().tokenDimensions());
         }
 
         return new RetrievalIndices(bm25Index, textDataStore, memorySpladeIndex, colbertReranker);

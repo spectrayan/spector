@@ -12,15 +12,26 @@
  */
 package com.spectrayan.spector.memory.bootstrap;
 
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.api.*;
-
-import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.SpectorMemoryBuilder;
+import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
+import com.spectrayan.spector.memory.graph.EntityExtractionMode;
+import com.spectrayan.spector.memory.graph.EntityExtractor;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
+import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
+import com.spectrayan.spector.memory.graph.OntologyConfig;
+import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
@@ -89,26 +100,26 @@ public final class CognitiveGraphBuilder {
         Path resolvedPartitionDir = cortex.resolvedPartitionDir();
 
         //  3-Layer Cognitive Graph 
-        int graphCapacity = builder.hebbianGraphCapacity > 0
-                ? builder.hebbianGraphCapacity : builder.episodicPartitionCapacity;
+        int graphCapacity = builder.hebbianGraphCapacity() > 0
+                ? builder.hebbianGraphCapacity() : builder.episodicPartitionCapacity();
 
         HebbianGraphBase hebbianGraph;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
             java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.HEBBIAN);
             boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(regionSlice, 0L);
-            int edgeCapacity = builder.hebbianMaxDegree > 0
-                    ? graphCapacity * builder.hebbianMaxDegree
+            int edgeCapacity = builder.hebbianMaxDegree() > 0
+                    ? graphCapacity * builder.hebbianMaxDegree()
                     : graphCapacity * 16;
             hebbianGraph = HebbianGraphMemory.fromBundle(
                     cortex.runtimeBundle().arena(), regionSlice, graphCapacity, edgeCapacity,
-                    builder.hebbianMaxDegree, builder.edgeImportance,
+                    builder.hebbianMaxDegree(), builder.edgeImportance(),
                     cortex.runtimeBundle().bundlePath(), isNew);
         } else {
             hebbianGraph = new HebbianGraphMemory(graphCapacity);
         }
 
-        int temporalCapacity = builder.temporalChainCapacity > 0
-                ? builder.temporalChainCapacity : graphCapacity;
+        int temporalCapacity = builder.temporalChainCapacity() > 0
+                ? builder.temporalChainCapacity() : graphCapacity;
         TemporalChainMemory temporalChain;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
             java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.TEMPORAL_CHAIN);
@@ -121,24 +132,24 @@ public final class CognitiveGraphBuilder {
         }
 
         EntityExtractor entityExtractor;
-        if (builder.entityExtractionMode == EntityExtractionMode.LLM
-                && builder.LlmProvider != null) {
+        if (builder.entityExtractionMode() == EntityExtractionMode.LLM
+                && builder.LlmProvider() != null) {
             entityExtractor = new LlmEntityExtractor(
-                    builder.LlmProvider,
-                    builder.maxEntitiesPerMemory, builder.maxRelationsPerMemory,
-                    builder.llmGenerationOptions);
-        } else if (builder.entityExtractionMode == EntityExtractionMode.CUSTOM
-                && builder.entityExtractor != null) {
-            entityExtractor = builder.entityExtractor;
+                    builder.LlmProvider(),
+                    builder.maxEntitiesPerMemory(), builder.maxRelationsPerMemory(),
+                    builder.llmGenerationOptions());
+        } else if (builder.entityExtractionMode() == EntityExtractionMode.CUSTOM
+                && builder.entityExtractor() != null) {
+            entityExtractor = builder.entityExtractor();
         } else {
             entityExtractor = NoOpEntityExtractor.INSTANCE;
         }
 
-        boolean entityEnabled = builder.entityExtractionMode != EntityExtractionMode.NONE;
+        boolean entityEnabled = builder.entityExtractionMode() != EntityExtractionMode.NONE;
 
         HyperEntityGraphMemory hyperEntityGraph;
         if (entityEnabled) {
-            int hyperCap = builder.entityGraphCapacity;
+            int hyperCap = builder.entityGraphCapacity();
             int hyperEdgeCap = hyperCap * 2;
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
                 java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.HYPERGRAPH);
@@ -153,14 +164,14 @@ public final class CognitiveGraphBuilder {
             hyperEntityGraph = null;
         }
 
-        OntologyConfig ontConfig = builder.ontologyConfig != null
-                ? builder.ontologyConfig
+        OntologyConfig ontConfig = builder.ontologyConfig() != null
+                ? builder.ontologyConfig()
                 : OntologyConfig.defaultInstance();
         String[] entitySeedTypes = ontConfig.canonicalTypes().toArray(String[]::new);
 
         EntityDirectory entityDirectory;
         if (entityEnabled) {
-            int dirCap = builder.entityGraphCapacity;
+            int dirCap = builder.entityGraphCapacity();
             TypeRegistryMemory entityTypeRegistry;
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
                 java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_TYPES);
@@ -213,7 +224,7 @@ public final class CognitiveGraphBuilder {
         //  Cognitive Graph Facade 
         CognitiveGraphFacade graphFacade = new CognitiveGraphFacade(
                 hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph,
-                temporalKnowledgeGraph, ontConfig, index, builder.cacheManager);
+                temporalKnowledgeGraph, ontConfig, index, builder.cacheManager());
 
         return new CognitiveGraphs(
                 hebbianGraph, temporalChain, entityExtractor, entityDirectory,

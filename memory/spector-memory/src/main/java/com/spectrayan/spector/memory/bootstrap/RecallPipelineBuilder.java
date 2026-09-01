@@ -12,17 +12,23 @@
  */
 package com.spectrayan.spector.memory.bootstrap;
 
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.api.*;
+import com.spectrayan.spector.memory.SpectorMemoryBuilder;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
+import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.pathway.RecallPathway;
+import com.spectrayan.spector.memory.persist.MemoryWalRecovery;
+import com.spectrayan.spector.memory.persist.PartitionManager;
+import com.spectrayan.spector.memory.pipeline.HebbianCoActivationListener;
+import com.spectrayan.spector.memory.pipeline.LtpReconsolidationListener;
+import com.spectrayan.spector.memory.pipeline.RecallHistory;
+import com.spectrayan.spector.memory.pipeline.RecallPipeline;
+import com.spectrayan.spector.memory.pipeline.reranker.MmrReranker;
+import com.spectrayan.spector.memory.sync.MemoryWal;
 
 import com.spectrayan.spector.memory.persist.PartitionManager;
-
-import com.spectrayan.spector.memory.*;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
@@ -75,8 +81,8 @@ public final class RecallPipelineBuilder {
 
         // ── Semantic Recall Strategy + HNSW Rebuild (ADR-0009, #445) ──
         SemanticRecallStrategy semanticStrategy = null;
-        if (builder.semanticIndex != null) {
-            semanticStrategy = new SemanticRecallStrategy(builder.semanticIndex, partitionManager, index);
+        if (builder.semanticIndex() != null) {
+            semanticStrategy = new SemanticRecallStrategy(builder.semanticIndex(), partitionManager, index);
             rebuildHnswIfNeeded(builder, partitionManager, index, quantizer);
         }
 
@@ -94,9 +100,9 @@ public final class RecallPipelineBuilder {
                 quantizer.mins(), quantizer.scales(), semanticStrategy,
                 null, graphs.hebbianGraph(), graphs.temporalChain(),
                 graphs.entityDirectory(), graphs.hyperEntityGraph(), graphs.temporalKnowledgeGraph(), graphs.entityExtractor(),
-                builder.graphScoringPolicy, retrieval.bm25Index(),
-                retrieval.memorySpladeIndex(), builder.SparseEmbeddingProvider, retrieval.colbertReranker(),
-                recallHistory, mmrReranker, bio.surpriseDetector(), builder.hook);
+                builder.graphScoringPolicy(), retrieval.bm25Index(),
+                retrieval.memorySpladeIndex(), builder.SparseEmbeddingProvider(), retrieval.colbertReranker(),
+                recallHistory, mmrReranker, bio.surpriseDetector(), builder.hook());
 
         recallPipeline.addListener(new LtpReconsolidationListener(index, partitionManager, wal));
         recallPipeline.addListener(new HebbianCoActivationListener(bio.coActivationTracker()));
@@ -105,7 +111,7 @@ public final class RecallPipelineBuilder {
     }
 
     public static void rebuildHnswIfNeeded(SpectorMemoryBuilder builder, PartitionManager partitionManager, MemoryIndex index, ScalarQuantizer quantizer) {
-        if (builder.semanticIndex == null || builder.semanticIndex.isReadOnly() || builder.semanticIndex.size() > 0) {
+        if (builder.semanticIndex() == null || builder.semanticIndex().isReadOnly() || builder.semanticIndex().size() > 0) {
             return;
         }
         var partitions = partitionManager.snapshot();
@@ -143,7 +149,7 @@ public final class RecallPipelineBuilder {
                     float[] vector = quantizer.decode(quantized);
                     var loc = index.location(id);
                     int graphSlot = (loc != null) ? loc.graphSlot() : i;
-                    builder.semanticIndex.add(id, graphSlot, vector);
+                    builder.semanticIndex().add(id, graphSlot, vector);
                     totalRebuilt++;
                 }
             }

@@ -142,7 +142,7 @@ import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker.RerankRes
  * @deprecated Superceded by {@link com.spectrayan.spector.memory.pathway.RecallPathway} as part of the
  *             Cognitive Pathway Engine redesign (#561). Will be removed in a future major release.
  */
-@Deprecated(since = "0.2.0-alpha", forRemoval = false)
+@Deprecated(since = "0.1.0-alpha", forRemoval = true)
 public final class RecallPipeline {
 
     private static final Logger log = LoggerFactory.getLogger(RecallPipeline.class);

@@ -12,15 +12,7 @@
  */
 package com.spectrayan.spector.memory.persist;
 
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.bootstrap.*;
-
-import com.spectrayan.spector.memory.api.*;
-
-import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.bootstrap.SpectorMemoryFactory;
 
 import java.nio.file.Path;
 
@@ -39,7 +31,7 @@ import org.slf4j.LoggerFactory;
  *
  * @since 1.1.0
  */
-final class MigrationPathResolver {
+public final class MigrationPathResolver {
 
     private static final Logger log = LoggerFactory.getLogger(MigrationPathResolver.class);
 

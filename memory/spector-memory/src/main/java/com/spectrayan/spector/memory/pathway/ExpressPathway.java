@@ -12,15 +12,17 @@
  */
 package com.spectrayan.spector.memory.pathway;
 
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.bootstrap.*;
-
-import com.spectrayan.spector.memory.api.*;
-
-import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.express.relay.EmbodiedKinesicsRelay;
+import com.spectrayan.spector.memory.express.relay.ExpressGates;
+import com.spectrayan.spector.memory.express.relay.ExpressReport;
+import com.spectrayan.spector.memory.express.relay.ExpressSignal;
+import com.spectrayan.spector.memory.express.relay.IdiolectStylometryRelay;
+import com.spectrayan.spector.memory.express.relay.PhenomenologicalStreamRelay;
+import com.spectrayan.spector.memory.express.relay.VocalProsodyRelay;
+import com.spectrayan.spector.memory.model.BlendshapeVector;
+import com.spectrayan.spector.memory.model.IdiolectProfile;
+import com.spectrayan.spector.memory.model.PhenomenologicalContextPack;
+import com.spectrayan.spector.memory.model.ProsodyParameterVector;
 
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
