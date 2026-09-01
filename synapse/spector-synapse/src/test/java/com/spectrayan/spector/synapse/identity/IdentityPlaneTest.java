@@ -100,7 +100,7 @@ class IdentityPlaneTest {
     void assembleSoulStack() {
         TenantSoul tenantSoul = new TenantSoul("ten-hospital", "Acme Health", "HIPAA Compliant",
                 List.of("medical"), List.of("HIPAA"), null, (short) 1, Instant.now(), Instant.now());
-        identityCache.getOrOpenTenant("ten-hospital").writeSoul(tenantSoul);
+        identityPlane.updateTenantSoul("ten-hospital", tenantSoul);
 
         UserSoul userSoul = new UserSoul("acc-doc", "Dr. Bob", "Cardiologist", null, null, (short) 1, Instant.now(), Instant.now());
         identityPlane.updateAccountSoul("acc-doc", userSoul);

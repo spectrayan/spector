@@ -94,14 +94,28 @@ class RememberPathwayDirectTest {
                 com.spectrayan.spector.memory.model.PersonaContext.builder().about("Chef").occupation("Culinary").build(),
                 null);
 
+        SalienceProfile salienceA = SalienceProfile.builder()
+                .interest("astronomy", com.spectrayan.spector.memory.model.InterestLevel.HIGH)
+                .alpha(0.8f)
+                .beta(0.2f)
+                .build();
+
+        SalienceProfile salienceB = SalienceProfile.builder()
+                .interest("culinary", com.spectrayan.spector.memory.model.InterestLevel.HIGH)
+                .alpha(0.3f)
+                .beta(0.7f)
+                .build();
+
         com.spectrayan.spector.memory.model.IngestionContext ctxA = com.spectrayan.spector.memory.model.IngestionContext.builder()
                 .soulContexts(List.of(soulA))
                 .soulVersion(soulA.soulVersion())
+                .salienceProfile(salienceA)
                 .build();
 
         com.spectrayan.spector.memory.model.IngestionContext ctxB = com.spectrayan.spector.memory.model.IngestionContext.builder()
                 .soulContexts(List.of(soulB))
                 .soulVersion(soulB.soulVersion())
+                .salienceProfile(salienceB)
                 .build();
 
         java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(2);
@@ -126,8 +140,26 @@ class RememberPathwayDirectTest {
         futureB.get(5, java.util.concurrent.TimeUnit.SECONDS);
         executor.shutdown();
 
-        assertThat(memory.inspect("mem-a")).isNotNull();
-        assertThat(memory.inspect("mem-b")).isNotNull();
+        com.spectrayan.spector.memory.model.CognitiveRecord recA = memory.inspect("mem-a");
+        com.spectrayan.spector.memory.model.CognitiveRecord recB = memory.inspect("mem-b");
+
+        assertThat(recA).as("mem-a record").isNotNull();
+        assertThat(recB).as("mem-b record").isNotNull();
+
+        assertThat(recA.tags()).containsExactly("astronomy");
+        assertThat(recB.tags()).containsExactly("culinary");
+        assertThat(recA.text()).contains("telescope");
+        assertThat(recB.text()).contains("sourdough");
+
+        // Scoped recall verifies salience interest routing per soul profile
+        var resultsA = memory.recall("telescope galaxy", RecallOptions.builder().topK(5).salienceProfile(salienceA).build());
+        var resultsB = memory.recall("sourdough recipe", RecallOptions.builder().topK(5).salienceProfile(salienceB).build());
+
+        assertThat(resultsA).isNotEmpty();
+        assertThat(resultsA.get(0).id()).isEqualTo("mem-a");
+
+        assertThat(resultsB).isNotEmpty();
+        assertThat(resultsB.get(0).id()).isEqualTo("mem-b");
     }
 
     private static class MockEmbeddingProvider implements EmbeddingProvider {

@@ -244,10 +244,14 @@ public class MemoryAccessObject {
     }
 
     /**
-     * Call cognitive recall synchronously.
+     * Call cognitive recall synchronously with request-scoped identity and salience overlay (ADR-0029 §2.5).
      */
     public List<CognitiveResult> recall(SpectorMemory memory, String query) {
         if (!isAvailable(memory)) return List.of();
+        RequestMemoryContext reqCtx = resolveCurrentRequestContext();
+        if (reqCtx != null && (reqCtx.effectiveSalience() != null || reqCtx.primarySoul() != null)) {
+            return recall(memory, query, RecallOptions.DEFAULT);
+        }
         try {
             return memory.recall(query);
         } catch (Exception e) {
@@ -257,7 +261,7 @@ public class MemoryAccessObject {
     }
 
     /**
-     * Call cognitive recall with explicit {@link RecallOptions}.
+     * Call cognitive recall with explicit {@link RecallOptions} and request-scoped identity/salience overlay (ADR-0029 §2.5).
      *
      * <p>Enables tag-filtered recall via
      * {@link RecallOptions.Builder#synapticFilter(String...)}, scoring mode
@@ -267,7 +271,18 @@ public class MemoryAccessObject {
     public List<CognitiveResult> recall(SpectorMemory memory, String query, RecallOptions options) {
         if (!isAvailable(memory)) return List.of();
         try {
-            return memory.recall(query, options);
+            RequestMemoryContext reqCtx = resolveCurrentRequestContext();
+            if (reqCtx != null) {
+                RecallOptions.Builder builder = (options != null ? options : RecallOptions.DEFAULT).toBuilder();
+                if (reqCtx.effectiveSalience() != null) {
+                    builder.salienceProfile(reqCtx.effectiveSalience());
+                }
+                if (reqCtx.primarySoul() != null && reqCtx.primarySoul().id() != null && (options == null || options.personaId() == null)) {
+                    builder.personaId(reqCtx.primarySoul().id());
+                }
+                options = builder.build();
+            }
+            return options != null ? memory.recall(query, options) : memory.recall(query);
         } catch (Exception e) {
             log.error("[MemoryAccessObject] Recall with options failed: {}", e.getMessage(), e);
             return List.of();

@@ -29,6 +29,8 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.*;
 import java.util.regex.Pattern;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 /**
  * JDBC-backed implementation of {@link AccountCatalog} for enterprise and production
@@ -50,14 +52,18 @@ public class JdbcAccountCatalog implements AccountCatalog {
 
     private static final Logger log = LoggerFactory.getLogger(JdbcAccountCatalog.class);
 
-    private static final Pattern SLUG_PATTERN =
-            Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$");
+    private static final Pattern SLUG_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$");
 
     private final JdbcClient jdbc;
     private final SqlQueryLoader sqlLoader;
     private final ObjectMapper objectMapper;
     private final TsidGenerator tsid;
     private final org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider;
+
+    private final Cache<String, Long> membershipVersionCache = Caffeine.newBuilder()
+            .maximumSize(4096)
+            .expireAfterWrite(java.time.Duration.ofSeconds(5))
+            .build();
 
     public JdbcAccountCatalog(
             JdbcClient jdbc,
@@ -820,15 +826,17 @@ public class JdbcAccountCatalog implements AccountCatalog {
 
     private long getMembershipVersion(String accountId) {
         if (accountId == null) return 0L;
-        try {
-            Long v = jdbc.sql("SELECT membership_version FROM users WHERE user_id = :userId")
-                    .param("userId", accountId)
-                    .query(Long.class)
-                    .optional().orElse(0L);
-            return v != null ? v : 0L;
-        } catch (Exception e) {
-            return 0L;
-        }
+        return membershipVersionCache.get(accountId, id -> {
+            try {
+                Long v = jdbc.sql("SELECT membership_version FROM users WHERE user_id = :userId")
+                        .param("userId", id)
+                        .query(Long.class)
+                        .optional().orElse(0L);
+                return v != null ? v : 0L;
+            } catch (Exception e) {
+                return 0L;
+            }
+        });
     }
 
     @Override
@@ -847,6 +855,7 @@ public class JdbcAccountCatalog implements AccountCatalog {
 
     private void bumpMembershipVersion(String accountId) {
         if (accountId == null) return;
+        membershipVersionCache.invalidate(accountId);
         try {
             jdbc.sql("UPDATE users SET membership_version = membership_version + 1 WHERE user_id = :accountId")
                     .param("accountId", accountId)

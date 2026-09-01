@@ -49,20 +49,6 @@ public class IdentityPlane {
         this.catalog = catalog;
     }
 
-    private IdentityCache.IdentityHandle openAccountHandle(String accountId) {
-        IdentityCache.IdentityHandle handle = identityCache.openAccount(accountId);
-        if (handle != null) return handle;
-        IdentityBundle bundle = identityCache.getOrOpenAccount(accountId);
-        return bundle != null ? IdentityCache.IdentityHandle.of(bundle) : null;
-    }
-
-    private IdentityCache.IdentityHandle openTenantHandle(String tenantId) {
-        IdentityCache.IdentityHandle handle = identityCache.openTenant(tenantId);
-        if (handle != null) return handle;
-        IdentityBundle bundle = identityCache.getOrOpenTenant(tenantId);
-        return bundle != null ? IdentityCache.IdentityHandle.of(bundle) : null;
-    }
-
     /**
      * Reads the primary soul for the given account with PEP authorization check (ADR-0029 §24).
      *
@@ -78,7 +64,7 @@ public class IdentityPlane {
             log.warn("[IdentityPlane] Identity read denied on SOUL region");
             return Optional.empty();
         }
-        try (var handle = openAccountHandle(accountId)) {
+        try (var handle = identityCache.openAccount(accountId)) {
             return handle != null ? handle.bundle().readSoul() : Optional.empty();
         }
     }
@@ -97,7 +83,7 @@ public class IdentityPlane {
             log.warn("[IdentityPlane] Identity read denied on SALIENCE region");
             return Optional.empty();
         }
-        try (var handle = openAccountHandle(accountId)) {
+        try (var handle = identityCache.openAccount(accountId)) {
             return handle != null ? handle.bundle().readSalience() : Optional.empty();
         }
     }
@@ -115,7 +101,7 @@ public class IdentityPlane {
 
         if (tenantId != null && !tenantId.isBlank()) {
             if (catalog.authorizeIdentity(accountId, tenantId, IdentityRegionId.SOUL.name(), GrantAction.INJECT)) {
-                try (var handle = openTenantHandle(tenantId)) {
+                try (var handle = identityCache.openTenant(tenantId)) {
                     if (handle != null) {
                         IdentityBundle tenantBundle = handle.bundle();
                         tenantBundle.readSoul().ifPresent(stack::add);
@@ -159,7 +145,7 @@ public class IdentityPlane {
             log.warn("[IdentityPlane] Identity write denied on SOUL region");
             return;
         }
-        try (var handle = openAccountHandle(accountId)) {
+        try (var handle = identityCache.openAccount(accountId)) {
             if (handle != null) {
                 handle.bundle().writeSoul(soul);
                 log.debug("[IdentityPlane] Updated primary soul");
@@ -181,7 +167,7 @@ public class IdentityPlane {
             log.warn("[IdentityPlane] Identity write denied on SALIENCE region");
             return;
         }
-        try (var handle = openAccountHandle(accountId)) {
+        try (var handle = identityCache.openAccount(accountId)) {
             if (handle != null) {
                 handle.bundle().writeSalience(salience);
                 log.debug("[IdentityPlane] Updated salience profile");
@@ -203,7 +189,7 @@ public class IdentityPlane {
             log.warn("[IdentityPlane] Identity write denied on tenant SOUL region");
             return;
         }
-        try (var handle = openTenantHandle(tenantId)) {
+        try (var handle = identityCache.openTenant(tenantId)) {
             if (handle != null) {
                 handle.bundle().writeSoul(soul);
                 log.debug("[IdentityPlane] Updated primary soul for tenant");
@@ -229,7 +215,7 @@ public class IdentityPlane {
                 return;
             }
 
-            try (var handle = openAccountHandle(accountId)) {
+            try (var handle = identityCache.openAccount(accountId)) {
                 if (handle == null) {
                     return;
                 }

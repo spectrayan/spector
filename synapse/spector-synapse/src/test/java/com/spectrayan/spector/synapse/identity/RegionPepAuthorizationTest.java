@@ -56,11 +56,11 @@ class RegionPepAuthorizationTest {
         IdentityBundle tenantBundle = mock(IdentityBundle.class);
         when(tenantBundle.readSoul()).thenReturn(Optional.of(tenantSoul));
         when(tenantBundle.readOrgUnitSoul("org-eng")).thenReturn(Optional.of(orgSoul));
-        when(cache.getOrOpenTenant("tenant-1")).thenReturn(tenantBundle);
+        when(cache.openTenant("tenant-1")).thenAnswer(inv -> mockHandle(tenantBundle));
 
         IdentityBundle userBundle = mock(IdentityBundle.class);
         when(userBundle.readSoul()).thenReturn(Optional.of(userSoul));
-        when(cache.getOrOpenAccount("user-1")).thenReturn(userBundle);
+        when(cache.openAccount("user-1")).thenAnswer(inv -> mockHandle(userBundle));
 
         // Permitted on SOUL and ORG_DIR with INJECT
         when(catalog.authorizeIdentity("user-1", "tenant-1", IdentityRegionId.SOUL.name(), GrantAction.INJECT))
@@ -90,7 +90,7 @@ class RegionPepAuthorizationTest {
                 "user-1", "user-solo", "desc", null, null);
         IdentityBundle userBundle = mock(IdentityBundle.class);
         when(userBundle.readSoul()).thenReturn(Optional.of(userSoul));
-        when(cache.getOrOpenAccount("user-1")).thenReturn(userBundle);
+        when(cache.openAccount("user-1")).thenAnswer(inv -> mockHandle(userBundle));
 
         // Deny INJECT on tenant SOUL
         when(catalog.authorizeIdentity("user-1", "tenant-1", IdentityRegionId.SOUL.name(), GrantAction.INJECT))
@@ -117,7 +117,7 @@ class RegionPepAuthorizationTest {
         IdentityBundle userBundle = mock(IdentityBundle.class);
         when(userBundle.readSoul()).thenReturn(Optional.of(userSoul));
         when(userBundle.readSalience()).thenReturn(Optional.of(SalienceProfile.NEUTRAL));
-        when(cache.getOrOpenAccount("user-1")).thenReturn(userBundle);
+        when(cache.openAccount("user-1")).thenAnswer(inv -> mockHandle(userBundle));
 
         when(catalog.authorizeIdentity("user-1", "user-1", IdentityRegionId.SOUL.name(), GrantAction.READ))
                 .thenReturn(true);
@@ -129,5 +129,9 @@ class RegionPepAuthorizationTest {
 
         verify(catalog).authorizeIdentity("user-1", "user-1", IdentityRegionId.SOUL.name(), GrantAction.READ);
         verify(catalog).authorizeIdentity("user-1", "user-1", IdentityRegionId.SALIENCE.name(), GrantAction.READ);
+    }
+
+    private static IdentityCache.IdentityHandle mockHandle(IdentityBundle bundle) {
+        return new IdentityCache.IdentityHandle(new IdentityCache.PinnedBundle(bundle));
     }
 }

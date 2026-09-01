@@ -425,12 +425,24 @@ public class MemoryService {
 
         // Build RecallOptions from DTO when tag/mode fields are present
         List<CognitiveResult> results;
-        boolean hasOptions = (request.tags() != null && !request.tags().isEmpty())
+        RequestMemoryContext reqCtx = MemoryBinding.current()
+                .map(MemoryBinding::requestMemoryContext)
+                .orElse(null);
+        boolean hasCustomOptions = (request.tags() != null && !request.tags().isEmpty())
                 || request.scoringMode() != null
-                || request.recallMode() != null;
+                || request.recallMode() != null
+                || (reqCtx != null && (reqCtx.effectiveSalience() != null || reqCtx.primarySoul() != null));
 
-        if (hasOptions) {
-            var optionsBuilder = RecallOptions.builder().topK(request.topK());
+        if (hasCustomOptions) {
+            var optionsBuilder = RecallOptions.builder().topK(request.topK() > 0 ? request.topK() : 10);
+            if (reqCtx != null) {
+                if (reqCtx.effectiveSalience() != null) {
+                    optionsBuilder.salienceProfile(reqCtx.effectiveSalience());
+                }
+                if (reqCtx.primarySoul() != null && reqCtx.primarySoul().id() != null) {
+                    optionsBuilder.personaId(reqCtx.primarySoul().id());
+                }
+            }
             if (request.tags() != null && !request.tags().isEmpty()) {
                 optionsBuilder.synapticFilter(request.tags().toArray(String[]::new));
             }

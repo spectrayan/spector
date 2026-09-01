@@ -97,16 +97,6 @@ public class IdentityCache implements AutoCloseable {
         return pinned != null ? pinned.acquire() : null;
     }
 
-    public IdentityBundle getOrOpenAccount(String accountId) {
-        IdentityHandle handle = openAccount(accountId);
-        return handle != null ? handle.bundle() : null;
-    }
-
-    public IdentityBundle getOrOpenTenant(String tenantId) {
-        IdentityHandle handle = openTenant(tenantId);
-        return handle != null ? handle.bundle() : null;
-    }
-
     public void invalidateAccount(String accountId) {
         accountBundles.invalidate(accountId);
     }
@@ -179,10 +169,6 @@ public class IdentityCache implements AutoCloseable {
 
         public IdentityHandle(PinnedBundle pinned) {
             this.pinned = pinned;
-        }
-
-        public static IdentityHandle of(IdentityBundle bundle) {
-            return bundle != null ? new IdentityHandle(new PinnedBundle(bundle)) : null;
         }
 
         public IdentityBundle bundle() {
