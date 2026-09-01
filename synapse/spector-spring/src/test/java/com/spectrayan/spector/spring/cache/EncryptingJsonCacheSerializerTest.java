@@ -16,7 +16,7 @@
 package com.spectrayan.spector.spring.cache;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spectrayan.spector.memory.DataEncryptor;
+import com.spectrayan.spector.memory.persist.DataEncryptor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

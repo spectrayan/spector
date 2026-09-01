@@ -61,7 +61,7 @@ import org.springframework.context.annotation.Bean;
 import com.spectrayan.spector.commons.cache.SpectorCacheErrorHandler;
 import com.spectrayan.spector.commons.cache.SpectorCacheKeyGenerator;
 import com.spectrayan.spector.commons.cache.SpectorCacheManager;
-import com.spectrayan.spector.memory.DataEncryptor;
+import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.spring.cache.EncryptingJsonCacheSerializer;
 import com.spectrayan.spector.spring.cache.SpringSpectorCacheManagerAdapter;
 import org.springframework.cache.CacheManager;

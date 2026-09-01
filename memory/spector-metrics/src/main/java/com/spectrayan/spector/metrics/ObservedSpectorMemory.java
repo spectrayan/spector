@@ -37,7 +37,7 @@ import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.model.WhyNotExplanation;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.prospective.Reminder;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 import com.spectrayan.spector.memory.temporal.TemporalFact;

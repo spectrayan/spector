@@ -17,7 +17,7 @@ package com.spectrayan.spector.spring.cache;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.commons.cache.SpectorCacheSerializer;
-import com.spectrayan.spector.memory.DataEncryptor;
+import com.spectrayan.spector.memory.persist.DataEncryptor;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

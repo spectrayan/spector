@@ -27,7 +27,7 @@ import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
