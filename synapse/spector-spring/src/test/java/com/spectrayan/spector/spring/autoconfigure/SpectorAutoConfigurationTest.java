@@ -16,7 +16,7 @@
 package com.spectrayan.spector.spring.autoconfigure;
 
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.metrics.MeteredSpectorMemory;
 import com.spectrayan.spector.provider.ProviderRegistry;
 import com.spectrayan.spector.provider.embedding.CachingEmbeddingProvider;

@@ -36,7 +36,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
-import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 
 /**
  * Unit tests for {@link MemoryAccessObject}.
@@ -177,7 +177,7 @@ class MemoryAccessObjectTest {
         var mockAdmin = mock(com.spectrayan.spector.memory.SpectorMemoryAdmin.class);
         var graphFacade = new com.spectrayan.spector.memory.graph.CognitiveGraphFacade(
                 null, null, null, null,
-                new com.spectrayan.spector.memory.index.MemoryIndex());
+                new com.spectrayan.spector.memory.cortex.index.MemoryIndex());
         when(mockAdmin.graph()).thenReturn(graphFacade);
         when(mockMemory.admin()).thenReturn(mockAdmin);
         when(mockMemory.totalMemories()).thenReturn(50);

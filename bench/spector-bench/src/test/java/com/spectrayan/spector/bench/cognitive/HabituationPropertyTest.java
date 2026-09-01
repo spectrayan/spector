@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
-import com.spectrayan.spector.memory.habituation.HabituationPenalty;
+import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;

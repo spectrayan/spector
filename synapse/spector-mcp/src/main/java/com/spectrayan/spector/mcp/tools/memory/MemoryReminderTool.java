@@ -25,7 +25,7 @@ import io.modelcontextprotocol.spec.McpSchema;
 
 import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.prospective.Reminder;
+import com.spectrayan.spector.memory.cortex.prospective.Reminder;
 
 /**
  * MCP tool: Schedule a prospective memory reminder.

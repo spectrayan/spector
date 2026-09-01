@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
-import com.spectrayan.spector.memory.inhibition.SuppressionSet;
+import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;

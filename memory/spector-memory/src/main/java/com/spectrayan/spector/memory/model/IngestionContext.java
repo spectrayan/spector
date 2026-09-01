@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.model;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
-import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 
 import java.util.Collections;
 import java.util.HashMap;

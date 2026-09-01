@@ -37,9 +37,9 @@ import com.spectrayan.spector.memory.kernel.layout.IdBlobLayout;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityType;
 import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianEdge;
-import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianEdge;
+import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

@@ -790,7 +790,7 @@ public final class DatasetLoader {
         // Parse ICNU weights
         JsonNode icnuNode = salienceNode.get("icnuWeights");
         if (icnuNode != null && !icnuNode.isNull()) {
-            builder.icnuWeights(new com.spectrayan.spector.memory.neurodivergent.IcnuWeights(
+            builder.icnuWeights(new com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights(
                     (float) icnuNode.path("interest").asDouble(0.25),
                     (float) icnuNode.path("challenge").asDouble(0.15),
                     (float) icnuNode.path("novelty").asDouble(0.35),

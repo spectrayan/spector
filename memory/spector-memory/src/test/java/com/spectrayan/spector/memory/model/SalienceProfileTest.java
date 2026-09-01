@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.model;
 
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
-import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;

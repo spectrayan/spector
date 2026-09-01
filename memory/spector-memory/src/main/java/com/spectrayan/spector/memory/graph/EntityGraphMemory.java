@@ -1047,7 +1047,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
     /**
      * Decays all entity edge weights by the given factor and prunes edges below a minimum weight.
      *
-     * <p>Analogous to {@link com.spectrayan.spector.memory.hebbian.HebbianGraph#decayEdges(float)}
+     * <p>Analogous to {@link com.spectrayan.spector.memory.graph.hebbian.HebbianGraph#decayEdges(float)}
      * but operates on the entity-relationship graph. Weak relations (e.g., promoted via
      * cross-layer from Hebbian but never reinforced) naturally fade over reflection cycles.</p>
      *
@@ -1327,7 +1327,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
      * blocks become dead space. This method copies all live adjacency data into a
      * fresh contiguous segment, eliminating fragmentation.</p>
      *
-     * <p>Should be called during {@link com.spectrayan.spector.memory.reflect.ReflectionOrchestrator#reflect}
+     * <p>Should be called during {@link com.spectrayan.spector.memory.pathway.reflect.ReflectionOrchestrator#reflect}
      * after {@link #decayAdjacencyWeights} has pruned weak links.</p>
      *
      * @return bytes reclaimed by compaction

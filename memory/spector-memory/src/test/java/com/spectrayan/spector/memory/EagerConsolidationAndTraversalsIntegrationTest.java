@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
-import com.spectrayan.spector.memory.temporal.TemporalFact;
+import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import com.spectrayan.spector.provider.generation.GenerationOptions;

@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.within;
 
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.aisme.lifespan.LifespanEvaluationResult.LifespanRetentionDecision;
-import com.spectrayan.spector.memory.remember.relay.RememberSignal;
+import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -126,7 +126,7 @@ class LifespanRetentionControllerTest {
         assertThat(nullRes.decision()).isEqualTo(LifespanRetentionDecision.PRUNE);
         assertThat(nullRes.tier()).isEqualTo(LifespanTier.EPHEMERAL);
 
-        RememberSignal sig = com.spectrayan.spector.memory.remember.relay.RememberSignal.forCognitive(
+        RememberSignal sig = com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal.forCognitive(
                 "mem-1",
                 "Flashbulb invariant memory",
                 new float[]{0.1f, 0.2f},

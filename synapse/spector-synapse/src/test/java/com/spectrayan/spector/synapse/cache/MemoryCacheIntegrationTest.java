@@ -17,7 +17,7 @@ import com.spectrayan.spector.commons.cache.SpectorCache;
 import com.spectrayan.spector.commons.cache.SpectorCacheErrorHandler;
 import com.spectrayan.spector.commons.cache.SpectorCacheKeyGenerator;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
-import com.spectrayan.spector.memory.cache.MemoryCacheNames;
+import com.spectrayan.spector.memory.cortex.cache.MemoryCacheNames;
 import com.spectrayan.spector.spring.cache.EncryptingJsonCacheSerializer;
 import com.spectrayan.spector.spring.cache.SpringSpectorCacheManagerAdapter;
 import org.junit.jupiter.api.DisplayName;

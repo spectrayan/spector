@@ -16,7 +16,7 @@ import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.aisme.narrative.NarrativeSelfEngine;
 import com.spectrayan.spector.memory.aisme.pcmn.PredictiveCodingNetwork;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.recall.relay.RecallSignal;
+import com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -163,7 +163,7 @@ public final class ConstructiveSimulationRelay implements SynapticRelay<RecallSi
 
                     if (alignSim > 0.3f) {
                         float simScore = (r1.score() + r2.score()) * 0.5f * (1.0f + narrativeWeight * alignSim);
-                        String simId = new com.spectrayan.spector.memory.id.TsidGenerator().generate();
+                        String simId = new com.spectrayan.spector.memory.kernel.id.TsidGenerator().generate();
                         CognitiveResult simResult = new CognitiveResult(
                                 simId,
                                 "[Constructive Simulation: " + r1.id() + "+" + r2.id() + "] " + r1.text() + " | " + r2.text(),

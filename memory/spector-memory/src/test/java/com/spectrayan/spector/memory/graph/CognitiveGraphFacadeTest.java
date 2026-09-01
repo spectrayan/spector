@@ -12,12 +12,12 @@
  */
 package com.spectrayan.spector.memory.graph;
 
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory.HyperEdge;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.GraphNeighborhood;
-import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.synapse.security;
 
-import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.synapse.config.cache.SynapseCacheConstants;
 import com.spectrayan.spector.synapse.config.sql.SqlQueryLoader;

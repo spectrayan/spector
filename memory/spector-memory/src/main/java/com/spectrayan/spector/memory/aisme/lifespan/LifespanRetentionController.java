@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.aisme.lifespan;
 import com.spectrayan.spector.core.similarity.LifespanThresholdKernel;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.aisme.lifespan.LifespanEvaluationResult.LifespanRetentionDecision;
-import com.spectrayan.spector.memory.remember.relay.RememberSignal;
+import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

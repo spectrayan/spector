@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.aisme.segmentation.EpisodicSegment;
 import com.spectrayan.spector.memory.aisme.segmentation.SurprisalBoundaryDetector;
 import com.spectrayan.spector.memory.aisme.segmentation.SurprisalBoundaryDetector.BoundaryEvaluation;
 import com.spectrayan.spector.memory.pathway.RelayNames;
-import com.spectrayan.spector.memory.remember.relay.RememberSignal;
+import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

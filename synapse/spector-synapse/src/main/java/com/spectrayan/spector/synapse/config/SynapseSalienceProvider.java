@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.model.InterestLevel;
 import com.spectrayan.spector.memory.model.PersonaContext;
 import com.spectrayan.spector.memory.model.PersonalityModifiers;
 import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -16,21 +16,21 @@ import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker;
-import com.spectrayan.spector.memory.pipeline.reranker.ColBERTTokenCache;
+import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTReranker;
+import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTTokenCache;
 
 import com.spectrayan.spector.memory.persist.PartitionManager;
 
 import com.spectrayan.spector.index.BM25Index;
-import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker;
-import com.spectrayan.spector.memory.pipeline.reranker.ColBERTTokenCache;
+import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTReranker;
+import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTTokenCache;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 
 import java.util.Map;

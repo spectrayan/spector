@@ -25,8 +25,8 @@ import io.modelcontextprotocol.spec.McpSchema;
 import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
 import com.spectrayan.spector.memory.model.ImportanceResult;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
-import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 
 /**
  * MCP tool: {@code memory_compute_importance} — pre-ingestion importance estimation.

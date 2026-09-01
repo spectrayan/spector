@@ -16,7 +16,7 @@ import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.ScoringRegime;
 import com.spectrayan.spector.memory.model.SoulContext;
-import com.spectrayan.spector.memory.recall.relay.RecallSignal;
+import com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal;
 
 import java.util.concurrent.atomic.AtomicReference;
 

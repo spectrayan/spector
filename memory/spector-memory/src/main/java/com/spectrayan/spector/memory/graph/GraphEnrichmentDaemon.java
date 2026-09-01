@@ -12,9 +12,9 @@
  */
 package com.spectrayan.spector.memory.graph;
 
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout;
-import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
+import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

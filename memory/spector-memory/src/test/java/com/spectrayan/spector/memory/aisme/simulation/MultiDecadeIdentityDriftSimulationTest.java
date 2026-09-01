@@ -22,7 +22,7 @@ import com.spectrayan.spector.memory.aisme.manifold.PersonalMetricTensor;
 import com.spectrayan.spector.memory.aisme.relay.SoftIdentityAnchorRelay;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
-import com.spectrayan.spector.memory.reflect.relay.ReflectSignal;
+import com.spectrayan.spector.memory.pathway.reflect.relay.ReflectSignal;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

@@ -15,17 +15,17 @@ package com.spectrayan.spector.memory.bootstrap;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.pathway.RecallPathway;
+import com.spectrayan.spector.memory.pathway.recall.RecallPathway;
 import com.spectrayan.spector.memory.persist.MemoryWalRecovery;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.pipeline.HebbianCoActivationListener;
-import com.spectrayan.spector.memory.pipeline.LtpReconsolidationListener;
-import com.spectrayan.spector.memory.pipeline.RecallHistory;
-import com.spectrayan.spector.memory.pipeline.RecallPipeline;
-import com.spectrayan.spector.memory.pipeline.reranker.MmrReranker;
+import com.spectrayan.spector.memory.pathway.pipeline.HebbianCoActivationListener;
+import com.spectrayan.spector.memory.pathway.pipeline.LtpReconsolidationListener;
+import com.spectrayan.spector.memory.pathway.pipeline.RecallHistory;
+import com.spectrayan.spector.memory.pathway.pipeline.RecallPipeline;
+import com.spectrayan.spector.memory.pathway.pipeline.reranker.MmrReranker;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 
 import com.spectrayan.spector.memory.persist.PartitionManager;
@@ -33,12 +33,12 @@ import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.pipeline.HebbianCoActivationListener;
-import com.spectrayan.spector.memory.pipeline.LtpReconsolidationListener;
-import com.spectrayan.spector.memory.pipeline.RecallHistory;
-import com.spectrayan.spector.memory.pipeline.RecallPipeline;
+import com.spectrayan.spector.memory.pathway.pipeline.HebbianCoActivationListener;
+import com.spectrayan.spector.memory.pathway.pipeline.LtpReconsolidationListener;
+import com.spectrayan.spector.memory.pathway.pipeline.RecallHistory;
+import com.spectrayan.spector.memory.pathway.pipeline.RecallPipeline;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 
 import org.slf4j.Logger;
@@ -90,8 +90,8 @@ public final class RecallPipelineBuilder {
         RecallHistory recallHistory = new RecallHistory();
 
         // ── MMR Reranker ──
-        com.spectrayan.spector.memory.pipeline.reranker.MmrReranker mmrReranker = 
-            new com.spectrayan.spector.memory.pipeline.reranker.MmrReranker(index, partitionManager, quantizer.mins(), quantizer.scales());
+        com.spectrayan.spector.memory.pathway.pipeline.reranker.MmrReranker mmrReranker = 
+            new com.spectrayan.spector.memory.pathway.pipeline.reranker.MmrReranker(index, partitionManager, quantizer.mins(), quantizer.scales());
 
         // ── Recall Pipeline ──
         RecallPipeline recallPipeline = new RecallPipeline(

@@ -60,7 +60,7 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.synapse.config.JwtDecoderConfig;
 import com.spectrayan.spector.synapse.config.SecurityConfig;
 import com.spectrayan.spector.synapse.config.SynapseProperties;

@@ -164,7 +164,7 @@ public final class ContextExportRunner {
                     com.spectrayan.spector.config.model.TextSearchMode.valueOf(textSearchModeProp.toUpperCase());
 
             String graphExpMode = System.getProperty("graphExpansionMode", "ALWAYS");
-            System.setProperty(com.spectrayan.spector.memory.pipeline.GraphExpansionMode.SYSTEM_PROPERTY, graphExpMode);
+            System.setProperty(com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.SYSTEM_PROPERTY, graphExpMode);
             float graphExpansionThreshold = Float.parseFloat(System.getProperty("graphExpansionThreshold", "0.85"));
 
             // Warmup pass: 10 queries

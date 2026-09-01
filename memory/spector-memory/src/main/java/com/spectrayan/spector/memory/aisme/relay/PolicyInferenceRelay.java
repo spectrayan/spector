@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.aisme.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.decide.relay.DecideSignal;
+import com.spectrayan.spector.memory.pathway.decide.relay.DecideSignal;
 
 public final class PolicyInferenceRelay implements SynapticRelay<DecideSignal> {
     @Override

@@ -36,10 +36,10 @@ import com.spectrayan.spector.bench.cognitive.model.TemporalChainDef;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianEdge;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianEdge;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
-import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 
 /**
  * Validates 100% referential integrity and byte-level fidelity between

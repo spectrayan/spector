@@ -17,7 +17,7 @@ import com.spectrayan.spector.memory.aisme.fegr.EventDensityFilter;
 import com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics;
 import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
 import com.spectrayan.spector.memory.pathway.RelayNames;
-import com.spectrayan.spector.memory.remember.relay.RememberSignal;
+import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

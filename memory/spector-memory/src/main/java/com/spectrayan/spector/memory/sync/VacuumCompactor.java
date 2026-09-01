@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.sync;
 
 import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;

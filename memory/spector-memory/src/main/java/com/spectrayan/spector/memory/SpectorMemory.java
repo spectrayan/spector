@@ -19,22 +19,22 @@ import com.spectrayan.spector.memory.api.MemoryReflection;
 import com.spectrayan.spector.memory.api.MemoryRemember;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.decide.relay.DecideReport;
-import com.spectrayan.spector.memory.decide.relay.DecideSignal;
-import com.spectrayan.spector.memory.dream.relay.DreamMode;
-import com.spectrayan.spector.memory.dream.relay.DreamReport;
-import com.spectrayan.spector.memory.express.relay.ExpressReport;
-import com.spectrayan.spector.memory.express.relay.ExpressSignal;
+import com.spectrayan.spector.memory.pathway.decide.relay.DecideReport;
+import com.spectrayan.spector.memory.pathway.decide.relay.DecideSignal;
+import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
+import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
+import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
+import com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
-import com.spectrayan.spector.memory.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.id.MemoryIdGenerator;
-import com.spectrayan.spector.memory.index.MemoryIndex;
-import com.spectrayan.spector.memory.inhibition.SuppressionSet;
+import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
+import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.kernel.Memory;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
-import com.spectrayan.spector.memory.metamemory.MemoryInsight;
+import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
@@ -56,28 +56,28 @@ import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.model.TenantSoul;
 import com.spectrayan.spector.memory.model.UserSoul;
 import com.spectrayan.spector.memory.model.WhyNotExplanation;
-import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
-import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.pathway.RememberPathway;
-import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
-import com.spectrayan.spector.memory.prospective.Reminder;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
+import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
+import com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler;
+import com.spectrayan.spector.memory.cortex.prospective.Reminder;
 import com.spectrayan.spector.memory.scheduler.MemoryScheduler;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 import com.spectrayan.spector.memory.sync.MemoryWal;
-import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
-import com.spectrayan.spector.memory.temporal.TemporalFact;
-import com.spectrayan.spector.memory.wander.relay.WanderReport;
+import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
+import com.spectrayan.spector.memory.pathway.wander.relay.WanderReport;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.id.MemoryIdGenerator;
-import com.spectrayan.spector.memory.index.MemoryIndex;
-import com.spectrayan.spector.memory.inhibition.SuppressionSet;
-import com.spectrayan.spector.memory.metamemory.MemoryInsight;
+import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
+import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
+import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -91,13 +91,13 @@ import com.spectrayan.spector.memory.model.FactHistory;
 import com.spectrayan.spector.memory.model.GraphRecallOptions;
 import com.spectrayan.spector.memory.model.GraphTraversalResult;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
-import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.pathway.RememberPathway;
-import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
-import com.spectrayan.spector.memory.prospective.Reminder;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
+import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
+import com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler;
+import com.spectrayan.spector.memory.cortex.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
-import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
-import com.spectrayan.spector.memory.temporal.TemporalFact;
+import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
 import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
@@ -179,11 +179,11 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * @param source provenance (USER_STATED, OBSERVED, INFERRED, PROCEDURAL)
      * @param hints  ICNU + emotional context (null for novelty-only importance)
      * @param tags   synaptic tag strings for Bloom filter encoding
-     * @see com.spectrayan.spector.memory.neurodivergent.IngestionHints
+     * @see com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints
      */
     void remember(String id, String text, MemoryType type,
                                       MemorySource source,
-                                      com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
+                                      com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints,
                                       String... tags);
 
     /**
@@ -243,7 +243,7 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      */
     String remember(String text, MemoryType type,
                                        MemorySource source,
-                                       com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
+                                       com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints,
                                        String... tags);
 
     /**
@@ -319,9 +319,9 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * @param signal the express signal carrying query text and cognitive candidates
      * @return the express report
      */
-    default com.spectrayan.spector.memory.express.relay.ExpressReport express(
-            com.spectrayan.spector.memory.express.relay.ExpressSignal signal) {
-        return com.spectrayan.spector.memory.express.relay.ExpressReport.empty();
+    default com.spectrayan.spector.memory.pathway.express.relay.ExpressReport express(
+            com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal signal) {
+        return com.spectrayan.spector.memory.pathway.express.relay.ExpressReport.empty();
     }
 
     /**
@@ -329,8 +329,8 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      *
      * @return resulting wander report
      */
-    default com.spectrayan.spector.memory.wander.relay.WanderReport wander() {
-        return com.spectrayan.spector.memory.wander.relay.WanderReport.empty();
+    default com.spectrayan.spector.memory.pathway.wander.relay.WanderReport wander() {
+        return com.spectrayan.spector.memory.pathway.wander.relay.WanderReport.empty();
     }
 
     /**
@@ -339,8 +339,8 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * @param mode dreaming mode (REM, DAYDREAM, THOUGHT_EXPERIMENT)
      * @return resulting dream report
      */
-    default com.spectrayan.spector.memory.dream.relay.DreamReport dream(com.spectrayan.spector.memory.dream.relay.DreamMode mode) {
-        return com.spectrayan.spector.memory.dream.relay.DreamReport.empty();
+    default com.spectrayan.spector.memory.pathway.dream.relay.DreamReport dream(com.spectrayan.spector.memory.pathway.dream.relay.DreamMode mode) {
+        return com.spectrayan.spector.memory.pathway.dream.relay.DreamReport.empty();
     }
 
     /**
@@ -348,8 +348,8 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      *
      * @return resulting dream report
      */
-    default com.spectrayan.spector.memory.dream.relay.DreamReport dream() {
-        return dream(com.spectrayan.spector.memory.dream.relay.DreamMode.REM);
+    default com.spectrayan.spector.memory.pathway.dream.relay.DreamReport dream() {
+        return dream(com.spectrayan.spector.memory.pathway.dream.relay.DreamMode.REM);
     }
 
     /**
@@ -364,9 +364,9 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * @param signal the decide signal carrying candidate policies and soul context
      * @return the resulting decision report with selected policy and ranked alternatives
      */
-    default com.spectrayan.spector.memory.decide.relay.DecideReport decide(
-            com.spectrayan.spector.memory.decide.relay.DecideSignal signal) {
-        return com.spectrayan.spector.memory.decide.relay.DecideReport.empty();
+    default com.spectrayan.spector.memory.pathway.decide.relay.DecideReport decide(
+            com.spectrayan.spector.memory.pathway.decide.relay.DecideSignal signal) {
+        return com.spectrayan.spector.memory.pathway.decide.relay.DecideReport.empty();
     }
 
     /**
@@ -426,7 +426,7 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * @return importance estimate with novelty, fusion, nearest memory, and profile weights
      */
     ImportanceResult estimateImportance(String text,
-                                          com.spectrayan.spector.memory.neurodivergent.IngestionHints hints);
+                                          com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints);
 
     /**
      * Convenience overload — estimates importance with novelty-only (no ICNU hints).
@@ -455,7 +455,7 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * @param updatedHints optional ICNU hints for re-fusion (null = auto-compute from graph)
      */
     default void reinforce(String memoryId, byte valence,
-                           com.spectrayan.spector.memory.neurodivergent.IngestionHints updatedHints) {
+                           com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints updatedHints) {
         reinforce(memoryId, valence); // default: delegate to simple reinforce
     }
 

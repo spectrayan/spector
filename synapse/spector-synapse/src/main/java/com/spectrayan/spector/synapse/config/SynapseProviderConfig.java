@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.synapse.config;
 
-import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.provider.DefaultProviderRegistry;
 import com.spectrayan.spector.provider.DelegatingLlmProvider;
 import com.spectrayan.spector.provider.ProviderRegistry;

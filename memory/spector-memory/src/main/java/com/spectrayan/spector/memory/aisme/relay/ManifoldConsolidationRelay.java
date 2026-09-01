@@ -17,7 +17,7 @@ import com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold;
 import com.spectrayan.spector.memory.aisme.manifold.ManifoldConsolidator;
 import com.spectrayan.spector.memory.aisme.manifold.PersonalMetricTensor;
 import com.spectrayan.spector.memory.pathway.RelayNames;
-import com.spectrayan.spector.memory.reflect.relay.ReflectSignal;
+import com.spectrayan.spector.memory.pathway.reflect.relay.ReflectSignal;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

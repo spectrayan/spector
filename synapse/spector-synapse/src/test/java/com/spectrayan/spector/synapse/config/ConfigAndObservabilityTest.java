@@ -15,7 +15,7 @@ package com.spectrayan.spector.synapse.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryAdmin;
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

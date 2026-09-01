@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.aisme.hopfield.PersonalityTemperature;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.recall.relay.RecallSignal;
+import com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

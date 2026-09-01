@@ -48,7 +48,7 @@ import com.spectrayan.spector.bench.cognitive.model.PersonaDef;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
-import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
+import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.ConversationRole;

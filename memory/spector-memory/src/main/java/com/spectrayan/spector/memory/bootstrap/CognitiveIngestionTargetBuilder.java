@@ -14,19 +14,19 @@ package com.spectrayan.spector.memory.bootstrap;
 
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.pathway.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.session.SessionRegistry;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 
 import com.spectrayan.spector.memory.persist.PartitionManager;
 
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.pathway.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 
 import org.slf4j.Logger;

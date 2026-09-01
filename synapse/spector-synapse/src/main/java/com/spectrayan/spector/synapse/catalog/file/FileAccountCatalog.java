@@ -682,7 +682,7 @@ public class FileAccountCatalog implements AccountCatalog {
         }
 
         Grant grant = new Grant(
-                new com.spectrayan.spector.memory.id.TsidGenerator().generate(),
+                new com.spectrayan.spector.memory.kernel.id.TsidGenerator().generate(),
                 GrantObjectType.NAMESPACE,
                 record.namespaceId(),
                 granteeAccountId,

@@ -28,18 +28,18 @@ import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.index.MemoryIndex;
-import com.spectrayan.spector.memory.inhibition.SuppressionSet;
-import com.spectrayan.spector.memory.metamemory.MemoryInsight;
-import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.pathway.RememberPathway;
-import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
-import com.spectrayan.spector.memory.prospective.Reminder;
+import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
+import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
+import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
+import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
+import com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler;
+import com.spectrayan.spector.memory.cortex.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
-import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
@@ -188,7 +188,7 @@ public class MeteredSpectorMemory implements SpectorMemory {
     @Override
     public void remember(String id, String text, MemoryType type,
                                               MemorySource source,
-                                              com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
+                                              com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints,
                                               String... tags) {
         rememberCounter.increment();
         delegate.remember(id, text, type, source, hints, tags);
@@ -220,7 +220,7 @@ public class MeteredSpectorMemory implements SpectorMemory {
     @Override
     public String remember(String text, MemoryType type,
                                               MemorySource source,
-                                              com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
+                                              com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints,
                                               String... tags) {
         rememberCounter.increment();
         return delegate.remember(text, type, source, hints, tags);
@@ -384,7 +384,7 @@ public class MeteredSpectorMemory implements SpectorMemory {
 
     @Override
     public com.spectrayan.spector.memory.model.ImportanceResult estimateImportance(
-            String text, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) {
+            String text, com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints) {
         return delegate.estimateImportance(text, hints);
     }
 
@@ -451,7 +451,7 @@ public class MeteredSpectorMemory implements SpectorMemory {
     }
 
     @Override
-    public List<com.spectrayan.spector.memory.temporal.TemporalFact> factsAbout(String entityName, Instant asOf) {
+    public List<com.spectrayan.spector.memory.graph.temporal.TemporalFact> factsAbout(String entityName, Instant asOf) {
         return delegate.factsAbout(entityName, asOf);
     }
 
@@ -461,8 +461,8 @@ public class MeteredSpectorMemory implements SpectorMemory {
     }
 
     @Override
-    public com.spectrayan.spector.memory.express.relay.ExpressReport express(
-            com.spectrayan.spector.memory.express.relay.ExpressSignal signal) {
+    public com.spectrayan.spector.memory.pathway.express.relay.ExpressReport express(
+            com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal signal) {
         return delegate.express(signal);
     }
 

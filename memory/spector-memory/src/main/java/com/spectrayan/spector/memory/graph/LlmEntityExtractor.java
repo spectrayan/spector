@@ -173,7 +173,7 @@ public final class LlmEntityExtractor implements EntityExtractor {
 
         try {
             // Strip markdown to make text clean for small models
-            String cleanText = text != null ? com.spectrayan.spector.memory.pipeline.LlmTagExtractor.stripMarkdown(text) : id;
+            String cleanText = text != null ? com.spectrayan.spector.memory.pathway.pipeline.LlmTagExtractor.stripMarkdown(text) : id;
             if (cleanText.isBlank()) {
                 log.info("[EntityExtract] Text empty after markdown stripping for '{}', skipping", id);
                 return List.of();

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.model;
 
-import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 
 import java.util.Collections;
 import java.util.List;

@@ -21,10 +21,10 @@ import java.util.List;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 
 /**
  * Captures a static snapshot of graph state from a {@link SpectorMemory} instance.

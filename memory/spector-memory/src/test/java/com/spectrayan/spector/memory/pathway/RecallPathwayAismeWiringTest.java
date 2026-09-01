@@ -24,10 +24,10 @@ import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.recall.relay.RecallPathwayFactory;
-import com.spectrayan.spector.memory.recall.relay.RecallSignal;
-import com.spectrayan.spector.memory.recall.relay.RrfRescoreRelay;
-import com.spectrayan.spector.memory.recall.relay.SortAndTruncateRelay;
+import com.spectrayan.spector.memory.pathway.recall.relay.RecallPathwayFactory;
+import com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal;
+import com.spectrayan.spector.memory.pathway.recall.relay.RrfRescoreRelay;
+import com.spectrayan.spector.memory.pathway.recall.relay.SortAndTruncateRelay;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

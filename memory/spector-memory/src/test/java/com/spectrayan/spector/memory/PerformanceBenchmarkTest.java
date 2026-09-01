@@ -15,15 +15,15 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.memory.model.*;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.index.MemoryIndex;
-import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
+import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
 import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.habituation.HabituationPenalty;
+import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;

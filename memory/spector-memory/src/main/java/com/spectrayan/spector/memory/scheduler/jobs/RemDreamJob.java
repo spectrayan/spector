@@ -12,11 +12,11 @@
  */
 package com.spectrayan.spector.memory.scheduler.jobs;
 
-import com.spectrayan.spector.memory.pathway.DreamPathway;
+import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
-import com.spectrayan.spector.memory.dream.relay.DreamMode;
-import com.spectrayan.spector.memory.dream.relay.DreamReport;
+import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
+import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
