@@ -45,6 +45,10 @@ import com.spectrayan.spector.memory.temporal.TemporalFact;
 import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
+import com.spectrayan.spector.memory.api.MemoryAdminView;
+import com.spectrayan.spector.memory.api.MemoryIngestion;
+import com.spectrayan.spector.memory.api.MemoryRecall;
+import com.spectrayan.spector.memory.api.MemoryReflection;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 
 import java.time.Duration;
@@ -76,7 +80,7 @@ import java.util.List;
  *
  * @see DefaultSpectorMemory
  */
-public interface SpectorMemory extends AutoCloseable {
+public interface SpectorMemory extends MemoryIngestion, MemoryRecall, MemoryReflection, MemoryAdminView, AutoCloseable {
 
     // ══════════════════════════════════════════════════════════════
     // INGESTION TARGET
