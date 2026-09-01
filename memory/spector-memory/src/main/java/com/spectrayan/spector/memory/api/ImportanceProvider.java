@@ -10,7 +10,16 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.api;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.pathway.*;
 
 import com.spectrayan.spector.memory.model.ImportanceContext;
 import com.spectrayan.spector.memory.model.ImportanceResult;

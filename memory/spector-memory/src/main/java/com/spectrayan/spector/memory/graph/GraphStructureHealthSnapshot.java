@@ -12,6 +12,16 @@
  */
 package com.spectrayan.spector.memory.graph;
 
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
 /**
  * Read-only snapshot of structural health, occupancy, and fragmentation metrics for graph components (MR-08).
  *

@@ -12,6 +12,16 @@
  */
 package com.spectrayan.spector.memory.graph;
 
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -1329,7 +1339,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
      * blocks become dead space. This method copies all live adjacency data into a
      * fresh contiguous segment, eliminating fragmentation.</p>
      *
-     * <p>Should be called during {@link com.spectrayan.spector.memory.ReflectionOrchestrator#reflect}
+     * <p>Should be called during {@link com.spectrayan.spector.memory.reflect.ReflectionOrchestrator#reflect}
      * after {@link #decayAdjacencyWeights} has pruned weak links.</p>
      *
      * @return bytes reclaimed by compaction

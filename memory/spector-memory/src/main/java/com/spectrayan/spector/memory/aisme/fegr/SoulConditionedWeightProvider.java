@@ -12,6 +12,16 @@
  */
 package com.spectrayan.spector.memory.aisme.fegr;
 
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.ScoringRegime;

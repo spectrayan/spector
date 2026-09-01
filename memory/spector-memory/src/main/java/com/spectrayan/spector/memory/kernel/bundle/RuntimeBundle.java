@@ -12,6 +12,16 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 
 import org.slf4j.Logger;

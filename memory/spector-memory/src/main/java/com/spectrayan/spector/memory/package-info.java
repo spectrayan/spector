@@ -25,14 +25,16 @@
  *   <li>{@link com.spectrayan.spector.memory.api.MemoryRecall} — Interface Segregation: fused cognitive retrieval operations</li>
  *   <li>{@link com.spectrayan.spector.memory.api.MemoryReflection} — Interface Segregation: sleep consolidation, decay, dreaming, and metamemory</li>
  *   <li>{@link com.spectrayan.spector.memory.api.MemoryAdminView} — Interface Segregation: metric inspection and soul/identity administration</li>
+ *   <li>{@link com.spectrayan.spector.memory.api.ImportanceProvider} — SPI for custom importance scoring algorithms</li>
+ *   <li>{@link com.spectrayan.spector.memory.api.SalienceProfileProvider} — SPI for enterprise salience profiles</li>
  * </ul>
  *
  * <h3>Subsystem Packages</h3>
  * <ul>
- *   <li>{@code api/} — Segregated interfaces (ISP) for fine-grained dependency injection</li>
- *   <li>{@code assembly/} — Subsystem builders, wiring orchestrators, and memory factory</li>
+ *   <li>{@code api/} — Segregated interfaces (ISP) and SPI contracts for fine-grained dependency injection</li>
+ *   <li>{@code bootstrap/} — Subsystem builders, wiring orchestrators, and memory factory</li>
  *   <li>{@code pathway/} — Cognitive pathway pipelines (Remember, Recall, Reflect, Dream, Wander, Express, Decide)</li>
- *   <li>{@code persist/} — Data encryption SPI, layout versioning, WAL recovery, and lifecycle persistence manager</li>
+ *   <li>{@code persist/} — Data encryption SPI, layout versioning, WAL recovery, PartitionManager, and lifecycle persistence</li>
  *   <li>{@code cortex/} — Memory tiers (Working, Episodic, Semantic, Procedural) + source monitoring</li>
  *   <li>{@code synapse/} — 64-byte header layout, fused SIMD scoring, Bloom filter tags, bucket decay</li>
  *   <li>{@code dopamine/} — Adaptive surprise detection (z-score importance assignment)</li>

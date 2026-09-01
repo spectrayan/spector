@@ -10,7 +10,15 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.reflect;
+
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.api.*;
+import com.spectrayan.spector.memory.bootstrap.*;
+import com.spectrayan.spector.memory.persist.*;
+
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.error.SpectorGraphDecayException;
@@ -160,7 +168,7 @@ public final class ReflectionOrchestrator {
      * @param rememberPathway  the ingestion target for promoted semantic memories (active partition)
      * @return a {@link ReflectReport} summarizing what was consolidated, pruned, and promoted
      */
-    ReflectReport reflect(PartitionManager partitionManager, MemoryIndex index, RememberPathway rememberPathway) {
+    public ReflectReport reflect(PartitionManager partitionManager, MemoryIndex index, RememberPathway rememberPathway) {
         log.info("Manual reflection triggered across partitions");
 
         // Create metrics collector for this cycle

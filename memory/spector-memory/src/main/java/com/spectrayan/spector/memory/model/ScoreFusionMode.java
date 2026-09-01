@@ -12,6 +12,16 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
 /**
  * Strategy for fusing vector similarity and semantic (tag) similarity in cognitive scoring (MR-02).
  */

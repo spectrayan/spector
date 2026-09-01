@@ -12,8 +12,18 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.memory.SalienceProfileProvider;
+import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 
 import org.junit.jupiter.api.Test;

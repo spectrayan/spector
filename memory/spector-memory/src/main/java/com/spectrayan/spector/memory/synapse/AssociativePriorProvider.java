@@ -12,6 +12,16 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
 /**
  * Functional interface providing an O(1) associative prior A_g in [0, 1] for Phase 6 score fusion (MR-06).
  *

@@ -12,10 +12,20 @@
  */
 package com.spectrayan.spector.memory.scheduler;
 
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.concurrent.VirtualThreadPool;
 import com.spectrayan.spector.memory.pathway.DreamPathway;
-import com.spectrayan.spector.memory.PartitionManager;
+import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
 import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;

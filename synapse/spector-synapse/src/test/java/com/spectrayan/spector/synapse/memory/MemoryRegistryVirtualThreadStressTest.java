@@ -13,7 +13,7 @@
 package com.spectrayan.spector.synapse.memory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spectrayan.spector.memory.SalienceProfileProvider;
+import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;

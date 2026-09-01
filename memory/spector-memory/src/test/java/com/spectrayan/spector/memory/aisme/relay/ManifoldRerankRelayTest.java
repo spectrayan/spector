@@ -12,6 +12,16 @@
  */
 package com.spectrayan.spector.memory.aisme.relay;
 
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold;

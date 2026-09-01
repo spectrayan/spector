@@ -12,6 +12,16 @@
  */
 package com.spectrayan.spector.memory.pipeline.pruning;
 
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.PartitionSummary;
 import com.spectrayan.spector.memory.model.MemoryType;

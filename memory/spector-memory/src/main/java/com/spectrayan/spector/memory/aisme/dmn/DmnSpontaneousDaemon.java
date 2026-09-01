@@ -12,7 +12,17 @@
  */
 package com.spectrayan.spector.memory.aisme.dmn;
 
-import com.spectrayan.spector.memory.PartitionManager;
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
+import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.pathway.WanderPathway;
 import com.spectrayan.spector.memory.wander.relay.WanderReport;
 

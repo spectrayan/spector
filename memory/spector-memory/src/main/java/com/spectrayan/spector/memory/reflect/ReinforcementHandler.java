@@ -10,7 +10,15 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.reflect;
+
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.api.*;
+import com.spectrayan.spector.memory.bootstrap.*;
+import com.spectrayan.spector.memory.persist.*;
+
 
 import com.spectrayan.spector.memory.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
@@ -94,7 +102,7 @@ public final class ReinforcementHandler {
      * @param partitionRegistry the live partition registry (#443)
      * @param index           the memory index
      */
-    void reinforce(String memoryId, byte valence,
+    public void reinforce(String memoryId, byte valence,
                    PartitionRegistry partitionRegistry, MemoryIndex index) {
         if (memoryId == null) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "memoryId");
@@ -215,7 +223,7 @@ public final class ReinforcementHandler {
      * @param partitionRegistry the live partition registry (#443)
      * @param index          the memory index
      */
-    void reinforceWithHints(String memoryId, byte valence,
+    public void reinforceWithHints(String memoryId, byte valence,
                             IngestionHints updatedHints,
                             PartitionRegistry partitionRegistry, MemoryIndex index) {
         // Delegate core reinforcement

@@ -12,6 +12,16 @@
  */
 package com.spectrayan.spector.memory.consolidation;
 
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
 import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
@@ -93,7 +103,7 @@ public final class CadpContradictionResolver {
     public static ResolutionResult resolve(
             CognitiveRecord recordA,
             CognitiveRecord recordB,
-            com.spectrayan.spector.memory.PartitionManager partitionManager,
+            com.spectrayan.spector.memory.persist.PartitionManager partitionManager,
             CognitiveRecordMemory store,
             HyperEntityGraphMemory hyperEntityGraph,
             EntityDirectory entityDirectory,

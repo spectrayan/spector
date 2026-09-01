@@ -12,6 +12,16 @@
  */
 package com.spectrayan.spector.memory.pipeline;
 
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 
@@ -226,8 +236,8 @@ public final class RecallPipeline {
     /**
      * Creates a new fluent builder for assembling a {@link RecallPipeline}.
      */
-    public static com.spectrayan.spector.memory.assembly.RecallPipelineBuilder builder() {
-        return new com.spectrayan.spector.memory.assembly.RecallPipelineBuilder();
+    public static com.spectrayan.spector.memory.bootstrap.RecallPipelineBuilder builder() {
+        return new com.spectrayan.spector.memory.bootstrap.RecallPipelineBuilder();
     }
 
     /**

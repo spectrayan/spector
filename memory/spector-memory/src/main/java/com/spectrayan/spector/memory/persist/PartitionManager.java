@@ -10,7 +10,14 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.persist;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.api.*;
+import com.spectrayan.spector.memory.bootstrap.*;
+
 
 import com.spectrayan.spector.memory.persist.*;
 import com.spectrayan.spector.memory.pathway.*;
@@ -180,19 +187,19 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
     }
 
     /** Returns the active (writable) partition handle. */
-    PartitionHandle activeHandle() {
+    public PartitionHandle activeHandle() {
         List<PartitionHandle> snap = registry;
         return snap.get(snap.size() - 1);
     }
 
     /** Returns the current cognitive memory router (volatile read — safe for concurrent access). */
-    CognitiveMemoryRouter cognitiveRouter() { return activeRouter(); }
+    public CognitiveMemoryRouter cognitiveRouter() { return activeRouter(); }
 
     /** Returns the active partition directory (volatile read). */
-    Path activePartitionDir() { return activeHandle().dir(); }
+    public Path activePartitionDir() { return activeHandle().dir(); }
 
     /** Returns the active partition sequence number. */
-    int activeSeq() { return activeHandle().seq(); }
+    public int activeSeq() { return activeHandle().seq(); }
 
     /**
      * Discovers existing partitions or creates partition 000 if none exist, returning the
@@ -201,7 +208,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
      * @param basePath the memory persistence root
      * @return path to the active (latest) partition directory
      */
-    static Path discoverOrCreatePartition(Path basePath) throws IOException {
+    public static Path discoverOrCreatePartition(Path basePath) throws IOException {
         List<Path> all = discoverAllPartitions(basePath);
         return all.get(all.size() - 1); // newest = active
     }

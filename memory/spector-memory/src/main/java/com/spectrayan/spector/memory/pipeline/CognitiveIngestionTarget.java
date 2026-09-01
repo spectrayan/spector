@@ -12,12 +12,22 @@
  */
 package com.spectrayan.spector.memory.pipeline;
 
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.ingestion.IngestionTarget;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
-import com.spectrayan.spector.memory.ImportanceProvider;
+import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.cortex.*;
 import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.dopamine.SurpriseDetector;

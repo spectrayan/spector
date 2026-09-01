@@ -23,7 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
-import com.spectrayan.spector.memory.SalienceProfileProvider;
+import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;

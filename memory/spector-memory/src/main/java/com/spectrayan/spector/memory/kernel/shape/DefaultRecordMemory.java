@@ -12,6 +12,16 @@
  */
 package com.spectrayan.spector.memory.kernel.shape;
 
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.lang.foreign.Arena;

@@ -32,7 +32,7 @@ import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.id.TsidGenerator;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
-import com.spectrayan.spector.memory.SalienceProfileProvider;
+import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.metrics.MeteredSpectorMemory;
 import com.spectrayan.spector.metrics.SpectorMetrics;

@@ -12,6 +12,16 @@
  */
 package com.spectrayan.spector.memory.kernel;
 
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
 /**
  * Defines the structural shape of a persistent memory.
  * Each shape provides a different fundamental layout and access pattern for data.

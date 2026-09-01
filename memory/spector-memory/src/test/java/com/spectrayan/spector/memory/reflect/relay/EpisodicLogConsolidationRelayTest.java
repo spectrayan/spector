@@ -12,7 +12,17 @@
  */
 package com.spectrayan.spector.memory.reflect.relay;
 
-import com.spectrayan.spector.memory.PartitionManager;
+import com.spectrayan.spector.memory.pathway.*;
+
+import com.spectrayan.spector.memory.reflect.*;
+
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.bootstrap.*;
+
+import com.spectrayan.spector.memory.api.*;
+
+import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
