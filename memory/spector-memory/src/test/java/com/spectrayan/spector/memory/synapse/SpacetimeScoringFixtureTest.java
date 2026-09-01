@@ -26,6 +26,7 @@ import com.spectrayan.spector.memory.recall.relay.RecallSignal;
 import com.spectrayan.spector.memory.recall.relay.SpacetimeScoringRelay;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
 import com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion;
+import com.spectrayan.spector.memory.synapse.scan.RecordGates;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -119,14 +120,14 @@ class SpacetimeScoringFixtureTest {
             final long now = System.currentTimeMillis();
 
             // Record 0: 5-year-old memory with low base importance (0.8 < 1.0) but high arousal (240) and storage strength (4.0)
-            // M = (0.8 / 10) * (1 + 240/128) * (4.0^0.3) = 0.08 * 2.875 * 1.516 = 0.349 >= 0.30
+            // M = (0.8 / 10) * (1 + 240/128) * (4.0^0.3) = 0.08 * 2.875 * 1.516 = 0.349 >= FLASHBULB_MASS_FLOOR (0.30)
             final float highMass = CognitiveScoreFusion.computeCognitiveMass(0.8f, (byte) 240, 4.0f);
-            assertThat(highMass).isGreaterThanOrEqualTo(0.30f);
+            assertThat(highMass).isGreaterThanOrEqualTo(RecordGates.FLASHBULB_MASS_FLOOR);
 
             final float lowMass = CognitiveScoreFusion.computeCognitiveMass(0.5f, (byte) 0, 1.0f);
-            assertThat(lowMass).isLessThan(0.30f);
+            assertThat(lowMass).isLessThan(RecordGates.FLASHBULB_MASS_FLOOR);
 
-            // Record 0: High-mass memory (I=0.8 < 1.0, A=240, S=4.0) -> Survives Phase 4 via M >= 0.30 exemption
+            // Record 0: High-mass memory (I=0.8 < 1.0, A=240, S=4.0) -> Survives Phase 4 via M >= FLASHBULB_MASS_FLOOR exemption
             final byte flagsResolved = SynapticHeaderConstants.withMemoryType(
                     SynapticHeaderConstants.FLAG_RESOLVED, MemoryType.EPISODIC.ordinal());
             final CognitiveHeader highMassHeader = new CognitiveHeader(

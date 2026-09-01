@@ -1291,6 +1291,9 @@ public final class SpectorPropertyConstants {
     public static final String RECALL_ALLOW_FUTURE = "spector.recall.allow-future";
     public static final boolean DEFAULT_RECALL_ALLOW_FUTURE = false;
 
+    public static final String RECALL_FLASHBULB_MASS_FLOOR = "spector.recall.flashbulb.mass-floor";
+    public static final float DEFAULT_RECALL_FLASHBULB_MASS_FLOOR = 0.30f;
+
     // Server
     public static final String SERVER_PORT = "spector.server.port";
     public static final int DEFAULT_SERVER_PORT = 7070;

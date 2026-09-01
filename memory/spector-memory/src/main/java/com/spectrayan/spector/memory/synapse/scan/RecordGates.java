@@ -99,6 +99,9 @@ public final class RecordGates {
         return valence < minValence || valence > maxValence;
     }
 
+    /** Minimum cognitive mass required to exempt low-importance memories (I < 1.0) from stale pruning. */
+    public static final float FLASHBULB_MASS_FLOOR = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_FLASHBULB_MASS_FLOOR;
+
     /**
      * Phase 4: Evaluates temporal age decay against the maximum age threshold with high-mass and Zeigarnik exemptions.
      *
@@ -112,7 +115,7 @@ public final class RecordGates {
             final int adjustedBucket, final float importance, final byte flags, final float cognitiveMass) {
         return adjustedBucket >= DecayStrategy.MAX_BUCKET
                 && importance < 1.0f
-                && cognitiveMass < 0.30f
+                && cognitiveMass < FLASHBULB_MASS_FLOOR
                 && !isPinned(flags)
                 && isResolved(flags);
     }

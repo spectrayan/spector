@@ -27,6 +27,8 @@ import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion;
+import com.spectrayan.spector.memory.synapse.scan.RecordGates;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -151,7 +153,7 @@ public final class SemanticRecallStrategy {
 
             // Phase 1b: Temporal gating & Future causal horizon gate
             long timestamp = header.timestampMs();
-            if (com.spectrayan.spector.memory.synapse.scan.RecordGates.isTemporalGated(
+            if (RecordGates.isTemporalGated(
                     timestamp, minTimestamp, maxTimestamp, nowMs, options.allowFuture())) {
                 continue;
             }
@@ -193,13 +195,10 @@ public final class SemanticRecallStrategy {
                 final float storage = layout.headerLayout().version() >= 2
                         ? layout.headerLayout().readStorageStrength(headerSlab, headerOffset)
                         : 1.0f;
-                final float cognitiveMass = com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion
-                        .computeCognitiveMass(importance, arousal, storage);
+                final float cognitiveMass = CognitiveScoreFusion.computeCognitiveMass(importance, arousal, storage);
 
-                decay = com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion
-                        .computeMassDilatedDecay(timestamp, nowMs, cognitiveMass, arousal, agentRecallCount, false);
-                rawDecay = com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion
-                        .computeMassDilatedDecay(timestamp, nowMs, cognitiveMass, (byte) 0, 0, false);
+                decay = CognitiveScoreFusion.computeMassDilatedDecay(timestamp, nowMs, cognitiveMass, arousal, agentRecallCount, false);
+                rawDecay = CognitiveScoreFusion.computeMassDilatedDecay(timestamp, nowMs, cognitiveMass, (byte) 0, 0, false);
 
                 final float baseScore = alpha * similarity + beta * (importance / 10.0f) * decay;
                 final float tagOverlap = SynapticTagEncoder.overlapRatio(recordTags, queryTagMask);
