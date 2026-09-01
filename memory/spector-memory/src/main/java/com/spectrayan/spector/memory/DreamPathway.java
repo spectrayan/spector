@@ -107,6 +107,9 @@ public final class DreamPathway implements AutoCloseable {
         // 2. Salient Seed Selection (TMR + Soul / Salience Matching)
         pathwayBuilder.gated("salient_seed", DreamGates.DREAMING_ENABLED, new SalientSeedRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
+        // 2b. Spacetime Shortlist Seed Selection (ADR-0031)
+        pathwayBuilder.gated(com.spectrayan.spector.memory.pathway.RelayNames.SPACETIME_SEED, DreamGates.DREAMING_ENABLED, new com.spectrayan.spector.memory.simulation.relay.SpacetimeSeedRelay.DreamSeedRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
+
         // 3. Fragment Unpack (entity/role/affect decomposition)
         pathwayBuilder.gated("fragment_unpack", DreamGates.HAS_SEEDS, new FragmentUnpackRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 

@@ -63,6 +63,14 @@ public final class WanderSignal {
     private final float hopfieldTemperature;
     private final float[] soulPriorPreference;
 
+    // Spacetime Simulation Fields (ADR-0031)
+    private final long simulationTimeMs;
+    private final float[] queryTau;
+    private final com.spectrayan.spector.core.spacetime.SpacetimeSimulationMode spacetimeMode;
+    private final float recencyLambda;
+    private final boolean allowFuture;
+    private List<com.spectrayan.spector.memory.model.CognitiveResult> candidateSeeds = new ArrayList<>();
+
     private final Instant startTime;
     private final List<float[]> sampledVectors = new ArrayList<>();
     private final List<String> sampledMemoryIds = new ArrayList<>();
@@ -91,6 +99,15 @@ public final class WanderSignal {
         this.hopfieldTemperature = builder.hopfieldTemperature > 0.0f ? builder.hopfieldTemperature : 1.0f;
         this.soulPriorPreference = builder.soulPriorPreference;
 
+        this.simulationTimeMs = builder.simulationTimeMs > 0L ? builder.simulationTimeMs : System.currentTimeMillis();
+        this.spacetimeMode = builder.spacetimeMode != null ? builder.spacetimeMode : com.spectrayan.spector.core.spacetime.SpacetimeSimulationMode.WANDER;
+        this.recencyLambda = builder.recencyLambda >= 0.0f ? builder.recencyLambda : this.spacetimeMode.recencyLambda();
+        this.allowFuture = builder.allowFuture != null ? builder.allowFuture : this.spacetimeMode.allowsFuture();
+        this.queryTau = builder.queryTau != null ? builder.queryTau : com.spectrayan.spector.core.spacetime.Time2VecProjector.project(this.simulationTimeMs);
+        if (builder.candidateSeeds != null) {
+            this.candidateSeeds = new ArrayList<>(builder.candidateSeeds);
+        }
+
         this.startTime = Instant.now();
     }
 
@@ -99,6 +116,16 @@ public final class WanderSignal {
     }
 
     // ── Getters ──
+
+    public long simulationTimeMs() { return simulationTimeMs; }
+    public float[] queryTau() { return queryTau; }
+    public com.spectrayan.spector.core.spacetime.SpacetimeSimulationMode spacetimeMode() { return spacetimeMode; }
+    public float recencyLambda() { return recencyLambda; }
+    public boolean allowFuture() { return allowFuture; }
+    public List<com.spectrayan.spector.memory.model.CognitiveResult> candidateSeeds() { return candidateSeeds; }
+    public void setCandidateSeeds(List<com.spectrayan.spector.memory.model.CognitiveResult> seeds) {
+        this.candidateSeeds = seeds != null ? new ArrayList<>(seeds) : new ArrayList<>();
+    }
 
     public PartitionManager partitionManager() { return partitionManager; }
     public ScalarQuantizer quantizer() { return quantizer; }
@@ -174,6 +201,13 @@ public final class WanderSignal {
         private float hopfieldTemperature = 1.0f;
         private float[] soulPriorPreference = null;
 
+        private long simulationTimeMs = 0L;
+        private float[] queryTau = null;
+        private com.spectrayan.spector.core.spacetime.SpacetimeSimulationMode spacetimeMode = null;
+        private float recencyLambda = -1.0f;
+        private Boolean allowFuture = null;
+        private List<com.spectrayan.spector.memory.model.CognitiveResult> candidateSeeds = null;
+
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
         public Builder quantizer(ScalarQuantizer q) { this.quantizer = q; return this; }
         public Builder embeddingProvider(EmbeddingProvider ep) { this.embeddingProvider = ep; return this; }
@@ -191,6 +225,13 @@ public final class WanderSignal {
         public Builder synergyThreshold(float th) { this.synergyThreshold = th; return this; }
         public Builder hopfieldTemperature(float temp) { this.hopfieldTemperature = temp; return this; }
         public Builder soulPriorPreference(float[] prior) { this.soulPriorPreference = prior; return this; }
+
+        public Builder simulationTimeMs(long simTime) { this.simulationTimeMs = simTime; return this; }
+        public Builder queryTau(float[] tau) { this.queryTau = tau; return this; }
+        public Builder spacetimeMode(com.spectrayan.spector.core.spacetime.SpacetimeSimulationMode mode) { this.spacetimeMode = mode; return this; }
+        public Builder recencyLambda(float lambda) { this.recencyLambda = lambda; return this; }
+        public Builder allowFuture(boolean allow) { this.allowFuture = allow; return this; }
+        public Builder candidateSeeds(List<com.spectrayan.spector.memory.model.CognitiveResult> seeds) { this.candidateSeeds = seeds; return this; }
 
         public WanderSignal build() {
             return new WanderSignal(this);

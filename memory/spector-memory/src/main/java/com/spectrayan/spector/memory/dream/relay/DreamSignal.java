@@ -91,6 +91,14 @@ public final class DreamSignal {
     private final AtomicInteger dreamsIngested = new AtomicInteger(0);
     private final AtomicInteger failedPairs = new AtomicInteger(0);
 
+    // Spacetime Simulation Fields (ADR-0031)
+    private final long simulationTimeMs;
+    private final float[] queryTau;
+    private final com.spectrayan.spector.core.spacetime.SpacetimeSimulationMode spacetimeMode;
+    private final float recencyLambda;
+    private final boolean allowFuture;
+    private List<com.spectrayan.spector.memory.model.CognitiveResult> candidateSeeds = new ArrayList<>();
+
     private final Instant startTime;
 
     private DreamSignal(Builder builder) {
@@ -132,6 +140,30 @@ public final class DreamSignal {
         this.embeddingProvider = builder.embeddingProvider;
         this.hopfieldNetwork = builder.hopfieldNetwork;
 
+        final long now = System.currentTimeMillis();
+        if (builder.simulationTimeMs > 0L) {
+            this.simulationTimeMs = builder.simulationTimeMs;
+        } else if (this.mode == DreamMode.REM) {
+            this.simulationTimeMs = now + 86_400_000L; // default 1 day prospective horizon for REM
+        } else {
+            this.simulationTimeMs = now;
+        }
+
+        if (builder.spacetimeMode != null) {
+            this.spacetimeMode = builder.spacetimeMode;
+        } else if (this.mode == DreamMode.REM) {
+            this.spacetimeMode = com.spectrayan.spector.core.spacetime.SpacetimeSimulationMode.DREAM_REM;
+        } else {
+            this.spacetimeMode = com.spectrayan.spector.core.spacetime.SpacetimeSimulationMode.DREAM_NREM;
+        }
+
+        this.recencyLambda = builder.recencyLambda >= 0.0f ? builder.recencyLambda : this.spacetimeMode.recencyLambda();
+        this.allowFuture = builder.allowFuture != null ? builder.allowFuture : this.spacetimeMode.allowsFuture();
+        this.queryTau = builder.queryTau != null ? builder.queryTau : com.spectrayan.spector.core.spacetime.Time2VecProjector.project(this.simulationTimeMs);
+        if (builder.candidateSeeds != null) {
+            this.candidateSeeds = new ArrayList<>(builder.candidateSeeds);
+        }
+
         this.startTime = Instant.now();
     }
 
@@ -165,6 +197,16 @@ public final class DreamSignal {
     public List<float[]> seedVectors() { return seedVectors; }
     public List<DreamScene> constructedScenes() { return constructedScenes; }
     public List<DreamScene> survivingScenes() { return survivingScenes; }
+
+    public long simulationTimeMs() { return simulationTimeMs; }
+    public float[] queryTau() { return queryTau; }
+    public com.spectrayan.spector.core.spacetime.SpacetimeSimulationMode spacetimeMode() { return spacetimeMode; }
+    public float recencyLambda() { return recencyLambda; }
+    public boolean allowFuture() { return allowFuture; }
+    public List<com.spectrayan.spector.memory.model.CognitiveResult> candidateSeeds() { return candidateSeeds; }
+    public void setCandidateSeeds(List<com.spectrayan.spector.memory.model.CognitiveResult> seeds) {
+        this.candidateSeeds = seeds != null ? new ArrayList<>(seeds) : new ArrayList<>();
+    }
 
     public List<SceneFragment> fragments() { return fragments; }
     public List<ExtractedInsight> extractedInsights() { return extractedInsights; }
@@ -235,6 +277,13 @@ public final class DreamSignal {
         private ContinuousHopfieldNetwork hopfieldNetwork;
         private MemoryIdGenerator idGenerator;
 
+        private long simulationTimeMs = 0L;
+        private float[] queryTau = null;
+        private com.spectrayan.spector.core.spacetime.SpacetimeSimulationMode spacetimeMode = null;
+        private float recencyLambda = -1.0f;
+        private Boolean allowFuture = null;
+        private List<com.spectrayan.spector.memory.model.CognitiveResult> candidateSeeds = null;
+
         public Builder mode(DreamMode mode) { this.mode = mode; return this; }
         public Builder config(DreamConfig config) { this.config = config; return this; }
         public Builder temperature(float temperature) { this.temperature = temperature; return this; }
@@ -255,6 +304,13 @@ public final class DreamSignal {
         public Builder hyperEntityGraph(HyperEntityGraphMemory graph) { this.hyperEntityGraph = graph; return this; }
         public Builder embeddingProvider(EmbeddingProvider provider) { this.embeddingProvider = provider; return this; }
         public Builder hopfieldNetwork(ContinuousHopfieldNetwork network) { this.hopfieldNetwork = network; return this; }
+
+        public Builder simulationTimeMs(long simTime) { this.simulationTimeMs = simTime; return this; }
+        public Builder queryTau(float[] tau) { this.queryTau = tau; return this; }
+        public Builder spacetimeMode(com.spectrayan.spector.core.spacetime.SpacetimeSimulationMode mode) { this.spacetimeMode = mode; return this; }
+        public Builder recencyLambda(float lambda) { this.recencyLambda = lambda; return this; }
+        public Builder allowFuture(boolean allow) { this.allowFuture = allow; return this; }
+        public Builder candidateSeeds(List<com.spectrayan.spector.memory.model.CognitiveResult> seeds) { this.candidateSeeds = seeds; return this; }
 
         public DreamSignal build() {
             return new DreamSignal(this);
