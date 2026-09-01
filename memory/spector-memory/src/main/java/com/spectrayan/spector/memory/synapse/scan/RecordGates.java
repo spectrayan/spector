@@ -112,7 +112,7 @@ public final class RecordGates {
             final int adjustedBucket, final float importance, final byte flags, final float cognitiveMass) {
         return adjustedBucket >= DecayStrategy.MAX_BUCKET
                 && importance < 1.0f
-                && cognitiveMass < 3.0f
+                && cognitiveMass < 0.30f
                 && !isPinned(flags)
                 && isResolved(flags);
     }

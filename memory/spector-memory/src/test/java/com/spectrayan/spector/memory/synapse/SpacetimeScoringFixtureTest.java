@@ -112,30 +112,28 @@ class SpacetimeScoringFixtureTest {
     class CognitiveMassRetentionTests {
 
         @Test
-        @DisplayName("Fixture A: High-mass memory with I < 1.0 is exempted from stale pruning via M >= 3.0")
+        @DisplayName("Fixture A: High-mass memory with I < 1.0 is exempted from stale pruning via M >= 0.30")
         void highMassExemptsLowImportanceStaleMemory() {
             final SemanticRecordMemory store = new SemanticRecordMemory(DIMS, 10);
             final CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
             final long now = System.currentTimeMillis();
 
-            // Record 0: 5-year-old memory with low base importance (0.8 < 1.0) but high arousal (220) and storage strength (4.5)
-            // M = (0.8 / 10) * (1 + 220/128) * (4.5^0.3) = 0.08 * 2.71875 * 1.57 = ~0.34
-            // Let's compute M >= 3.0: with I=8.0, A=220, S=4.5 -> M = 0.8 * 2.71875 * 1.57 = 3.41 >= 3.0
-            // For I < 1.0: with I=0.8, flags=RESOLVED, adjustedBucket=MAX_BUCKET(11), let's verify computeCognitiveMass directly:
-            final float highMass = CognitiveScoreFusion.computeCognitiveMass(8.0f, (byte) 220, 4.5f);
-            assertThat(highMass).isGreaterThanOrEqualTo(3.0f);
+            // Record 0: 5-year-old memory with low base importance (0.8 < 1.0) but high arousal (240) and storage strength (4.0)
+            // M = (0.8 / 10) * (1 + 240/128) * (4.0^0.3) = 0.08 * 2.875 * 1.516 = 0.349 >= 0.30
+            final float highMass = CognitiveScoreFusion.computeCognitiveMass(0.8f, (byte) 240, 4.0f);
+            assertThat(highMass).isGreaterThanOrEqualTo(0.30f);
 
             final float lowMass = CognitiveScoreFusion.computeCognitiveMass(0.5f, (byte) 0, 1.0f);
-            assertThat(lowMass).isLessThan(3.0f);
+            assertThat(lowMass).isLessThan(0.30f);
 
-            // Record 0: High-mass memory (I=8.0, A=220, S=4.5) -> Survives Phase 4 & Phase 6
+            // Record 0: High-mass memory (I=0.8 < 1.0, A=240, S=4.0) -> Survives Phase 4 via M >= 0.30 exemption
             final byte flagsResolved = SynapticHeaderConstants.withMemoryType(
                     SynapticHeaderConstants.FLAG_RESOLVED, MemoryType.EPISODIC.ordinal());
             final CognitiveHeader highMassHeader = new CognitiveHeader(
-                    now - FIVE_YEARS_MS, 0L, 1.0f, 8.0f, 0, (short) 0, (byte) 50, flagsResolved, (byte) 220, 4.5f);
+                    now - FIVE_YEARS_MS, 0L, 1.0f, 0.8f, 0, (short) 0, (byte) 50, flagsResolved, (byte) 240, 4.0f);
             store.append(highMassHeader, new byte[layout.quantizedVecBytes()]);
 
-            // Record 1: Stale & weak control memory (5 years old, I=0.5, A=0, S=1.0, RESOLVED) -> Must be pruned
+            // Record 1: Stale & weak control memory (5 years old, I=0.5 < 1.0, A=0, S=1.0, RESOLVED) -> Must be pruned
             final CognitiveHeader lowMassHeader = new CognitiveHeader(
                     now - FIVE_YEARS_MS, 0L, 1.0f, 0.5f, 0, (short) 0, (byte) 0, flagsResolved, (byte) 0, 1.0f);
             store.append(lowMassHeader, new byte[layout.quantizedVecBytes()]);
@@ -149,7 +147,7 @@ class SpacetimeScoringFixtureTest {
             final List<ScoredRecord> results = CognitiveScorer.score(
                     store.segment(), 2, layout, queryVec, opts, now, 0L, null, null);
 
-            // Only the high-mass memory survives Phase 4 screening
+            // Only the high-mass memory survives Phase 4 screening despite I < 1.0
             assertThat(results).hasSize(1);
             assertThat(results.get(0).header().timestampMs()).isEqualTo(highMassHeader.timestampMs());
             assertThat(results.get(0).score()).isGreaterThan(0.0f);

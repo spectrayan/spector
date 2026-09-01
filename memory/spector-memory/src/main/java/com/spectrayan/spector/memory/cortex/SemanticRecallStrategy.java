@@ -189,13 +189,20 @@ public final class SemanticRecallStrategy {
                 decay = 1.0f;
                 rawDecay = 1.0f;
             } else {
-                int rawBucket = DecayStrategy.ageToBucket(timestamp, nowMs);
-                int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, agentRecallCount);
-                decay = DecayStrategy.decay(adjusted);
-                rawDecay = DecayStrategy.decay(rawBucket);
+                final byte arousal = layout.headerLayout().version() >= 2 ? header.arousal() : (byte) 0;
+                final float storage = layout.headerLayout().version() >= 2
+                        ? layout.headerLayout().readStorageStrength(headerSlab, headerOffset)
+                        : 1.0f;
+                final float cognitiveMass = com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion
+                        .computeCognitiveMass(importance, arousal, storage);
 
-                float baseScore = alpha * similarity + beta * importance * decay;
-                float tagOverlap = SynapticTagEncoder.overlapRatio(recordTags, queryTagMask);
+                decay = com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion
+                        .computeMassDilatedDecay(timestamp, nowMs, cognitiveMass, arousal, agentRecallCount, false);
+                rawDecay = com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion
+                        .computeMassDilatedDecay(timestamp, nowMs, cognitiveMass, (byte) 0, 0, false);
+
+                final float baseScore = alpha * similarity + beta * (importance / 10.0f) * decay;
+                final float tagOverlap = SynapticTagEncoder.overlapRatio(recordTags, queryTagMask);
                 finalScore = baseScore * (1.0f + tagOverlap * tagRelevanceBoost);
             }
 
