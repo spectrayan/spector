@@ -24,6 +24,7 @@ public final class RelayNames {
     public static final String PROSPECTIVE           = "prospective";
     public static final String GOVERNED_RELEASE_GATE = "governed_release_gate";
     public static final String VECTOR_SEARCH         = "vector_search";
+    public static final String SPACETIME_SCORING     = "spacetime_scoring";
     public static final String SCORING               = "scoring";
     public static final String GRAPH_EXPANSION       = "graph_expansion";
     public static final String EVIDENCE_FUSION       = "evidence_fusion";

@@ -194,7 +194,8 @@ public final class RecallPathwayFactory {
             builder.gated(RelayNames.FREE_ENERGY_GUIDED, RecallGates.FREE_ENERGY_ENABLED, freeEnergyGuidedRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
         }
 
-        builder.relay(RelayNames.SCORING, scoringRelay)
+        builder.gated(RelayNames.SPACETIME_SCORING, RecallGates.SPACETIME_ENABLED, new SpacetimeScoringRelay(), ErrorPolicy.DEGRADE_GRACEFULLY)
+               .relay(RelayNames.SCORING, scoringRelay)
                .relay(RelayNames.GRAPH_EXPANSION, graphExpansionRelay);
 
         if (hopfieldAssociativeRelay != null) {

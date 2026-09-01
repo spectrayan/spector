@@ -123,4 +123,11 @@ public final class RecallGates {
     public static final Specification<RecallSignal> EPISTEMIC_LEARNING_ENABLED =
         Specification.of("epistemic learning not enabled in AISME options",
             s -> s.options().enableAisme() && (s.options().aismeConfig().enableFreeEnergy() || s.options().aismeConfig().enableHomeostasis()));
+
+    /**
+     * Gate evaluating whether Spacetime harmonic re-ranking is enabled (ADR-0030 v1).
+     */
+    public static final Specification<RecallSignal> SPACETIME_ENABLED =
+        Specification.of("spacetime vector search not enabled in recall options",
+            s -> s.options().enableSpacetime() && s.queryTau() != null);
 }

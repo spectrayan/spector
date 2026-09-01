@@ -143,7 +143,11 @@ public record RecallOptions(
         boolean enableAssociativePrior,
         float associativePriorDelta,
         float associativePriorStdpWeight,
-        float associativePriorHubWeight
+        float associativePriorHubWeight,
+        //  Spacetime Vector Search (ADR-0030 v1)
+        boolean allowFuture,
+        boolean enableSpacetime,
+        float spacetimeHarmonicWeight
 ) {
 
     /** Default options: top 10, no filters, balanced scoring. */
@@ -430,6 +434,29 @@ public record RecallOptions(
         /** Sets hub degree weight for associative prior (default 0.3). */
         public Builder associativePriorHubWeight(float weight) {
             this.associativePriorHubWeight = weight;
+            return this;
+        }
+
+        // ─── Spacetime Vector Search (ADR-0030 v1) ───
+        private boolean allowFuture = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_ALLOW_FUTURE;
+        private boolean enableSpacetime = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_SPACETIME_ENABLED;
+        private float spacetimeHarmonicWeight = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_SPACETIME_HARMONIC_WEIGHT;
+
+        /** Enables or disables recalling future memories (past query timestamp). */
+        public Builder allowFuture(boolean allow) {
+            this.allowFuture = allow;
+            return this;
+        }
+
+        /** Enables or disables shortlist spacetime harmonic re-ranking. */
+        public Builder enableSpacetime(boolean enable) {
+            this.enableSpacetime = enable;
+            return this;
+        }
+
+        /** Sets harmonic weight rho for spacetime re-ranking (default 0.15). */
+        public Builder spacetimeHarmonicWeight(float weight) {
+            this.spacetimeHarmonicWeight = weight;
             return this;
         }
 
@@ -1033,7 +1060,10 @@ public record RecallOptions(
                     enableAssociativePrior,
                     associativePriorDelta,
                     associativePriorStdpWeight,
-                    associativePriorHubWeight);
+                    associativePriorHubWeight,
+                    allowFuture,
+                    enableSpacetime,
+                    spacetimeHarmonicWeight);
             return options;
         }
     }
@@ -1130,36 +1160,69 @@ public record RecallOptions(
         return warnings;
     }
 
+    // ==============================================================
+    // Factory presets for common recall archetypes
+    // ==============================================================
+
     /**
-     * Parses a profile name string (case-insensitive) into a {@link CognitiveProfile}.
-     *
-     * <p>Intended for MCP/REST integrations where profile arrives as a string.
-     * Returns {@code null} if the name is null, empty, or doesn't match any profile.</p>
-     *
-     * @param profileName profile name (e.g., "DEBUGGING", "debugging", "Debugging")
-     * @return the matching profile, or {@code null} if not found
+     * Preset for strict factual verification.
+     */
+    public static RecallOptions factual(int topK) {
+        return builder()
+                .topK(topK)
+                .profile(CognitiveProfile.SYSTEMATIZER)
+                .strictnessCoefficient(5.0f)
+                .build();
+    }
+
+    /**
+     * Preset for broad exploration / brainstorming.
+     */
+    public static RecallOptions exploratory(int topK) {
+        return builder()
+                .topK(topK)
+                .profile(CognitiveProfile.DIVERGENT)
+                .lateralMode(true)
+                .build();
+    }
+
+    /**
+     * Preset for emotional debugging / incident investigation.
+     */
+    public static RecallOptions postMortem(int topK, String... tags) {
+        return builder()
+                .topK(topK)
+                .synapticFilter(tags)
+                .maxValence((byte) -1)
+                .build();
+    }
+
+    /**
+     * Preset for associative recall without text or LLM calls.
+     */
+    public static RecallOptions associative(int topK, float minImportance) {
+        return builder()
+                .topK(topK)
+                .minImportance(minImportance)
+                .build();
+    }
+
+    /**
+     * Parses a string profile name into a {@link CognitiveProfile}.
      */
     public static CognitiveProfile parseProfile(String profileName) {
-        if (profileName == null || profileName.isBlank()) return null;
-        if ("AUTO".equalsIgnoreCase(profileName.strip())) return null;
+        if (profileName == null || profileName.isBlank()) {
+            return null;
+        }
         try {
             return CognitiveProfile.valueOf(profileName.strip().toUpperCase());
         } catch (IllegalArgumentException e) {
-            VALIDATION_LOG.warn("Unknown CognitiveProfile: '" + profileName
-                    + "'. Available: " + java.util.Arrays.toString(CognitiveProfile.values()));
             return null;
         }
     }
 
     /**
      * Checks if the given profile name represents the AUTO detection mode.
-     *
-     * <p>Use in combination with {@link #parseProfile} and {@link Builder#autoProfile}:
-     * if this returns {@code true}, set {@code autoProfile(true)} on the builder
-     * instead of applying a specific profile.</p>
-     *
-     * @param profileName profile name string (may be null)
-     * @return true if the name is "AUTO" (case-insensitive)
      */
     public static boolean isAutoProfile(String profileName) {
         return profileName != null && "AUTO".equalsIgnoreCase(profileName.strip());
@@ -1223,7 +1286,9 @@ public record RecallOptions(
         b.associativePriorDelta = this.associativePriorDelta;
         b.associativePriorStdpWeight = this.associativePriorStdpWeight;
         b.associativePriorHubWeight = this.associativePriorHubWeight;
+        b.allowFuture = this.allowFuture;
+        b.enableSpacetime = this.enableSpacetime;
+        b.spacetimeHarmonicWeight = this.spacetimeHarmonicWeight;
         return b;
     }
 }
-

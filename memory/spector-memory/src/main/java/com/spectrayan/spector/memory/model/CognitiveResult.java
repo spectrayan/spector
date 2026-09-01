@@ -175,6 +175,24 @@ public record CognitiveResult(
     }
 
     /**
+     * Returns a copy of this result with updated score.
+     */
+    public CognitiveResult withScore(float newScore) {
+        return new CognitiveResult(id, text, newScore, importance, ageDays, agentRecallCount,
+                valence, memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
+                retrievalMode, breakdown, trace, sourceModality, metadata, consolidationFlags);
+    }
+
+    /**
+     * Returns a copy of this result with updated score and breakdown.
+     */
+    public CognitiveResult withScoreAndBreakdown(float newScore, ScoreBreakdown newBreakdown) {
+        return new CognitiveResult(id, text, newScore, importance, ageDays, agentRecallCount,
+                valence, memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
+                retrievalMode, newBreakdown, trace, sourceModality, metadata, consolidationFlags);
+    }
+
+    /**
      * Returns a copy of this result with updated text content.
      */
     public CognitiveResult withText(String newText) {
