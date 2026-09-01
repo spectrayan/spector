@@ -610,7 +610,7 @@ public final class RecallPipeline {
         }
 
         // Sort and limit
-        allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
+        allResults.sort(Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
         if (allResults.size() > options.topK()) {
             allResults = new ArrayList<>(allResults.subList(0, options.topK()));
         }
@@ -696,7 +696,7 @@ public final class RecallPipeline {
         temporalFactWeavingStage.weave(allResults, queryVector, options);
 
         // Sort vector candidates by cognitive score descending before RRF rank assignment
-        allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
+        allResults.sort(Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
 
         // Step 5f: BM25 text search & fusion (if enabled)
         boolean rrfFused = false;
@@ -751,7 +751,7 @@ public final class RecallPipeline {
         allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
 
         // Step 6: Sort by score descending, limit to topK
-        allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
+        allResults.sort(Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
         if (allResults.size() > options.topK()) {
             allResults = new ArrayList<>(allResults.subList(0, options.topK()));
         }
@@ -788,7 +788,7 @@ public final class RecallPipeline {
                         }
 
                         // Re-sort after reranking
-                        allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
+                        allResults.sort(Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
                         if (allResults.size() > options.topK()) {
                             allResults = new ArrayList<>(allResults.subList(0, options.topK()));
                         }
@@ -820,7 +820,7 @@ public final class RecallPipeline {
         float effectiveTemp = computeEffectiveTemperature(queryVector, options);
         if (Math.abs(effectiveTemp - 1.0f) >= 1e-4f) {
             com.spectrayan.spector.memory.synapse.TemperatureSoftmax.applySoftmaxTemperature(allResults, effectiveTemp);
-            allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
+            allResults.sort(Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
             if (allResults.size() > options.topK()) {
                 allResults = new ArrayList<>(allResults.subList(0, options.topK()));
             }
