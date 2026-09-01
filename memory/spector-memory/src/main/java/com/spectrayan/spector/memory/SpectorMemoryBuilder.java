@@ -179,8 +179,8 @@ public final class SpectorMemoryBuilder {
     // Eager consolidation (#526)
     int eagerConsolidationQueueCapacity = SpectorPropertyConstants.DEFAULT_MEMORY_EAGER_CONSOLIDATION_QUEUE_CAPACITY;
 
-    // Cognitive Pathway Engine (#561) — opt-in relay-based recall pathway
-    boolean usePathwayEngine = false;
+    // Cognitive Pathway Engine (#561) — default engine (legacy pipeline deprecated)
+    boolean usePathwayEngine = Boolean.parseBoolean(System.getProperty("spector.pathway.enabled", "true"));
 
     // Active Inference Self-Model Engine (AISME) (#597)
     com.spectrayan.spector.memory.aisme.config.AismeConfig aismeConfig = com.spectrayan.spector.memory.aisme.config.AismeConfig.disabled();
@@ -223,7 +223,11 @@ public final class SpectorMemoryBuilder {
     public SpectorMemoryBuilder typeRegistrySize(long s) { this.typeRegistrySize = s; return this; }
     public SpectorMemoryBuilder insulaSize(long s) { this.insulaSize = s; return this; }
     public SpectorMemoryBuilder eagerConsolidationQueueCapacity(int c) { this.eagerConsolidationQueueCapacity = c; return this; }
-    /** Enable the relay-based Cognitive Pathway Engine for recall (#561). */
+    /**
+     * Sets whether to use the Cognitive Pathway Engine.
+     * @deprecated Since 1.4.0. The pathway engine is the sole default memory execution engine.
+     */
+    @Deprecated
     public SpectorMemoryBuilder usePathwayEngine(boolean enable) { this.usePathwayEngine = enable; return this; }
 
     /** Sets the Active Inference Self-Model Engine (AISME) configuration (#597). */
