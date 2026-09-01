@@ -66,7 +66,23 @@ public final class SpacetimeScoringRelay implements SynapticRelay<RecallSignal> 
             final float harmonicDelta = rho * harmonicAlignment;
             final float newScore = Math.max(0.0f, candidate.score() + harmonicDelta);
 
-            updated.add(candidate.withScore(newScore));
+            if (candidate.trace() != null) {
+                final java.util.List<com.spectrayan.spector.memory.model.RecallTrace.TraceStep> steps =
+                        new ArrayList<>(candidate.trace().steps());
+                steps.add(new com.spectrayan.spector.memory.model.RecallTrace.TraceStep(
+                        RelayNames.SPACETIME_SCORING,
+                        candidate.score(),
+                        newScore,
+                        candidates.size(),
+                        candidates.size(),
+                        String.format("harmonicAlignment=%.4f, rho=%.2f, delta=%+.4f", harmonicAlignment, rho, harmonicDelta)));
+                final com.spectrayan.spector.memory.model.RecallTrace updatedTrace =
+                        new com.spectrayan.spector.memory.model.RecallTrace(
+                                candidate.id(), java.util.Collections.unmodifiableList(steps));
+                updated.add(candidate.withScoreAndTrace(newScore, updatedTrace));
+            } else {
+                updated.add(candidate.withScore(newScore));
+            }
         }
 
         // Re-sort candidates by adjusted score descending

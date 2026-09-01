@@ -20,6 +20,7 @@ import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.recall.relay.RecallSignal;
 import com.spectrayan.spector.memory.recall.relay.SpacetimeScoringRelay;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
@@ -180,6 +181,44 @@ class SpacetimeScoringFixtureTest {
             final CognitiveResult updatedC2 = updated.stream().filter(c -> c.id().equals("c2")).findFirst().orElseThrow();
 
             assertThat(updatedC1.score()).isGreaterThan(updatedC2.score());
+        }
+
+        @Test
+        @DisplayName("SpacetimeScoringRelay generates RecallTrace step when trace is present on candidate")
+        void harmonicTracingGeneratesPipelineTraceStep() {
+            final long queryTimeMs = 1774900000000L;
+            final float[] queryTau = Time2VecProjector.project(queryTimeMs);
+
+            final RecallOptions opts = RecallOptions.builder()
+                    .enableSpacetime(true)
+                    .spacetimeHarmonicWeight(0.15f)
+                    .build();
+
+            final RecallSignal signal = RecallSignal.forVectorQuery(new float[DIMS], opts);
+            signal.setQueryTimeMs(queryTimeMs);
+            signal.setQueryTau(queryTau);
+
+            final com.spectrayan.spector.memory.model.RecallTrace initialTrace =
+                    new com.spectrayan.spector.memory.model.RecallTrace("c1", List.of(
+                            new com.spectrayan.spector.memory.model.RecallTrace.TraceStep(
+                                    "INITIAL", 0.5f, 0.5f, 1, 1, "seed")));
+
+            final CognitiveResult c1 = new CognitiveResult(
+                    "c1", "traced memory", 0.50f, 5.0f, 1.0f, 0, (byte) 0,
+                    MemoryType.EPISODIC, null, new String[0], 0.5f, 0.5f,
+                    CognitiveResult.RetrievalMode.STANDARD, null, initialTrace,
+                    com.spectrayan.spector.memory.model.SourceModality.TEXT, java.util.Map.of());
+
+            signal.setCandidates(List.of(c1));
+
+            final SpacetimeScoringRelay relay = new SpacetimeScoringRelay();
+            final boolean success = relay.transmit(signal);
+
+            assertThat(success).isTrue();
+            final CognitiveResult result = signal.candidates().get(0);
+            assertThat(result.trace()).isNotNull();
+            assertThat(result.trace().steps()).hasSize(2);
+            assertThat(result.trace().steps().get(1).phaseName()).isEqualTo(RelayNames.SPACETIME_SCORING);
         }
     }
 }

@@ -184,6 +184,15 @@ public record CognitiveResult(
     }
 
     /**
+     * Returns a copy of this result with updated score and trace.
+     */
+    public CognitiveResult withScoreAndTrace(float newScore, RecallTrace newTrace) {
+        return new CognitiveResult(id, text, newScore, importance, ageDays, agentRecallCount,
+                valence, memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
+                retrievalMode, breakdown, newTrace, sourceModality, metadata, consolidationFlags);
+    }
+
+    /**
      * Returns a copy of this result with updated score and breakdown.
      */
     public CognitiveResult withScoreAndBreakdown(float newScore, ScoreBreakdown newBreakdown) {
