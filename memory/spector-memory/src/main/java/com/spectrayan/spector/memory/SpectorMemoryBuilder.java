@@ -18,16 +18,16 @@ import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
-import com.spectrayan.spector.memory.dopamine.DefaultImportanceProvider;
-import com.spectrayan.spector.memory.dream.relay.DreamConfig;
+import com.spectrayan.spector.memory.neuromod.dopamine.DefaultImportanceProvider;
+import com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig;
 import com.spectrayan.spector.memory.graph.EdgeImportance;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.OntologyConfig;
-import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
-import com.spectrayan.spector.memory.id.IdStrategy;
-import com.spectrayan.spector.memory.id.MemoryIdGenerator;
+import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
+import com.spectrayan.spector.memory.kernel.id.IdStrategy;
+import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.kernel.Memory;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
@@ -37,13 +37,13 @@ import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.memory.model.TenantSoul;
 import com.spectrayan.spector.memory.model.UserSoul;
-import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
-import com.spectrayan.spector.memory.pipeline.ContentTagExtractor;
-import com.spectrayan.spector.memory.pipeline.GraphScoringPolicy;
-import com.spectrayan.spector.memory.pipeline.TagExtractor;
-import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker;
-import com.spectrayan.spector.memory.pipeline.reranker.ColBERTTokenCache;
+import com.spectrayan.spector.memory.pathway.pipeline.ContentTagExtractor;
+import com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy;
+import com.spectrayan.spector.memory.pathway.pipeline.TagExtractor;
+import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTReranker;
+import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTTokenCache;
 import com.spectrayan.spector.memory.scheduler.MemoryScheduler;
 import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
 
@@ -63,14 +63,14 @@ import com.spectrayan.spector.memory.graph.EdgeImportance;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
-import com.spectrayan.spector.memory.id.IdStrategy;
-import com.spectrayan.spector.memory.id.MemoryIdGenerator;
+import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
+import com.spectrayan.spector.memory.kernel.id.IdStrategy;
+import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
-import com.spectrayan.spector.memory.pipeline.TagExtractor;
-import com.spectrayan.spector.memory.pipeline.GraphScoringPolicy;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.pathway.pipeline.TagExtractor;
+import com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy;
 import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
 import com.spectrayan.spector.commons.observation.MemoryObservationHook;
 
@@ -280,17 +280,17 @@ public final class SpectorMemoryBuilder {
         return this;
     }
 
-    private com.spectrayan.spector.memory.dream.relay.DreamConfig dreamConfig = com.spectrayan.spector.memory.dream.relay.DreamConfig.defaultConfig();
+    private com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig dreamConfig = com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig.defaultConfig();
 
     /** Sets the Generative Dreaming &amp; Thought Experiment configuration (#679). */
-    public SpectorMemoryBuilder dreamConfig(com.spectrayan.spector.memory.dream.relay.DreamConfig config) {
-        this.dreamConfig = config != null ? config : com.spectrayan.spector.memory.dream.relay.DreamConfig.defaultConfig();
+    public SpectorMemoryBuilder dreamConfig(com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig config) {
+        this.dreamConfig = config != null ? config : com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig.defaultConfig();
         return this;
     }
 
     /** Enables or disables Generative Dreaming with default configuration (#679). */
     public SpectorMemoryBuilder enableDreaming(boolean enable) {
-        this.dreamConfig = enable ? com.spectrayan.spector.memory.dream.relay.DreamConfig.defaultConfig() : com.spectrayan.spector.memory.dream.relay.DreamConfig.disabled();
+        this.dreamConfig = enable ? com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig.defaultConfig() : com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig.disabled();
         return this;
     }
 
@@ -587,7 +587,7 @@ public final class SpectorMemoryBuilder {
     /**
      * Sets a custom importance provider to replace the default importance scoring pipeline.
      *
-     * <p>If not set, the engine uses {@link com.spectrayan.spector.memory.dopamine.DefaultImportanceProvider}
+     * <p>If not set, the engine uses {@link com.spectrayan.spector.memory.neuromod.dopamine.DefaultImportanceProvider}
      * which preserves the existing Welford + ICNU + Flashbulb + salience-boost pipeline.</p>
      *
      * @param provider the custom importance provider (null = use default)
@@ -706,7 +706,7 @@ public final class SpectorMemoryBuilder {
     public java.util.concurrent.Executor suppliedExecutor() { return suppliedExecutor; }
     public com.spectrayan.spector.memory.scheduler.MemoryScheduler scheduler() { return scheduler; }
     public org.quartz.Scheduler customQuartzScheduler() { return customQuartzScheduler; }
-    public com.spectrayan.spector.memory.dream.relay.DreamConfig dreamConfig() { return dreamConfig; }
+    public com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig dreamConfig() { return dreamConfig; }
     public boolean managedByRegistry() { return managedByRegistry; }
     public boolean useBundleMode() { return useBundleMode; }
     public int dimensions() { return dimensions; }

@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.*;
-import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 import com.spectrayan.spector.memory.test.FakeEmbeddingProvider;
 
 import org.junit.jupiter.api.*;

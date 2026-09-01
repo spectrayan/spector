@@ -29,8 +29,8 @@ import com.spectrayan.spector.memory.kernel.shape.AppendMemory;
 import com.spectrayan.spector.memory.kernel.shape.RegistryMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
-import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 
 /**
  * Replays shape-specific Write-Ahead Log (WAL) events and dispatches mutations

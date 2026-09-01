@@ -19,7 +19,7 @@ import java.util.List;
  *
  * <p>Implementations analyze text to identify named entities and their relationships.
  * This follows the same pluggable pattern as
- * {@link com.spectrayan.spector.memory.pipeline.TagExtractor} and
+ * {@link com.spectrayan.spector.memory.pathway.pipeline.TagExtractor} and
  * {@link com.spectrayan.spector.provider.embedding.EmbeddingProvider}.</p>
  *
  * <h3>Implementations</h3>

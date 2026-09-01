@@ -22,8 +22,8 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.identity.IdentityBundle;
-import com.spectrayan.spector.memory.identity.IdentityRegionId;
+import com.spectrayan.spector.memory.kernel.identity.IdentityBundle;
+import com.spectrayan.spector.memory.kernel.identity.IdentityRegionId;
 import com.spectrayan.spector.memory.model.InsulaSelfModel;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;

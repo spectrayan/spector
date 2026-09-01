@@ -81,7 +81,7 @@ public enum MemoryShape {
      * <p>Biological analog: the anterior insular cortex integrates
      * self-awareness with salience weighting into a unified self-model.</p>
      *
-     * @see com.spectrayan.spector.memory.insula.InsularCortex
+     * @see com.spectrayan.spector.memory.cortex.insula.InsularCortex
      */
     INSULAR,
 

@@ -18,8 +18,8 @@ import com.spectrayan.spector.commons.concurrent.NativeOsMemory;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.aisme.lifespan.LifespanRetentionController;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
-import com.spectrayan.spector.memory.hippocampus.TombstoneCompactor;
-import com.spectrayan.spector.memory.reflect.relay.ReflectSignal;
+import com.spectrayan.spector.memory.pathway.reflect.daemon.TombstoneCompactor;
+import com.spectrayan.spector.memory.pathway.reflect.relay.ReflectSignal;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

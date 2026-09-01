@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.model;
 
 import java.util.List;
-import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 
 /**
  * Consolidates all inputs required for computing the importance of a memory.

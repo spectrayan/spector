@@ -13,8 +13,8 @@
 package com.spectrayan.spector.memory.aisme.dmn;
 
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.pathway.WanderPathway;
-import com.spectrayan.spector.memory.wander.relay.WanderReport;
+import com.spectrayan.spector.memory.pathway.wander.WanderPathway;
+import com.spectrayan.spector.memory.pathway.wander.relay.WanderReport;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -22,7 +22,7 @@ import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryAdmin;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
-import com.spectrayan.spector.memory.metamemory.MemoryInsight;
+import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -36,11 +36,11 @@ import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.model.WhyNotExplanation;
-import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
-import com.spectrayan.spector.memory.pathway.RememberPathway;
-import com.spectrayan.spector.memory.prospective.Reminder;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
+import com.spectrayan.spector.memory.cortex.prospective.Reminder;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
-import com.spectrayan.spector.memory.temporal.TemporalFact;
+import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
 import com.spectrayan.spector.metrics.observation.DefaultSpectorObservationConvention;
 import com.spectrayan.spector.metrics.observation.MemoryObservationContext;
 import com.spectrayan.spector.metrics.observation.ObservableComponent;
@@ -415,8 +415,8 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
     }
 
     @Override
-    public com.spectrayan.spector.memory.express.relay.ExpressReport express(
-            com.spectrayan.spector.memory.express.relay.ExpressSignal signal) {
+    public com.spectrayan.spector.memory.pathway.express.relay.ExpressReport express(
+            com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal signal) {
         return delegate.express(signal);
     }
 

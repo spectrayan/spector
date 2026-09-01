@@ -18,8 +18,8 @@ package com.spectrayan.spector.bench.cognitive;
 import com.spectrayan.spector.memory.graph.EdgeImportance;
 
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
 
 import java.io.IOException;
 import java.nio.file.Files;

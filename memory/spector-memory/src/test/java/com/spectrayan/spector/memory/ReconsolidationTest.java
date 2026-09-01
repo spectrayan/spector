@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -93,7 +93,7 @@ class ReconsolidationTest {
         float[] vector = dsm.embeddingProvider().embed(text).vector();
         memory.target().ingestCognitive(id, text, vector, type, tags,
                 source != null ? source : MemorySource.OBSERVED,
-                (com.spectrayan.spector.memory.neurodivergent.IngestionHints) null);
+                (com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints) null);
     }
 
     // ══════════════════════════════════════════════════════════════

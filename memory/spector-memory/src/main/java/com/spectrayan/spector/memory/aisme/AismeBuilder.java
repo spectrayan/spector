@@ -39,7 +39,7 @@ import com.spectrayan.spector.memory.aisme.workspace.GlobalWorkspace;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
-import com.spectrayan.spector.memory.pathway.RememberPathway;
+import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 
 import java.util.List;
 import java.util.function.Function;

@@ -12,17 +12,17 @@
  */
 package com.spectrayan.spector.memory;
 
-import com.spectrayan.spector.memory.adaptor.ProfileAdaptor;
+import com.spectrayan.spector.memory.cortex.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.aisme.continuity.IdentityTrajectorySnapshot;
 import com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon;
 import com.spectrayan.spector.memory.aisme.dmn.HomeostaticDecayDaemon;
-import com.spectrayan.spector.memory.amygdala.ValenceTracker;
+import com.spectrayan.spector.memory.neuromod.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.api.CognitiveProfileConfig;
 import com.spectrayan.spector.memory.api.ImportanceEstimator;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.bootstrap.SpectorMemoryFactory;
-import com.spectrayan.spector.memory.consolidation.BatchConsolidator;
-import com.spectrayan.spector.memory.consolidation.EagerConsolidator;
+import com.spectrayan.spector.memory.cortex.consolidation.BatchConsolidator;
+import com.spectrayan.spector.memory.cortex.consolidation.EagerConsolidator;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
@@ -35,16 +35,16 @@ import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
-import com.spectrayan.spector.memory.decide.relay.DecideReport;
-import com.spectrayan.spector.memory.decide.relay.DecideSignal;
-import com.spectrayan.spector.memory.dopamine.DefaultImportanceProvider;
-import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
-import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
-import com.spectrayan.spector.memory.dream.relay.DreamMode;
-import com.spectrayan.spector.memory.dream.relay.DreamReport;
+import com.spectrayan.spector.memory.pathway.decide.relay.DecideReport;
+import com.spectrayan.spector.memory.pathway.decide.relay.DecideSignal;
+import com.spectrayan.spector.memory.neuromod.dopamine.DefaultImportanceProvider;
+import com.spectrayan.spector.memory.neuromod.dopamine.FlashbulbPolicy;
+import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
+import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
+import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
 import com.spectrayan.spector.memory.error.SpectorGraphDecayException;
-import com.spectrayan.spector.memory.express.relay.ExpressReport;
-import com.spectrayan.spector.memory.express.relay.ExpressSignal;
+import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
+import com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
@@ -53,27 +53,27 @@ import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
-import com.spectrayan.spector.memory.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
-import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
-import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
-import com.spectrayan.spector.memory.id.IdStrategy;
-import com.spectrayan.spector.memory.id.MemoryIdGenerator;
-import com.spectrayan.spector.memory.index.IndexRecordMemory;
-import com.spectrayan.spector.memory.index.MemoryIndex;
-import com.spectrayan.spector.memory.inhibition.SuppressionSet;
-import com.spectrayan.spector.memory.insula.InsularCortex;
-import com.spectrayan.spector.memory.interference.SemanticDeduplicator;
+import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
+import com.spectrayan.spector.memory.pathway.reflect.daemon.ReflectDaemon;
+import com.spectrayan.spector.memory.kernel.id.IdStrategy;
+import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
+import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
+import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
+import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
+import com.spectrayan.spector.memory.cortex.interference.SemanticDeduplicator;
 import com.spectrayan.spector.memory.kernel.Memory;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
-import com.spectrayan.spector.memory.metamemory.MemoryInsight;
-import com.spectrayan.spector.memory.metamemory.MemoryIntrospector;
+import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
+import com.spectrayan.spector.memory.cortex.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -93,32 +93,32 @@ import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.model.WhyNotExplanation;
 import com.spectrayan.spector.memory.namespace.NamespaceQuotas;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
-import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
-import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
-import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.pathway.DecidePathway;
-import com.spectrayan.spector.memory.pathway.DreamPathway;
-import com.spectrayan.spector.memory.pathway.ExpressPathway;
-import com.spectrayan.spector.memory.pathway.RecallPathway;
-import com.spectrayan.spector.memory.pathway.ReflectPathway;
-import com.spectrayan.spector.memory.pathway.RememberPathway;
-import com.spectrayan.spector.memory.pathway.WanderPathway;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
+import com.spectrayan.spector.memory.pathway.decide.DecidePathway;
+import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
+import com.spectrayan.spector.memory.pathway.express.ExpressPathway;
+import com.spectrayan.spector.memory.pathway.recall.RecallPathway;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectPathway;
+import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
+import com.spectrayan.spector.memory.pathway.wander.WanderPathway;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.persist.PersistenceManager;
-import com.spectrayan.spector.memory.pipeline.AttachmentProcessor;
-import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
-import com.spectrayan.spector.memory.pipeline.ContentTagExtractor;
-import com.spectrayan.spector.memory.pipeline.GraphScoringPolicy;
-import com.spectrayan.spector.memory.pipeline.HebbianCoActivationListener;
-import com.spectrayan.spector.memory.pipeline.LtpReconsolidationListener;
-import com.spectrayan.spector.memory.pipeline.RecallPipeline;
-import com.spectrayan.spector.memory.pipeline.TagExtractor;
-import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker;
-import com.spectrayan.spector.memory.pipeline.reranker.ColBERTTokenCache;
-import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
-import com.spectrayan.spector.memory.prospective.Reminder;
-import com.spectrayan.spector.memory.reflect.ReflectionOrchestrator;
-import com.spectrayan.spector.memory.reflect.ReinforcementHandler;
+import com.spectrayan.spector.memory.pathway.pipeline.AttachmentProcessor;
+import com.spectrayan.spector.memory.pathway.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.pathway.pipeline.ContentTagExtractor;
+import com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy;
+import com.spectrayan.spector.memory.pathway.pipeline.HebbianCoActivationListener;
+import com.spectrayan.spector.memory.pathway.pipeline.LtpReconsolidationListener;
+import com.spectrayan.spector.memory.pathway.pipeline.RecallPipeline;
+import com.spectrayan.spector.memory.pathway.pipeline.TagExtractor;
+import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTReranker;
+import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTTokenCache;
+import com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler;
+import com.spectrayan.spector.memory.cortex.prospective.Reminder;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectionOrchestrator;
+import com.spectrayan.spector.memory.pathway.reflect.ReinforcementHandler;
 import com.spectrayan.spector.memory.scheduler.MemoryScheduler;
 import com.spectrayan.spector.memory.scheduler.QuartzMemoryScheduler;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
@@ -129,18 +129,18 @@ import com.spectrayan.spector.memory.sync.CompactionResult;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.VacuumCompactor;
 import com.spectrayan.spector.memory.sync.WalEvent;
-import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
-import com.spectrayan.spector.memory.temporal.TemporalFact;
-import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
-import com.spectrayan.spector.memory.wander.relay.WanderReport;
+import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
+import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
+import com.spectrayan.spector.memory.pathway.wander.relay.WanderReport;
 
 import com.spectrayan.spector.memory.bootstrap.SpectorMemoryFactory;
 import com.spectrayan.spector.memory.persist.PersistenceManager;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.reflect.ReflectionOrchestrator;
-import com.spectrayan.spector.memory.reflect.ReinforcementHandler;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectionOrchestrator;
+import com.spectrayan.spector.memory.pathway.reflect.ReinforcementHandler;
 
-import com.spectrayan.spector.memory.adaptor.ProfileAdaptor;
+import com.spectrayan.spector.memory.cortex.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 
@@ -166,9 +166,9 @@ import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.embedding.TokenEmbeddingProvider;
 import com.spectrayan.spector.index.BM25Index;
-import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker;
-import com.spectrayan.spector.memory.pipeline.reranker.ColBERTTokenCache;
-import com.spectrayan.spector.memory.amygdala.ValenceTracker;
+import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTReranker;
+import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTTokenCache;
+import com.spectrayan.spector.memory.neuromod.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
@@ -178,8 +178,8 @@ import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
-import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
-import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
+import com.spectrayan.spector.memory.neuromod.dopamine.FlashbulbPolicy;
+import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
@@ -187,20 +187,20 @@ import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
-import com.spectrayan.spector.memory.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
-import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
-import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
-import com.spectrayan.spector.memory.consolidation.BatchConsolidator;
-import com.spectrayan.spector.memory.index.MemoryIndex;
-import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
-import com.spectrayan.spector.memory.inhibition.SuppressionSet;
+import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
+import com.spectrayan.spector.memory.pathway.reflect.daemon.ReflectDaemon;
+import com.spectrayan.spector.memory.cortex.consolidation.BatchConsolidator;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
+import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
+import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 
-import com.spectrayan.spector.memory.interference.SemanticDeduplicator;
-import com.spectrayan.spector.memory.metamemory.MemoryInsight;
-import com.spectrayan.spector.memory.metamemory.MemoryIntrospector;
+import com.spectrayan.spector.memory.cortex.interference.SemanticDeduplicator;
+import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
+import com.spectrayan.spector.memory.cortex.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.ImportanceContext;
@@ -213,15 +213,15 @@ import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.WhyNotExplanation;
 import com.spectrayan.spector.memory.model.FactHistory;
-import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
-import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.pipeline.HebbianCoActivationListener;
-import com.spectrayan.spector.memory.pipeline.ContentTagExtractor;
-import com.spectrayan.spector.memory.pathway.RememberPathway;
-import com.spectrayan.spector.memory.pipeline.LtpReconsolidationListener;
-import com.spectrayan.spector.memory.pipeline.GraphScoringPolicy;
-import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
-import com.spectrayan.spector.memory.prospective.Reminder;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
+import com.spectrayan.spector.memory.pathway.pipeline.HebbianCoActivationListener;
+import com.spectrayan.spector.memory.pathway.pipeline.ContentTagExtractor;
+import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
+import com.spectrayan.spector.memory.pathway.pipeline.LtpReconsolidationListener;
+import com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy;
+import com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler;
+import com.spectrayan.spector.memory.cortex.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.memory.sync.CheckpointDaemon;
@@ -234,9 +234,9 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.namespace.NamespaceQuotas;
-import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
-import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
-import com.spectrayan.spector.memory.temporal.TemporalFact;
+import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
+import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
 import com.spectrayan.spector.commons.TextChunker;
 
 import org.slf4j.Logger;
@@ -259,8 +259,8 @@ import com.spectrayan.spector.commons.error.SpectorServerException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 
 import com.spectrayan.spector.memory.error.SpectorGraphDecayException;
-import com.spectrayan.spector.memory.id.IdStrategy;
-import com.spectrayan.spector.memory.id.MemoryIdGenerator;
+import com.spectrayan.spector.memory.kernel.id.IdStrategy;
+import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 
@@ -314,7 +314,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final ReflectionOrchestrator reflectionOrchestrator;
     private final ReinforcementHandler reinforcementHandler;
     private final BatchConsolidator batchConsolidator;
-    private final com.spectrayan.spector.memory.consolidation.EagerConsolidator eagerConsolidator;
+    private final com.spectrayan.spector.memory.cortex.consolidation.EagerConsolidator eagerConsolidator;
     private final com.spectrayan.spector.memory.scheduler.MemoryScheduler memoryScheduler;
 
     //  Biological Subsystems 
@@ -372,7 +372,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final EmbedConfig embedConfig;
 
     //  Multimodal Attachment Processing 
-    private final com.spectrayan.spector.memory.pipeline.AttachmentProcessor attachmentProcessor;
+    private final com.spectrayan.spector.memory.pathway.pipeline.AttachmentProcessor attachmentProcessor;
 
     //  Contextual Bandit (ProfileAdaptor) 
     private final ProfileAdaptor profileAdaptor;
@@ -382,12 +382,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     // Runtime Bundle & Insular Cortex
     private final RuntimeBundle runtimeBundle;
-    private final com.spectrayan.spector.memory.insula.InsularCortex insularCortex;
+    private final com.spectrayan.spector.memory.cortex.insula.InsularCortex insularCortex;
     private final WanderPathway wanderPathway;
     private final com.spectrayan.spector.memory.cortex.ContinuityRecordMemory continuityMemory;
     private final DecidePathway decidePathway;
 
-    private final ConcurrentHashMap<String, SessionWriteBuffer> sessionBuffers = new ConcurrentHashMap<>();
+    private final com.spectrayan.spector.memory.session.SessionBufferManager sessionBufferManager = new com.spectrayan.spector.memory.session.SessionBufferManager();
 
     //  Episodic Conversation Architecture (ADR-0006) 
     private final EpisodicSessionIndex episodicSessionIndex;
@@ -409,7 +409,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.reflectionOrchestrator = bundle.reflectionOrchestrator();
         this.reinforcementHandler = bundle.reinforcementHandler();
         this.batchConsolidator = new BatchConsolidator(builder.LlmProvider(), this.embeddingProvider);
-        this.eagerConsolidator = new com.spectrayan.spector.memory.consolidation.EagerConsolidator(
+        this.eagerConsolidator = new com.spectrayan.spector.memory.cortex.consolidation.EagerConsolidator(
                 bundle.partitionManager().cognitiveRouter(),
                 bundle.index(),
                 bundle.quantizer(),
@@ -439,7 +439,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.graphFacade = bundle.graphFacade();
         if (this.coActivationTracker != null && this.index != null && this.coActivationTracker.invertedIndexEntryCount() == 0) {
             java.util.Map<Integer, java.util.Collection<String>> tagMap = new java.util.HashMap<>();
-            for (java.util.Map.Entry<String, com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation> entry : this.index.locationMap().entrySet()) {
+            for (java.util.Map.Entry<String, com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation> entry : this.index.locationMap().entrySet()) {
                 String entryId = entry.getKey();
                 int slot = entry.getValue().graphSlot();
                 String[] memoryTags = this.index.tags(entryId);
@@ -557,13 +557,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public void remember(String id, String text, MemoryType type,
                                               MemorySource source, String... tags) {
         remember(id, text, type, source,
-                (com.spectrayan.spector.memory.neurodivergent.IngestionHints) null, tags);
+                (com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints) null, tags);
     }
 
     @Override
     public void remember(String id, String text, MemoryType type,
                                               MemorySource source,
-                                              com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
+                                              com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints,
                                               String... tags) {
         acquireLease();
         try {
@@ -580,8 +580,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 float[] vector = embeddingProvider.embed(text).vector();
                 String sessionId = MemoryScope.sessionId();
                 if (sessionId != null) {
-                    sessionBuffers.computeIfAbsent(sessionId, k -> new SessionWriteBuffer())
-                            .add(id, text, vector, type, System.currentTimeMillis());
+                    sessionBufferManager.add(sessionId, id, text, vector, type, System.currentTimeMillis());
                 }
                 rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, hints);
                 
@@ -615,7 +614,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public String remember(String text, MemoryType type,
                                                MemorySource source,
-                                               com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
+                                               com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints,
                                                String... tags) {
         String generatedId = idGenerator.generate();
         remember(generatedId, text, type, source, hints, tags);
@@ -805,7 +804,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
      */
     private void rememberChunked(String id, String text, MemoryType type,
                                   MemorySource source,
-                                  com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
+                                  com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints,
                                   IngestionContext context,
                                   String... tags) {
         var chunks = chunker.chunk(id, text, chunkConfig);
@@ -963,7 +962,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             return;
         }
 
-        List<com.spectrayan.spector.memory.pipeline.AttachmentProcessor.AttachmentResult> results =
+        List<com.spectrayan.spector.memory.pathway.pipeline.AttachmentProcessor.AttachmentResult> results =
                 attachmentProcessor.processAttachments(parentId, context);
 
         if (results.isEmpty()) {
@@ -996,7 +995,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public ImportanceResult estimateImportance(String text,
-                                                com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) {
+                                                com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints) {
         try {
             // Step 1: Embed text
             float[] vector = embeddingProvider.embed(text).vector();
@@ -1072,20 +1071,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
             List<CognitiveResult> storeResults = recallPathway.recall(queryText, options);
             String sessionId = MemoryScope.sessionId();
-            if (sessionId != null) {
-                SessionWriteBuffer buffer = sessionBuffers.get(sessionId);
-                if (buffer != null) {
-                    buffer.evictConfirmed(() -> 0);
-                    if (!buffer.isEmpty()) {
-                        float[] queryVector = embeddingProvider.embed(queryText).vector();
-                        List<CognitiveResult> bufferedResults = buffer.search(queryText, queryVector, options);
-                        List<CognitiveResult> merged = new java.util.ArrayList<>(storeResults);
-                        merged.addAll(bufferedResults);
-                        merged.sort(java.util.Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
-                        storeResults = merged.stream().limit(options.topK()).collect(java.util.stream.Collectors.toList());
-                    }
-                }
-            }
+            storeResults = sessionBufferManager.merge(sessionId, queryText, options, storeResults, embeddingProvider, () -> 0);
             return storeResults;
         } finally {
             releaseLease();
@@ -1136,62 +1122,62 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     @Override
-    public com.spectrayan.spector.memory.express.relay.ExpressReport express(com.spectrayan.spector.memory.express.relay.ExpressSignal signal) {
+    public com.spectrayan.spector.memory.pathway.express.relay.ExpressReport express(com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal signal) {
         acquireLease();
         try {
             if (expressPathway != null) {
                 return expressPathway.express(signal);
             }
-            return com.spectrayan.spector.memory.express.relay.ExpressReport.empty();
+            return com.spectrayan.spector.memory.pathway.express.relay.ExpressReport.empty();
         } finally {
             releaseLease();
         }
     }
 
     @Override
-    public com.spectrayan.spector.memory.wander.relay.WanderReport wander() {
+    public com.spectrayan.spector.memory.pathway.wander.relay.WanderReport wander() {
         acquireLease();
         try {
             if (wanderPathway != null) {
                 return wanderPathway.wander(partitionManager, 0L);
             }
-            return com.spectrayan.spector.memory.wander.relay.WanderReport.empty();
+            return com.spectrayan.spector.memory.pathway.wander.relay.WanderReport.empty();
         } finally {
             releaseLease();
         }
     }
 
     @Override
-    public com.spectrayan.spector.memory.decide.relay.DecideReport decide(
-            com.spectrayan.spector.memory.decide.relay.DecideSignal signal) {
+    public com.spectrayan.spector.memory.pathway.decide.relay.DecideReport decide(
+            com.spectrayan.spector.memory.pathway.decide.relay.DecideSignal signal) {
         acquireLease();
         try {
             if (decidePathway != null) {
                 return decidePathway.decide(signal);
             }
-            return com.spectrayan.spector.memory.decide.relay.DecideReport.empty();
+            return com.spectrayan.spector.memory.pathway.decide.relay.DecideReport.empty();
         } finally {
             releaseLease();
         }
     }
 
     @Override
-    public com.spectrayan.spector.memory.dream.relay.DreamReport dream(
-            com.spectrayan.spector.memory.dream.relay.DreamMode mode) {
+    public com.spectrayan.spector.memory.pathway.dream.relay.DreamReport dream(
+            com.spectrayan.spector.memory.pathway.dream.relay.DreamMode mode) {
         acquireLease();
         try {
             if (dreamPathway != null) {
-                return dreamPathway.dream(mode != null ? mode : com.spectrayan.spector.memory.dream.relay.DreamMode.REM, partitionManager, null);
+                return dreamPathway.dream(mode != null ? mode : com.spectrayan.spector.memory.pathway.dream.relay.DreamMode.REM, partitionManager, null);
             }
-            return com.spectrayan.spector.memory.dream.relay.DreamReport.empty();
+            return com.spectrayan.spector.memory.pathway.dream.relay.DreamReport.empty();
         } finally {
             releaseLease();
         }
     }
 
     @Override
-    public com.spectrayan.spector.memory.dream.relay.DreamReport dream() {
-        return dream(com.spectrayan.spector.memory.dream.relay.DreamMode.REM);
+    public com.spectrayan.spector.memory.pathway.dream.relay.DreamReport dream() {
+        return dream(com.spectrayan.spector.memory.pathway.dream.relay.DreamMode.REM);
     }
 
     @Override
@@ -1256,7 +1242,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void reinforce(String memoryId, byte valence,
-                           com.spectrayan.spector.memory.neurodivergent.IngestionHints updatedHints) {
+                           com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints updatedHints) {
         acquireLease();
         try {
             reinforcementHandler.reinforceWithHints(memoryId, valence, updatedHints,
@@ -1688,7 +1674,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public LateralEvaluator lateralEvaluator() { return lateralEvaluator; }
     @Override public CognitiveGraphFacade graph() { return graphFacade; }
     @Override public EntityDirectory entityDirectory() { return entityDirectory; }
-    @Override public com.spectrayan.spector.memory.insula.InsularCortex insularCortex() { return insularCortex; }
+    @Override public com.spectrayan.spector.memory.cortex.insula.InsularCortex insularCortex() { return insularCortex; }
     @Override public com.spectrayan.spector.index.VectorIndex semanticIndex() { return semanticIndex; }
     @Override public TemporalKnowledgeGraph temporalKnowledgeGraph() { return temporalKnowledgeGraph; }
     @Override public HyperEntityGraphMemory hyperEntityGraph() { return hyperEntityGraph; }

@@ -14,7 +14,7 @@ package com.spectrayan.spector.synapse.catalog.jdbc;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.synapse.catalog.*;
 import com.spectrayan.spector.synapse.catalog.exception.*;
 import com.spectrayan.spector.synapse.config.sql.SqlQueryLoader;

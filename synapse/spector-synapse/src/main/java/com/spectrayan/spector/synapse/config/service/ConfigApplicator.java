@@ -18,7 +18,7 @@ import com.spectrayan.spector.provider.ProviderFactory;
 import com.spectrayan.spector.provider.ProviderRegistry;
 import com.spectrayan.spector.synapse.config.model.ConfigCategory;
 import com.spectrayan.spector.synapse.config.SynapseSalienceProvider;
-import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.model.PersonaContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 

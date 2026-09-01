@@ -20,7 +20,7 @@ import java.util.function.Supplier;
 
 import com.spectrayan.spector.mcp.util.McpTemplateEngine;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.metamemory.MemoryInsight;
+import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
 
 import io.modelcontextprotocol.spec.McpSchema;
 

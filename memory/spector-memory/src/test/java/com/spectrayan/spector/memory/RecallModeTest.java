@@ -14,8 +14,8 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.model.*;
 
-import com.spectrayan.spector.memory.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.pipeline.RecallListener;
+import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
+import com.spectrayan.spector.memory.pathway.pipeline.RecallListener;
 
 import org.junit.jupiter.api.Test;
 

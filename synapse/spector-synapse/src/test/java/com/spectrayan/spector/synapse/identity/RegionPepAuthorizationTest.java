@@ -27,8 +27,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spectrayan.spector.memory.identity.IdentityBundle;
-import com.spectrayan.spector.memory.identity.IdentityRegionId;
+import com.spectrayan.spector.memory.kernel.identity.IdentityBundle;
+import com.spectrayan.spector.memory.kernel.identity.IdentityRegionId;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.synapse.catalog.AccountCatalog;

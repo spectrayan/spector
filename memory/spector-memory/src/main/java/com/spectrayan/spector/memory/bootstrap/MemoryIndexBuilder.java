@@ -12,14 +12,14 @@
  */
 package com.spectrayan.spector.memory.bootstrap;
 
-import com.spectrayan.spector.memory.index.IndexRecordMemory;
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.Memory;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.bundle.RegionId;
 
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 
 import java.nio.file.Path;
@@ -54,7 +54,7 @@ public final class MemoryIndexBuilder {
             java.lang.foreign.MemorySegment midxSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.INDEX_MIDX);
             java.lang.foreign.MemorySegment idplSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.INDEX_IDPL);
             boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(midxSlice, 0L);
-            index = com.spectrayan.spector.memory.index.IndexRecordMemory.fromBundle(
+            index = com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.fromBundle(
                     cortex.runtimeBundle().arena(), midxSlice, idplSlice,
                     cortex.runtimeBundle().bundlePath(), isNew);
         } else {

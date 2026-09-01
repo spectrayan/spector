@@ -14,9 +14,9 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.model.*;
 
-import com.spectrayan.spector.memory.amygdala.Valence;
+import com.spectrayan.spector.memory.neuromod.amygdala.Valence;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.metamemory.MemoryInsight;
+import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import org.junit.jupiter.api.AfterEach;

@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.*;
 import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.sync.MemoryWal;
-import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
+import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
 import com.spectrayan.spector.commons.concurrent.MemoryPinning;
 
 import java.io.IOException;

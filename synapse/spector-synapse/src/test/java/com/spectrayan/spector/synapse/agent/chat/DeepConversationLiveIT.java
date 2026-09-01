@@ -153,7 +153,7 @@ class DeepConversationLiveIT {
         var contextPriming = new ContextPrimingService(memoryPort);
         chatService = new ChatService(
                 memoryPort, contextPriming, identityPrimerService,
-                toolRegistry, agenticChatGraph, new com.spectrayan.spector.memory.id.TsidGenerator(), props);
+                toolRegistry, agenticChatGraph, new com.spectrayan.spector.memory.kernel.id.TsidGenerator(), props);
     }
 
     // ═══════════════════════════════════════════════════════════════

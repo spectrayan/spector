@@ -27,7 +27,7 @@ import com.spectrayan.spector.memory.model.ConflictMode;
 import com.spectrayan.spector.memory.model.EvidenceDistribution;
 import com.spectrayan.spector.memory.model.FactHistory;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.temporal.ConflictAwareResolver;
+import com.spectrayan.spector.memory.graph.temporal.ConflictAwareResolver;
 
 /**
  * End-to-end integration tests validating TANGLE multi-evidence conflict resolution,

@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.sync;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 
 import java.lang.foreign.Arena;
 import java.time.Instant;

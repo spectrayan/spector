@@ -41,7 +41,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -49,7 +49,7 @@ import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.ScoringMode;
-import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 import com.spectrayan.spector.synapse.memory.MemoryDto.AcceptedResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.CompactionResult;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ConsolidationStats;
@@ -197,8 +197,8 @@ public class MemoryService {
         com.spectrayan.spector.commons.cache.SpectorCacheManager effectiveManager = cm != null
                 ? cm
                 : com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager();
-        this.statsCache = effectiveManager.getCache(com.spectrayan.spector.memory.cache.MemoryCacheNames.MEMORY_STATS);
-        this.scoringStatsCache = effectiveManager.getCache(com.spectrayan.spector.memory.cache.MemoryCacheNames.SCORING_STATS);
+        this.statsCache = effectiveManager.getCache(com.spectrayan.spector.memory.cortex.cache.MemoryCacheNames.MEMORY_STATS);
+        this.scoringStatsCache = effectiveManager.getCache(com.spectrayan.spector.memory.cortex.cache.MemoryCacheNames.SCORING_STATS);
     }
 
     /**

@@ -16,7 +16,7 @@ import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.aisme.phi.ConsciousnessContinuityEvaluator;
 import com.spectrayan.spector.memory.aisme.phi.ConsciousnessContinuityState;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.recall.relay.RecallSignal;
+import com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

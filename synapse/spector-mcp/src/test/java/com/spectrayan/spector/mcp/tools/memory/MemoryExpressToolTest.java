@@ -31,8 +31,8 @@ import org.junit.jupiter.api.Test;
 import com.spectrayan.spector.commons.security.SpectorScopes;
 import com.spectrayan.spector.mcp.tools.McpToolHandler.McpToolCategory;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.express.relay.ExpressReport;
-import com.spectrayan.spector.memory.express.relay.ExpressSignal;
+import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
+import com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal;
 import com.spectrayan.spector.memory.model.RecallOptions;
 
 import io.modelcontextprotocol.spec.McpSchema;

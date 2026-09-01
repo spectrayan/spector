@@ -22,7 +22,7 @@ import java.lang.foreign.ValueLayout;
 import org.junit.jupiter.api.Test;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 

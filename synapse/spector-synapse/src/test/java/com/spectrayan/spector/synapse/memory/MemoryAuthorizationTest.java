@@ -27,7 +27,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.synapse.catalog.GrantRole;
 import com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException;
 import com.spectrayan.spector.synapse.platform.events.EventPublisher;

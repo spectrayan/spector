@@ -57,7 +57,7 @@ class ReconsolidationE2ETest extends AbstractE2ETest {
         float[] vector = dsm.embeddingProvider().embed(text).vector();
         memory.target().ingestCognitive(id, text, vector, type, tags,
                 source != null ? source : MemorySource.OBSERVED,
-                (com.spectrayan.spector.memory.neurodivergent.IngestionHints) null);
+                (com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints) null);
     }
 
     // ══════════════════════════════════════════════════════════════

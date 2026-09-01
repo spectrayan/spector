@@ -47,11 +47,11 @@ import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityType;
 import com.spectrayan.spector.memory.graph.RelationType;
-import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
-import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 
 /**
  * Bootstraps a {@link SpectorMemory} instance populated with the benchmark corpus.
@@ -231,9 +231,9 @@ public final class BenchmarkSetup implements AutoCloseable {
                 threshold = Float.parseFloat(thresholdStr);
             } catch (NumberFormatException ignored) {}
         }
-        com.spectrayan.spector.memory.pipeline.GraphExpansionMode expansionMode = com.spectrayan.spector.memory.pipeline.GraphExpansionMode.resolve();
+        com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode expansionMode = com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.resolve();
         log.info("Instantiating GraphScoringPolicy with threshold={}, mode={}", threshold, expansionMode);
-        com.spectrayan.spector.memory.pipeline.GraphScoringPolicy scoringPolicy = new com.spectrayan.spector.memory.pipeline.GraphScoringPolicy(
+        com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy scoringPolicy = new com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy(
                 0.3f,   // causalBoostWeight
                 0.45f,  // hebbianBoostFactor (tuned for cross-session associative recall)
                 0.85f,  // temporalForwardFactor
@@ -442,7 +442,7 @@ public final class BenchmarkSetup implements AutoCloseable {
         return memory;
     }
 
-    private static int offsetToRecordIndex(com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation loc, SpectorMemory memory) {
+    private static int offsetToRecordIndex(com.spectrayan.spector.memory.cortex.index.MemoryIndex.MemoryLocation loc, SpectorMemory memory) {
         return loc.graphSlot();
     }
 
@@ -591,7 +591,7 @@ public final class BenchmarkSetup implements AutoCloseable {
      * @param corpus    the corpus records (used for timestamp mapping)
      */
     void loadEntityGraph(EntityDirectory dir, HyperEntityGraphMemory hyper,
-                         com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph tkg,
+                         com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph tkg,
                          List<EntityRelation> relations,
                          Map<String, Integer> idToSlot,
                          List<BenchmarkCorpusRecord> corpus) {

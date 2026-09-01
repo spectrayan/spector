@@ -14,11 +14,11 @@ package com.spectrayan.spector.memory.scheduler;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.concurrent.VirtualThreadPool;
-import com.spectrayan.spector.memory.pathway.DreamPathway;
+import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
-import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
+import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.scheduler.jobs.CheckpointJob;
 import com.spectrayan.spector.memory.scheduler.jobs.DmnWanderingJob;

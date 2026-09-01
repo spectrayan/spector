@@ -13,17 +13,17 @@
 package com.spectrayan.spector.memory.api;
 
 import com.spectrayan.spector.memory.aisme.continuity.IdentityTrajectorySnapshot;
-import com.spectrayan.spector.memory.decide.relay.DecideReport;
-import com.spectrayan.spector.memory.decide.relay.DecideSignal;
-import com.spectrayan.spector.memory.dream.relay.DreamMode;
-import com.spectrayan.spector.memory.dream.relay.DreamReport;
-import com.spectrayan.spector.memory.express.relay.ExpressReport;
-import com.spectrayan.spector.memory.express.relay.ExpressSignal;
-import com.spectrayan.spector.memory.metamemory.MemoryInsight;
+import com.spectrayan.spector.memory.pathway.decide.relay.DecideReport;
+import com.spectrayan.spector.memory.pathway.decide.relay.DecideSignal;
+import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
+import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
+import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
+import com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal;
+import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.model.ReflectReport;
-import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
-import com.spectrayan.spector.memory.prospective.Reminder;
-import com.spectrayan.spector.memory.wander.relay.WanderReport;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.cortex.prospective.Reminder;
+import com.spectrayan.spector.memory.pathway.wander.relay.WanderReport;
 
 import java.time.Duration;
 import java.time.Instant;

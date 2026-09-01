@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <h3>Design Pattern: Flyweight</h3>
  * <p>In uncalibrated mode, {@link CognitiveScorer} and
- * {@link com.spectrayan.spector.memory.interference.SemanticDeduplicator}
+ * {@link com.spectrayan.spector.memory.cortex.interference.SemanticDeduplicator}
  * create identical identity calibration arrays on every call. This factory
  * caches arrays by dimension count, eliminating redundant allocations.</p>
  *

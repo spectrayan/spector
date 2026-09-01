@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory;
 
-import com.spectrayan.spector.memory.pathway.WanderPathway;
+import com.spectrayan.spector.memory.pathway.wander.WanderPathway;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
@@ -22,11 +22,11 @@ import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold;
 import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
-import com.spectrayan.spector.memory.wander.relay.WanderReport;
-import com.spectrayan.spector.memory.wander.relay.WanderSignal;
+import com.spectrayan.spector.memory.pathway.wander.relay.WanderReport;
+import com.spectrayan.spector.memory.pathway.wander.relay.WanderSignal;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;

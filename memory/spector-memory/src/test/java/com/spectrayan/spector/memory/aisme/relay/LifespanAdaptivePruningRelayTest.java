@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.aisme.lifespan.LifespanRetentionController;
-import com.spectrayan.spector.memory.reflect.relay.ReflectSignal;
+import com.spectrayan.spector.memory.pathway.reflect.relay.ReflectSignal;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

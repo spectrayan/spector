@@ -21,7 +21,7 @@ import com.spectrayan.spector.memory.aisme.homeostasis.AffectiveResonanceScorer;
 import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;
 import com.spectrayan.spector.memory.aisme.homeostasis.InteroceptiveState;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.recall.relay.RecallSignal;
+import com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

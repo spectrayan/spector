@@ -34,7 +34,7 @@ import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.memory.model.UserContext;
-import com.spectrayan.spector.memory.pipeline.gatherer.UserContextAssembler;
+import com.spectrayan.spector.memory.pathway.pipeline.gatherer.UserContextAssembler;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 

@@ -13,25 +13,25 @@
 package com.spectrayan.spector.memory.api;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
-import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.neuromod.dopamine.FlashbulbPolicy;
+import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.ImportanceEstimate;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
-import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
-import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.neuromod.dopamine.FlashbulbPolicy;
+import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.ImportanceEstimate;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
-import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorServerException;

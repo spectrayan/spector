@@ -37,7 +37,7 @@ import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.data.message.ImageContent;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 
-import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -14,15 +14,15 @@ package com.spectrayan.spector.memory.sync;
 
 import com.spectrayan.spector.events.EventBus;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -103,7 +103,7 @@ public final class CheckpointDaemon {
     private final EntityDirectory entityDirectory;           // nullable (ADR-0003 #455)
     private final HyperEntityGraphMemory hyperEntityGraph; // nullable
     private final CoActivationRecordMemory coActivationTracker; // nullable
-    private final com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph; // nullable
+    private final com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph; // nullable
     private final Path partitionDir;                   // nullable — active partition dir for graph saves
     private final Path basePath;                       // nullable — persistence root for coactivation
     private final MemorySegment checkpointRegion;      // nullable — V4 bundle CHECKPOINT region slice
@@ -150,7 +150,7 @@ public final class CheckpointDaemon {
                             EntityDirectory entityDirectory,
                             HyperEntityGraphMemory hyperEntityGraph,
                             CoActivationRecordMemory coActivationTracker,
-                            com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
+                            com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                             Path partitionDir, Path basePath) {
         this(cognitiveRouter, wal, checkpointMetaPath, index, indexPath, hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, coActivationTracker, temporalKnowledgeGraph, partitionDir, basePath, null);
     }
@@ -166,7 +166,7 @@ public final class CheckpointDaemon {
                             EntityDirectory entityDirectory,
                             HyperEntityGraphMemory hyperEntityGraph,
                             CoActivationRecordMemory coActivationTracker,
-                            com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
+                            com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                             Path partitionDir, Path basePath,
                             MemorySegment checkpointRegion) {
         this.cognitiveRouter = cognitiveRouter;

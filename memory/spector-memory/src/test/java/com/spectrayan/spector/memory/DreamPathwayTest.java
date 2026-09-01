@@ -13,13 +13,13 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
-import com.spectrayan.spector.memory.pathway.DreamPathway;
-import com.spectrayan.spector.memory.dream.DreamJournalMemory;
-import com.spectrayan.spector.memory.dream.relay.DreamConfig;
-import com.spectrayan.spector.memory.dream.relay.DreamMode;
-import com.spectrayan.spector.memory.dream.relay.DreamReport;
-import com.spectrayan.spector.memory.dream.relay.DreamSignal;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
+import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
+import com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig;
+import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
+import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
+import com.spectrayan.spector.memory.pathway.dream.relay.DreamSignal;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
 import org.junit.jupiter.api.Test;
 
@@ -136,7 +136,7 @@ class DreamPathwayTest {
                 .build();
 
         java.util.concurrent.atomic.AtomicInteger counter = new java.util.concurrent.atomic.AtomicInteger(100);
-        com.spectrayan.spector.memory.id.MemoryIdGenerator customIdGen = () -> "CUSTOM-ID-" + counter.getAndIncrement();
+        com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator customIdGen = () -> "CUSTOM-ID-" + counter.getAndIncrement();
 
         try (DreamPathway pathway = DreamPathway.builder()
                 .dreamConfig(dreamConfig)

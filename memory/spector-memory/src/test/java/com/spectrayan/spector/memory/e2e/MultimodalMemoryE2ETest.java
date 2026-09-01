@@ -514,7 +514,7 @@ class MultimodalMemoryE2ETest extends AbstractE2ETest {
                 .isGreaterThan(16); // at least the header
 
         // Load it back
-        var loadedIndex = com.spectrayan.spector.memory.index.MemoryIndex.load(indexFile);
+        var loadedIndex = com.spectrayan.spector.memory.cortex.index.MemoryIndex.load(indexFile);
         assertThat(loadedIndex.size())
                 .as("Loaded index should have same entry count")
                 .isEqualTo(index.size());

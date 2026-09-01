@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.InterestLevel;
 import com.spectrayan.spector.memory.model.PersonaContext;
-import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
 import com.spectrayan.spector.synapse.config.SynapseSalienceProvider.InterestEntry;
 import com.spectrayan.spector.synapse.config.SynapseSalienceProvider.SalienceSnapshot;
