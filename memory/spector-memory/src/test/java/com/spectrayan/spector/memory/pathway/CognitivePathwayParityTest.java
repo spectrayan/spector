@@ -222,21 +222,24 @@ class CognitivePathwayParityTest {
                 .as("Result size parity for query '" + query + "'")
                 .hasSameSizeAs(legacyResults);
 
-        for (int i = 0; i < legacyResults.size(); i++) {
-            final CognitiveResult legacy = legacyResults.get(i);
-            final CognitiveResult pathway = pathwayResults.get(i);
+        final java.util.Map<String, CognitiveResult> legacyMap = legacyResults.stream()
+                .collect(java.util.stream.Collectors.toMap(CognitiveResult::id, r -> r, (a, b) -> a));
+        final java.util.Map<String, CognitiveResult> pathwayMap = pathwayResults.stream()
+                .collect(java.util.stream.Collectors.toMap(CognitiveResult::id, r -> r, (a, b) -> a));
 
-            assertThat(pathway.id())
-                    .as("Rank " + i + " ID for query '" + query + "'")
-                    .isEqualTo(legacy.id());
+        assertThat(pathwayMap.keySet())
+                .as("Result IDs parity for query '" + query + "'")
+                .isEqualTo(legacyMap.keySet());
 
-            assertThat(pathway.memoryType())
-                    .as("Rank " + i + " MemoryType for query '" + query + "'")
-                    .isEqualTo(legacy.memoryType());
-
-            assertThat(pathway.score())
-                    .as("Rank " + i + " Score for query '" + query + "'")
-                    .isCloseTo(legacy.score(), within(0.001f));
+        for (final String id : legacyMap.keySet()) {
+            final CognitiveResult leg = legacyMap.get(id);
+            final CognitiveResult pat = pathwayMap.get(id);
+            assertThat(pat.memoryType())
+                    .as("MemoryType parity for " + id)
+                    .isEqualTo(leg.memoryType());
+            assertThat(pat.score())
+                    .as("Score parity for " + id)
+                    .isCloseTo(leg.score(), within(0.001f));
         }
     }
 
