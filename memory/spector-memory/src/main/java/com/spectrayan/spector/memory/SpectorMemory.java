@@ -692,8 +692,6 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      */
     SpectorMemoryAdmin admin();
 
-
-
     /**
      * Assert a temporal fact about an entity relationship.
      * @param subject the subject entity name

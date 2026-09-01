@@ -12,16 +12,6 @@
  */
 package com.spectrayan.spector.memory.aisme.lifespan;
 
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.bootstrap.*;
-
-import com.spectrayan.spector.memory.api.*;
-
 /**
  * Hierarchical autobiographical memory tiers governing lifespan-adaptive retention and decay.
  *

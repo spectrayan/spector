@@ -104,8 +104,6 @@ public interface SpectorMemoryAdmin {
     /** Returns the cognitive memory router (Working, Episodic, Semantic, Procedural). */
     CognitiveMemoryRouter cognitiveRouter();
 
-
-
     /** Returns the memory index. */
     MemoryIndex index();
 

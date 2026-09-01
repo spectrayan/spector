@@ -12,16 +12,6 @@
  */
 package com.spectrayan.spector.memory.graph;
 
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.bootstrap.*;
-
-import com.spectrayan.spector.memory.api.*;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -140,8 +130,6 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
     private static final MemoryId MEMORY_ID = SystemMemoryId.ENTITY.id();
     /** Shared record layout — identifies entity records inside an SMKM container. */
     private static final EntityLayout LAYOUT = new EntityLayout();
-
-
 
     /** Default adjacency slots allocated per entity on first link. */
     static final int DEFAULT_ADJ_PER_ENTITY = 8;

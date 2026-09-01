@@ -12,16 +12,6 @@
  */
 package com.spectrayan.spector.memory.adaptor;
 
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.bootstrap.*;
-
-import com.spectrayan.spector.memory.api.*;
-
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +23,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.ReentrantLock;
-
 
 /**
  * Contextual bandit that learns the optimal {@link CognitiveProfile} per tag context.

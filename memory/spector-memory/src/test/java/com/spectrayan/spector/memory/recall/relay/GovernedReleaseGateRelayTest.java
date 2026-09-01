@@ -12,16 +12,6 @@
  */
 package com.spectrayan.spector.memory.recall.relay;
 
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.bootstrap.*;
-
-import com.spectrayan.spector.memory.api.*;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;

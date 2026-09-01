@@ -12,16 +12,6 @@
  */
 package com.spectrayan.spector.memory.dream.relay;
 
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.bootstrap.*;
-
-import com.spectrayan.spector.memory.api.*;
-
 /**
  * Enum representing typed components of an episodic scene decomposition.
  * Biological analog: Distinct cortical regions encode different aspects of an event 

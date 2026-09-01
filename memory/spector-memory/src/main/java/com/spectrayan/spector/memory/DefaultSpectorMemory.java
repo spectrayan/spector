@@ -14,11 +14,20 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.reflect.*;
 
-import com.spectrayan.spector.memory.api.*;
+import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.pathway.*;
 
 import com.spectrayan.spector.memory.bootstrap.*;
-import com.spectrayan.spector.memory.pathway.*;
-import com.spectrayan.spector.memory.persist.*;
+
+import com.spectrayan.spector.memory.api.*;
+
+import com.spectrayan.spector.memory.bootstrap.SpectorMemoryFactory;
+import com.spectrayan.spector.memory.persist.PersistenceManager;
+import com.spectrayan.spector.memory.persist.PartitionManager;
+import com.spectrayan.spector.memory.reflect.ReflectionOrchestrator;
+import com.spectrayan.spector.memory.reflect.ReinforcementHandler;
+
 import com.spectrayan.spector.memory.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
@@ -196,7 +205,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final BatchConsolidator batchConsolidator;
     private final com.spectrayan.spector.memory.consolidation.EagerConsolidator eagerConsolidator;
     private final com.spectrayan.spector.memory.scheduler.MemoryScheduler memoryScheduler;
-
 
     //  Biological Subsystems 
     private final ValenceTracker valenceTracker;

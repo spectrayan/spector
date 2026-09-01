@@ -12,14 +12,6 @@
  */
 package com.spectrayan.spector.memory;
 
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.api.*;
-
-import com.spectrayan.spector.memory.pathway.*;
-import com.spectrayan.spector.memory.persist.*;
-import com.spectrayan.spector.memory.bootstrap.*;
-
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.index.HnswIndex;
 import com.spectrayan.spector.memory.cortex.MemorySource;

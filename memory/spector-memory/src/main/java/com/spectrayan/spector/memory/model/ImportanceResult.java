@@ -12,16 +12,6 @@
  */
 package com.spectrayan.spector.memory.model;
 
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.bootstrap.*;
-
-import com.spectrayan.spector.memory.api.*;
-
 /**
  * Represents the result of an importance computation from an ImportanceProvider.
  * This record replaces the former ImportanceEstimate record.

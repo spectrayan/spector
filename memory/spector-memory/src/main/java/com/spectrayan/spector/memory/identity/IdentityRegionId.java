@@ -12,16 +12,6 @@
  */
 package com.spectrayan.spector.memory.identity;
 
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.bootstrap.*;
-
-import com.spectrayan.spector.memory.api.*;
-
 /**
  * Stable identifiers for regions within an account or tenant {@link IdentityBundle} (ADR-0029 §23.3).
  *

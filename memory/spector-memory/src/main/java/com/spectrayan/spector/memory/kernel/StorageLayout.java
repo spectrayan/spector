@@ -12,16 +12,6 @@
  */
 package com.spectrayan.spector.memory.kernel;
 
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.bootstrap.*;
-
-import com.spectrayan.spector.memory.api.*;
-
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorInternalException;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
@@ -250,8 +240,6 @@ public final class StorageLayout {
     @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_RELATION_TYPES = "relation-types.treg";
 
-
-
     // ═══════════════════════════════════════════════════════════════
     // V4 Bundle Files (ADR-0004 — mmap FD scaling)
     // ═══════════════════════════════════════════════════════════════
@@ -324,8 +312,6 @@ public final class StorageLayout {
      */
     public static final Pattern PARTITION_DIR_PATTERN =
             Pattern.compile("(\\d{" + PARTITION_SEQ_DIGITS + "})_" + "(\\d+)");
-
-
 
     // ═══════════════════════════════════════════════════════════════
     // Binary Format Magic Numbers

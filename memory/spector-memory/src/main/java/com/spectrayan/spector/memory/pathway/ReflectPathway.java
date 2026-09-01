@@ -20,6 +20,8 @@ import com.spectrayan.spector.memory.bootstrap.*;
 
 import com.spectrayan.spector.memory.api.*;
 
+import com.spectrayan.spector.memory.api.ImportanceProvider;
+
 import com.spectrayan.spector.memory.*;
 
 import com.spectrayan.spector.commons.pathway.CognitivePathway;

@@ -12,15 +12,6 @@
  */
 package com.spectrayan.spector.memory.reflect.relay;
 
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.bootstrap.*;
-
-import com.spectrayan.spector.memory.api.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -134,8 +125,8 @@ class ProceduralCrystallizationRelayTest {
         PartitionHandle handle = mock(PartitionHandle.class);
         CognitiveMemoryRouter router = mock(CognitiveMemoryRouter.class);
         EpisodicLogMemory logStore = mock(EpisodicLogMemory.class);
-        com.spectrayan.spector.memory.pathway.RememberPathway rememberPathway =
-                mock(com.spectrayan.spector.memory.pathway.RememberPathway.class);
+        RememberPathway rememberPathway =
+                mock(RememberPathway.class);
         when(rememberPathway.currentSoulVersion()).thenReturn((short) 4);
         EmbeddingProvider embeddingProvider = mock(EmbeddingProvider.class);
 

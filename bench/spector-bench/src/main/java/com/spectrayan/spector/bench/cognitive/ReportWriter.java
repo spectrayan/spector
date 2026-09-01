@@ -33,7 +33,6 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallTrace;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 
-
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.SerializationFeature;
 import tools.jackson.databind.json.JsonMapper;

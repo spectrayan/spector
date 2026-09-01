@@ -12,16 +12,6 @@
  */
 package com.spectrayan.spector.memory.express;
 
-import com.spectrayan.spector.memory.pathway.*;
-
-import com.spectrayan.spector.memory.reflect.*;
-
-import com.spectrayan.spector.memory.persist.*;
-
-import com.spectrayan.spector.memory.bootstrap.*;
-
-import com.spectrayan.spector.memory.api.*;
-
 import com.spectrayan.spector.memory.pathway.ExpressPathway;
 import com.spectrayan.spector.memory.express.relay.ExpressSignal;
 import com.spectrayan.spector.memory.express.relay.ExpressReport;
