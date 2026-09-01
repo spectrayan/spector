@@ -10,7 +10,10 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.assembly;
+
+import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.pathway.*;
 
 import com.spectrayan.spector.commons.concurrent.DaemonPolicy;
 import com.spectrayan.spector.commons.concurrent.DaemonSupervisor;
@@ -30,18 +33,18 @@ import java.nio.file.Path;
  *
  * @since 1.1.0
  */
-final class DaemonSupervisorBuilder {
+public final class DaemonSupervisorBuilder {
 
     private DaemonSupervisorBuilder() {}
 
     /** Immutable holder for the checkpoint daemon, graph enrichment daemon, and supervisor. */
-    record DaemonBundle(
+    public record DaemonBundle(
             CheckpointDaemon checkpointDaemon,
             GraphEnrichmentDaemon graphEnrichmentDaemon,
             DaemonSupervisor daemonSupervisor
     ) {}
 
-    static DaemonBundle build(
+    public static DaemonBundle build(
             SpectorMemoryBuilder builder,
             CognitiveCortexBuilder.CortexFoundation cortex,
             BiologicalSubsystemsBuilder.BiologicalSubsystems bio,

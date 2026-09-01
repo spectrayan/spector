@@ -16,7 +16,7 @@ import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.ingestion.IngestionTarget;
-import com.spectrayan.spector.memory.DataEncryptor;
+import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.ImportanceProvider;
 import com.spectrayan.spector.memory.cortex.*;
 import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;

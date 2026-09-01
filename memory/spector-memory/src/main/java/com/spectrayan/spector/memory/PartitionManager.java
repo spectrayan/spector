@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.persist.*;
+import com.spectrayan.spector.memory.pathway.*;
 import com.spectrayan.spector.memory.cortex.AuditRecordMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
@@ -30,7 +32,7 @@ import com.spectrayan.spector.memory.kernel.bundle.RegionId;
 import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
@@ -105,7 +107,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
     private final java.util.concurrent.atomic.AtomicBoolean closed =
             new java.util.concurrent.atomic.AtomicBoolean(false);
 
-    PartitionManager(Path basePath,
+    public PartitionManager(Path basePath,
                      int quantizedVecBytes,
                      int semanticCapacity,
                      int episodicPartitionCapacity,
@@ -213,7 +215,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
      * @param basePath the memory persistence root
      * @return all partition dirs sorted by sequence (never empty; last = active)
      */
-    static List<Path> discoverAllPartitions(Path basePath) throws IOException {
+    public static List<Path> discoverAllPartitions(Path basePath) throws IOException {
         Path partitionsDir = StorageLayout.partitionsDir(basePath);
         Files.createDirectories(partitionsDir);
 
@@ -258,7 +260,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
      * @param encryptor    the data encryptor (or NOOP)
      * @return a frozen partition handle wrapping the opened stores
      */
-    static PartitionHandle openFrozenPartition(Path dir, int seq,
+    public static PartitionHandle openFrozenPartition(Path dir, int seq,
                                                WorkingRecordMemory workingStore,
                                                int quantizedVecBytes,
                                                int semanticCapacity,
@@ -342,7 +344,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
      * then atomically repoints the ingestion target at the new router, text store and
      * active sequence.</p>
      */
-    void rollPartition() {
+    public void rollPartition() {
         partitionRollLock.lock();
         try {
             if (basePath == null) {

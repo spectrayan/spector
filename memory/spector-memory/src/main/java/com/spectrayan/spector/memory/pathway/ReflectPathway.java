@@ -10,7 +10,9 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.pathway;
+
+import com.spectrayan.spector.memory.*;
 
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.template.TemplateEngine;
@@ -27,7 +29,6 @@ import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.RememberPathway;
 import com.spectrayan.spector.memory.reflect.relay.CrossLayerPromotionRelay;
 import com.spectrayan.spector.memory.reflect.relay.EntityMaintenanceRelay;
 import com.spectrayan.spector.memory.reflect.relay.EpisodicLogConsolidationRelay;

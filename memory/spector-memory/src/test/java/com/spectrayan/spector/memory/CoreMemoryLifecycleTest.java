@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.pathway.*;
+import com.spectrayan.spector.memory.persist.*;
+import com.spectrayan.spector.memory.assembly.*;
+
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;

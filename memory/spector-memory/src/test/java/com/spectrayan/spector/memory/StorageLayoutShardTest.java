@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.pathway.*;
+import com.spectrayan.spector.memory.persist.*;
+import com.spectrayan.spector.memory.assembly.*;
+
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;

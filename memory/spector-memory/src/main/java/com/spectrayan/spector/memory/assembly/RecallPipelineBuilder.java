@@ -10,7 +10,10 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.assembly;
+
+import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.pathway.*;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
@@ -47,7 +50,7 @@ public final class RecallPipelineBuilder {
 
     public RecallPipelineBuilder() {}
 
-    static RecallPipeline build(
+    public static RecallPipeline build(
             SpectorMemoryBuilder builder,
             EmbeddingProvider embeddingProvider,
             CognitiveCortexBuilder.CortexFoundation cortex,
@@ -92,7 +95,7 @@ public final class RecallPipelineBuilder {
         return recallPipeline;
     }
 
-    static void rebuildHnswIfNeeded(SpectorMemoryBuilder builder, PartitionManager partitionManager, MemoryIndex index, ScalarQuantizer quantizer) {
+    public static void rebuildHnswIfNeeded(SpectorMemoryBuilder builder, PartitionManager partitionManager, MemoryIndex index, ScalarQuantizer quantizer) {
         if (builder.semanticIndex == null || builder.semanticIndex.isReadOnly() || builder.semanticIndex.size() > 0) {
             return;
         }

@@ -10,7 +10,10 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.assembly;
+
+import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.pathway.*;
 
 import com.spectrayan.spector.index.BM25Index;
 import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker;
@@ -39,21 +42,21 @@ import org.slf4j.LoggerFactory;
  *
  * @since 1.1.0
  */
-final class RetrievalIndexBuilder {
+public final class RetrievalIndexBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(RetrievalIndexBuilder.class);
 
     private RetrievalIndexBuilder() {}
 
     /** Immutable holder for the assembled retrieval indices. */
-    record RetrievalIndices(
+    public record RetrievalIndices(
             MemoryBM25Index bm25Index,
             TextAppendMemory textDataStore,
             MemorySpladeIndex memorySpladeIndex,
             ColBERTReranker colbertReranker
     ) {}
 
-    static RetrievalIndices build(SpectorMemoryBuilder builder,
+    public static RetrievalIndices build(SpectorMemoryBuilder builder,
                                   CognitiveCortexBuilder.CortexFoundation cortex,
                                   MemoryIndex index) {
         boolean isDisk = cortex.isDisk();

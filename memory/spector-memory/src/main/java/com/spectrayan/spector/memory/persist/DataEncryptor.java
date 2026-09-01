@@ -10,7 +10,9 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.persist;
+
+import com.spectrayan.spector.memory.*;
 
 /**
  * Service Provider Interface for data encryption at rest.

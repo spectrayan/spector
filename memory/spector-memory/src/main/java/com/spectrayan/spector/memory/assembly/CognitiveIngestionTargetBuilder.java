@@ -10,7 +10,10 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.assembly;
+
+import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.pathway.*;
 
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.SalienceProfile;
@@ -33,13 +36,13 @@ import org.slf4j.LoggerFactory;
  *
  * @since 1.1.0
  */
-final class CognitiveIngestionTargetBuilder {
+public final class CognitiveIngestionTargetBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(CognitiveIngestionTargetBuilder.class);
 
     private CognitiveIngestionTargetBuilder() {}
 
-    static CognitiveIngestionTarget build(
+    public static CognitiveIngestionTarget build(
             SpectorMemoryBuilder builder,
             CognitiveCortexBuilder.CortexFoundation cortex,
             BiologicalSubsystemsBuilder.BiologicalSubsystems bio,

@@ -22,7 +22,7 @@ import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.RecallPathway;
+import com.spectrayan.spector.memory.pathway.RecallPathway;
 import com.spectrayan.spector.memory.synapse.ActRActivation;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
@@ -58,7 +58,7 @@ import java.lang.foreign.MemorySegment;
  * and blended 50/50 with current importance. When null, a Hebbian degree-centrality boost
  * is applied instead.</p>
  */
-final class ReinforcementHandler {
+public final class ReinforcementHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ReinforcementHandler.class);
 
@@ -70,7 +70,7 @@ final class ReinforcementHandler {
     private final TwoFactorConfig twoFactorConfig;
     private final ProfileAdaptor profileAdaptor;
 
-    ReinforcementHandler(ValenceTracker valenceTracker,
+    public ReinforcementHandler(ValenceTracker valenceTracker,
                          HebbianGraphBase hebbianGraph,
                          LateralEvaluator lateralEvaluator,
                          RecallPathway recallPathway,

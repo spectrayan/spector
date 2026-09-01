@@ -10,7 +10,10 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.assembly;
+
+import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.pathway.*;
 
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
@@ -41,12 +44,12 @@ import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
  *
  * @since 1.1.0
  */
-final class BiologicalSubsystemsBuilder {
+public final class BiologicalSubsystemsBuilder {
 
     private BiologicalSubsystemsBuilder() {}
 
     /** Immutable holder for the assembled biological subsystems. */
-    record BiologicalSubsystems(
+    public record BiologicalSubsystems(
             SurpriseDetector surpriseDetector,
             IcnuWeights icnuWeights,
             FlashbulbPolicy flashbulbPolicy,
@@ -60,7 +63,7 @@ final class BiologicalSubsystemsBuilder {
             ReflectDaemon reflectDaemon
     ) {}
 
-    static BiologicalSubsystems build(SpectorMemoryBuilder builder,
+    public static BiologicalSubsystems build(SpectorMemoryBuilder builder,
                                       EmbeddingProvider embeddingProvider,
                                       CognitiveCortexBuilder.CortexFoundation cortex) {
         boolean isDisk = cortex.isDisk();

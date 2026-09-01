@@ -10,7 +10,11 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.pathway;
+
+import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.assembly.*;
+import com.spectrayan.spector.memory.persist.*;
 
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;

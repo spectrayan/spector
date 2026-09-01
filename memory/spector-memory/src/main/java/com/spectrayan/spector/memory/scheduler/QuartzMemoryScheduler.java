@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.scheduler;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.concurrent.VirtualThreadPool;
-import com.spectrayan.spector.memory.DreamPathway;
+import com.spectrayan.spector.memory.pathway.DreamPathway;
 import com.spectrayan.spector.memory.PartitionManager;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;

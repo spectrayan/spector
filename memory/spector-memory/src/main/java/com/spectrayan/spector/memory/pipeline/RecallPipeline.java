@@ -226,8 +226,8 @@ public final class RecallPipeline {
     /**
      * Creates a new fluent builder for assembling a {@link RecallPipeline}.
      */
-    public static com.spectrayan.spector.memory.RecallPipelineBuilder builder() {
-        return new com.spectrayan.spector.memory.RecallPipelineBuilder();
+    public static com.spectrayan.spector.memory.assembly.RecallPipelineBuilder builder() {
+        return new com.spectrayan.spector.memory.assembly.RecallPipelineBuilder();
     }
 
     /**

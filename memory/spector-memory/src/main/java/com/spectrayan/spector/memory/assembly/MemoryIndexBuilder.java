@@ -10,7 +10,10 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.assembly;
+
+import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.pathway.*;
 
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
@@ -30,13 +33,13 @@ import org.slf4j.LoggerFactory;
  *
  * @since 1.1.0
  */
-final class MemoryIndexBuilder {
+public final class MemoryIndexBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(MemoryIndexBuilder.class);
 
     private MemoryIndexBuilder() {}
 
-    static MemoryIndex build(CognitiveCortexBuilder.CortexFoundation cortex) {
+    public static MemoryIndex build(CognitiveCortexBuilder.CortexFoundation cortex) {
         boolean isDisk = cortex.isDisk();
         Path basePath = cortex.basePath();
         Path resolvedPartitionDir = cortex.resolvedPartitionDir();

@@ -10,7 +10,10 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.assembly;
+
+import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.pathway.*;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
@@ -61,7 +64,7 @@ import org.slf4j.LoggerFactory;
  *
  * @since 1.1.0
  */
-final class CognitiveCortexBuilder {
+public final class CognitiveCortexBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(CognitiveCortexBuilder.class);
 
@@ -72,7 +75,7 @@ final class CognitiveCortexBuilder {
      * local variables that {@code assemble} previously threaded through the rest
      * of the method.
      */
-    record CortexFoundation(
+    public record CortexFoundation(
             boolean isDisk,
             boolean useBundleMode,
             Path basePath,
@@ -92,7 +95,7 @@ final class CognitiveCortexBuilder {
             EpisodicLogMemory episodicLogStore
     ) {}
 
-    static CortexFoundation build(SpectorMemoryBuilder builder) {
+    public static CortexFoundation build(SpectorMemoryBuilder builder) {
         boolean isDisk = builder.persistenceMode == MemoryPersistenceMode.DISK;
 
         //  Resolve persistence path 

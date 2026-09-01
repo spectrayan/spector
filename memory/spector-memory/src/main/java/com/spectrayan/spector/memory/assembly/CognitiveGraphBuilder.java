@@ -10,7 +10,10 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.assembly;
+
+import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.pathway.*;
 
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
@@ -54,14 +57,14 @@ import org.slf4j.LoggerFactory;
  *
  * @since 1.1.0
  */
-final class CognitiveGraphBuilder {
+public final class CognitiveGraphBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(CognitiveGraphBuilder.class);
 
     private CognitiveGraphBuilder() {}
 
     /** Immutable holder for the assembled cognitive graphs and their facade. */
-    record CognitiveGraphs(
+    public record CognitiveGraphs(
             HebbianGraphBase hebbianGraph,
             TemporalChainMemory temporalChain,
             EntityExtractor entityExtractor,
@@ -71,7 +74,7 @@ final class CognitiveGraphBuilder {
             CognitiveGraphFacade graphFacade
     ) {}
 
-    static CognitiveGraphs build(SpectorMemoryBuilder builder,
+    public static CognitiveGraphs build(SpectorMemoryBuilder builder,
                                  CognitiveCortexBuilder.CortexFoundation cortex,
                                  MemoryIndex index) {
         boolean isDisk = cortex.isDisk();

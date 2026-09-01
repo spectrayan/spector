@@ -10,7 +10,9 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.persist;
+
+import com.spectrayan.spector.memory.*;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
@@ -45,7 +47,7 @@ import java.nio.file.Path;
  * <p>After persistence, subsystem resources (tier stores, WAL, graphs) are closed
  * in order.</p>
  */
-final class PersistenceManager {
+public final class PersistenceManager {
 
     private static final Logger log = LoggerFactory.getLogger(PersistenceManager.class);
 
@@ -64,7 +66,7 @@ final class PersistenceManager {
      * @param cognitiveRouter    the cognitive memory router
      * @param wal                the write-ahead log
      */
-    static void flushAndClose(MemoryPersistenceMode persistenceMode,
+    public static void flushAndClose(MemoryPersistenceMode persistenceMode,
                               Path persistencePath,
                               Path activePartitionDir,
                               MemoryIndex index,

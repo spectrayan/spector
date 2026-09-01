@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.pathway.*;
+import com.spectrayan.spector.memory.persist.*;
+import com.spectrayan.spector.memory.assembly.*;
+
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.PartitionSummary;

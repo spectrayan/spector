@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.assembly.*;
+import com.spectrayan.spector.memory.pathway.*;
+import com.spectrayan.spector.memory.persist.*;
 import com.spectrayan.spector.memory.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
@@ -89,7 +92,7 @@ import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
 import com.spectrayan.spector.memory.pipeline.HebbianCoActivationListener;
 import com.spectrayan.spector.memory.pipeline.ContentTagExtractor;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.pipeline.LtpReconsolidationListener;
 import com.spectrayan.spector.memory.pipeline.GraphScoringPolicy;
 import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;

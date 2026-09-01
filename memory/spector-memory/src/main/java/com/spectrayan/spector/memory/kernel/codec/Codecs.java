@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.codec;
 
-import com.spectrayan.spector.memory.DataEncryptor;
+import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.cortex.TextAppendCodec;
 import com.spectrayan.spector.memory.cortex.TypeRegistryCodec;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphCodec;

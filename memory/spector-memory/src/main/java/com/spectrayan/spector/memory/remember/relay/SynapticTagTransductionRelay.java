@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.remember.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.DataEncryptor;
+import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.pipeline.TagExtractor;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;

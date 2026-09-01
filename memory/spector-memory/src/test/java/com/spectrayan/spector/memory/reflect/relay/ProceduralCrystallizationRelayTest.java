@@ -27,7 +27,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.spectrayan.spector.memory.PartitionManager;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
@@ -124,8 +124,8 @@ class ProceduralCrystallizationRelayTest {
         PartitionHandle handle = mock(PartitionHandle.class);
         CognitiveMemoryRouter router = mock(CognitiveMemoryRouter.class);
         EpisodicLogMemory logStore = mock(EpisodicLogMemory.class);
-        com.spectrayan.spector.memory.RememberPathway rememberPathway =
-                mock(com.spectrayan.spector.memory.RememberPathway.class);
+        com.spectrayan.spector.memory.pathway.RememberPathway rememberPathway =
+                mock(com.spectrayan.spector.memory.pathway.RememberPathway.class);
         when(rememberPathway.currentSoulVersion()).thenReturn((short) 4);
         EmbeddingProvider embeddingProvider = mock(EmbeddingProvider.class);
 

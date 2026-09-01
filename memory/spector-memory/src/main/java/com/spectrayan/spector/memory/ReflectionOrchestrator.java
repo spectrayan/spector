@@ -25,7 +25,7 @@ import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
@@ -58,7 +58,7 @@ import java.util.Map;
  * @deprecated As of 1.3.0, replaced by {@link ReflectPathway} and its composable relays.
  */
 @Deprecated(since = "1.3.0", forRemoval = true)
-final class ReflectionOrchestrator {
+public final class ReflectionOrchestrator {
 
     private static final Logger log = LoggerFactory.getLogger(ReflectionOrchestrator.class);
 
@@ -123,7 +123,7 @@ final class ReflectionOrchestrator {
     private final float entityCosineThreshold;
     private final TypeNormalizer typeNormalizer;
 
-    ReflectionOrchestrator(ReflectDaemon reflectDaemon,
+    public ReflectionOrchestrator(ReflectDaemon reflectDaemon,
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
                            EntityDirectory entityDirectory,

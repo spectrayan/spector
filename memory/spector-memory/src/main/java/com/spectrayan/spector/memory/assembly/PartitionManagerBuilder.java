@@ -10,13 +10,16 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.assembly;
+
+import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.pathway.*;
 
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -38,13 +41,13 @@ import org.slf4j.LoggerFactory;
  *
  * @since 1.1.0
  */
-final class PartitionManagerBuilder {
+public final class PartitionManagerBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(PartitionManagerBuilder.class);
 
     private PartitionManagerBuilder() {}
 
-    static PartitionManager build(
+    public static PartitionManager build(
             SpectorMemoryBuilder builder,
             CognitiveCortexBuilder.CortexFoundation cortex,
             RetrievalIndexBuilder.RetrievalIndices retrieval,

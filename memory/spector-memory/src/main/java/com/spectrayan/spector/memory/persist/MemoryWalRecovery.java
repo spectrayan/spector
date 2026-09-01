@@ -10,7 +10,9 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.persist;
+
+import com.spectrayan.spector.memory.*;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.MemorySource;
@@ -27,7 +29,7 @@ import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.RememberPathway;
+import com.spectrayan.spector.memory.pathway.RememberPathway;
 import com.spectrayan.spector.memory.sync.CheckpointDaemon;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
@@ -54,13 +56,13 @@ import org.slf4j.LoggerFactory;
  *
  * @since 1.1.0
  */
-final class MemoryWalRecovery {
+public final class MemoryWalRecovery {
 
     private static final Logger log = LoggerFactory.getLogger(MemoryWalRecovery.class);
 
     private MemoryWalRecovery() {}
 
-    static void recover(
+    public static void recover(
             MemoryWal wal,
             CognitiveMemoryRouter cognitiveRouter,
             MemoryIndex index,
