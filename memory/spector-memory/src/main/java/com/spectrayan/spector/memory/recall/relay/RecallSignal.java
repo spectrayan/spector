@@ -39,6 +39,8 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
 
     // Mutable working state
     private float[] queryVector;
+    private float[] queryTau;
+    private long queryTimeMs;
     private final List<CognitiveResult> candidates = new ArrayList<>();
     private boolean textSearchExecuted = false;
     private boolean rrfFused = false;
@@ -83,6 +85,8 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
     @Override
     public RecallSignal fork() {
         final RecallSignal fork = new RecallSignal(rawQuery, queryVector, options, timestampMs);
+        fork.queryTau = this.queryTau;
+        fork.queryTimeMs = this.queryTimeMs;
         fork.candidates.addAll(this.candidates);
         fork.textSearchExecuted = this.textSearchExecuted;
         fork.rrfFused = this.rrfFused;
@@ -184,6 +188,42 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
      */
     public void setQueryVector(final float[] queryVector) {
         this.queryVector = queryVector;
+    }
+
+    /**
+     * Returns the 8-dimensional harmonic basis vector for the query timestamp.
+     *
+     * @return 8-element harmonic vector, or null if not computed
+     */
+    public float[] queryTau() {
+        return queryTau;
+    }
+
+    /**
+     * Sets the 8-dimensional harmonic basis vector for the query.
+     *
+     * @param queryTau harmonic basis vector
+     */
+    public void setQueryTau(final float[] queryTau) {
+        this.queryTau = queryTau;
+    }
+
+    /**
+     * Returns the effective reference query timestamp in epoch milliseconds.
+     *
+     * @return query timestamp in epoch ms
+     */
+    public long queryTimeMs() {
+        return queryTimeMs;
+    }
+
+    /**
+     * Sets the effective reference query timestamp in epoch milliseconds.
+     *
+     * @param queryTimeMs reference query timestamp in epoch ms
+     */
+    public void setQueryTimeMs(final long queryTimeMs) {
+        this.queryTimeMs = queryTimeMs;
     }
 
     /**

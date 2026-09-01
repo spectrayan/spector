@@ -15,11 +15,12 @@ package com.spectrayan.spector.memory.recall.relay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.core.spacetime.Time2VecProjector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Transduces a raw text query into a vector representation.
+ * Transduces a raw text query into a vector representation and computes reference spacetime coordinates.
  */
 public final class QueryTransductionRelay implements SynapticRelay<RecallSignal> {
 
@@ -33,11 +34,18 @@ public final class QueryTransductionRelay implements SynapticRelay<RecallSignal>
 
     @Override
     public boolean transmit(final RecallSignal signal) {
-        if (signal.queryVector() == null) {
+        if (signal.queryVector() == null && signal.rawQuery() != null) {
             final var result = embeddingProvider.embed(signal.rawQuery());
             signal.setQueryVector(result.vector());
             log.debug("Embedded query vector for text: {}", signal.rawQuery());
         }
+
+        final long queryTime = (signal.options().replayTimestamp() != null)
+                ? signal.options().replayTimestamp().toEpochMilli()
+                : signal.timestampMs();
+        signal.setQueryTimeMs(queryTime);
+        signal.setQueryTau(Time2VecProjector.project(queryTime));
+
         return true;
     }
 

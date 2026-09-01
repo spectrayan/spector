@@ -71,13 +71,7 @@ public final class CognitiveRerankRelay implements SynapticRelay<RecallSignal> {
                             final CognitiveResult r = toRerank.get(i);
                             final Float newScore = rerankScores.get(r.id());
                             if (newScore != null) {
-                                allResults.set(i, new CognitiveResult(
-                                        r.id(), r.text(), newScore, r.importance(),
-                                        r.ageDays(), r.agentRecallCount(), r.valence(),
-                                        r.memoryType(), r.source(), r.synapticTags(),
-                                        r.decayFactor(), r.ltpAdjustedDecay(),
-                                        r.retrievalMode(), r.breakdown(), r.trace(),
-                                        r.sourceModality(), r.metadata()));
+                                allResults.set(i, r.withScore(newScore));
                             }
                         }
 

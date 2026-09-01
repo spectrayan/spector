@@ -24,8 +24,11 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.model.ScoringMode;
+import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion;
+import com.spectrayan.spector.memory.synapse.scan.RecordGates;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +36,7 @@ import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Fused HNSW + Cognitive Scoring recall strategy for Semantic Memory (ADR-0009, #445).
@@ -147,10 +151,12 @@ public final class SemanticRecallStrategy {
                 if (SynapticHeaderConstants.isContradicted(cFlags)) continue;
             }
 
-            // Phase 1b: Temporal gating (absolute timestamp bounds)
+            // Phase 1b: Temporal gating & Future causal horizon gate
             long timestamp = header.timestampMs();
-            if (minTimestamp != null && timestamp < minTimestamp) continue;
-            if (maxTimestamp != null && timestamp > maxTimestamp) continue;
+            if (RecordGates.isTemporalGated(
+                    timestamp, minTimestamp, maxTimestamp, nowMs, options.allowFuture())) {
+                continue;
+            }
 
             // Phase 2: Synaptic tag gating
             long recordTags = header.synapticTags();
@@ -185,13 +191,17 @@ public final class SemanticRecallStrategy {
                 decay = 1.0f;
                 rawDecay = 1.0f;
             } else {
-                int rawBucket = DecayStrategy.ageToBucket(timestamp, nowMs);
-                int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, agentRecallCount);
-                decay = DecayStrategy.decay(adjusted);
-                rawDecay = DecayStrategy.decay(rawBucket);
+                final byte arousal = layout.headerLayout().version() >= 2 ? header.arousal() : (byte) 0;
+                final float storage = layout.headerLayout().version() >= 2
+                        ? layout.headerLayout().readStorageStrength(headerSlab, headerOffset)
+                        : 1.0f;
+                final float cognitiveMass = CognitiveScoreFusion.computeCognitiveMass(importance, arousal, storage);
 
-                float baseScore = alpha * similarity + beta * importance * decay;
-                float tagOverlap = SynapticTagEncoder.overlapRatio(recordTags, queryTagMask);
+                decay = CognitiveScoreFusion.computeMassDilatedDecay(timestamp, nowMs, cognitiveMass, arousal, agentRecallCount, false);
+                rawDecay = CognitiveScoreFusion.computeMassDilatedDecay(timestamp, nowMs, cognitiveMass, (byte) 0, 0, false);
+
+                final float baseScore = alpha * similarity + beta * (importance / 10.0f) * decay;
+                final float tagOverlap = SynapticTagEncoder.overlapRatio(recordTags, queryTagMask);
                 finalScore = baseScore * (1.0f + tagOverlap * tagRelevanceBoost);
             }
 
@@ -219,7 +229,8 @@ public final class SemanticRecallStrategy {
                     id, text, finalScore, importance, ageDays,
                     agentRecallCount, valence, MemoryType.SEMANTIC, source,
                     tags, rawDecay, decay,
-                    CognitiveResult.RetrievalMode.STANDARD, breakdown));
+                    CognitiveResult.RetrievalMode.STANDARD, breakdown, null,
+                    SourceModality.TEXT, Map.of(), (byte) 0, timestamp));
         }
 
         // Sort by fused score descending

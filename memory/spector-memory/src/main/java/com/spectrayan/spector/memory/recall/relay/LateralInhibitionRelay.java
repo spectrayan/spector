@@ -208,14 +208,7 @@ public final class LateralInhibitionRelay implements SynapticRelay<RecallSignal>
                 competitors
         );
 
-        candidates.set(idx, new CognitiveResult(
-                r.id(), r.text(), newScore, r.importance(),
-                r.ageDays(), r.agentRecallCount(), r.valence(),
-                r.memoryType(), r.source(), r.synapticTags(),
-                r.decayFactor(), r.ltpAdjustedDecay(),
-                r.retrievalMode(), newBd, r.trace(),
-                r.sourceModality(), r.metadata(), r.consolidationFlags()
-        ));
+        candidates.set(idx, r.withScoreAndBreakdown(newScore, newBd));
     }
 
     private static float cosineSimilarity(float[] a, float[] b) {

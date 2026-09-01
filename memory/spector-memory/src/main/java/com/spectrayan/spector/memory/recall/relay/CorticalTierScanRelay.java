@@ -80,7 +80,7 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
     public boolean transmit(final RecallSignal signal) {
         final float[] queryVector = signal.queryVector();
         final RecallOptions options = signal.options();
-        final long nowMs = signal.timestampMs();
+        final long nowMs = signal.queryTimeMs() > 0 ? signal.queryTimeMs() : signal.timestampMs();
         final MemoryType[] targetTypes = options.memoryTypes();
         final List<CognitiveResult> allResults = signal.candidates();
 

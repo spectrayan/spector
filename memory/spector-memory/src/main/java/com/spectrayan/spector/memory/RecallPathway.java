@@ -391,8 +391,8 @@ public final class RecallPathway {
 
                     final float importance = 0.5f;
                     final byte valence = 0;
-                    final float ageDays = (float) ((nowMs - layout.readTimestamp(seg, offset))
-                            / (double) (24 * 60 * 60 * 1000));
+                    final long ts = layout.readTimestamp(seg, offset);
+                    final float ageDays = (float) ((nowMs - ts) / (double) (24 * 60 * 60 * 1000));
 
                     final java.util.Map<String, String> rMeta = snapshot.index().metadata(memId);
                     final SourceModality rModality = rMeta != null
@@ -403,7 +403,7 @@ public final class RecallPathway {
                             Math.max(0, ageDays),
                             (short) 0, valence, MemoryType.SEMANTIC, source,
                             memTags, 1.0f, 1.0f, CognitiveResult.RetrievalMode.STANDARD, null, null,
-                            rModality, rMeta));
+                            rModality, rMeta, (byte) 0, ts));
 
                 } catch (final RuntimeException e) {
                     log.debug("REPLAY: skipping memory '{}': {}", memId, e.getMessage());
@@ -478,11 +478,7 @@ public final class RecallPathway {
                         contextTagList, r.synapticTags());
                 if (predictive > 0) {
                     final float boosted = r.score() * (1.0f + predictive * 0.5f);
-                    associativeResults.set(i, new CognitiveResult(
-                            r.id(), r.text(), boosted, r.importance(), r.ageDays(),
-                            r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
-                            r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
-                            r.retrievalMode(), r.breakdown(), r.trace(), r.sourceModality(), r.metadata()));
+                    associativeResults.set(i, r.withScore(boosted));
                 }
             }
         }
@@ -675,7 +671,8 @@ public final class RecallPathway {
                 id != null ? id : "unknown-" + sr.index(),
                 resultText, sr.score(), header.importance(), ageDays,
                 recallCount, header.valence(), type, source, tags,
-                rawDecay, ltpDecay, mode, breakdown, null, modality, metadata);
+                rawDecay, ltpDecay, mode, breakdown, null, modality, metadata,
+                (byte) 0, header.timestampMs());
     }
 
     /**

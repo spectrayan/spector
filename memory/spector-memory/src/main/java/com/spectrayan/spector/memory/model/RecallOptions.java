@@ -143,7 +143,11 @@ public record RecallOptions(
         boolean enableAssociativePrior,
         float associativePriorDelta,
         float associativePriorStdpWeight,
-        float associativePriorHubWeight
+        float associativePriorHubWeight,
+        //  Spacetime Vector Search (ADR-0030 v1)
+        boolean allowFuture,
+        boolean enableSpacetime,
+        float spacetimeHarmonicWeight
 ) {
 
     /** Default options: top 10, no filters, balanced scoring. */
@@ -430,6 +434,29 @@ public record RecallOptions(
         /** Sets hub degree weight for associative prior (default 0.3). */
         public Builder associativePriorHubWeight(float weight) {
             this.associativePriorHubWeight = weight;
+            return this;
+        }
+
+        // ─── Spacetime Vector Search (ADR-0030 v1) ───
+        private boolean allowFuture = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_ALLOW_FUTURE;
+        private boolean enableSpacetime = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_SPACETIME_ENABLED;
+        private float spacetimeHarmonicWeight = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_SPACETIME_HARMONIC_WEIGHT;
+
+        /** Enables or disables recalling future memories (past query timestamp). */
+        public Builder allowFuture(boolean allow) {
+            this.allowFuture = allow;
+            return this;
+        }
+
+        /** Enables or disables shortlist spacetime harmonic re-ranking. */
+        public Builder enableSpacetime(boolean enable) {
+            this.enableSpacetime = enable;
+            return this;
+        }
+
+        /** Sets harmonic weight rho for spacetime re-ranking (default 0.15). */
+        public Builder spacetimeHarmonicWeight(float weight) {
+            this.spacetimeHarmonicWeight = weight;
             return this;
         }
 
@@ -1033,7 +1060,10 @@ public record RecallOptions(
                     enableAssociativePrior,
                     associativePriorDelta,
                     associativePriorStdpWeight,
-                    associativePriorHubWeight);
+                    associativePriorHubWeight,
+                    allowFuture,
+                    enableSpacetime,
+                    spacetimeHarmonicWeight);
             return options;
         }
     }
@@ -1223,7 +1253,9 @@ public record RecallOptions(
         b.associativePriorDelta = this.associativePriorDelta;
         b.associativePriorStdpWeight = this.associativePriorStdpWeight;
         b.associativePriorHubWeight = this.associativePriorHubWeight;
+        b.allowFuture = this.allowFuture;
+        b.enableSpacetime = this.enableSpacetime;
+        b.spacetimeHarmonicWeight = this.spacetimeHarmonicWeight;
         return b;
     }
 }
-
