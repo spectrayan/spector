@@ -114,6 +114,7 @@ public record RecallOptions(
         boolean autoProfile,
         //  Consolidation & Contradictions 
         boolean includeContradictions,
+        boolean allowSimulated,
         //  Resolved Profile (for header stamping) 
         CognitiveProfile resolvedProfile,
         //  Temperature & Adaptive Retrieval 
@@ -299,6 +300,7 @@ public record RecallOptions(
         // ─── Auto-Profile Detection ───
         private boolean autoProfile = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_AUTO_PROFILE_ENABLED;
         private boolean includeContradictions = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_INCLUDE_CONTRADICTIONS;
+        private boolean allowSimulated = false;
         private CognitiveProfile resolvedProfile = null; // set when profile() is called
 
         // ─── Temperature & Adaptive Retrieval ───
@@ -835,6 +837,19 @@ public record RecallOptions(
             return this;
         }
 
+        /**
+         * Expose simulated/counterfactual traces (default: false, per NF7).
+         * Set to true to include memories marked as simulated (source=simulated, thought experiment, dreamed).
+         */
+        public Builder allowSimulated(boolean allow) {
+            this.allowSimulated = allow;
+            return this;
+        }
+
+        public boolean allowSimulated() {
+            return allowSimulated;
+        }
+
         // ─── Temperature & Adaptive Retrieval ───
 
         /**
@@ -1038,6 +1053,7 @@ public record RecallOptions(
                     enableMmr, mmrLambda,
                     autoProfile,
                     includeContradictions,
+                    allowSimulated,
                     resolvedProfile,
                     adaptiveTemperature,
                     baseTemperature,
@@ -1234,6 +1250,7 @@ public record RecallOptions(
         b.rerankerDepth = this.rerankerDepth;
         b.autoProfile = this.autoProfile;
         b.includeContradictions = this.includeContradictions;
+        b.allowSimulated = this.allowSimulated;
         b.resolvedProfile = this.resolvedProfile;
         b.adaptiveTemperature = this.adaptiveTemperature;
         b.baseTemperature = this.baseTemperature;

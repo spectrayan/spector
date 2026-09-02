@@ -1,0 +1,61 @@
+{
+  "testId": "MF-T03",
+  "evalAsOfMs": 1756700000000,
+  "rememberer": "rho-a",
+  "notes": "Valence on the cue is a hard gate (MF-001 §4.5), not a rerank weight. Neutral distilled 'uncertainty/wait' essays must not substitute for the autobiographical asylum turn inside a negative window.",
+  "assertions": [
+    {
+      "id": "T03-A1",
+      "query": "q-what-went-wrong",
+      "require": "hard-gate-excludes",
+      "ids": ["t-edgewater-joy", "t-jaffa-market", "t-closet-done"],
+      "because": "Positive traces sit outside valenceWindow max=-20 and must not appear at any rank"
+    },
+    {
+      "id": "T03-A2",
+      "query": "q-what-went-wrong",
+      "require": "retrieved",
+      "ids": ["t-redeye-hurt", "t-asylum-wait"],
+      "atMostRank": 5,
+      "because": "Negative autobiographical traces pass the window"
+    },
+    {
+      "id": "T03-A3",
+      "query": "q-what-went-wrong",
+      "require": "outranks",
+      "higher": "t-asylum-wait",
+      "lower": "t-uncertainty-essay",
+      "because": "Inside the window, closer valence + higher I beats a neutral essay that only shares the word uncertainty"
+    },
+    {
+      "id": "T03-A4",
+      "query": "q-what-i-enjoyed",
+      "require": "hard-gate-excludes",
+      "ids": ["t-redeye-hurt", "t-asylum-wait", "t-sneakers-smell"],
+      "because": "Negative traces sit outside valenceWindow min=+30"
+    },
+    {
+      "id": "T03-A5",
+      "query": "q-what-i-enjoyed",
+      "require": "retrieved",
+      "ids": ["t-edgewater-joy"],
+      "atMostRank": 3,
+      "because": "High positive valence + soul like('rooftop views') should lead"
+    },
+    {
+      "id": "T03-A6",
+      "query": "q-asylum-wait",
+      "require": "outranks",
+      "higher": "t-asylum-wait",
+      "lower": "t-wait-and-see-study",
+      "because": "Same failure mode as persona 001be529: lexical 'wait/decision' distractor must lose to the autobiographical line when I and valence are not flat"
+    },
+    {
+      "id": "T03-A7",
+      "query": "q-open-valence",
+      "require": "retrieved",
+      "ids": ["t-uncertainty-essay", "t-asylum-wait"],
+      "because": "Control: with no valence window, the essay is allowed back into the list"
+    }
+  ]
+}

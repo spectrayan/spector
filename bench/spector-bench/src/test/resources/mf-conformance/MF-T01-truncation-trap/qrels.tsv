@@ -1,0 +1,11 @@
+query_id	corpus_id	relevance
+q-book-london	t-constraint-redeye	3
+q-book-london	t-constraint-redeye-confirm	2
+q-book-london	t-morning-calls	2
+q-book-london	t-london-hotel-view	1
+q-book-london	t-joke-overnight-london	0
+q-book-london-critical	t-constraint-redeye	3
+q-book-london-critical	t-morning-calls	3
+q-book-london-critical	t-constraint-redeye-confirm	2
+q-where-sneakers	t-shoes-new-state	3
+q-where-sneakers	t-shoes-old-state	1

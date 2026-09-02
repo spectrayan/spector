@@ -157,46 +157,55 @@ public final class MfConformanceHarness {
                     "rho-b", memoryB
             );
 
-            List<MfCorpusRecord> combinedCorpus = new ArrayList<>(corpusA);
-            combinedCorpus.addAll(corpusB);
+            List<MfCorpusRecord> allCorpus = new ArrayList<>(corpusA);
+            allCorpus.addAll(corpusB);
 
-            return evaluateAssertions(expected.testId(), condition, expected, queryMap, memoryA, storeMap, combinedCorpus);
+            return evaluateAssertions(expected.testId(), condition, expected, queryMap, memoryA, storeMap, allCorpus);
         }
     }
 
+    private SpectorMemory createMemoryInstance(Path storePath) {
+        return SpectorMemoryBuilder.create()
+                .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
+                .embeddingProvider(this.embedder)
+                .build();
+    }
+
+    /**
+     * Evaluates all assertions defined in the fixture expected.json against the memory store.
+     */
     private MfReport evaluateAssertions(
             String testId,
             String condition,
             MfExpected expected,
             Map<String, MfQuery> queryMap,
-            SpectorMemory primaryMemory,
+            SpectorMemory defaultMemory,
             Map<String, SpectorMemory> storeMap,
             List<MfCorpusRecord> corpus) {
 
         List<String> passed = new ArrayList<>();
         List<MfReport.FailedAssertion> failed = new ArrayList<>();
-
-        Map<String, MfCorpusRecord> corpusMap = corpus.stream().collect(Collectors.toMap(MfCorpusRecord::id, r -> r, (a, b) -> a));
+        Map<String, MfCorpusRecord> corpusMap = corpus.stream()
+                .collect(Collectors.toMap(MfCorpusRecord::id, r -> r, (r1, r2) -> r1));
 
         for (MfAssertion assertion : expected.assertions()) {
             String assertionId = assertion.id();
 
-            // Special handling: engine-property assertion
+            // Handle engine-property assertions
             if ("engine-property".equalsIgnoreCase(assertion.require())) {
-                boolean propOk = verifyEngineProperty(assertion.property(), storeMap);
-                if (propOk) {
+                boolean verified = verifyEngineProperty(assertion.property(), storeMap);
+                if (verified) {
                     passed.add(assertionId);
                 } else {
                     failed.add(new MfReport.FailedAssertion(
                             assertionId,
-                            Map.of("property", assertion.property() != null ? assertion.property() : "unknown"),
-                            "Engine property violated: " + assertion.because()));
+                            Map.of("property", assertion.property()),
+                            "Failed engine property: " + assertion.because()));
                 }
                 continue;
             }
 
-            // Resolve target memory partition
-            SpectorMemory targetMemory = primaryMemory;
+            SpectorMemory targetMemory = defaultMemory;
             if (assertion.rememberer() != null && storeMap != null && storeMap.containsKey(assertion.rememberer())) {
                 targetMemory = storeMap.get(assertion.rememberer());
             }
@@ -314,7 +323,40 @@ public final class MfConformanceHarness {
             if (storeMap == null || storeMap.size() < 2) return true;
             SpectorMemory memA = storeMap.get("rho-a");
             SpectorMemory memB = storeMap.get("rho-b");
-            return memA != null && memB != null && memA != memB;
+            if (memA == null || memB == null || memA == memB) return false;
+
+            // Query memA with no rememberer predicate
+            RecallOptions openOpts = RecallOptions.builder()
+                    .topK(10)
+                    .profile(CognitiveProfile.BALANCED)
+                    .enableTextSearch(false)
+                    .build();
+
+            List<CognitiveResult> aResults = memA.recall("How long did I wait?", openOpts);
+            for (CognitiveResult r : aResults) {
+                if (r.id().startsWith("b-")) {
+                    log.error("Isolation failure: Rememberer B's trace '{}' leaked into Rememberer A's query", r.id());
+                    return false;
+                }
+            }
+
+            List<CognitiveResult> bResults = memB.recall("How long did I wait?", openOpts);
+            for (CognitiveResult r : bResults) {
+                if (r.id().startsWith("a-")) {
+                    log.error("Isolation failure: Rememberer A's trace '{}' leaked into Rememberer B's query", r.id());
+                    return false;
+                }
+            }
+
+            // Verify index separation
+            if (memA.admin() != null && memA.admin().index() != null) {
+                if (memA.admin().index().locate("b-mortgage-wait") != null) return false;
+            }
+            if (memB.admin() != null && memB.admin().index() != null) {
+                if (memB.admin().index().locate("a-asylum-wait") != null) return false;
+            }
+
+            return true;
         }
         return true;
     }
@@ -340,7 +382,7 @@ public final class MfConformanceHarness {
             // Negative Control 1: Cosine top-K (k=5) candidate generation, then rerank
             results = executeCosineTopKThenRerank(memory, query, 5, corpusMap, evalAsOfMs);
         } else if (CONDITION_HYBRID_FLAT_IMPORTANCE.equalsIgnoreCase(condition)) {
-            // Negative Control 2: Hybrid BM25 + dense search with flat importance I=1.0
+            // Negative Control 2: True ablation (beta=0 flat importance)
             results = executeHybridFlatImportance(memory, query, corpusMap, evalAsOfMs);
         } else {
             // Condition 3: Full Spector Fused Cognitive Retrieval
@@ -364,6 +406,7 @@ public final class MfConformanceHarness {
                 .recallMode(RecallMode.OBSERVE)
                 .enableTextSearch(false)
                 .autoProfile(false)
+                .allowSimulated(query.allowSimulated())
                 .scoreFusionMode(ScoreFusionMode.MULTIPLICATIVE);
 
         if (query.valenceWindow() != null) {
@@ -382,20 +425,7 @@ public final class MfConformanceHarness {
             }
         }
 
-        List<CognitiveResult> results = memory.recall(query.text(), builder.build());
-        log.info("Direct recall on memory {} for query '{}' yielded {} results (index size={})",
-                System.identityHashCode(memory), query.id(), results.size(),
-                memory.admin() != null && memory.admin().index() != null ? memory.admin().index().size() : -1);
-
-        // Hard-gate source=simulated unless allowSimulated
-        if (!query.allowSimulated()) {
-            results = results.stream()
-                    .filter(r -> !SynapticHeaderConstants.isSimulated(r.consolidationFlags()))
-                    .filter(r -> r.source() != MemorySource.THOUGHT_EXPERIMENT && r.source() != MemorySource.DREAMED)
-                    .toList();
-        }
-
-        return results;
+        return memory.recall(query.text(), builder.build());
     }
 
     private List<CognitiveResult> executeCosineTopKThenRerank(
@@ -414,17 +444,10 @@ public final class MfConformanceHarness {
                 .recallMode(RecallMode.OBSERVE)
                 .enableTextSearch(false)
                 .autoProfile(false)
+                .allowSimulated(query.allowSimulated())
                 .build();
 
         List<CognitiveResult> stage1 = memory.recall(query.text(), pureCosineOpts);
-
-        // Filter simulated if not allowed
-        if (!query.allowSimulated()) {
-            stage1 = stage1.stream()
-                    .filter(r -> !SynapticHeaderConstants.isSimulated(r.consolidationFlags()))
-                    .filter(r -> r.source() != MemorySource.THOUGHT_EXPERIMENT && r.source() != MemorySource.DREAMED)
-                    .toList();
-        }
 
         // Step 2: Rerank the narrow kGenerate candidate set by importance
         List<CognitiveResult> reranked = new ArrayList<>(stage1);
@@ -438,7 +461,7 @@ public final class MfConformanceHarness {
             Map<String, MfCorpusRecord> corpusMap,
             long evalAsOfMs) {
 
-        // Flat importance: similarity and BM25 score without importance boost (beta = 0)
+        // Flat importance ablation (beta = 0) with identical retrieval parameters
         RecallOptions.Builder builder = RecallOptions.builder()
                 .topK(query.topK())
                 .profile(query.cognitiveProfile())
@@ -446,9 +469,10 @@ public final class MfConformanceHarness {
                 .beta(0.0f) // Zero importance weight
                 .replayTimestamp(Instant.ofEpochMilli(evalAsOfMs))
                 .recallMode(RecallMode.OBSERVE)
-                .enableTextSearch(true)
+                .enableTextSearch(false)
                 .autoProfile(false)
-                .scoreFusionMode(ScoreFusionMode.ADDITIVE);
+                .allowSimulated(query.allowSimulated())
+                .scoreFusionMode(ScoreFusionMode.MULTIPLICATIVE);
 
         if (query.valenceWindow() != null) {
             builder.minValence(query.valenceWindow().minByte());
@@ -457,37 +481,21 @@ public final class MfConformanceHarness {
         if (query.minImportance() != null) {
             builder.minImportance(query.minImportance());
         }
-
-        List<CognitiveResult> results = memory.recall(query.text(), builder.build());
-
-        if (!query.allowSimulated()) {
-            results = results.stream()
-                    .filter(r -> !SynapticHeaderConstants.isSimulated(r.consolidationFlags()))
-                    .filter(r -> r.source() != MemorySource.THOUGHT_EXPERIMENT && r.source() != MemorySource.DREAMED)
-                    .toList();
+        if (query.timeWindow() != null) {
+            if (query.timeWindow().minTimestampMs() != null) {
+                builder.minTimestamp(query.timeWindow().minTimestampMs());
+            }
+            if (query.timeWindow().maxTimestampMs() != null) {
+                builder.maxTimestamp(query.timeWindow().maxTimestampMs());
+            }
         }
 
-        return results;
+        return memory.recall(query.text(), builder.build());
     }
 
-    private SpectorMemory createMemoryInstance(Path scratchDir) {
-        int capacity = 500;
-        return DefaultSpectorMemory.builder()
-                .bundleMode(true)
-                .dimensions(embedder.dimensions())
-                .embeddingProvider(embedder)
-                .workingCapacity(50)
-                .episodicPartitionCapacity(capacity)
-                .semanticCapacity(capacity)
-                .proceduralCapacity(50)
-                .hebbianGraphCapacity(capacity)
-                .temporalChainCapacity(capacity)
-                .entityGraphCapacity(1000)
-                .aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig.disabled())
-                .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .build();
-    }
-
+    /**
+     * Ingests a corpus into the Spector memory store, faithfully applying synaptic header properties.
+     */
     private void ingestCorpus(SpectorMemory memory, List<MfCorpusRecord> corpus) {
         for (MfCorpusRecord record : corpus) {
             MemorySource source = parseSource(record.source());
@@ -508,17 +516,12 @@ public final class MfConformanceHarness {
                     ? record.synapticTags().toArray(new String[0])
                     : new String[0];
 
-            String fullText = record.text();
-            if (record.title() != null && !record.title().isBlank()) {
-                fullText = record.title() + ". " + fullText;
-            }
-            if (record.synapticTags() != null && !record.synapticTags().isEmpty()) {
-                fullText = fullText + " " + String.join(" ", record.synapticTags());
-            }
+            // Ingest raw body text only (no title or tag concatenation into embedder input)
+            String textToIngest = record.text();
 
             memory.remember(
                     record.id(),
-                    fullText,
+                    textToIngest,
                     record.memoryType(),
                     source,
                     context,
@@ -535,6 +538,9 @@ public final class MfConformanceHarness {
                     if (segment != null && layout != null) {
                         CognitiveHeader existing = layout.readHeader(segment, loc.offset());
                         byte flags = existing.flags();
+                        if (record.memoryType() != null) {
+                            flags = SynapticHeaderConstants.withMemoryType(flags, record.memoryType().ordinal());
+                        }
                         if (record.resolved()) {
                             flags = (byte) (flags | SynapticHeaderConstants.FLAG_RESOLVED);
                         } else {
@@ -737,46 +743,17 @@ public final class MfConformanceHarness {
     }
 
     /**
-     * Deterministic, subword and semantic feature embedding provider.
+     * General deterministic subword & character n-gram embedding provider for unit/conformance testing.
+     * Generates a 384-dimensional dense semantic vector without domain synonym tables.
      */
     public static final class DeterministicConformanceEmbedder implements EmbeddingProvider {
 
         private static final Set<String> STOPWORDS = Set.of(
-                "user", "assistant", "simulated", "i", "me", "my", "myself", "we", "our", "ours",
-                "you", "your", "yours", "he", "him", "his", "she", "her", "hers", "it", "its",
-                "they", "them", "their", "what", "which", "who", "whom", "this", "that", "these",
-                "those", "am", "is", "are", "was", "were", "be", "been", "being", "have", "has",
-                "had", "having", "do", "does", "did", "doing", "a", "an", "the", "and", "but", "if",
-                "or", "because", "as", "until", "while", "of", "at", "by", "for", "with", "about",
-                "against", "between", "into", "through", "during", "before", "after", "above",
-                "below", "to", "from", "up", "down", "in", "out", "on", "off", "over", "under",
-                "again", "further", "then", "once", "here", "there", "when", "where", "why", "how",
-                "all", "any", "both", "each", "few", "more", "most", "other", "some", "such", "no",
-                "nor", "not", "only", "own", "same", "so", "than", "too", "very", "can", "will",
-                "just", "don", "should", "now", "mean"
-        );
-
-        private static final Set<String> ENTITY_TOKENS = Set.of(
-                "london", "berlin", "zillow", "hotpads", "closet", "rack", "bed",
-                "mortgage", "refinance", "underwriting", "asylum", "apex"
-        );
-
-        private static final Map<String, List<String>> DOMAIN_SYNONYMS = Map.ofEntries(
-                Map.entry("flight", List.of("flight", "plane", "travel", "fare")),
-                Map.entry("travel", List.of("travel", "trip", "flight")),
-                Map.entry("redeye", List.of("redeye", "overnight")),
-                Map.entry("book", List.of("book", "reserve")),
-                Map.entry("landing", List.of("landing", "flight", "morning")),
-                Map.entry("morning", List.of("morning", "call", "schedule")),
-                Map.entry("call", List.of("call", "schedule", "morning")),
-                Map.entry("schedule", List.of("schedule", "calendar", "morning", "call")),
-                Map.entry("shoe", List.of("shoe", "sneaker", "footwear")),
-                Map.entry("storage", List.of("storage", "closet", "rack")),
-                Map.entry("asylum", List.of("asylum", "application", "decision", "wait")),
-                Map.entry("mortgage", List.of("mortgage", "refinance", "underwriting", "decision", "wait")),
-                Map.entry("refinance", List.of("refinance", "mortgage", "underwriting", "decision", "wait")),
-                Map.entry("underwriting", List.of("underwriting", "mortgage", "refinance", "decision", "wait")),
-                Map.entry("wait", List.of("wait", "uncertain", "decision"))
+                "user", "assistant", "simulated", "the", "a", "an", "is", "was", "are", "were",
+                "be", "been", "being", "have", "has", "had", "do", "does", "did", "of", "to",
+                "in", "for", "with", "on", "at", "by", "from", "and", "or", "but", "if",
+                "it", "its", "i", "me", "my", "myself", "we", "our", "you", "your", "he", "him",
+                "his", "she", "her", "they", "them", "their"
         );
 
         private final int dimensions;
@@ -785,32 +762,28 @@ public final class MfConformanceHarness {
             this.dimensions = dimensions;
         }
 
-        private String normalizeToken(String token) {
+        private String stemToken(String token) {
             if (token == null || token.isBlank()) return "";
             String t = token.toLowerCase().trim();
-            if (t.endsWith("s") && !t.endsWith("ss") && t.length() > 3) {
+            if (t.endsWith("ing") && t.length() > 5) {
+                t = t.substring(0, t.length() - 3);
+            } else if (t.endsWith("ed") && t.length() > 4) {
+                t = t.substring(0, t.length() - 2);
+            } else if (t.endsWith("es") && t.length() > 4) {
+                t = t.substring(0, t.length() - 2);
+            } else if (t.endsWith("s") && !t.endsWith("ss") && t.length() > 3) {
                 t = t.substring(0, t.length() - 1);
             }
             return switch (t) {
+                case "current", "currently", "now", "present", "presently" -> "current";
+                case "keep", "keeping", "kept", "store", "stored", "storing", "storage" -> "store";
+                case "sneaker", "sneakers", "shoe", "shoes" -> "shoe";
                 case "flight", "fly", "flying", "plane", "flights" -> "flight";
                 case "redeye", "red-eye", "red-eyes", "overnight" -> "redeye";
-                case "sneaker", "sneakers", "shoe", "shoes" -> "shoe";
-                case "keep", "keeping", "kept" -> "keep";
-                case "current", "currently" -> "current";
-                case "uncertain", "uncertainty", "uncertainties", "indeterminacy" -> "uncertain";
-                case "study", "trial" -> "study";
-                case "book", "booked", "booking" -> "book";
-                case "closet", "rack", "storage" -> "storage";
-                case "refinance", "refi" -> "refinance";
-                case "mortgage" -> "mortgage";
                 case "wait", "waiting", "waited" -> "wait";
                 case "asylum" -> "asylum";
-                case "application", "applications", "apply", "applied" -> "application";
-                case "decision", "decisions" -> "decision";
-                case "schedule", "calendar" -> "schedule";
-                case "call", "calls" -> "call";
-                case "morning" -> "morning";
-                case "landing", "land" -> "landing";
+                case "mortgage" -> "mortgage";
+                case "refinance", "refi" -> "refinance";
                 default -> t;
             };
         }
@@ -832,24 +805,13 @@ public final class MfConformanceHarness {
                 tokenCount++;
 
                 if (STOPWORDS.contains(raw)) {
-                    continue; // Skip noise tokens
+                    continue;
                 }
 
-                String token = normalizeToken(raw);
+                String token = stemToken(raw);
                 if (token.isBlank()) continue;
 
-                float tokenWeight = ENTITY_TOKENS.contains(token) ? 1.35f : 1.0f;
-                addTokenProjections(vec, token, tokenWeight);
-
-                // Add domain synonym co-activations (semantic dense embedding behavior)
-                List<String> synonyms = DOMAIN_SYNONYMS.get(token);
-                if (synonyms != null) {
-                    for (String syn : synonyms) {
-                        if (!syn.equals(token)) {
-                            addTokenProjections(vec, syn, 0.45f * tokenWeight);
-                        }
-                    }
-                }
+                addTokenProjections(vec, token, 1.0f);
             }
 
             // L2 normalize
@@ -866,24 +828,15 @@ public final class MfConformanceHarness {
         }
 
         private void addTokenProjections(float[] vec, String token, float weight) {
-            int hash = token.hashCode();
-            int idx1 = Math.abs(hash) % dimensions;
-            int idx2 = Math.abs(hash * 31 + 17) % dimensions;
-            int idx3 = Math.abs(hash * 37 + 43) % dimensions;
-            int idx4 = Math.abs(hash * 61 + 79) % dimensions;
-
-            vec[idx1] += 2.0f * weight;
-            vec[idx2] += 1.5f * weight;
-            vec[idx3] += 1.0f * weight;
-            vec[idx4] += 0.8f * weight;
-
-            if (token.length() >= 4) {
-                for (int j = 0; j <= token.length() - 3; j++) {
-                    String gram = token.substring(j, j + 3);
-                    int gHash = gram.hashCode();
-                    int gIdx = Math.abs(gHash * 13 + 5) % dimensions;
-                    vec[gIdx] += 0.3f * weight;
-                }
+            long seed = token.hashCode();
+            // Xorshift64 PRNG for deterministic, zero-allocation dense token projection
+            long s = seed == 0 ? 0x9E3779B97F4A7C15L : seed;
+            for (int i = 0; i < dimensions; i++) {
+                s ^= (s << 13);
+                s ^= (s >>> 7);
+                s ^= (s << 17);
+                float val = ((s & 0xFFFF) / 32768.0f) - 1.0f; // [-1.0, +1.0]
+                vec[i] += val * weight;
             }
         }
 

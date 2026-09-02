@@ -1,0 +1,74 @@
+{
+  "testId": "MF-T10",
+  "evalAsOfMs": 1756700000000,
+  "notes": "Load rememberer_a and rememberer_b into separate persistence units. A filter on a shared table fails this file even if recall looks correct. Cue collision is deliberate: both lives contain the sentence 'Over a year of uncertainty was really tough.'",
+  "load": {
+    "rho-a": "rememberer_a/",
+    "rho-b": "rememberer_b/"
+  },
+  "assertions": [
+    {
+      "id": "T10-A1",
+      "query": "q-a-asylum-wait",
+      "rememberer": "rho-a",
+      "require": "retrieved",
+      "ids": ["a-asylum-wait"],
+      "atMostRank": 3,
+      "because": "A's autobiographical turn is in A's store"
+    },
+    {
+      "id": "T10-A2",
+      "query": "q-a-asylum-wait",
+      "rememberer": "rho-a",
+      "require": "absent",
+      "ids": ["b-mortgage-wait", "b-mortgage-ack", "b-apex-goal", "b-sneakers-rack"],
+      "because": "NF3/M10: B's traces must be unreachable from A's persistence unit, including near-paraphrase of the gold sentence"
+    },
+    {
+      "id": "T10-A3",
+      "query": "q-collision-wait",
+      "rememberer": "rho-a",
+      "require": "absent",
+      "ids": ["b-mortgage-wait"],
+      "because": "Vague cue 'How long did I wait?' is the collision case. Isolation must not resolve it by scanning all rememberers"
+    },
+    {
+      "id": "T10-A4",
+      "query": "q-b-mortgage-wait",
+      "rememberer": "rho-b",
+      "require": "retrieved",
+      "ids": ["b-mortgage-wait"],
+      "atMostRank": 3,
+      "because": "Symmetric: B retrieves B"
+    },
+    {
+      "id": "T10-A5",
+      "query": "q-b-mortgage-wait",
+      "rememberer": "rho-b",
+      "require": "absent",
+      "ids": ["a-asylum-wait", "a-asylum-ack", "a-rent-budget"],
+      "because": "A is unreachable from B"
+    },
+    {
+      "id": "T10-A6",
+      "query": "q-b-asylum-should-abstain",
+      "rememberer": "rho-b",
+      "require": "absent",
+      "ids": ["a-asylum-wait"],
+      "because": "B was asked an asylum question. Correct engine behavior is empty-or-non-asylum traces from B, never A's gold line"
+    },
+    {
+      "id": "T10-A7",
+      "query": null,
+      "rememberer": null,
+      "require": "engine-property",
+      "property": "omitting-rememberer-does-not-union-stores",
+      "because": "M10: a missing ρ predicate must not expose B when the caller opened A's unit. Shared collection + WHERE rememberer=A is a fail even if tests A1-A6 happen to pass"
+    }
+  ],
+  "illegalSetups": [
+    "Single corpus.jsonl with a rememberer column and one HNSW / BM25 index",
+    "One SpectorMemory instance, two logical namespaces",
+    "Loading A then B into the same persistence directory"
+  ]
+}

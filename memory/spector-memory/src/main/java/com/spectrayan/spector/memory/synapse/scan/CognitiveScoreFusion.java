@@ -133,9 +133,7 @@ public final class CognitiveScoreFusion {
         }
 
         final float importanceNorm = importance / 10.0f;
-        final float impDecayFactor = (fusionMode == ScoreFusionMode.MULTIPLICATIVE)
-                ? (1.0f + beta * importance * decay * storageBoost)
-                : (1.0f + beta * importanceNorm * decay * storageBoost);
+        final float impDecayFactor = 1.0f + beta * importanceNorm * decay * storageBoost;
 
         float baseScore;
         if (fusionMode == ScoreFusionMode.ADDITIVE) {
@@ -159,11 +157,6 @@ public final class CognitiveScoreFusion {
 
         if (focusMatch && hyperfocusBoost != 1.0f) {
             finalScore *= hyperfocusBoost;
-        }
-
-        final int mType = memoryTypeOrdinal(flags);
-        if (mType == 1 || mType == 2) { // 1 = SEMANTIC, 2 = PROCEDURAL
-            finalScore *= 2.0f;
         }
 
         if (enableAssociativePrior && priorProvider != null) {

@@ -1,0 +1,23 @@
+id: mf-conformance-draft
+version: 0.1.0
+spec: MF-001 v1.0.0
+date: 2026-09-01
+tests:
+  - id: MF-T01
+    path: MF-T01-truncation-trap
+    section: "§10.1 truncation trap"
+    primary_query: q-book-london
+  - id: MF-T03
+    path: MF-T03-valence-window
+    section: "§10.3 valence window"
+    primary_queries: [q-what-went-wrong, q-what-i-enjoyed]
+  - id: MF-T10
+    path: MF-T10-isolation
+    section: "§10.10 isolation"
+    primary_queries: [q-a-asylum-wait, q-b-mortgage-wait, q-collision-wait]
+schema:
+  importance: {min: 0.05, max: 10.0}
+  valence: {min: -128, max: 127}
+  arousal: {min: 0, max: 127}
+  source: [experienced, distilled, simulated, rehearsed]
+evalAsOfMs: 1756700000000   # 2025-09-01 era; decay has had years to act on 2022-2023 traces

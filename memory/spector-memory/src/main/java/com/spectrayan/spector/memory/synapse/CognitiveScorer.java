@@ -164,10 +164,13 @@ public final class CognitiveScorer {
                 continue;
             }
 
-            // Phase 1c: Contradiction check (short-circuit: only read cFlags when filtering contradictions)
-            if (!options.includeContradictions()) {
+            // Phase 1c: Contradiction & simulation gating (NF7: default recall hard-gates simulated records)
+            if (!options.includeContradictions() || !options.allowSimulated()) {
                 final byte cFlags = segment.get(LAYOUT_CONSOLIDATION_FLAGS, offset + OFFSET_CONSOLIDATION_FLAGS);
-                if (isContradicted(cFlags)) {
+                if (!options.includeContradictions() && isContradicted(cFlags)) {
+                    continue;
+                }
+                if (!options.allowSimulated() && com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.isSimulated(cFlags)) {
                     continue;
                 }
             }
