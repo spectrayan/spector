@@ -118,25 +118,26 @@ public final class MfConformanceHarness {
         List<MfQuery> queries = loadQueries(fixtureDir.resolve("queries.jsonl"));
         Map<String, MfQuery> queryMap = queries.stream().collect(Collectors.toMap(MfQuery::id, q -> q));
 
-        // Create independent SpectorMemory instance
-        try (SpectorMemory memory = createMemoryInstance(fixtureDir.resolve("scratch-memory"))) {
+        Path tempDir = Files.createTempDirectory("spector-mf-store-");
+        // Create independent SpectorMemory instance backed by on-disk mmap storage
+        try (SpectorMemory memory = createMemoryInstance(tempDir)) {
             // Ingest all corpus records preserving exact headers
             ingestCorpus(memory, corpus);
 
             // Execute assertions
             return evaluateAssertions(testId, condition, expected, queryMap, memory, null, corpus);
+        } finally {
+            cleanupTempDir(tempDir);
         }
     }
 
     /**
-     * Runs MF-T10 Isolation fixture with independent in-memory persistence units for rho-a and rho-b.
+     * Runs MF-T10 Isolation fixture with independent persistent on-disk storage units for rho-a and rho-b.
      *
-     * <p><b>Scope &amp; Limitations (First CI Gate):</b><br>
-     * This test validates in-memory tenant isolation across separate {@link SpectorMemory} instances.
-     * It proves that distinct stores maintain segregated index maps and do not leak query results across
-     * scoped sessions. It does <em>not</em> yet validate on-disk mmap multi-tenant partition layout
-     * (e.g., single-directory root with multi-rememberer mmap segments or omitted &rho; on shared disk collections).
-     * Full on-disk NF3 / M10 storage layout verification is tracked as follow-up storage engine work.</p>
+     * <p><b>NF3 / M10 Multi-Tenant Persistence Validation:</b><br>
+     * This test validates on-disk tenant isolation across separate {@link SpectorMemory} persistent units.
+     * It proves that distinct stores maintain segregated on-disk index maps, write to separate directory
+     * roots, and do not leak query results across scoped sessions or open queries.</p>
      */
     private MfReport runIsolationFixture(Path fixtureDir, MfExpected expected, String condition) throws IOException {
         Path dirA = fixtureDir.resolve(expected.load().getOrDefault("rho-a", "rememberer_a/"));
@@ -152,9 +153,12 @@ public final class MfConformanceHarness {
         queriesA.forEach(q -> queryMap.put(q.id(), q));
         queriesB.forEach(q -> queryMap.put(q.id(), q));
 
-        // Two distinct, isolated in-memory persistence units (CI Gate)
-        try (SpectorMemory memoryA = createMemoryInstance(fixtureDir.resolve("scratch-store-a"));
-             SpectorMemory memoryB = createMemoryInstance(fixtureDir.resolve("scratch-store-b"))) {
+        Path tempDirA = Files.createTempDirectory("spector-mft10-store-a-");
+        Path tempDirB = Files.createTempDirectory("spector-mft10-store-b-");
+
+        // Two distinct, isolated on-disk persistence units (NF3 / M10)
+        try (SpectorMemory memoryA = createMemoryInstance(tempDirA);
+             SpectorMemory memoryB = createMemoryInstance(tempDirB)) {
 
             ingestCorpus(memoryA, corpusA);
             ingestCorpus(memoryB, corpusB);
@@ -168,15 +172,36 @@ public final class MfConformanceHarness {
             allCorpus.addAll(corpusB);
 
             return evaluateAssertions(expected.testId(), condition, expected, queryMap, memoryA, storeMap, allCorpus);
+        } finally {
+            cleanupTempDir(tempDirA);
+            cleanupTempDir(tempDirB);
         }
     }
 
     private SpectorMemory createMemoryInstance(Path storePath) {
-        // First CI gate uses IN_MEMORY mode; storePath is reserved for future persistent mmap testing
+        if (storePath != null) {
+            return SpectorMemoryBuilder.create()
+                    .persistenceMode(MemoryPersistenceMode.DISK)
+                    .persistence(storePath)
+                    .embeddingProvider(this.embedder)
+                    .build();
+        }
         return SpectorMemoryBuilder.create()
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
                 .embeddingProvider(this.embedder)
                 .build();
+    }
+
+    private static void cleanupTempDir(Path dir) {
+        if (dir == null || !Files.exists(dir)) return;
+        try (var stream = Files.walk(dir)) {
+            stream.sorted(Comparator.reverseOrder())
+                    .forEach(p -> {
+                        try {
+                            Files.deleteIfExists(p);
+                        } catch (Exception ignored) {}
+                    });
+        } catch (Exception ignored) {}
     }
 
     /**
