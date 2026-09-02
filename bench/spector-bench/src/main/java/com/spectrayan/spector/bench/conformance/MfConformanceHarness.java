@@ -50,14 +50,17 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.model.BigFiveTraits;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.PersonaContext;
 import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreFusionMode;
+import com.spectrayan.spector.memory.model.UserSoul;
 import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -118,9 +121,16 @@ public final class MfConformanceHarness {
         List<MfQuery> queries = loadQueries(fixtureDir.resolve("queries.jsonl"));
         Map<String, MfQuery> queryMap = queries.stream().collect(Collectors.toMap(MfQuery::id, q -> q));
 
+        MfPersona persona = null;
+        Path personaFile = fixtureDir.resolve("persona.json");
+        if (Files.exists(personaFile)) {
+            persona = loadPersona(personaFile);
+        }
+        UserSoul userSoul = createUserSoul(persona);
+
         Path tempDir = Files.createTempDirectory("spector-mf-store-");
-        // Create independent SpectorMemory instance backed by on-disk mmap storage
-        try (SpectorMemory memory = createMemoryInstance(tempDir)) {
+        // Create independent SpectorMemory instance backed by on-disk mmap storage and configured soul
+        try (SpectorMemory memory = createMemoryInstance(tempDir, userSoul)) {
             // Ingest all corpus records preserving exact headers
             ingestCorpus(memory, corpus);
 
@@ -153,12 +163,26 @@ public final class MfConformanceHarness {
         queriesA.forEach(q -> queryMap.put(q.id(), q));
         queriesB.forEach(q -> queryMap.put(q.id(), q));
 
+        MfPersona personaA = null;
+        Path personaFileA = dirA.resolve("persona.json");
+        if (Files.exists(personaFileA)) {
+            personaA = loadPersona(personaFileA);
+        }
+        UserSoul soulA = createUserSoul(personaA);
+
+        MfPersona personaB = null;
+        Path personaFileB = dirB.resolve("persona.json");
+        if (Files.exists(personaFileB)) {
+            personaB = loadPersona(personaFileB);
+        }
+        UserSoul soulB = createUserSoul(personaB);
+
         Path tempDirA = Files.createTempDirectory("spector-mft10-store-a-");
         Path tempDirB = Files.createTempDirectory("spector-mft10-store-b-");
 
-        // Two distinct, isolated on-disk persistence units (NF3 / M10)
-        try (SpectorMemory memoryA = createMemoryInstance(tempDirA);
-             SpectorMemory memoryB = createMemoryInstance(tempDirB)) {
+        // Two distinct, isolated on-disk persistence units (NF3 / M10) with distinct souls
+        try (SpectorMemory memoryA = createMemoryInstance(tempDirA, soulA);
+             SpectorMemory memoryB = createMemoryInstance(tempDirB, soulB)) {
 
             ingestCorpus(memoryA, corpusA);
             ingestCorpus(memoryB, corpusB);
@@ -178,18 +202,60 @@ public final class MfConformanceHarness {
         }
     }
 
-    private SpectorMemory createMemoryInstance(Path storePath) {
+    private SpectorMemory createMemoryInstance(Path storePath, UserSoul soul) {
+        SpectorMemoryBuilder builder = SpectorMemoryBuilder.create()
+                .embeddingProvider(this.embedder);
         if (storePath != null) {
-            return SpectorMemoryBuilder.create()
-                    .persistenceMode(MemoryPersistenceMode.DISK)
-                    .persistence(storePath)
-                    .embeddingProvider(this.embedder)
-                    .build();
+            builder.persistenceMode(MemoryPersistenceMode.DISK)
+                    .persistence(storePath);
+        } else {
+            builder.persistenceMode(MemoryPersistenceMode.IN_MEMORY);
         }
-        return SpectorMemoryBuilder.create()
-                .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .embeddingProvider(this.embedder)
+        if (soul != null) {
+            builder.soul(soul);
+        }
+        return builder.build();
+    }
+
+    private UserSoul createUserSoul(MfPersona persona) {
+        if (persona == null) return null;
+
+        BigFiveTraits b5 = null;
+        if (persona.bigFive() != null && !persona.bigFive().isEmpty()) {
+            double o = persona.bigFive().getOrDefault("openness", 0.5);
+            double c = persona.bigFive().getOrDefault("conscientiousness", 0.5);
+            double e = persona.bigFive().getOrDefault("extraversion", 0.5);
+            double a = persona.bigFive().getOrDefault("agreeableness", 0.5);
+            double n = persona.bigFive().getOrDefault("neuroticism", 0.5);
+            float oF = (float) (o <= 1.0 ? o * 100.0 : o);
+            float cF = (float) (c <= 1.0 ? c * 100.0 : c);
+            float eF = (float) (e <= 1.0 ? e * 100.0 : e);
+            float aF = (float) (a <= 1.0 ? a * 100.0 : a);
+            float nF = (float) (n <= 1.0 ? n * 100.0 : n);
+            b5 = new BigFiveTraits(oF, cF, eF, aF, nF);
+        }
+
+        String about = persona.lifeContext() != null && !persona.lifeContext().isBlank()
+                ? persona.lifeContext()
+                : (persona.soulRule() != null ? persona.soulRule() : "");
+
+        PersonaContext personaContext = PersonaContext.builder()
+                .occupation(persona.occupation())
+                .about(about)
+                .values(persona.likes() != null ? persona.likes() : List.of())
+                .fears(persona.dislikes() != null ? persona.dislikes() : List.of())
+                .aspirations(persona.interests() != null ? persona.interests() : List.of())
+                .bigFive(b5)
                 .build();
+
+        float[] identityVec = this.embedder.embed(about).vector();
+        return new UserSoul(
+                persona.rememberer() != null ? persona.rememberer() : "rho-a",
+                persona.name() != null ? persona.name() : "Persona",
+                persona.soulRule() != null ? persona.soulRule() : "",
+                personaContext,
+                identityVec
+        );
     }
 
     private static void cleanupTempDir(Path dir) {
