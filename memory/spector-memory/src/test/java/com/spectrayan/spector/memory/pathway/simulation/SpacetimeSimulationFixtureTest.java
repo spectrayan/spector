@@ -198,10 +198,11 @@ class SpacetimeSimulationFixtureTest {
             assertThat(standardResults).hasSize(1);
             assertThat(standardResults.get(0).header().timestampMs()).isEqualTo(wakingHeader.timestampMs());
 
-            // 2. Simulation / Prospective Recall (allowFuture = true) -> Admits Record 1
+            // 2. Simulation / Prospective Recall (allowFuture = true, allowSimulated = true) -> Admits Record 1
             final RecallOptions simOptions = RecallOptions.builder()
                     .topK(10)
                     .allowFuture(true)
+                    .allowSimulated(true)
                     .build();
 
             final List<ScoredRecord> simResults = CognitiveScorer.score(

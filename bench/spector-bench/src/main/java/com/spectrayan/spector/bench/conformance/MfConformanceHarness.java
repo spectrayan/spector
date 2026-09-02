@@ -253,7 +253,10 @@ public final class MfConformanceHarness {
                             "lowerId", assertion.lower(),
                             "lowerRank", rankLower > 0 ? rankLower : "ABSENT"
                     );
-                    if (rankHigher > 0 && (rankLower <= 0 || rankHigher < rankLower)) {
+                    boolean pass = assertion.soft()
+                            ? (rankHigher > 0 && (rankLower <= 0 || rankHigher < rankLower))
+                            : (rankHigher > 0 && rankLower > 0 && rankHigher < rankLower);
+                    if (pass) {
                         passed.add(assertionId);
                     } else {
                         failed.add(new MfReport.FailedAssertion(assertionId, got,
@@ -774,18 +777,7 @@ public final class MfConformanceHarness {
             } else if (t.endsWith("s") && !t.endsWith("ss") && t.length() > 3) {
                 t = t.substring(0, t.length() - 1);
             }
-            return switch (t) {
-                case "current", "currently", "now", "present", "presently" -> "current";
-                case "keep", "keeping", "kept", "store", "stored", "storing", "storage" -> "store";
-                case "sneaker", "sneakers", "shoe", "shoes" -> "shoe";
-                case "flight", "fly", "flying", "plane", "flights" -> "flight";
-                case "redeye", "red-eye", "red-eyes", "overnight" -> "redeye";
-                case "wait", "waiting", "waited" -> "wait";
-                case "asylum" -> "asylum";
-                case "mortgage" -> "mortgage";
-                case "refinance", "refi" -> "refinance";
-                default -> t;
-            };
+            return t;
         }
 
         @Override
