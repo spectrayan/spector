@@ -70,7 +70,12 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
      * @return a new recall signal
      */
     public static RecallSignal forTextQuery(final String rawQuery, final RecallOptions options) {
-        return new RecallSignal(rawQuery, null, options, System.currentTimeMillis());
+        long ts = options != null && options.replayTimestamp() != null
+                ? options.replayTimestamp().toEpochMilli()
+                : System.currentTimeMillis();
+        RecallSignal signal = new RecallSignal(rawQuery, null, options, ts);
+        signal.setQueryTimeMs(ts);
+        return signal;
     }
 
     /**
@@ -81,7 +86,12 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
      * @return a new recall signal
      */
     public static RecallSignal forVectorQuery(final float[] queryVector, final RecallOptions options) {
-        return new RecallSignal(null, queryVector, options, System.currentTimeMillis());
+        long ts = options != null && options.replayTimestamp() != null
+                ? options.replayTimestamp().toEpochMilli()
+                : System.currentTimeMillis();
+        RecallSignal signal = new RecallSignal(null, queryVector, options, ts);
+        signal.setQueryTimeMs(ts);
+        return signal;
     }
 
     @Override

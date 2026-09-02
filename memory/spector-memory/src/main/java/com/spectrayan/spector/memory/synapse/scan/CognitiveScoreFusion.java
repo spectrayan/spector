@@ -133,7 +133,9 @@ public final class CognitiveScoreFusion {
         }
 
         final float importanceNorm = importance / 10.0f;
-        final float impDecayFactor = 1.0f + beta * importanceNorm * decay * storageBoost;
+        final float impDecayFactor = (fusionMode == ScoreFusionMode.MULTIPLICATIVE)
+                ? (1.0f + beta * importance * decay * storageBoost)
+                : (1.0f + beta * importanceNorm * decay * storageBoost);
 
         float baseScore;
         if (fusionMode == ScoreFusionMode.ADDITIVE) {
