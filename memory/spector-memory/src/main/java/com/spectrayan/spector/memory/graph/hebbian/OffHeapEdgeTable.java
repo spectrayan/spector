@@ -219,17 +219,30 @@ final class OffHeapEdgeTable {
      * Prunes the weakest 10% of edges by weight. Must be called under writeLock.
      */
     private void pruneWeakest() {
-        if (count == 0) return;
-        int toPrune = Math.max(1, (int) (count * CoActivationLayout.PRUNE_FRACTION));
+        int occupied = 0;
+        for (int i = 0; i < capacity; i++) {
+            long offset = (long) i * SLOT_BYTES;
+            int flags = segment.get(ValueLayout.JAVA_INT, offset + OFF_FLAGS);
+            if ((flags & FLAG_OCCUPIED) != 0) {
+                occupied++;
+            }
+        }
+        this.count = occupied;
+        if (occupied == 0) return;
+        int toPrune = Math.max(1, (int) (occupied * CoActivationLayout.PRUNE_FRACTION));
 
-        float[] weights = new float[count];
+        float[] weights = new float[occupied];
         int idx = 0;
-        for (int i = 0; i < capacity && idx < count; i++) {
+        for (int i = 0; i < capacity && idx < occupied; i++) {
             long offset = (long) i * SLOT_BYTES;
             int flags = segment.get(ValueLayout.JAVA_INT, offset + OFF_FLAGS);
             if ((flags & FLAG_OCCUPIED) != 0) {
                 weights[idx++] = segment.get(ValueLayout.JAVA_FLOAT, offset + OFF_WEIGHT);
             }
+        }
+        if (idx == 0) {
+            this.count = 0;
+            return;
         }
         Arrays.sort(weights, 0, idx);
         float threshold = idx > toPrune ? weights[toPrune] : weights[0];
@@ -245,11 +258,10 @@ final class OffHeapEdgeTable {
                         segment.set(ValueLayout.JAVA_INT, offset + b, 0);
                     }
                     removed++;
-                    count--;
                 }
             }
         }
-
+        this.count = Math.max(0, occupied - removed);
         log.debug("Pruned {} weak STDP edges (remaining={})", removed, count);
     }
 

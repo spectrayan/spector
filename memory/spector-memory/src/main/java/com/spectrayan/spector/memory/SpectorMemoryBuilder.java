@@ -669,6 +669,21 @@ public final class SpectorMemoryBuilder {
         if (properties.getNodesPerPartition() > 0) {
             this.nodesPerPartition = properties.getNodesPerPartition();
         }
+        if (properties.getCoactivationPairCapacity() > 0) {
+            this.coactivationPairCapacity = properties.getCoactivationPairCapacity();
+        }
+        if (properties.getCoactivationEdgeCapacity() > 0) {
+            this.coactivationEdgeCapacity = properties.getCoactivationEdgeCapacity();
+        }
+        if (properties.getIndexMidxCapacity() > 0) {
+            this.indexMidxCapacity = properties.getIndexMidxCapacity();
+        }
+        if (properties.getTypeRegistryCapacity() > 0) {
+            this.typeRegistryCapacity = properties.getTypeRegistryCapacity();
+        }
+        if (properties.getEntityExtractionQueueCapacity() > 0) {
+            this.entityExtractionQueueCapacity = properties.getEntityExtractionQueueCapacity();
+        }
         this.useBundleMode = properties.isBundleMode();
         if (properties.getPersistencePath() != null && !properties.getPersistencePath().isBlank()) {
             this.persistencePath = java.nio.file.Path.of(properties.getPersistencePath());
