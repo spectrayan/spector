@@ -79,10 +79,9 @@ public record PartitionSummary(
      */
     public boolean hasRecordsFor(MemoryType[] targetTypes, CognitiveMemoryRouter router) {
         if (writable && router != null) {
-            boolean hasEpi = router.isEpisodicLogMode()
-                    ? (router.episodicLog() != null && router.episodicLog().writePosition() > 0)
-                    : (router.episodic() != null && router.episodic().visibleCount() > 0);
-            boolean hasStore = (router.semantic() != null || router.procedural() != null || router.isEpisodicLogMode() || router.episodic() != null);
+            boolean hasEpi = (router.episodicLog() != null && router.episodicLog().writePosition() > 0)
+                    || (router.episodic() != null && router.episodic().visibleCount() > 0);
+            boolean hasStore = (router.semantic() != null || router.procedural() != null || router.episodicLog() != null || router.episodic() != null);
             if (hasStore) {
                 if (targetTypes == null || targetTypes.length == 0) {
                     return (router.semantic() != null && router.semantic().visibleCount() > 0)
@@ -154,7 +153,7 @@ public record PartitionSummary(
         }
 
         // 2. Episodic store
-        if (router.isEpisodicLogMode() && router.episodicLog() != null) {
+        if (router.episodicLog() != null && router.episodicLog().writePosition() > 0) {
             long base = router.episodicLog().dataOffset();
             long limit = base + router.episodicLog().writePosition();
             long current = base;
@@ -174,7 +173,8 @@ public record PartitionSummary(
                 }
                 current += SynapticHeaderConstants.HEADER_BYTES + bodyLength;
             }
-        } else if (router.episodic() != null) {
+        }
+        if (router.episodic() != null && router.episodic().visibleCount() > 0) {
             for (EpisodicPartition part : router.episodic().partitions()) {
                 if (part.visibleCount() <= 0) continue;
                 MemorySegment segment = part.segment();

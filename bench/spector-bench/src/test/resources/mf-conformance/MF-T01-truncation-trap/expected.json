@@ -1,0 +1,63 @@
+{
+  "testId": "MF-T01",
+  "evalAsOfMs": 1756700000000,
+  "rememberer": "rho-a",
+  "notes": "The joke and the cheap-fare distilled card share more lexical/vector mass with 'book my flight to London' than the 2022 constraint. Fusion must still keep the constraint in the candidate set and above the joke. Cosine-then-rerank is expected to fail this file.",
+  "assertions": [
+    {
+      "id": "T01-A1",
+      "query": "q-book-london",
+      "require": "retrieved",
+      "ids": ["t-constraint-redeye"],
+      "atMostRank": 5,
+      "because": "M2 guaranteed access — high-I low-cosine constraint cannot be truncated"
+    },
+    {
+      "id": "T01-A2",
+      "query": "q-book-london",
+      "require": "outranks",
+      "higher": "t-constraint-redeye",
+      "lower": "t-joke-overnight-london",
+      "because": "Standing constraint I=9.4 must beat recent joke I=1.8"
+    },
+    {
+      "id": "T01-A3",
+      "query": "q-book-london",
+      "require": "absent",
+      "ids": ["t-simulated-redeye-ok"],
+      "because": "NF7 default recall hard-gates source=simulated"
+    },
+    {
+      "id": "T01-A4",
+      "query": "q-book-london-critical",
+      "require": "retrieved",
+      "ids": ["t-constraint-redeye", "t-morning-calls"],
+      "atMostRank": 5,
+      "because": "CRITICAL + minImportance=5.0 is a hard gate, not a post-filter after cosine"
+    },
+    {
+      "id": "T01-A5",
+      "query": "q-where-sneakers",
+      "require": "outranks",
+      "higher": "t-shoes-new-state",
+      "lower": "t-shoes-old-state",
+      "because": "Knowledge update: later high-urgency state outranks earlier low-I complaint"
+    },
+    {
+      "id": "T01-A6",
+      "query": "q-book-london",
+      "require": "absent-from-top",
+      "k": 3,
+      "ids": ["t-cheap-flights-blog"],
+      "soft": true,
+      "because": "Distilled fare trivia should not occupy ranks 1-3 ahead of the constraint; soft because lexical overlap is severe"
+    }
+  ],
+  "negativeControls": {
+    "cosineTopKThenRerank": {
+      "kGenerate": 5,
+      "expect": "FAIL T01-A1 or T01-A2",
+      "reason": "Constraint is old and lexically far from London; joke and fare card fill the generation window"
+    }
+  }
+}

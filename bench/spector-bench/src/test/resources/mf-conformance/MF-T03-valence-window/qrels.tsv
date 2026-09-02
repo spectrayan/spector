@@ -1,0 +1,11 @@
+query_id	corpus_id	relevance
+q-what-went-wrong	t-redeye-hurt	3
+q-what-went-wrong	t-asylum-wait	3
+q-what-went-wrong	t-sneakers-smell	1
+q-what-i-enjoyed	t-edgewater-joy	3
+q-what-i-enjoyed	t-jaffa-market	2
+q-what-i-enjoyed	t-closet-done	1
+q-asylum-wait	t-asylum-wait	3
+q-open-valence	t-asylum-wait	2
+q-open-valence	t-uncertainty-essay	1
+q-open-valence	t-wait-and-see-study	1

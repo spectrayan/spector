@@ -1,0 +1,19 @@
+{
+  "rememberer": "rho-a",
+  "name": "Alex Rivera",
+  "age": 41,
+  "occupation": "Product lead who takes morning customer calls",
+  "lifeContext": "Travels for work. Morning meetings are non-negotiable. Sleep debt wrecks the next day.",
+  "interests": ["reliable travel", "morning routines", "customer calls"],
+  "likes": ["daytime flights", "arriving the night before a meeting"],
+  "dislikes": ["red-eyes", "overnight connections", "arriving exhausted"],
+  "personalityTraits": ["conscientious", "low sensation-seeking on work trips"],
+  "bigFive": {
+    "conscientiousness": 0.82,
+    "neuroticism": 0.44,
+    "extraversion": 0.51,
+    "openness": 0.60,
+    "agreeableness": 0.55
+  },
+  "soulRule": "Standing constraints about bodily state and work-critical travel outrank jokes, price hunting, and recent chatter. Encode those constraints with I >= 8.5 and negative valence."
+}

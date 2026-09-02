@@ -159,11 +159,6 @@ public final class CognitiveScoreFusion {
             finalScore *= hyperfocusBoost;
         }
 
-        final int mType = memoryTypeOrdinal(flags);
-        if (mType == 1 || mType == 2) { // 1 = SEMANTIC, 2 = PROCEDURAL
-            finalScore *= 2.0f;
-        }
-
         if (enableAssociativePrior && priorProvider != null) {
             final float ag = priorProvider.priorFor(offset, recordTags, priorContext);
             if (fusionMode == ScoreFusionMode.ADDITIVE) {
