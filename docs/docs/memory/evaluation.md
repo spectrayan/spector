@@ -23,14 +23,7 @@ Evaluated with Panama off-heap storage (`HeaderLayout64`), AVX-512 SIMD vector c
 | **Phase 7: Global Workspace** | 40.30% | 38.24% | 52.88% | 4.51 ms | 4.82 ms | 5.19 ms | 31.6 QPS | Limited-capacity conscious workspace gateway attention filter. |
 | **Full AISME (All 7 Phases)** | 34.35% | 31.98% | 46.93% | 5.79 ms | 6.84 ms | 8.47 ms | **168.9 QPS** | Full generative self-model ($3.1\times$ throughput acceleration). |
 
-#### B. LongMemEval Benchmark (Full 500-Query Pooled Benchmark / 10,866 Records)
-| Retriever Mode | nDCG@10 | MRR@10 | Recall@10 | Latency $p_{50}$ | Latency $p_{95}$ | Latency $p_{99}$ | Throughput | Description |
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---|
-| **Baseline (Hybrid Search)** | 21.32% | **44.20%** | **18.27%** | 12.01 ms | 12.98 ms | 13.41 ms | 11.9 QPS | Baseline off-heap hybrid retrieval. |
-| **Phase 7: Global Workspace** | **21.79%** | 43.32% | 15.01% | **12.02 ms** | **12.92 ms** | **13.38 ms** | **82.9 QPS** | ⭐ **Top ranking fidelity** ($d = +0.092, p = 0.0397$, $7\times$ QPS). |
-| **Full AISME (All 7 Phases)** | 17.51% | 36.00% | 12.43% | 13.66 ms | 14.98 ms | 15.78 ms | **72.6 QPS** | Full generative self-model ($6.1\times$ throughput acceleration). |
-
-#### B.1. LongMemEval Single-Persona Longitudinal Slice (Sam Okonkwo — 51 Sessions / 514 Records / 10 Queries)
+#### B. LongMemEval Benchmark (Single-Persona Longitudinal Slice: Sam Okonkwo — 51 Sessions / 514 Records / 10 Queries)
 | Retriever Mode | nDCG@10 | MRR@10 | Recall@10 | Steady-State Latency ($p_{50}$) | Win / Tie / Loss vs Base | Effect Size vs Base | Description |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|:---|
 | **Baseline (Vector Only)** | 63.48% | 65.00% | 70.00% | ~3.5 ms | — | — | Raw cosine vector distance without cognitive fusion. |
@@ -42,7 +35,7 @@ Evaluated with Panama off-heap storage (`HeaderLayout64`), AVX-512 SIMD vector c
 > - **Primary Driver**: On this 10-query autobiographical slice, the primary retrieval lift is driven by hybrid BM25 + dense vector search ($d = +0.744, p = 0.0187$).
 > - **Cognitive Rescoring**: The cognitive pipeline yields an additional +3.15% nDCG gain over hybrid (1 win on `q_california_travel`, 9 ties/shared misses); on $n=10$ this incremental delta is statistically non-significant ($d = +0.316, p = 0.317$).
 > - **Subsystem Attribution**: Because entity/Hebbian/temporal graph definitions were not populated for this slice, all subsystem contributions registered 0.0%, confirming that benefits derive from hybrid scoring and importance filtering.
-> - **Needle-in-a-Haystack**: Unlike the 500-query pooled run (which introduces cross-tenant distractors from 300+ people), this slice demonstrates clean single-user recall. Expanding this methodology across all LongMemEval task categories and personas is ongoing.
+> - **Needle-in-a-Haystack**: Unlike pooled cross-user setups (which introduce cross-tenant distractors from 300+ people), this single-persona evaluation tests clean autobiographical recall within an individual's continuous history. Expanding this methodology across all LongMemEval task categories and personas is ongoing.
 
 #### C. Balanced-Baseline Large Corpus Benchmark (50,041 Records / 517 Queries)
 | Retriever Mode | nDCG@10 | MRR@10 | Recall@10 | Latency $p_{50}$ | Latency $p_{95}$ | Latency $p_{99}$ | Throughput | Description |
