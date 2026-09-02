@@ -129,7 +129,14 @@ public final class MfConformanceHarness {
     }
 
     /**
-     * Runs MF-T10 Isolation fixture with independent persistence units for rho-a and rho-b.
+     * Runs MF-T10 Isolation fixture with independent in-memory persistence units for rho-a and rho-b.
+     *
+     * <p><b>Scope &amp; Limitations (First CI Gate):</b><br>
+     * This test validates in-memory tenant isolation across separate {@link SpectorMemory} instances.
+     * It proves that distinct stores maintain segregated index maps and do not leak query results across
+     * scoped sessions. It does <em>not</em> yet validate on-disk mmap multi-tenant partition layout
+     * (e.g., single-directory root with multi-rememberer mmap segments or omitted &rho; on shared disk collections).
+     * Full on-disk NF3 / M10 storage layout verification is tracked as follow-up storage engine work.</p>
      */
     private MfReport runIsolationFixture(Path fixtureDir, MfExpected expected, String condition) throws IOException {
         Path dirA = fixtureDir.resolve(expected.load().getOrDefault("rho-a", "rememberer_a/"));
@@ -145,7 +152,7 @@ public final class MfConformanceHarness {
         queriesA.forEach(q -> queryMap.put(q.id(), q));
         queriesB.forEach(q -> queryMap.put(q.id(), q));
 
-        // Two distinct, isolated persistence units
+        // Two distinct, isolated in-memory persistence units (CI Gate)
         try (SpectorMemory memoryA = createMemoryInstance(fixtureDir.resolve("scratch-store-a"));
              SpectorMemory memoryB = createMemoryInstance(fixtureDir.resolve("scratch-store-b"))) {
 
@@ -165,6 +172,7 @@ public final class MfConformanceHarness {
     }
 
     private SpectorMemory createMemoryInstance(Path storePath) {
+        // First CI gate uses IN_MEMORY mode; storePath is reserved for future persistent mmap testing
         return SpectorMemoryBuilder.create()
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
                 .embeddingProvider(this.embedder)
@@ -321,6 +329,11 @@ public final class MfConformanceHarness {
         return -1;
     }
 
+    /**
+     * Verifies engine properties specified in fixture manifests.
+     * Note: This currently tests in-memory multi-instance index/query boundaries (first CI gate),
+     * not shared-directory mmap partition layouts.
+     */
     private boolean verifyEngineProperty(String property, Map<String, SpectorMemory> storeMap) {
         if ("omitting-rememberer-does-not-union-stores".equalsIgnoreCase(property)) {
             if (storeMap == null || storeMap.size() < 2) return true;
