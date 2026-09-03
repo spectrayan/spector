@@ -122,7 +122,7 @@ public final class CognitiveRetriever {
      * @param query the benchmark query containing profile and filter parameters
      * @return configured RecallOptions ready for execution
      */
-    RecallOptions buildOptions(BenchmarkQuery query) {
+    public RecallOptions buildOptions(BenchmarkQuery query) {
         RecallOptions.Builder builder = RecallOptions.builder()
                 .topK(10)
                 .recallMode(RecallMode.OBSERVE);
