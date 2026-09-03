@@ -15,7 +15,9 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -40,7 +42,7 @@ import com.spectrayan.spector.bench.cognitive.model.EntityRelation;
 import com.spectrayan.spector.bench.cognitive.model.HebbianEdgeDef;
 import com.spectrayan.spector.bench.cognitive.model.TemporalChainDef;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
-import com.spectrayan.spector.memory.DefaultSpectorMemory;
+
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
@@ -222,7 +224,8 @@ public final class BenchmarkSetup implements AutoCloseable {
             memoryProperties.setCoactivationEdgeCapacity(Math.max(50_000, corpusSize * 50));
         }
 
-        com.spectrayan.spector.memory.SpectorMemoryBuilder builder = DefaultSpectorMemory.builder()
+        com.spectrayan.spector.memory.SpectorMemoryBuilder builder =
+                com.spectrayan.spector.memory.config.SpectorMemoryConfigurator.builder(datasetProps)
                 .fromProperties(memoryProperties)
                 .bundleMode(true)
                 .usePathwayEngine(Boolean.parseBoolean(System.getProperty("spector.pathway.enabled", System.getProperty("usePathwayEngine", "true"))))
@@ -241,7 +244,8 @@ public final class BenchmarkSetup implements AutoCloseable {
                              datasetProps.getString("extraction.provider", null))));
             if ("NONE".equalsIgnoreCase(modeStr)) {
                 extractionMode = EntityExtractionMode.NONE;
-            } else if ("LLM".equalsIgnoreCase(modeStr) || "OLLAMA".equalsIgnoreCase(modeStr)) {
+            } else if ("LLM".equalsIgnoreCase(modeStr) || "OLLAMA".equalsIgnoreCase(modeStr)
+                    || "GOOGLE".equalsIgnoreCase(modeStr) || "GEMINI".equalsIgnoreCase(modeStr)) {
                 extractionMode = EntityExtractionMode.LLM;
             }
         }
@@ -249,10 +253,6 @@ public final class BenchmarkSetup implements AutoCloseable {
         builder.entityExtractionMode(extractionMode);
         if (extractionMode == EntityExtractionMode.CUSTOM) {
             builder.entityExtractor(customExtractor);
-        } else if (extractionMode == EntityExtractionMode.LLM) {
-            String model = datasetProps != null ? datasetProps.getString("spector.benchmark.extraction.model",
-                           datasetProps.getString("extraction.model", "llama3.1:latest")) : "llama3.1:latest";
-            builder.LlmProvider(com.spectrayan.spector.provider.ollama.OllamaLlmProvider.create(model));
         }
 
         if (aismeConfig != null) {
@@ -261,11 +261,10 @@ public final class BenchmarkSetup implements AutoCloseable {
             builder.aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(memoryProperties.getAisme()));
         }
 
-        float threshold = 0.40f;
-        String thresholdStr = System.getProperty("spector.benchmark.graphExpansionThreshold");
-        if (thresholdStr == null || thresholdStr.isBlank()) {
-            thresholdStr = System.getProperty("graphExpansionThreshold");
-        }
+        float threshold = memoryProperties.getGraphExpansionThreshold();
+        String thresholdStr = System.getProperty("spector.memory.graphExpansionThreshold",
+                System.getProperty("spector.benchmark.graphExpansionThreshold",
+                System.getProperty("graphExpansionThreshold")));
         if (thresholdStr != null && !thresholdStr.isBlank()) {
             try {
                 threshold = Float.parseFloat(thresholdStr);
@@ -277,7 +276,12 @@ public final class BenchmarkSetup implements AutoCloseable {
         }
 
         com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode expansionMode = com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.resolve();
-        if (datasetProps != null) {
+        if (memoryProperties.getGraphExpansionMode() != null && !memoryProperties.getGraphExpansionMode().isBlank()) {
+            try {
+                expansionMode = com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.valueOf(
+                        memoryProperties.getGraphExpansionMode().toUpperCase());
+            } catch (IllegalArgumentException ignored) {}
+        } else if (datasetProps != null) {
             String expModeStr = datasetProps.getString("spector.benchmark.retrieval.graph-expansion-mode",
                                 datasetProps.getString("retrieval.graph-expansion-mode",
                                 datasetProps.getString("spector.benchmark.retrieval.graph_expansion_mode",
@@ -317,7 +321,14 @@ public final class BenchmarkSetup implements AutoCloseable {
         }
 
         // Resolve persistence parameters
-        boolean useDisk = Boolean.parseBoolean(System.getProperty("spector.benchmark.persistence", "true"));
+        boolean useDisk = memoryProperties.getPersistenceMode() == com.spectrayan.spector.config.model.PersistenceMode.DISK
+                || Boolean.parseBoolean(System.getProperty("spector.benchmark.persistence", "true"));
+        String persistenceModeStr = datasetProps != null ? datasetProps.getString("spector.memory.persistence-mode", null) : null;
+        if ("EPHEMERAL".equalsIgnoreCase(System.getProperty("spector.memory.persistence-mode", persistenceModeStr))) {
+            useDisk = false;
+        } else if ("DISK".equalsIgnoreCase(System.getProperty("spector.memory.persistence-mode", persistenceModeStr))) {
+            useDisk = true;
+        }
         Path persistencePath = null;
         if (useDisk) {
             String sysPropPath = System.getProperty("spector.memory.persistence-path");
@@ -341,6 +352,17 @@ public final class BenchmarkSetup implements AutoCloseable {
                         // ignore config loading errors
                     }
                 }
+            }
+        }
+
+        boolean forceReingest = Boolean.parseBoolean(System.getProperty("spector.benchmark.forceReingest",
+                System.getProperty("forceReingest", "false")));
+        if (forceReingest && persistencePath != null && Files.exists(persistencePath)) {
+            log.info("Force reingestion enabled; purging existing persisted memory at {}", persistencePath);
+            try (var s = Files.walk(persistencePath)) {
+                s.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+            } catch (Exception e) {
+                log.warn("Failed to clean persistence path {}: {}", persistencePath, e.getMessage());
             }
         }
 
@@ -400,8 +422,7 @@ public final class BenchmarkSetup implements AutoCloseable {
             for (BenchmarkCorpusRecord record : corpus) {
                 var loc = memory.admin().index().locate(record.id());
                 if (loc != null) {
-                    int slotIdx = offsetToRecordIndex(loc, memory);
-                    idToSlot.put(record.id(), slotIdx);
+                    idToSlot.put(record.id(), loc.graphSlot());
                 } else {
                     log.warn("Record {} is in corpus but not found in pre-ingested memory index!", record.id());
                 }
@@ -427,11 +448,20 @@ public final class BenchmarkSetup implements AutoCloseable {
 
                     Set<String> effectiveTags = memIdToEffectiveTags.getOrDefault(record.id(), Set.of());
 
+                    MemorySource source = MemorySource.OBSERVED;
+                    if (record.text() != null) {
+                        if (record.text().startsWith("user:") || record.text().startsWith("User:")) {
+                            source = MemorySource.USER_STATED;
+                        } else if (record.text().startsWith("assistant:") || record.text().startsWith("Assistant:")) {
+                            source = MemorySource.INFERRED;
+                        }
+                    }
+
                     memory.remember(
                             record.id(),
                             record.text(),
                             record.memoryType(),
-                            MemorySource.OBSERVED,
+                            source,
                             context,
                             effectiveTags.toArray(String[]::new)
                     );
@@ -443,6 +473,14 @@ public final class BenchmarkSetup implements AutoCloseable {
                 }
             }
             log.info("Ingested {} of {} corpus records", idToSlot.size(), corpusSize);
+            // Reconstruct true slot mappings from index after ingestion
+            idToSlot.clear();
+            for (BenchmarkCorpusRecord record : corpus) {
+                var loc = memory.admin().index().locate(record.id());
+                if (loc != null) {
+                    idToSlot.put(record.id(), loc.graphSlot());
+                }
+            }
         }
 
         // Store for external access (subsystem contribution detection)

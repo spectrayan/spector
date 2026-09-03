@@ -163,11 +163,23 @@ public final class CognitiveRetriever {
             builder.textSearchMode(query.textSearchMode());
         }
 
-        String thresholdStr = System.getProperty("spector.benchmark.graphExpansionThreshold");
+        float graphThreshold = -1f;
+        if (datasetProps != null) {
+            graphThreshold = (float) datasetProps.getDouble("spector.memory.graph-expansion-threshold",
+                    datasetProps.getDouble("spector.memory.graph_expansion_threshold",
+                    datasetProps.getDouble("spector.benchmark.graphExpansionThreshold",
+                    datasetProps.getDouble("spector.benchmark.retrieval.graph-expansion-threshold", -1.0))));
+        }
+        String thresholdStr = System.getProperty("spector.memory.graphExpansionThreshold",
+                System.getProperty("spector.benchmark.graphExpansionThreshold",
+                System.getProperty("graphExpansionThreshold")));
         if (thresholdStr != null && !thresholdStr.isBlank()) {
             try {
-                builder.graphExpansionThreshold(Float.parseFloat(thresholdStr));
-            } catch (NumberFormatException ignored) { /* use RecallOptions default */ }
+                graphThreshold = Float.parseFloat(thresholdStr);
+            } catch (NumberFormatException ignored) {}
+        }
+        if (graphThreshold >= 0f) {
+            builder.graphExpansionThreshold(graphThreshold);
         }
 
         // Wire MMR reranking from spector-bench.yml with system property overrides

@@ -43,7 +43,7 @@ import com.spectrayan.spector.bench.conformance.model.MfQuery;
 import com.spectrayan.spector.bench.conformance.model.MfReport;
 import com.spectrayan.spector.bench.conformance.model.MfTimeWindow;
 import com.spectrayan.spector.bench.conformance.model.MfValenceWindow;
-import com.spectrayan.spector.memory.DefaultSpectorMemory;
+
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.cortex.MemorySource;

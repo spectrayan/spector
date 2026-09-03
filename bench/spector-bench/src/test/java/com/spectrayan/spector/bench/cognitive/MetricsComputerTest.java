@@ -274,4 +274,14 @@ class MetricsComputerTest {
         assertEquals(0.0, metrics.mrrAtK(ranked, qrels, 0));
         assertEquals(0.0, metrics.recallAtK(ranked, qrels, 0));
     }
+
+    @Test
+    void chunkAwareEvaluation_stripsChunkSuffixAndDeduplicates() {
+        List<String> ranked = List.of("d1::chunk-0", "d1::chunk-1", "d2#chunk-0");
+        Map<String, Integer> qrels = Map.of("d1", 3, "d2", 2);
+
+        assertEquals(1.0, metrics.ndcgAtK(ranked, qrels, 2), 1e-9);
+        assertEquals(1.0, metrics.mrrAtK(ranked, qrels, 2), 1e-9);
+        assertEquals(1.0, metrics.recallAtK(ranked, qrels, 2), 1e-9);
+    }
 }
