@@ -21,9 +21,11 @@ import sys
 import re
 from datetime import datetime, timezone
 
-DATASET_SRC_ORACLE = r"D:\git\spector-datasets\longmemeval\original\data\longmemeval_oracle.json"
-DATASET_SRC_S = r"D:\git\spector-datasets\longmemeval\original\data\longmemeval_s_cleaned.json"
-DATASET_DIR = r"D:\git\spector-datasets\longmemeval\data"
+from pathlib import Path
+_DATASETS_BASE = Path(os.environ.get("SPECTOR_DATASETS_DIR", Path(__file__).resolve().parents[2] / "spector-datasets"))
+DATASET_SRC_ORACLE = str(_DATASETS_BASE / "longmemeval" / "original" / "data" / "longmemeval_oracle.json")
+DATASET_SRC_S = str(_DATASETS_BASE / "longmemeval" / "original" / "data" / "longmemeval_s_cleaned.json")
+DATASET_DIR = str(_DATASETS_BASE / "longmemeval" / "data")
 
 def parse_date_to_ts(date_str: str) -> int:
     """Parse LongMemEval date strings like '2023/04/10 (Mon) 23:07' into timestamp ms."""

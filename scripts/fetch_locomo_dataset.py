@@ -20,8 +20,10 @@ import sys
 import re
 from datetime import datetime, timezone
 
-DATASET_SRC = r"D:\git\spector-datasets\locomo\original\data\locomo10.json"
-DATASET_DIR = r"D:\git\spector-datasets\locomo\data"
+from pathlib import Path
+_DATASETS_BASE = Path(os.environ.get("SPECTOR_DATASETS_DIR", Path(__file__).resolve().parents[2] / "spector-datasets"))
+DATASET_SRC = str(_DATASETS_BASE / "locomo" / "original" / "data" / "locomo10.json")
+DATASET_DIR = str(_DATASETS_BASE / "locomo" / "data")
 
 def parse_date_to_ts(date_str: str) -> int:
     """Parse date strings like '1:54 PM, 7 May, 2023' or '1:56 pm on 8 May, 2023' into timestamp ms."""

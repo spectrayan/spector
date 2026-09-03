@@ -21,8 +21,10 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 EXTRACTION_MODEL = "llama3.1:latest"
 EMBEDDING_MODEL = "nomic-embed-text:latest"
 
-DATASET_SRC = r"D:\git\spector-datasets\locomo\original\data\locomo10.json"
-DATASET_DIR = r"D:\git\spector-datasets\locomo\data"
+from pathlib import Path
+_DATASETS_BASE = Path(os.environ.get("SPECTOR_DATASETS_DIR", Path(__file__).resolve().parents[2] / "spector-datasets"))
+DATASET_SRC = str(_DATASETS_BASE / "locomo" / "original" / "data" / "locomo10.json")
+DATASET_DIR = str(_DATASETS_BASE / "locomo" / "data")
 CHECKPOINT_FILE = os.path.join(DATASET_DIR, "locomo_extraction_checkpoint.json")
 
 def query_ollama_json(prompt: str, model: str = EXTRACTION_MODEL, timeout: int = 15) -> dict:

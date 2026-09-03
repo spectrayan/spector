@@ -1,10 +1,14 @@
 # LoCoMo Benchmark Execution Script
 [CmdletBinding()]
 param(
-    [string]$DatasetDir = "D:\git\spector-datasets\locomo\data",
+    [string]$DatasetDir = "",
     [string]$OutputDir = "target\benchmark-results\locomo",
     [int]$TopK = 10
 )
+
+if (-not $DatasetDir) {
+    $DatasetDir = if ($env:LOCOMO_DATASET_DIR) { $env:LOCOMO_DATASET_DIR } else { Join-Path (Split-Path -Parent $PSScriptRoot) "..\spector-datasets\locomo\data" }
+}
 
 $ErrorActionPreference = "Stop"
 

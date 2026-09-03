@@ -194,8 +194,8 @@ def load_checkpoint(checkpoint_file: str) -> Dict[str, Dict[str, Any]]:
     return enriched
 
 def main():
-    parser = argparse.ArgumentParser(description="Enrich LoCoMo Benchmark Dataset with Full Cognitive Metadata")
-    parser.add_argument("--dataset-dir", type=str, default=r"D:\git\spector-datasets\locomo\data", help="Path to locomo data directory")
+    default_data_dir = os.environ.get("LOCOMO_DATA_DIR", str(Path(__file__).resolve().parents[2] / "spector-datasets" / "locomo" / "data"))
+    parser.add_argument("--dataset-dir", type=str, default=default_data_dir, help="Path to locomo data directory")
     parser.add_argument("--gemini-api-key", type=str, default="", help="Google Gemini API Key (or set GEMINI_API_KEY env)")
     parser.add_argument("--gemini-model", type=str, default="gemini-3.1-flash-lite", help="Gemini model name")
     parser.add_argument("--ollama-model", type=str, default="", help="Use local Ollama model if set (e.g. qwen3.5:latest)")

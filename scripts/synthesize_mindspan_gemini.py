@@ -40,22 +40,13 @@ from pathlib import Path
 
 random.seed(None)  # True randomness, not fixed seed
 
-# ---------------------------------------------------------------------------
-# Paths & Config
-# ---------------------------------------------------------------------------
-DATASET_DIR = Path("d:/git/spector-datasets/mindspan/data")
+DATASET_DIR = Path(os.environ.get("MINDSPAN_DATA_DIR", Path(__file__).resolve().parent.parent / "data"))
 DAILY_DIR = DATASET_DIR / "daily"
 DAILY_DIR.mkdir(parents=True, exist_ok=True)
 CHECKPOINT_FILE = DATASET_DIR / "synthesis_checkpoint.json"
 CONTINUITY_FILE = DATASET_DIR / "continuity_buffer.json"
 
-KEY_FILE = DATASET_DIR.parent / ".gemini_key"
-if not KEY_FILE.exists():
-    KEY_FILE = DATASET_DIR / ".gemini_key"
-if KEY_FILE.exists():
-    GEMINI_API_KEY = KEY_FILE.read_text(encoding="utf-8").strip()
-else:
-    GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 MODEL = "gemini-3.1-flash-lite"
 SSL_CTX = ssl._create_unverified_context()
@@ -63,7 +54,7 @@ TEMPERATURE = 0.85
 BATCH_SIZE = 7  # Weekly batches
 
 if not GEMINI_API_KEY:
-    print("ERROR: GEMINI_API_KEY not found. Set env var or place in mindspan/.gemini_key")
+    print("ERROR: GEMINI_API_KEY not found. Set env var GEMINI_API_KEY")
     sys.exit(1)
 
 # ---------------------------------------------------------------------------

@@ -1,10 +1,14 @@
 # LongMemEval Benchmark Execution Script
 [CmdletBinding()]
 param(
-    [string]$DatasetDir = "D:\git\spector-datasets\longmemeval\data",
+    [string]$DatasetDir = "",
     [string]$OutputDir = "target\benchmark-results\longmemeval",
     [int]$TopK = 10
 )
+
+if (-not $DatasetDir) {
+    $DatasetDir = if ($env:LONGMEMEVAL_DATASET_DIR) { $env:LONGMEMEVAL_DATASET_DIR } else { Join-Path (Split-Path -Parent $PSScriptRoot) "..\spector-datasets\longmemeval\data" }
+}
 
 $ErrorActionPreference = "Stop"
 

@@ -151,7 +151,7 @@ class McpToolsFunctionalTest {
         System.out.printf("  WORKING:    %d%n", memory.memoryCount(MemoryType.WORKING));
         System.out.printf("  PROCEDURAL: %d%n", memory.memoryCount(MemoryType.PROCEDURAL));
 
-        assertThat(total).as("Should have ingested memories from D:\\git").isGreaterThan(0);
+        assertThat(total).as("Should have ingested memories from workspace").isGreaterThan(0);
         assertThat(memory.memoryCount(MemoryType.SEMANTIC)).isGreaterThan(0);
     }
 

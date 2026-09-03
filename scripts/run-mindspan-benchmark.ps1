@@ -1,8 +1,8 @@
 # scripts/run-mindspan-benchmark.ps1
 # Runs the MindSpan 20-Year Multi-Session Longitudinal Cognitive Memory Benchmark
 param(
-    [string]$DatasetDir = "d:\git\spector-datasets\mindspan\data",
-    [string]$OutputDir = "d:\git\spector-datasets\mindspan\results",
+    [string]$DatasetDir = "",
+    [string]$OutputDir = "",
     [string]$GeminiApiKey = $(if ($env:GEMINI_API_KEY) { $env:GEMINI_API_KEY } else { "" }),
     [string]$GeminiModel = "gemini-3.1-flash-lite",
     [int]$TopK = 15,
@@ -10,6 +10,13 @@ param(
     [switch]$SmokeTestOnly,
     [int]$SmokeTestLimit = 5
 )
+
+if (-not $DatasetDir) {
+    $DatasetDir = if ($env:MINDSPAN_DATASET_DIR) { $env:MINDSPAN_DATASET_DIR } else { Join-Path (Split-Path -Parent $PSScriptRoot) "..\spector-datasets\mindspan\data" }
+}
+if (-not $OutputDir) {
+    $OutputDir = if ($env:MINDSPAN_OUTPUT_DIR) { $env:MINDSPAN_OUTPUT_DIR } else { Join-Path (Split-Path -Parent $PSScriptRoot) "..\spector-datasets\mindspan\results" }
+}
 
 $ErrorActionPreference = "Stop"
 

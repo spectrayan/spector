@@ -266,8 +266,8 @@ def process_session(session_id: str, turns: List[Dict[str, Any]], api_key: str, 
     return session_facts
 
 def main():
-    parser = argparse.ArgumentParser(description="Spector Session Consolidation — Concurrent Fact Distillation")
-    parser.add_argument("--dataset-dir", type=str, default=r"D:\git\spector-datasets\locomo\data")
+    default_data_dir = os.environ.get("LOCOMO_DATA_DIR", str(Path(__file__).resolve().parents[2] / "spector-datasets" / "locomo" / "data"))
+    parser.add_argument("--dataset-dir", type=str, default=default_data_dir)
     parser.add_argument("--gemini-api-key", type=str, default="")
     parser.add_argument("--gemini-model", type=str, default="gemini-3.1-flash-lite")
     parser.add_argument("--concurrency", type=int, default=8, help="Number of concurrent worker threads (default: 8)")

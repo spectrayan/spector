@@ -288,6 +288,6 @@ class AudioIngestionE2ETest {
         if (Files.exists(local)) return local;
         Path parent = Path.of("../spector-ingestion/src/test/resources", relativePath);
         if (Files.exists(parent)) return parent;
-        return Path.of("d:/git/spector/memory/spector-ingestion/src/test/resources", relativePath);
+        return parent;
     }
 }

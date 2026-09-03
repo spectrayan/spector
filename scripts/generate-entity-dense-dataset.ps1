@@ -6,9 +6,10 @@
 # ═══════════════════════════════════════════════════════════════
 
 $ErrorActionPreference = "Stop"
-$projectRoot = "d:\git\spector"
-$PersonaFile = "d:\git\spector-datasets\entity-dense-baseline\data\persona.json"
-$OutputDir   = "d:\git\spector-datasets\entity-dense-baseline\data"
+$projectRoot = Split-Path -Parent $PSScriptRoot
+$DatasetsBase = if ($env:SPECTOR_DATASETS_DIR) { $env:SPECTOR_DATASETS_DIR } else { (Join-Path (Split-Path -Parent $projectRoot) "spector-datasets") }
+$PersonaFile = Join-Path $DatasetsBase "entity-dense-baseline\data\persona.json"
+$OutputDir   = Join-Path $DatasetsBase "entity-dense-baseline\data"
 $Model       = "qwen3.5"
 $CorpusSize  = 10000
 $NumDays     = 400
