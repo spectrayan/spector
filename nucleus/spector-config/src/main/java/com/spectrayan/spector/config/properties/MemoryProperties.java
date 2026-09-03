@@ -60,6 +60,14 @@ public class MemoryProperties implements Serializable {
     private long typeRegistrySize = DEFAULT_MEMORY_TYPE_REGISTRY_SIZE;
     private long insulaSize = DEFAULT_MEMORY_INSULA_SIZE;
 
+    private String graphExpansionMode = DEFAULT_MEMORY_GRAPH_EXPANSION_MODE;
+    private float graphExpansionThreshold = DEFAULT_MEMORY_GRAPH_EXPANSION_THRESHOLD;
+    private boolean enableMmr = DEFAULT_MEMORY_RETRIEVAL_ENABLE_MMR;
+    private float mmrLambda = DEFAULT_MEMORY_RETRIEVAL_MMR_LAMBDA;
+    private boolean schedulerEnabled = DEFAULT_MEMORY_SCHEDULER_ENABLED;
+    private boolean wanderEnabled = DEFAULT_MEMORY_WANDER_ENABLED;
+    private boolean dreamEnabled = DEFAULT_MEMORY_DREAM_ENABLED;
+
     private DecayProperties decay = new DecayProperties();
     private ConsolidationProperties consolidation = new ConsolidationProperties();
     private LlmProperties llm = new LlmProperties();
@@ -285,4 +293,38 @@ public class MemoryProperties implements Serializable {
         if (aisme != null) this.aisme = aisme;
     }
     public AismeProperties aisme() { return getAisme(); }
+
+    public String getGraphExpansionMode() { return graphExpansionMode; }
+    public void setGraphExpansionMode(String graphExpansionMode) {
+        if (graphExpansionMode != null && !graphExpansionMode.isBlank()) {
+            this.graphExpansionMode = graphExpansionMode;
+        }
+    }
+    public String graphExpansionMode() { return graphExpansionMode; }
+
+    public float getGraphExpansionThreshold() { return graphExpansionThreshold; }
+    public void setGraphExpansionThreshold(float graphExpansionThreshold) {
+        this.graphExpansionThreshold = graphExpansionThreshold;
+    }
+    public float graphExpansionThreshold() { return graphExpansionThreshold; }
+
+    public boolean isEnableMmr() { return enableMmr; }
+    public void setEnableMmr(boolean enableMmr) { this.enableMmr = enableMmr; }
+    public boolean enableMmr() { return enableMmr; }
+
+    public float getMmrLambda() { return mmrLambda; }
+    public void setMmrLambda(float mmrLambda) { this.mmrLambda = mmrLambda; }
+    public float mmrLambda() { return mmrLambda; }
+
+    public boolean isSchedulerEnabled() { return schedulerEnabled; }
+    public void setSchedulerEnabled(boolean schedulerEnabled) { this.schedulerEnabled = schedulerEnabled; }
+    public boolean schedulerEnabled() { return schedulerEnabled; }
+
+    public boolean isWanderEnabled() { return wanderEnabled; }
+    public void setWanderEnabled(boolean wanderEnabled) { this.wanderEnabled = wanderEnabled; }
+    public boolean wanderEnabled() { return wanderEnabled; }
+
+    public boolean isDreamEnabled() { return dreamEnabled; }
+    public void setDreamEnabled(boolean dreamEnabled) { this.dreamEnabled = dreamEnabled; }
+    public boolean dreamEnabled() { return dreamEnabled; }
 }

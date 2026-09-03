@@ -25,6 +25,7 @@ import org.apache.commons.configuration2.MapConfiguration;
 import org.apache.commons.configuration2.PropertiesConfiguration;
 import org.apache.commons.configuration2.YAMLConfiguration;
 import org.apache.commons.configuration2.ex.ConfigurationException;
+import org.apache.commons.configuration2.interpol.DefaultLookups;
 import org.apache.commons.configuration2.tree.OverrideCombiner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -332,7 +333,7 @@ public final class SpectorProperties {
         String envValue = System.getenv(envKey);
         if (envValue != null) return envValue;
 
-        // 3. Configuration file
+        // 3. Configuration file (variable interpolation handled natively by Commons Configuration 2)
         String configValue = config.getString(key, null);
         return configValue != null ? configValue : defaultValue;
     }
@@ -417,6 +418,7 @@ public final class SpectorProperties {
          */
         public SpectorProperties build() {
             CombinedConfiguration combined = new CombinedConfiguration(new OverrideCombiner());
+            configureInterpolator(combined);
 
             // 1. Programmatic overrides (highest priority)
             if (!overrides.isEmpty()) {
@@ -461,6 +463,7 @@ public final class SpectorProperties {
                     String fileName = path.getFileName().toString();
                     if (fileName.endsWith(".yml") || fileName.endsWith(".yaml")) {
                         YAMLConfiguration yaml = new YAMLConfiguration();
+                        configureInterpolator(yaml);
                         try (Reader reader = Files.newBufferedReader(path)) {
                             yaml.read(reader);
                         }
@@ -468,6 +471,7 @@ public final class SpectorProperties {
                         log.debug("[SpectorProperties] Loaded YAML: {}", path.toAbsolutePath());
                     } else if (fileName.endsWith(".properties")) {
                         PropertiesConfiguration props = new PropertiesConfiguration();
+                        configureInterpolator(props);
                         try (Reader reader = Files.newBufferedReader(path)) {
                             props.read(reader);
                         }
@@ -491,6 +495,7 @@ public final class SpectorProperties {
             if (Files.isRegularFile(path)) {
                 try {
                     PropertiesConfiguration props = new PropertiesConfiguration();
+                    configureInterpolator(props);
                     try (Reader reader = Files.newBufferedReader(path)) {
                         props.read(reader);
                     }
@@ -506,12 +511,20 @@ public final class SpectorProperties {
             try (InputStream is = SpectorProperties.class.getClassLoader().getResourceAsStream(resource)) {
                 if (is != null) {
                     YAMLConfiguration yaml = new YAMLConfiguration();
+                    configureInterpolator(yaml);
                     yaml.read(new java.io.InputStreamReader(is));
                     combined.addConfiguration(yaml, name);
                     log.debug("[SpectorProperties] Loaded classpath: {}", resource);
                 }
             } catch (ConfigurationException | IOException e) {
                 log.warn("[SpectorProperties] Failed to load classpath {}: {}", resource, e.getMessage());
+            }
+        }
+
+        private static void configureInterpolator(Configuration config) {
+            if (config instanceof org.apache.commons.configuration2.AbstractConfiguration ac) {
+                ac.getInterpolator().addDefaultLookup(DefaultLookups.ENVIRONMENT.getLookup());
+                ac.getInterpolator().addDefaultLookup(DefaultLookups.SYSTEM_PROPERTIES.getLookup());
             }
         }
     }

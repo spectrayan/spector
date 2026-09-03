@@ -190,6 +190,22 @@ public final class SpectorConfigFactory {
         var aisme = aismeProperties(props);
         properties.setAisme(aisme);
 
+        properties.setGraphExpansionMode(props.getString(MEMORY_GRAPH_EXPANSION_MODE,
+                props.getString(GRAPH_EXPANSION_MODE_PROPERTY, DEFAULT_MEMORY_GRAPH_EXPANSION_MODE)));
+        properties.setGraphExpansionThreshold((float) props.getDouble(MEMORY_GRAPH_EXPANSION_THRESHOLD,
+                props.getDouble(MEMORY_GRAPH_EXPANSION_THRESHOLD_CAMEL,
+                props.getDouble(GRAPH_EXPANSION_THRESHOLD_PROPERTY,
+                props.getDouble(GRAPH_EXPANSION_THRESHOLD_BENCH_ALIAS, DEFAULT_MEMORY_GRAPH_EXPANSION_THRESHOLD)))));
+
+        properties.setEnableMmr(props.getBoolean(MEMORY_RETRIEVAL_ENABLE_MMR,
+                props.getBoolean("spector.memory.enable-mmr", DEFAULT_MEMORY_RETRIEVAL_ENABLE_MMR)));
+        properties.setMmrLambda((float) props.getDouble(MEMORY_RETRIEVAL_MMR_LAMBDA,
+                props.getDouble("spector.memory.mmr-lambda", DEFAULT_MEMORY_RETRIEVAL_MMR_LAMBDA)));
+
+        properties.setSchedulerEnabled(props.getBoolean(MEMORY_SCHEDULER_ENABLED, DEFAULT_MEMORY_SCHEDULER_ENABLED));
+        properties.setWanderEnabled(props.getBoolean(MEMORY_WANDER_ENABLED, DEFAULT_MEMORY_WANDER_ENABLED));
+        properties.setDreamEnabled(props.getBoolean(MEMORY_DREAM_ENABLED, DEFAULT_MEMORY_DREAM_ENABLED));
+
         return properties;
     }
 
