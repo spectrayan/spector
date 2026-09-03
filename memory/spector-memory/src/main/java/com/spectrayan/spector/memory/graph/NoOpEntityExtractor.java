@@ -34,6 +34,6 @@ public final class NoOpEntityExtractor implements EntityExtractor {
 
     @Override
     public boolean isAvailable() {
-        return false;
+        return true;
     }
 }
