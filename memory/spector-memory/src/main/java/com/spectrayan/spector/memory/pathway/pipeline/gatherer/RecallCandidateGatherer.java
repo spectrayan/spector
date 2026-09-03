@@ -85,11 +85,12 @@ public class RecallCandidateGatherer {
             }
         }
 
+        float bm25Weight = 1.5f;
         Set<String> bm25Seen = new java.util.HashSet<>(bm25Hits.size());
         for (int i = 0; i < bm25Hits.size(); i++) {
             String id = bm25Hits.get(i).id();
             if (id != null && bm25Seen.add(id)) {
-                float rrfContribution = (1.0f / (RRF_K + (i + 1))) * 1.5f;
+                float rrfContribution = (1.0f / (RRF_K + (i + 1))) * bm25Weight;
                 rrfScores.merge(id, rrfContribution, Float::sum);
             }
         }
@@ -102,7 +103,8 @@ public class RecallCandidateGatherer {
 
             if (existing != null) {
                 float tierBoost = (existing.memoryType() == MemoryType.SEMANTIC || existing.memoryType() == MemoryType.PROCEDURAL) ? 2.0f : 1.0f;
-                vectorResults.add(existing.withScore(rrfScore * tierBoost));
+                float provenanceBoost = existing.source() != null ? (0.8f + 0.2f * existing.source().confidenceWeight()) : 1.0f;
+                vectorResults.add(existing.withScore(rrfScore * tierBoost * provenanceBoost));
             } else if (index != null) {
                 MemoryIndex.MemoryLocation loc = index.locate(id);
                 if (loc == null) continue;
@@ -163,8 +165,9 @@ public class RecallCandidateGatherer {
                         : SourceModality.TEXT;
 
                 float tierBoost = (type == MemoryType.SEMANTIC || type == MemoryType.PROCEDURAL) ? 2.0f : 1.0f;
+                float provenanceBoost = source != null ? (0.8f + 0.2f * source.confidenceWeight()) : 1.0f;
                 vectorResults.add(new CognitiveResult(
-                        id, text, rrfScore * tierBoost, importance, ageDays,
+                        id, text, rrfScore * tierBoost * provenanceBoost, importance, ageDays,
                         recallCount, valence, type, source,
                         tags, 1.0f, 1.0f, CognitiveResult.RetrievalMode.STANDARD, null, null,
                         bm25Modality, bm25Meta, (byte) 0, ts));

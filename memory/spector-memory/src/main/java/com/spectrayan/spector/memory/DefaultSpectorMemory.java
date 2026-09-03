@@ -237,7 +237,7 @@ import com.spectrayan.spector.memory.namespace.NamespaceQuotas;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
-import com.spectrayan.spector.commons.TextChunker;
+
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -50,7 +50,7 @@ import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
 import com.spectrayan.spector.memory.api.CognitiveProfileConfig;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 
-import com.spectrayan.spector.commons.TextChunker;
+
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
@@ -365,6 +365,7 @@ public final class SpectorMemoryBuilder {
     public SpectorMemoryBuilder valenceLearningRate(float r) { this.valenceLearningRate = r; return this; }
     public SpectorMemoryBuilder deduplicationRadius(float r) { this.deduplicationRadius = r; return this; }
     public SpectorMemoryBuilder LlmProvider(LlmProvider p) { this.LlmProvider = p; return this; }
+    public SpectorMemoryBuilder llmProvider(LlmProvider p) { return LlmProvider(p); }
     public SpectorMemoryBuilder quantizer(ScalarQuantizer quantizer) { this.quantizer = quantizer; return this; }
 
     /** Optional HNSW/IVF index for fused semantic recall (default: null = header-only fallback). */
@@ -693,6 +694,25 @@ public final class SpectorMemoryBuilder {
         }
         if (properties.getAisme() != null) {
             this.aismeConfig = com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(properties.getAisme());
+        }
+        if (properties.getGraphExpansionMode() != null) {
+            try {
+                com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode mode =
+                        com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.valueOf(
+                                properties.getGraphExpansionMode().toUpperCase(java.util.Locale.ROOT));
+                this.graphScoringPolicy = new com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy(
+                        graphScoringPolicy.causalBoostWeight(),
+                        graphScoringPolicy.hebbianBoostFactor(),
+                        graphScoringPolicy.temporalForwardFactor(),
+                        graphScoringPolicy.temporalBackwardFactor(),
+                        graphScoringPolicy.entityHopAttenuation(),
+                        graphScoringPolicy.hebbianMaxDepth(),
+                        graphScoringPolicy.temporalMaxHops(),
+                        graphScoringPolicy.entityMaxHops(),
+                        properties.getGraphExpansionThreshold(),
+                        mode
+                );
+            } catch (Exception ignored) {}
         }
         return this;
     }

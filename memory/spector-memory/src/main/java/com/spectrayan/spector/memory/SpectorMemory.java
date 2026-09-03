@@ -827,5 +827,34 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
     /** Closes the memory system and persists data. */
     @Override
     void close();
+
+    /**
+     * Creates a new fluent {@link SpectorMemoryBuilder}.
+     *
+     * @return a new memory builder instance
+     */
+    static SpectorMemoryBuilder builder() {
+        return new SpectorMemoryBuilder();
+    }
+
+    /**
+     * Loads and configures a {@link SpectorMemory} instance from a configuration file.
+     *
+     * @param configFile path to the YAML or properties configuration file
+     * @return fully configured SpectorMemory instance
+     */
+    static SpectorMemory fromConfig(java.nio.file.Path configFile) {
+        return com.spectrayan.spector.memory.config.SpectorMemoryConfigurator.configure(configFile);
+    }
+
+    /**
+     * Configures a {@link SpectorMemory} instance from {@link com.spectrayan.spector.config.SpectorProperties}.
+     *
+     * @param properties typed properties object
+     * @return fully configured SpectorMemory instance
+     */
+    static SpectorMemory fromProperties(com.spectrayan.spector.config.SpectorProperties properties) {
+        return com.spectrayan.spector.memory.config.SpectorMemoryConfigurator.configure(properties);
+    }
 }
 
