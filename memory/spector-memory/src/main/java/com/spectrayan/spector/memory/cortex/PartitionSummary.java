@@ -174,7 +174,7 @@ public record PartitionSummary(
                 current += SynapticHeaderConstants.HEADER_BYTES + bodyLength;
             }
         }
-        if (router.episodic() != null && router.episodic().visibleCount() > 0) {
+        if (router.episodic() != null && router.episodicLog() == null && router.episodic().visibleCount() > 0) {
             for (EpisodicPartition part : router.episodic().partitions()) {
                 if (part.visibleCount() <= 0) continue;
                 MemorySegment segment = part.segment();

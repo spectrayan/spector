@@ -14,12 +14,16 @@ package com.spectrayan.spector.memory.graph;
 
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout;
+import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -129,6 +133,23 @@ public final class GraphEnrichmentDaemon {
      * @return number of memories successfully enriched
      */
     public int enrichBatch(int limit) {
+        return enrichBatch(limit, null, 1);
+    }
+
+    public int enrichBatch(int limit, MemoryType targetType) {
+        return enrichBatch(limit, targetType, 1);
+    }
+
+    /**
+     * Enriches a batch of unenriched memories asynchronously, optionally filtering by memory tier
+     * and parallelizing extraction across the specified number of worker threads.
+     *
+     * @param limit maximum memories to process in this batch
+     * @param targetType optional memory type filter (null for all tiers)
+     * @param concurrency number of concurrent worker threads for LLM extraction (>= 1)
+     * @return number of memories successfully enriched
+     */
+    public int enrichBatch(int limit, MemoryType targetType, int concurrency) {
         if (index == null || entityExtractor == null || entityDirectory == null || !entityExtractor.isAvailable()) {
             return 0;
         }
@@ -139,7 +160,7 @@ public final class GraphEnrichmentDaemon {
         }
 
         long startNs = System.nanoTime();
-        int enrichedCount = 0;
+        AtomicInteger enrichedCount = new AtomicInteger(0);
         lastError = null;
 
         try {
@@ -149,6 +170,7 @@ public final class GraphEnrichmentDaemon {
             for (String id : index.allIds()) {
                 var loc = index.locate(id);
                 if (loc == null) continue;
+                if (targetType != null && loc.type() != targetType) continue;
                 int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
                 if (!entityDirectory.hasMemoryRefOptimistic(slot)) {
                     candidateIds.add(id);
@@ -163,28 +185,22 @@ public final class GraphEnrichmentDaemon {
                 return 0;
             }
 
-            log.info("[GraphEnricher] Starting enrichment batch of {} memories (total candidates: {})",
-                    candidateIds.size(), candidateIds.size());
+            int nThreads = Math.max(1, Math.min(concurrency, candidateIds.size()));
+            log.info("[GraphEnricher] Starting enrichment batch of {} memories with {} workers (total candidates: {})",
+                    candidateIds.size(), nThreads, candidateIds.size());
 
-            for (String id : candidateIds) {
-                var loc = index.locate(id);
-                if (loc == null) continue;
-                String text = index.text(id);
-                if (text == null || text.isBlank()) continue;
-
-                int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
-
-                try {
-                    List<ExtractedEntity> entities = entityExtractor.extract(id, text);
-                    if (entities != null && !entities.isEmpty()) {
-                        populateEntities(entities, slot, id);
-                        syncTemporalFacts(entities, slot, id, System.currentTimeMillis() / 1000L);
-                        enrichedCount++;
-                    }
-                } catch (Exception e) {
-                    log.warn("[GraphEnricher] Failed to extract entities for '{}': {}", id, e.getMessage());
-                    lastError = e.getMessage();
+            if (nThreads <= 1) {
+                for (String id : candidateIds) {
+                    processCandidate(id, enrichedCount);
                 }
+            } else {
+                ExecutorService pool = Executors.newFixedThreadPool(nThreads);
+                List<CompletableFuture<Void>> futures = new ArrayList<>(candidateIds.size());
+                for (String id : candidateIds) {
+                    futures.add(CompletableFuture.runAsync(() -> processCandidate(id, enrichedCount), pool));
+                }
+                CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
+                pool.shutdown();
             }
 
         } finally {
@@ -192,13 +208,35 @@ public final class GraphEnrichmentDaemon {
             inProgress.set(false);
         }
 
-        if (enrichedCount > 0 && graphFacade != null) {
+        int count = enrichedCount.get();
+        if (count > 0 && graphFacade != null) {
             graphFacade.invalidateCache();
         }
 
         log.info("[GraphEnricher] Completed enrichment batch: {} memories enriched in {}ms",
-                enrichedCount, lastRunDurationMs.get());
-        return enrichedCount;
+                count, lastRunDurationMs.get());
+        return count;
+    }
+
+    private void processCandidate(String id, AtomicInteger enrichedCount) {
+        var loc = index.locate(id);
+        if (loc == null) return;
+        String text = index.text(id);
+        if (text == null || text.isBlank()) return;
+
+        int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
+
+        try {
+            List<ExtractedEntity> entities = entityExtractor.extract(id, text);
+            if (entities != null && !entities.isEmpty()) {
+                populateEntities(entities, slot, id);
+                syncTemporalFacts(entities, slot, id, System.currentTimeMillis() / 1000L);
+                enrichedCount.incrementAndGet();
+            }
+        } catch (Exception e) {
+            log.warn("[GraphEnricher] Failed to extract entities for '{}': {}", id, e.getMessage());
+            lastError = e.getMessage();
+        }
     }
 
     /**
@@ -226,6 +264,23 @@ public final class GraphEnrichmentDaemon {
      * @return number of memories successfully re-extracted
      */
     public int reextractBatch(int limit) {
+        return reextractBatch(limit, null, 1);
+    }
+
+    public int reextractBatch(int limit, MemoryType targetType) {
+        return reextractBatch(limit, targetType, 1);
+    }
+
+    /**
+     * Re-extracts entities and relationships for a batch of memories, overwriting
+     * existing graph data, optionally filtering by memory tier and parallelizing extraction.
+     *
+     * @param limit maximum memories to process in this batch
+     * @param targetType optional memory type filter (null for all tiers)
+     * @param concurrency number of concurrent worker threads for LLM extraction (>= 1)
+     * @return number of memories successfully re-extracted
+     */
+    public int reextractBatch(int limit, MemoryType targetType, int concurrency) {
         if (index == null || entityExtractor == null || entityDirectory == null || !entityExtractor.isAvailable()) {
             return 0;
         }
@@ -236,7 +291,7 @@ public final class GraphEnrichmentDaemon {
         }
 
         long startNs = System.nanoTime();
-        int reextractedCount = 0;
+        AtomicInteger reextractedCount = new AtomicInteger(0);
         lastError = null;
 
         try {
@@ -245,7 +300,7 @@ public final class GraphEnrichmentDaemon {
 
             for (String id : index.allIds()) {
                 var loc = index.locate(id);
-                if (loc != null) {
+                if (loc != null && (targetType == null || loc.type() == targetType)) {
                     candidateIds.add(id);
                     if (candidateIds.size() >= effectiveLimit) {
                         break;
@@ -258,51 +313,22 @@ public final class GraphEnrichmentDaemon {
                 return 0;
             }
 
-            log.info("[GraphEnricher] Starting re-extraction batch of {} memories", candidateIds.size());
+            int nThreads = Math.max(1, Math.min(concurrency, candidateIds.size()));
+            log.info("[GraphEnricher] Starting re-extraction batch of {} memories with {} workers",
+                    candidateIds.size(), nThreads);
 
-            for (int i = 0; i < candidateIds.size(); i++) {
-                String id = candidateIds.get(i);
-                if (i > 0 && i % 10 == 0) {
-                    log.info("[GraphEnricher] Re-extraction progress: {}/{}", i, candidateIds.size());
+            if (nThreads <= 1) {
+                for (String id : candidateIds) {
+                    reextractCandidate(id, reextractedCount);
                 }
-                var loc = index.locate(id);
-                if (loc == null) continue;
-                String text = index.text(id);
-                if (text == null || text.isBlank()) continue;
-
-                int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
-
-                try {
-                    // 1. Unlink existing entity references for this memory
-                    entityDirectory.unlinkMemory(slot);
-
-                    // 2. TKG cleanup if possible
-                    if (temporalKnowledgeGraph != null) {
-                        try {
-                            var retractMethod = temporalKnowledgeGraph.getClass().getMethod("retractFactsForMemory", int.class);
-                            retractMethod.invoke(temporalKnowledgeGraph, slot);
-                        } catch (NoSuchMethodException e) {
-                            // Skip TKG cleanup
-                        } catch (Exception e) {
-                            log.debug("Failed to retract facts via reflection", e);
-                        }
-                    }
-
-                    // 3. Re-extract entities
-                    List<ExtractedEntity> entities = entityExtractor.extract(id, text);
-                    if (entities != null && !entities.isEmpty()) {
-                        // 4. Repopulate
-                        populateEntities(entities, slot, id);
-                        syncTemporalFacts(entities, slot, id, System.currentTimeMillis() / 1000L);
-                        reextractedCount++;
-                    }
-                } catch (Exception e) {
-                    log.warn("[GraphEnricher] Failed to re-extract entities for '{}': {}", id, e.getMessage());
-                    lastError = e.getMessage();
+            } else {
+                ExecutorService pool = Executors.newFixedThreadPool(nThreads);
+                List<CompletableFuture<Void>> futures = new ArrayList<>(candidateIds.size());
+                for (String id : candidateIds) {
+                    futures.add(CompletableFuture.runAsync(() -> reextractCandidate(id, reextractedCount), pool));
                 }
-            }
-            if (reextractedCount > 0) {
-                totalReextracted.addAndGet(reextractedCount);
+                CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
+                pool.shutdown();
             }
 
         } finally {
@@ -310,13 +336,53 @@ public final class GraphEnrichmentDaemon {
             reextractInProgress.set(false);
         }
 
-        if (reextractedCount > 0 && graphFacade != null) {
+        int count = reextractedCount.get();
+        if (count > 0 && graphFacade != null) {
             graphFacade.invalidateCache();
         }
 
+        totalReextracted.addAndGet(count);
         log.info("[GraphEnricher] Completed re-extraction batch: {} memories re-extracted in {}ms",
-                reextractedCount, lastRunDurationMs.get());
-        return reextractedCount;
+                count, lastRunDurationMs.get());
+        return count;
+    }
+
+    private void reextractCandidate(String id, AtomicInteger reextractedCount) {
+        var loc = index.locate(id);
+        if (loc == null) return;
+        String text = index.text(id);
+        if (text == null || text.isBlank()) return;
+
+        int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
+
+        try {
+            // 1. Unlink existing entity references for this memory
+            entityDirectory.unlinkMemory(slot);
+
+            // 2. TKG cleanup if possible
+            if (temporalKnowledgeGraph != null) {
+                try {
+                    var retractMethod = temporalKnowledgeGraph.getClass().getMethod("retractFactsForMemory", int.class);
+                    retractMethod.invoke(temporalKnowledgeGraph, slot);
+                } catch (NoSuchMethodException e) {
+                    // Skip TKG cleanup
+                } catch (Exception e) {
+                    log.debug("Failed to retract facts via reflection", e);
+                }
+            }
+
+            // 3. Re-extract entities
+            List<ExtractedEntity> entities = entityExtractor.extract(id, text);
+            if (entities != null && !entities.isEmpty()) {
+                // 4. Repopulate
+                populateEntities(entities, slot, id);
+                syncTemporalFacts(entities, slot, id, System.currentTimeMillis() / 1000L);
+                reextractedCount.incrementAndGet();
+            }
+        } catch (Exception e) {
+            log.warn("[GraphEnricher] Failed to re-extract entities for '{}': {}", id, e.getMessage());
+            lastError = e.getMessage();
+        }
     }
 
     /**

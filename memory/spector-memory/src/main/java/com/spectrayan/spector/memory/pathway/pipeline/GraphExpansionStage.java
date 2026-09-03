@@ -185,6 +185,9 @@ public final class GraphExpansionStage {
 
         // ── Similarity-gated expansion ──
         GraphExpansionMode mode = graphScoringPolicy.graphExpansionMode();
+        if (options.graphExpansionThreshold() > 1.0f) {
+            mode = GraphExpansionMode.ALWAYS;
+        }
         if (mode == GraphExpansionMode.ENTITY_ONLY && options.entityHints().isEmpty()) {
             log.debug("Graph expansion skipped: ENTITY_ONLY mode and no entity hints");
             return;
@@ -739,11 +742,28 @@ public final class GraphExpansionStage {
             metadata.put("graph_seed_score", String.valueOf(seed.score()));
         }
 
+        long ts = 0L;
+        byte valence = 0;
+        try {
+            MemoryIndex.MemoryLocation loc = index != null ? index.locate(memId) : null;
+            if (loc != null) {
+                CognitiveMemoryRouter router = partitionRegistry != null
+                        ? partitionRegistry.routerFor(loc.colocatedPartition()) : null;
+                if (router != null) {
+                    MemorySegment seg = router.segmentFor(loc.type());
+                    if (seg != null) {
+                        ts = seg.get(LAYOUT_TIMESTAMP, loc.offset() + OFFSET_TIMESTAMP);
+                        valence = seg.get(LAYOUT_VALENCE, loc.offset() + OFFSET_VALENCE);
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
         return new CognitiveResult(
                 memId, text, score, importance, 0f,
-                (short) 0, (byte) 0, type, source,
+                0, valence, type, source,
                 tags, 1.0f, 1.0f, RetrievalMode.STANDARD, breakdown, null,
-                modality, metadata);
+                modality, metadata, (byte) 0, ts);
     }
 
 

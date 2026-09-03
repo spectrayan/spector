@@ -64,9 +64,16 @@ public class GoogleProviderFactory extends AbstractProviderFactory {
     @Override
     protected Optional<EmbeddingProvider> createRawEmbeddingProvider(ProviderConfig config) {
         long timeoutSeconds = ParseUtils.parseLongOrDefault(config.property("timeout").orElse(null), 30L);
+        String modelName = config.model();
+        if ("text-embedding-004".equalsIgnoreCase(modelName) || modelName == null || modelName.isBlank()) {
+            modelName = "gemini-embedding-001";
+        }
+        int dims = config.dimensions() > 0 ? config.dimensions() : 768;
+
         var builder = GoogleAiEmbeddingModel.builder()
                 .apiKey(config.apiKey())
-                .modelName(config.model())
+                .modelName(modelName)
+                .outputDimensionality(dims)
                 .timeout(Duration.ofSeconds(timeoutSeconds));
 
         // Apply HTTP client settings (proxy, mTLS)
@@ -78,8 +85,7 @@ public class GoogleProviderFactory extends AbstractProviderFactory {
 
         var model = builder.build();
 
-        int dims = config.dimensions() > 0 ? config.dimensions() : 768;
-        return Optional.of(new LangChain4jEmbeddingAdapter(model, config.model(), dims));
+        return Optional.of(new LangChain4jEmbeddingAdapter(model, modelName, dims));
     }
 
     @Override

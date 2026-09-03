@@ -169,7 +169,7 @@ public final class LangChain4jHelper {
                 }
             }
 
-            // Configure mTLS Client Certificates
+            // Configure mTLS Client Certificates or Insecure / Trust-All SSLContext
             if (hasMtls) {
                 try {
                     log.info("[ProviderRegistry] Configuring mTLS client certificate for provider {}: cert={}, key={}",
@@ -179,7 +179,30 @@ public final class LangChain4jHelper {
                 } catch (Exception e) {
                     log.error("[ProviderRegistry] Failed to configure mTLS for provider '{}': {}", config.name(), e.getMessage(), e);
                 }
+            } else {
+                boolean insecure = Boolean.parseBoolean(config.properties().getOrDefault("insecure",
+                        config.properties().getOrDefault("trustAllCertificates",
+                        System.getProperty("spector.ssl.insecure", "false"))));
+                if (insecure) {
+                    try {
+                        javax.net.ssl.TrustManager[] trustAll = new javax.net.ssl.TrustManager[]{
+                            new javax.net.ssl.X509TrustManager() {
+                                public java.security.cert.X509Certificate[] getAcceptedIssuers() { return new java.security.cert.X509Certificate[0]; }
+                                public void checkClientTrusted(java.security.cert.X509Certificate[] certs, String authType) {}
+                                public void checkServerTrusted(java.security.cert.X509Certificate[] certs, String authType) {}
+                            }
+                        };
+                        SSLContext sslContext = SSLContext.getInstance("TLS");
+                        sslContext.init(null, trustAll, new java.security.SecureRandom());
+                        javaClientBuilder.sslContext(sslContext);
+                        log.info("[ProviderRegistry] Configured trust-all SSL context for provider '{}'", config.name());
+                    } catch (Exception e) {
+                        log.warn("[ProviderRegistry] Failed to configure trust-all SSL context for provider '{}': {}", config.name(), e.getMessage());
+                    }
+                }
             }
+
+            javaClientBuilder.version(java.net.http.HttpClient.Version.HTTP_1_1);
 
             // Wrap the native Java HttpClient builder in JdkHttpClientBuilder
             return JdkHttpClient.builder()

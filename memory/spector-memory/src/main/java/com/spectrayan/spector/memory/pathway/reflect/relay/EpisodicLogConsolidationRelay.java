@@ -108,80 +108,97 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
             turnToOffset.put(turn, offset);
         }
 
-        log.info("EpisodicLogConsolidationRelay: grouped into {} distinct sessions, starting parallel consolidation...", sessionTurns.size());
-        sessionTurns.entrySet().parallelStream().forEach(entry -> {
-            List<EpisodicFieldAccessor.EpisodicRecord> sessionList = entry.getValue();
-            if (sessionList.isEmpty()) return;
+        log.info("EpisodicLogConsolidationRelay: grouped into {} distinct sessions, starting consolidation...", sessionTurns.size());
+        // TODO: Redesigning ReflectPathway to support external batching/checkpointing via Synapse/Spring Batch (#730);
+        // replace temporary retry and throttle logic.
+        for (var entry : sessionTurns.entrySet()) {
+            try {
+                List<EpisodicFieldAccessor.EpisodicRecord> sessionList = entry.getValue();
+                if (sessionList == null || sessionList.isEmpty()) continue;
 
-            List<String> turnTexts = new ArrayList<>();
-            for (var turn : sessionList) {
-                String text = extractTurnText(turn);
-                if (text != null && !text.isBlank()) {
-                    turnTexts.add(turn.role() + ": " + text);
-                }
-            }
-
-            if (turnTexts.isEmpty()) return;
-
-            long sessionTimestampMs = sessionList.get(0).timestampMs();
-            List<ConsolidatedFact> synthesizedFacts = distillStructuredFacts(turnTexts, sessionTimestampMs, signal);
-            if (synthesizedFacts.isEmpty()) return;
-
-            for (ConsolidatedFact fact : synthesizedFacts) {
-                String memoryId = "rem-log-" + TSID.generate();
-                float[] vector = null;
-                if (signal.embeddingProvider() != null) {
-                    try {
-                        vector = signal.embeddingProvider().embed(fact.text()).vector();
-                    } catch (Exception e) {
-                        log.warn("Failed to embed synthesized reflection fact: {}", e.getMessage());
+                List<String> turnTexts = new ArrayList<>();
+                for (var turn : sessionList) {
+                    String text = extractTurnText(turn);
+                    if (text != null && !text.isBlank()) {
+                        turnTexts.add(turn.role() + ": " + text);
                     }
                 }
 
-                if (signal.rememberPathway() != null) {
-                    Set<String> tagSet = new LinkedHashSet<>();
-                    if (fact.synapticTags() != null) {
-                        for (String t : fact.synapticTags()) {
-                            String cleanT = t.replaceAll("[^a-zA-Z0-9_-]", "-").toLowerCase(Locale.ROOT);
-                            if (!cleanT.isBlank()) {
-                                tagSet.add(cleanT);
-                            }
+                if (turnTexts.isEmpty()) continue;
+
+                long sessionTimestampMs = sessionList.get(0).timestampMs();
+                List<ConsolidatedFact> synthesizedFacts = distillStructuredFacts(turnTexts, sessionTimestampMs, signal);
+                if (synthesizedFacts.isEmpty()) continue;
+
+                for (ConsolidatedFact fact : synthesizedFacts) {
+                    String memoryId = TSID.generate().toString();
+                    float[] vector = null;
+                    if (signal.embeddingProvider() != null) {
+                        try {
+                            vector = signal.embeddingProvider().embed(fact.text()).vector();
+                        } catch (Exception e) {
+                            log.warn("Failed to embed synthesized reflection fact: {}", e.getMessage());
                         }
                     }
-                    tagSet.add("conversation-reflection");
-                    tagSet.add("session-" + Long.toHexString(entry.getKey()));
-                    String[] allTags = tagSet.toArray(String[]::new);
 
-                    float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
-                    byte semanticFlags = SynapticHeaderConstants.withMemoryType(
-                            SynapticHeaderConstants.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal());
-                    CognitiveHeader header = new CognitiveHeader(
-                            sessionTimestampMs, 0L, exactNorm, 1.0f, 1,
-                            (short) 0, (byte) 0, semanticFlags, (byte) 0, 1.0f
-                    );
+                    if (signal.rememberPathway() != null) {
+                        Set<String> tagSet = new LinkedHashSet<>();
+                        if (fact.synapticTags() != null) {
+                            for (String t : fact.synapticTags()) {
+                                String cleanT = t.replaceAll("[^a-zA-Z0-9_-]", "-").toLowerCase(Locale.ROOT);
+                                if (!cleanT.isBlank()) {
+                                    tagSet.add(cleanT);
+                                }
+                            }
+                        }
+                        tagSet.add("conversation-reflection");
+                        String[] allTags = tagSet.toArray(String[]::new);
 
-                    signal.rememberPathway().ingestCognitiveWithHeader(
-                            memoryId,
-                            fact.text(),
-                            vector,
-                            MemoryType.SEMANTIC,
-                            allTags,
-                            MemorySource.REFLECTED,
-                            header
-                    );
-                    signal.addConsolidated(1);
+                        float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
+                        byte semanticFlags = SynapticHeaderConstants.withMemoryType(
+                                SynapticHeaderConstants.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal());
+                        CognitiveHeader header = new CognitiveHeader(
+                                sessionTimestampMs, 0L, exactNorm, 1.0f, 1,
+                                (short) 0, (byte) 0, semanticFlags, (byte) 0, 1.0f
+                        );
+
+                        signal.rememberPathway().ingestCognitiveWithHeader(
+                                memoryId,
+                                fact.text(),
+                                vector,
+                                MemoryType.SEMANTIC,
+                                allTags,
+                                MemorySource.REFLECTED,
+                                header
+                        );
+                        signal.addConsolidated(1);
+                    }
                 }
-            }
 
-            // Mark source turns consolidated
-            for (var turn : sessionList) {
-                Long offset = turnToOffset.get(turn);
-                if (offset != null) {
-                    logStore.markConsolidated(offset);
+                // Mark source turns consolidated
+                for (var turn : sessionList) {
+                    Long offset = turnToOffset.get(turn);
+                    if (offset != null) {
+                        logStore.markConsolidated(offset);
+                    }
                 }
+                signal.addLogTurnsConsolidated(sessionList.size());
+
+                // Sleep between runs so it won't overwhelm the LLM API
+                long sleepMs = Long.getLong("reflectSessionSleepMs", 5000L);
+                if (sleepMs > 0) {
+                    try {
+                        Thread.sleep(sleepMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        log.warn("Reflection session loop interrupted");
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Unexpected error consolidating session {}: {}", entry.getKey(), e.getMessage());
             }
-            signal.addLogTurnsConsolidated(sessionList.size());
-        });
+        }
         log.info("EpisodicLogConsolidationRelay: completed session distillation, consolidated {} facts across {} sessions",
                 signal.totalConsolidated(), sessionTurns.size());
     }
@@ -196,25 +213,41 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
             sessionDateStr = "Unknown Date";
         }
 
-        if (signal.textGenerator() != null && signal.templateEngine() != null) {
-            try {
-                Map<String, Object> model = Map.of(
-                        "memoryCount", turnTexts.size(),
-                        "sessionDate", sessionDateStr,
-                        "memories", turnTexts
-                );
-                String prompt = signal.templateEngine().render("prompts/reflection-synthesis", model);
-                String response = signal.textGenerator().generate(prompt, REFLECTION_GENERATION_OPTIONS);
+        // TODO: Redesigning ReflectPathway to support external batching/checkpointing via Synapse/Spring Batch (#730);
+        // replace temporary retry and throttle logic.
+        int maxRetries = 3;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            if (signal.textGenerator() != null && signal.templateEngine() != null) {
+                try {
+                    Map<String, Object> model = Map.of(
+                            "memoryCount", turnTexts.size(),
+                            "sessionDate", sessionDateStr,
+                            "memories", turnTexts
+                    );
+                    String prompt = signal.templateEngine().render("prompts/reflection-synthesis", model);
+                    String response = signal.textGenerator().generate(prompt, REFLECTION_GENERATION_OPTIONS);
 
-                if (response != null && !response.isBlank()) {
-                    List<ConsolidatedFact> parsedFacts = parseJsonResponse(response);
-                    if (!parsedFacts.isEmpty()) {
-                        return parsedFacts;
+                    if (response != null && !response.isBlank()) {
+                        List<ConsolidatedFact> parsedFacts = parseJsonResponse(response);
+                        if (!parsedFacts.isEmpty()) {
+                            return parsedFacts;
+                        }
+                        List<ConsolidatedFact> lineFacts = parseLineResponse(response);
+                        if (!lineFacts.isEmpty()) {
+                            return lineFacts;
+                        }
                     }
-                    return parseLineResponse(response);
+                } catch (Exception e) {
+                    log.warn("Attempt {}/{} failed during reflection distillation: {}", attempt, maxRetries, e.getMessage());
+                    if (attempt < maxRetries) {
+                        try {
+                            Thread.sleep(1000L * attempt);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    }
                 }
-            } catch (Exception e) {
-                log.warn("LLM template-based reflection synthesis failed, using fallback: {}", e.getMessage());
             }
         }
 
