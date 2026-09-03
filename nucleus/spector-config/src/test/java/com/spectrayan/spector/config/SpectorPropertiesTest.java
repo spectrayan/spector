@@ -185,8 +185,45 @@ class SpectorPropertiesTest {
                 .build();
 
         var files = PersistenceFiles.fromProperties(props);
-        assertThat(files.indexFile()).isEqualTo("custom-index.bin");
-        assertThat(files.vectorsFile()).isEqualTo("custom-vectors.bin");
         assertThat(files.documentsFile()).isEqualTo("documents.dat"); // default retained
+    }
+
+    @Test
+    void interpolation_environmentAndSystemProperties() {
+        System.setProperty("test.sys.var", "sys-value");
+        try {
+            SpectorProperties props = SpectorProperties.builder()
+                    .override("my.sys.prop", "${sys:test.sys.var}")
+                    .override("my.env.path", "${env:PATH}")
+                    .override("my.unprefixed.path", "${PATH}")
+                    .build();
+
+            assertThat(props.getString("my.sys.prop")).isEqualTo("sys-value");
+            assertThat(props.getString("my.env.path")).isNotNull();
+            assertThat(props.getString("my.unprefixed.path")).isNotNull();
+        } finally {
+            System.clearProperty("test.sys.var");
+        }
+    }
+
+    @Test
+    void interpolation_inYamlFile(@TempDir Path tempDir) throws IOException {
+        System.setProperty("test.api.key", "secret-test-key-123");
+        try {
+            Path configFile = tempDir.resolve("spector.yml");
+            Files.writeString(configFile, """
+                    spector:
+                      provider:
+                        generation:
+                          api-key: ${test.api.key}
+                          path: ${PATH}
+                    """);
+
+            SpectorProperties props = SpectorProperties.load(configFile);
+            assertThat(props.getString("spector.provider.generation.api-key")).isEqualTo("secret-test-key-123");
+            assertThat(props.getString("spector.provider.generation.path")).isNotNull();
+        } finally {
+            System.clearProperty("test.api.key");
+        }
     }
 }

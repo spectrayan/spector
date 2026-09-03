@@ -194,7 +194,7 @@ public final class CognitiveBenchmarkHarness {
 
             //  Step 3: Create retrievers 
             BaselineRetriever baselineRetriever = createBaselineRetriever(memory);
-            CognitiveRetriever cognitiveRetriever = new CognitiveRetriever(memory, profileOverride);
+            CognitiveRetriever cognitiveRetriever = new CognitiveRetriever(memory, profileOverride, datasetDir);
             if (profileOverride != null) {
                 log.info("Profile override: {}", profileOverride);
             }

@@ -667,6 +667,13 @@ public class MemoryAccessObject {
      * Triggers asynchronous graph enrichment for unenriched memories in the background.
      */
     public CompletableFuture<Integer> triggerGraphEnrichment(SpectorMemory memory, int limit) {
+        return triggerGraphEnrichment(memory, limit, null);
+    }
+
+    /**
+     * Triggers asynchronous graph enrichment for unenriched memories in the background, filtered by target memory tier.
+     */
+    public CompletableFuture<Integer> triggerGraphEnrichment(SpectorMemory memory, int limit, MemoryType targetType) {
         if (!isAvailable(memory)) {
             return CompletableFuture.completedFuture(0);
         }
@@ -675,7 +682,7 @@ public class MemoryAccessObject {
             return CompletableFuture.completedFuture(0);
         }
         return CompletableFuture.supplyAsync(
-                () -> enricher.enrichBatch(limit),
+                () -> enricher.enrichBatch(limit, targetType),
                 Executors.newVirtualThreadPerTaskExecutor()
         );
     }
@@ -684,6 +691,13 @@ public class MemoryAccessObject {
      * Triggers asynchronous graph re-extraction for memories in the background.
      */
     public CompletableFuture<Integer> triggerGraphReextraction(SpectorMemory memory, int limit) {
+        return triggerGraphReextraction(memory, limit, null);
+    }
+
+    /**
+     * Triggers asynchronous graph re-extraction for memories in the background, filtered by target memory tier.
+     */
+    public CompletableFuture<Integer> triggerGraphReextraction(SpectorMemory memory, int limit, MemoryType targetType) {
         if (!isAvailable(memory)) {
             return CompletableFuture.completedFuture(0);
         }
@@ -692,7 +706,7 @@ public class MemoryAccessObject {
             return CompletableFuture.completedFuture(0);
         }
         return CompletableFuture.supplyAsync(
-                () -> enricher.reextractBatch(limit),
+                () -> enricher.reextractBatch(limit, targetType),
                 Executors.newVirtualThreadPerTaskExecutor()
         );
     }

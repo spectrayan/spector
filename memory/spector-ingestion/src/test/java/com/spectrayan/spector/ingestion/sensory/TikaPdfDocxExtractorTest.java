@@ -250,6 +250,6 @@ class TikaPdfDocxExtractorTest {
         if (Files.exists(local)) return local;
         Path modulePath = Path.of("memory/spector-ingestion/src/test/resources", relativePath);
         if (Files.exists(modulePath)) return modulePath;
-        return Path.of("d:/git/spector/memory/spector-ingestion/src/test/resources", relativePath);
+        return local;
     }
 }

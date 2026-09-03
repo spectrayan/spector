@@ -35,14 +35,17 @@
     .\scripts\ingest-dataset.ps1 -MaxRecords 200
     .\scripts\ingest-dataset.ps1 -SkipCorpus  # graph data only
 #>
-param(
-    [string]$DatasetDir    = "D:\git\spector-datasets\balanced-baseline\data",
+    [string]$DatasetDir    = "",
     [string]$BaseUrl       = "http://localhost:7070",
     [int]$BatchSize        = 100,
     [int]$GraphBatchSize   = 500,
     [int]$MaxRecords       = 0,
     [switch]$SkipCorpus
 )
+
+if (-not $DatasetDir) {
+    $DatasetDir = if ($env:SPECTOR_DATASETS_DIR) { Join-Path $env:SPECTOR_DATASETS_DIR "balanced-baseline\data" } else { Join-Path (Split-Path -Parent $PSScriptRoot) "..\spector-datasets\balanced-baseline\data" }
+}
 
 $ErrorActionPreference = "Continue"
 

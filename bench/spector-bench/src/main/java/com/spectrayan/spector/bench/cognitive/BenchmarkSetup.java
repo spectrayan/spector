@@ -15,7 +15,9 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -33,12 +35,14 @@ import java.nio.file.Path;
 import java.nio.file.Files;
 import com.spectrayan.spector.config.SpectorConfigFactory;
 import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
+import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
 import com.spectrayan.spector.bench.cognitive.model.EntityRelation;
 import com.spectrayan.spector.bench.cognitive.model.HebbianEdgeDef;
 import com.spectrayan.spector.bench.cognitive.model.TemporalChainDef;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
-import com.spectrayan.spector.memory.DefaultSpectorMemory;
+
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
@@ -195,44 +199,103 @@ public final class BenchmarkSetup implements AutoCloseable {
             }
         };
 
-        com.spectrayan.spector.memory.SpectorMemoryBuilder builder = DefaultSpectorMemory.builder()
+        Path datasetConfig = datasetDir != null ? datasetDir.resolve("spector-bench.yml") : null;
+        SpectorProperties datasetProps = null;
+        if (datasetConfig != null && Files.exists(datasetConfig)) {
+            try {
+                datasetProps = SpectorProperties.load(datasetConfig);
+                log.info("Loaded dataset configuration from {}", datasetConfig);
+            } catch (Exception e) {
+                log.warn("Failed to load dataset config from {}: {}", datasetConfig, e.getMessage());
+            }
+        }
+
+        MemoryProperties memoryProperties = datasetProps != null ?
+                SpectorConfigFactory.memoryProperties(datasetProps) : new MemoryProperties();
+
+        // Scale capacity defaults to corpus size if not explicitly configured in properties
+        if (memoryProperties.getCapacity() <= 0 || memoryProperties.getCapacity() == SpectorPropertyConstants.DEFAULT_MEMORY_CAPACITY) {
+            memoryProperties.setCapacity(corpusSize + 100);
+        }
+        if (memoryProperties.getCoactivationPairCapacity() == SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_PAIR_CAPACITY) {
+            memoryProperties.setCoactivationPairCapacity(Math.max(50_000, corpusSize * 50));
+        }
+        if (memoryProperties.getCoactivationEdgeCapacity() == SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_EDGE_CAPACITY) {
+            memoryProperties.setCoactivationEdgeCapacity(Math.max(50_000, corpusSize * 50));
+        }
+
+        com.spectrayan.spector.memory.SpectorMemoryBuilder builder =
+                com.spectrayan.spector.memory.config.SpectorMemoryConfigurator.builder(datasetProps)
+                .fromProperties(memoryProperties)
                 .bundleMode(true)
                 .usePathwayEngine(Boolean.parseBoolean(System.getProperty("spector.pathway.enabled", System.getProperty("usePathwayEngine", "true"))))
                 .dimensions(embedder.dimensions())
                 .embeddingProvider(embedder)
                 .workingCapacity(Math.max(50, corpusSize / 10))
                 .episodicPartitionCapacity(corpusSize + 100)
-                .semanticCapacity(corpusSize + 100)
-                .proceduralCapacity(Math.max(50, corpusSize / 5))
-                .hebbianGraphCapacity(corpusSize + 100)
-                .temporalChainCapacity(corpusSize + 100)
-                .entityGraphCapacity(Math.max(50_000, corpusSize * 5))
-                .entityExtractionMode(EntityExtractionMode.CUSTOM)
-                .entityExtractor(customExtractor)
-                .entityExtractionQueueCapacity(corpusSize + 1000);
+                .proceduralCapacity(Math.max(50, corpusSize / 5));
+
+        // Resolve Entity Extraction Mode from configuration
+        EntityExtractionMode extractionMode = EntityExtractionMode.CUSTOM;
+        if (datasetProps != null) {
+            String modeStr = datasetProps.getString("spector.benchmark.extraction.mode",
+                             datasetProps.getString("extraction.mode",
+                             datasetProps.getString("spector.benchmark.extraction.provider",
+                             datasetProps.getString("extraction.provider", null))));
+            if ("NONE".equalsIgnoreCase(modeStr)) {
+                extractionMode = EntityExtractionMode.NONE;
+            } else if ("LLM".equalsIgnoreCase(modeStr) || "OLLAMA".equalsIgnoreCase(modeStr)
+                    || "GOOGLE".equalsIgnoreCase(modeStr) || "GEMINI".equalsIgnoreCase(modeStr)) {
+                extractionMode = EntityExtractionMode.LLM;
+            }
+        }
+
+        builder.entityExtractionMode(extractionMode);
+        if (extractionMode == EntityExtractionMode.CUSTOM) {
+            builder.entityExtractor(customExtractor);
+        }
 
         if (aismeConfig != null) {
             builder.aismeConfig(aismeConfig);
-        } else {
-            builder.aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig.builder()
-                    .enabled(true)
-                    .globalWorkspaceCapacity(100)
-                    .build());
+        } else if (memoryProperties.getAisme() != null) {
+            builder.aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(memoryProperties.getAisme()));
         }
 
-
-        float threshold = 0.40f;
-        String thresholdStr = System.getProperty("spector.benchmark.graphExpansionThreshold");
-        if (thresholdStr == null || thresholdStr.isBlank()) {
-            thresholdStr = System.getProperty("graphExpansionThreshold");
-        }
+        float threshold = memoryProperties.getGraphExpansionThreshold();
+        String thresholdStr = System.getProperty("spector.memory.graphExpansionThreshold",
+                System.getProperty("spector.benchmark.graphExpansionThreshold",
+                System.getProperty("graphExpansionThreshold")));
         if (thresholdStr != null && !thresholdStr.isBlank()) {
             try {
                 threshold = Float.parseFloat(thresholdStr);
             } catch (NumberFormatException ignored) {}
+        } else if (datasetProps != null) {
+            threshold = (float) datasetProps.getDouble("spector.benchmark.retrieval.graph-expansion-threshold",
+                        datasetProps.getDouble("retrieval.graph_expansion_threshold",
+                        datasetProps.getDouble("graph_expansion_threshold", threshold)));
         }
+
         com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode expansionMode = com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.resolve();
-        log.info("Instantiating GraphScoringPolicy with threshold={}, mode={}", threshold, expansionMode);
+        if (memoryProperties.getGraphExpansionMode() != null && !memoryProperties.getGraphExpansionMode().isBlank()) {
+            try {
+                expansionMode = com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.valueOf(
+                        memoryProperties.getGraphExpansionMode().toUpperCase());
+            } catch (IllegalArgumentException ignored) {}
+        } else if (datasetProps != null) {
+            String expModeStr = datasetProps.getString("spector.benchmark.retrieval.graph-expansion-mode",
+                                datasetProps.getString("retrieval.graph-expansion-mode",
+                                datasetProps.getString("spector.benchmark.retrieval.graph_expansion_mode",
+                                datasetProps.getString("graph-expansion-mode",
+                                datasetProps.getString("graph_expansion_mode", null)))));
+            if (expModeStr != null && !expModeStr.isBlank()) {
+                try {
+                    expansionMode = com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.valueOf(expModeStr.toUpperCase());
+                } catch (IllegalArgumentException ignored) {}
+            }
+        }
+
+        boolean aismeEnabled = memoryProperties.getAisme() != null && memoryProperties.getAisme().isEnabled();
+        log.info("Instantiating GraphScoringPolicy with threshold={}, mode={}, aismeEnabled={}", threshold, expansionMode, aismeEnabled);
         com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy scoringPolicy = new com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy(
                 0.3f,   // causalBoostWeight
                 0.45f,  // hebbianBoostFactor (tuned for cross-session associative recall)
@@ -258,7 +321,14 @@ public final class BenchmarkSetup implements AutoCloseable {
         }
 
         // Resolve persistence parameters
-        boolean useDisk = Boolean.parseBoolean(System.getProperty("spector.benchmark.persistence", "true"));
+        boolean useDisk = memoryProperties.getPersistenceMode() == com.spectrayan.spector.config.model.PersistenceMode.DISK
+                || Boolean.parseBoolean(System.getProperty("spector.benchmark.persistence", "true"));
+        String persistenceModeStr = datasetProps != null ? datasetProps.getString("spector.memory.persistence-mode", null) : null;
+        if ("EPHEMERAL".equalsIgnoreCase(System.getProperty("spector.memory.persistence-mode", persistenceModeStr))) {
+            useDisk = false;
+        } else if ("DISK".equalsIgnoreCase(System.getProperty("spector.memory.persistence-mode", persistenceModeStr))) {
+            useDisk = true;
+        }
         Path persistencePath = null;
         if (useDisk) {
             String sysPropPath = System.getProperty("spector.memory.persistence-path");
@@ -266,8 +336,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                 persistencePath = Path.of(sysPropPath);
             }
             if (persistencePath == null && datasetDir != null) {
-                Path datasetConfig = datasetDir.resolve("spector-bench.yml");
-                if (Files.exists(datasetConfig)) {
+                if (datasetConfig != null && Files.exists(datasetConfig)) {
                     log.info("Loaded dataset configuration from {}", datasetConfig);
                 }
                 persistencePath = datasetDir.resolve("ingested-memory");
@@ -283,6 +352,17 @@ public final class BenchmarkSetup implements AutoCloseable {
                         // ignore config loading errors
                     }
                 }
+            }
+        }
+
+        boolean forceReingest = Boolean.parseBoolean(System.getProperty("spector.benchmark.forceReingest",
+                System.getProperty("forceReingest", "false")));
+        if (forceReingest && persistencePath != null && Files.exists(persistencePath)) {
+            log.info("Force reingestion enabled; purging existing persisted memory at {}", persistencePath);
+            try (var s = Files.walk(persistencePath)) {
+                s.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+            } catch (Exception e) {
+                log.warn("Failed to clean persistence path {}: {}", persistencePath, e.getMessage());
             }
         }
 
@@ -342,8 +422,7 @@ public final class BenchmarkSetup implements AutoCloseable {
             for (BenchmarkCorpusRecord record : corpus) {
                 var loc = memory.admin().index().locate(record.id());
                 if (loc != null) {
-                    int slotIdx = offsetToRecordIndex(loc, memory);
-                    idToSlot.put(record.id(), slotIdx);
+                    idToSlot.put(record.id(), loc.graphSlot());
                 } else {
                     log.warn("Record {} is in corpus but not found in pre-ingested memory index!", record.id());
                 }
@@ -369,11 +448,20 @@ public final class BenchmarkSetup implements AutoCloseable {
 
                     Set<String> effectiveTags = memIdToEffectiveTags.getOrDefault(record.id(), Set.of());
 
+                    MemorySource source = MemorySource.OBSERVED;
+                    if (record.text() != null) {
+                        if (record.text().startsWith("user:") || record.text().startsWith("User:")) {
+                            source = MemorySource.USER_STATED;
+                        } else if (record.text().startsWith("assistant:") || record.text().startsWith("Assistant:")) {
+                            source = MemorySource.INFERRED;
+                        }
+                    }
+
                     memory.remember(
                             record.id(),
                             record.text(),
                             record.memoryType(),
-                            MemorySource.OBSERVED,
+                            source,
                             context,
                             effectiveTags.toArray(String[]::new)
                     );
@@ -385,6 +473,14 @@ public final class BenchmarkSetup implements AutoCloseable {
                 }
             }
             log.info("Ingested {} of {} corpus records", idToSlot.size(), corpusSize);
+            // Reconstruct true slot mappings from index after ingestion
+            idToSlot.clear();
+            for (BenchmarkCorpusRecord record : corpus) {
+                var loc = memory.admin().index().locate(record.id());
+                if (loc != null) {
+                    idToSlot.put(record.id(), loc.graphSlot());
+                }
+            }
         }
 
         // Store for external access (subsystem contribution detection)

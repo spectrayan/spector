@@ -333,7 +333,7 @@ public final class MmapDatasetIntegrityValidator {
     }
 
     public static void main(String[] args) {
-        Path datasetDir = args.length > 0 ? Paths.get(args[0]) : Paths.get("d:/git/spector-datasets/locomo/data");
+        Path datasetDir = args.length > 0 ? Paths.get(args[0]) : Paths.get(System.getProperty("datasetDir", "data"));
         MmapDatasetIntegrityValidator validator = new MmapDatasetIntegrityValidator();
         ValidationReport report = validator.validate(datasetDir);
 

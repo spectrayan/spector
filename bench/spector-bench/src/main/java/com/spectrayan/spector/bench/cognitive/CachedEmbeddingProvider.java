@@ -137,11 +137,16 @@ public final class CachedEmbeddingProvider implements EmbeddingProvider {
         return delegate.maxTokens();
     }
 
-    @Override
-    public void close() {
+    public synchronized void flush() {
         if (dirty) {
             saveCache();
+            dirty = false;
         }
+    }
+
+    @Override
+    public void close() {
+        flush();
         try {
             delegate.close();
         } catch (Exception e) {

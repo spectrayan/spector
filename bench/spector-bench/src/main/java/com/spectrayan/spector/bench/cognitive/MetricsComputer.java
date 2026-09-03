@@ -51,14 +51,51 @@ public final class MetricsComputer {
      * @param k         the cut-off depth
      * @return nDCG value in [0, 1], or 0.0 for degenerate inputs
      */
+    /**
+     * Extracts the canonical base document ID by stripping chunk suffixes (e.g. "::chunk-0" or "#chunk-1").
+     *
+     * @param docId the raw retrieved document or chunk ID
+     * @return base document ID
+     */
+    public static String baseDocId(String docId) {
+        if (docId == null) return "";
+        int chunkIdx = docId.indexOf("::chunk-");
+        if (chunkIdx >= 0) return docId.substring(0, chunkIdx);
+        int hashIdx = docId.indexOf("#chunk-");
+        if (hashIdx >= 0) return docId.substring(0, hashIdx);
+        return docId;
+    }
+
+    /**
+     * Deduplicates ranked IDs by their base document ID, preserving the highest rank for each document.
+     *
+     * @param rankedIds the raw retrieved document/chunk IDs
+     * @return deduplicated base document IDs preserving order
+     */
+    public static List<String> deduplicateBaseIds(List<String> rankedIds) {
+        if (rankedIds == null || rankedIds.isEmpty()) {
+            return List.of();
+        }
+        List<String> deduped = new ArrayList<>(rankedIds.size());
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (String id : rankedIds) {
+            String base = baseDocId(id);
+            if (seen.add(base)) {
+                deduped.add(base);
+            }
+        }
+        return deduped;
+    }
+
     public double ndcgAtK(List<String> rankedIds, Map<String, Integer> qrels, int k) {
         if (rankedIds == null || rankedIds.isEmpty() || qrels == null || qrels.isEmpty() || k <= 0) {
             return 0.0;
         }
 
-        int effectiveK = Math.min(k, rankedIds.size());
+        List<String> cleanRanked = deduplicateBaseIds(rankedIds);
+        int effectiveK = Math.min(k, cleanRanked.size());
 
-        double dcg = computeDcg(rankedIds, qrels, effectiveK);
+        double dcg = computeDcg(cleanRanked, qrels, effectiveK);
         double idcg = computeIdcg(qrels, effectiveK);
 
         if (idcg == 0.0) {
@@ -81,10 +118,11 @@ public final class MetricsComputer {
             return 0.0;
         }
 
-        int effectiveK = Math.min(k, rankedIds.size());
+        List<String> cleanRanked = deduplicateBaseIds(rankedIds);
+        int effectiveK = Math.min(k, cleanRanked.size());
 
         for (int i = 0; i < effectiveK; i++) {
-            String docId = rankedIds.get(i);
+            String docId = cleanRanked.get(i);
             int grade = qrels.getOrDefault(docId, 0);
             if (grade >= 1) {
                 return 1.0 / (i + 1);
@@ -113,11 +151,12 @@ public final class MetricsComputer {
             return 0.0;
         }
 
-        int effectiveK = Math.min(k, rankedIds.size());
+        List<String> cleanRanked = deduplicateBaseIds(rankedIds);
+        int effectiveK = Math.min(k, cleanRanked.size());
         long retrieved = 0;
 
         for (int i = 0; i < effectiveK; i++) {
-            String docId = rankedIds.get(i);
+            String docId = cleanRanked.get(i);
             int grade = qrels.getOrDefault(docId, 0);
             if (grade >= 1) {
                 retrieved++;

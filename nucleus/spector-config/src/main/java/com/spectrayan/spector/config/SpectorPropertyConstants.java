@@ -45,7 +45,8 @@ public final class SpectorPropertyConstants {
     public static final String EMBEDDING_SEQUENTIAL = "spector.embedding.sequential";
     public static final boolean DEFAULT_EMBEDDING_SEQUENTIAL = false;
 
-    public static final String GRAPH_EXPANSION_THRESHOLD_PROPERTY = "spector.benchmark.graphExpansionThreshold";
+    public static final String GRAPH_EXPANSION_THRESHOLD_PROPERTY = "spector.memory.graphExpansionThreshold";
+    public static final String GRAPH_EXPANSION_THRESHOLD_BENCH_ALIAS = "spector.benchmark.graphExpansionThreshold";
     public static final String GRAPH_EXPANSION_MODE_PROPERTY = "spector.memory.graphExpansionMode";
 
     // Provider — Embedding
@@ -437,7 +438,20 @@ public final class SpectorPropertyConstants {
     public static final float DEFAULT_MEMORY_GRAPH_ENTITY_ATTENUATION = 0.25f;
 
     public static final String MEMORY_GRAPH_EXPANSION_THRESHOLD = "spector.memory.graph.expansion-threshold";
+    public static final String MEMORY_GRAPH_EXPANSION_THRESHOLD_CAMEL = "spector.memory.graphExpansionThreshold";
     public static final float DEFAULT_MEMORY_GRAPH_EXPANSION_THRESHOLD = 0.40f;
+
+    public static final String MEMORY_RETRIEVAL_ENABLE_MMR = "spector.memory.retrieval.enable-mmr";
+    public static final boolean DEFAULT_MEMORY_RETRIEVAL_ENABLE_MMR = true;
+
+    public static final String MEMORY_RETRIEVAL_MMR_LAMBDA = "spector.memory.retrieval.mmr-lambda";
+    public static final float DEFAULT_MEMORY_RETRIEVAL_MMR_LAMBDA = 0.70f;
+
+    public static final String MEMORY_SCHEDULER_ENABLED = "spector.memory.scheduler.enabled";
+    public static final boolean DEFAULT_MEMORY_SCHEDULER_ENABLED = true;
+
+    public static final String MEMORY_WANDER_ENABLED = "spector.memory.wander.enabled";
+    public static final boolean DEFAULT_MEMORY_WANDER_ENABLED = false;
 
     // Circadian & Reflection
     public static final String MEMORY_CIRCADIAN_ENABLED = "spector.memory.circadian.enabled";

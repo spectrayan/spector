@@ -36,15 +36,15 @@ public class E2EMigrationParityTest {
     @Test
     @DisplayName("Export from live docker snapshot, package SMB, unpack into standalone instance, verify 100% parity")
     public void testLiveDockerToStandaloneMigrationParity() throws Exception {
-        Path srcDir = Paths.get("D:/git/spector/target/docker_memory_src");
+        Path srcDir = Paths.get("target/docker_memory_src");
         if (!Files.exists(srcDir)) {
             System.out.println("Docker source directory not found, skipping.");
             return;
         }
 
-        Path stagingDir = Paths.get("D:/git/spector/target/live_staging");
-        Path bundlePath = Paths.get("D:/git/spector/target/live_migration_bundle.smb");
-        Path destDir = Paths.get("D:/git/spector/target/live_standalone_imported");
+        Path stagingDir = Paths.get("target/live_staging");
+        Path bundlePath = Paths.get("target/live_migration_bundle.smb");
+        Path destDir = Paths.get("target/live_standalone_imported");
 
         // Clean prior artifacts
         deleteDir(stagingDir);

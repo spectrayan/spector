@@ -2,7 +2,7 @@
 # Re-ingests curated memories sequentially with tag curation, log checks, and retries.
 
 param(
-    [string]$ExportPath = "d:\git\spector\exports\memories_export_full.json",
+    [string]$ExportPath = "",
     [string]$BaseUrl = "http://localhost:7070",
     [string]$ApiKey = "spector-dev-key",
     [int]$DelayBetweenMemoriesMs = 2000,
@@ -10,6 +10,10 @@ param(
     [int]$StartIndex = 0,
     [int]$MaxRecords = 0
 )
+
+if (-not $ExportPath) {
+    $ExportPath = Join-Path (Split-Path -Parent $PSScriptRoot) "exports\memories_export_full.json"
+}
 
 $ErrorActionPreference = "Stop"
 

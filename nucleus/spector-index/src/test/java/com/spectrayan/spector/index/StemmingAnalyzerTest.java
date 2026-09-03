@@ -38,6 +38,7 @@ class StemmingAnalyzerTest {
     void stemsIngSuffix() {
         assertThat(StemmingAnalyzer.stem("running")).isEqualTo("run");
         assertThat(StemmingAnalyzer.stem("searching")).isEqualTo("search");
+        assertThat(StemmingAnalyzer.stem("volunteering")).isEqualTo(StemmingAnalyzer.stem("volunteer"));
     }
 
     @Test

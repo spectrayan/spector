@@ -209,17 +209,30 @@ final class OffHeapPairTable {
      * Prunes the weakest 10% of pairs by count. Must be called under writeLock.
      */
     private void pruneWeakest() {
-        if (count == 0) return;
-        int toPrune = Math.max(1, (int) (count * CoActivationLayout.PRUNE_FRACTION));
+        int occupied = 0;
+        for (int i = 0; i < capacity; i++) {
+            long offset = (long) i * SLOT_BYTES;
+            int flags = segment.get(ValueLayout.JAVA_INT, offset + OFF_FLAGS);
+            if ((flags & FLAG_OCCUPIED) != 0) {
+                occupied++;
+            }
+        }
+        this.count = occupied;
+        if (occupied == 0) return;
+        int toPrune = Math.max(1, (int) (occupied * CoActivationLayout.PRUNE_FRACTION));
 
-        int[] counts = new int[count];
+        int[] counts = new int[occupied];
         int idx = 0;
-        for (int i = 0; i < capacity && idx < count; i++) {
+        for (int i = 0; i < capacity && idx < occupied; i++) {
             long offset = (long) i * SLOT_BYTES;
             int flags = segment.get(ValueLayout.JAVA_INT, offset + OFF_FLAGS);
             if ((flags & FLAG_OCCUPIED) != 0) {
                 counts[idx++] = segment.get(ValueLayout.JAVA_INT, offset + OFF_COUNT);
             }
+        }
+        if (idx == 0) {
+            this.count = 0;
+            return;
         }
         Arrays.sort(counts, 0, idx);
         int threshold = idx > toPrune ? counts[toPrune] : counts[0];
@@ -236,11 +249,10 @@ final class OffHeapPairTable {
                     segment.set(ValueLayout.JAVA_LONG, offset + OFF_HASH_B, 0L);
                     segment.set(ValueLayout.JAVA_INT, offset + OFF_COUNT, 0);
                     removed++;
-                    count--;
                 }
             }
         }
-
+        this.count = Math.max(0, occupied - removed);
         log.debug("Pruned {} weak co-activation pairs (remaining={})", removed, count);
     }
 

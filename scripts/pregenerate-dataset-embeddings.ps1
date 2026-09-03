@@ -6,12 +6,16 @@
 # ═══════════════════════════════════════════════════════════════
 
 param(
-    [string]$DatasetsBase = "d:\git\spector-datasets",
+    [string]$DatasetsBase = "",
     [string[]]$Datasets   = @("adhd-diversified", "entity-dense-seed2"),
     [string]$Model        = "nomic-embed-text",
     [string]$HeapMb       = "8192",
     [switch]$SkipBuild
 )
+
+if (-not $DatasetsBase) {
+    $DatasetsBase = if ($env:SPECTOR_DATASETS_DIR) { $env:SPECTOR_DATASETS_DIR } else { Join-Path (Split-Path -Parent $PSScriptRoot) "..\spector-datasets" }
+}
 
 $ErrorActionPreference = "Stop"
 

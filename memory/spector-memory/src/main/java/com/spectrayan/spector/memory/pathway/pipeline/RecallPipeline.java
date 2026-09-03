@@ -685,15 +685,6 @@ public final class RecallPipeline {
         // retrieval quality.
         applyCognitiveScoring(allResults, options, nowMs);
 
-        // Steps 5c-5e: Graph expansion (delegated to GraphExpansionStage)
-        try (var _obs = hook.start(GRAPH_EXPANSION, Map.of())) {
-            graphExpansionStage.expand(allResults, queryVector, options, queryText);
-        } catch (RuntimeException e) { throw e; } catch (Exception e) { throw new RuntimeException(e); }
-        temporalFactWeavingStage.weave(allResults, queryVector, options);
-
-        // Sort vector candidates by cognitive score descending before RRF rank assignment
-        allResults.sort(Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
-
         // Step 5f: BM25 text search & fusion (if enabled)
         boolean rrfFused = false;
         if (bm25Index != null && options.enableTextSearch()
@@ -742,6 +733,18 @@ public final class RecallPipeline {
                     : options;
             applyCognitiveScoring(allResults, peekOptions, nowMs);
         }
+
+        // Sort candidates by cognitive score descending so graph expansion uses highest-confidence seeds
+        allResults.sort(Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
+
+        // Steps 5c-5e: Graph expansion (delegated to GraphExpansionStage)
+        try (var _obs = hook.start(GRAPH_EXPANSION, Map.of())) {
+            graphExpansionStage.expand(allResults, queryVector, options, queryText);
+        } catch (RuntimeException e) { throw e; } catch (Exception e) { throw new RuntimeException(e); }
+        temporalFactWeavingStage.weave(allResults, queryVector, options);
+
+        // Sort candidates by cognitive score descending
+        allResults.sort(Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
 
         // Step 5h: Filter suppressed memories (inhibition)  --  always active
         allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));

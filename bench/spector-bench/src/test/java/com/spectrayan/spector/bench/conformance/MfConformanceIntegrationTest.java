@@ -33,7 +33,7 @@ import com.spectrayan.spector.bench.conformance.model.MfCorpusRecord;
 import com.spectrayan.spector.bench.conformance.model.MfExpected;
 import com.spectrayan.spector.bench.conformance.model.MfQuery;
 import com.spectrayan.spector.bench.conformance.model.MfReport;
-import com.spectrayan.spector.memory.DefaultSpectorMemory;
+
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;

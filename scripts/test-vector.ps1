@@ -5,7 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$root = "d:\git\spector"
+$root = Split-Path -Parent $PSScriptRoot
 
 # Build the JSON-RPC sequence: init + notify + query
 $initMsg = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test"}}}'

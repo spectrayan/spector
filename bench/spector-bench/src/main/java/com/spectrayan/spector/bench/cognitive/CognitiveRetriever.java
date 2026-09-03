@@ -63,6 +63,8 @@ public final class CognitiveRetriever {
     private final SpectorMemory memory;
     /** null = per-query profiles, "NONE" = no profile, else a CognitiveProfile name. */
     private final String profileOverride;
+    private final java.nio.file.Path datasetDir;
+    private final com.spectrayan.spector.config.SpectorProperties datasetProps;
 
     /**
      * Creates a new CognitiveRetriever backed by the given SpectorMemory instance.
@@ -72,7 +74,7 @@ public final class CognitiveRetriever {
      * @throws NullPointerException if memory is null
      */
     public CognitiveRetriever(SpectorMemory memory) {
-        this(memory, null);
+        this(memory, null, null);
     }
 
     /**
@@ -84,11 +86,26 @@ public final class CognitiveRetriever {
      *                        or a CognitiveProfile enum name to force on all queries
      */
     public CognitiveRetriever(SpectorMemory memory, String profileOverride) {
+        this(memory, profileOverride, null);
+    }
+
+    public CognitiveRetriever(SpectorMemory memory, String profileOverride, java.nio.file.Path datasetDir) {
         if (memory == null) {
             throw new NullPointerException("SpectorMemory instance must not be null");
         }
         this.memory = memory;
         this.profileOverride = profileOverride;
+        this.datasetDir = datasetDir;
+        com.spectrayan.spector.config.SpectorProperties props = null;
+        if (datasetDir != null) {
+            java.nio.file.Path yml = datasetDir.resolve("spector-bench.yml");
+            if (java.nio.file.Files.exists(yml)) {
+                try {
+                    props = com.spectrayan.spector.config.SpectorProperties.load(yml);
+                } catch (Exception ignored) {}
+            }
+        }
+        this.datasetProps = props;
     }
 
     /**
@@ -105,7 +122,7 @@ public final class CognitiveRetriever {
      * @param query the benchmark query containing profile and filter parameters
      * @return configured RecallOptions ready for execution
      */
-    RecallOptions buildOptions(BenchmarkQuery query) {
+    public RecallOptions buildOptions(BenchmarkQuery query) {
         RecallOptions.Builder builder = RecallOptions.builder()
                 .topK(10)
                 .recallMode(RecallMode.OBSERVE);
@@ -146,15 +163,49 @@ public final class CognitiveRetriever {
             builder.textSearchMode(query.textSearchMode());
         }
 
-        // Wire the graph expansion threshold from system property so sweep values
-        // actually reach GraphExpansionStage (fixes the plumbing disconnect where
-        // RecallOptions.Builder defaulted to 0.40 regardless of -D value)
-        String thresholdStr = System.getProperty("spector.benchmark.graphExpansionThreshold");
+        float graphThreshold = -1f;
+        if (datasetProps != null) {
+            graphThreshold = (float) datasetProps.getDouble("spector.memory.graph-expansion-threshold",
+                    datasetProps.getDouble("spector.memory.graph_expansion_threshold",
+                    datasetProps.getDouble("spector.benchmark.graphExpansionThreshold",
+                    datasetProps.getDouble("spector.benchmark.retrieval.graph-expansion-threshold", -1.0))));
+        }
+        String thresholdStr = System.getProperty("spector.memory.graphExpansionThreshold",
+                System.getProperty("spector.benchmark.graphExpansionThreshold",
+                System.getProperty("graphExpansionThreshold")));
         if (thresholdStr != null && !thresholdStr.isBlank()) {
             try {
-                builder.graphExpansionThreshold(Float.parseFloat(thresholdStr));
-            } catch (NumberFormatException ignored) { /* use RecallOptions default */ }
+                graphThreshold = Float.parseFloat(thresholdStr);
+            } catch (NumberFormatException ignored) {}
         }
+        if (graphThreshold >= 0f) {
+            builder.graphExpansionThreshold(graphThreshold);
+        }
+
+        // Wire MMR reranking from spector-bench.yml with system property overrides
+        boolean enableMmr = true;
+        float mmrLambda = 0.7f;
+        if (datasetProps != null) {
+            enableMmr = datasetProps.getBoolean("spector.benchmark.retrieval.enable-mmr",
+                        datasetProps.getBoolean("retrieval.enable-mmr",
+                        datasetProps.getBoolean("retrieval.enable_mmr",
+                        datasetProps.getBoolean("enableMmr", true))));
+            mmrLambda = (float) datasetProps.getDouble("spector.benchmark.retrieval.mmr-lambda",
+                        datasetProps.getDouble("retrieval.mmr-lambda",
+                        datasetProps.getDouble("retrieval.mmr_lambda",
+                        datasetProps.getDouble("mmrLambda", 0.7))));
+        }
+        String sysMmr = System.getProperty("spector.benchmark.enableMmr", System.getProperty("enableMmr"));
+        if (sysMmr != null && !sysMmr.isBlank()) {
+            enableMmr = Boolean.parseBoolean(sysMmr);
+        }
+        String sysLambda = System.getProperty("spector.benchmark.mmrLambda", System.getProperty("mmrLambda"));
+        if (sysLambda != null && !sysLambda.isBlank()) {
+            try {
+                mmrLambda = Float.parseFloat(sysLambda);
+            } catch (NumberFormatException ignored) {}
+        }
+        builder.enableMmr(enableMmr).mmrLambda(mmrLambda);
 
         return builder.build();
     }
