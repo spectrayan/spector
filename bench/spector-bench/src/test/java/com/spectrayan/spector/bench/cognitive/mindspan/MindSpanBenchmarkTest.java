@@ -26,6 +26,14 @@ public class MindSpanBenchmarkTest {
 
     @Test
     void runMindSpanBenchmark() throws Exception {
+        if (Boolean.getBoolean("skipBenchTests")) {
+            return;
+        }
+        String sysProp = System.getProperty("datasetDir");
+        if (sysProp == null || !java.nio.file.Files.exists(java.nio.file.Path.of(sysProp))) {
+            org.junit.jupiter.api.Assumptions.assumeTrue(false,
+                    "MindSpan dataset not found; skipping benchmark execution in CI");
+        }
         MindSpanBenchmarkRunner.main(new String[0]);
     }
 }

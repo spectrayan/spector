@@ -96,8 +96,10 @@ public class MindSpanIngestionValidationTest {
         Path naturalMemoryDir = datasetDir.resolve("results").resolve("ingested-memory");
         Path cacheFile = datasetDir.resolve("embeddings.bin");
 
-        assertTrue(Files.exists(corpusFile), "Corpus file must exist: " + corpusFile);
-        assertTrue(Files.exists(naturalMemoryDir), "Ingested memory dir must exist: " + naturalMemoryDir);
+        org.junit.jupiter.api.Assumptions.assumeTrue(Files.exists(corpusFile),
+                "MindSpan corpus file must exist; skipping in CI: " + corpusFile);
+        org.junit.jupiter.api.Assumptions.assumeTrue(Files.exists(naturalMemoryDir),
+                "MindSpan ingested memory dir must exist; skipping in CI: " + naturalMemoryDir);
 
         // Load JSON corpus
         Map<String, BenchmarkCorpusRecord> corpusMap = new LinkedHashMap<>();
