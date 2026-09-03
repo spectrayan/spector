@@ -35,7 +35,8 @@ public class StandardAnalyzer implements Analyzer {
             "a", "an", "and", "are", "as", "at", "be", "but", "by",
             "for", "if", "in", "into", "is", "it", "its", "no", "not",
             "of", "on", "or", "such", "that", "the", "their", "then",
-            "there", "these", "they", "this", "to", "was", "will", "with"
+            "there", "these", "they", "this", "to", "was", "will", "with",
+            "do", "does", "did", "have", "has", "had", "what"
     );
 
     @Override

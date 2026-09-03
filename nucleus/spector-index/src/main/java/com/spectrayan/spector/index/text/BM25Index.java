@@ -729,6 +729,17 @@ public class BM25Index implements KeywordIndex {
      * @return the loaded BM25Index, or null if no valid data present
      */
     public static BM25Index loadFromRegion(java.lang.foreign.MemorySegment region) {
+        return loadFromRegion(region, new StemmingAnalyzer());
+    }
+
+    /**
+     * Loads a BM25 index from a V4 bundle region MemorySegment using the specified analyzer.
+     *
+     * @param region   the BM25 region MemorySegment
+     * @param analyzer the text analyzer to use for query analysis
+     * @return the loaded BM25Index, or null if no valid data present
+     */
+    public static BM25Index loadFromRegion(java.lang.foreign.MemorySegment region, Analyzer analyzer) {
         if (region == null || region.byteSize() < 28) return null; // 4B len + 24B min header
 
         int payloadLen = region.get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
@@ -749,7 +760,7 @@ public class BM25Index implements KeywordIndex {
         int termCount = buf.getInt();
         long savedTotalDocLength = buf.getLong();
 
-        BM25Index idx = new BM25Index();
+        BM25Index idx = new BM25Index(analyzer != null ? analyzer : new StemmingAnalyzer());
 
         // DocIds
         int docCount = buf.getInt();

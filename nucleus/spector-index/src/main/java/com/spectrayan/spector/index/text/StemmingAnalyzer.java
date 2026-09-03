@@ -62,12 +62,12 @@ public class StemmingAnalyzer implements Analyzer {
         if (word.endsWith("tion") && word.length() > 5) return word.substring(0, word.length() - 4);
         if (word.endsWith("able") && word.length() > 5) return word.substring(0, word.length() - 4);
         if (word.endsWith("ible") && word.length() > 5) return word.substring(0, word.length() - 4);
-        if (word.endsWith("ing") && word.length() > 5) return dedupConsonant(word.substring(0, word.length() - 3));
+        if (word.endsWith("ing") && word.length() > 5) return stem(dedupConsonant(word.substring(0, word.length() - 3)));
         if (word.endsWith("ful") && word.length() > 4) return word.substring(0, word.length() - 3);
         if (word.endsWith("ous") && word.length() > 4) return word.substring(0, word.length() - 3);
         if (word.endsWith("ive") && word.length() > 4) return word.substring(0, word.length() - 3);
         if (word.endsWith("ly") && word.length() > 4) return word.substring(0, word.length() - 2);
-        if (word.endsWith("ed") && word.length() > 4) return dedupConsonant(word.substring(0, word.length() - 2));
+        if (word.endsWith("ed") && word.length() > 4) return stem(dedupConsonant(word.substring(0, word.length() - 2)));
         if (word.endsWith("er") && word.length() > 4) return dedupConsonant(word.substring(0, word.length() - 2));
 
         // Step 3: simple plural (after checking longer suffixes)

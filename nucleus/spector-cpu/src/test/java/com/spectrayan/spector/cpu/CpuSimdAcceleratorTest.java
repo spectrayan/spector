@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.cpu;
 
+import com.spectrayan.spector.core.spi.ComputeKernel;
 import com.spectrayan.spector.core.spi.HnswCandidateKernel;
 import com.spectrayan.spector.core.spi.MaxSimKernel;
 import com.spectrayan.spector.core.spi.SimilarityKernel;
