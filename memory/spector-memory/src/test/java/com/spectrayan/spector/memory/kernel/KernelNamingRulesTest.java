@@ -82,15 +82,14 @@ class KernelNamingRulesTest {
     private static final Set<String> PANAMA_TYPES =
             Set.of("MemoryLayout", "MemorySegment", "ValueLayout", "Arena");
 
-    /**
-     * Allowlisted exception to the shape-token rule.
-     *
-     * <p>Dropping {@code Record} would give {@code IndexMemory}, which collides conceptually with the
-     * {@code MemoryIndex} interface that extends it. Settling which name owns the directory role is out
-     * of scope for this spec — requirements §6 decision 6. Encoded here so the exception stays visible
-     * rather than silent.</p>
-     */
-    private static final Set<String> SHAPE_TOKEN_ALLOWLIST = Set.of("IndexRecordMemory");
+    private static final Set<String> SHAPE_TOKEN_ALLOWLIST = Set.of(
+            // Requirements §6 decision 6: out of scope, IndexRecordMemory & MemoryIndex keep their names
+            "IndexRecordMemory",
+            // Deferred to Group 3 task 3.6: CognitiveRecordLayout -> EngramLayout
+            "CognitiveRecordLayout",
+            // Deferred to Group 6 task 6.1: EpisodicRecordMemory deleted (double-wrap elimination)
+            "EpisodicRecordMemory"
+    );
 
     /**
      * Names where a size-like suffix is part of an algorithm name, not a storage format version.
@@ -239,7 +238,6 @@ class KernelNamingRulesTest {
      * conforms the outliers to the existing 15 rather than inventing a convention.</p>
      */
     @Test
-    @Disabled("Enabled by spec tasks 2.2, 2.3 and 2b.1-2b.4 — fails until shape tokens are dropped")
     @DisplayName("Rule 5: shape tokens only inside kernel.shape")
     void shapeTokensOnlyInShapePackage() {
         List<String> violations = ALL_TYPES.stream()
@@ -363,7 +361,7 @@ class KernelNamingRulesTest {
 
         assertThat(sizeOrVersion).as("expected HeaderLayout64 and HeaderLayout64V2").isGreaterThanOrEqualTo(2);
         assertThat(panamaShadow).as("expected no kernel types shadowing Panama").isEqualTo(0);
-        assertThat(shapeTokens).as("expected remaining stores with shape tokens")
-                .isGreaterThanOrEqualTo(1);
+        assertThat(shapeTokens).as("expected no remaining non-allowlisted stores with shape tokens")
+                .isEqualTo(0);
     }
 }
