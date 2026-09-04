@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pathway.pipeline;
 
 import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
+import com.spectrayan.spector.memory.cortex.TextBlobMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
 
@@ -123,7 +123,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
     //  BM25 Text Search (nullable  --  graceful degradation) 
     private final MemoryBM25Index bm25Index;
-    private final TextAppendMemory textDataStore;
+    private final TextBlobMemory textDataStore;
     private final int activePartitionIndex;
 
     //  SPLADE Sparse Search (nullable  --  graceful degradation) 
@@ -171,7 +171,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      HyperEntityGraphMemory hyperEntityGraph,
                                      com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                                      MemoryBM25Index bm25Index,
-                                     TextAppendMemory textDataStore,
+                                     TextBlobMemory textDataStore,
                                      int activePartitionIndex,
                                      MemorySpladeIndex spladeIndex,
                                      SparseEmbeddingProvider spladeProvider,
@@ -205,7 +205,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      HyperEntityGraphMemory hyperEntityGraph,
                                      com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                                      MemoryBM25Index bm25Index,
-                                     TextAppendMemory textDataStore,
+                                     TextBlobMemory textDataStore,
                                      int activePartitionIndex,
                                      MemorySpladeIndex spladeIndex,
                                      SparseEmbeddingProvider spladeProvider,
@@ -243,7 +243,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      HyperEntityGraphMemory hyperEntityGraph,
                                      com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                                      MemoryBM25Index bm25Index,
-                                     TextAppendMemory textDataStore,
+                                     TextBlobMemory textDataStore,
                                      int activePartitionIndex,
                                      MemorySpladeIndex spladeIndex,
                                      SparseEmbeddingProvider spladeProvider,
@@ -301,7 +301,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
      * Updates the partition-scoped {@code text.dat} store after a roll (#443, D3b).
      * Called by {@code PartitionManager.rollPartition()} under the roll lock.
      */
-    public void updateTextDataStore(TextAppendMemory newText) {
+    public void updateTextDataStore(TextBlobMemory newText) {
         this.postIngestSync.updateTextDataStore(newText);
     }
 

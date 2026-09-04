@@ -94,7 +94,7 @@ graph TB
             TC[TemporalChain<br/>Layer 2: Causal]:::core
             HEG[HyperEntityGraph<br/>Layer 3: Event-Episode]:::core
             ED[EntityDirectory<br/>Identity Registry]:::core
-            CA[CoActivationRecordMemory<br/>STDP Learning]:::core
+            CA[CoActivationMemory<br/>STDP Learning]:::core
         end
         
         subgraph "Consolidation"

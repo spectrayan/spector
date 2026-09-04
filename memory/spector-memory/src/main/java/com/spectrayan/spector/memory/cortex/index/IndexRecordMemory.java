@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.cortex.index;
 
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
+import com.spectrayan.spector.memory.cortex.TextBlobMemory;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.memory.kernel.MemoryId;
@@ -83,11 +83,11 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
     private final ConcurrentHashMap<Long, String> reverseIndex = new ConcurrentHashMap<>();
 
     // ── Off-heap text data store (active partition; back-compat / fallback) ──
-    private volatile TextAppendMemory textDataStore;
+    private volatile TextBlobMemory textDataStore;
 
     // ── Registry-backed per-partition text resolver (issue #443, D3b) ──
-    // Resolves a colocated-partition seq → that partition's TextAppendMemory.
-    private volatile java.util.function.IntFunction<TextAppendMemory> textResolver;
+    // Resolves a colocated-partition seq → that partition's TextBlobMemory.
+    private volatile java.util.function.IntFunction<TextBlobMemory> textResolver;
 
     // ── Active partition sequence (issue #443) — used by the legacy, partition-
     //    unaware findIdByOffset(type, offset) overload to resolve the reverse key. ──
@@ -293,7 +293,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         if (loc != null && loc.hasTextPosition()) {
             // issue #443 (D3b): resolve the text store by the memory's colocated
             // partition; fall back to the active store, then the on-heap map.
-            TextAppendMemory store = resolveTextStore(loc.colocatedPartition());
+            TextBlobMemory store = resolveTextStore(loc.colocatedPartition());
             if (store != null) {
                 String offHeapText = store.readTextDirect(loc.textOffset(), loc.textLength());
                 if (offHeapText != null) return offHeapText;
@@ -306,10 +306,10 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         return texts.getOrDefault(id, "");
     }
 
-    private TextAppendMemory resolveTextStore(int partition) {
+    private TextBlobMemory resolveTextStore(int partition) {
         var resolver = this.textResolver;
         if (resolver != null) {
-            TextAppendMemory store = resolver.apply(partition);
+            TextBlobMemory store = resolver.apply(partition);
             if (store != null) return store;
         }
         return textDataStore;
@@ -386,16 +386,16 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         return id != null ? text(id) : null;
     }
 
-    public void setTextDataStore(TextAppendMemory store) {
+    public void setTextDataStore(TextBlobMemory store) {
         this.textDataStore = store;
     }
 
-    public TextAppendMemory textDataStore() {
+    public TextBlobMemory textDataStore() {
         return this.textDataStore;
     }
 
     /** Injects the registry-backed per-partition text resolver (issue #443, D3b). */
-    public void setTextResolver(java.util.function.IntFunction<TextAppendMemory> resolver) {
+    public void setTextResolver(java.util.function.IntFunction<TextBlobMemory> resolver) {
         this.textResolver = resolver;
     }
 

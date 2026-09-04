@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.neuromod.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.ReflectDaemon;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
@@ -40,7 +40,7 @@ import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.neuromod.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.ReflectDaemon;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryIntrospector;
@@ -74,7 +74,7 @@ public final class BiologicalSubsystemsBuilder {
             IcnuWeights icnuWeights,
             FlashbulbPolicy flashbulbPolicy,
             ValenceTracker valenceTracker,
-            CoActivationRecordMemory coActivationTracker,
+            CoActivationMemory coActivationTracker,
             SuppressionSet suppressionSet,
             HabituationPenalty habituationPenalty,
             ProspectiveScheduler prospectiveScheduler,
@@ -95,16 +95,16 @@ public final class BiologicalSubsystemsBuilder {
         FlashbulbPolicy flashbulbPolicy = new FlashbulbPolicy(builder.flashbulbThreshold());
         ValenceTracker valenceTracker = new ValenceTracker(builder.valenceLearningRate());
 
-        CoActivationRecordMemory coActivationTracker;
+        CoActivationMemory coActivationTracker;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
             java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.COACTIVATION);
             boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(regionSlice, 0L);
             java.lang.foreign.MemorySegment ckptSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.CHECKPOINT);
-            coActivationTracker = CoActivationRecordMemory.fromBundle(
+            coActivationTracker = CoActivationMemory.fromBundle(
                     cortex.runtimeBundle().arena(), regionSlice, 10_000, 20_000,
                     cortex.runtimeBundle().bundlePath(), isNew, ckptSlice);
         } else {
-            coActivationTracker = new CoActivationRecordMemory();
+            coActivationTracker = new CoActivationMemory();
         }
         SuppressionSet suppressionSet = new SuppressionSet();
         HabituationPenalty habituationPenalty = new HabituationPenalty(0.2f, builder.inhibitionTtlMs(), builder.inhibitionFloor());

@@ -157,7 +157,7 @@ sequenceDiagram
     RP->>HP: recordAndComputePenalty(id)
     
     Note over RP: Step 5b: STDP causal boost
-    RP->>RP: CoActivationRecordMemory.getPredictiveStrength()
+    RP->>RP: CoActivationMemory.getPredictiveStrength()
     
     Note over RP: Step 5c: Hebbian spreading activation
     RP->>HG: activateNeighbors(seedIdx, depth=2)

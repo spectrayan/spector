@@ -85,7 +85,7 @@ public final class GraphExpansionStage {
     private final float[] calibrationMins;
     private final float[] calibrationScales;
     private final com.spectrayan.spector.memory.model.SalienceProfile salienceProfile;
-    private final com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory coActivationTracker;
+    private final com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory coActivationTracker;
 
     public GraphExpansionStage(HebbianGraphBase hebbianGraph,
                         TemporalChainMemory temporalChain,
@@ -98,7 +98,7 @@ public final class GraphExpansionStage {
                         float[] calibrationMins,
                         float[] calibrationScales,
                         com.spectrayan.spector.memory.model.SalienceProfile salienceProfile,
-                        com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory coActivationTracker) {
+                        com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory coActivationTracker) {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.entityDirectory = entityDirectory;
@@ -343,7 +343,7 @@ public final class GraphExpansionStage {
 
     /**
      * Layer 4: Synaptic Tagging & Capture (STC) Cross-Capture Graph.
-     * Traverses tag co-occurrence matrix and inverted index via {@link com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory}.
+     * Traverses tag co-occurrence matrix and inverted index via {@link com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory}.
      */
     private void expandCrossCaptureSTC(List<CognitiveResult> allResults,
                                        Set<String> existingIds,

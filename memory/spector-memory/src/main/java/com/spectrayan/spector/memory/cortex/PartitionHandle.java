@@ -42,7 +42,7 @@ public final class PartitionHandle implements AutoCloseable {
     private final int seq;
     private final Path dir;
     private final CognitiveMemoryRouter router;
-    private final TextAppendMemory text;
+    private final TextBlobMemory text;
     private final boolean writable;
     private final PartitionBundle partitionBundle;
     private final PartitionSummary summary;
@@ -57,7 +57,7 @@ public final class PartitionHandle implements AutoCloseable {
      * @param writable {@code true} for the single active partition, {@code false} for frozen
      */
     public PartitionHandle(int seq, Path dir, CognitiveMemoryRouter router,
-                           TextAppendMemory text, boolean writable) {
+                           TextBlobMemory text, boolean writable) {
         this(seq, dir, router, text, writable, null, null);
     }
 
@@ -72,7 +72,7 @@ public final class PartitionHandle implements AutoCloseable {
      * @param partitionBundle the partition bundle specification
      */
     public PartitionHandle(int seq, Path dir, CognitiveMemoryRouter router,
-                           TextAppendMemory text, boolean writable, PartitionBundle partitionBundle) {
+                           TextBlobMemory text, boolean writable, PartitionBundle partitionBundle) {
         this(seq, dir, router, text, writable, partitionBundle, null);
     }
 
@@ -88,7 +88,7 @@ public final class PartitionHandle implements AutoCloseable {
      * @param summary         the partition summary metadata (computed if null)
      */
     public PartitionHandle(int seq, Path dir, CognitiveMemoryRouter router,
-                           TextAppendMemory text, boolean writable, PartitionBundle partitionBundle,
+                           TextBlobMemory text, boolean writable, PartitionBundle partitionBundle,
                            PartitionSummary summary) {
         this.seq = seq;
         this.dir = dir;
@@ -111,7 +111,7 @@ public final class PartitionHandle implements AutoCloseable {
         return router;
     }
 
-    public TextAppendMemory text() {
+    public TextBlobMemory text() {
         return text;
     }
 

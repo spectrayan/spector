@@ -22,9 +22,8 @@ import com.spectrayan.spector.memory.neuromod.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor;
-import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
+import com.spectrayan.spector.memory.cortex.ContinuityMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.neuromod.dopamine.DefaultImportanceProvider;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
@@ -34,7 +33,7 @@ import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.OntologyConfig;
 import com.spectrayan.spector.memory.graph.TypeNormalizer;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
@@ -92,7 +91,7 @@ import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
@@ -112,7 +111,6 @@ import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
 import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
 
@@ -153,7 +151,7 @@ public final class SpectorMemoryFactory {
             ReflectionOrchestrator reflectionOrchestrator,
             ReinforcementHandler reinforcementHandler,
             ValenceTracker valenceTracker,
-            CoActivationRecordMemory coActivationTracker,
+            CoActivationMemory coActivationTracker,
             SuppressionSet suppressionSet,
             HabituationPenalty habituationPenalty,
             ProspectiveScheduler prospectiveScheduler,
@@ -181,7 +179,7 @@ public final class SpectorMemoryFactory {
             RuntimeBundle runtimeBundle,
             InsularCortex insularCortex,
             WanderPathway wanderPathway,
-            com.spectrayan.spector.memory.cortex.ContinuityRecordMemory continuityMemory,
+            com.spectrayan.spector.memory.cortex.ContinuityMemory continuityMemory,
             DecidePathway decidePathway,
             DreamPathway dreamPathway,
             com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle

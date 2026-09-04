@@ -18,7 +18,7 @@ package com.spectrayan.spector.memory.kernel.layout;
  * <p>Defines byte offsets for the V4 bundle checkpoint region, tag dictionary
  * entry framing, and bandit statistics record layout. These constants replace
  * hardcoded magic offsets previously scattered across
- * {@code CoActivationRecordMemory}'s save/load/checkpoint methods.</p>
+ * {@code CoActivationMemory}'s save/load/checkpoint methods.</p>
  *
  * <h3>Checkpoint Region Layout</h3>
  * <pre>

@@ -109,13 +109,13 @@ public final class MmapDatasetIntegrityValidator {
                     violations.add("Corpus record '" + rec.id() + "' missing from MemoryIndex");
                 }
 
-                // Raw text verification (zero-copy off-heap TextAppendMemory)
+                // Raw text verification (zero-copy off-heap TextBlobMemory)
                 totalChecks++;
                 String storedText = memory.admin().index().text(rec.id());
                 if (storedText != null && storedText.equals(rec.text())) {
                     passedChecks++;
                 } else if (storedText == null) {
-                    violations.add("Corpus record '" + rec.id() + "' raw text is NULL in TextAppendMemory");
+                    violations.add("Corpus record '" + rec.id() + "' raw text is NULL in TextBlobMemory");
                 } else {
                     violations.add("Corpus record '" + rec.id() + "' raw text mismatch (len=" + storedText.length() + " vs exp=" + rec.text().length() + ")");
                 }

@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pathway.recall.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.pathway.RelayNames;
@@ -26,11 +26,11 @@ import com.spectrayan.spector.memory.pathway.pipeline.scorer.SalienceAndHabituat
 public final class RrfRescoreRelay implements SynapticRelay<RecallSignal> {
     
     private final SalienceAndHabituationScorer scorer;
-    private final CoActivationRecordMemory coActivationTracker;
+    private final CoActivationMemory coActivationTracker;
     private final GraphScoringPolicy graphScoringPolicy;
 
     public RrfRescoreRelay(final SalienceAndHabituationScorer scorer,
-                           final CoActivationRecordMemory coActivationTracker,
+                           final CoActivationMemory coActivationTracker,
                            final GraphScoringPolicy graphScoringPolicy) {
         this.scorer = scorer;
         this.coActivationTracker = coActivationTracker;

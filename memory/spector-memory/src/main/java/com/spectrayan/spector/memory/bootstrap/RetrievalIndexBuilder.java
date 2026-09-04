@@ -12,26 +12,16 @@
  */
 package com.spectrayan.spector.memory.bootstrap;
 
+import com.spectrayan.spector.index.BM25Index;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
+import com.spectrayan.spector.memory.cortex.TextBlobMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTReranker;
 import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTTokenCache;
-
-import com.spectrayan.spector.memory.persist.PartitionManager;
-
-import com.spectrayan.spector.index.BM25Index;
-import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTReranker;
-import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTTokenCache;
-import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
-import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
-import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
 
 import java.util.Map;
 
@@ -60,7 +50,7 @@ public final class RetrievalIndexBuilder {
     /** Immutable holder for the assembled retrieval indices. */
     public record RetrievalIndices(
             MemoryBM25Index bm25Index,
-            TextAppendMemory textDataStore,
+            TextBlobMemory textDataStore,
             MemorySpladeIndex memorySpladeIndex,
             ColBERTReranker colbertReranker
     ) {}
@@ -74,7 +64,7 @@ public final class RetrievalIndexBuilder {
 
         //  BM25 Text Search 
         MemoryBM25Index bm25Index;
-        TextAppendMemory textDataStore = cortex.textStore();
+        TextBlobMemory textDataStore = cortex.textStore();
         if (isDisk && basePath != null && resolvedPartitionDir != null && textDataStore != null) {
             textDataStore.readAll();
             index.setTextDataStore(textDataStore);

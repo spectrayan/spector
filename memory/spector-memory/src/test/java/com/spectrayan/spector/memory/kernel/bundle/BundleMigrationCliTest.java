@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.kernel.bundle;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.ProceduralMemory;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
+import com.spectrayan.spector.memory.cortex.TextBlobMemory;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
@@ -298,7 +298,7 @@ class BundleMigrationCliTest {
         procedural.close();
 
         // Create text.dat with a minimal SMKM header
-        TextAppendMemory text = new TextAppendMemory(
+        TextBlobMemory text = new TextBlobMemory(
                 StorageLayout.textDat(partDir), DataEncryptor.NOOP);
         text.close();
     }

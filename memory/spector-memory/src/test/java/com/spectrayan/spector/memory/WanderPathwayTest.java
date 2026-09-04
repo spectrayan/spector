@@ -21,7 +21,7 @@ import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
 import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold;
-import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
+import com.spectrayan.spector.memory.cortex.ContinuityMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
@@ -58,7 +58,7 @@ class WanderPathwayTest {
         ContinuousHopfieldNetwork hopfieldNetwork = new ContinuousHopfieldNetwork();
         HomeostaticCore homeostaticCore = new HomeostaticCore();
         HebbianGraphMemory hebbianGraph = new HebbianGraphMemory(50);
-        ContinuityRecordMemory continuityMemory = ContinuityRecordMemory.heap(100);
+        ContinuityMemory continuityMemory = ContinuityMemory.heap(100);
 
         AismeConfig config = AismeConfig.defaultConfig();
 

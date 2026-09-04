@@ -64,7 +64,7 @@ import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
@@ -157,7 +157,7 @@ public final class RecallPipeline {
     private final float[] calibrationMins;
     private final float[] calibrationScales;
     private final SemanticRecallStrategy semanticRecallStrategy; // nullable
-    private final CoActivationRecordMemory coActivationTracker; // nullable  --  for STDP causal boost
+    private final CoActivationMemory coActivationTracker; // nullable  --  for STDP causal boost
     private final GraphScoringPolicy graphScoringPolicy;
     private final GraphExpansionStage graphExpansionStage;
     private final com.spectrayan.spector.memory.pathway.pipeline.graph.TemporalFactWeavingStage temporalFactWeavingStage;
@@ -284,7 +284,7 @@ public final class RecallPipeline {
                            float[] calibrationMins,
                            float[] calibrationScales,
                            SemanticRecallStrategy semanticRecallStrategy,
-                           CoActivationRecordMemory coActivationTracker) {
+                           CoActivationMemory coActivationTracker) {
         this(embeddingProvider, partitionRegistry, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales,
                 semanticRecallStrategy, coActivationTracker,
@@ -305,7 +305,7 @@ public final class RecallPipeline {
                            float[] calibrationMins,
                            float[] calibrationScales,
                            SemanticRecallStrategy semanticRecallStrategy,
-                           CoActivationRecordMemory coActivationTracker,
+                           CoActivationMemory coActivationTracker,
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
                            EntityDirectory entityDirectory,
@@ -336,7 +336,7 @@ public final class RecallPipeline {
                            float[] calibrationMins,
                            float[] calibrationScales,
                            SemanticRecallStrategy semanticRecallStrategy,
-                           CoActivationRecordMemory coActivationTracker,
+                           CoActivationMemory coActivationTracker,
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
                            EntityDirectory entityDirectory,
@@ -369,7 +369,7 @@ public final class RecallPipeline {
                            float[] calibrationMins,
                            float[] calibrationScales,
                            SemanticRecallStrategy semanticRecallStrategy,
-                           CoActivationRecordMemory coActivationTracker,
+                           CoActivationMemory coActivationTracker,
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
                            EntityDirectory entityDirectory,
@@ -403,7 +403,7 @@ public final class RecallPipeline {
                            float[] calibrationMins,
                            float[] calibrationScales,
                            SemanticRecallStrategy semanticRecallStrategy,
-                           CoActivationRecordMemory coActivationTracker,
+                           CoActivationMemory coActivationTracker,
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
                            EntityDirectory entityDirectory,

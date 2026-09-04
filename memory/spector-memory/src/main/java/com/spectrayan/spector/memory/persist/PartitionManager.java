@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.ProceduralMemory;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
+import com.spectrayan.spector.memory.cortex.TextBlobMemory;
 import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
@@ -115,7 +115,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                      int proceduralCapacity,
                      CognitiveMemoryRouter initialRouter,
                      Path initialPartitionDir,
-                     TextAppendMemory initialText,
+                     TextBlobMemory initialText,
                      int initialSeq,
                      List<PartitionHandle> initialFrozen,
                      MemoryIndex index,
@@ -322,7 +322,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                 bundle.arena(), epiSlice, bundleFile, false);
         ProceduralMemory procedural = ProceduralMemory.fromBundle(
                 bundle.arena(), procSlice, proceduralCapacity, quantizedVecBytes, bundleFile, false);
-        TextAppendMemory text = TextAppendMemory.fromBundle(
+        TextBlobMemory text = TextBlobMemory.fromBundle(
                 bundle.arena(), textSlice, bundleFile, false, encryptor);
 
         StrengthMemory audit = bundle.hasRegion(RegionId.STRENGTH)
@@ -377,7 +377,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                 WorkingMemory workingStore = activeRouter().working();
 
                 CognitiveMemoryRouter newRouter;
-                TextAppendMemory newText;
+                TextBlobMemory newText;
                 PartitionBundle newBundle = null;
 
                 // ── V4 Bundle Mode ──
@@ -409,7 +409,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                 ProceduralMemory newProcedural = ProceduralMemory.fromBundle(
                         newBundle.arena(), newBundle.regionSegment(RegionId.PROCEDURAL),
                         proceduralCapacity, quantizedVecBytes, bundleFile, true);
-                newText = TextAppendMemory.fromBundle(
+                newText = TextBlobMemory.fromBundle(
                         newBundle.arena(), newBundle.regionSegment(RegionId.TEXT),
                         bundleFile, true, encryptor);
 

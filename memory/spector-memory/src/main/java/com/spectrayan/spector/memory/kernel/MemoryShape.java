@@ -96,7 +96,7 @@ public enum MemoryShape {
      * directed edges in two independent hash tables within a single memory region.</p>
      *
      * <p>Introduced as part of ADR-0009 (Cross-Capture Graph &amp; CoActivation Kernel
-     * Integration) to give {@code CoActivationRecordMemory} an honest shape instead
+     * Integration) to give {@code CoActivationMemory} an honest shape instead
      * of the {@code stride=1} hack that abused {@link #RECORD}.</p>
      *
      * @see com.spectrayan.spector.memory.kernel.shape.AbstractHashTableMemory

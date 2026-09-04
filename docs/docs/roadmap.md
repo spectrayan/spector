@@ -534,7 +534,7 @@ Full graph augmentation layer for `spector-memory` — three biologically-inspir
 ```
 RecallPipeline
   Step 5a: Habituation + Inhibition of Return
-  Step 5b: STDP causal boost (CoActivationRecordMemory)
+  Step 5b: STDP causal boost (CoActivationMemory)
   Step 5c: Hebbian spreading activation (HebbianGraph, depth=2)
   Step 5d: Temporal chain extension (TemporalChain, maxHops=3)
   Step 5e: Entity directory & hypergraph traversal (EntityDirectory & HyperEntityGraph, depth=2)

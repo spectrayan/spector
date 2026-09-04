@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory.TextEntry;
+import com.spectrayan.spector.memory.cortex.TextBlobMemory.TextEntry;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,18 +26,18 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for {@link TextAppendMemory} — binary text.dat reader/writer extending AbstractAppendMemory.
+ * Tests for {@link TextBlobMemory} — binary text.dat reader/writer extending AbstractAppendMemory.
  */
-class TextAppendMemoryTest {
+class TextBlobMemoryTest {
 
     @TempDir
     Path tempDir;
 
-    private TextAppendMemory store;
+    private TextBlobMemory store;
 
     @BeforeEach
     void setUp() {
-        store = new TextAppendMemory(tempDir.resolve(StorageLayout.FILE_TEXT));
+        store = new TextBlobMemory(tempDir.resolve(StorageLayout.FILE_TEXT));
     }
 
     @Test

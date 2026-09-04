@@ -47,9 +47,9 @@ import java.util.concurrent.locks.ReentrantLock;
  * Binary reader/writer for {@code text.dat} files within partition directories,
  * extending {@link AbstractAppendMemory} directly with standard kernel layout.
  */
-public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout> {
+public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
 
-    private static final Logger log = LoggerFactory.getLogger(TextAppendMemory.class);
+    private static final Logger log = LoggerFactory.getLogger(TextBlobMemory.class);
 
     private static final int LEGACY_HEADER_BYTES = 16;
 
@@ -66,25 +66,25 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
     private final ReentrantLock writeLock = new ReentrantLock();
 
     /**
-     * Creates a TextAppendMemory for the given file path (no encryption).
+     * Creates a TextBlobMemory for the given file path (no encryption).
      *
      * @param file path to the text.dat file (may or may not exist yet)
      */
-    public TextAppendMemory(Path file) {
+    public TextBlobMemory(Path file) {
         this(file, DataEncryptor.NOOP);
     }
 
     /**
-     * Creates a TextAppendMemory with encryption support.
+     * Creates a TextBlobMemory with encryption support.
      *
      * @param file      path to the text.dat file
      * @param encryptor data encryptor for text-at-rest (null → NOOP)
      */
-    public TextAppendMemory(Path file, DataEncryptor encryptor) {
+    public TextBlobMemory(Path file, DataEncryptor encryptor) {
         this(file, encryptor, migrateLegacyIfNeeded(file, encryptor != null ? encryptor : DataEncryptor.NOOP));
     }
 
-    private TextAppendMemory(Path file, DataEncryptor encryptor, Map<String, TextEntry> legacyEntries) {
+    private TextBlobMemory(Path file, DataEncryptor encryptor, Map<String, TextEntry> legacyEntries) {
         super(SystemMemoryId.CORTEX_TEXT.id(), new TextBlobLayout(), 0, calculateInitialSize(file, legacyEntries), file);
         this.file = file;
         this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
@@ -99,7 +99,7 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
     }
 
     /**
-     * Creates a bundle-backed TextAppendMemory from a pre-sliced region segment.
+     * Creates a bundle-backed TextBlobMemory from a pre-sliced region segment.
      *
      * <p>The region slice contains a 64-byte SMKM header followed by append-log data.
      * The arena is shared across all bundle regions and is <b>not</b> owned by this store.</p>
@@ -109,15 +109,15 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
      * @param bundlePath   the path to the bundle file (for diagnostics)
      * @param isNew        true if the region was just created
      * @param encryptor    the data encryptor (null treated as NOOP)
-     * @return a new bundle-backed TextAppendMemory
+     * @return a new bundle-backed TextBlobMemory
      */
-    public static TextAppendMemory fromBundle(Arena arena, MemorySegment regionSlice,
+    public static TextBlobMemory fromBundle(Arena arena, MemorySegment regionSlice,
                                                Path bundlePath, boolean isNew,
                                                DataEncryptor encryptor) {
-        return new TextAppendMemory(arena, regionSlice, bundlePath, isNew, encryptor);
+        return new TextBlobMemory(arena, regionSlice, bundlePath, isNew, encryptor);
     }
 
-    private TextAppendMemory(Arena arena, MemorySegment regionSlice, Path bundlePath,
+    private TextBlobMemory(Arena arena, MemorySegment regionSlice, Path bundlePath,
                               boolean isNew, DataEncryptor encryptor) {
         super(SystemMemoryId.CORTEX_TEXT.id(), new TextBlobLayout(), 0,
               arena, regionSlice,
@@ -130,10 +130,10 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
             long now = System.currentTimeMillis();
             RegionPreamble.write(segment(), 0, 1, MemoryShape.APPEND, 1, 0, 0,
                     layout.recordStride(), layout.layoutId(), now, now);
-            log.info("TextAppendMemory initialized new bundle region in: {} ({}KB)",
+            log.info("TextBlobMemory initialized new bundle region in: {} ({}KB)",
                     bundlePath, regionSlice.byteSize() / 1024);
         } else {
-            log.info("TextAppendMemory loaded from bundle region in: {} (cursor={}B)",
+            log.info("TextBlobMemory loaded from bundle region in: {} (cursor={}B)",
                     bundlePath, count);
         }
     }

@@ -38,7 +38,7 @@ import java.nio.file.Path;
  * association strength and temporal prediction in the same synaptic complex.</p>
  *
  * <p>Introduced as part of ADR-0009 (Cross-Capture Graph &amp; CoActivation Kernel
- * Integration) to replace the {@code stride=1} hack in {@code CoActivationRecordMemory}
+ * Integration) to replace the {@code stride=1} hack in {@code CoActivationMemory}
  * with an honest kernel shape.</p>
  *
  * @param <L> the type of memory layout used by this memory

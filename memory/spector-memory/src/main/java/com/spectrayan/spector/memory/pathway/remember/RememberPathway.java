@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.bootstrap.CognitiveGraphBuilder;
 import com.spectrayan.spector.memory.bootstrap.RetrievalIndexBuilder;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
+import com.spectrayan.spector.memory.cortex.TextBlobMemory;
 import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
@@ -255,7 +255,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
     /**
      * Updates the partition-scoped {@code text.dat} store after a roll.
      */
-    public void updateTextDataStore(final TextAppendMemory newText) {
+    public void updateTextDataStore(final TextBlobMemory newText) {
         this.corticalWriteRelay.postIngestSync().updateTextDataStore(newText);
     }
 

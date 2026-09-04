@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.function.LongFunction;
 
 /**
- * Concrete {@link AssociativePriorProvider} backed by {@link CoActivationRecordMemory} (MR-06).
+ * Concrete {@link AssociativePriorProvider} backed by {@link CoActivationMemory} (MR-06).
  *
  * <p>Combines STDP predictive strength from query context tags to candidate tags and log1p hub degree:
  * <pre>
@@ -29,13 +29,13 @@ import java.util.function.LongFunction;
  */
 public final class CoActivationAssociativePriorProvider implements AssociativePriorProvider {
 
-    private final CoActivationRecordMemory coActivationMemory;
+    private final CoActivationMemory coActivationMemory;
     private final float stdpWeight;
     private final float hubWeight;
     private final LongFunction<String[]> tagResolver;
 
     public CoActivationAssociativePriorProvider(
-            CoActivationRecordMemory coActivationMemory,
+            CoActivationMemory coActivationMemory,
             float stdpWeight,
             float hubWeight,
             LongFunction<String[]> tagResolver) {

@@ -51,7 +51,7 @@ import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityType;
 import com.spectrayan.spector.memory.graph.RelationType;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
@@ -512,7 +512,7 @@ public final class BenchmarkSetup implements AutoCloseable {
             if (coact != null) {
                 loadCoActivationMemory(coact, dataset, idToSlot, memIdToEffectiveTags);
             } else {
-                log.warn("CoActivationRecordMemory is null  --  skipping co-activation ingestion");
+                log.warn("CoActivationMemory is null  --  skipping co-activation ingestion");
             }
             log.info("Benchmark memory setup complete: hebbian edges={}, temporal chains={}, entity relations={}",
                     dataset.hebbianEdges().size(), dataset.temporalChains().size(),
@@ -767,13 +767,13 @@ public final class BenchmarkSetup implements AutoCloseable {
     }
 
     /**
-     * Populates CoActivationRecordMemory from dataset definitions:
+     * Populates CoActivationMemory from dataset definitions:
      * 1. Undirected tag co-occurrence pairs from Hebbian edges.
      * 2. Directed STDP causal transitions from Temporal chains.
      * 3. Reciprocal Neocortical semantic-to-episodic tag bridges.
      * 4. Rebuilds the Tag -> Memory Slot Inverted Index for Cross-Capture Graph traversal.
      */
-    void loadCoActivationMemory(CoActivationRecordMemory coact, DatasetLoader.LoadedDataset dataset,
+    void loadCoActivationMemory(CoActivationMemory coact, DatasetLoader.LoadedDataset dataset,
                                 Map<String, Integer> idToSlot,
                                 Map<String, Set<String>> memIdToTags) {
         if (coact == null) return;
@@ -885,7 +885,7 @@ public final class BenchmarkSetup implements AutoCloseable {
             coact.rebuildInvertedIndex(slotToTags);
         }
 
-        log.info("CoActivationRecordMemory loaded: pairs={}, STDP edges={}, inverted index tags={}, bridges={}",
+        log.info("CoActivationMemory loaded: pairs={}, STDP edges={}, inverted index tags={}, bridges={}",
                 coact.pairCount(), coact.edgeCount(), coact.invertedIndexTagCount(), bridges);
     }
 

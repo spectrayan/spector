@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
 import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold;
-import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
+import com.spectrayan.spector.memory.cortex.ContinuityMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 
@@ -54,7 +54,7 @@ public final class WanderSignal {
     private final ContinuousHopfieldNetwork hopfieldNetwork;
     private final HebbianGraphBase hebbianGraph;
     private final HomeostaticCore homeostaticCore;
-    private final ContinuityRecordMemory continuityMemory;
+    private final ContinuityMemory continuityMemory;
     private final AismeConfig aismeConfig;
 
     private final long lastActivityTimestampMs;
@@ -137,7 +137,7 @@ public final class WanderSignal {
     public ContinuousHopfieldNetwork hopfieldNetwork() { return hopfieldNetwork; }
     public HebbianGraphBase hebbianGraph() { return hebbianGraph; }
     public HomeostaticCore homeostaticCore() { return homeostaticCore; }
-    public ContinuityRecordMemory continuityMemory() { return continuityMemory; }
+    public ContinuityMemory continuityMemory() { return continuityMemory; }
     public AismeConfig aismeConfig() { return aismeConfig; }
 
     public long lastActivityTimestampMs() { return lastActivityTimestampMs; }
@@ -210,7 +210,7 @@ public final class WanderSignal {
         private ContinuousHopfieldNetwork hopfieldNetwork;
         private HebbianGraphBase hebbianGraph;
         private HomeostaticCore homeostaticCore;
-        private ContinuityRecordMemory continuityMemory;
+        private ContinuityMemory continuityMemory;
         private AismeConfig aismeConfig;
 
         private long lastActivityTimestampMs = System.currentTimeMillis();
@@ -235,7 +235,7 @@ public final class WanderSignal {
         public Builder hopfieldNetwork(ContinuousHopfieldNetwork chn) { this.hopfieldNetwork = chn; return this; }
         public Builder hebbianGraph(HebbianGraphBase hg) { this.hebbianGraph = hg; return this; }
         public Builder homeostaticCore(HomeostaticCore hc) { this.homeostaticCore = hc; return this; }
-        public Builder continuityMemory(ContinuityRecordMemory crm) { this.continuityMemory = crm; return this; }
+        public Builder continuityMemory(ContinuityMemory crm) { this.continuityMemory = crm; return this; }
         public Builder aismeConfig(AismeConfig cfg) { this.aismeConfig = cfg; return this; }
 
         public Builder lastActivityTimestampMs(long ts) { this.lastActivityTimestampMs = ts; return this; }

@@ -16,12 +16,12 @@ import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.cortex.StrengthMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
+import com.spectrayan.spector.memory.cortex.ContinuityMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.ProceduralMemory;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
+import com.spectrayan.spector.memory.cortex.TextBlobMemory;
 import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
 import com.spectrayan.spector.memory.kernel.layout.InsularLayout;
@@ -101,10 +101,10 @@ public final class CognitiveCortexBuilder {
             CognitiveMemoryRouter cognitiveRouter,
             WorkingMemory workingStore,
             PartitionBundle partitionBundle,
-            TextAppendMemory textStore,
+            TextBlobMemory textStore,
             RuntimeBundle runtimeBundle,
             InsularCortex insularCortex,
-            ContinuityRecordMemory continuityMemory,
+            ContinuityMemory continuityMemory,
             EpisodicLogMemory episodicLogStore
     ) {}
 
@@ -182,10 +182,10 @@ public final class CognitiveCortexBuilder {
         CognitiveMemoryRouter cognitiveRouter;
         WorkingMemory workingStore = new WorkingMemory(quantizedVecBytes, builder.workingCapacity());
         PartitionBundle partitionBundle = null;
-        TextAppendMemory textStore = null;
+        TextBlobMemory textStore = null;
         RuntimeBundle runtimeBundle = null;
         InsularCortex insularCortex = null;
-        ContinuityRecordMemory continuityMemory = null;
+        ContinuityMemory continuityMemory = null;
 
         if (isDisk && basePath != null && resolvedPartitionDir != null) {
             // ── V4 Runtime Bundle & Insular Cortex ──
@@ -240,7 +240,7 @@ public final class CognitiveCortexBuilder {
 
             MemorySegment continuitySlice = runtimeBundle.optionalRegionSegment(RegionId.CONTINUITY);
             if (continuitySlice != null) {
-                continuityMemory = ContinuityRecordMemory.fromBundle(runtimeBundle.arena(), continuitySlice, isNewRuntime);
+                continuityMemory = ContinuityMemory.fromBundle(runtimeBundle.arena(), continuitySlice, isNewRuntime);
             }
 
             // ── V4 Partition Bundle ──
@@ -293,7 +293,7 @@ public final class CognitiveCortexBuilder {
             ProceduralMemory proceduralStore = ProceduralMemory.fromBundle(
                     partitionBundle.arena(), procSlice,
                     builder.proceduralCapacity(), quantizedVecBytes, bundleFile, isNew);
-            textStore = TextAppendMemory.fromBundle(
+            textStore = TextBlobMemory.fromBundle(
                     partitionBundle.arena(), textSlice, bundleFile, isNew,
                     builder.dataEncryptor());
 
@@ -327,7 +327,7 @@ public final class CognitiveCortexBuilder {
         }
 
         if (continuityMemory == null) {
-            continuityMemory = ContinuityRecordMemory.heap(1000);
+            continuityMemory = ContinuityMemory.heap(1000);
         }
 
         EpisodicLogMemory episodicLogStore = cognitiveRouter.episodicLog();

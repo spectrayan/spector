@@ -27,41 +27,41 @@ import java.nio.file.Path;
  * Durable append-only memory kernel store for 64-byte temporal fact records,
  * extending {@link AbstractAppendMemory} directly.
  */
-public final class TemporalFactsAppendMemory extends AbstractAppendMemory<TemporalFactLayout> {
+public final class TemporalFactsMemory extends AbstractAppendMemory<TemporalFactLayout> {
 
     private static final MemoryId MEMORY_ID = SystemMemoryId.TEMPORAL_FACTS.id();
 
     /**
-     * Creates an in-memory (heap) TemporalFactsAppendMemory store with default capacity (64 KB).
+     * Creates an in-memory (heap) TemporalFactsMemory store with default capacity (64 KB).
      */
-    public TemporalFactsAppendMemory() {
+    public TemporalFactsMemory() {
         this(64L * 1024);
     }
 
     /**
-     * Creates an in-memory (heap) TemporalFactsAppendMemory store.
+     * Creates an in-memory (heap) TemporalFactsMemory store.
      *
      * @param initialSize initial byte capacity
      */
-    public TemporalFactsAppendMemory(long initialSize) {
+    public TemporalFactsMemory(long initialSize) {
         super(MEMORY_ID, new TemporalFactLayout(), 0, initialSize);
     }
 
     /**
-     * Creates a file-backed (mmap) TemporalFactsAppendMemory store.
+     * Creates a file-backed (mmap) TemporalFactsMemory store.
      *
      * @param filePath    path to the facts data file
      * @param initialSize byte capacity for new files
      */
-    public TemporalFactsAppendMemory(Path filePath, long initialSize) {
+    public TemporalFactsMemory(Path filePath, long initialSize) {
         super(MEMORY_ID, new TemporalFactLayout(), 0, initialSize, filePath);
     }
 
-    public static TemporalFactsAppendMemory fromBundle(Arena arena, MemorySegment regionSlice, Path bundlePath, boolean isNew) {
-        return new TemporalFactsAppendMemory(arena, regionSlice, bundlePath, isNew);
+    public static TemporalFactsMemory fromBundle(Arena arena, MemorySegment regionSlice, Path bundlePath, boolean isNew) {
+        return new TemporalFactsMemory(arena, regionSlice, bundlePath, isNew);
     }
 
-    private TemporalFactsAppendMemory(Arena arena, MemorySegment regionSlice, Path bundlePath, boolean isNew) {
+    private TemporalFactsMemory(Arena arena, MemorySegment regionSlice, Path bundlePath, boolean isNew) {
         super(MEMORY_ID, new TemporalFactLayout(), 0, arena, regionSlice,
               isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0L),
               true, bundlePath, null, true); // bundleManaged=true

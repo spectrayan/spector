@@ -57,9 +57,9 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * @since 1.2.0
  */
-public final class ContinuityRecordMemory implements Memory<ContinuityLayout>, AutoCloseable {
+public final class ContinuityMemory implements Memory<ContinuityLayout>, AutoCloseable {
 
-    private static final Logger log = LoggerFactory.getLogger(ContinuityRecordMemory.class);
+    private static final Logger log = LoggerFactory.getLogger(ContinuityMemory.class);
 
     private final MemoryId id;
     private final ContinuityLayout layout = ContinuityLayout.SINGLETON;
@@ -72,7 +72,7 @@ public final class ContinuityRecordMemory implements Memory<ContinuityLayout>, A
     private final Path filePath;
     private final ReentrantLock writeLock = new ReentrantLock();
 
-    private ContinuityRecordMemory(
+    private ContinuityMemory(
             MemoryId id,
             Arena arena,
             MemorySegment segment,
@@ -94,18 +94,18 @@ public final class ContinuityRecordMemory implements Memory<ContinuityLayout>, A
     // ── Factory Methods ──
 
     /**
-     * Creates a {@link ContinuityRecordMemory} from an existing runtime bundle region slice.
+     * Creates a {@link ContinuityMemory} from an existing runtime bundle region slice.
      *
      * @param arena shared bundle arena
      * @param regionSlice off-heap memory slice allocated for RegionId.CONTINUITY
      * @param isNew whether this region was newly initialized
-     * @return initialized ContinuityRecordMemory
+     * @return initialized ContinuityMemory
      */
-    public static ContinuityRecordMemory fromBundle(Arena arena, MemorySegment regionSlice, boolean isNew) {
+    public static ContinuityMemory fromBundle(Arena arena, MemorySegment regionSlice, boolean isNew) {
         MemoryId memoryId = SystemMemoryId.CONTINUITY.id();
         int recordCapacity = (int) ((regionSlice.byteSize() - ContinuityLayout.DATA_START) / ContinuityLayout.RECORD_STRIDE);
         if (recordCapacity <= 0) {
-            throw new SpectorMemoryException(ErrorCode.RECORD_CRC_CORRUPTED, "Region slice too small for ContinuityRecordMemory");
+            throw new SpectorMemoryException(ErrorCode.RECORD_CRC_CORRUPTED, "Region slice too small for ContinuityMemory");
         }
 
         boolean effectivelyNew = isNew || !RegionPreamble.isValid(regionSlice, 0L);
@@ -123,16 +123,16 @@ public final class ContinuityRecordMemory implements Memory<ContinuityLayout>, A
             validateHeader(regionSlice);
         }
 
-        return new ContinuityRecordMemory(memoryId, arena, regionSlice, recordCapacity, true, true, null, null);
+        return new ContinuityMemory(memoryId, arena, regionSlice, recordCapacity, true, true, null, null);
     }
 
     /**
-     * Creates an in-memory heap-backed {@link ContinuityRecordMemory} for testing or ephemeral sessions.
+     * Creates an in-memory heap-backed {@link ContinuityMemory} for testing or ephemeral sessions.
      *
      * @param capacity maximum number of circular history records (e.g. 1,000)
-     * @return ephemeral ContinuityRecordMemory
+     * @return ephemeral ContinuityMemory
      */
-    public static ContinuityRecordMemory heap(int capacity) {
+    public static ContinuityMemory heap(int capacity) {
         if (capacity <= 0) {
             capacity = 1000;
         }
@@ -149,17 +149,17 @@ public final class ContinuityRecordMemory implements Memory<ContinuityLayout>, A
         ContinuityLayout.writeLastSnapshotTimestamp(seg, 0L);
         ContinuityLayout.writeCapacity(seg, capacity);
 
-        return new ContinuityRecordMemory(SystemMemoryId.CONTINUITY.id(), arena, seg, capacity, false, false, null, null);
+        return new ContinuityMemory(SystemMemoryId.CONTINUITY.id(), arena, seg, capacity, false, false, null, null);
     }
 
     /**
-     * Opens or creates a standalone file-backed {@link ContinuityRecordMemory}.
+     * Opens or creates a standalone file-backed {@link ContinuityMemory}.
      *
      * @param filePath path to the memory file
      * @param capacity record capacity
-     * @return file-backed ContinuityRecordMemory
+     * @return file-backed ContinuityMemory
      */
-    public static ContinuityRecordMemory open(Path filePath, int capacity) {
+    public static ContinuityMemory open(Path filePath, int capacity) {
         if (capacity <= 0) {
             capacity = 10_000;
         }
@@ -189,15 +189,15 @@ public final class ContinuityRecordMemory implements Memory<ContinuityLayout>, A
                 validateHeader(seg);
             }
 
-            return new ContinuityRecordMemory(SystemMemoryId.CONTINUITY.id(), arena, seg, capacity, true, false, fc, filePath);
+            return new ContinuityMemory(SystemMemoryId.CONTINUITY.id(), arena, seg, capacity, true, false, fc, filePath);
         } catch (IOException e) {
-            throw new UncheckedIOException("Failed to open ContinuityRecordMemory at " + filePath, e);
+            throw new UncheckedIOException("Failed to open ContinuityMemory at " + filePath, e);
         }
     }
 
     private static void validateHeader(MemorySegment slice) {
         if (!RegionPreamble.isValid(slice, 0L)) {
-            throw new SpectorMemoryException(ErrorCode.RECORD_CRC_CORRUPTED, "Invalid RegionPreamble in ContinuityRecordMemory");
+            throw new SpectorMemoryException(ErrorCode.RECORD_CRC_CORRUPTED, "Invalid RegionPreamble in ContinuityMemory");
         }
         int layoutId = RegionPreamble.readLayoutId(slice, 0L);
         if (layoutId != ContinuityLayout.LAYOUT_ID) {
@@ -410,7 +410,7 @@ public final class ContinuityRecordMemory implements Memory<ContinuityLayout>, A
             try {
                 fileChannel.close();
             } catch (IOException e) {
-                log.warn("Failed to close fileChannel for ContinuityRecordMemory: {}", e.getMessage());
+                log.warn("Failed to close fileChannel for ContinuityMemory: {}", e.getMessage());
             }
         }
     }

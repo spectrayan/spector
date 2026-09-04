@@ -26,12 +26,11 @@ import com.spectrayan.spector.memory.cortex.consolidation.EagerConsolidator;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EngramMemory;
-import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
+import com.spectrayan.spector.memory.cortex.ContinuityMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.pathway.decide.relay.DecideReport;
 import com.spectrayan.spector.memory.pathway.decide.relay.DecideSignal;
 import com.spectrayan.spector.memory.neuromod.dopamine.DefaultImportanceProvider;
@@ -51,7 +50,7 @@ import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
@@ -171,7 +170,6 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.neuromod.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
@@ -182,7 +180,7 @@ import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
@@ -313,7 +311,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     //  Biological Subsystems 
     private final ValenceTracker valenceTracker;
-    private final CoActivationRecordMemory coActivationTracker;
+    private final CoActivationMemory coActivationTracker;
     private final SuppressionSet suppressionSet;
     private final HabituationPenalty habituationPenalty;
     private final ProspectiveScheduler prospectiveScheduler;
@@ -378,7 +376,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final RuntimeBundle runtimeBundle;
     private final com.spectrayan.spector.memory.cortex.insula.InsularCortex insularCortex;
     private final WanderPathway wanderPathway;
-    private final com.spectrayan.spector.memory.cortex.ContinuityRecordMemory continuityMemory;
+    private final com.spectrayan.spector.memory.cortex.ContinuityMemory continuityMemory;
     private final DecidePathway decidePathway;
 
     private final com.spectrayan.spector.memory.session.SessionBufferManager sessionBufferManager = new com.spectrayan.spector.memory.session.SessionBufferManager();
@@ -1654,7 +1652,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // SUBSYSTEM ACCESSORS (implements both SpectorMemory + SpectorMemoryAdmin)
     // ==============================================================
 
-    @Override public CoActivationRecordMemory coActivation() { return coActivationTracker; }
+    @Override public CoActivationMemory coActivation() { return coActivationTracker; }
     @Override public MemoryWal wal() { return wal; }
     @Override public ProspectiveScheduler prospective() { return prospectiveScheduler; }
     @Override public com.spectrayan.spector.memory.scheduler.MemoryScheduler scheduler() { return memoryScheduler; }

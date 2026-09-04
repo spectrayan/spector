@@ -14,8 +14,8 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory.TextEntry;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory.TextPosition;
+import com.spectrayan.spector.memory.cortex.TextBlobMemory.TextEntry;
+import com.spectrayan.spector.memory.cortex.TextBlobMemory.TextPosition;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -32,7 +32,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class TextAppendMemoryPersistenceTest {
+class TextBlobMemoryPersistenceTest {
 
     @TempDir
     Path tempDir;
@@ -84,8 +84,8 @@ class TextAppendMemoryPersistenceTest {
             ch.write(entry2);
         }
 
-        // 2. Open via TextAppendMemory (which triggers migration on readAll)
-        try (TextAppendMemory store = new TextAppendMemory(textFile)) {
+        // 2. Open via TextBlobMemory (which triggers migration on readAll)
+        try (TextBlobMemory store = new TextBlobMemory(textFile)) {
             Map<String, TextEntry> entries = store.readAll();
 
             assertThat(entries).hasSize(2);
@@ -107,7 +107,7 @@ class TextAppendMemoryPersistenceTest {
 
     @Test
     void testXxHashDeduplication() {
-        try (TextAppendMemory store = new TextAppendMemory(textFile)) {
+        try (TextBlobMemory store = new TextBlobMemory(textFile)) {
             // Write distinct strings
             TextPosition pos1 = store.write("mem-1", MemoryType.SEMANTIC, "Unique text content");
             TextPosition pos2 = store.write("mem-2", MemoryType.SEMANTIC, "Another unique content");

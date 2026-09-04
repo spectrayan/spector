@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pathway.recall.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy;
 import com.spectrayan.spector.memory.pathway.pipeline.scorer.SalienceAndHabituationScorer;
@@ -28,12 +28,12 @@ public final class NeuromodulatoryScoringRelay implements SynapticRelay<RecallSi
     private static final Logger log = LoggerFactory.getLogger(NeuromodulatoryScoringRelay.class);
     
     private final SalienceAndHabituationScorer salienceScorer;
-    private final CoActivationRecordMemory coActivationTracker;
+    private final CoActivationMemory coActivationTracker;
     private final GraphScoringPolicy graphScoringPolicy;
 
     public NeuromodulatoryScoringRelay(
             final SalienceAndHabituationScorer salienceScorer,
-            final CoActivationRecordMemory coActivationTracker,
+            final CoActivationMemory coActivationTracker,
             final GraphScoringPolicy graphScoringPolicy) {
         this.salienceScorer = salienceScorer;
         this.coActivationTracker = coActivationTracker;

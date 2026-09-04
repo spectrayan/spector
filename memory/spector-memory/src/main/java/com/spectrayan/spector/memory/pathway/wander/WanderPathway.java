@@ -17,10 +17,11 @@ import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
 import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold;
-import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
+import com.spectrayan.spector.memory.cortex.ContinuityMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.kernel.Memory;
 import com.spectrayan.spector.memory.persist.PartitionManager;
+import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.pathway.simulation.relay.SpacetimeSeedRelay;
 import com.spectrayan.spector.memory.pathway.wander.relay.AutobiographicalSamplingRelay;
 import com.spectrayan.spector.memory.pathway.wander.relay.HebbianSynapticReinforcementRelay;
@@ -37,24 +38,6 @@ import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.GatedRelay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
-import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
-import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;
-import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
-import com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold;
-import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.pathway.wander.relay.AutobiographicalSamplingRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.HebbianSynapticReinforcementRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.HopfieldMindWanderingRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.IdleGateRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.LongitudinalContinuityRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.ManifoldSynergyRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.WanderGates;
-import com.spectrayan.spector.memory.pathway.wander.relay.WanderReport;
-import com.spectrayan.spector.memory.pathway.wander.relay.WanderSignal;
-import com.spectrayan.spector.memory.pathway.RelayNames;
-import com.spectrayan.spector.memory.pathway.simulation.relay.SpacetimeSeedRelay;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 
 import org.slf4j.Logger;
@@ -69,7 +52,7 @@ import java.util.function.Function;
  *
  * <h3>Biological Analog: Default Mode Network Wakeful Rest Activation</h3>
  * <p>Executes continuous Hopfield attractor discovery across active memory stores during idle states
- * and captures multi-epoch identity metrics into {@link ContinuityRecordMemory}.</p>
+ * and captures multi-epoch identity metrics into {@link ContinuityMemory}.</p>
  *
  * @since 1.2.0
  */
@@ -85,7 +68,7 @@ public final class WanderPathway implements AutoCloseable {
     private final ContinuousHopfieldNetwork hopfieldNetwork;
     private final HebbianGraphBase hebbianGraph;
     private final HomeostaticCore homeostaticCore;
-    private final ContinuityRecordMemory continuityMemory;
+    private final ContinuityMemory continuityMemory;
     private final AismeConfig aismeConfig;
     private final float[] soulPriorPreference;
 
@@ -182,7 +165,7 @@ public final class WanderPathway implements AutoCloseable {
         return conduct(signal);
     }
 
-    public ContinuityRecordMemory continuityMemory() {
+    public ContinuityMemory continuityMemory() {
         return continuityMemory;
     }
 
@@ -204,7 +187,7 @@ public final class WanderPathway implements AutoCloseable {
         private ContinuousHopfieldNetwork hopfieldNetwork;
         private HebbianGraphBase hebbianGraph;
         private HomeostaticCore homeostaticCore;
-        private ContinuityRecordMemory continuityMemory;
+        private ContinuityMemory continuityMemory;
         private AismeConfig aismeConfig = AismeConfig.defaultConfig();
         private float[] soulPriorPreference;
         private Function<SynapticRelay<WanderSignal>, SynapticRelay<WanderSignal>> interceptor;
@@ -216,7 +199,7 @@ public final class WanderPathway implements AutoCloseable {
         public Builder hopfieldNetwork(ContinuousHopfieldNetwork chn) { this.hopfieldNetwork = chn; return this; }
         public Builder hebbianGraph(HebbianGraphBase hg) { this.hebbianGraph = hg; return this; }
         public Builder homeostaticCore(HomeostaticCore hc) { this.homeostaticCore = hc; return this; }
-        public Builder continuityMemory(ContinuityRecordMemory crm) { this.continuityMemory = crm; return this; }
+        public Builder continuityMemory(ContinuityMemory crm) { this.continuityMemory = crm; return this; }
         public Builder aismeConfig(AismeConfig cfg) { this.aismeConfig = cfg; return this; }
         public Builder soulPriorPreference(float[] prior) { this.soulPriorPreference = prior; return this; }
         public Builder interceptor(Function<SynapticRelay<WanderSignal>, SynapticRelay<WanderSignal>> inc) { this.interceptor = inc; return this; }

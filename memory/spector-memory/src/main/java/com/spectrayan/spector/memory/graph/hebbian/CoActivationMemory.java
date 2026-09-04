@@ -63,9 +63,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * @see OffHeapPairTable
  * @see OffHeapEdgeTable
  */
-public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoActivationLayout> {
+public final class CoActivationMemory extends AbstractHashTableMemory<CoActivationLayout> {
 
-    private static final Logger log = LoggerFactory.getLogger(CoActivationRecordMemory.class);
+    private static final Logger log = LoggerFactory.getLogger(CoActivationMemory.class);
 
     // ── STDP Constants ──
     private static final float A_PLUS = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_STDP_A_PLUS;
@@ -129,19 +129,19 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
     // Constructors
     // ══════════════════════════════════════════════════════════════
 
-    public CoActivationRecordMemory() {
+    public CoActivationMemory() {
         this(SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_CAPACITY);
     }
 
-    public CoActivationRecordMemory(int maxPairs) {
+    public CoActivationMemory(int maxPairs) {
         this(maxPairs, maxPairs * 2);
     }
 
-    public CoActivationRecordMemory(int maxPairs, int maxEdges) {
+    public CoActivationMemory(int maxPairs, int maxEdges) {
         this(SystemMemoryId.COACTIVATION.id(), calculateTotalBytes(maxPairs, maxEdges), maxPairs, maxEdges);
     }
 
-    private CoActivationRecordMemory(MemoryId id, long totalBytes, int maxPairs, int maxEdges) {
+    private CoActivationMemory(MemoryId id, long totalBytes, int maxPairs, int maxEdges) {
         super(id, new CoActivationLayout(), (int) totalBytes, totalBytes);
 
         int pairCap = nextPowerOf2(Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_MIN_TABLE_CAPACITY, maxPairs * 2));
@@ -156,11 +156,11 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
         this.pairTable = new OffHeapPairTable(pairCap, segment.asSlice(dataOffset + layout.pairTableOffset(), (long) CoActivationLayout.PAIR_SLOT_BYTES * pairCap), 0);
         this.edgeTable = new OffHeapEdgeTable(edgeCap, segment.asSlice(dataOffset + layout.edgeTableOffset(pairCap), (long) CoActivationLayout.EDGE_SLOT_BYTES * edgeCap), 0);
 
-        log.info("CoActivationRecordMemory initialized (volatile): pairCap={}, edgeCap={}, memory={}KB",
+        log.info("CoActivationMemory initialized (volatile): pairCap={}, edgeCap={}, memory={}KB",
                 pairCap, edgeCap, totalBytes / 1024);
     }
 
-    private CoActivationRecordMemory(Path filePath, int pairCap, int edgeCap) {
+    private CoActivationMemory(Path filePath, int pairCap, int edgeCap) {
         super(SystemMemoryId.COACTIVATION.id(), new CoActivationLayout(),
                 new CoActivationLayout().totalDataBytes(pairCap, edgeCap), new CoActivationLayout().totalDataBytes(pairCap, edgeCap), filePath);
 
@@ -180,27 +180,27 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
         this.pairTable = new OffHeapPairTable(pairCap, segment.asSlice(dataOffset + layout.pairTableOffset(), (long) CoActivationLayout.PAIR_SLOT_BYTES * pairCap), 0);
         this.edgeTable = new OffHeapEdgeTable(edgeCap, segment.asSlice(dataOffset + layout.edgeTableOffset(pairCap), (long) CoActivationLayout.EDGE_SLOT_BYTES * edgeCap), 0);
 
-        log.info("CoActivationRecordMemory initialized (persistent): pairCap={}, edgeCap={}, file={}",
+        log.info("CoActivationMemory initialized (persistent): pairCap={}, edgeCap={}, file={}",
                 pairCap, edgeCap, filePath);
     }
 
     /**
-     * Creates a bundle-backed CoActivationRecordMemory from a pre-sliced region segment.
+     * Creates a bundle-backed CoActivationMemory from a pre-sliced region segment.
      */
-    public static CoActivationRecordMemory fromBundle(Arena arena, MemorySegment regionSlice,
+    public static CoActivationMemory fromBundle(Arena arena, MemorySegment regionSlice,
                                                        int pairCap, int edgeCap,
                                                        Path bundlePath, boolean isNew) {
-        return new CoActivationRecordMemory(arena, regionSlice, pairCap, edgeCap, bundlePath, isNew, null);
+        return new CoActivationMemory(arena, regionSlice, pairCap, edgeCap, bundlePath, isNew, null);
     }
 
-    public static CoActivationRecordMemory fromBundle(Arena arena, MemorySegment regionSlice,
+    public static CoActivationMemory fromBundle(Arena arena, MemorySegment regionSlice,
                                                        int pairCap, int edgeCap,
                                                        Path bundlePath, boolean isNew,
                                                        MemorySegment checkpointRegion) {
-        return new CoActivationRecordMemory(arena, regionSlice, pairCap, edgeCap, bundlePath, isNew, checkpointRegion);
+        return new CoActivationMemory(arena, regionSlice, pairCap, edgeCap, bundlePath, isNew, checkpointRegion);
     }
 
-    private CoActivationRecordMemory(Arena arena, MemorySegment regionSlice,
+    private CoActivationMemory(Arena arena, MemorySegment regionSlice,
                                      int pairCap, int edgeCap,
                                      Path bundlePath, boolean isNew,
                                      MemorySegment checkpointRegion) {
@@ -226,7 +226,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
             if (!RegionPreamble.isValid(segment, 0L)) {
                 throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
                         com.spectrayan.spector.commons.error.ErrorCode.MEMORY_RECALL_FAILED,
-                        "Invalid SMKM header for CoActivationRecordMemory in bundle");
+                        "Invalid SMKM header for CoActivationMemory in bundle");
             }
         }
 
@@ -238,7 +238,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
             Path legacyPath = bundlePath.resolveSibling("coactivation.dat");
             if (Files.exists(legacyPath)) {
                 log.info("Migrating legacy standalone coactivation.dat to bundle region...");
-                CoActivationRecordMemory legacy = CoActivationRecordMemory.load(legacyPath, pairCap, edgeCap);
+                CoActivationMemory legacy = CoActivationMemory.load(legacyPath, pairCap, edgeCap);
                 MemorySegment.copy(legacy.pairTable.segment(), 0, pairTable.segment(), 0, legacy.pairTable.segment().byteSize());
                 pairTable.setCount(legacy.pairTable.count());
                 MemorySegment.copy(legacy.edgeTable.segment(), 0, edgeTable.segment(), 0, legacy.edgeTable.segment().byteSize());
@@ -294,7 +294,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                     }
                 }
             } catch (Exception e) {
-                log.warn("Failed to load CoActivationRecordMemory metadata from CHECKPOINT region, starting empty", e);
+                log.warn("Failed to load CoActivationMemory metadata from CHECKPOINT region, starting empty", e);
             }
         } else if (!isNew && bundlePath != null) {
             Path metaPath = bundlePath.resolveSibling(bundlePath.getFileName().toString() + ".meta");
@@ -315,14 +315,14 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                         this.banditStats = new ConcurrentHashMap<>(readBanditStats(ch));
                     }
                 } catch (IOException e) {
-                    log.warn("Failed to load CoActivationRecordMemory metadata from {}, starting empty", metaPath, e);
+                    log.warn("Failed to load CoActivationMemory metadata from {}, starting empty", metaPath, e);
                 }
             }
         }
 
         this.checkpointRegion = checkpointRegion;
 
-        log.info("CoActivationRecordMemory initialized (bundle): pairCap={}, edgeCap={}, count={}",
+        log.info("CoActivationMemory initialized (bundle): pairCap={}, edgeCap={}, count={}",
                 pairCap, edgeCap, size());
     }
 
@@ -768,7 +768,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                             writeBanditStats(ch);
                         }
                     } catch (IOException e) {
-                        throw new SpectorGraphPersistenceException("CoActivationRecordMemory", metaPath, e);
+                        throw new SpectorGraphPersistenceException("CoActivationMemory", metaPath, e);
                     }
                 }
             } else if (!isPersistent()) {
@@ -803,7 +803,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                     }
 
                 } catch (IOException e) {
-                    throw new SpectorGraphPersistenceException("CoActivationRecordMemory", filePath, e);
+                    throw new SpectorGraphPersistenceException("CoActivationMemory", filePath, e);
                 }
             } else {
                 try {
@@ -822,7 +822,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                         writeBanditStats(ch);
                     }
                 } catch (IOException e) {
-                    throw new SpectorGraphPersistenceException("CoActivationRecordMemory", filePath, e);
+                    throw new SpectorGraphPersistenceException("CoActivationMemory", filePath, e);
                 }
             }
         } finally {
@@ -830,12 +830,12 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
         }
     }
 
-    public static CoActivationRecordMemory load(Path filePath, int defaultPairs, int defaultEdges) {
+    public static CoActivationMemory load(Path filePath, int defaultPairs, int defaultEdges) {
         if (filePath == null || !Files.exists(filePath)) {
-            log.info("CoActivationRecordMemory file not found, creating fresh: {}", filePath);
+            log.info("CoActivationMemory file not found, creating fresh: {}", filePath);
             int pairCap = nextPowerOf2(Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_MIN_TABLE_CAPACITY, defaultPairs * 2));
             int edgeCap = nextPowerOf2(Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_MIN_TABLE_CAPACITY, defaultEdges * 2));
-            return new CoActivationRecordMemory(filePath, pairCap, edgeCap);
+            return new CoActivationMemory(filePath, pairCap, edgeCap);
         }
 
         try {
@@ -869,7 +869,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                 edgeCap = capBuf.getInt();
             }
 
-            CoActivationRecordMemory tracker = new CoActivationRecordMemory(filePath, pairCap, edgeCap);
+            CoActivationMemory tracker = new CoActivationMemory(filePath, pairCap, edgeCap);
 
             try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
                 ch.position(RegionPreamble.PREAMBLE_BYTES + new CoActivationLayout().totalDataBytes(pairCap, edgeCap));
@@ -896,12 +896,12 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
             return tracker;
 
         } catch (IOException e) {
-            log.error("Failed to load CoActivationRecordMemory, creating fresh: {}", e.getMessage());
-            return new CoActivationRecordMemory(filePath, defaultPairs, defaultEdges);
+            log.error("Failed to load CoActivationMemory, creating fresh: {}", e.getMessage());
+            return new CoActivationMemory(filePath, defaultPairs, defaultEdges);
         }
     }
 
-    private static CoActivationRecordMemory migrateLegacy(Path filePath, int magic, int version) {
+    private static CoActivationMemory migrateLegacy(Path filePath, int magic, int version) {
         log.info("Migrating legacy CoActivationTracker format (v{}) to standard Memory Kernel format: {}", version, filePath);
         try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
             ch.position(8);
@@ -935,7 +935,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                 ch.close();
                 Files.deleteIfExists(filePath);
 
-                CoActivationRecordMemory tracker = new CoActivationRecordMemory(filePath, pairCap, edgeCap);
+                CoActivationMemory tracker = new CoActivationMemory(filePath, pairCap, edgeCap);
 
                 MemorySegment.copy(legacyPairTable.segment(), 0, tracker.pairTable.segment(), 0, (long) OffHeapPairTable.SLOT_BYTES * pairCap);
                 MemorySegment.copy(legacyEdgeTable.segment(), 0, tracker.edgeTable.segment(), 0, (long) OffHeapEdgeTable.SLOT_BYTES * edgeCap);
@@ -949,7 +949,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                 return tracker;
             }
         } catch (IOException e) {
-            throw new SpectorGraphPersistenceException("CoActivationRecordMemory migration failed", filePath, e);
+            throw new SpectorGraphPersistenceException("CoActivationMemory migration failed", filePath, e);
         }
     }
 

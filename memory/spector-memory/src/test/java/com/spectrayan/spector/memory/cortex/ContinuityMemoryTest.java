@@ -22,11 +22,11 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class ContinuityRecordMemoryTest {
+class ContinuityMemoryTest {
 
     @Test
     void ephemeralHeapOperationsAndRingBuffer() {
-        try (ContinuityRecordMemory memory = ContinuityRecordMemory.heap(5)) {
+        try (ContinuityMemory memory = ContinuityMemory.heap(5)) {
             assertThat(memory.capacity()).isEqualTo(5);
             assertThat(memory.size()).isZero();
             assertThat(memory.totalSnapshots()).isZero();
@@ -69,7 +69,7 @@ class ContinuityRecordMemoryTest {
     void fileBackedPersistenceReload(@TempDir Path tempDir) {
         Path file = tempDir.resolve("continuity.smd");
 
-        try (ContinuityRecordMemory memory = ContinuityRecordMemory.open(file, 100)) {
+        try (ContinuityMemory memory = ContinuityMemory.open(file, 100)) {
             IdentityTrajectorySnapshot s1 = new IdentityTrajectorySnapshot(
                     1724350000000L, 0.88f, 15.2f, 0.03f, (byte) 10, (byte) 20, (byte) 90, (short) 2
             );
@@ -81,7 +81,7 @@ class ContinuityRecordMemoryTest {
         }
 
         // Reopen and verify persistence
-        try (ContinuityRecordMemory memory = ContinuityRecordMemory.open(file, 100)) {
+        try (ContinuityMemory memory = ContinuityMemory.open(file, 100)) {
             assertThat(memory.totalSnapshots()).isEqualTo(2);
             assertThat(memory.size()).isEqualTo(2);
 
