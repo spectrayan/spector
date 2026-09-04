@@ -12,11 +12,6 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.foreign.Arena;
@@ -31,6 +26,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.StampedLock;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A V4 runtime bundle — packs all global runtime stores (Working, Co-Activation,
@@ -52,7 +50,7 @@ import java.util.concurrent.locks.StampedLock;
  * <h3>On-Disk Format</h3>
  * <pre>
  * ┌─────────────────────────────────────┐  offset 0
- * │ 64B MemoryHeader (SMKM)            │  shape=BUNDLE, layoutId=BUND
+ * │ 64B RegionPreamble (SMKM)          │  shape=BUNDLE, layoutId=BUND
  * ├─────────────────────────────────────┤  offset 64
  * │ 64B BundleSubHeader (SRTB)         │  magic=SRTB, totalFileSize, etc.
  * ├─────────────────────────────────────┤  offset 128

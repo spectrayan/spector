@@ -12,13 +12,13 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
-import com.spectrayan.spector.memory.kernel.shape.RecordMemory;
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-
 import java.lang.foreign.MemorySegment;
 import java.nio.file.Path;
+
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.shape.RecordMemory;
+import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
  * Standardized interface for cognitive record memory stores in Spector Memory.
@@ -29,14 +29,14 @@ import java.nio.file.Path;
  */
 public interface CognitiveRecordMemory extends RecordMemory<CognitiveRecordLayout>, AutoCloseable {
 
-    /** Metadata header size in bytes. */
-    int METADATA_HEADER_BYTES = MemoryHeader.HEADER_BYTES;
+    /** Size of the {@link RegionPreamble} region prologue in bytes. */
+    int METADATA_PREAMBLE_BYTES = RegionPreamble.PREAMBLE_BYTES;
 
     /**
-     * Returns the offset of the first data record, skipping the metadata header if persistent.
+     * Returns the offset of the first data record, skipping the region preamble if persistent.
      */
     default long dataOffset() {
-        return isPersistent() ? METADATA_HEADER_BYTES : 0L;
+        return isPersistent() ? METADATA_PREAMBLE_BYTES : 0L;
     }
 
     /**

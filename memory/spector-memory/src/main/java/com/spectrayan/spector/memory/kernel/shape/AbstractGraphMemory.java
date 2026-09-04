@@ -30,7 +30,7 @@ import java.util.concurrent.locks.StampedLock;
  *
  * <h2>What the substrate provides</h2>
  * <ul>
- *   <li>The standardized 64-byte kernel {@link com.spectrayan.spector.memory.kernel.MemoryHeader}
+ *   <li>The standardized 64-byte kernel {@link com.spectrayan.spector.memory.kernel.RegionPreamble}
  *       ({@code MemoryShape.GRAPH}, magic {@code 0x534D4B4D}) on the file-backed path.</li>
  *   <li>Arena / {@link MemorySegment} ownership and lifecycle ({@code flush}/{@code close}).</li>
  *   <li>Kernel identity, shape, layout, capacity, and schema version.</li>

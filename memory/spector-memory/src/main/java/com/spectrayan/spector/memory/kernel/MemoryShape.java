@@ -29,7 +29,7 @@ public enum MemoryShape {
      *
      * <p><b>Retained for on-disk compatibility.</b> This constant has no live code
      * references (the {@code PartitionedRecordMemory} abstraction was removed as dead
-     * code under #436), but {@link MemoryHeader} persists the shape by
+     * code under #436), but {@link RegionPreamble} persists the shape by
      * {@link #ordinal()}. Removing this value would shift the ordinals of
      * {@link #GRAPH}, {@link #CHAIN}, {@link #APPEND} and {@link #REGISTRY}, breaking
      * every previously-written header. Do NOT delete or reorder without a versioned
@@ -63,7 +63,7 @@ public enum MemoryShape {
 
     /**
      * Backs a multi-region container that hosts multiple heterogeneous memories in a single
-     * mmap file. Each region within the bundle carries its own {@link MemoryHeader} and
+     * mmap file. Each region within the bundle carries its own {@link RegionPreamble} and
      * independently-typed {@link MemoryLayout}. The bundle header and region directory are
      * managed by the {@code kernel.bundle} infrastructure.
      *

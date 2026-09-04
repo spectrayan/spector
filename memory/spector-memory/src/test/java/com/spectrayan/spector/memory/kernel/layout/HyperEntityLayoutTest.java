@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -36,10 +36,10 @@ class HyperEntityLayoutTest {
         assertThat(layout.crcEnabled()).isFalse();
         assertThat(layout.recordStride()).isEqualTo(32);
 
-        // 64B MemoryHeader + 16B Graph subheader = 80B DATA_START
+        // 64B RegionPreamble + 16B Graph subheader = 80B DATA_START
         assertThat(HyperEntityLayout.GRAPH_SUBHEADER_BYTES).isEqualTo(16);
         assertThat(HyperEntityLayout.DATA_START).isEqualTo(80L);
-        assertThat(HyperEntityLayout.DATA_START).isEqualTo(MemoryHeader.HEADER_BYTES + HyperEntityLayout.GRAPH_SUBHEADER_BYTES);
+        assertThat(HyperEntityLayout.DATA_START).isEqualTo(RegionPreamble.PREAMBLE_BYTES + HyperEntityLayout.GRAPH_SUBHEADER_BYTES);
 
         // Subheader offsets
         assertThat(HyperEntityLayout.SUB_OFF_ENTITY_CAP).isEqualTo(0);
@@ -76,7 +76,7 @@ class HyperEntityLayoutTest {
             segment.fill((byte) 0);
 
             // 1. Write Sub-header
-            long subHeaderOffset = MemoryHeader.HEADER_BYTES;
+            long subHeaderOffset = RegionPreamble.PREAMBLE_BYTES;
             segment.set(ValueLayout.JAVA_INT, subHeaderOffset + HyperEntityLayout.SUB_OFF_ENTITY_CAP, 10000);
             segment.set(ValueLayout.JAVA_INT, subHeaderOffset + HyperEntityLayout.SUB_OFF_NEXT_HYPEREDGE_ID, 2);
             segment.set(ValueLayout.JAVA_INT, subHeaderOffset + HyperEntityLayout.SUB_OFF_NEXT_VERTEX_OFFSET, 4);

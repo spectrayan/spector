@@ -22,7 +22,7 @@ package com.spectrayan.spector.memory.kernel.layout;
  *
  * <h3>Checkpoint Region Layout</h3>
  * <pre>
- *   [0  .. 16)  : inherited from MemoryHeader checkpoint region
+ *   [0  .. 16)  : inherited from RegionPreamble checkpoint region
  *   [16 .. 20)  : pairCount       (int, 4B)
  *   [20 .. 24)  : edgeCount       (int, 4B)
  *   [24 .. 28)  : tagNameCount    (int, 4B)

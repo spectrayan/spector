@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.graph;
 
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory.HyperEdge;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout;
 
@@ -42,7 +42,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Golden-file and migration tests for {@link HyperEntityGraphMemory} persistence (#435).
  *
  * <p>#435 migrates the hyper-entity graph onto the kernel SMKM container (64-byte
- * {@link MemoryHeader} + 16-byte HyperEntity sub-header, schemaVersion 2) and makes
+ * {@link RegionPreamble} + 16-byte HyperEntity sub-header, schemaVersion 2) and makes
  * {@link HyperEntityGraphMemory#load} the single in-class migration authority (per the CEO
  * decision — not the codec). This suite proves that:</p>
  * <ul>
@@ -138,12 +138,12 @@ class HyperEntityGraphMemoryMigrationTest {
         }
         byte[] all = Files.readAllBytes(scratch);
         // SMKM v2: [64B header][16B sub-header][hedges][vertices].
-        ByteBuffer sub = ByteBuffer.wrap(all, MemoryHeader.HEADER_BYTES, 16).order(ByteOrder.nativeOrder());
+        ByteBuffer sub = ByteBuffer.wrap(all, RegionPreamble.PREAMBLE_BYTES, 16).order(ByteOrder.nativeOrder());
         int entityCap = sub.getInt();
         int nextId = sub.getInt();
         int nextVertexOff = sub.getInt();
         int total = sub.getInt();
-        int dataStart = MemoryHeader.HEADER_BYTES + 16;
+        int dataStart = RegionPreamble.PREAMBLE_BYTES + 16;
         int hedgeLen = nextId * HyperEntityLayout.HEDGE_BYTES;
         int vertexLen = nextVertexOff * HyperEntityLayout.VERTEX_BYTES;
         byte[] hedgeBytes = new byte[hedgeLen];
@@ -186,10 +186,10 @@ class HyperEntityGraphMemoryMigrationTest {
         try (FileChannel ch = FileChannel.open(file,
                 StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
              Arena arena = Arena.ofConfined()) {
-            MemorySegment head = arena.allocate(MemoryHeader.HEADER_BYTES);
+            MemorySegment head = arena.allocate(RegionPreamble.PREAMBLE_BYTES);
             long now = System.currentTimeMillis();
             // Pre-#435 save wrote schemaVersion=FILE_VERSION=1 into the kernel header.
-            MemoryHeader.write(head, 0, LEGACY_FILE_VERSION, MemoryShape.GRAPH, 0,
+            RegionPreamble.write(head, 0, LEGACY_FILE_VERSION, MemoryShape.GRAPH, 0,
                     d.hedgeCap(), d.total(), HyperEntityLayout.HEDGE_BYTES, FILE_MAGIC, now, now);
             ch.write(head.asByteBuffer());
             ch.write(legacyCustomHeader(d));
@@ -220,7 +220,7 @@ class HyperEntityGraphMemoryMigrationTest {
         assertThat(Files.readAllBytes(bak)).isEqualTo(original);
 
         // The rewritten file is a native SMKM v2 container.
-        assertThat(peekInt(file, 0)).isEqualTo(MemoryHeader.MAGIC);
+        assertThat(peekInt(file, 0)).isEqualTo(RegionPreamble.MAGIC);
         assertThat(peekInt(file, 4)).isGreaterThanOrEqualTo(2);
     }
 
@@ -240,7 +240,7 @@ class HyperEntityGraphMemoryMigrationTest {
         assertThat(Files.exists(bak)).isTrue();
         assertThat(Files.readAllBytes(bak)).isEqualTo(original);
 
-        assertThat(peekInt(file, 0)).isEqualTo(MemoryHeader.MAGIC);
+        assertThat(peekInt(file, 0)).isEqualTo(RegionPreamble.MAGIC);
         assertThat(peekInt(file, 4)).isGreaterThanOrEqualTo(2);
     }
 

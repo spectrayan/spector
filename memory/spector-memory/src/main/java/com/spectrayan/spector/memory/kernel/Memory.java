@@ -50,7 +50,7 @@ public interface Memory<L extends MemoryLayout> extends AutoCloseable {
     MemorySegment segment();
     
     /** 
-     * Root header segment containing the SMKM MemoryHeader.
+     * Root header segment containing the SMKM RegionPreamble.
      * 
      * @return The header segment backing this memory.
      */

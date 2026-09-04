@@ -12,18 +12,6 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.HeaderLayout;
-import com.spectrayan.spector.memory.kernel.layout.HeaderLayout64;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
-
-import com.spectrayan.spector.commons.error.ErrorCode;
-import com.spectrayan.spector.commons.error.SpectorStorageException;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -36,6 +24,17 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.Instant;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorStorageException;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.HeaderLayout;
+import com.spectrayan.spector.memory.kernel.layout.HeaderLayout64;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 
 /**
  * One-time migration tool for converting store files between header layout versions.
@@ -71,8 +70,8 @@ public final class HeaderMigrator {
 
     private static final Logger log = LoggerFactory.getLogger(HeaderMigrator.class);
 
-    /** Metadata header size in bytes (same as AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES). */
-    private static final int METADATA_HEADER_BYTES = 64;
+    /** Region preamble size in bytes (same as AbstractCognitiveRecordMemory.METADATA_PREAMBLE_BYTES). */
+    private static final int METADATA_PREAMBLE_BYTES = 64;
 
     /** Metadata field offsets (mirrors AbstractCognitiveRecordMemory). */
     private static final int META_MAGIC    = 0;
@@ -164,7 +163,7 @@ public final class HeaderMigrator {
                     : target.headerBytes() + vectorBytes;
 
             long targetDataSize = (long) targetRecordStride * capacity;
-            long targetTotalSize = METADATA_HEADER_BYTES + targetDataSize;
+            long targetTotalSize = METADATA_PREAMBLE_BYTES + targetDataSize;
 
             // ── Step 2: Create target temp file ──
             try (FileChannel targetCh = FileChannel.open(tempPath,
@@ -189,8 +188,8 @@ public final class HeaderMigrator {
 
                 // ── Step 3: Migrate records ──
                 for (int i = 0; i < recordCount; i++) {
-                    long sourceOff = METADATA_HEADER_BYTES + (long) i * sourceRecordStride;
-                    long targetOff = METADATA_HEADER_BYTES + (long) i * targetRecordStride;
+                    long sourceOff = METADATA_PREAMBLE_BYTES + (long) i * sourceRecordStride;
+                    long targetOff = METADATA_PREAMBLE_BYTES + (long) i * targetRecordStride;
 
                     // Read header from source layout (extended fields get defaults)
                     CognitiveRecordLayout.CognitiveHeader header =
@@ -264,9 +263,9 @@ public final class HeaderMigrator {
                                            int vectorBytes, boolean isHeaderOnly) {
         int targetRecordStride = isHeaderOnly ? target.headerBytes()
                 : target.headerBytes() + vectorBytes;
-        int capacity = (int) ((currentFileSize - METADATA_HEADER_BYTES)
+        int capacity = (int) ((currentFileSize - METADATA_PREAMBLE_BYTES)
                 / (isHeaderOnly ? source.headerBytes() : source.headerBytes() + vectorBytes));
-        return METADATA_HEADER_BYTES + (long) targetRecordStride * capacity;
+        return METADATA_PREAMBLE_BYTES + (long) targetRecordStride * capacity;
     }
 
     /**
@@ -283,11 +282,11 @@ public final class HeaderMigrator {
     public static HeaderLayout detectVersion(Path storePath, int vectorBytes,
                                               boolean isHeaderOnly) {
         try (FileChannel ch = FileChannel.open(storePath, StandardOpenOption.READ)) {
-            if (ch.size() < METADATA_HEADER_BYTES) {
+            if (ch.size() < METADATA_PREAMBLE_BYTES) {
                 return HeaderLayout64.INSTANCE; // assume current layout
             }
 
-            ByteBuffer buf = ByteBuffer.allocate(METADATA_HEADER_BYTES);
+            ByteBuffer buf = ByteBuffer.allocate(METADATA_PREAMBLE_BYTES);
             ch.read(buf);
             buf.flip();
 

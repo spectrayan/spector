@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -35,10 +35,10 @@ class EntityDirectoryLayoutTest {
         assertThat(layout.name()).isEqualTo("EntityDirectory");
         assertThat(layout.crcEnabled()).isFalse();
 
-        // 64B MemoryHeader + 16B Graph subheader = 80B DATA_START
+        // 64B RegionPreamble + 16B Graph subheader = 80B DATA_START
         assertThat(EntityDirectoryLayout.GRAPH_SUBHEADER_BYTES).isEqualTo(16);
         assertThat(EntityDirectoryLayout.DATA_START).isEqualTo(80L);
-        assertThat(EntityDirectoryLayout.DATA_START).isEqualTo(MemoryHeader.HEADER_BYTES + EntityDirectoryLayout.GRAPH_SUBHEADER_BYTES);
+        assertThat(EntityDirectoryLayout.DATA_START).isEqualTo(RegionPreamble.PREAMBLE_BYTES + EntityDirectoryLayout.GRAPH_SUBHEADER_BYTES);
 
         // Subheader offsets
         assertThat(EntityDirectoryLayout.SUB_OFF_ADJ_CAPACITY).isEqualTo(0);
@@ -75,7 +75,7 @@ class EntityDirectoryLayoutTest {
             segment.fill((byte) 0);
 
             // 1. Write Sub-header
-            long subHeaderOffset = MemoryHeader.HEADER_BYTES;
+            long subHeaderOffset = RegionPreamble.PREAMBLE_BYTES;
             segment.set(ValueLayout.JAVA_INT, subHeaderOffset + EntityDirectoryLayout.SUB_OFF_ADJ_CAPACITY, 1024);
             segment.set(ValueLayout.JAVA_INT, subHeaderOffset + EntityDirectoryLayout.SUB_OFF_ADJ_HWM, 4);
 

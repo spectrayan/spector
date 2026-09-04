@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.cortex;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
@@ -121,14 +121,14 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
                               boolean isNew, DataEncryptor encryptor) {
         super(SystemMemoryId.CORTEX_TEXT.id(), new TextBlobLayout(), 0,
               arena, regionSlice,
-              isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0),
+              isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0),
               true, bundlePath, null, true);  // bundleManaged=true
         this.file = bundlePath;
         this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
         this.entryCount = 0;
         if (isNew) {
             long now = System.currentTimeMillis();
-            MemoryHeader.write(segment(), 0, 1, MemoryShape.APPEND, 1, 0, 0,
+            RegionPreamble.write(segment(), 0, 1, MemoryShape.APPEND, 1, 0, 0,
                     layout.recordStride(), layout.layoutId(), now, now);
             log.info("TextAppendMemory initialized new bundle region in: {} ({}KB)",
                     bundlePath, regionSlice.byteSize() / 1024);
@@ -151,7 +151,7 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
         }
         if (Files.exists(file)) {
             try {
-                size = Math.max(size, Files.size(file) - MemoryHeader.HEADER_BYTES);
+                size = Math.max(size, Files.size(file) - RegionPreamble.PREAMBLE_BYTES);
             } catch (IOException e) {
                 // ignore
             }

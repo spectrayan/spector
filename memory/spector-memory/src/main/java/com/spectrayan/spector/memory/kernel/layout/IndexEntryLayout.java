@@ -34,7 +34,7 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
  * {@code [24:4]} and no colocated-partition dimension. v6 appends
  * {@code colocatedPartition} + {@code reserved} (stride 40 → 48, 8-byte aligned) so
  * restart-correct multi-partition recall can resolve each record to its partition.
- * The loader gates on {@link com.spectrayan.spector.memory.kernel.MemoryHeader#readSchemaVersion}:
+ * The loader gates on {@link com.spectrayan.spector.memory.kernel.RegionPreamble#readSchemaVersion}:
  * v6 reads the 48-byte slot, v5 reads the 40-byte slot with {@code colocatedPartition = 0}.</p>
  */
 public final class IndexEntryLayout implements MemoryLayout {

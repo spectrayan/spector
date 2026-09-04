@@ -73,7 +73,7 @@ class AbstractCognitiveRecordMemoryTest {
         try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100, file)) {
             // SMKM magic is 0x534D4B4D
             int magic = store.segment().get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
-            assertThat(magic).isEqualTo(com.spectrayan.spector.memory.kernel.MemoryHeader.MAGIC);
+            assertThat(magic).isEqualTo(com.spectrayan.spector.memory.kernel.RegionPreamble.MAGIC);
             int version = store.segment().get(java.lang.foreign.ValueLayout.JAVA_INT, 4);
             assertThat(version).isEqualTo(1);
         }

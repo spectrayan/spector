@@ -202,7 +202,7 @@ public final class CadpContradictionResolver {
      * Computes the 0-based memory slot index for a cognitive record in the given store.
      */
     public static int memorySlot(CognitiveRecord record, CognitiveRecordMemory store, CognitiveRecordLayout layout) {
-        long headerOffset = store.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L;
+        long headerOffset = store.isPersistent() ? CognitiveRecordMemory.METADATA_PREAMBLE_BYTES : 0L;
         return (int) ((record.byteOffset() - headerOffset) / layout.stride());
     }
 

@@ -12,18 +12,36 @@
  */
 package com.spectrayan.spector.memory.kernel;
 
-import com.spectrayan.spector.commons.error.ErrorCode;
-import com.spectrayan.spector.commons.error.SpectorStorageException;
-
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.zip.CRC32C;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorStorageException;
+
 /**
- * Utility class for reading and writing the standardized 64-byte file header
- * for Spector Memory Kernel files.
- * <p>
- * The header layout is exactly 64 bytes (1 cache line):
+ * Reads and writes the standardized 64-byte <b>SMKM region preamble</b> that opens every Spector
+ * Memory Kernel file and every region slice inside a bundle.
+ *
+ * <h2>Concept held</h2>
+ * <p>This type holds <em>storage identity for a region</em>: the {@code 'SMKM'} magic, the schema
+ * version, the {@link MemoryShape}, persistence flags, capacity/count, record stride, the persisted
+ * {@code layoutId}, creation and last-flush timestamps, and a CRC32C over the preceding 56 bytes.
+ * It says nothing about any individual memory it stores.</p>
+ *
+ * <h2>Not a per-engram header</h2>
+ * <p>A <em>preamble</em> is not a <em>header</em>. In the kernel vocabulary "header" is reserved for
+ * the per-engram encoding header (the field map in {@code kernel.layout}), which carries the recall
+ * signals — importance, valence, arousal, tags. The MF-001 memory model's single logical
+ * {@code header} is realized physically as {@code EncodingHeader ∪ StrengthState}; the region
+ * preamble is part of neither. Both concepts happen to be 64 bytes, which is why they were once both
+ * called "header" and why {@link #PREAMBLE_BYTES} deliberately does not repeat that name.</p>
+ *
+ * <h2>On-disk contract</h2>
+ * <p>{@link #MAGIC} and every offset below are persisted bytes and must never change. Renaming this
+ * type changed no byte of any bundle written before the rename.</p>
+ *
+ * <p>The preamble is exactly 64 bytes (1 cache line):
  * Offset  Size  Field
  *   0      4    magic (0x534D4B4D = 'SMKM')
  *   4      4    schemaVersion
@@ -38,9 +56,15 @@ import java.util.zip.CRC32C;
  *  56      4    headerCrc32c (CRC32C over bytes [0..55])
  *  60      4    reserved (must be 0)
  */
-public final class MemoryHeader {
+public final class RegionPreamble {
     
-    public static final int HEADER_BYTES = 64;
+    /**
+     * Size of the region preamble in bytes. Named {@code PREAMBLE_BYTES}, not {@code HEADER_BYTES},
+     * so it cannot be confused with the per-engram encoding header, which is also 64 bytes.
+     */
+    public static final int PREAMBLE_BYTES = 64;
+
+    /** {@code 'SMKM'} — persisted magic. Never change this value. */
     public static final int MAGIC = 0x534D4B4D;
 
     private static final long OFFSET_MAGIC = 0;
@@ -56,7 +80,7 @@ public final class MemoryHeader {
     private static final long OFFSET_CRC = 56;
     private static final long OFFSET_RESERVED = 60;
 
-    private MemoryHeader() {
+    private RegionPreamble() {
         // Utility class
     }
 

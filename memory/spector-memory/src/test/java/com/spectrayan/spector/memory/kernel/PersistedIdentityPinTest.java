@@ -46,7 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <h3>Why this test exists</h3>
  *
  * <p>The engram layout unification (spec {@code engram-layout-unification}) renames a large number of
- * kernel types — {@code MemoryHeader} to {@code RegionPreamble}, {@code CognitiveRecordLayout} to
+ * kernel types — {@code MemoryHeader} to {@link RegionPreamble}, {@code CognitiveRecordLayout} to
  * {@code EngramLayout}, {@code AuditRecordLayout} to {@code StrengthLayout}, and so on. Those renames
  * are safe <b>only because</b> the on-disk format never references a Java class name: region identity
  * is a {@code short} from {@link RegionId#id()}, store and layout identity is an {@code int}
@@ -67,7 +67,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Only the numbers are pinned; the identifiers are free to change.</p>
  *
  * @see RegionId
- * @see MemoryHeader
+ * @see RegionPreamble
  */
 @DisplayName("Persisted identity pins (storage-format guardrail)")
 class PersistedIdentityPinTest {
@@ -167,7 +167,7 @@ class PersistedIdentityPinTest {
 
         /**
          * {@code layoutId} is persisted into {@code RegionEntry.layoutId} and into the
-         * {@link MemoryHeader} prologue. The four-character mnemonics are decoded for human display by
+         * {@link RegionPreamble} prologue. The four-character mnemonics are decoded for human display by
          * {@code SpectorInspectCli.decodeLayoutId}, which is why a rename may legitimately leave the
          * mnemonic looking stale relative to the class name.
          */
@@ -251,7 +251,7 @@ class PersistedIdentityPinTest {
 
         /**
          * Record stride is persisted in both {@code RegionEntry.stride} and
-         * {@link MemoryHeader}. A stride change relocates every record in an existing region, so it is
+         * {@link RegionPreamble}. A stride change relocates every record in an existing region, so it is
          * a format break even when the layout id is unchanged.
          *
          * <p>Requirement R9.2 of the spec forbids growing the engram stride without an explicit
@@ -311,14 +311,14 @@ class PersistedIdentityPinTest {
 
         /**
          * {@code 'SMKM'} identifies every Spector Memory Kernel region prologue. This is the constant
-         * that survives the {@code MemoryHeader} to {@code RegionPreamble} rename unchanged.
+         * that survived the {@code MemoryHeader} to {@link RegionPreamble} rename unchanged (task 1.1).
          */
         @Test
         @DisplayName("SMKM magic and 64-byte prologue size are pinned")
         void prologueIsPinned() {
-            assertThat(MemoryHeader.MAGIC)
+            assertThat(RegionPreamble.MAGIC)
                     .as("'SMKM' region prologue magic").isEqualTo(0x534D4B4D);
-            assertThat(MemoryHeader.HEADER_BYTES)
+            assertThat(RegionPreamble.PREAMBLE_BYTES)
                     .as("region prologue occupies exactly one cache line").isEqualTo(64);
         }
     }

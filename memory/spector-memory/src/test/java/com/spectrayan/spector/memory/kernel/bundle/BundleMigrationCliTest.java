@@ -17,7 +17,7 @@ import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
@@ -130,11 +130,11 @@ class BundleMigrationCliTest {
         // Verify bundle can be reopened and record counts match
         PartitionBundle bundle = PartitionBundle.Init.open(bundleFile);
         MemorySegment semSlice = bundle.regionSegment(RegionId.SEMANTIC);
-        int semCount = (int) MemoryHeader.readCount(semSlice, 0);
+        int semCount = (int) RegionPreamble.readCount(semSlice, 0);
         assertEquals(recordCount, semCount, "Semantic record count should match");
 
         MemorySegment epiSlice = bundle.regionSegment(RegionId.EPISODIC);
-        int epiCount = (int) MemoryHeader.readCount(epiSlice, 0);
+        int epiCount = (int) RegionPreamble.readCount(epiSlice, 0);
         assertEquals(recordCount, epiCount, "Episodic record count should match");
 
         bundle.close();
@@ -183,11 +183,11 @@ class BundleMigrationCliTest {
         Path workingFile = StorageLayout.workingMem(tempDir);
         try (FileChannel fc = FileChannel.open(workingFile, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
             int stride = 128;
-            long fileSize = MemoryHeader.HEADER_BYTES + 100L * stride;
+            long fileSize = RegionPreamble.PREAMBLE_BYTES + 100L * stride;
             fc.write(java.nio.ByteBuffer.allocate(1), fileSize - 1);
             try (Arena arena = Arena.ofConfined()) {
                 MemorySegment seg = fc.map(FileChannel.MapMode.READ_WRITE, 0, fileSize, arena);
-                MemoryHeader.write(seg, 0, 1, MemoryShape.RECORD, 1, 100, 15, stride, 0x574F524B, 1000L, 2000L);
+                RegionPreamble.write(seg, 0, 1, MemoryShape.RECORD, 1, 100, 15, stride, 0x574F524B, 1000L, 2000L);
             }
         }
 
@@ -207,8 +207,8 @@ class BundleMigrationCliTest {
         // Verify runtime bundle can be opened and contains data
         try (RuntimeBundle bundle = RuntimeBundle.Init.open(runtimeBundleFile)) {
             MemorySegment workingSlice = bundle.regionSegment(RegionId.WORKING);
-            assertTrue(MemoryHeader.isValid(workingSlice, 0));
-            assertEquals(15, MemoryHeader.readCount(workingSlice, 0));
+            assertTrue(RegionPreamble.isValid(workingSlice, 0));
+            assertEquals(15, RegionPreamble.readCount(workingSlice, 0));
         }
     }
 
@@ -233,11 +233,11 @@ class BundleMigrationCliTest {
 
         Path workingFile = StorageLayout.workingMem(tempDir);
         try (FileChannel fc = FileChannel.open(workingFile, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
-            long fileSize = MemoryHeader.HEADER_BYTES + 64;
+            long fileSize = RegionPreamble.PREAMBLE_BYTES + 64;
             fc.write(java.nio.ByteBuffer.allocate(1), fileSize - 1);
             try (Arena arena = Arena.ofConfined()) {
                 MemorySegment seg = fc.map(FileChannel.MapMode.READ_WRITE, 0, fileSize, arena);
-                MemoryHeader.write(seg, 0, 1, MemoryShape.RECORD, 1, 1, 1, 64, 0x574F524B, 1000L, 2000L);
+                RegionPreamble.write(seg, 0, 1, MemoryShape.RECORD, 1, 1, 1, 64, 0x574F524B, 1000L, 2000L);
             }
         }
 

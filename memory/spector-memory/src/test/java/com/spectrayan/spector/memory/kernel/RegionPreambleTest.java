@@ -21,19 +21,19 @@ import java.lang.foreign.ValueLayout;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class MemoryHeaderTest {
+class RegionPreambleTest {
 
     @Test
     @DisplayName("writeAndReadRoundTrip")
     void writeAndReadRoundTrip() {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment segment = arena.allocate(128, 64);
-            MemoryHeader.write(segment, 0, 1, MemoryShape.RECORD, 3, 1000L, 500L, 32, 42, 1000000L, 2000000L);
+            RegionPreamble.write(segment, 0, 1, MemoryShape.RECORD, 3, 1000L, 500L, 32, 42, 1000000L, 2000000L);
             
-            assertThat(MemoryHeader.readSchemaVersion(segment, 0)).isEqualTo(1);
-            assertThat(MemoryHeader.readShape(segment, 0)).isEqualTo(MemoryShape.RECORD);
-            assertThat(MemoryHeader.readCapacity(segment, 0)).isEqualTo(1000L);
-            assertThat(MemoryHeader.readCount(segment, 0)).isEqualTo(500L);
+            assertThat(RegionPreamble.readSchemaVersion(segment, 0)).isEqualTo(1);
+            assertThat(RegionPreamble.readShape(segment, 0)).isEqualTo(MemoryShape.RECORD);
+            assertThat(RegionPreamble.readCapacity(segment, 0)).isEqualTo(1000L);
+            assertThat(RegionPreamble.readCount(segment, 0)).isEqualTo(500L);
         }
     }
 
@@ -42,9 +42,9 @@ class MemoryHeaderTest {
     void isValidReturnsTrueForValidHeader() {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment segment = arena.allocate(128, 64);
-            MemoryHeader.write(segment, 0, 1, MemoryShape.RECORD, 3, 1000L, 500L, 32, 42, 1000000L, 2000000L);
+            RegionPreamble.write(segment, 0, 1, MemoryShape.RECORD, 3, 1000L, 500L, 32, 42, 1000000L, 2000000L);
             
-            assertThat(MemoryHeader.isValid(segment, 0)).isTrue();
+            assertThat(RegionPreamble.isValid(segment, 0)).isTrue();
         }
     }
 
@@ -53,11 +53,11 @@ class MemoryHeaderTest {
     void isValidReturnsFalseForBadMagic() {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment segment = arena.allocate(128, 64);
-            MemoryHeader.write(segment, 0, 1, MemoryShape.RECORD, 3, 1000L, 500L, 32, 42, 1000000L, 2000000L);
+            RegionPreamble.write(segment, 0, 1, MemoryShape.RECORD, 3, 1000L, 500L, 32, 42, 1000000L, 2000000L);
             
             segment.set(ValueLayout.JAVA_INT_UNALIGNED, 0, 0xDEADBEEF);
             
-            assertThat(MemoryHeader.isValid(segment, 0)).isFalse();
+            assertThat(RegionPreamble.isValid(segment, 0)).isFalse();
         }
     }
 
@@ -66,13 +66,13 @@ class MemoryHeaderTest {
     void isValidReturnsFalseForCorruptedCrc() {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment segment = arena.allocate(128, 64);
-            MemoryHeader.write(segment, 0, 1, MemoryShape.RECORD, 3, 1000L, 500L, 32, 42, 1000000L, 2000000L);
+            RegionPreamble.write(segment, 0, 1, MemoryShape.RECORD, 3, 1000L, 500L, 32, 42, 1000000L, 2000000L);
             
             // Corrupt a byte in the first 56 bytes
             byte b = segment.get(ValueLayout.JAVA_BYTE, 4);
             segment.set(ValueLayout.JAVA_BYTE, 4, (byte) (b + 1));
             
-            assertThat(MemoryHeader.isValid(segment, 0)).isFalse();
+            assertThat(RegionPreamble.isValid(segment, 0)).isFalse();
         }
     }
 
@@ -81,12 +81,12 @@ class MemoryHeaderTest {
     void writeCountUpdatesCrcAndCount() {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment segment = arena.allocate(128, 64);
-            MemoryHeader.write(segment, 0, 1, MemoryShape.RECORD, 3, 1000L, 500L, 32, 42, 1000000L, 2000000L);
+            RegionPreamble.write(segment, 0, 1, MemoryShape.RECORD, 3, 1000L, 500L, 32, 42, 1000000L, 2000000L);
             
-            MemoryHeader.writeCount(segment, 0, 600L);
+            RegionPreamble.writeCount(segment, 0, 600L);
             
-            assertThat(MemoryHeader.readCount(segment, 0)).isEqualTo(600L);
-            assertThat(MemoryHeader.isValid(segment, 0)).isTrue();
+            assertThat(RegionPreamble.readCount(segment, 0)).isEqualTo(600L);
+            assertThat(RegionPreamble.isValid(segment, 0)).isTrue();
         }
     }
 
@@ -96,8 +96,8 @@ class MemoryHeaderTest {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment segment = arena.allocate(128, 64);
             for (MemoryShape shape : MemoryShape.values()) {
-                MemoryHeader.write(segment, 0, 1, shape, 3, 1000L, 500L, 32, 42, 1000000L, 2000000L);
-                assertThat(MemoryHeader.readShape(segment, 0)).isEqualTo(shape);
+                RegionPreamble.write(segment, 0, 1, shape, 3, 1000L, 500L, 32, 42, 1000000L, 2000000L);
+                assertThat(RegionPreamble.readShape(segment, 0)).isEqualTo(shape);
             }
         }
     }
@@ -105,12 +105,12 @@ class MemoryHeaderTest {
     @Test
     @DisplayName("headerExactlySixtyFourBytes")
     void headerExactlySixtyFourBytes() {
-        assertThat(MemoryHeader.HEADER_BYTES).isEqualTo(64);
+        assertThat(RegionPreamble.PREAMBLE_BYTES).isEqualTo(64);
     }
 
     @Test
     @DisplayName("magicConstantIsSMKM")
     void magicConstantIsSMKM() {
-        assertThat(MemoryHeader.MAGIC).isEqualTo(0x534D4B4D);
+        assertThat(RegionPreamble.MAGIC).isEqualTo(0x534D4B4D);
     }
 }

@@ -26,7 +26,7 @@ import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
 import com.spectrayan.spector.memory.cortex.insula.InsularLayout;
 import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.bundle.BundleLayoutCalculator;
@@ -256,7 +256,7 @@ public final class CognitiveCortexBuilder {
             }
 
             MemorySegment workingSlice = runtimeBundle.regionSegment(RegionId.WORKING);
-            boolean isWorkingNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(workingSlice, 0L);
+            boolean isWorkingNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(workingSlice, 0L);
             workingStore = WorkingRecordMemory.fromBundle(runtimeBundle.arena(), workingSlice,
                     quantizedVecBytes, builder.workingCapacity(),
                     runtimeBundleFile, isWorkingNew);
@@ -392,7 +392,7 @@ public final class CognitiveCortexBuilder {
         return List.of(
                 new RegionSizeSpec(
                         RegionId.WORKING,
-                        com.spectrayan.spector.memory.kernel.MemoryHeader.HEADER_BYTES + (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).recordStride() * workingCap,
+                        com.spectrayan.spector.memory.kernel.RegionPreamble.PREAMBLE_BYTES + (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).recordStride() * workingCap,
                         workingCap,
                         new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).recordStride(),
                         new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).layoutId(),

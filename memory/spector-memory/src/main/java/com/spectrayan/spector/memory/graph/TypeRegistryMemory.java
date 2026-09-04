@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.shape.RegistryMemory;
 import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
@@ -171,12 +171,12 @@ public final class TypeRegistryMemory implements RegistryMemory {
         reg.backing.close();
         RegistryLayout layout = new RegistryLayout();
         reg.backing = new DefaultRegistryMemory(systemMemoryId.id(), layout, 1024, arena, regionSlice,
-                isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0L),
+                isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0L),
                 true, bundlePath, null, true); // bundleManaged=true
 
         if (isNew) {
             long now = System.currentTimeMillis();
-            MemoryHeader.write(regionSlice, 0L, layout.schemaVersion(), MemoryShape.REGISTRY, 0,
+            RegionPreamble.write(regionSlice, 0L, layout.schemaVersion(), MemoryShape.REGISTRY, 0,
                     (int) regionSlice.byteSize(), 0, 0, layout.layoutId(), now, now);
         }
 
@@ -213,7 +213,7 @@ public final class TypeRegistryMemory implements RegistryMemory {
     public void save(Path filePath) throws IOException {
         if (bundleManaged) {
             long now = System.currentTimeMillis();
-            MemoryHeader.write(bundleSlice, 0L, backing.layout().schemaVersion(), MemoryShape.REGISTRY, 0,
+            RegionPreamble.write(bundleSlice, 0L, backing.layout().schemaVersion(), MemoryShape.REGISTRY, 0,
                     backing.capacity(), backing.size(), backing.layout().recordStride(), backing.layout().layoutId(), now, now);
             backing.flush();
             log.info("{} registry saved to bundle: {} types", label, backing.size());
@@ -234,7 +234,7 @@ public final class TypeRegistryMemory implements RegistryMemory {
         }
 
         try (DefaultRegistryMemory fileBacking = new DefaultRegistryMemory(
-                registryId, layout, currentEntries.size(), MemoryHeader.HEADER_BYTES + totalDataBytes, filePath)) {
+                registryId, layout, currentEntries.size(), RegionPreamble.PREAMBLE_BYTES + totalDataBytes, filePath)) {
             
             // Re-intern all entries in order of their IDs
             currentEntries.entrySet().stream()
@@ -264,7 +264,7 @@ public final class TypeRegistryMemory implements RegistryMemory {
                 magic = mb.getInt();
             }
 
-            boolean isStandard = (magic == MemoryHeader.MAGIC || magic == 0x4D4B4D53);
+            boolean isStandard = (magic == RegionPreamble.MAGIC || magic == 0x4D4B4D53);
             boolean isLegacy = (magic == LEGACY_FILE_MAGIC || magic == 0x47455254);
 
             TypeRegistryMemory registry = new TypeRegistryMemory(systemMemoryId);

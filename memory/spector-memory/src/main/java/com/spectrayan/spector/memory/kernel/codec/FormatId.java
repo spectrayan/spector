@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.codec;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 
 /**
  * Identifies a concrete on-disk format: a 4-byte magic plus a version
@@ -21,11 +21,11 @@ import com.spectrayan.spector.memory.kernel.MemoryHeader;
 public record FormatId(int magic, int version) {
 
     public static FormatId smkm(int schemaVersion) {
-        return new FormatId(MemoryHeader.MAGIC, schemaVersion);
+        return new FormatId(RegionPreamble.MAGIC, schemaVersion);
     }
 
     public boolean isSmkm() {
-        return magic == MemoryHeader.MAGIC;
+        return magic == RegionPreamble.MAGIC;
     }
 
     @Override

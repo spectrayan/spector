@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryLayout;
 
 /**
@@ -44,7 +44,7 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
  *
  * <h3>On-disk container (SMKM {@code EDIR})</h3>
  * <pre>
- *   [64B kernel MemoryHeader (shape=GRAPH, layoutId=EDIR, schemaVersion=1)]
+ *   [64B kernel RegionPreamble (shape=GRAPH, layoutId=EDIR, schemaVersion=1)]
  *   [16B sub-header: adjCapacity, adjHwm, reserved]
  *   [entity node slab][entity&rarr;memory adjacency slab]
  * </pre>
@@ -56,15 +56,15 @@ public final class EntityDirectoryLayout implements MemoryLayout {
     private static final int LAYOUT_ID = 0x45444952; // 'EDIR'
     private static final int VERSION = 1;
 
-    // ── SMKM container: [64B MemoryHeader][16B sub-header][node slab][adj slab] ──
-    /** Bytes of the directory sub-header following the 64-byte kernel {@link MemoryHeader}. */
+    // ── SMKM container: [64B RegionPreamble][16B sub-header][node slab][adj slab] ──
+    /** Bytes of the directory sub-header following the 64-byte kernel {@link RegionPreamble}. */
     public static final int GRAPH_SUBHEADER_BYTES = 16;
-    /** Sub-header field (relative to {@link MemoryHeader#HEADER_BYTES}): adjacency-segment capacity in entries (int). */
+    /** Sub-header field (relative to {@link RegionPreamble#PREAMBLE_BYTES}): adjacency-segment capacity in entries (int). */
     public static final int SUB_OFF_ADJ_CAPACITY = 0;
     /** Sub-header field: adjacency-segment high-water mark in entries (int). */
     public static final int SUB_OFF_ADJ_HWM = 4;
     /** Byte offset where the entity node slab begins in an SMKM file (64 + 16). */
-    public static final long DATA_START = MemoryHeader.HEADER_BYTES + GRAPH_SUBHEADER_BYTES;
+    public static final long DATA_START = RegionPreamble.PREAMBLE_BYTES + GRAPH_SUBHEADER_BYTES;
 
     // ── Entity Node record (64 bytes, 8-byte aligned — identity-only subset of EntityLayout) ──
     /** Bytes per entity-node record; also the substrate record stride. */

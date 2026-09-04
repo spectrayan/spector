@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.kernel.bundle;
 
 import org.junit.jupiter.api.Test;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
@@ -46,27 +46,27 @@ class BundleLayoutCalculatorTest {
         
         RegionEntry entry1 = dir.findRegion(RegionId.SEMANTIC);
         assertThat(entry1.offset()).isEqualTo(cursor);
-        long size1 = BundleLayoutCalculator.alignToPage(MemoryHeader.HEADER_BYTES + 1000);
+        long size1 = BundleLayoutCalculator.alignToPage(RegionPreamble.PREAMBLE_BYTES + 1000);
         assertThat(entry1.allocatedSize()).isEqualTo(size1);
         assertThat(entry1.isGrowable()).isFalse();
         cursor += size1;
         
         RegionEntry entry2 = dir.findRegion(RegionId.EPISODIC);
         assertThat(entry2.offset()).isEqualTo(cursor);
-        long size2 = BundleLayoutCalculator.alignToPage(MemoryHeader.HEADER_BYTES + 2000);
+        long size2 = BundleLayoutCalculator.alignToPage(RegionPreamble.PREAMBLE_BYTES + 2000);
         assertThat(entry2.allocatedSize()).isEqualTo(size2);
         assertThat(entry2.isGrowable()).isTrue();
         cursor += size2;
         
         RegionEntry entry3 = dir.findRegion(RegionId.PROCEDURAL);
         assertThat(entry3.offset()).isEqualTo(cursor);
-        long size3 = BundleLayoutCalculator.alignToPage(MemoryHeader.HEADER_BYTES + 3000);
+        long size3 = BundleLayoutCalculator.alignToPage(RegionPreamble.PREAMBLE_BYTES + 3000);
         assertThat(entry3.allocatedSize()).isEqualTo(size3);
         cursor += size3;
         
         RegionEntry entry4 = dir.findRegion(RegionId.TEXT);
         assertThat(entry4.offset()).isEqualTo(cursor);
-        long size4 = BundleLayoutCalculator.alignToPage(MemoryHeader.HEADER_BYTES + 4000);
+        long size4 = BundleLayoutCalculator.alignToPage(RegionPreamble.PREAMBLE_BYTES + 4000);
         assertThat(entry4.allocatedSize()).isEqualTo(size4);
         cursor += size4;
         

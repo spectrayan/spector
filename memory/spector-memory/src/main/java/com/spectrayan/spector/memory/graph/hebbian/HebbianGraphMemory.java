@@ -16,7 +16,7 @@ import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.graph.BridgeDetector;
 import com.spectrayan.spector.memory.graph.EdgeImportance;
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
@@ -170,7 +170,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
                                int capacity, int edgeCapacity, int maxDegree,
                                EdgeImportance edgeImportance, Path bundlePath, boolean isNew) {
         super(MEMORY_ID, LAYOUT, capacity, arena, regionSlice,
-              isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0L),
+              isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0L),
               true, bundlePath, null, true); // bundleManaged=true
         this.bundleManaged = true;
         this.maxDegree = maxDegree;
@@ -193,8 +193,8 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
             this.currentCycle = 0;
             this.totalEdgeCount = 0;
         } else {
-            this.currentCycle = segment().get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_CURRENT_CYCLE);
-            this.totalEdgeCount = (int) MemoryHeader.readCount(segment(), 0L);
+            this.currentCycle = segment().get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_CURRENT_CYCLE);
+            this.totalEdgeCount = (int) RegionPreamble.readCount(segment(), 0L);
         }
 
         // Migrate legacy standalone hebbian graph if it exists
@@ -547,7 +547,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
                 StandardOpenOption.TRUNCATE_EXISTING);
              Arena confined = Arena.ofConfined()) {
 
-            // [64B SMKM MemoryHeader][16B Hebbian graph sub-header]
+            // [64B SMKM RegionPreamble][16B Hebbian graph sub-header]
             MemorySegment head = confined.allocate(DATA_START);
             writeSmkmHeader(head, capacity, edgeCapacity, totalEdgeCount, currentCycle);
             ch.write(head.asByteBuffer());
@@ -572,10 +572,10 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     static void writeSmkmHeader(MemorySegment head, int capacity, int edgeCapacity,
                                 int totalEdges, int currentCycle) {
         long now = System.currentTimeMillis();
-        MemoryHeader.write(head, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
+        RegionPreamble.write(head, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
                 capacity, totalEdges, EDGE_BYTES, LAYOUT.layoutId(), now, now);
-        head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_EDGE_CAPACITY, edgeCapacity);
-        head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_CURRENT_CYCLE, currentCycle);
+        head.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_EDGE_CAPACITY, edgeCapacity);
+        head.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_CURRENT_CYCLE, currentCycle);
     }
 
     public static HebbianGraphMemory load(Path filePath, int defaultCapacity) {
@@ -591,11 +591,11 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
 
         try {
             // SMKM stores its magic in native (little-endian) order via the kernel
-            // MemoryHeader, whereas the legacy HGPH/HCSR containers wrote their magic
+            // RegionPreamble, whereas the legacy HGPH/HCSR containers wrote their magic
             // big-endian (ByteBuffer). Read both interpretations to classify the file.
             int beMagic = readMagic(filePath);
             int leMagic = Integer.reverseBytes(beMagic);
-            if (leMagic == MemoryHeader.MAGIC) {
+            if (leMagic == RegionPreamble.MAGIC) {
                 return loadSmkm(filePath, maxDegree, edgeImportance);
             }
             int magic = beMagic;
@@ -613,7 +613,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
             // File present (checked above) but unrecognized magic — never silently drop (#432).
             throw new IOException("Unrecognized HebbianGraph file magic: 0x"
                     + Integer.toHexString(magic) + " (expected SMKM 0x"
-                    + Integer.toHexString(MemoryHeader.MAGIC) + ", HCSR 0x"
+                    + Integer.toHexString(RegionPreamble.MAGIC) + ", HCSR 0x"
                     + Integer.toHexString(INTERIM_HCSR_MAGIC) + " or HGPH 0x"
                     + Integer.toHexString(LEGACY_HGPH_MAGIC) + "): " + filePath);
         } catch (SpectorGraphPersistenceException e) {
@@ -655,16 +655,16 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
             while (headBuf.hasRemaining()) {
                 if (ch.read(headBuf) < 0) break;
             }
-            if (!MemoryHeader.isValid(head, 0L)) {
+            if (!RegionPreamble.isValid(head, 0L)) {
                 throw new SpectorGraphPersistenceException("HebbianGraphMemory", filePath,
                         new IOException("SMKM header magic/CRC invalid"));
             }
-            int capacity = (int) MemoryHeader.readCapacity(head, 0L);
-            int totalEdges = (int) MemoryHeader.readCount(head, 0L);
+            int capacity = (int) RegionPreamble.readCapacity(head, 0L);
+            int totalEdges = (int) RegionPreamble.readCount(head, 0L);
             int edgeCap = head.get(ValueLayout.JAVA_INT,
-                    MemoryHeader.HEADER_BYTES + SUB_OFF_EDGE_CAPACITY);
+                    RegionPreamble.PREAMBLE_BYTES + SUB_OFF_EDGE_CAPACITY);
             int cycle = head.get(ValueLayout.JAVA_INT,
-                    MemoryHeader.HEADER_BYTES + SUB_OFF_CURRENT_CYCLE);
+                    RegionPreamble.PREAMBLE_BYTES + SUB_OFF_CURRENT_CYCLE);
 
             if (capacity < 0 || totalEdges < 0 || edgeCap < 0) {
                 throw new SpectorGraphPersistenceException("HebbianGraphMemory", filePath,

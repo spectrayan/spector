@@ -185,14 +185,14 @@ class EpisodicMmapPersistenceTest {
 
             EpisodicRecordMemory.EpisodicPartition partition = store.partitions().getFirst();
 
-            // First record should be at offset 64 (METADATA_HEADER_BYTES)
+            // First record should be at offset 64 (METADATA_PREAMBLE_BYTES)
             long offset0 = partition.recordOffset(0);
-            assertThat(offset0).isEqualTo(EpisodicRecordMemory.EpisodicPartition.METADATA_HEADER_BYTES);
+            assertThat(offset0).isEqualTo(EpisodicRecordMemory.EpisodicPartition.METADATA_PREAMBLE_BYTES);
 
             // Second record should be at offset 64 + stride
             long offset1 = partition.recordOffset(1);
             assertThat(offset1).isEqualTo(
-                    EpisodicRecordMemory.EpisodicPartition.METADATA_HEADER_BYTES + partition.layout().stride());
+                    EpisodicRecordMemory.EpisodicPartition.METADATA_PREAMBLE_BYTES + partition.layout().stride());
         }
     }
 

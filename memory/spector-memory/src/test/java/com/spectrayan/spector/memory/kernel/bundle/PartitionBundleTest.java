@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
@@ -101,15 +101,15 @@ class PartitionBundleTest {
 
             // Write a SMKM header at the start of the region
             long now = System.currentTimeMillis();
-            MemoryHeader.write(semSlice, 0, 1, MemoryShape.RECORD, 1,
+            RegionPreamble.write(semSlice, 0, 1, MemoryShape.RECORD, 1,
                     SEM_CAP, 0, COG_LAYOUT.recordStride(), COG_LAYOUT.layoutId(), now, now);
 
             // Verify the header is valid
-            assertThat(MemoryHeader.isValid(semSlice, 0)).isTrue();
-            assertThat(MemoryHeader.readCount(semSlice, 0)).isEqualTo(0);
+            assertThat(RegionPreamble.isValid(semSlice, 0)).isTrue();
+            assertThat(RegionPreamble.readCount(semSlice, 0)).isEqualTo(0);
 
             // Write a record after the header
-            long dataOffset = MemoryHeader.HEADER_BYTES;
+            long dataOffset = RegionPreamble.PREAMBLE_BYTES;
             semSlice.set(ValueLayout.JAVA_INT, dataOffset, 0xDEADBEEF);
             assertThat(semSlice.get(ValueLayout.JAVA_INT, dataOffset)).isEqualTo(0xDEADBEEF);
         }
@@ -134,7 +134,7 @@ class PartitionBundleTest {
             // Write data to semantic region
             MemorySegment semSlice = bundle.regionSegment(RegionId.SEMANTIC);
             long now = System.currentTimeMillis();
-            MemoryHeader.write(semSlice, 0, 1, MemoryShape.RECORD, 1,
+            RegionPreamble.write(semSlice, 0, 1, MemoryShape.RECORD, 1,
                     SEM_CAP, 42, COG_LAYOUT.recordStride(), COG_LAYOUT.layoutId(), now, now);
         }
 
@@ -146,8 +146,8 @@ class PartitionBundleTest {
 
             // Read data back
             MemorySegment semSlice = reopened.regionSegment(RegionId.SEMANTIC);
-            assertThat(MemoryHeader.isValid(semSlice, 0)).isTrue();
-            assertThat(MemoryHeader.readCount(semSlice, 0)).isEqualTo(42);
+            assertThat(RegionPreamble.isValid(semSlice, 0)).isTrue();
+            assertThat(RegionPreamble.readCount(semSlice, 0)).isEqualTo(42);
         }
     }
 

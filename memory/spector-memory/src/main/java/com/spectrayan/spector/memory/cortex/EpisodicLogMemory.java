@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
@@ -113,12 +113,12 @@ public final class EpisodicLogMemory extends AbstractAppendMemory<EpisodicLogLay
                                java.nio.file.Path bundlePath, boolean isNew) {
         super(SystemMemoryId.EPISODIC.id(), EpisodicLogLayout.INSTANCE, 0,
               arena, regionSlice,
-              isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0),
+              isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0),
               true, bundlePath, null, true);  // bundleManaged=true
 
         if (isNew) {
             long now = System.currentTimeMillis();
-            MemoryHeader.write(segment(), 0, 1, MemoryShape.APPEND, 1, 0, 0,
+            RegionPreamble.write(segment(), 0, 1, MemoryShape.APPEND, 1, 0, 0,
                     EpisodicLogLayout.INSTANCE.recordStride(),
                     EpisodicLogLayout.INSTANCE.layoutId(), now, now);
             log.info("EpisodicLogMemory initialized new bundle region in: {} ({}KB)",

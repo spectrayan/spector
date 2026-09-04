@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.codec;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 
 import java.io.IOException;
 import java.lang.foreign.Arena;
@@ -42,8 +42,8 @@ public final class FormatDetector {
             MemorySegment prefix = ch.map(FileChannel.MapMode.READ_ONLY, 0, size, arena);
 
             int magic = prefix.get(ValueLayout.JAVA_INT_UNALIGNED, 0);
-            if (magic == MemoryHeader.MAGIC) {
-                int schemaVersion = MemoryHeader.readSchemaVersion(prefix, 0L);
+            if (magic == RegionPreamble.MAGIC) {
+                int schemaVersion = RegionPreamble.readSchemaVersion(prefix, 0L);
                 return Optional.of(FormatId.smkm(schemaVersion));
             }
 

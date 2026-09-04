@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.cortex.index;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.model.MemoryType;
 
@@ -51,7 +51,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class MemoryIndexV6FormatTest {
 
     private static final int LAYOUT_ID = 0x4D494458; // 'MIDX'
-    private static final int HEADER = MemoryHeader.HEADER_BYTES; // 64
+    private static final int HEADER = RegionPreamble.PREAMBLE_BYTES; // 64
     private static final int V6_STRIDE = 48;
     private static final int V5_STRIDE = 40;
 
@@ -146,7 +146,7 @@ class MemoryIndexV6FormatTest {
         Path midx = dir.resolve("future.midx");
         byte[] file = new byte[HEADER]; // header only, count=0
         MemorySegment seg = MemorySegment.ofArray(file);
-        MemoryHeader.write(seg, 0, /*schemaVersion*/ 8, MemoryShape.RECORD, 0x01,
+        RegionPreamble.write(seg, 0, /*schemaVersion*/ 8, MemoryShape.RECORD, 0x01,
                 /*capacity*/ 0, /*count*/ 0, V6_STRIDE, LAYOUT_ID,
                 System.currentTimeMillis(), System.currentTimeMillis());
         Files.write(midx, file);
@@ -162,7 +162,7 @@ class MemoryIndexV6FormatTest {
         Path midx = dir.resolve("truncated.midx");
         byte[] file = new byte[32]; // shorter than the 64-byte header
         MemorySegment seg = MemorySegment.ofArray(file);
-        seg.set(ValueLayout.JAVA_INT_UNALIGNED, 0, MemoryHeader.MAGIC); // claims SMKM
+        seg.set(ValueLayout.JAVA_INT_UNALIGNED, 0, RegionPreamble.MAGIC); // claims SMKM
         Files.write(midx, file);
 
         assertThatThrownBy(() -> MemoryIndex.load(midx))
@@ -182,12 +182,12 @@ class MemoryIndexV6FormatTest {
     private static void writeV5MidxFromV6(Path v6midx, Path v5midx) throws Exception {
         byte[] v6 = Files.readAllBytes(v6midx);
         MemorySegment v6seg = MemorySegment.ofArray(v6);
-        int count = (int) MemoryHeader.readCount(v6seg, 0);
+        int count = (int) RegionPreamble.readCount(v6seg, 0);
 
         long dataBytes = (long) count * V5_STRIDE;
         byte[] v5 = new byte[(int) (HEADER + dataBytes)];
         MemorySegment v5seg = MemorySegment.ofArray(v5);
-        MemoryHeader.write(v5seg, 0, /*schemaVersion*/ 5, MemoryShape.RECORD, 0x01,
+        RegionPreamble.write(v5seg, 0, /*schemaVersion*/ 5, MemoryShape.RECORD, 0x01,
                 /*capacity*/ count, /*count*/ count, V5_STRIDE, LAYOUT_ID,
                 System.currentTimeMillis(), System.currentTimeMillis());
 

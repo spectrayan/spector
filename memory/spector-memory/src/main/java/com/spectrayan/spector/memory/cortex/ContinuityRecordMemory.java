@@ -16,7 +16,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorMemoryException;
 import com.spectrayan.spector.memory.aisme.continuity.IdentityTrajectorySnapshot;
 import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
@@ -51,7 +51,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * <h3>Kernel Standards & Layout</h3>
  * <ul>
  *   <li>Conforms to {@link MemoryShape#RECORD} and {@link ContinuityLayout}</li>
- *   <li>64B standard {@link MemoryHeader} + 32B {@link ContinuityLayout} sub-header + 32B fixed-stride records</li>
+ *   <li>64B standard {@link RegionPreamble} + 32B {@link ContinuityLayout} sub-header + 32B fixed-stride records</li>
  *   <li>Operates as a circular ring-buffer over a fixed capacity without dynamic heap allocation</li>
  * </ul>
  *
@@ -108,10 +108,10 @@ public final class ContinuityRecordMemory implements Memory<ContinuityLayout>, A
             throw new SpectorMemoryException(ErrorCode.RECORD_CRC_CORRUPTED, "Region slice too small for ContinuityRecordMemory");
         }
 
-        boolean effectivelyNew = isNew || !MemoryHeader.isValid(regionSlice, 0L);
+        boolean effectivelyNew = isNew || !RegionPreamble.isValid(regionSlice, 0L);
         if (effectivelyNew) {
             long now = System.currentTimeMillis();
-            MemoryHeader.write(regionSlice, 0L, ContinuityLayout.SCHEMA_VERSION, MemoryShape.RECORD, 1,
+            RegionPreamble.write(regionSlice, 0L, ContinuityLayout.SCHEMA_VERSION, MemoryShape.RECORD, 1,
                     ContinuityLayout.RECORD_STRIDE, recordCapacity, 0, ContinuityLayout.LAYOUT_ID, now, now);
 
             ContinuityLayout.writeHeadIndex(regionSlice, 0);
@@ -141,7 +141,7 @@ public final class ContinuityRecordMemory implements Memory<ContinuityLayout>, A
         MemorySegment seg = arena.allocate(totalBytes, 4096);
 
         long now = System.currentTimeMillis();
-        MemoryHeader.write(seg, 0L, ContinuityLayout.SCHEMA_VERSION, MemoryShape.RECORD, 0,
+        RegionPreamble.write(seg, 0L, ContinuityLayout.SCHEMA_VERSION, MemoryShape.RECORD, 0,
                 ContinuityLayout.RECORD_STRIDE, capacity, 0, ContinuityLayout.LAYOUT_ID, now, now);
 
         ContinuityLayout.writeHeadIndex(seg, 0);
@@ -178,7 +178,7 @@ public final class ContinuityRecordMemory implements Memory<ContinuityLayout>, A
 
             if (!exists) {
                 long now = System.currentTimeMillis();
-                MemoryHeader.write(seg, 0L, ContinuityLayout.SCHEMA_VERSION, MemoryShape.RECORD, 1,
+                RegionPreamble.write(seg, 0L, ContinuityLayout.SCHEMA_VERSION, MemoryShape.RECORD, 1,
                         ContinuityLayout.RECORD_STRIDE, capacity, 0, ContinuityLayout.LAYOUT_ID, now, now);
                 ContinuityLayout.writeHeadIndex(seg, 0);
                 ContinuityLayout.writeTotalSnapshots(seg, 0);
@@ -196,10 +196,10 @@ public final class ContinuityRecordMemory implements Memory<ContinuityLayout>, A
     }
 
     private static void validateHeader(MemorySegment slice) {
-        if (!MemoryHeader.isValid(slice, 0L)) {
-            throw new SpectorMemoryException(ErrorCode.RECORD_CRC_CORRUPTED, "Invalid MemoryHeader in ContinuityRecordMemory");
+        if (!RegionPreamble.isValid(slice, 0L)) {
+            throw new SpectorMemoryException(ErrorCode.RECORD_CRC_CORRUPTED, "Invalid RegionPreamble in ContinuityRecordMemory");
         }
-        int layoutId = MemoryHeader.readLayoutId(slice, 0L);
+        int layoutId = RegionPreamble.readLayoutId(slice, 0L);
         if (layoutId != ContinuityLayout.LAYOUT_ID) {
             throw new SpectorMemoryException(ErrorCode.RECORD_CRC_CORRUPTED,
                     String.format("Invalid Continuity layout ID: expected 0x%08X but got 0x%08X", ContinuityLayout.LAYOUT_ID, layoutId));

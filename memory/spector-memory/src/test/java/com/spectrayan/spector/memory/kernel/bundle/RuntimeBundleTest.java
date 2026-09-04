@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 
 import org.junit.jupiter.api.Test;
@@ -78,15 +78,15 @@ class RuntimeBundleTest {
 
             // Write SMKM header
             long now = System.currentTimeMillis();
-            MemoryHeader.write(hebbianSlice, 0, 1, MemoryShape.GRAPH, 1,
+            RegionPreamble.write(hebbianSlice, 0, 1, MemoryShape.GRAPH, 1,
                     200, 0, 32, LAYOUT_ID, now, now);
 
-            assertThat(MemoryHeader.isValid(hebbianSlice, 0)).isTrue();
-            assertThat(MemoryHeader.readCount(hebbianSlice, 0)).isEqualTo(0);
+            assertThat(RegionPreamble.isValid(hebbianSlice, 0)).isTrue();
+            assertThat(RegionPreamble.readCount(hebbianSlice, 0)).isEqualTo(0);
 
             // Write data
-            hebbianSlice.set(ValueLayout.JAVA_LONG, MemoryHeader.HEADER_BYTES, 0xCAFEBABEL);
-            assertThat(hebbianSlice.get(ValueLayout.JAVA_LONG, MemoryHeader.HEADER_BYTES)).isEqualTo(0xCAFEBABEL);
+            hebbianSlice.set(ValueLayout.JAVA_LONG, RegionPreamble.PREAMBLE_BYTES, 0xCAFEBABEL);
+            assertThat(hebbianSlice.get(ValueLayout.JAVA_LONG, RegionPreamble.PREAMBLE_BYTES)).isEqualTo(0xCAFEBABEL);
         }
     }
 
@@ -124,7 +124,7 @@ class RuntimeBundleTest {
             // Write data to entity directory region
             MemorySegment edirSlice = bundle.regionSegment(RegionId.ENTITY_DIRECTORY);
             long now = System.currentTimeMillis();
-            MemoryHeader.write(edirSlice, 0, 1, MemoryShape.GRAPH, 1,
+            RegionPreamble.write(edirSlice, 0, 1, MemoryShape.GRAPH, 1,
                     100, 37, 64, LAYOUT_ID, now, now);
         }
 
@@ -135,8 +135,8 @@ class RuntimeBundleTest {
             assertThat(reopened.directory().bundleMagic()).isEqualTo(BundleSubHeader.MAGIC_RUNTIME);
 
             MemorySegment edirSlice = reopened.regionSegment(RegionId.ENTITY_DIRECTORY);
-            assertThat(MemoryHeader.isValid(edirSlice, 0)).isTrue();
-            assertThat(MemoryHeader.readCount(edirSlice, 0)).isEqualTo(37);
+            assertThat(RegionPreamble.isValid(edirSlice, 0)).isTrue();
+            assertThat(RegionPreamble.readCount(edirSlice, 0)).isEqualTo(37);
         }
     }
 
@@ -177,9 +177,9 @@ class RuntimeBundleTest {
             MemorySegment hebbianBefore = bundle.regionSegment(RegionId.HEBBIAN);
             long sizeBefore = hebbianBefore.byteSize();
             long now = System.currentTimeMillis();
-            MemoryHeader.write(hebbianBefore, 0, 1, MemoryShape.GRAPH, 1,
+            RegionPreamble.write(hebbianBefore, 0, 1, MemoryShape.GRAPH, 1,
                     200, 42, 32, LAYOUT_ID, now, now);
-            hebbianBefore.set(ValueLayout.JAVA_LONG, MemoryHeader.HEADER_BYTES, 0xDEADBEEFL);
+            hebbianBefore.set(ValueLayout.JAVA_LONG, RegionPreamble.PREAMBLE_BYTES, 0xDEADBEEFL);
 
             // Grow
             bundle.growRegion(RegionId.HEBBIAN);
@@ -189,9 +189,9 @@ class RuntimeBundleTest {
             assertThat(hebbianAfter.byteSize()).isGreaterThan(sizeBefore);
 
             // Verify data was preserved
-            assertThat(MemoryHeader.isValid(hebbianAfter, 0)).isTrue();
-            assertThat(MemoryHeader.readCount(hebbianAfter, 0)).isEqualTo(42);
-            assertThat(hebbianAfter.get(ValueLayout.JAVA_LONG, MemoryHeader.HEADER_BYTES)).isEqualTo(0xDEADBEEFL);
+            assertThat(RegionPreamble.isValid(hebbianAfter, 0)).isTrue();
+            assertThat(RegionPreamble.readCount(hebbianAfter, 0)).isEqualTo(42);
+            assertThat(hebbianAfter.get(ValueLayout.JAVA_LONG, RegionPreamble.PREAMBLE_BYTES)).isEqualTo(0xDEADBEEFL);
 
             // Other regions should still be accessible
             assertThat(bundle.regionSegment(RegionId.WORKING)).isNotNull();
@@ -209,7 +209,7 @@ class RuntimeBundleTest {
             // Write data
             MemorySegment hebbianSlice = bundle.regionSegment(RegionId.HEBBIAN);
             long now = System.currentTimeMillis();
-            MemoryHeader.write(hebbianSlice, 0, 1, MemoryShape.GRAPH, 1,
+            RegionPreamble.write(hebbianSlice, 0, 1, MemoryShape.GRAPH, 1,
                     200, 99, 32, LAYOUT_ID, now, now);
 
             // Grow
@@ -221,8 +221,8 @@ class RuntimeBundleTest {
         try (RuntimeBundle reopened = RuntimeBundle.Init.open(bundlePath)) {
             MemorySegment hebbianSlice = reopened.regionSegment(RegionId.HEBBIAN);
             assertThat(hebbianSlice.byteSize()).isEqualTo(sizeAfterGrow);
-            assertThat(MemoryHeader.isValid(hebbianSlice, 0)).isTrue();
-            assertThat(MemoryHeader.readCount(hebbianSlice, 0)).isEqualTo(99);
+            assertThat(RegionPreamble.isValid(hebbianSlice, 0)).isTrue();
+            assertThat(RegionPreamble.readCount(hebbianSlice, 0)).isEqualTo(99);
         }
     }
 
@@ -240,12 +240,12 @@ class RuntimeBundleTest {
             // Write test data to HEBBIAN and ENTITY_DIRECTORY
             MemorySegment hebbianSlice = bundle.regionSegment(RegionId.HEBBIAN);
             long now = System.currentTimeMillis();
-            MemoryHeader.write(hebbianSlice, 0, 1, MemoryShape.GRAPH, 1,
+            RegionPreamble.write(hebbianSlice, 0, 1, MemoryShape.GRAPH, 1,
                     200, 55, 32, LAYOUT_ID, now, now);
-            hebbianSlice.set(ValueLayout.JAVA_LONG, MemoryHeader.HEADER_BYTES, 0x1234567890ABCDEFL);
+            hebbianSlice.set(ValueLayout.JAVA_LONG, RegionPreamble.PREAMBLE_BYTES, 0x1234567890ABCDEFL);
 
             MemorySegment edirSlice = bundle.regionSegment(RegionId.ENTITY_DIRECTORY);
-            MemoryHeader.write(edirSlice, 0, 1, MemoryShape.GRAPH, 1,
+            RegionPreamble.write(edirSlice, 0, 1, MemoryShape.GRAPH, 1,
                     100, 77, 64, LAYOUT_ID, now, now);
 
             // Grow HEBBIAN twice to create substantial dead space
@@ -269,14 +269,14 @@ class RuntimeBundleTest {
 
             // Verify live data integrity after compaction
             MemorySegment hebbianCompacted = bundle.regionSegment(RegionId.HEBBIAN);
-            assertThat(MemoryHeader.isValid(hebbianCompacted, 0)).isTrue();
-            assertThat(MemoryHeader.readCount(hebbianCompacted, 0)).isEqualTo(55);
-            assertThat(hebbianCompacted.get(ValueLayout.JAVA_LONG, MemoryHeader.HEADER_BYTES))
+            assertThat(RegionPreamble.isValid(hebbianCompacted, 0)).isTrue();
+            assertThat(RegionPreamble.readCount(hebbianCompacted, 0)).isEqualTo(55);
+            assertThat(hebbianCompacted.get(ValueLayout.JAVA_LONG, RegionPreamble.PREAMBLE_BYTES))
                     .isEqualTo(0x1234567890ABCDEFL);
 
             MemorySegment edirCompacted = bundle.regionSegment(RegionId.ENTITY_DIRECTORY);
-            assertThat(MemoryHeader.isValid(edirCompacted, 0)).isTrue();
-            assertThat(MemoryHeader.readCount(edirCompacted, 0)).isEqualTo(77);
+            assertThat(RegionPreamble.isValid(edirCompacted, 0)).isTrue();
+            assertThat(RegionPreamble.readCount(edirCompacted, 0)).isEqualTo(77);
         }
 
         // Reopen compacted bundle from disk and verify persistence
@@ -285,14 +285,14 @@ class RuntimeBundleTest {
             assertThat(reopened.directory().liveRegionCount()).isEqualTo(6);
 
             MemorySegment hebbianReopened = reopened.regionSegment(RegionId.HEBBIAN);
-            assertThat(MemoryHeader.isValid(hebbianReopened, 0)).isTrue();
-            assertThat(MemoryHeader.readCount(hebbianReopened, 0)).isEqualTo(55);
-            assertThat(hebbianReopened.get(ValueLayout.JAVA_LONG, MemoryHeader.HEADER_BYTES))
+            assertThat(RegionPreamble.isValid(hebbianReopened, 0)).isTrue();
+            assertThat(RegionPreamble.readCount(hebbianReopened, 0)).isEqualTo(55);
+            assertThat(hebbianReopened.get(ValueLayout.JAVA_LONG, RegionPreamble.PREAMBLE_BYTES))
                     .isEqualTo(0x1234567890ABCDEFL);
 
             MemorySegment edirReopened = reopened.regionSegment(RegionId.ENTITY_DIRECTORY);
-            assertThat(MemoryHeader.isValid(edirReopened, 0)).isTrue();
-            assertThat(MemoryHeader.readCount(edirReopened, 0)).isEqualTo(77);
+            assertThat(RegionPreamble.isValid(edirReopened, 0)).isTrue();
+            assertThat(RegionPreamble.readCount(edirReopened, 0)).isEqualTo(77);
         }
     }
 

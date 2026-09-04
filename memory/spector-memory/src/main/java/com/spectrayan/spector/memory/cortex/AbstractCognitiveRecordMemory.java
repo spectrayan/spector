@@ -12,22 +12,6 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
-import com.spectrayan.spector.commons.error.ErrorCode;
-import com.spectrayan.spector.commons.error.SpectorStorageException;
-import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.error.SpectorPartitionFrozenException;
-
-import com.spectrayan.spector.memory.kernel.SystemMemoryId;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -38,11 +22,26 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorStorageException;
+import com.spectrayan.spector.memory.error.SpectorPartitionFrozenException;
+import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
+import com.spectrayan.spector.memory.model.MemoryType;
+
 /**
  * Base implementation for all cognitive record memory stores in Spector Memory,
  * extending {@link AbstractRecordMemory} directly and implementing {@link CognitiveRecordMemory}.
  *
- * <p>Standardizes on Kernel 64-byte {@link MemoryHeader} for header management and
+ * <p>Standardizes on Kernel 64-byte {@link RegionPreamble} for header management and
  * implements full type-safe contracts for SWMR visibility and off-heap memory management.</p>
  *
  * @see CognitiveRecordMemory for the common interface
@@ -56,11 +55,16 @@ public abstract class AbstractCognitiveRecordMemory
     /** Legacy metadata header magic: "TIER" in ASCII (0x54494552). */
     public static final int TIER_MAGIC = 0x54494552;
 
-    /** Metadata header extra field for working memory circular index (offset 60 in MemoryHeader). */
+    /** Metadata header extra field for working memory circular index (offset 60 in RegionPreamble). */
     public static final int META_EXTRA1 = 60;
 
-    /** Size of the metadata header in bytes. */
-    public static final int METADATA_HEADER_BYTES = MemoryHeader.HEADER_BYTES;
+    /**
+     * Size of the {@link RegionPreamble} that prefixes a store file, in bytes.
+     *
+     * <p>This is the region prologue, not a per-engram encoding header — see
+     * {@link RegionPreamble} for why the two are named differently.</p>
+     */
+    public static final int METADATA_PREAMBLE_BYTES = RegionPreamble.PREAMBLE_BYTES;
 
     private static final class MmapResult {
         final Arena arena;
@@ -82,8 +86,8 @@ public abstract class AbstractCognitiveRecordMemory
             if (parent != null) {
                 Files.createDirectories(parent);
             }
-            long totalBytes = METADATA_HEADER_BYTES + segmentBytes;
-            boolean isNew = !Files.exists(filePath) || Files.size(filePath) < METADATA_HEADER_BYTES;
+            long totalBytes = METADATA_PREAMBLE_BYTES + segmentBytes;
+            boolean isNew = !Files.exists(filePath) || Files.size(filePath) < METADATA_PREAMBLE_BYTES;
             FileChannel fc = FileChannel.open(filePath,
                     StandardOpenOption.CREATE,
                     StandardOpenOption.READ,
@@ -137,7 +141,7 @@ public abstract class AbstractCognitiveRecordMemory
             setCount(0);
             writeMetadata();
             log.info("{} created new persistent file: {} ({}KB)",
-                    getClass().getSimpleName(), filePath, (METADATA_HEADER_BYTES + segmentBytes) / 1024);
+                    getClass().getSimpleName(), filePath, (METADATA_PREAMBLE_BYTES + segmentBytes) / 1024);
         } else {
             readMetadata();
             publishVisible();
@@ -157,7 +161,7 @@ public abstract class AbstractCognitiveRecordMemory
     /**
      * Bundle-backed constructor — adopts a pre-sliced region segment from a bundle.
      *
-     * <p>The region slice already contains a 64-byte {@link MemoryHeader} at offset 0
+     * <p>The region slice already contains a 64-byte {@link RegionPreamble} at offset 0
      * followed by record data. The count is read from the region's own SMKM header.
      * The arena is shared across all bundle regions and is <b>not</b> owned by this store.</p>
      *
@@ -174,7 +178,7 @@ public abstract class AbstractCognitiveRecordMemory
                                             Path bundlePath, boolean isNew) {
         super(tierId(type), cogLayout, capacity,
               arena, regionSlice,
-              isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0),
+              isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0),
               true, bundlePath, null, true);  // bundleManaged=true
         if (isNew) {
             setCount(0);
@@ -200,12 +204,12 @@ public abstract class AbstractCognitiveRecordMemory
     }
 
     /**
-     * Writes the metadata header to the mapped segment using standard Kernel MemoryHeader.
+     * Writes the metadata header to the mapped segment using standard Kernel RegionPreamble.
      */
     protected void writeMetadata() {
         if (!persistent) return;
         long now = System.currentTimeMillis();
-        MemoryHeader.write(segment, 0, 1, MemoryShape.RECORD, 1, capacity, count,
+        RegionPreamble.write(segment, 0, 1, MemoryShape.RECORD, 1, capacity, count,
                 layout.stride(), layout.layoutId(), now, now);
     }
 
@@ -213,8 +217,8 @@ public abstract class AbstractCognitiveRecordMemory
      * Reads the metadata header from the mapped segment.
      */
     protected void readMetadata() {
-        if (MemoryHeader.isValid(segment, 0)) {
-            setCount((int) MemoryHeader.readCount(segment, 0));
+        if (RegionPreamble.isValid(segment, 0)) {
+            setCount((int) RegionPreamble.readCount(segment, 0));
             return;
         }
         // Fallback for legacy TIER header
@@ -232,8 +236,8 @@ public abstract class AbstractCognitiveRecordMemory
      */
     protected void persistCount() {
         if (persistent) {
-            if (MemoryHeader.isValid(segment, 0)) {
-                MemoryHeader.writeCount(segment, 0, count);
+            if (RegionPreamble.isValid(segment, 0)) {
+                RegionPreamble.writeCount(segment, 0, count);
             } else {
                 segment.set(ValueLayout.JAVA_INT, 8, count);
             }
@@ -244,7 +248,7 @@ public abstract class AbstractCognitiveRecordMemory
      * Returns the byte offset where data records begin.
      */
     public long dataOffset() {
-        return persistent ? METADATA_HEADER_BYTES : 0;
+        return persistent ? METADATA_PREAMBLE_BYTES : 0;
     }
 
     @Override

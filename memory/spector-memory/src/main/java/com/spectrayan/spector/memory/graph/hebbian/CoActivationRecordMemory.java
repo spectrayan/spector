@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.graph.hebbian;
 import com.spectrayan.spector.memory.cortex.adaptor.RunningStats;
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
@@ -206,7 +206,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                                      MemorySegment checkpointRegion) {
         super(SystemMemoryId.COACTIVATION.id(), new CoActivationLayout(),
               pairCap, arena, regionSlice,
-              isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0),
+              isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0),
               true, bundlePath, null, true); // bundleManaged=true
         this.checkpointRegion = checkpointRegion;
 
@@ -220,10 +220,10 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
             segment.asSlice(dataOffset + layout.pairTableOffset(), totalBytes - CoActivationLayout.SUB_HEADER_BYTES).fill((byte) 0);
 
             long now = System.currentTimeMillis();
-            MemoryHeader.write(segment, 0L, layout().schemaVersion(), MemoryShape.HASHTABLE, 1,
+            RegionPreamble.write(segment, 0L, layout().schemaVersion(), MemoryShape.HASHTABLE, 1,
                     (int) totalBytes, 0, 0, layout().layoutId(), now, now);
         } else {
-            if (!MemoryHeader.isValid(segment, 0L)) {
+            if (!RegionPreamble.isValid(segment, 0L)) {
                 throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
                         com.spectrayan.spector.commons.error.ErrorCode.MEMORY_RECALL_FAILED,
                         "Invalid SMKM header for CoActivationRecordMemory in bundle");
@@ -783,7 +783,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                         long totalBytes = layout.totalDataBytes(pairTable.capacity(), edgeTable.capacity());
                         ByteBuffer header = ByteBuffer.allocate(64);
                         MemorySegment headerSeg = MemorySegment.ofBuffer(header);
-                        MemoryHeader.write(headerSeg, 0, layout().schemaVersion(), shape(),
+                        RegionPreamble.write(headerSeg, 0, layout().schemaVersion(), shape(),
                                 0x01, totalBytes, totalBytes, layout().recordStride(), layout().layoutId(),
                                 System.currentTimeMillis(), System.currentTimeMillis());
                         header.limit(64).position(0);
@@ -810,7 +810,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                     flush();
                     Path path = filePath != null ? filePath : filePath();
                     try (FileChannel ch = FileChannel.open(path, StandardOpenOption.WRITE)) {
-                        ch.position(MemoryHeader.HEADER_BYTES + layout.totalDataBytes(pairTable.capacity(), edgeTable.capacity()));
+                        ch.position(RegionPreamble.PREAMBLE_BYTES + layout.totalDataBytes(pairTable.capacity(), edgeTable.capacity()));
 
                         ByteBuffer countsBuf = ByteBuffer.allocate(8);
                         countsBuf.putInt(pairTable.count());
@@ -861,7 +861,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
             int edgeCap;
             try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
                 ByteBuffer capBuf = ByteBuffer.allocate(8);
-                ch.position(MemoryHeader.HEADER_BYTES);
+                ch.position(RegionPreamble.PREAMBLE_BYTES);
                 ch.read(capBuf);
                 capBuf.flip();
                 capBuf.order(ByteOrder.nativeOrder());
@@ -872,7 +872,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
             CoActivationRecordMemory tracker = new CoActivationRecordMemory(filePath, pairCap, edgeCap);
 
             try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
-                ch.position(MemoryHeader.HEADER_BYTES + new CoActivationLayout().totalDataBytes(pairCap, edgeCap));
+                ch.position(RegionPreamble.PREAMBLE_BYTES + new CoActivationLayout().totalDataBytes(pairCap, edgeCap));
 
                 ByteBuffer countsBuf = ByteBuffer.allocate(8);
                 ch.read(countsBuf);

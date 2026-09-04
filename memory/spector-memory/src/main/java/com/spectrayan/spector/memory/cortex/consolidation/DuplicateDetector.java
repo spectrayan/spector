@@ -12,19 +12,19 @@
  */
 package com.spectrayan.spector.memory.cortex.consolidation;
 
+import java.lang.foreign.MemorySegment;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.lang.foreign.MemorySegment;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Detector for finding near-duplicate memory records within a specific memory store tier.
@@ -83,7 +83,7 @@ public final class DuplicateDetector {
 
             MemorySegment segment = store.segment();
             CognitiveRecordLayout layout = store.cognitiveLayout();
-            long baseOffset = store.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L;
+            long baseOffset = store.isPersistent() ? CognitiveRecordMemory.METADATA_PREAMBLE_BYTES : 0L;
             int stride = layout.stride();
             int qVecBytes = layout.quantizedVecBytes();
             byte[] quantizedBuf = new byte[qVecBytes];

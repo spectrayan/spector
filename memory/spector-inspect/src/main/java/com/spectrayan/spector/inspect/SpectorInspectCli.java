@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.inspect;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.bundle.BundleDirectory;
 import com.spectrayan.spector.memory.kernel.bundle.BundleSubHeader;
@@ -75,7 +75,7 @@ public class SpectorInspectCli {
     private static void inspectHeader(Path path) {
         try {
             long size = Files.size(path);
-            if (size < MemoryHeader.HEADER_BYTES) {
+            if (size < RegionPreamble.PREAMBLE_BYTES) {
                 System.err.println("Error: File is too small to contain a valid Spector Memory Kernel header (size: " + size + " bytes).");
                 System.exit(1);
             }
@@ -87,29 +87,29 @@ public class SpectorInspectCli {
         try (Arena arena = Arena.ofShared();
              FileChannel fc = FileChannel.open(path, StandardOpenOption.READ)) {
             
-            MemorySegment segment = fc.map(FileChannel.MapMode.READ_ONLY, 0, MemoryHeader.HEADER_BYTES, arena);
+            MemorySegment segment = fc.map(FileChannel.MapMode.READ_ONLY, 0, RegionPreamble.PREAMBLE_BYTES, arena);
             
-            if (!MemoryHeader.isValid(segment, 0)) {
+            if (!RegionPreamble.isValid(segment, 0)) {
                 System.err.println("Error: Invalid or corrupted Spector Memory Kernel header.");
                 System.exit(1);
             }
 
-            int schemaVersion = MemoryHeader.readSchemaVersion(segment, 0);
-            MemoryShape shape = MemoryHeader.readShape(segment, 0);
-            long capacity = MemoryHeader.readCapacity(segment, 0);
-            long count = MemoryHeader.readCount(segment, 0);
-            int recordStride = MemoryHeader.readRecordStride(segment, 0);
-            int layoutId = MemoryHeader.readLayoutId(segment, 0);
-            long createdAt = MemoryHeader.readCreatedAt(segment, 0);
-            long lastFlush = MemoryHeader.readLastFlush(segment, 0);
-            int flags = MemoryHeader.readFlags(segment, 0);
+            int schemaVersion = RegionPreamble.readSchemaVersion(segment, 0);
+            MemoryShape shape = RegionPreamble.readShape(segment, 0);
+            long capacity = RegionPreamble.readCapacity(segment, 0);
+            long count = RegionPreamble.readCount(segment, 0);
+            int recordStride = RegionPreamble.readRecordStride(segment, 0);
+            int layoutId = RegionPreamble.readLayoutId(segment, 0);
+            long createdAt = RegionPreamble.readCreatedAt(segment, 0);
+            long lastFlush = RegionPreamble.readLastFlush(segment, 0);
+            int flags = RegionPreamble.readFlags(segment, 0);
 
             String layoutIdStr = decodeLayoutId(layoutId);
 
             System.out.println("==================================================");
             System.out.println("Spector Memory Kernel Header: " + path.getFileName());
             System.out.println("==================================================");
-            System.out.printf("Magic:            0x%08X (SMKM)\n", MemoryHeader.MAGIC);
+            System.out.printf("Magic:            0x%08X (SMKM)\n", RegionPreamble.MAGIC);
             System.out.printf("Schema Version:   %d\n", schemaVersion);
             System.out.printf("Memory Shape:     %s\n", shape);
             System.out.printf("Flags:            0x%08X\n", flags);
@@ -136,7 +136,7 @@ public class SpectorInspectCli {
         long size;
         try {
             size = Files.size(path);
-            if (size < MemoryHeader.HEADER_BYTES) {
+            if (size < RegionPreamble.PREAMBLE_BYTES) {
                 System.err.println("Error: File is too small to contain a valid Spector Memory Kernel header (size: " + size + " bytes).");
                 System.exit(1);
             }
@@ -150,20 +150,20 @@ public class SpectorInspectCli {
              FileChannel fc = FileChannel.open(path, StandardOpenOption.READ)) {
 
             // Step 1: Read the bundle magic shape and max capacity from the main header
-            MemorySegment initialSegment = fc.map(FileChannel.MapMode.READ_ONLY, 0, MemoryHeader.HEADER_BYTES, arena);
-            if (!MemoryHeader.isValid(initialSegment, 0)) {
+            MemorySegment initialSegment = fc.map(FileChannel.MapMode.READ_ONLY, 0, RegionPreamble.PREAMBLE_BYTES, arena);
+            if (!RegionPreamble.isValid(initialSegment, 0)) {
                 System.err.println("Error: Invalid or corrupted Spector Memory Kernel header.");
                 System.exit(1);
             }
 
-            MemoryShape shape = MemoryHeader.readShape(initialSegment, 0);
+            MemoryShape shape = RegionPreamble.readShape(initialSegment, 0);
             if (shape != MemoryShape.BUNDLE) {
                 System.err.println("Error: Specified file shape is " + shape + ", not BUNDLE.");
                 System.err.println("       Use 'spector-inspect header <file-path>' for standard SMK files.");
                 System.exit(1);
             }
 
-            int maxRegions = (int) MemoryHeader.readCapacity(initialSegment, 0);
+            int maxRegions = (int) RegionPreamble.readCapacity(initialSegment, 0);
             long dirBytes = BundleDirectory.dataStartOffset(maxRegions);
 
             if (size < dirBytes) {
@@ -187,7 +187,7 @@ public class SpectorInspectCli {
             System.out.println("==================================================================================");
             System.out.println("Spector Memory Bundle Diagnostics: " + path.getFileName());
             System.out.println("==================================================================================");
-            System.out.printf("Magic:              0x%08X (SMKM)\n", MemoryHeader.MAGIC);
+            System.out.printf("Magic:              0x%08X (SMKM)\n", RegionPreamble.MAGIC);
             System.out.printf("Layout ID:          0x%08X (\"%s\")\n", BundleLayout.LAYOUT_ID, decodeLayoutId(BundleLayout.LAYOUT_ID));
             System.out.printf("Bundle Type:        0x%08X (\"%s\")\n", bundleMagic, bundleMagicStr);
             System.out.printf("Bundle Version:     %d\n", version);
@@ -244,18 +244,18 @@ public class SpectorInspectCli {
                 }
 
                 // If region is live, read the inner region header if available
-                if (entry.isLive() && entry.offset() > 0 && entry.allocatedSize() >= MemoryHeader.HEADER_BYTES) {
+                if (entry.isLive() && entry.offset() > 0 && entry.allocatedSize() >= RegionPreamble.PREAMBLE_BYTES) {
                     long regionEnd = entry.offset() + entry.allocatedSize();
                     if (size >= regionEnd) {
                         try {
-                            MemorySegment regionSegment = fc.map(FileChannel.MapMode.READ_ONLY, entry.offset(), MemoryHeader.HEADER_BYTES, arena);
+                            MemorySegment regionSegment = fc.map(FileChannel.MapMode.READ_ONLY, entry.offset(), RegionPreamble.PREAMBLE_BYTES, arena);
                             int magicVal = regionSegment.get(ValueLayout.JAVA_INT, 0);
                             
                             // If it starts with SMKM magic, print parsed stats
-                            if (magicVal == MemoryHeader.MAGIC && MemoryHeader.isValid(regionSegment, 0)) {
-                                long innerCount = MemoryHeader.readCount(regionSegment, 0);
-                                long innerCapacity = MemoryHeader.readCapacity(regionSegment, 0);
-                                MemoryShape innerShape = MemoryHeader.readShape(regionSegment, 0);
+                            if (magicVal == RegionPreamble.MAGIC && RegionPreamble.isValid(regionSegment, 0)) {
+                                long innerCount = RegionPreamble.readCount(regionSegment, 0);
+                                long innerCapacity = RegionPreamble.readCapacity(regionSegment, 0);
+                                MemoryShape innerShape = RegionPreamble.readShape(regionSegment, 0);
                                 System.out.printf("  ↳ Inner Store: count=%d, capacity=%d, shape=%s, layout=\"%s\"\n",
                                         innerCount, innerCapacity, innerShape, layoutStr);
                             }

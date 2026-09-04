@@ -25,7 +25,7 @@ import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
@@ -106,7 +106,7 @@ public final class CognitiveGraphBuilder {
         HebbianGraphBase hebbianGraph;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
             java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.HEBBIAN);
-            boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(regionSlice, 0L);
+            boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(regionSlice, 0L);
             int edgeCapacity = builder.hebbianMaxDegree() > 0
                     ? graphCapacity * builder.hebbianMaxDegree()
                     : graphCapacity * 16;
@@ -123,7 +123,7 @@ public final class CognitiveGraphBuilder {
         TemporalChainMemory temporalChain;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
             java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.TEMPORAL_CHAIN);
-            boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(regionSlice, 0L);
+            boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(regionSlice, 0L);
             temporalChain = TemporalChainMemory.fromBundle(
                     cortex.runtimeBundle().arena(), regionSlice, temporalCapacity,
                     cortex.runtimeBundle().bundlePath(), isNew);
@@ -153,7 +153,7 @@ public final class CognitiveGraphBuilder {
             int hyperEdgeCap = hyperCap * 2;
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
                 java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.HYPERGRAPH);
-                boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(regionSlice, 0L);
+                boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(regionSlice, 0L);
                 hyperEntityGraph = HyperEntityGraphMemory.fromBundle(
                         cortex.runtimeBundle().arena(), regionSlice, hyperCap, hyperEdgeCap,
                         cortex.runtimeBundle().bundlePath(), isNew);
@@ -175,7 +175,7 @@ public final class CognitiveGraphBuilder {
             TypeRegistryMemory entityTypeRegistry;
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
                 java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_TYPES);
-                boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(regionSlice, 0L);
+                boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(regionSlice, 0L);
                 entityTypeRegistry = TypeRegistryMemory.fromBundle(
                         SystemMemoryId.ENTITY_TYPE, cortex.runtimeBundle().arena(), regionSlice,
                         cortex.runtimeBundle().bundlePath(), isNew,
@@ -187,7 +187,7 @@ public final class CognitiveGraphBuilder {
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
                 java.lang.foreign.MemorySegment entitySlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_DIRECTORY);
                 java.lang.foreign.MemorySegment adjSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_NAMES);
-                boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(entitySlice, 0L);
+                boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(entitySlice, 0L);
                 entityDirectory = EntityDirectory.fromBundle(
                         cortex.runtimeBundle().arena(), entitySlice, adjSlice,
                         dirCap, entityTypeRegistry,
@@ -203,7 +203,7 @@ public final class CognitiveGraphBuilder {
         TypeRegistryMemory predRegistry;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
             java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.RELATION_TYPES);
-            boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(regionSlice, 0L);
+            boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(regionSlice, 0L);
             predRegistry = TypeRegistryMemory.fromBundle(
                     SystemMemoryId.RELATION_TYPE, cortex.runtimeBundle().arena(), regionSlice,
                     cortex.runtimeBundle().bundlePath(), isNew);
@@ -213,7 +213,7 @@ public final class CognitiveGraphBuilder {
 
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
             java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.TEMPORAL_FACTS);
-            boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(regionSlice, 0L);
+            boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(regionSlice, 0L);
             temporalKnowledgeGraph = TemporalKnowledgeGraph.fromBundle(
                     predRegistry, cortex.runtimeBundle().arena(), regionSlice,
                     cortex.runtimeBundle().bundlePath(), isNew);

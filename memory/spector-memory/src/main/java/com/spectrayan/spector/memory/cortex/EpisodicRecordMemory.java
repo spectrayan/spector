@@ -12,20 +12,17 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.concurrent.locks.ReentrantLock;
 
-import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
  * Episodic memory store — stores time-ordered personal experiences.
@@ -195,7 +192,7 @@ public class EpisodicRecordMemory extends AbstractCognitiveRecordMemory {
     public static final class EpisodicPartition {
 
         /** Size of the metadata header in bytes (matches AbstractCognitiveRecordMemory). */
-        public static final int METADATA_HEADER_BYTES = AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES;
+        public static final int METADATA_PREAMBLE_BYTES = AbstractCognitiveRecordMemory.METADATA_PREAMBLE_BYTES;
 
         private final EpisodicRecordMemory store;
         private int tombstoneCount = 0;

@@ -24,7 +24,7 @@ import java.util.PriorityQueue;
 
 import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 
@@ -154,9 +154,9 @@ public final class BaselineRetriever {
             // Fail-fast guard: verify header magic for persistent memory segments
             if (dataOffset > 0 && count > 0) {
                 int magic = segment.get(ValueLayout.JAVA_INT_UNALIGNED, 0);
-                if (magic != MemoryHeader.MAGIC) {
+                if (magic != RegionPreamble.MAGIC) {
                     throw new IllegalStateException("Failed baseline assertion: expected header magic "
-                            + Integer.toHexString(MemoryHeader.MAGIC) + ", got " + Integer.toHexString(magic));
+                            + Integer.toHexString(RegionPreamble.MAGIC) + ", got " + Integer.toHexString(magic));
                 }
             }
 

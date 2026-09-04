@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
  * On-disk layout for the {@link InsularCortex} self-model region.
  *
  * <p>The insular header occupies 32 bytes immediately after the standard 64-byte
- * {@code MemoryHeader}, giving an overall 96-byte overhead before the self-model
+ * {@code RegionPreamble}, giving an overall 96-byte overhead before the self-model
  * JSON payload begins.</p>
  *
  * <h3>Insular Header Layout (32 bytes at offset 64)</h3>

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.graph.hebbian;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.codec.FormatId;
 import com.spectrayan.spector.memory.kernel.codec.MigrationContext;
 import com.spectrayan.spector.memory.kernel.codec.RewriteFileStep;
@@ -36,7 +36,7 @@ import static java.nio.file.StandardOpenOption.WRITE;
  *
  * <p>Both formats already store identical CSR slabs (offset slab + edge slab); only the
  * fixed header differs — the interim 24-byte HCSR header vs. the 64-byte kernel
- * {@link MemoryHeader} plus the 16-byte Hebbian graph sub-header. This step therefore
+ * {@link RegionPreamble} plus the 16-byte Hebbian graph sub-header. This step therefore
  * re-writes the header and copies the slab bytes verbatim (they are stored in native byte
  * order in both containers).</p>
  *

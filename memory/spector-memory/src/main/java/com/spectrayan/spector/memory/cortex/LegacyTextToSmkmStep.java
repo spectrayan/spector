@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.codec.FormatId;
 import com.spectrayan.spector.memory.kernel.codec.MigrationContext;
@@ -53,16 +53,16 @@ public final class LegacyTextToSmkmStep extends RewriteFileStep {
 
             long srcSize = srcCh.size();
             long dataSize = Math.max(0, srcSize - 16);
-            long totalDstSize = MemoryHeader.HEADER_BYTES + dataSize;
+            long totalDstSize = RegionPreamble.PREAMBLE_BYTES + dataSize;
             long now = System.currentTimeMillis();
 
             MemorySegment dstMapped = dstCh.map(FileChannel.MapMode.READ_WRITE, 0, totalDstSize, arena);
-            MemoryHeader.write(dstMapped, 0L, ctx.layout().schemaVersion(), MemoryShape.APPEND, 1,
+            RegionPreamble.write(dstMapped, 0L, ctx.layout().schemaVersion(), MemoryShape.APPEND, 1,
                     0L, dataSize, ctx.layout().recordStride(), ctx.layout().layoutId(), now, now);
 
             if (dataSize > 0) {
                 MemorySegment srcMapped = srcCh.map(FileChannel.MapMode.READ_ONLY, 16, dataSize, arena);
-                MemorySegment.copy(srcMapped, 0, dstMapped, MemoryHeader.HEADER_BYTES, dataSize);
+                MemorySegment.copy(srcMapped, 0, dstMapped, RegionPreamble.PREAMBLE_BYTES, dataSize);
             }
             dstMapped.force();
         }

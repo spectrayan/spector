@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
@@ -96,7 +96,7 @@ class BundleFormatCompatibilityTest {
     private static List<RegionSizeSpec> runtimeSpecs() {
         return List.of(
                 new RegionSizeSpec(RegionId.WORKING,
-                        MemoryHeader.HEADER_BYTES + (long) SEM_CAP * COG.recordStride(),
+                        RegionPreamble.PREAMBLE_BYTES + (long) SEM_CAP * COG.recordStride(),
                         SEM_CAP, COG.recordStride(), COG.layoutId(), COG.schemaVersion(), false),
                 new RegionSizeSpec(RegionId.CONTINUITY,
                         ContinuityLayout.DATA_START + (long) 8 * ContinuityLayout.RECORD_STRIDE,
@@ -131,17 +131,17 @@ class BundleFormatCompatibilityTest {
 
             // Prove we are reading real persisted bytes, not a freshly initialised bundle.
             MemorySegment sem = reopened.regionSegment(RegionId.SEMANTIC);
-            assertThat(MemoryHeader.isValid(sem, 0))
+            assertThat(RegionPreamble.isValid(sem, 0))
                     .as("SEMANTIC prologue must pass magic + CRC").isTrue();
-            assertThat(MemoryHeader.readCount(sem, 0))
+            assertThat(RegionPreamble.readCount(sem, 0))
                     .as("record count stamped when the fixture was frozen").isEqualTo(SEMANTIC_COUNT);
-            assertThat(MemoryHeader.readLayoutId(sem, 0))
+            assertThat(RegionPreamble.readLayoutId(sem, 0))
                     .as("SEMANTIC layoutId 'COG\\0'").isEqualTo(COG.layoutId());
-            assertThat(MemoryHeader.readRecordStride(sem, 0))
+            assertThat(RegionPreamble.readRecordStride(sem, 0))
                     .as("64B header + 8B quantized vector").isEqualTo(COG.recordStride());
 
             MemorySegment proc = reopened.regionSegment(RegionId.PROCEDURAL);
-            assertThat(MemoryHeader.readCount(proc, 0)).isEqualTo(PROCEDURAL_COUNT);
+            assertThat(RegionPreamble.readCount(proc, 0)).isEqualTo(PROCEDURAL_COUNT);
 
             // Directory entries must still describe non-overlapping, in-bounds regions.
             RegionEntry audit = reopened.directory().findRegion(RegionId.AUDIT);
@@ -217,9 +217,9 @@ class BundleFormatCompatibilityTest {
                 partition, SEM_CAP, EPISODIC_BYTES, PROC_CAP, TEXT_BYTES, DIMS,
                 COG.layoutId(), COG.schemaVersion(), TEXT.layoutId(), TEXT.schemaVersion())) {
             long now = System.currentTimeMillis();
-            MemoryHeader.write(bundle.regionSegment(RegionId.SEMANTIC), 0, 1, MemoryShape.RECORD, 1,
+            RegionPreamble.write(bundle.regionSegment(RegionId.SEMANTIC), 0, 1, MemoryShape.RECORD, 1,
                     SEM_CAP, SEMANTIC_COUNT, COG.recordStride(), COG.layoutId(), now, now);
-            MemoryHeader.write(bundle.regionSegment(RegionId.PROCEDURAL), 0, 1, MemoryShape.RECORD, 1,
+            RegionPreamble.write(bundle.regionSegment(RegionId.PROCEDURAL), 0, 1, MemoryShape.RECORD, 1,
                     PROC_CAP, PROCEDURAL_COUNT, COG.recordStride(), COG.layoutId(), now, now);
         }
 

@@ -16,7 +16,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory.TextEntry;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory.TextPosition;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -100,7 +100,7 @@ class TextAppendMemoryPersistenceTest {
                 ch.read(magicBuf);
                 magicBuf.flip();
                 int magic = magicBuf.getInt();
-                assertThat(magic).isIn(MemoryHeader.MAGIC, 0x4D4B4D53);
+                assertThat(magic).isIn(RegionPreamble.MAGIC, 0x4D4B4D53);
             }
         }
     }
