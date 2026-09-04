@@ -75,6 +75,30 @@ public record EngramLayout(int quantizedVecBytes, EncodingHeaderLayout headerLay
         return stride();
     }
 
+    /**
+     * Returns whether CRC32C integrity checksumming is enabled for fixed-stride engram records.
+     *
+     * <h3>Design Decision D3 (Integrity Gap &amp; Performance Tradeoff / R10.1, R10.2)</h3>
+     * <p>CRC32C is intentionally <b>disabled</b> (returns {@code false}) for fixed-stride engram records.
+     * In the current implementation, {@link com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory}'s
+     * CRC verification path allocates a temporary heap {@code byte[]} array and a {@link java.util.zip.CRC32C}
+     * instance per read operation. On the SIMD vector scan and recall hot path, millions of engram records
+     * may be evaluated per second; introducing heap allocations and copies into that loop would violate
+     * Spector's core zero-allocation hot-path guarantee and trigger severe GC pressure.</p>
+     *
+     * <p>By contrast, CRC32C checksumming is enabled for:</p>
+     * <ul>
+     *     <li><b>Strength Region ({@code StrengthLayout})</b>: Point updates and lookups off the hot vector scan loop.</li>
+     *     <li><b>Variable-Length Append Records (e.g. {@code WalLayout}, {@code TextBlobLayout})</b>: Where sequential
+     *         write integrity across log segments is paramount and access is I/O-dominated.</li>
+     * </ul>
+     *
+     * <p>Revisiting CRC32C for engrams is deferred until a zero-copy, direct off-heap {@link java.lang.foreign.MemorySegment}-based
+     * hardware-accelerated CRC calculation path is introduced that does not perturb the cache-line stride or
+     * allocate on the heap.</p>
+     *
+     * @return {@code false} to preserve the zero-allocation vector scan hot path
+     */
     @Override
     public boolean crcEnabled() {
         return false;
