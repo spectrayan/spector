@@ -14,8 +14,10 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.layout.EpisodeCodec;
 import com.spectrayan.spector.memory.kernel.layout.EpisodeLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
 import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.EngramSource;
 import com.spectrayan.spector.memory.model.EpisodeRecord;
@@ -283,5 +285,51 @@ class EpisodicMemoryTest {
         episodicMemory.tombstone(offset);
         assertTrue(episodicMemory.isTombstoned(offset));
         assertEquals(0, episodicMemory.visibleCount());
+    }
+
+    @Test
+    @DisplayName("Verify honest header de-punning and dual-read backwards compatibility (ADR-0030)")
+    void testHonestHeaderDePunningAndDualRead() {
+        long sessionId = 9876543210123L;
+        short modelId = 77;
+        byte[] body = "De-punning test message".getBytes();
+
+        long offset = episodicMemory.appendTurn(
+                ConversationRole.ASSISTANT, 3, 5000L, sessionId,
+                body, modelId, 25, 50, 120, 1001L, (short) 2, SourceModality.TEXT,
+                0.92f, (byte) -10, (byte) 45, EngramSource.EXPERIENCED
+        );
+
+        long absOffset = episodicMemory.dataOffset() + offset;
+        var hl = episodicMemory.layout().headerLayout();
+
+        // 1. Assert honest fields read directly from header without decoding payload
+        assertEquals(sessionId, hl.readSessionIdRecord(episodicMemory.segment(), absOffset));
+        assertEquals(modelId, hl.readModelIdRecord(episodicMemory.segment(), absOffset));
+        assertEquals((byte) ConversationRole.ASSISTANT.ordinal(), hl.readRoleRecord(episodicMemory.segment(), absOffset));
+
+        // 2. Assert readTurn receives honest fields
+        EpisodeRecord turn = episodicMemory.readTurn(offset, true);
+        assertEquals(ConversationRole.ASSISTANT, turn.role());
+        assertEquals(sessionId, turn.sessionId());
+        assertEquals(modelId, turn.modelId());
+        assertEquals(0.92f, turn.importance(), 0.001f);
+
+        // 3. Test dual-read fallback: write an old-style punned record (sessionId at offset 24, +16 is zero)
+        int punnedPayloadBytes = body.length + EpisodeCodec.PAYLOAD_METADATA_BYTES;
+        int punnedTotalSize = EpisodicLayout.FIXED_OVERHEAD_BYTES + punnedPayloadBytes;
+        long punnedWriteOffset = episodicMemory.dataOffset() + episodicMemory.writePosition();
+
+        // Write punned header where offset +16 is 0 (exactNorm), centroidId is modelId at +20, and offset +24 has sessionId
+        episodicMemory.segment().set(java.lang.foreign.ValueLayout.JAVA_BYTE, punnedWriteOffset + 16, (byte) 2); // version
+        episodicMemory.segment().set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, punnedWriteOffset + 16 + 16, 0); // exactNorm 0.0f
+        episodicMemory.segment().set(java.lang.foreign.ValueLayout.JAVA_SHORT_UNALIGNED, punnedWriteOffset + 16 + 20, modelId); // centroidId
+        episodicMemory.segment().set(java.lang.foreign.ValueLayout.JAVA_SHORT_UNALIGNED, punnedWriteOffset + 16 + 22, (short) 0); // pad0
+        episodicMemory.segment().set(java.lang.foreign.ValueLayout.JAVA_LONG_UNALIGNED, punnedWriteOffset + 16 + 24, sessionId); // punned at +24
+        episodicMemory.segment().set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, punnedWriteOffset + 12, EpisodicLayout.MAGIC);
+
+        // Verify dual-read resolves sessionId from legacy punned offset
+        assertEquals(sessionId, hl.readSessionIdRecord(episodicMemory.segment(), punnedWriteOffset));
+        assertEquals(modelId, hl.readModelIdRecord(episodicMemory.segment(), punnedWriteOffset));
     }
 }

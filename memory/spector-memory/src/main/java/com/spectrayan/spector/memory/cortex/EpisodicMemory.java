@@ -21,6 +21,7 @@ import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.EpisodeCodec;
 import com.spectrayan.spector.memory.kernel.layout.EpisodeLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
 import com.spectrayan.spector.memory.kernel.layout.compat.LegacyEpisodeHeaderReader;
 import com.spectrayan.spector.memory.kernel.shape.AbstractAppendMemory;
 import com.spectrayan.spector.memory.model.ConversationRole;
@@ -57,12 +58,12 @@ import java.util.concurrent.locks.ReentrantLock;
  * records via automatic format discrimination.</p>
  *
  * @since 1.4.0
- * @see EpisodeLayout
+ * @see EpisodicLayout
  * @see EpisodeCodec
  * @see EpisodicHeaderAccessor
  * @see LegacyEpisodeHeaderReader
  */
-public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> implements EngramMemory {
+public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> implements EngramMemory {
 
     private static final Logger log = LoggerFactory.getLogger(EpisodicMemory.class);
 
@@ -75,7 +76,7 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> im
      * Creates a volatile (heap-backed) episodic memory store with given capacity and buffer size.
      */
     public EpisodicMemory(int capacity, long capacityBytes) {
-        super(SystemMemoryId.EPISODIC.id(), EpisodeLayout.INSTANCE, capacity, capacityBytes);
+        super(SystemMemoryId.EPISODIC.id(), EpisodicLayout.INSTANCE, capacity, capacityBytes);
     }
 
     /**
@@ -108,7 +109,7 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> im
 
     private EpisodicMemory(Arena arena, MemorySegment regionSlice, int capacity,
                            java.nio.file.Path bundlePath, boolean isNew) {
-        super(SystemMemoryId.EPISODIC.id(), EpisodeLayout.INSTANCE, capacity,
+        super(SystemMemoryId.EPISODIC.id(), EpisodicLayout.INSTANCE, capacity,
               arena, regionSlice,
               isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0),
               true, bundlePath, null, true);
@@ -116,8 +117,8 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> im
         if (isNew) {
             long now = System.currentTimeMillis();
             RegionPreamble.write(segment(), 0, 1, MemoryShape.APPEND, 1, 0, 0,
-                    EpisodeLayout.INSTANCE.recordStride(),
-                    EpisodeLayout.INSTANCE.layoutId(), now, now);
+                    EpisodicLayout.INSTANCE.recordStride(),
+                    EpisodicLayout.INSTANCE.layoutId(), now, now);
             log.info("EpisodicMemory initialized new bundle region in: {} ({}KB, cap={})",
                     bundlePath, regionSlice.byteSize() / 1024, capacity);
         } else {
@@ -158,32 +159,12 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> im
                            EngramSource source) {
         byte[] payload = EpisodeCodec.encode(role, sessionId, modelId, tokenIn, tokenOut, latencyMs, userId, body);
         int payloadBytes = payload.length;
-        int totalRecordSize = EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
+        int totalRecordSize = EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
 
         byte flags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal());
         if (modality != null && modality != SourceModality.TEXT) {
             flags = EncodingHeaderFields.withSourceModality(flags, modality.ordinal());
         }
-
-        EncodingHeader header = new EncodingHeader(
-                timestampMs,
-                sessionId,
-                0.0f,
-                importance,
-                0,
-                modelId,
-                valence,
-                flags,
-                arousal,
-                1.0f,
-                (byte) 0,
-                (byte) 0,
-                (byte) 0,
-                soulVersion,
-                0.0f,
-                (byte) 0,
-                source != null ? source : EngramSource.EXPERIENCED
-        );
 
         writeLock.lock();
         try {
@@ -199,23 +180,29 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> im
                                 + ", capacity=" + (segment().byteSize() - dataOffset()));
             }
 
-            // Write 64B EncodingHeader at writeOffset + 16
-            layout().headerLayout().writeHeaderRecord(segment(), writeOffset, header);
+            // Write 64B EncodingHeader at writeOffset + 16 (honest episodic fields per ADR-0030)
+            layout().headerLayout().writeEpisodicHeaderRecord(
+                    segment(), writeOffset,
+                    timestampMs, flags, valence, arousal, importance,
+                    sessionId, modelId, role != null ? (byte) role.ordinal() : (byte) 0,
+                    soulVersion, source != null ? source : EngramSource.EXPERIENCED,
+                    0L, 0L
+            );
 
             // Compute CRC32C over sequenceId, 64B header, and payload
-            MemorySegment headerSlice = segment().asSlice(writeOffset + EpisodeLayout.PREFIX_BYTES, EpisodeLayout.HEADER_BYTES);
+            MemorySegment headerSlice = segment().asSlice(writeOffset + EpisodicLayout.PREFIX_BYTES, EpisodicLayout.HEADER_BYTES);
             int checksum = EpisodeCodec.computeChecksum(sequenceId, headerSlice, payload);
 
             // Write 16B prefix at writeOffset + 0
             segment().set(ValueLayout.JAVA_INT_UNALIGNED, writeOffset, payloadBytes);
             segment().set(ValueLayout.JAVA_INT_UNALIGNED, writeOffset + 4, sequenceId);
             segment().set(ValueLayout.JAVA_INT_UNALIGNED, writeOffset + 8, checksum);
-            segment().set(ValueLayout.JAVA_INT_UNALIGNED, writeOffset + 12, EpisodeLayout.MAGIC);
+            segment().set(ValueLayout.JAVA_INT_UNALIGNED, writeOffset + 12, EpisodicLayout.MAGIC);
 
             // Write payload at writeOffset + 80
             MemorySegment.copy(
                     MemorySegment.ofArray(payload), 0,
-                    segment(), writeOffset + EpisodeLayout.FIXED_OVERHEAD_BYTES,
+                    segment(), writeOffset + EpisodicLayout.FIXED_OVERHEAD_BYTES,
                     payloadBytes);
 
             long recordOffset = count;
@@ -256,17 +243,32 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> im
             int sequenceId = headerLayout.readSequenceId(segment(), absoluteOffset);
             EncodingHeader header = headerLayout.readHeaderRecord(segment(), absoluteOffset);
 
-            long payloadOffset = absoluteOffset + EpisodeLayout.FIXED_OVERHEAD_BYTES;
+            long payloadOffset = absoluteOffset + EpisodicLayout.FIXED_OVERHEAD_BYTES;
             EpisodeCodec.DecodedPayload decoded = EpisodeCodec.decode(segment(), payloadOffset, payloadBytes, includeBody);
 
+            long headerSessionId = headerLayout.readSessionIdRecord(segment(), absoluteOffset);
+            short headerModelId = headerLayout.readModelIdRecord(segment(), absoluteOffset);
+
+            ConversationRole resolvedRole;
+            if (headerLayout.isLegacyPunnedHeader(segment(), absoluteOffset + EpisodicLayout.PREFIX_BYTES)) {
+                resolvedRole = decoded.role();
+            } else {
+                byte roleOrdinal = headerLayout.readRoleRecord(segment(), absoluteOffset);
+                resolvedRole = (roleOrdinal != 0 || decoded.role() == null)
+                        ? ConversationRole.fromOrdinal(roleOrdinal & 0xFF)
+                        : decoded.role();
+            }
+            long resolvedSessionId = (headerSessionId != 0L) ? headerSessionId : decoded.sessionId();
+            short resolvedModelId = (headerModelId != 0) ? headerModelId : decoded.modelId();
+
             return new EpisodeRecord(
-                    decoded.role(),
+                    resolvedRole,
                     sequenceId,
                     header.timestampMs(),
-                    decoded.sessionId(),
+                    resolvedSessionId,
                     decoded.bodyLength(),
                     decoded.body(),
-                    decoded.modelId(),
+                    resolvedModelId,
                     decoded.tokenIn(),
                     decoded.tokenOut(),
                     decoded.latencyMs(),
@@ -389,17 +391,17 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> im
         long current = base;
 
         var headerLayout = layout().headerLayout();
-        while (current + EpisodeLayout.HEADER_BYTES <= limit) {
+        while (current + EpisodicLayout.HEADER_BYTES <= limit) {
             if (headerLayout.isOptionBRecord(segment(), current)) {
                 int payloadBytes = headerLayout.readPayloadBytes(segment(), current);
-                if (payloadBytes < 0 || current + EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {
+                if (payloadBytes < 0 || current + EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {
                     break;
                 }
                 byte flags = headerLayout.readFlagsRecord(segment(), current);
                 if (!EncodingHeaderFields.isTombstoned(flags) && !EncodingHeaderFields.isConsolidated(flags)) {
                     offsets.add(current - base);
                 }
-                current += EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
+                current += EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
             } else {
                 byte flags = segment().get(EncodingHeaderFields.LAYOUT_FLAGS, current + EncodingHeaderFields.OFFSET_FLAGS);
                 int bodyLength = segment().get(ValueLayout.JAVA_INT_UNALIGNED, current + 56);
@@ -435,17 +437,17 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> im
         long current = base;
 
         var headerLayout = layout().headerLayout();
-        while (current + EpisodeLayout.HEADER_BYTES <= limit) {
+        while (current + EpisodicLayout.HEADER_BYTES <= limit) {
             if (headerLayout.isOptionBRecord(segment(), current)) {
                 int payloadBytes = headerLayout.readPayloadBytes(segment(), current);
-                if (payloadBytes < 0 || current + EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {
+                if (payloadBytes < 0 || current + EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {
                     break;
                 }
                 byte flags = headerLayout.readFlagsRecord(segment(), current);
                 if (!EncodingHeaderFields.isTombstoned(flags)) {
                     liveCount++;
                 }
-                current += EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
+                current += EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
             } else {
                 byte flags = segment().get(EncodingHeaderFields.LAYOUT_FLAGS, current + EncodingHeaderFields.OFFSET_FLAGS);
                 int bodyLength = segment().get(ValueLayout.JAVA_INT_UNALIGNED, current + 56);
@@ -489,7 +491,7 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> im
         long current = base;
 
         var headerLayout = layout().headerLayout();
-        while (current + EpisodeLayout.HEADER_BYTES <= limit) {
+        while (current + EpisodicLayout.HEADER_BYTES <= limit) {
             if (headerLayout.isOptionBRecord(segment(), current)) {
                 int payloadBytes = headerLayout.readPayloadBytes(segment(), current);
                 if (payloadBytes < 0 || current + EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {

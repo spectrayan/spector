@@ -31,7 +31,9 @@ import java.lang.foreign.ValueLayout;
  * This class is strictly read-only and preserved exclusively for dual-read backwards compatibility.</p>
  *
  * @since 1.4.0
+ * @deprecated Legacy punned reader maintained for dual-read backwards compatibility; scheduled for removal after 2 versions (ADR-0030).
  */
+@Deprecated(since = "1.5.0", forRemoval = true)
 public final class LegacyEpisodeHeaderReader {
 
     private LegacyEpisodeHeaderReader() {} // static utility

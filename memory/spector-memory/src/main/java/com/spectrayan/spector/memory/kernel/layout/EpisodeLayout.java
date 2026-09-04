@@ -31,9 +31,12 @@ import com.spectrayan.spector.memory.kernel.RegionLayout;
  * records, consistent with the convention used by {@code TextBlobLayout}.</p>
  *
  * @since 1.4.0
+ * @deprecated Use {@link EpisodicLayout} instead (ADR-0030).
+ * @see EpisodicLayout
  * @see EpisodeCodec
  * @see EpisodicHeaderAccessor
  */
+@Deprecated(since = "1.5.0", forRemoval = true)
 public final class EpisodeLayout implements RegionLayout {
 
     /** Layout ID: 'EPIL' (Episodic Log, preserved across renames per R7.2). */

@@ -92,6 +92,17 @@ class PerTierHeaderLayoutTest {
             assertThat(episodic.readEpisodicTagsLo(seg, headerOff)).isEqualTo(0xAABBCCDDEEFF0011L);
             assertThat(episodic.readEpisodicTagsHi(seg, headerOff)).isEqualTo(0x2233445566778899L);
 
+            // Record-level honest episodic operations
+            episodic.writeSessionIdRecord(seg, recordOff, sessionId + 1);
+            assertThat(episodic.readSessionIdRecord(seg, recordOff)).isEqualTo(sessionId + 1);
+            episodic.writeModelIdRecord(seg, recordOff, (short) 99);
+            assertThat(episodic.readModelIdRecord(seg, recordOff)).isEqualTo((short) 99);
+            episodic.writeRoleRecord(seg, recordOff, (byte) ConversationRole.ASSISTANT.ordinal());
+            assertThat(episodic.readRoleRecord(seg, recordOff)).isEqualTo((byte) ConversationRole.ASSISTANT.ordinal());
+            episodic.writeEpisodicTagsRecord(seg, recordOff, 0x1111L, 0x2222L);
+            assertThat(episodic.readEpisodicTagsLoRecord(seg, recordOff)).isEqualTo(0x1111L);
+            assertThat(episodic.readEpisodicTagsHiRecord(seg, recordOff)).isEqualTo(0x2222L);
+
             // Record-level operations (translates recordOffset to headerOffset automatically)
             episodic.writeImportanceRecord(seg, recordOff, 0.95f);
             assertThat(episodic.readImportanceRecord(seg, recordOff)).isCloseTo(0.95f, within(1e-5f));

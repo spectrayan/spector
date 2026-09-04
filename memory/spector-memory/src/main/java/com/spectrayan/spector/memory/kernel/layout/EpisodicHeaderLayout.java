@@ -18,13 +18,8 @@ import com.spectrayan.spector.memory.model.SourceModality;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.VarHandle;
-
-import static com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderFields.OFFSET_EPISODIC_TAGS_HI;
-import static com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderFields.OFFSET_EPISODIC_TAGS_LO;
-import static com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderFields.OFFSET_MODEL_ID;
-import static com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderFields.OFFSET_ROLE;
-import static com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderFields.OFFSET_SESSION_ID;
-import static com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderFields.VAR_HANDLE_EPISODIC_TAGS;
+import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.*;
+import static com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderFields.*;
 
 /**
  * Dedicated encoding header layout for the Episodic memory tier (ADR-0030).
@@ -55,7 +50,35 @@ public class EpisodicHeaderLayout extends EncodingHeaderLayout {
 
     // ── Honest Episodic Header Fields (Offset relative to header start) ──
 
+    /**
+     * Discriminates between legacy punned Option B records (where exactNorm at +16 is 0.0f
+     * and sessionId was punned at +24) and new honest Option B records (ADR-0030).
+     */
+    public boolean isLegacyPunnedHeader(MemorySegment seg, long headerOff) {
+        int intAt16 = seg.get(ValueLayout.JAVA_INT_UNALIGNED, headerOff + 16);
+        long tagsLoAt24 = seg.get(ValueLayout.JAVA_LONG_UNALIGNED, headerOff + EncodingHeaderFields.OFFSET_V2_SYNAPTIC_TAGS_LO);
+        if (intAt16 == 0 && tagsLoAt24 != 0L) {
+            short soulAt32 = seg.get(ValueLayout.JAVA_SHORT_UNALIGNED, headerOff + EpisodicHeaderFields.OFFSET_SOUL_VERSION);
+            if (soulAt32 != 0) {
+                return false; // Honest record with soulVersion at +32
+            }
+            short soulAt44 = seg.get(ValueLayout.JAVA_SHORT_UNALIGNED, headerOff + EncodingHeaderFields.OFFSET_V2_SOUL_VERSION);
+            if (soulAt44 != 0) {
+                return true; // Legacy record with soulVersion at +44
+            }
+            short centroidAt20 = seg.get(ValueLayout.JAVA_SHORT_UNALIGNED, headerOff + EncodingHeaderFields.OFFSET_V2_CENTROID_ID);
+            if (centroidAt20 != 0) {
+                return true; // Legacy record with modelId in centroidId at +20
+            }
+            return true;
+        }
+        return false;
+    }
+
     public long readSessionId(MemorySegment seg, long headerOff) {
+        if (isLegacyPunnedHeader(seg, headerOff)) {
+            return seg.get(ValueLayout.JAVA_LONG_UNALIGNED, headerOff + EncodingHeaderFields.OFFSET_V2_SYNAPTIC_TAGS_LO);
+        }
         return seg.get(ValueLayout.JAVA_LONG_UNALIGNED, headerOff + OFFSET_SESSION_ID);
     }
 
@@ -64,6 +87,9 @@ public class EpisodicHeaderLayout extends EncodingHeaderLayout {
     }
 
     public short readModelId(MemorySegment seg, long headerOff) {
+        if (isLegacyPunnedHeader(seg, headerOff)) {
+            return seg.get(ValueLayout.JAVA_SHORT_UNALIGNED, headerOff + EncodingHeaderFields.OFFSET_V2_CENTROID_ID);
+        }
         return seg.get(ValueLayout.JAVA_SHORT_UNALIGNED, headerOff + OFFSET_MODEL_ID);
     }
 
@@ -99,6 +125,84 @@ public class EpisodicHeaderLayout extends EncodingHeaderLayout {
     public void mergeEpisodicTags128(MemorySegment seg, long headerOff, long tagsLo, long tagsHi) {
         VAR_HANDLE_EPISODIC_TAGS.getAndBitwiseOr(seg, headerOff + OFFSET_EPISODIC_TAGS_LO, tagsLo);
         VAR_HANDLE_EPISODIC_TAGS.getAndBitwiseOr(seg, headerOff + OFFSET_EPISODIC_TAGS_HI, tagsHi);
+    }
+
+    @Override
+    public short readSoulVersion(MemorySegment seg, long off) {
+        if (isLegacyPunnedHeader(seg, off)) {
+            return seg.get(ValueLayout.JAVA_SHORT_UNALIGNED, off + EncodingHeaderFields.OFFSET_V2_SOUL_VERSION);
+        }
+        return seg.get(ValueLayout.JAVA_SHORT_UNALIGNED, off + EpisodicHeaderFields.OFFSET_SOUL_VERSION);
+    }
+
+    @Override
+    public void writeSoulVersion(MemorySegment seg, long off, short version) {
+        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + EpisodicHeaderFields.OFFSET_SOUL_VERSION, version);
+    }
+
+    @Override
+    public byte readConsolidationFlags(MemorySegment seg, long off) {
+        if (isLegacyPunnedHeader(seg, off)) {
+            return seg.get(LAYOUT_CONSOLIDATION_FLAGS, off + EncodingHeaderFields.OFFSET_V2_CONSOLIDATION_FLAGS);
+        }
+        return seg.get(LAYOUT_CONSOLIDATION_FLAGS, off + EpisodicHeaderFields.OFFSET_CONSOLIDATION_FLAGS);
+    }
+
+    @Override
+    public void writeConsolidationFlags(MemorySegment seg, long off, byte flags) {
+        seg.set(LAYOUT_CONSOLIDATION_FLAGS, off + EpisodicHeaderFields.OFFSET_CONSOLIDATION_FLAGS, flags);
+    }
+
+    @Override
+    public byte readEncodingProfile(MemorySegment seg, long off) {
+        if (isLegacyPunnedHeader(seg, off)) {
+            return seg.get(LAYOUT_ENCODING_PROFILE, off + EncodingHeaderFields.OFFSET_V2_ENCODING_PROFILE);
+        }
+        return seg.get(LAYOUT_ENCODING_PROFILE, off + EpisodicHeaderFields.OFFSET_ENCODING_PROFILE);
+    }
+
+    @Override
+    public void writeEncodingProfile(MemorySegment seg, long off, byte profile) {
+        seg.set(LAYOUT_ENCODING_PROFILE, off + EpisodicHeaderFields.OFFSET_ENCODING_PROFILE, profile);
+    }
+
+    @Override
+    public byte readEncodingAlpha(MemorySegment seg, long off) {
+        if (isLegacyPunnedHeader(seg, off)) {
+            return seg.get(LAYOUT_ENCODING_ALPHA, off + EncodingHeaderFields.OFFSET_V2_ENCODING_ALPHA);
+        }
+        return seg.get(LAYOUT_ENCODING_ALPHA, off + EpisodicHeaderFields.OFFSET_ENCODING_ALPHA);
+    }
+
+    @Override
+    public void writeEncodingAlpha(MemorySegment seg, long off, byte alpha) {
+        seg.set(LAYOUT_ENCODING_ALPHA, off + EpisodicHeaderFields.OFFSET_ENCODING_ALPHA, alpha);
+    }
+
+    @Override
+    public byte readEncodingBeta(MemorySegment seg, long off) {
+        if (isLegacyPunnedHeader(seg, off)) {
+            return seg.get(LAYOUT_ENCODING_BETA, off + EncodingHeaderFields.OFFSET_V2_ENCODING_BETA);
+        }
+        return seg.get(LAYOUT_ENCODING_BETA, off + EpisodicHeaderFields.OFFSET_ENCODING_BETA);
+    }
+
+    @Override
+    public void writeEncodingBeta(MemorySegment seg, long off, byte beta) {
+        seg.set(LAYOUT_ENCODING_BETA, off + EpisodicHeaderFields.OFFSET_ENCODING_BETA, beta);
+    }
+
+    @Override
+    public float readEncodingSurprise(MemorySegment seg, long off) {
+        if (isLegacyPunnedHeader(seg, off)) {
+            return seg.get(ValueLayout.JAVA_FLOAT_UNALIGNED, off + EncodingHeaderFields.OFFSET_V2_ENCODING_SURPRISE);
+        }
+        return seg.get(ValueLayout.JAVA_FLOAT_UNALIGNED, off + EpisodicHeaderFields.OFFSET_ENCODING_SURPRISE);
+    }
+
+    @Override
+    public void writeEncodingSurprise(MemorySegment seg, long off, float surprise) {
+        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, off + EpisodicHeaderFields.OFFSET_ENCODING_SURPRISE, surprise);
     }
 
     // ── Prefix Readers (Offset relative to record start) ──
@@ -207,6 +311,131 @@ public class EpisodicHeaderLayout extends EncodingHeaderLayout {
 
     public void markUnresolvedRecord(MemorySegment segment, long recordOffset) {
         markUnresolved(segment, headerOffset(recordOffset));
+    }
+
+    public long readSessionIdRecord(MemorySegment segment, long recordOffset) {
+        return readSessionId(segment, headerOffset(recordOffset));
+    }
+
+    public void writeSessionIdRecord(MemorySegment segment, long recordOffset, long sessionId) {
+        writeSessionId(segment, headerOffset(recordOffset), sessionId);
+    }
+
+    public short readModelIdRecord(MemorySegment segment, long recordOffset) {
+        return readModelId(segment, headerOffset(recordOffset));
+    }
+
+    public void writeModelIdRecord(MemorySegment segment, long recordOffset, short modelId) {
+        writeModelId(segment, headerOffset(recordOffset), modelId);
+    }
+
+    public byte readRoleRecord(MemorySegment segment, long recordOffset) {
+        return readRole(segment, headerOffset(recordOffset));
+    }
+
+    public void writeRoleRecord(MemorySegment segment, long recordOffset, byte role) {
+        writeRole(segment, headerOffset(recordOffset), role);
+    }
+
+    public long readEpisodicTagsLoRecord(MemorySegment segment, long recordOffset) {
+        return readEpisodicTagsLo(segment, headerOffset(recordOffset));
+    }
+
+    public long readEpisodicTagsHiRecord(MemorySegment segment, long recordOffset) {
+        return readEpisodicTagsHi(segment, headerOffset(recordOffset));
+    }
+
+    public void writeEpisodicTagsRecord(MemorySegment segment, long recordOffset, long tagsLo, long tagsHi) {
+        writeEpisodicTags(segment, headerOffset(recordOffset), tagsLo, tagsHi);
+    }
+
+    public void writeEpisodicHeader(MemorySegment seg, long headerOff,
+                                    long timestampMs, byte flags, byte valence, byte arousal, float importance,
+                                    long sessionId, short modelId, byte role, short soulVersion, EngramSource source,
+                                    long episodicTagsLo, long episodicTagsHi) {
+        // Cognitive substrate (0–15)
+        seg.set(LAYOUT_HEADER_VERSION, headerOff + EncodingHeaderFields.OFFSET_HEADER_VERSION, (byte) EncodingHeaderFields.HEADER_VERSION_V2);
+        seg.set(LAYOUT_FLAGS,         headerOff + EncodingHeaderFields.OFFSET_FLAGS,          flags);
+        seg.set(LAYOUT_VALENCE,       headerOff + EncodingHeaderFields.OFFSET_VALENCE,        valence);
+        seg.set(LAYOUT_AROUSAL,       headerOff + EncodingHeaderFields.OFFSET_AROUSAL,        arousal);
+        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, headerOff + EncodingHeaderFields.OFFSET_IMPORTANCE, importance);
+        seg.set(ValueLayout.JAVA_LONG_UNALIGNED,  headerOff + EncodingHeaderFields.OFFSET_TIMESTAMP,  timestampMs);
+
+        // Tier-specific honest episodic fields (16–63)
+        seg.set(ValueLayout.JAVA_LONG_UNALIGNED,  headerOff + OFFSET_SESSION_ID, sessionId);
+        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, headerOff + OFFSET_MODEL_ID,   modelId);
+        seg.set(ValueLayout.JAVA_BYTE,            headerOff + OFFSET_ROLE,       role);
+        seg.set(LAYOUT_CONSOLIDATION_FLAGS,       headerOff + EpisodicHeaderFields.OFFSET_CONSOLIDATION_FLAGS, (byte) 0);
+        seg.set(LAYOUT_ENCODING_PROFILE,          headerOff + EpisodicHeaderFields.OFFSET_ENCODING_PROFILE,    (byte) 0);
+        seg.set(LAYOUT_ENCODING_ALPHA,            headerOff + EpisodicHeaderFields.OFFSET_ENCODING_ALPHA,      (byte) 0);
+        seg.set(LAYOUT_ENCODING_BETA,             headerOff + EpisodicHeaderFields.OFFSET_ENCODING_BETA,       (byte) 0);
+        seg.set(ValueLayout.JAVA_BYTE,            headerOff + OFFSET_PAD1,                (byte) 0);
+        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, headerOff + EpisodicHeaderFields.OFFSET_SOUL_VERSION, soulVersion);
+        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, headerOff + OFFSET_RESERVED_GEO, (short) 0);
+        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, headerOff + EpisodicHeaderFields.OFFSET_ENCODING_SURPRISE, 0.0f);
+        seg.set(ValueLayout.JAVA_INT_UNALIGNED,   headerOff + OFFSET_RESERVED0, 0);
+        seg.set(ValueLayout.JAVA_INT_UNALIGNED,   headerOff + OFFSET_RESERVED1, 0);
+        seg.set(ValueLayout.JAVA_LONG_UNALIGNED,  headerOff + OFFSET_EPISODIC_TAGS_LO, episodicTagsLo);
+        seg.set(ValueLayout.JAVA_LONG_UNALIGNED,  headerOff + OFFSET_EPISODIC_TAGS_HI, episodicTagsHi);
+    }
+
+    public void writeEpisodicHeaderRecord(MemorySegment seg, long recordOffset,
+                                          long timestampMs, byte flags, byte valence, byte arousal, float importance,
+                                          long sessionId, short modelId, byte role, short soulVersion, EngramSource source,
+                                          long episodicTagsLo, long episodicTagsHi) {
+        writeEpisodicHeader(seg, headerOffset(recordOffset), timestampMs, flags, valence, arousal, importance,
+                sessionId, modelId, role, soulVersion, source, episodicTagsLo, episodicTagsHi);
+    }
+
+    @Override
+    public void writeHeader(MemorySegment seg, long off, EncodingHeader header) {
+        // Cognitive substrate (0–15)
+        seg.set(LAYOUT_HEADER_VERSION, off + EncodingHeaderFields.OFFSET_HEADER_VERSION, (byte) EncodingHeaderFields.HEADER_VERSION_V2);
+        seg.set(LAYOUT_FLAGS,         off + EncodingHeaderFields.OFFSET_FLAGS,          header.flags());
+        seg.set(LAYOUT_VALENCE,       off + EncodingHeaderFields.OFFSET_VALENCE,        header.valence());
+        seg.set(LAYOUT_AROUSAL,       off + EncodingHeaderFields.OFFSET_AROUSAL,        header.arousal());
+        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, off + EncodingHeaderFields.OFFSET_IMPORTANCE, header.importance());
+        seg.set(ValueLayout.JAVA_LONG_UNALIGNED,  off + EncodingHeaderFields.OFFSET_TIMESTAMP,  header.timestampMs());
+
+        // Tier-specific honest episodic fields (16–63)
+        seg.set(ValueLayout.JAVA_LONG_UNALIGNED,  off + OFFSET_SESSION_ID, header.synapticTags());
+        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_MODEL_ID,   header.centroidId());
+        seg.set(ValueLayout.JAVA_BYTE,            off + OFFSET_ROLE,       (byte) 0);
+        seg.set(LAYOUT_CONSOLIDATION_FLAGS,       off + EpisodicHeaderFields.OFFSET_CONSOLIDATION_FLAGS, header.consolidationFlags());
+        seg.set(LAYOUT_ENCODING_PROFILE,          off + EpisodicHeaderFields.OFFSET_ENCODING_PROFILE,    header.encodingProfile());
+        seg.set(LAYOUT_ENCODING_ALPHA,            off + EpisodicHeaderFields.OFFSET_ENCODING_ALPHA,      header.encodingAlpha());
+        seg.set(LAYOUT_ENCODING_BETA,             off + EpisodicHeaderFields.OFFSET_ENCODING_BETA,       header.encodingBeta());
+        seg.set(ValueLayout.JAVA_BYTE,            off + OFFSET_PAD1,                (byte) 0);
+        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + EpisodicHeaderFields.OFFSET_SOUL_VERSION, header.soulVersion());
+        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_RESERVED_GEO, (short) 0);
+        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, off + EpisodicHeaderFields.OFFSET_ENCODING_SURPRISE, header.encodingSurprise());
+        seg.set(ValueLayout.JAVA_INT_UNALIGNED,   off + OFFSET_RESERVED0, 0);
+        seg.set(ValueLayout.JAVA_INT_UNALIGNED,   off + OFFSET_RESERVED1, 0);
+        seg.set(ValueLayout.JAVA_LONG_UNALIGNED,  off + OFFSET_EPISODIC_TAGS_LO, 0L);
+        seg.set(ValueLayout.JAVA_LONG_UNALIGNED,  off + OFFSET_EPISODIC_TAGS_HI, 0L);
+    }
+
+    @Override
+    public EncodingHeader readHeader(MemorySegment seg, long off) {
+        return new EncodingHeader(
+                readTimestamp(seg, off),
+                readSessionId(seg, off),
+                0.0f,
+                readImportance(seg, off),
+                0,
+                readModelId(seg, off),
+                readValence(seg, off),
+                readFlags(seg, off),
+                readArousal(seg, off),
+                1.0f,
+                readEncodingProfile(seg, off),
+                readEncodingAlpha(seg, off),
+                readEncodingBeta(seg, off),
+                readSoulVersion(seg, off),
+                readEncodingSurprise(seg, off),
+                readConsolidationFlags(seg, off),
+                readSource(seg, off)
+        );
     }
 
     @Override

@@ -16,6 +16,8 @@ import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.EpisodeCodec;
 import com.spectrayan.spector.memory.kernel.layout.EpisodeLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
 import com.spectrayan.spector.memory.kernel.layout.compat.LegacyEpisodeHeaderReader;
 import java.lang.foreign.ValueLayout;
 
@@ -219,17 +221,22 @@ public final class EpisodicSessionIndex {
                     log.warn("Negative payloadBytes {} at offset {} — stopping rebuild", payloadBytes, cursor);
                     break;
                 }
-                recordEnd = cursor + EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
+                recordEnd = cursor + EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
                 if (recordEnd > writePosition) {
                     log.warn("Record at offset {} extends beyond write position ({} > {}) — stopping rebuild",
                             cursor, recordEnd, writePosition);
                     break;
                 }
                 flags = EpisodicHeaderAccessor.readFlags(segment, cursor);
-                long payloadOffset = cursor + EpisodeLayout.FIXED_OVERHEAD_BYTES;
-                sessionId = (payloadBytes >= EpisodeCodec.PAYLOAD_METADATA_BYTES)
-                        ? segment.get(ValueLayout.JAVA_LONG_UNALIGNED, payloadOffset + EpisodeCodec.OFFSET_SESSION_ID)
-                        : 0L;
+                long headerSessionId = EpisodicHeaderLayout.INSTANCE.readSessionIdRecord(segment, cursor);
+                if (headerSessionId != 0L) {
+                    sessionId = headerSessionId;
+                } else {
+                    long payloadOffset = cursor + EpisodicLayout.FIXED_OVERHEAD_BYTES;
+                    sessionId = (payloadBytes >= EpisodeCodec.PAYLOAD_METADATA_BYTES)
+                            ? segment.get(ValueLayout.JAVA_LONG_UNALIGNED, payloadOffset + EpisodeCodec.OFFSET_SESSION_ID)
+                            : 0L;
+                }
             } else {
                 flags = LegacyEpisodeHeaderReader.readFlags(segment, cursor);
                 int bodyLength = LegacyEpisodeHeaderReader.readBodyLength(segment, cursor);
