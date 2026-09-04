@@ -16,7 +16,7 @@ import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.SemanticLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -132,7 +132,7 @@ public final class SemanticRecallStrategy {
 
             if (store == null) continue;
 
-            EngramLayout layout = store.cognitiveLayout();
+            SemanticLayout layout = store.layout();
             MemorySegment headerSlab = store.primarySegment();
 
             // Bounds check: ensure we're within the slab

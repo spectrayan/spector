@@ -16,6 +16,7 @@ import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import org.slf4j.Logger;
@@ -115,7 +116,7 @@ public final class CadpContradictionResolver {
             }
         } else if (store != null) {
             MemorySegment segment = store.segment();
-            EngramLayout layout = store.cognitiveLayout();
+            FixedEngramLayout layout = store.cognitiveLayout();
             layout.markContradicted(segment, loser.byteOffset());
         }
         log.info("CADP resolved: winner='{}' corrects loser='{}'", winner.id(), loser.id());
@@ -201,7 +202,7 @@ public final class CadpContradictionResolver {
     /**
      * Computes the 0-based memory slot index for a cognitive record in the given store.
      */
-    public static int memorySlot(CognitiveRecord record, EngramMemory store, EngramLayout layout) {
+    public static int memorySlot(CognitiveRecord record, EngramMemory store, FixedEngramLayout layout) {
         long headerOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0L;
         return (int) ((record.byteOffset() - headerOffset) / layout.stride());
     }

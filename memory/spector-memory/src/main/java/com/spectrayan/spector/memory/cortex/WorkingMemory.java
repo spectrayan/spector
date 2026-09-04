@@ -13,9 +13,9 @@
 package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
+import com.spectrayan.spector.memory.kernel.layout.WorkingLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import org.slf4j.Logger;
@@ -53,7 +53,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * <p>Uses a shared Arena. Write access is guarded by {@link java.util.concurrent.locks.ReentrantLock}; reads are lock-free
  * (scan over immutable segments).</p>
  */
-public final class WorkingMemory extends AbstractEngramMemory {
+public final class WorkingMemory extends AbstractEngramMemory<WorkingLayout> {
 
     private static final Logger log = LoggerFactory.getLogger(WorkingMemory.class);
 
@@ -66,8 +66,14 @@ public final class WorkingMemory extends AbstractEngramMemory {
      * @param capacity          maximum number of records (default: 100)
      */
     public WorkingMemory(int quantizedVecBytes, int capacity) {
-        super(MemoryType.WORKING, quantizedVecBytes, capacity,
-                (long) new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes).stride() * capacity);
+        this(new WorkingLayout(quantizedVecBytes), capacity);
+    }
+
+    /**
+     * Creates a volatile Working Memory store with dedicated layout.
+     */
+    public WorkingMemory(WorkingLayout layout, int capacity) {
+        super(MemoryType.WORKING, layout, capacity, (long) layout.stride() * capacity);
 
         log.info("WorkingMemory initialized: capacity={}, stride={}B, total={}KB, persistent=false",
                 capacity, layout.stride(), (long) layout.stride() * capacity / 1024);
@@ -85,9 +91,14 @@ public final class WorkingMemory extends AbstractEngramMemory {
      * @param filePath          path to the backing mmap file
      */
     public WorkingMemory(int quantizedVecBytes, int capacity, Path filePath) {
-        super(MemoryType.WORKING, quantizedVecBytes, capacity,
-                (long) new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes).stride() * capacity,
-                filePath);
+        this(new WorkingLayout(quantizedVecBytes), capacity, filePath);
+    }
+
+    /**
+     * Creates a persistent Working Memory store backed by an mmap file with dedicated layout.
+     */
+    public WorkingMemory(WorkingLayout layout, int capacity, Path filePath) {
+        super(MemoryType.WORKING, layout, capacity, (long) layout.stride() * capacity, filePath);
 
         // Restore writeIndex from metadata header extra1 field
         if (isPersistent() && getCount() > 0) {
@@ -110,7 +121,7 @@ public final class WorkingMemory extends AbstractEngramMemory {
 
     private WorkingMemory(Arena arena, MemorySegment regionSlice, int capacity,
                           int quantizedVecBytes, Path bundlePath, boolean isNew) {
-        super(MemoryType.WORKING, new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes),
+        super(MemoryType.WORKING, new WorkingLayout(quantizedVecBytes),
               capacity, arena, regionSlice, bundlePath, isNew);
         
         // Restore writeIndex from metadata header extra1 field

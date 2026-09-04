@@ -16,7 +16,7 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 import java.lang.foreign.MemorySegment;
@@ -96,7 +96,7 @@ public class MmrReranker {
         if (router == null) return null;
         MemorySegment seg = router.segmentFor(loc.type());
         if (seg == null) return null;
-        EngramLayout layout = router.layoutFor(loc.type());
+        FixedEngramLayout layout = router.layoutFor(loc.type());
         long offset = layout.vectorOffset(loc.offset());
         
         float[] vec = new float[length];
@@ -114,7 +114,7 @@ public class MmrReranker {
         if (router == null) return 0f;
         MemorySegment seg = router.segmentFor(loc.type());
         if (seg == null) return 0f;
-        EngramLayout layout = router.layoutFor(loc.type());
+        FixedEngramLayout layout = router.layoutFor(loc.type());
         long offset = layout.vectorOffset(loc.offset());
         
         float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(

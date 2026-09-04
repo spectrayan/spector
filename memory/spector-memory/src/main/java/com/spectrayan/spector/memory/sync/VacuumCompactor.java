@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -79,7 +79,7 @@ public final class VacuumCompactor {
                                             MemoryIndex index) {
         long startMs = System.currentTimeMillis();
 
-        EngramLayout layout = store.cognitiveLayout();
+        FixedEngramLayout layout = store.cognitiveLayout();
         int totalRecords = store.size();
         long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0;
         int stride = layout.stride();

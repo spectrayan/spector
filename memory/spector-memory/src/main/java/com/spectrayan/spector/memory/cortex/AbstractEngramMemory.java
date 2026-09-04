@@ -35,6 +35,7 @@ import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
 
@@ -45,10 +46,11 @@ import com.spectrayan.spector.memory.model.MemoryType;
  * <p>Standardizes on Kernel 64-byte {@link RegionPreamble} for header management and
  * implements full type-safe contracts for SWMR visibility and off-heap memory management.</p>
  *
+ * @param <L> the fixed-stride engram layout type
  * @see EngramMemory for the common interface
  */
-public abstract class AbstractEngramMemory 
-        extends AbstractRecordMemory<EngramLayout> 
+public abstract class AbstractEngramMemory<L extends FixedEngramLayout> 
+        extends AbstractRecordMemory<L> 
         implements EngramMemory {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractEngramMemory.class);
@@ -112,12 +114,12 @@ public abstract class AbstractEngramMemory
      * @param type the cognitive tier this store represents; used to derive the stable
      *             {@link MemoryId} up-front so identity is final and lock-free.
      */
-    protected AbstractEngramMemory(MemoryType type, int quantizedVecBytes, int capacity, long segmentBytes) {
-        this(type, quantizedVecBytes, capacity, segmentBytes, Arena.ofShared());
+    protected AbstractEngramMemory(MemoryType type, L cogLayout, int capacity, long segmentBytes) {
+        this(type, cogLayout, capacity, segmentBytes, Arena.ofShared());
     }
 
-    private AbstractEngramMemory(MemoryType type, int quantizedVecBytes, int capacity, long segmentBytes, Arena sharedArena) {
-        this(type, new EngramLayout(quantizedVecBytes),
+    private AbstractEngramMemory(MemoryType type, L cogLayout, int capacity, long segmentBytes, Arena sharedArena) {
+        this(type, cogLayout,
              capacity, sharedArena,
              sharedArena.allocate(segmentBytes, EncodingHeaderFields.HEADER_BYTES),
              0, false, null, null);
@@ -129,12 +131,12 @@ public abstract class AbstractEngramMemory
      * @param type the cognitive tier this store represents; used to derive the stable
      *             {@link MemoryId} up-front so identity is final and lock-free.
      */
-    protected AbstractEngramMemory(MemoryType type, int quantizedVecBytes, int capacity, long segmentBytes, Path filePath) {
-        this(type, new EngramLayout(quantizedVecBytes),
+    protected AbstractEngramMemory(MemoryType type, L cogLayout, int capacity, long segmentBytes, Path filePath) {
+        this(type, cogLayout,
              capacity, segmentBytes, filePath, mmapFile(filePath, segmentBytes));
     }
 
-    private AbstractEngramMemory(MemoryType type, EngramLayout cogLayout,
+    private AbstractEngramMemory(MemoryType type, L cogLayout,
                                   int capacity, long segmentBytes, Path filePath, MmapResult res) {
         super(tierId(type), cogLayout, capacity,
               res.arena, res.segment, 0, true, filePath, res.fileChannel);
@@ -151,7 +153,7 @@ public abstract class AbstractEngramMemory
         }
     }
 
-    private AbstractEngramMemory(MemoryType type, EngramLayout cogLayout,
+    private AbstractEngramMemory(MemoryType type, L cogLayout,
                                   int capacity, Arena arena, MemorySegment segment, int count,
                                   boolean persistent, Path filePath, FileChannel fileChannel) {
         super(tierId(type), cogLayout, capacity,
@@ -174,7 +176,7 @@ public abstract class AbstractEngramMemory
      * @param bundlePath   the path to the bundle file (for diagnostics)
      * @param isNew        true if the region was just created and needs header initialization
      */
-    protected AbstractEngramMemory(MemoryType type, EngramLayout cogLayout,
+    protected AbstractEngramMemory(MemoryType type, L cogLayout,
                                     int capacity, Arena arena, MemorySegment regionSlice,
                                     Path bundlePath, boolean isNew) {
         super(tierId(type), cogLayout, capacity,
@@ -258,12 +260,15 @@ public abstract class AbstractEngramMemory
     }
 
     @Override
-    public EngramLayout layout() {
+    public L layout() {
         return layout;
     }
 
-    @Override
-    public EngramLayout cognitiveLayout() {
+    /**
+     * @deprecated Use {@link #layout()} instead.
+     */
+    @Deprecated(since = "1.5.0", forRemoval = true)
+    public L cognitiveLayout() {
         return layout;
     }
 

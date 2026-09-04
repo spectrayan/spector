@@ -22,6 +22,7 @@ import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
@@ -235,7 +236,7 @@ public abstract class AbstractConsolidator implements Consolidator {
             }
         } else if (fallbackStore != null) {
             MemorySegment segment = fallbackStore.segment();
-            EngramLayout layout = fallbackStore.cognitiveLayout();
+            FixedEngramLayout layout = fallbackStore.cognitiveLayout();
             layout.tombstone(segment, record.byteOffset());
         }
 

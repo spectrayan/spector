@@ -17,6 +17,7 @@ import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocati
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.EpisodeRecord;
 
 import java.lang.foreign.MemorySegment;
@@ -133,7 +134,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     /**
      * Returns the layout for a given memory type.
      */
-    public EngramLayout layoutFor(MemoryType type) {
+    public FixedEngramLayout layoutFor(MemoryType type) {
         return get(type).cognitiveLayout();
     }
 
@@ -234,7 +235,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
             EpisodeRecord rec = episodicStore.readTurn(loc.offset(), false);
             return rec != null && rec.isTombstoned();
         }
-        EngramLayout layout = layoutFor(loc.type());
+        FixedEngramLayout layout = layoutFor(loc.type());
         MemorySegment segment = segmentFor(loc.type());
         if (layout == null || segment == null) return false;
         byte flags = segment.get(EncodingHeaderFields.LAYOUT_FLAGS,
@@ -260,7 +261,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
             );
             return new CognitiveRecordBody(h, null, 0, (byte) 0);
         }
-        EngramLayout layout = layoutFor(loc.type());
+        FixedEngramLayout layout = layoutFor(loc.type());
         MemorySegment segment = segmentFor(loc.type());
         if (layout == null || segment == null) return null;
 

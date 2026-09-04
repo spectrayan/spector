@@ -20,6 +20,7 @@ import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.InterestDomain;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
@@ -120,7 +121,7 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
             DreamConfig config) {
         if (store == null || store.segment() == null) return;
 
-        EngramLayout layout = store.cognitiveLayout();
+        FixedEngramLayout layout = store.cognitiveLayout();
         MemorySegment segment = store.segment();
         int size = store.size();
         if (size <= 0) return;

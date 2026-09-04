@@ -36,6 +36,7 @@ import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
@@ -151,7 +152,7 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
         }
 
         MemorySegment segment = store.segment();
-        EngramLayout layout = store.cognitiveLayout();
+        FixedEngramLayout layout = store.cognitiveLayout();
         long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0L;
         int stride = layout.stride();
         int vecBytes = layout.quantizedVecBytes();

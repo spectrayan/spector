@@ -19,7 +19,7 @@ import java.util.function.Function;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
@@ -90,7 +90,7 @@ public final class CognitiveVectorAccessor implements Function<String, float[]> 
             return null;
         }
 
-        EngramLayout layout = router.layoutFor(loc.type());
+        FixedEngramLayout layout = router.layoutFor(loc.type());
         if (layout == null) {
             return null;
         }

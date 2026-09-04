@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 
 import java.lang.foreign.MemorySegment;
 import java.util.List;
@@ -71,7 +71,7 @@ public final class LtpReconsolidationListener implements RecallListener {
                 CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
                 MemorySegment segment = router.segmentFor(loc.type());
                 if (segment != null) {
-                    EngramLayout layout = router.layoutFor(loc.type());
+                    FixedEngramLayout layout = router.layoutFor(loc.type());
 
                     if (router.strength() != null) {
                         int slotIndex = (int) (loc.offset() / layout.stride());

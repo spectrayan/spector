@@ -35,7 +35,7 @@ import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 import com.spectrayan.spector.memory.synapse.scan.RecordGates;
 import java.nio.charset.StandardCharsets;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -648,7 +648,7 @@ public final class RecallPathway {
     }
 
     private List<CognitiveResult> scoreStoreToList(final MemorySegment segment, final int recordCount,
-                                                   final EngramLayout layout, final float[] queryVector,
+                                                   final FixedEngramLayout layout, final float[] queryVector,
                                                    final RecallOptions options, final long nowMs, final MemoryType type,
                                                    final long baseOffset, final int partitionSeq) {
         com.spectrayan.spector.memory.synapse.QueryAssociativeContext priorContext = null;

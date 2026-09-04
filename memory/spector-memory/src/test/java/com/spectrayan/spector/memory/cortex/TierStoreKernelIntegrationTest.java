@@ -48,7 +48,7 @@ class TierStoreKernelIntegrationTest {
     @DisplayName("WorkingMemory exposes kernel layout directly")
     void workingMemoryStoreKernelLayout() {
         try (var store = new WorkingMemory(VEC_BYTES, CAPACITY)) {
-            EngramLayout layout = store.layout();
+            var layout = store.layout();
             assertThat(layout).isNotNull();
             assertThat(layout.recordStride()).isEqualTo(store.layout().stride());
             assertThat(layout.schemaVersion()).isGreaterThan(0);
@@ -79,7 +79,7 @@ class TierStoreKernelIntegrationTest {
     @DisplayName("SemanticMemory exposes kernel layout directly")
     void semanticMemoryStoreKernelLayout() {
         try (var store = new SemanticMemory(VEC_BYTES, CAPACITY)) {
-            EngramLayout layout = store.layout();
+            var layout = store.layout();
             assertThat(layout).isNotNull();
             assertThat(layout.recordStride()).isEqualTo(store.layout().stride());
         }
@@ -101,7 +101,7 @@ class TierStoreKernelIntegrationTest {
     @DisplayName("ProceduralMemory exposes kernel layout directly")
     void proceduralMemoryStoreKernelLayout() {
         try (var store = new ProceduralMemory(VEC_BYTES, CAPACITY)) {
-            EngramLayout layout = store.layout();
+            var layout = store.layout();
             assertThat(layout).isNotNull();
             assertThat(layout.recordStride()).isEqualTo(store.layout().stride());
         }
@@ -144,7 +144,7 @@ class TierStoreKernelIntegrationTest {
     void kernelLayoutCrcFlag() {
         try (var store = new WorkingMemory(VEC_BYTES, CAPACITY)) {
             // EngramLayout doesn't enable CRC by default
-            EngramLayout layout = store.layout();
+            var layout = store.layout();
             assertThat(layout.crcEnabled()).isFalse();
         }
     }

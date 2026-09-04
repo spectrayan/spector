@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.pathway.reflect.relay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.EngramMemory;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.ImportanceContext;
@@ -121,7 +121,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
 
             for (EngramMemory store : stores) {
                 if (store != null && store.segment() != null) {
-                    EngramLayout layout = store.cognitiveLayout();
+                    FixedEngramLayout layout = store.cognitiveLayout();
                     MemorySegment segment = store.segment();
                     int size = store.size();
                     int vecBytes = layout.quantizedVecBytes();
@@ -159,7 +159,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
                            PriorityQueue<DriftCandidate> heap, ReflectSignal signal) {
         if (store == null || store.segment() == null) return;
 
-        EngramLayout layout = store.cognitiveLayout();
+        FixedEngramLayout layout = store.cognitiveLayout();
         MemorySegment segment = store.segment();
         int size = store.size();
 
@@ -181,7 +181,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
 
     private void refuseMemory(DriftCandidate candidate, short targetVersion, ReflectSignal signal) {
         EngramMemory store = candidate.store();
-        EngramLayout layout = store.cognitiveLayout();
+        FixedEngramLayout layout = store.cognitiveLayout();
         MemorySegment segment = store.segment();
         long offset = candidate.offset();
 

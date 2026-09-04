@@ -15,20 +15,21 @@ package com.spectrayan.spector.memory.cortex;
 import java.lang.foreign.MemorySegment;
 import java.nio.file.Path;
 
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.shape.RecordMemory;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
- * Standardized interface for engram memory stores in Spector Memory.
+ * Standardized interface for engram memory stores in Spector Memory (ADR-0030).
  *
- * <p>Extends {@link RecordMemory} to provide full type safety and contracts
- * for engram record operations, SWMR visibility, and persistence,
- * eliminating downcasting anti-patterns.</p>
+ * <p>Unifies all four memory tiers (Semantic, Procedural, Working, Episodic)
+ * under a single engram contract without constraining the physical stride or layout.</p>
+ *
+ * @since 1.5.0
  */
-public interface EngramMemory extends RecordMemory<EngramLayout>, AutoCloseable {
+public interface EngramMemory extends AutoCloseable {
 
     /** Size of the {@link RegionPreamble} region prologue in bytes. */
     int METADATA_PREAMBLE_BYTES = RegionPreamble.PREAMBLE_BYTES;
@@ -64,13 +65,6 @@ public interface EngramMemory extends RecordMemory<EngramLayout>, AutoCloseable 
     default MemorySegment primarySegment() {
         return segment();
     }
-
-    /**
-     * Returns the layout for cognitive record reads and writes.
-     *
-     * @return the cognitive record layout
-     */
-    EngramLayout cognitiveLayout();
 
     /**
      * Returns the maximum record index readable by concurrent readers (SWMR barrier).
@@ -124,6 +118,49 @@ public interface EngramMemory extends RecordMemory<EngramLayout>, AutoCloseable 
      */
     default boolean isFrozen() {
         return false;
+    }
+
+    /**
+     * Returns the number of active records.
+     *
+     * @return record count
+     */
+    int size();
+
+    /**
+     * Returns the maximum record capacity of this store.
+     *
+     * @return maximum capacity
+     */
+    int capacity();
+
+    /**
+     * Returns the memory region layout.
+     *
+     * @return the region layout
+     */
+    RegionLayout layout();
+
+    /**
+     * Calculates the byte offset of a record slot.
+     *
+     * @param index zero-based record index
+     * @return byte offset of the record
+     */
+    default long recordOffset(long index) {
+        return dataOffset() + index * layout().recordStride();
+    }
+
+    /**
+     * Returns the fixed engram layout if this store is fixed-stride.
+     *
+     * @return the layout as FixedEngramLayout, or null if variable-stride
+     * @deprecated Use {@link #layout()} instead.
+     */
+    @Deprecated(since = "1.5.0", forRemoval = true)
+    default FixedEngramLayout cognitiveLayout() {
+        RegionLayout l = layout();
+        return l instanceof FixedEngramLayout fel ? fel : null;
     }
 
     /**

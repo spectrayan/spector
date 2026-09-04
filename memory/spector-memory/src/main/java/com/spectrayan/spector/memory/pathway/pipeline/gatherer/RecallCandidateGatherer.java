@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.cortex.MemoryBM25Index.BM25Candidate;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
 import com.spectrayan.spector.memory.cortex.EpisodicMemory;
@@ -145,7 +145,7 @@ public class RecallCandidateGatherer {
                         } else {
                             MemorySegment segment = router.segmentFor(type);
                             if (segment != null) {
-                                EngramLayout layout = router.layoutFor(type);
+                                FixedEngramLayout layout = router.layoutFor(type);
                                 byte cFlags = layout.readConsolidationFlags(segment, loc.offset());
                                 if (!options.includeContradictions() && EncodingHeaderFields.isContradicted(cFlags)) continue;
 

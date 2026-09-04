@@ -12,9 +12,9 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
+import com.spectrayan.spector.memory.kernel.layout.ProceduralLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,15 +28,15 @@ import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 
 /**
- * Small persistent store for procedural memory — prompt templates and tool-usage rules.
+ * Procedural memory tier — stores crystallized patterns, habits, and behavioral policies.
  *
- * <h3>Biological Analog: Basal Ganglia</h3>
- * <p>The basal ganglia stores procedural / motor memory — "how to do things" rather
- * than "what happened." These are habits, skills, and automatic routines that
- * don't require conscious recall.</p>
+ * <h3>Biological Analog: Basal Ganglia &amp; Cerebellum</h3>
+ * <p>The basal ganglia and cerebellum coordinate action sequences, habits, and motor programs.
+ * In Spector, this maps to learned agent behavioral patterns: "when X happens, do Y".
+ * Crystallized from repeated episodic success sequences during consolidation.</p>
  *
- * <h3>Persistence</h3>
- * <p>When file-backed ({@code filePath} constructor), records are stored in a
+ * <h3>Lifecycle &amp; Durability</h3>
+ * <p>Procedural memories are long-lived and durable. They are backed by a
  * persistent mmap file. On restart, the {@code count} is restored and all
  * records are immediately accessible for microsecond lookups.</p>
  *
@@ -49,7 +49,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *   <li>Flat scan with {@code CognitiveScorer}</li>
  * </ul>
  */
-public final class ProceduralMemory extends AbstractEngramMemory {
+public final class ProceduralMemory extends AbstractEngramMemory<ProceduralLayout> {
 
     private static final Logger log = LoggerFactory.getLogger(ProceduralMemory.class);
 
@@ -60,8 +60,14 @@ public final class ProceduralMemory extends AbstractEngramMemory {
      * @param capacity          maximum number of procedural memories (default: 1000)
      */
     public ProceduralMemory(int quantizedVecBytes, int capacity) {
-        super(MemoryType.PROCEDURAL, quantizedVecBytes, capacity,
-                (long) new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes).stride() * capacity);
+        this(new ProceduralLayout(quantizedVecBytes), capacity);
+    }
+
+    /**
+     * Creates a volatile Procedural Memory store with dedicated layout.
+     */
+    public ProceduralMemory(ProceduralLayout layout, int capacity) {
+        super(MemoryType.PROCEDURAL, layout, capacity, (long) layout.stride() * capacity);
 
         log.info("ProceduralMemory initialized: capacity={}, stride={}B, persistent=false",
                 capacity, layout.stride());
@@ -75,9 +81,14 @@ public final class ProceduralMemory extends AbstractEngramMemory {
      * @param filePath          path to the backing mmap file
      */
     public ProceduralMemory(int quantizedVecBytes, int capacity, Path filePath) {
-        super(MemoryType.PROCEDURAL, quantizedVecBytes, capacity,
-                (long) new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes).stride() * capacity,
-                filePath);
+        this(new ProceduralLayout(quantizedVecBytes), capacity, filePath);
+    }
+
+    /**
+     * Creates a persistent Procedural Memory store backed by an mmap file with dedicated layout.
+     */
+    public ProceduralMemory(ProceduralLayout layout, int capacity, Path filePath) {
+        super(MemoryType.PROCEDURAL, layout, capacity, (long) layout.stride() * capacity, filePath);
 
         log.info("ProceduralMemory initialized: capacity={}, stride={}B, persistent=true, count={}",
                 capacity(), layout.stride(), getCount());
@@ -110,7 +121,7 @@ public final class ProceduralMemory extends AbstractEngramMemory {
     private ProceduralMemory(Arena arena, MemorySegment regionSlice, int capacity,
                              int quantizedVecBytes, Path bundlePath, boolean isNew) {
         super(MemoryType.PROCEDURAL,
-              new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes),
+              new ProceduralLayout(quantizedVecBytes),
               capacity, arena, regionSlice, bundlePath, isNew);
     }
 

@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
+import com.spectrayan.spector.memory.kernel.layout.SemanticLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
@@ -48,7 +48,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *   <li>Flat scan with {@code CognitiveScorer} for distance computation</li>
  * </ul>
  */
-public final class SemanticMemory extends AbstractEngramMemory {
+public final class SemanticMemory extends AbstractEngramMemory<SemanticLayout> {
 
     private static final Logger log = LoggerFactory.getLogger(SemanticMemory.class);
 
@@ -62,8 +62,14 @@ public final class SemanticMemory extends AbstractEngramMemory {
      * @param capacity          maximum number of semantic memories (default: 100_000)
      */
     public SemanticMemory(int quantizedVecBytes, int capacity) {
-        super(MemoryType.SEMANTIC, quantizedVecBytes, capacity,
-                (long) new EngramLayout(quantizedVecBytes).stride() * capacity);
+        this(new SemanticLayout(quantizedVecBytes), capacity);
+    }
+
+    /**
+     * Creates a volatile Semantic Memory store with dedicated layout.
+     */
+    public SemanticMemory(SemanticLayout layout, int capacity) {
+        super(MemoryType.SEMANTIC, layout, capacity, (long) layout.stride() * capacity);
 
         log.info("SemanticMemory initialized: capacity={}, stride={}B, persistent=false, headerVersion=V{}",
                 capacity, layout.stride(), layout.headerLayout().version());
@@ -77,9 +83,14 @@ public final class SemanticMemory extends AbstractEngramMemory {
      * @param filePath          path to the backing mmap file
      */
     public SemanticMemory(int quantizedVecBytes, int capacity, Path filePath) {
-        super(MemoryType.SEMANTIC, quantizedVecBytes, capacity,
-                (long) new EngramLayout(quantizedVecBytes).stride() * capacity,
-                filePath);
+        this(new SemanticLayout(quantizedVecBytes), capacity, filePath);
+    }
+
+    /**
+     * Creates a persistent Semantic Memory store backed by an mmap file with dedicated layout.
+     */
+    public SemanticMemory(SemanticLayout layout, int capacity, Path filePath) {
+        super(MemoryType.SEMANTIC, layout, capacity, (long) layout.stride() * capacity, filePath);
 
         log.info("SemanticMemory initialized: capacity={}, stride={}B, persistent=true, count={}, headerVersion=V{}",
                 capacity, layout.stride(), getCount(), layout.headerLayout().version());
@@ -107,7 +118,7 @@ public final class SemanticMemory extends AbstractEngramMemory {
 
     private SemanticMemory(Arena arena, MemorySegment regionSlice, int capacity,
                            int quantizedVecBytes, Path bundlePath, boolean isNew) {
-        super(MemoryType.SEMANTIC, new EngramLayout(quantizedVecBytes),
+        super(MemoryType.SEMANTIC, new SemanticLayout(quantizedVecBytes),
               capacity, arena, regionSlice, bundlePath, isNew);
     }
 

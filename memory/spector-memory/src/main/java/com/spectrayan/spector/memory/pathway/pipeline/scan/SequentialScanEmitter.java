@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.pathway.pipeline.scan;
 
 import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -60,7 +60,7 @@ public final class SequentialScanEmitter implements ScanEmitter {
 
     @Override
     public void emitSlabScan(Supplier<MemorySegment> segment, IntSupplier visibleCount,
-                             EngramLayout layout, MemoryType type,
+                             FixedEngramLayout layout, MemoryType type,
                              long baseOffset, int partitionSeq) {
         results.addAll(scoreFunc.score(segment.get(), visibleCount.getAsInt(), layout,
                 queryVector, options, nowMs, type, baseOffset, partitionSeq));

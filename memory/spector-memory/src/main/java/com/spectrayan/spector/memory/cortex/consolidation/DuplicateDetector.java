@@ -26,6 +26,7 @@ import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 
 /**
  * Detector for finding near-duplicate memory records within a specific memory store tier.
@@ -83,7 +84,7 @@ public final class DuplicateDetector {
             if (recordCount == 0) continue;
 
             MemorySegment segment = store.segment();
-            EngramLayout layout = store.cognitiveLayout();
+            FixedEngramLayout layout = store.cognitiveLayout();
             long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0L;
             int stride = layout.stride();
             int qVecBytes = layout.quantizedVecBytes();

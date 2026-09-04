@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.synapse;
 
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.StrengthMemory;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.SemanticLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -38,7 +38,7 @@ class CognitiveScorerStrengthAuthorityTest {
 
         final SemanticMemory store = new SemanticMemory(DIMS, 10);
         try {
-            final EngramLayout layout = store.cognitiveLayout();
+            final SemanticLayout layout = store.layout();
 
             // Header has V1 default storageStrength = 1.0f, agentRecallCount = 0
             final EncodingHeader header = new EncodingHeader(
@@ -86,7 +86,7 @@ class CognitiveScorerStrengthAuthorityTest {
 
         final SemanticMemory store = new SemanticMemory(DIMS, 10);
         try {
-            final EngramLayout layout = store.cognitiveLayout();
+            final SemanticLayout layout = store.layout();
 
             // Header has low base importance = 2.0f
             final EncodingHeader header = new EncodingHeader(

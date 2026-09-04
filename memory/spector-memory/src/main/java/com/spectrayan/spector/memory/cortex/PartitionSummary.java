@@ -17,6 +17,7 @@ import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodeLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 import java.lang.foreign.MemorySegment;
@@ -132,7 +133,7 @@ public record PartitionSummary(
         // 1. Semantic store
         if (router.semantic() != null && router.semantic().visibleCount() > 0) {
             MemorySegment segment = router.semantic().segment();
-            EngramLayout layout = router.semantic().cognitiveLayout();
+            FixedEngramLayout layout = router.semantic().layout();
             int count = router.semantic().visibleCount();
             int stride = layout.stride();
             long base = router.semantic().dataOffset();
@@ -204,7 +205,7 @@ public record PartitionSummary(
         // 3. Procedural store
         if (router.procedural() != null && router.procedural().visibleCount() > 0) {
             MemorySegment segment = router.procedural().segment();
-            EngramLayout layout = router.procedural().cognitiveLayout();
+            FixedEngramLayout layout = router.procedural().layout();
             int count = router.procedural().visibleCount();
             int stride = layout.stride();
             long base = router.procedural().dataOffset();

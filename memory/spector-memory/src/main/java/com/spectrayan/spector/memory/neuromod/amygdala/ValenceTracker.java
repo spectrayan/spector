@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.neuromod.amygdala;
 
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import org.slf4j.Logger;
@@ -76,7 +76,7 @@ public final class ValenceTracker {
      * @param outcome   outcome valence (use {@link Valence} constants)
      */
     public void reinforce(MemorySegment segment, long offset,
-                           EngramLayout layout, byte outcome) {
+                           FixedEngramLayout layout, byte outcome) {
         byte currentValence = layout.readValence(segment, offset);
         byte blended = Valence.blend(currentValence, outcome, learningRate);
 

@@ -85,7 +85,7 @@ class SourceHonestyTest {
         final long now = System.currentTimeMillis();
 
         try (SemanticMemory store = new SemanticMemory(dims, 10)) {
-            final EngramLayout engramLayout = store.cognitiveLayout();
+            final SemanticLayout engramLayout = store.layout();
             final byte[] dummyVec = new byte[engramLayout.quantizedVecBytes()];
 
             // Record 0: EXPERIENCED
@@ -144,7 +144,7 @@ class SourceHonestyTest {
         final long now = System.currentTimeMillis();
 
         try (SemanticMemory store = new SemanticMemory(dims, 10)) {
-            final EngramLayout engramLayout = store.cognitiveLayout();
+            final SemanticLayout engramLayout = store.layout();
             final byte[] dummyVec = new byte[engramLayout.quantizedVecBytes()];
 
             // Record A: Synaptic tags set to non-zero (e.g. 0xSIM_TAG) but source is EXPERIENCED

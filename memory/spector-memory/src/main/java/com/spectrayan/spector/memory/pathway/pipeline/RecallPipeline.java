@@ -58,6 +58,7 @@ import com.spectrayan.spector.memory.sync.ReplaySnapshot;
 import com.spectrayan.spector.memory.sync.WalReplayer;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
@@ -1070,7 +1071,7 @@ public final class RecallPipeline {
     // ==============================================================
 
     private List<CognitiveResult> scoreStoreToList(MemorySegment segment, int recordCount,
-                                                     EngramLayout layout, float[] queryVector,
+                                                     FixedEngramLayout layout, float[] queryVector,
                                                      RecallOptions options, long nowMs, MemoryType type,
                                                      long baseOffset, int partitionSeq) {
         var router = partitionRegistry != null ? partitionRegistry.routerFor(partitionSeq) : null;

@@ -22,7 +22,7 @@ import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.Memory;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
@@ -139,7 +139,7 @@ public final class ReinforcementHandler {
                 byte blended = Valence.blend(currentValence, valence, valenceTracker.learningRate());
                 EpisodicHeaderAccessor.writeValence(segment, loc.offset(), blended);
             } else {
-                EngramLayout layout = cognitiveRouter.layoutFor(loc.type());
+                FixedEngramLayout layout = cognitiveRouter.layoutFor(loc.type());
 
                 if (cognitiveRouter.strength() != null) {
                     int slotIndex = (int) (loc.offset() / layout.stride());
@@ -274,7 +274,7 @@ public final class ReinforcementHandler {
             return;
         }
 
-        EngramLayout layout = cognitiveRouter.layoutFor(loc.type());
+        FixedEngramLayout layout = cognitiveRouter.layoutFor(loc.type());
         var headerLayout = layout.headerLayout();
 
         float oldImportance = layout.readImportance(segment, loc.offset());

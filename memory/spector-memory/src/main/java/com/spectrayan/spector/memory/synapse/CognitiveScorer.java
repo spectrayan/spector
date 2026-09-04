@@ -15,6 +15,7 @@ package com.spectrayan.spector.memory.synapse;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreFusionMode;
 import com.spectrayan.spector.memory.model.ScoringMode;
@@ -74,7 +75,7 @@ public final class CognitiveScorer {
      * Scans a memory segment and returns the top-K scored records.
      */
     public static List<ScoredRecord> score(
-            final MemorySegment segment, final int recordCount, final EngramLayout layout,
+            final MemorySegment segment, final int recordCount, final FixedEngramLayout layout,
             final float[] queryVector, final RecallOptions options, final long nowMs) {
         return score(segment, recordCount, layout, queryVector, options, nowMs, 0L, null, null);
     }
@@ -83,7 +84,7 @@ public final class CognitiveScorer {
      * Scans a memory segment and returns the top-K scored records with base offset.
      */
     public static List<ScoredRecord> score(
-            final MemorySegment segment, final int recordCount, final EngramLayout layout,
+            final MemorySegment segment, final int recordCount, final FixedEngramLayout layout,
             final float[] queryVector, final RecallOptions options, final long nowMs, final long baseOffset) {
         return score(segment, recordCount, layout, queryVector, options, nowMs, baseOffset, null, null);
     }
@@ -92,7 +93,7 @@ public final class CognitiveScorer {
      * Scans a memory segment using calibrated scalar quantization parameters.
      */
     public static List<ScoredRecord> score(
-            final MemorySegment segment, final int recordCount, final EngramLayout layout,
+            final MemorySegment segment, final int recordCount, final FixedEngramLayout layout,
             final float[] queryVector, final RecallOptions options, final long nowMs, final long baseOffset,
             final float[] mins, final float[] scales) {
         return score(segment, recordCount, layout, queryVector, options, nowMs, baseOffset, mins, scales, null, null);
@@ -102,7 +103,7 @@ public final class CognitiveScorer {
      * Full scan entrypoint with calibrated distance and early associative prior (MR-06).
      */
     public static List<ScoredRecord> score(
-            final MemorySegment segment, final int recordCount, final EngramLayout layout,
+            final MemorySegment segment, final int recordCount, final FixedEngramLayout layout,
             final float[] queryVector, final RecallOptions options, final long nowMs, final long baseOffset,
             final float[] mins, final float[] scales,
             final AssociativePriorProvider priorProvider,
@@ -115,7 +116,7 @@ public final class CognitiveScorer {
      * Full scan entrypoint with calibrated distance, early associative prior, and authoritative strength region.
      */
     public static List<ScoredRecord> score(
-            final MemorySegment segment, final int recordCount, final EngramLayout layout,
+            final MemorySegment segment, final int recordCount, final FixedEngramLayout layout,
             final float[] queryVector, final RecallOptions options, final long nowMs, final long baseOffset,
             final float[] mins, final float[] scales,
             final AssociativePriorProvider priorProvider,
@@ -307,7 +308,7 @@ public final class CognitiveScorer {
 
     private static void scoreLateral(
             final PriorityQueue<ScoredRecord> lateralHeap, final int lateralMaxResults,
-            final MemorySegment segment, final long offset, final EngramLayout layout,
+            final MemorySegment segment, final long offset, final FixedEngramLayout layout,
             final float l2dist, final float tagOverlap, final float importance,
             final int adjustedBucket, final byte arousal,
             final long timestamp, final long recordTags, final byte valence, final byte flags,
