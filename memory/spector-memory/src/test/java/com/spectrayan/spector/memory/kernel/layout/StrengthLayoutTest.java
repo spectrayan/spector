@@ -37,13 +37,13 @@ class StrengthLayoutTest {
     }
 
     @Test
-    @DisplayName("Verify AuditRecord round-trip and MemoryType ordinal embedding")
-    void testAuditRecordRoundTrip() {
+    @DisplayName("Verify StrengthState round-trip and MemoryType ordinal embedding")
+    void testStrengthStateRoundTrip() {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment segment = arena.allocate(192, 32);
             long offset = 0;
 
-            StrengthLayout.AuditRecord record = new StrengthLayout.AuditRecord(
+            StrengthLayout.StrengthState record = new StrengthLayout.StrengthState(
                     (byte) MemoryType.SEMANTIC.ordinal(),
                     (byte) 2,
                     (byte) 10,
@@ -60,7 +60,7 @@ class StrengthLayoutTest {
 
             layout.writeRecord(segment, offset, record);
 
-            StrengthLayout.AuditRecord read = layout.readRecord(segment, offset);
+            StrengthLayout.StrengthState read = layout.readRecord(segment, offset);
             assertThat(read.memoryType()).isEqualTo(MemoryType.SEMANTIC);
             assertThat(read.agentRecallCount()).isEqualTo(15);
             assertThat(read.spectorRecallCount()).isEqualTo(3);
@@ -76,7 +76,7 @@ class StrengthLayoutTest {
     }
 
     @Test
-    @DisplayName("Verify atomic VarHandle increments and CAS operations on AuditRecord")
+    @DisplayName("Verify atomic VarHandle increments and CAS operations on StrengthState")
     void testAtomicOperations() {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment segment = arena.allocate(192, 32);

@@ -458,10 +458,10 @@ public final class StrengthLayout implements RegionLayout {
     // ── Full Record Composite Read / Write ──
 
     /**
-     * Reads a full immutable {@link AuditRecord} snapshot from the given record offset.
+     * Reads a full immutable {@link StrengthState} snapshot from the given record offset.
      */
-    public AuditRecord readRecord(MemorySegment seg, long recordOffset) {
-        return new AuditRecord(
+    public StrengthState readRecord(MemorySegment seg, long recordOffset) {
+        return new StrengthState(
                 (byte) readMemoryTypeOrdinal(seg, recordOffset),
                 readLastRecallProfile(seg, recordOffset),
                 readLastRecallValence(seg, recordOffset),
@@ -478,9 +478,9 @@ public final class StrengthLayout implements RegionLayout {
     }
 
     /**
-     * Writes a complete {@link AuditRecord} snapshot to the given record offset.
+     * Writes a complete {@link StrengthState} snapshot to the given record offset.
      */
-    public void writeRecord(MemorySegment seg, long recordOffset, AuditRecord record) {
+    public void writeRecord(MemorySegment seg, long recordOffset, StrengthState record) {
         seg.set(LAYOUT_AUDIT_FLAGS, recordOffset + OFFSET_AUDIT_FLAGS, (byte) (record.memoryTypeOrdinal() & FLAG_TYPE_MASK));
         seg.set(LAYOUT_LAST_RECALL_PROFILE, recordOffset + OFFSET_LAST_RECALL_PROFILE, record.lastRecallProfile());
         seg.set(LAYOUT_LAST_RECALL_VALENCE, recordOffset + OFFSET_LAST_RECALL_VALENCE, record.lastRecallValence());
@@ -511,7 +511,7 @@ public final class StrengthLayout implements RegionLayout {
      * Initializes default audit fields for a freshly ingested memory record.
      */
     public void initializeDefaultRecord(MemorySegment seg, long recordOffset, MemoryType memoryType, float baseImportance) {
-        writeRecord(seg, recordOffset, new AuditRecord(
+        writeRecord(seg, recordOffset, new StrengthState(
                 (byte) (memoryType != null ? memoryType.ordinal() : MemoryType.SEMANTIC.ordinal()),
                 (byte) 0,
                 (byte) 0,
@@ -530,7 +530,7 @@ public final class StrengthLayout implements RegionLayout {
     /**
      * Immutable snapshot record representing a memory's audit telemetry state.
      */
-    public record AuditRecord(
+    public record StrengthState(
             byte memoryTypeOrdinal,
             byte lastRecallProfile,
             byte lastRecallValence,

@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
-import com.spectrayan.spector.memory.kernel.layout.StrengthLayout.AuditRecord;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout.StrengthState;
 import com.spectrayan.spector.memory.kernel.FloatUnaryOperator;
 import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -162,19 +162,33 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
     }
 
     /**
-     * Reads the immutable {@link AuditRecord} snapshot for (tier, slotIndex).
+     * Reads the immutable {@link StrengthState} snapshot for (tier, slotIndex).
      */
-    public AuditRecord readAuditRecord(MemoryType tier, int slotIndex) {
+    public StrengthState readStrengthState(MemoryType tier, int slotIndex) {
         long offset = strengthOffset(tier, slotIndex);
         return layout.readRecord(segment, offset);
     }
 
     /**
-     * Writes the {@link AuditRecord} snapshot to (tier, slotIndex).
+     * Alias for {@link #readStrengthState(MemoryType, int)}.
      */
-    public void writeAuditRecord(MemoryType tier, int slotIndex, AuditRecord record) {
+    public StrengthState readAuditRecord(MemoryType tier, int slotIndex) {
+        return readStrengthState(tier, slotIndex);
+    }
+
+    /**
+     * Writes the {@link StrengthState} snapshot to (tier, slotIndex).
+     */
+    public void writeStrengthState(MemoryType tier, int slotIndex, StrengthState record) {
         long offset = strengthOffset(tier, slotIndex);
         layout.writeRecord(segment, offset, record);
+    }
+
+    /**
+     * Alias for {@link #writeStrengthState(MemoryType, int, StrengthState)}.
+     */
+    public void writeAuditRecord(MemoryType tier, int slotIndex, StrengthState record) {
+        writeStrengthState(tier, slotIndex, record);
     }
 
     /**

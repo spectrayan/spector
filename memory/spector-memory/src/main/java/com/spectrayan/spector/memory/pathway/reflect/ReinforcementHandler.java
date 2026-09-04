@@ -200,7 +200,7 @@ public final class ReinforcementHandler {
                 byte profileOrdinal;
                 if (cognitiveRouter.audit() != null) {
                     int slotIndex = (int) (loc.offset() / cognitiveRouter.layoutFor(loc.type()).stride());
-                    profileOrdinal = cognitiveRouter.audit().readAuditRecord(loc.type(), slotIndex).lastRecallProfile();
+                    profileOrdinal = cognitiveRouter.audit().readStrengthState(loc.type(), slotIndex).lastRecallProfile();
                 } else {
                     profileOrdinal = segment.get(
                             java.lang.foreign.ValueLayout.JAVA_BYTE,

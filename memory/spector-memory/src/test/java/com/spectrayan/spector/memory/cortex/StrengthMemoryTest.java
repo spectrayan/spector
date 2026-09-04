@@ -91,14 +91,14 @@ class StrengthMemoryTest {
             store.incrementAgentRecallCount(MemoryType.EPISODIC, 5);
             store.recordRecall(MemoryType.EPISODIC, 5, creationMs, recallMs, (byte) 1, 0);
 
-            var epiAudit = store.readAuditRecord(MemoryType.EPISODIC, 5);
+            var epiAudit = store.readStrengthState(MemoryType.EPISODIC, 5);
             assertThat(epiAudit.memoryType()).isEqualTo(MemoryType.EPISODIC);
             assertThat(epiAudit.agentRecallCount()).isEqualTo(1);
             assertThat(epiAudit.lastRecallProfile()).isEqualTo((byte) 1);
             assertThat(epiAudit.lastRecallTimestamp()).isEqualTo(recallMs);
 
             // Ensure semantic slot 2 remained unaffected
-            var semAudit = store.readAuditRecord(MemoryType.SEMANTIC, 2);
+            var semAudit = store.readStrengthState(MemoryType.SEMANTIC, 2);
             assertThat(semAudit.memoryType()).isEqualTo(MemoryType.SEMANTIC);
             assertThat(semAudit.agentRecallCount()).isEqualTo(0);
             assertThat(semAudit.effectiveImportance()).isCloseTo(4.0f, within(1e-5f));

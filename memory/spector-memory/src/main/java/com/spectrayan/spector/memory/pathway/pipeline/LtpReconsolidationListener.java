@@ -80,7 +80,7 @@ public final class LtpReconsolidationListener implements RecallListener {
                         long creationMs = layout.readTimestamp(segment, loc.offset());
                         router.audit().recordRecall(loc.type(), slotIndex, creationMs, nowMs, (byte) 0, 0);
 
-                        long lastAutoLtp = router.audit().readAuditRecord(loc.type(), slotIndex).lastAutoLtp();
+                        long lastAutoLtp = router.audit().readStrengthState(loc.type(), slotIndex).lastAutoLtp();
                         if (nowMs - lastAutoLtp >= AUTO_LTP_COOLDOWN_MS) {
                             router.audit().incrementSpectorRecallCount(loc.type(), slotIndex);
                             router.audit().casStorageStrength(loc.type(), slotIndex,
