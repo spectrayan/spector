@@ -90,7 +90,7 @@ class PersistedIdentityPinTest {
             pinned.put(RegionId.EPISODIC, 1);
             pinned.put(RegionId.PROCEDURAL, 2);
             pinned.put(RegionId.TEXT, 3);
-            pinned.put(RegionId.AUDIT, 4);
+            pinned.put(RegionId.STRENGTH, 4);
             // ── Runtime bundle regions (id >= 10) ──
             pinned.put(RegionId.WORKING, 10);
             pinned.put(RegionId.COACTIVATION, 11);

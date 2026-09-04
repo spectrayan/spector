@@ -21,7 +21,7 @@ public enum RegionId {
     EPISODIC(1), 
     PROCEDURAL(2), 
     TEXT(3),
-    AUDIT(4),
+    STRENGTH(4),
     
     // Runtime bundle regions
     WORKING(10), 

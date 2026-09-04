@@ -346,8 +346,8 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
         TextAppendMemory text = TextAppendMemory.fromBundle(
                 bundle.arena(), textSlice, bundleFile, false, encryptor);
 
-        AuditRecordMemory audit = bundle.hasRegion(RegionId.AUDIT)
-                ? AuditRecordMemory.fromBundle(bundle.arena(), bundle.regionSegment(RegionId.AUDIT),
+        AuditRecordMemory audit = bundle.hasRegion(RegionId.STRENGTH)
+                ? AuditRecordMemory.fromBundle(bundle.arena(), bundle.regionSegment(RegionId.STRENGTH),
                         semanticCapacity, episodicPartitionCapacity, proceduralCapacity, bundleFile, "partition-" + seq + "-audit")
                 : null;
 
@@ -434,8 +434,8 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                         newBundle.arena(), newBundle.regionSegment(RegionId.TEXT),
                         bundleFile, true, encryptor);
 
-                AuditRecordMemory newAudit = newBundle.hasRegion(RegionId.AUDIT)
-                        ? AuditRecordMemory.fromBundle(newBundle.arena(), newBundle.regionSegment(RegionId.AUDIT),
+                AuditRecordMemory newAudit = newBundle.hasRegion(RegionId.STRENGTH)
+                        ? AuditRecordMemory.fromBundle(newBundle.arena(), newBundle.regionSegment(RegionId.STRENGTH),
                                 semanticCapacity, episodicPartitionCapacity, proceduralCapacity, bundleFile, "partition-" + nextSeq + "-audit")
                         : null;
 

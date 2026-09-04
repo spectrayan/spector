@@ -322,8 +322,8 @@ public final class CognitiveCortexBuilder {
                     partitionBundle.arena(), textSlice, bundleFile, isNew,
                     builder.dataEncryptor());
 
-            AuditRecordMemory auditStore = partitionBundle.hasRegion(RegionId.AUDIT)
-                    ? AuditRecordMemory.fromBundle(partitionBundle.arena(), partitionBundle.regionSegment(RegionId.AUDIT),
+            AuditRecordMemory auditStore = partitionBundle.hasRegion(RegionId.STRENGTH)
+                    ? AuditRecordMemory.fromBundle(partitionBundle.arena(), partitionBundle.regionSegment(RegionId.STRENGTH),
                             builder.semanticCapacity(), builder.episodicPartitionCapacity(), builder.proceduralCapacity(), bundleFile)
                     : null;
 

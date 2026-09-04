@@ -139,7 +139,7 @@ public final class PartitionBundle implements AutoCloseable {
                             RegionPreamble.PREAMBLE_BYTES + textBytes,
                             0, 0, textLayoutId, textSchemaVer, false),
                     new RegionSizeSpec(
-                            RegionId.AUDIT,
+                            RegionId.STRENGTH,
                             RegionPreamble.PREAMBLE_BYTES + (long) totalAuditCapacity * auditStride,
                             totalAuditCapacity, auditStride, AuditRecordLayout.INSTANCE.layoutId(),
                             AuditRecordLayout.INSTANCE.schemaVersion(), false)
@@ -241,7 +241,7 @@ public final class PartitionBundle implements AutoCloseable {
                             RegionPreamble.PREAMBLE_BYTES + textBytes,
                             0, 0, textLayoutId, textSchemaVer, false),
                     new RegionSizeSpec(
-                            RegionId.AUDIT,
+                            RegionId.STRENGTH,
                             RegionPreamble.PREAMBLE_BYTES + (long) totalAuditCapacity * auditStride,
                             totalAuditCapacity, auditStride, AuditRecordLayout.INSTANCE.layoutId(),
                             AuditRecordLayout.INSTANCE.schemaVersion(), false)

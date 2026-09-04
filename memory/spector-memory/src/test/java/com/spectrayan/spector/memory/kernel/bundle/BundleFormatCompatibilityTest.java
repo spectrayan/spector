@@ -122,7 +122,7 @@ class BundleFormatCompatibilityTest {
                     .as("SEMANTIC, EPISODIC, PROCEDURAL, TEXT, AUDIT").isEqualTo(5);
 
             for (RegionId region : List.of(RegionId.SEMANTIC, RegionId.EPISODIC,
-                    RegionId.PROCEDURAL, RegionId.TEXT, RegionId.AUDIT)) {
+                    RegionId.PROCEDURAL, RegionId.TEXT, RegionId.STRENGTH)) {
                 assertThat(reopened.hasRegion(region))
                         .as("region %s (id %d) must be present", region.name(), region.id()).isTrue();
                 assertThat(reopened.regionSegment(region))
@@ -144,7 +144,7 @@ class BundleFormatCompatibilityTest {
             assertThat(RegionPreamble.readCount(proc, 0)).isEqualTo(PROCEDURAL_COUNT);
 
             // Directory entries must still describe non-overlapping, in-bounds regions.
-            RegionEntry audit = reopened.directory().findRegion(RegionId.AUDIT);
+            RegionEntry audit = reopened.directory().findRegion(RegionId.STRENGTH);
             assertThat(audit).as("AUDIT entry must survive").isNotNull();
             assertThat(audit.stride())
                     .as("audit stride must still be 96B").isEqualTo(AuditRecordLayout.INSTANCE.recordStride());

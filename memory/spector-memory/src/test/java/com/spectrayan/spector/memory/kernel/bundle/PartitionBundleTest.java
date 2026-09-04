@@ -62,7 +62,7 @@ class PartitionBundleTest {
             MemorySegment epiSlice = bundle.regionSegment(RegionId.EPISODIC);
             MemorySegment procSlice = bundle.regionSegment(RegionId.PROCEDURAL);
             MemorySegment textSlice = bundle.regionSegment(RegionId.TEXT);
-            MemorySegment auditSlice = bundle.regionSegment(RegionId.AUDIT);
+            MemorySegment auditSlice = bundle.regionSegment(RegionId.STRENGTH);
 
             assertThat(semSlice).isNotNull();
             assertThat(epiSlice).isNotNull();
@@ -165,7 +165,7 @@ class PartitionBundleTest {
             RegionEntry epi = dir.findRegion(RegionId.EPISODIC);
             RegionEntry proc = dir.findRegion(RegionId.PROCEDURAL);
             RegionEntry text = dir.findRegion(RegionId.TEXT);
-            RegionEntry audit = dir.findRegion(RegionId.AUDIT);
+            RegionEntry audit = dir.findRegion(RegionId.STRENGTH);
 
             // Verify no overlap: each region starts after the previous ends
             assertThat(epi.offset()).isGreaterThanOrEqualTo(sem.offset() + sem.allocatedSize());
