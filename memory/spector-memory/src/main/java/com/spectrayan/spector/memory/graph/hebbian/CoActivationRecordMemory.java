@@ -21,7 +21,7 @@ import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
-import com.spectrayan.spector.memory.kernel.layout.CoActivationMetadataLayout;
+import com.spectrayan.spector.memory.kernel.layout.CoActivationMetadataFields;
 import com.spectrayan.spector.memory.kernel.shape.AbstractHashTableMemory;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -76,10 +76,10 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
     static final float MAX_WEIGHT = 1.0f;
 
     // ── Persistence ──
-    private static final int FILE_MAGIC = CoActivationMetadataLayout.FILE_MAGIC;
-    private static final int FILE_VERSION = CoActivationMetadataLayout.FILE_VERSION;
-    private static final int FILE_HEADER_V1_BYTES = CoActivationMetadataLayout.FILE_HEADER_V1_BYTES;
-    private static final int FILE_HEADER_BYTES = CoActivationMetadataLayout.FILE_HEADER_BYTES;
+    private static final int FILE_MAGIC = CoActivationMetadataFields.FILE_MAGIC;
+    private static final int FILE_VERSION = CoActivationMetadataFields.FILE_VERSION;
+    private static final int FILE_HEADER_V1_BYTES = CoActivationMetadataFields.FILE_HEADER_V1_BYTES;
+    private static final int FILE_HEADER_BYTES = CoActivationMetadataFields.FILE_HEADER_BYTES;
 
     private static final long FNV1A_OFFSET_BASIS = 0xcbf29ce484222325L;
     private static final long FNV1A_PRIME = 0x100000001b3L;
@@ -255,13 +255,13 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
             }
         } else if (!isNew && checkpointRegion != null) {
             try {
-                int pairs = checkpointRegion.get(ValueLayout.JAVA_INT, CoActivationMetadataLayout.OFF_CHK_PAIR_COUNT);
-                int edges = checkpointRegion.get(ValueLayout.JAVA_INT, CoActivationMetadataLayout.OFF_CHK_EDGE_COUNT);
+                int pairs = checkpointRegion.get(ValueLayout.JAVA_INT, CoActivationMetadataFields.OFF_CHK_PAIR_COUNT);
+                int edges = checkpointRegion.get(ValueLayout.JAVA_INT, CoActivationMetadataFields.OFF_CHK_EDGE_COUNT);
                 this.pairTable.setCount(pairs);
                 this.edgeTable.setCount(edges);
 
-                int nameCount = checkpointRegion.get(ValueLayout.JAVA_INT, CoActivationMetadataLayout.OFF_CHK_NAME_COUNT);
-                long offset = CoActivationMetadataLayout.OFF_CHK_TAG_DATA;
+                int nameCount = checkpointRegion.get(ValueLayout.JAVA_INT, CoActivationMetadataFields.OFF_CHK_NAME_COUNT);
+                long offset = CoActivationMetadataFields.OFF_CHK_TAG_DATA;
                 for (int i = 0; i < nameCount; i++) {
                     long hash = checkpointRegion.get(ValueLayout.JAVA_LONG, offset);
                     offset += 8;
@@ -279,12 +279,12 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                 CognitiveProfile[] profiles = CognitiveProfile.values();
                 for (int i = 0; i < entryCount; i++) {
                     long ctxHash = checkpointRegion.get(ValueLayout.JAVA_LONG, offset);
-                    int ordinal = checkpointRegion.get(ValueLayout.JAVA_BYTE, offset + CoActivationMetadataLayout.OFF_BANDIT_ORDINAL) & 0xFF;
-                    float ema = checkpointRegion.get(ValueLayout.JAVA_FLOAT, offset + CoActivationMetadataLayout.OFF_BANDIT_EMA);
-                    int totalSignals = checkpointRegion.get(ValueLayout.JAVA_INT, offset + CoActivationMetadataLayout.OFF_BANDIT_TOTAL_SIGNALS);
-                    int positiveSignals = checkpointRegion.get(ValueLayout.JAVA_INT, offset + CoActivationMetadataLayout.OFF_BANDIT_POS_SIGNALS);
-                    long lastUpdatedMs = checkpointRegion.get(ValueLayout.JAVA_LONG, offset + CoActivationMetadataLayout.OFF_BANDIT_LAST_UPDATED_MS);
-                    offset += CoActivationMetadataLayout.BANDIT_RECORD_BYTES;
+                    int ordinal = checkpointRegion.get(ValueLayout.JAVA_BYTE, offset + CoActivationMetadataFields.OFF_BANDIT_ORDINAL) & 0xFF;
+                    float ema = checkpointRegion.get(ValueLayout.JAVA_FLOAT, offset + CoActivationMetadataFields.OFF_BANDIT_EMA);
+                    int totalSignals = checkpointRegion.get(ValueLayout.JAVA_INT, offset + CoActivationMetadataFields.OFF_BANDIT_TOTAL_SIGNALS);
+                    int positiveSignals = checkpointRegion.get(ValueLayout.JAVA_INT, offset + CoActivationMetadataFields.OFF_BANDIT_POS_SIGNALS);
+                    long lastUpdatedMs = checkpointRegion.get(ValueLayout.JAVA_LONG, offset + CoActivationMetadataFields.OFF_BANDIT_LAST_UPDATED_MS);
+                    offset += CoActivationMetadataFields.BANDIT_RECORD_BYTES;
 
                     if (ordinal < profiles.length) {
                         CognitiveProfile profile = profiles[ordinal];
@@ -713,7 +713,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                     for (String tag : hashToTag.values()) {
                         tagsSize += 12 + tag.getBytes(StandardCharsets.UTF_8).length;
                     }
-                    int banditSize = 4 + banditStatsCount() * CoActivationMetadataLayout.BANDIT_RECORD_BYTES;
+                    int banditSize = 4 + banditStatsCount() * CoActivationMetadataFields.BANDIT_RECORD_BYTES;
                     int totalSize = 8 + tagsSize + banditSize;
                     ByteBuffer buf = ByteBuffer.allocate(totalSize);
 
@@ -745,7 +745,7 @@ public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoAc
                         }
                     }
                     buf.flip();
-                    MemorySegment.copy(MemorySegment.ofBuffer(buf), 0, checkpointRegion, CoActivationMetadataLayout.OFF_CHK_PAIR_COUNT, totalSize);
+                    MemorySegment.copy(MemorySegment.ofBuffer(buf), 0, checkpointRegion, CoActivationMetadataFields.OFF_CHK_PAIR_COUNT, totalSize);
                 } else {
                     Path path = filePath != null ? filePath : filePath();
                     if (path == null) return;

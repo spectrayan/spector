@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright 2026 Spectrayan
  *
  * Licensed under the Business Source License 1.1 (the "License");

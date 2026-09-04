@@ -16,7 +16,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorInternalException;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.RegionLayout;
-import com.spectrayan.spector.memory.kernel.layout.AdjacencyListLayout;
+import com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,13 +26,13 @@ import java.nio.file.Path;
 import java.util.NoSuchElementException;
 import java.util.PrimitiveIterator;
 
-import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListLayout.EDGE_HEADER_BYTES;
-import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListLayout.EDGE_OFF_NEXT;
-import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListLayout.EDGE_OFF_TARGET;
-import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListLayout.VERTEX_OFF_DEGREE;
-import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListLayout.VERTEX_OFF_EDGE_HEAD;
-import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListLayout.VERTEX_OFF_FLAGS;
-import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListLayout.VERTEX_STRIDE;
+import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields.EDGE_HEADER_BYTES;
+import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields.EDGE_OFF_NEXT;
+import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields.EDGE_OFF_TARGET;
+import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields.VERTEX_OFF_DEGREE;
+import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields.VERTEX_OFF_EDGE_HEAD;
+import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields.VERTEX_OFF_FLAGS;
+import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields.VERTEX_STRIDE;
 
 /**
  * Bundled <b>reference</b> graph memory over the kernel {@link AbstractGraphMemory} substrate.
@@ -43,12 +43,12 @@ import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListLayout.VE
  * The backing segment (after the {@link #dataOffset() data offset}) is divided into two
  * contiguous slabs:
  * <pre>
- *   [ vertex slab : vertexCapacity  x {@value AdjacencyListLayout#VERTEX_STRIDE}B ][ edge slab : edgeCapacity x edgeStride ]
+ *   [ vertex slab : vertexCapacity  x {@value AdjacencyListFields#VERTEX_STRIDE}B ][ edge slab : edgeCapacity x edgeStride ]
  * </pre>
  * Each <b>vertex record</b> stores the slot index of the head of its adjacency list plus a
- * cached degree. Each <b>edge record</b> reserves an {@value AdjacencyListLayout#EDGE_HEADER_BYTES}-byte base
+ * cached degree. Each <b>edge record</b> reserves an {@value AdjacencyListFields#EDGE_HEADER_BYTES}-byte base
  * prefix ({@code target}, {@code next}) followed by a layout-defined payload
- * ({@code edgeStride - }{@value AdjacencyListLayout#EDGE_HEADER_BYTES} bytes). Adjacency is therefore a per-vertex
+ * ({@code edgeStride - }{@value AdjacencyListFields#EDGE_HEADER_BYTES} bytes). Adjacency is therefore a per-vertex
  * singly linked list threaded through the shared edge slab, which gives <b>stable edge ids</b>
  * (slots are never relocated), O(1) edge insertion, and O(degree) removal. A <b>vertex
  * free-list</b> and an <b>edge free-list</b> reclaim slots released by {@link #removeNode(int)} /
@@ -65,16 +65,16 @@ import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListLayout.VE
  * without allocating a snapshot array.
  *
  * @param <L> the graph memory layout type; {@link RegionLayout#recordStride()} is the per-edge
- *            stride and must be {@code >= }{@value AdjacencyListLayout#EDGE_HEADER_BYTES}
+ *            stride and must be {@code >= }{@value AdjacencyListFields#EDGE_HEADER_BYTES}
  */
 public abstract class AdjacencyListGraphMemory<L extends RegionLayout>
         extends AbstractGraphMemory<L> {
 
     private static final Logger log = LoggerFactory.getLogger(AdjacencyListGraphMemory.class);
 
-    // ── Adjacency-list wiring: single source of truth is AdjacencyListLayout (#435, TD-14). ──
+    // ── Adjacency-list wiring: single source of truth is AdjacencyListFields (#435, TD-14). ──
     // VERTEX_STRIDE / VERTEX_OFF_* / EDGE_OFF_TARGET / EDGE_OFF_NEXT / EDGE_HEADER_BYTES are
-    // static-imported from AdjacencyListLayout; this class only references them.
+    // static-imported from AdjacencyListFields; this class only references them.
 
     private static final int NIL = -1;
     private static final int FLAG_ALLOCATED = 0x1;

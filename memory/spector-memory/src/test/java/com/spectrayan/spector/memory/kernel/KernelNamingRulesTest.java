@@ -272,7 +272,6 @@ class KernelNamingRulesTest {
      * paths) that is deliberately out of scope.</p>
      */
     @Test
-    @Disabled("Enabled by spec task 1.4 — fails until AdjacencyListLayout/CoActivationMetadataLayout become *Fields")
     @DisplayName("Rule 6: a *Layout type in kernel.layout implements the region-layout contract")
     void layoutSuffixMeansRegionLayout() {
         List<String> violations = ALL_TYPES.stream()
@@ -329,7 +328,7 @@ class KernelNamingRulesTest {
                 .contains(KERNEL_PKG + ".RegionLayout",
                         LAYOUT_PKG + ".HeaderLayout64",
                         LAYOUT_PKG + ".AuditRecordLayout",
-                        LAYOUT_PKG + ".AdjacencyListLayout");
+                        LAYOUT_PKG + ".AdjacencyListFields");
     }
 
     /**

@@ -33,7 +33,7 @@ package com.spectrayan.spector.memory.kernel.layout;
  *     [target:4B][next:4B]
  * </pre>
  */
-public final class AdjacencyListLayout {
+public final class AdjacencyListFields {
 
     // ── Vertex record layout (universal adjacency wiring; 16 bytes) ──
     /** Bytes per vertex record in the vertex offset slab. */
@@ -53,6 +53,6 @@ public final class AdjacencyListLayout {
     /** Size of the base edge prefix; layout payload begins here. */
     public static final int EDGE_HEADER_BYTES = 8;
 
-    private AdjacencyListLayout() {
+    private AdjacencyListFields() {
     } // constants holder
 }

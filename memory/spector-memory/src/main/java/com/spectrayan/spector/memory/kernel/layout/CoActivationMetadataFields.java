@@ -48,9 +48,9 @@ package com.spectrayan.spector.memory.kernel.layout;
  *
  * @see CoActivationLayout
  */
-public final class CoActivationMetadataLayout {
+public final class CoActivationMetadataFields {
 
-    private CoActivationMetadataLayout() { /* utility class */ }
+    private CoActivationMetadataFields() { /* utility class */ }
 
     // ── Checkpoint region offsets ──
 
