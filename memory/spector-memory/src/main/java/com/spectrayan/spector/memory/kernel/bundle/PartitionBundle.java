@@ -27,7 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicLogLayout;
 
 /**
@@ -115,7 +115,7 @@ public final class PartitionBundle implements AutoCloseable {
                                             int cognitiveLayoutId, int cognitiveSchemaVer,
                                             int textLayoutId, int textSchemaVer) {
             int cogStride = computeCognitiveStride(quantizedVecBytes);
-            int auditStride = AuditRecordLayout.INSTANCE.recordStride();
+            int auditStride = StrengthLayout.INSTANCE.recordStride();
             int episodicCapEstimate = (int) (episodicBytes / Math.max(1, cogStride));
             if (episodicCapEstimate <= 0) episodicCapEstimate = 1_000;
             int totalAuditCapacity = semanticCapacity + episodicCapEstimate + proceduralCapacity;
@@ -141,8 +141,8 @@ public final class PartitionBundle implements AutoCloseable {
                     new RegionSizeSpec(
                             RegionId.STRENGTH,
                             RegionPreamble.PREAMBLE_BYTES + (long) totalAuditCapacity * auditStride,
-                            totalAuditCapacity, auditStride, AuditRecordLayout.INSTANCE.layoutId(),
-                            AuditRecordLayout.INSTANCE.schemaVersion(), false)
+                            totalAuditCapacity, auditStride, StrengthLayout.INSTANCE.layoutId(),
+                            StrengthLayout.INSTANCE.schemaVersion(), false)
             );
 
             BundleLayoutCalculator.BundleComputedLayout computed =
@@ -217,7 +217,7 @@ public final class PartitionBundle implements AutoCloseable {
                                             int cognitiveLayoutId, int cognitiveSchemaVer,
                                             int textLayoutId, int textSchemaVer) {
             int cogStride = computeCognitiveStride(quantizedVecBytes);
-            int auditStride = AuditRecordLayout.INSTANCE.recordStride();
+            int auditStride = StrengthLayout.INSTANCE.recordStride();
             int episodicCapEstimate = (int) (episodicBytes / Math.max(1, cogStride));
             if (episodicCapEstimate <= 0) episodicCapEstimate = 1_000;
             int totalAuditCapacity = semanticCapacity + episodicCapEstimate + proceduralCapacity;
@@ -243,8 +243,8 @@ public final class PartitionBundle implements AutoCloseable {
                     new RegionSizeSpec(
                             RegionId.STRENGTH,
                             RegionPreamble.PREAMBLE_BYTES + (long) totalAuditCapacity * auditStride,
-                            totalAuditCapacity, auditStride, AuditRecordLayout.INSTANCE.layoutId(),
-                            AuditRecordLayout.INSTANCE.schemaVersion(), false)
+                            totalAuditCapacity, auditStride, StrengthLayout.INSTANCE.layoutId(),
+                            StrengthLayout.INSTANCE.schemaVersion(), false)
             );
 
             BundleLayoutCalculator.BundleComputedLayout computed =

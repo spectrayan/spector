@@ -25,7 +25,7 @@
  *   <tr><td><b>Preamble</b></td><td>Fixed prologue of a region or store file (64 bytes)</td><td>{@link com.spectrayan.spector.memory.kernel.RegionPreamble}</td><td>Physical container prologue</td></tr>
  *   <tr><td><b>Region Layout</b></td><td>Descriptor of a region's records (stride, schema, CRC)</td><td>{@link com.spectrayan.spector.memory.kernel.RegionLayout}</td><td>Physical record descriptor</td></tr>
  *   <tr><td><b>Encoding Header</b></td><td>Encoding-time identity: importance, valence, arousal, tags, source, timestamp</td><td>{@code EncodingHeaderLayout}, {@code EncodingHeader}, {@code EncodingHeaderFields}</td><td>Part of logical {@code header}</td></tr>
- *   <tr><td><b>Strength State</b></td><td>Recall dynamics: \(D\), \(S\), recall counts, ACT-R ring, last access</td><td>{@link com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout} (becoming {@code StrengthLayout}), {@code StrengthState}</td><td>Part of logical {@code header}</td></tr>
+ *   <tr><td><b>Strength State</b></td><td>Recall dynamics: \(D\), \(S\), recall counts, ACT-R ring, last access</td><td>{@link com.spectrayan.spector.memory.kernel.layout.StrengthLayout}, {@code StrengthState}</td><td>Part of logical {@code header}</td></tr>
  *   <tr><td><b>Payload</b></td><td>Content face: vector, text, episode, skill</td><td>Vector stores, text stores, {@code EpisodeCodec}</td><td>Payload \(P\)</td></tr>
  *   <tr><td><b>Location</b></td><td>Physical address within memory</td><td>{@link com.spectrayan.spector.memory.kernel.MemoryLocation}</td><td>Location \(L\)</td></tr>
  *   <tr><td><b>Lineage</b></td><td>Derivation and provenance record</td><td>{@code LineageRecordLayout} (ADR-0029)</td><td>Lineage (NF2, M8)</td></tr>

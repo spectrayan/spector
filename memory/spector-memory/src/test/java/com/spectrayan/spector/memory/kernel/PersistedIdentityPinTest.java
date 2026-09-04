@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.kernel;
 
 import com.spectrayan.spector.memory.kernel.bundle.BundleLayout;
 import com.spectrayan.spector.memory.kernel.bundle.RegionId;
-import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.InsularLayout;
 import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
@@ -176,7 +176,7 @@ class PersistedIdentityPinTest {
         void layoutIdsArePinned() {
             Map<String, String> actual = new LinkedHashMap<>();
             actual.put("CognitiveRecordLayout", hex(new CognitiveRecordLayout(100).layoutId()));
-            actual.put("AuditRecordLayout", hex(AuditRecordLayout.INSTANCE.layoutId()));
+            actual.put("StrengthLayout", hex(StrengthLayout.INSTANCE.layoutId()));
             actual.put("EpisodicLogLayout", hex(EpisodicLogLayout.INSTANCE.layoutId()));
             actual.put("ContinuityLayout", hex(ContinuityLayout.SINGLETON.layoutId()));
             actual.put("InsularLayout", hex(InsularLayout.SINGLETON.layoutId()));
@@ -196,7 +196,7 @@ class PersistedIdentityPinTest {
 
             Map<String, String> expected = new LinkedHashMap<>();
             expected.put("CognitiveRecordLayout", "0x434F4700 'COG\\0'");
-            expected.put("AuditRecordLayout", "0x41554454 'AUDT'");
+            expected.put("StrengthLayout", "0x41554454 'AUDT'");
             expected.put("EpisodicLogLayout", "0x4550494C 'EPIL'");
             expected.put("ContinuityLayout", "0x434F4E54 'CONT'");
             expected.put("InsularLayout", "0x494E534C 'INSL'");
@@ -260,7 +260,7 @@ class PersistedIdentityPinTest {
         @Test
         @DisplayName("Fixed record strides are pinned")
         void recordStridesArePinned() {
-            assertThat(AuditRecordLayout.INSTANCE.recordStride())
+            assertThat(StrengthLayout.INSTANCE.recordStride())
                     .as("strength/audit record stride").isEqualTo(96);
             assertThat(ContinuityLayout.SINGLETON.recordStride())
                     .as("continuity record stride").isEqualTo(32);

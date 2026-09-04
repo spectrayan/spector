@@ -29,7 +29,7 @@ import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstant
  *   <li><b>Pure Encoding Identity</b>: Contains only immutable/read-mostly engram properties
  *       established during memory ingestion.</li>
  *   <li><b>Zero False Sharing</b>: All mutable telemetry (recall counters, auto-LTP cooldowns,
- *       storage strength, ACT-R ring buffer) is relocated to {@link AuditRecordLayout}.</li>
+ *       storage strength, ACT-R ring buffer) is relocated to {@link StrengthLayout}.</li>
  *   <li><b>128-Bit Synaptic Tags</b>: Contextual Bloom filter expanded from 64-bit to 128-bit
  *       (offsets 24-39), slashing candidate pre-screening false positives by ~60×.</li>
  *   <li><b>Cache-Line Aligned</b>: Exact 64-byte stride aligned to CPU hardware cache lines.</li>
@@ -63,7 +63,7 @@ import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstant
  *
  * @see HeaderLayout
  * @see HeaderLayout64
- * @see AuditRecordLayout
+ * @see StrengthLayout
  * @see SynapticHeaderConstants
  */
 public record HeaderLayout64V2() implements HeaderLayout {
@@ -126,7 +126,7 @@ public record HeaderLayout64V2() implements HeaderLayout {
     }
 
     @Override public float readStorageStrength(MemorySegment seg, long off) {
-        // Storage strength lives in AuditRecordLayout for V2; returns default 1.0f
+        // Storage strength lives in StrengthLayout for V2; returns default 1.0f
         return 1.0f;
     }
 
@@ -161,7 +161,7 @@ public record HeaderLayout64V2() implements HeaderLayout {
     }
 
     @Override public void writeStorageStrength(MemorySegment seg, long off, float strength) {
-        // No-op on V2 header — storage strength written to AuditRecordLayout
+        // No-op on V2 header — storage strength written to StrengthLayout
     }
 
     @Override public void writeEncodingProfile(MemorySegment seg, long off, byte profile) {
@@ -243,12 +243,12 @@ public record HeaderLayout64V2() implements HeaderLayout {
     }
 
     @Override public int incrementAgentRecallCount(MemorySegment seg, long off) {
-        // Routed to AuditRecordLayout in dual-region architecture
+        // Routed to StrengthLayout in dual-region architecture
         return 0;
     }
 
     @Override public float casStorageStrength(MemorySegment seg, long off, FloatUnaryOperator updateFn) {
-        // Routed to AuditRecordLayout in dual-region architecture
+        // Routed to StrengthLayout in dual-region architecture
         return 1.0f;
     }
 

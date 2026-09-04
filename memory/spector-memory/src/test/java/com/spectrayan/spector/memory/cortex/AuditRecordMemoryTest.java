@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,12 +36,12 @@ class AuditRecordMemoryTest {
         int totalCap = semCap + epiCap + procCap; // 350
 
         try (Arena arena = Arena.ofConfined()) {
-            long totalBytes = (long) totalCap * AuditRecordLayout.INSTANCE.recordStride();
+            long totalBytes = (long) totalCap * StrengthLayout.INSTANCE.recordStride();
             MemorySegment segment = arena.allocate(totalBytes, 32);
 
             AuditRecordMemory store = new AuditRecordMemory(
                     MemoryId.of("default", "test-audit"),
-                    AuditRecordLayout.INSTANCE,
+                    StrengthLayout.INSTANCE,
                     semCap, epiCap, procCap,
                     arena, segment, 0,
                     false, null, null, false);
@@ -70,12 +70,12 @@ class AuditRecordMemoryTest {
         int totalCap = semCap + epiCap + procCap;
 
         try (Arena arena = Arena.ofConfined()) {
-            long totalBytes = (long) totalCap * AuditRecordLayout.INSTANCE.recordStride();
+            long totalBytes = (long) totalCap * StrengthLayout.INSTANCE.recordStride();
             MemorySegment segment = arena.allocate(totalBytes, 32);
 
             AuditRecordMemory store = new AuditRecordMemory(
                     MemoryId.of("default", "test-audit"),
-                    AuditRecordLayout.INSTANCE,
+                    StrengthLayout.INSTANCE,
                     semCap, epiCap, procCap,
                     arena, segment, 0,
                     false, null, null, false);

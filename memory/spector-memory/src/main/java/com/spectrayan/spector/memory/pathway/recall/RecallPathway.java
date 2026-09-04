@@ -27,7 +27,7 @@ import com.spectrayan.spector.memory.graph.hebbian.CoActivationAssociativePriorP
 import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
@@ -85,7 +85,6 @@ import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
@@ -616,7 +615,7 @@ public final class RecallPathway {
                 if (router.audit() != null) {
                     int slotIndex = (int) (loc.offset() / router.layoutFor(loc.type()).stride());
                     long auditOff = router.audit().auditOffset(loc.type(), slotIndex);
-                    AuditRecordLayout.INSTANCE.writeLastRecallProfile(router.audit().segment(), auditOff, profileOrdinal);
+                    StrengthLayout.INSTANCE.writeLastRecallProfile(router.audit().segment(), auditOff, profileOrdinal);
                 } else {
                     final MemorySegment segment = router.segmentFor(loc.type());
                     if (segment != null) {

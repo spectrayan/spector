@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
-import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ActRActivationTest {
 
     /** Audit record is 96 bytes — contains the 8-slot ring buffer. */
-    private static final int AUDIT_RECORD_SIZE = AuditRecordLayout.STRIDE_BYTES;
+    private static final int AUDIT_RECORD_SIZE = StrengthLayout.STRIDE_BYTES;
 
     // ══════════════════════════════════════════════════════════════
     // Ring buffer: recordRecall / readRecallTimestamps

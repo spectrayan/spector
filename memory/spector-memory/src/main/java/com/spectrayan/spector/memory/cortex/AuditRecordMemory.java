@@ -13,8 +13,8 @@
 package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout.AuditRecord;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout.AuditRecord;
 import com.spectrayan.spector.memory.kernel.FloatUnaryOperator;
 import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -28,7 +28,7 @@ import java.nio.file.Path;
  * Off-heap store managing the single unified Recall Audit Region per partition bundle (ADR-0028).
  *
  * <h3>Design &amp; Addressing</h3>
- * <p>Stores fixed-stride {@link AuditRecordLayout} records for all tiers (Semantic, Episodic,
+ * <p>Stores fixed-stride {@link StrengthLayout} records for all tiers (Semantic, Episodic,
  * Procedural) in a single contiguous memory segment. Offsets are mapped deterministically via
  * cumulative tier base slots:</p>
  * <pre>
@@ -37,16 +37,16 @@ import java.nio.file.Path;
  *   [N_sem+epi .. Total] : Procedural Audit Records
  * </pre>
  *
- * @see AuditRecordLayout
+ * @see StrengthLayout
  * @see AbstractRecordMemory
  */
-public final class AuditRecordMemory extends AbstractRecordMemory<AuditRecordLayout> {
+public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout> {
 
     private final int semanticCapacity;
     private final int episodicCapacity;
     private final int proceduralCapacity;
 
-    public AuditRecordMemory(MemoryId id, AuditRecordLayout layout,
+    public AuditRecordMemory(MemoryId id, StrengthLayout layout,
                              int semanticCapacity, int episodicCapacity, int proceduralCapacity,
                              Arena arena, MemorySegment segment, int count,
                              boolean persistent, Path filePath,
@@ -64,11 +64,11 @@ public final class AuditRecordMemory extends AbstractRecordMemory<AuditRecordLay
     public static AuditRecordMemory heap(int semanticCapacity, int episodicCapacity, int proceduralCapacity) {
         Arena arena = Arena.ofShared();
         int totalCapacity = semanticCapacity + episodicCapacity + proceduralCapacity;
-        long bytes = (long) totalCapacity * AuditRecordLayout.INSTANCE.recordStride();
+        long bytes = (long) totalCapacity * StrengthLayout.INSTANCE.recordStride();
         MemorySegment segment = arena.allocate(bytes, 32);
         return new AuditRecordMemory(
                 MemoryId.of("default", "heap-audit"),
-                AuditRecordLayout.INSTANCE,
+                StrengthLayout.INSTANCE,
                 semanticCapacity,
                 episodicCapacity,
                 proceduralCapacity,
@@ -90,7 +90,7 @@ public final class AuditRecordMemory extends AbstractRecordMemory<AuditRecordLay
         String name = (memoryName != null && !memoryName.isBlank()) ? memoryName : "bundle-audit";
         return new AuditRecordMemory(
                 MemoryId.of("default", name),
-                AuditRecordLayout.INSTANCE,
+                StrengthLayout.INSTANCE,
                 semanticCapacity,
                 episodicCapacity,
                 proceduralCapacity,

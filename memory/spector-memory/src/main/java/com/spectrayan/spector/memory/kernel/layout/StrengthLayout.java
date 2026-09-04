@@ -55,7 +55,7 @@ import java.lang.invoke.VarHandle;
  * @see HeaderLayout64
  * @see RegionLayout
  */
-public final class AuditRecordLayout implements RegionLayout {
+public final class StrengthLayout implements RegionLayout {
 
     /** Layout identification code: ASCII 'AUDT' (0x41554454). */
     public static final int LAYOUT_ID = 0x41554454;
@@ -70,7 +70,7 @@ public final class AuditRecordLayout implements RegionLayout {
     public static final int ACT_R_RING_BUFFER_SLOTS = SpectorPropertyConstants.DEFAULT_MEMORY_ACTR_RING_BUFFER_SLOTS;
 
     /** Singleton instance of the layout descriptor. */
-    public static final AuditRecordLayout INSTANCE = new AuditRecordLayout();
+    public static final StrengthLayout INSTANCE = new StrengthLayout();
 
     // ── Field Offsets ──
 
@@ -116,7 +116,7 @@ public final class AuditRecordLayout implements RegionLayout {
     public static final VarHandle VAR_HANDLE_STORAGE_STRENGTH     = LAYOUT_STORAGE_STRENGTH.varHandle();
     public static final VarHandle VAR_HANDLE_ACTR_SLOT            = ValueLayout.JAVA_INT.varHandle();
 
-    private AuditRecordLayout() {}
+    private StrengthLayout() {}
 
     @Override
     public int layoutId() {
@@ -140,7 +140,7 @@ public final class AuditRecordLayout implements RegionLayout {
 
     @Override
     public String name() {
-        return "AuditRecordLayout";
+        return "StrengthLayout";
     }
 
     // ── Memory Type Accessors ──

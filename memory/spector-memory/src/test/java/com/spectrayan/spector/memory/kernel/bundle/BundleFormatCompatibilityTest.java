@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.kernel.bundle;
 
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.ContinuityLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
@@ -147,10 +147,10 @@ class BundleFormatCompatibilityTest {
             RegionEntry audit = reopened.directory().findRegion(RegionId.STRENGTH);
             assertThat(audit).as("AUDIT entry must survive").isNotNull();
             assertThat(audit.stride())
-                    .as("audit stride must still be 96B").isEqualTo(AuditRecordLayout.INSTANCE.recordStride());
+                    .as("audit stride must still be 96B").isEqualTo(StrengthLayout.INSTANCE.recordStride());
             assertThat(audit.layoutId())
                     .as("audit layoutId 'AUDT' must not be re-spelled")
-                    .isEqualTo(AuditRecordLayout.INSTANCE.layoutId());
+                    .isEqualTo(StrengthLayout.INSTANCE.layoutId());
         } finally {
             Files.deleteIfExists(bundle);
         }

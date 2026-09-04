@@ -56,7 +56,7 @@ import com.spectrayan.spector.memory.cortex.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.ReplaySnapshot;
 import com.spectrayan.spector.memory.sync.WalReplayer;
-import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
@@ -1315,7 +1315,7 @@ public final class RecallPipeline {
                 if (router.audit() != null) {
                     int slotIndex = (int) (loc.offset() / router.layoutFor(loc.type()).stride());
                     long auditOff = router.audit().auditOffset(loc.type(), slotIndex);
-                    AuditRecordLayout.INSTANCE.writeLastRecallProfile(router.audit().segment(), auditOff, profileOrdinal);
+                    StrengthLayout.INSTANCE.writeLastRecallProfile(router.audit().segment(), auditOff, profileOrdinal);
                 } else {
                     MemorySegment segment = router.segmentFor(loc.type());
                     if (segment != null) {

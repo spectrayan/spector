@@ -22,18 +22,18 @@ import java.lang.foreign.MemorySegment;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
-@DisplayName("AuditRecordLayout Unit Tests")
-class AuditRecordLayoutTest {
+@DisplayName("StrengthLayout Unit Tests")
+class StrengthLayoutTest {
 
-    private final AuditRecordLayout layout = AuditRecordLayout.INSTANCE;
+    private final StrengthLayout layout = StrengthLayout.INSTANCE;
 
     @Test
-    @DisplayName("Verify AuditRecordLayout constants, 96-byte stride, and schema version (1)")
+    @DisplayName("Verify StrengthLayout constants, 96-byte stride, and schema version (1)")
     void testMetadataAndDimensions() {
         assertThat(layout.layoutId()).isEqualTo(0x41554454); // 'AUDT'
         assertThat(layout.schemaVersion()).isEqualTo(1);
         assertThat(layout.recordStride()).isEqualTo(96);
-        assertThat(layout.name()).isEqualTo("AuditRecordLayout");
+        assertThat(layout.name()).isEqualTo("StrengthLayout");
     }
 
     @Test
@@ -43,7 +43,7 @@ class AuditRecordLayoutTest {
             MemorySegment segment = arena.allocate(192, 32);
             long offset = 0;
 
-            AuditRecordLayout.AuditRecord record = new AuditRecordLayout.AuditRecord(
+            StrengthLayout.AuditRecord record = new StrengthLayout.AuditRecord(
                     (byte) MemoryType.SEMANTIC.ordinal(),
                     (byte) 2,
                     (byte) 10,
@@ -60,7 +60,7 @@ class AuditRecordLayoutTest {
 
             layout.writeRecord(segment, offset, record);
 
-            AuditRecordLayout.AuditRecord read = layout.readRecord(segment, offset);
+            StrengthLayout.AuditRecord read = layout.readRecord(segment, offset);
             assertThat(read.memoryType()).isEqualTo(MemoryType.SEMANTIC);
             assertThat(read.agentRecallCount()).isEqualTo(15);
             assertThat(read.spectorRecallCount()).isEqualTo(3);
