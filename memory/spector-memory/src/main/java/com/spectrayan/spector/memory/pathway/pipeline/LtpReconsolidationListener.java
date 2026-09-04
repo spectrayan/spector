@@ -20,7 +20,6 @@ import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
-import com.spectrayan.spector.memory.synapse.ActRActivation;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 
 import java.lang.foreign.MemorySegment;
@@ -33,10 +32,9 @@ import java.util.List;
  * <p>Each time a memory is successfully recalled, its synaptic strength increases.
  * In Spector's model, this manifests as:</p>
  * <ul>
- *   <li><b>ACT-R recall timestamps</b>: recorded in the 4-slot ring buffer
- *       (V3 layouts only) via {@link ActRActivation#recordRecall}. These
- *       enable the full ACT-R base-level activation computation:
- *       {@code B_i = ln(Σ t_j^{-d})}.</li>
+ *   <li><b>ACT-R recall timestamps</b>: recorded in the 4-slot ring buffer in
+ *       the strength region. These enable the full ACT-R base-level activation
+ *       computation: {@code B_i = ln(Σ t_j^{-d})}.</li>
  *   <li><b>Recall count</b>: incremented only on explicit {@code reinforce()}
  *       calls to prevent inflation from passive retrieval.</li>
  * </ul>
@@ -86,34 +84,7 @@ public final class LtpReconsolidationListener implements RecallListener {
                             router.strength().casStorageStrength(loc.type(), slotIndex,
                                     s -> Math.min(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MAX,
                                             s + SpectorPropertyConstants.DEFAULT_MEMORY_AUTO_LTP_STORAGE_INCREMENT));
-                            long strengthOff = router.strength().strengthOffset(loc.type(), slotIndex);
-                            com.spectrayan.spector.memory.kernel.layout.StrengthLayout.INSTANCE.writeLastAutoLtp(router.strength().segment(), strengthOff, nowMs);
-                        }
-                    } else if (layout.headerLayout().version() >= 3) {
-                        long creationMs = layout.readTimestamp(segment, loc.offset());
-
-                        // Record recall timestamp for ACT-R base-level activation.
-                        // This captures the spacing effect: spaced recalls produce higher
-                        // activation than massed recalls, without inflating agent_recall_count.
-                        ActRActivation.recordRecall(segment, loc.offset(), creationMs, nowMs);
-
-                        // Auto-LTP: passively reinforce memories that surface in results,
-                        // subject to a cooldown to prevent inflation from repeated queries.
-                        long lastAutoLtp = layout.readLastAutoLtp(segment, loc.offset());
-                        if (nowMs - lastAutoLtp >= AUTO_LTP_COOLDOWN_MS) {
-                            // Atomically increment spector-internal recall count
-                            layout.incrementSpectorRecallCount(segment, loc.offset());
-
-                            // Update storage strength using Two-Factor formula:
-                            // S(t+1) = S(t) + α·(1/R(t)) where R(t) = retrieval strength
-                            // Simplified: each auto-LTP adds a small fixed increment (0.05)
-                            float currentStrength = layout.readStorageStrength(segment, loc.offset());
-                            float newStrength = Math.min(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MAX,
-                                    currentStrength + SpectorPropertyConstants.DEFAULT_MEMORY_AUTO_LTP_STORAGE_INCREMENT);
-                            layout.writeStorageStrength(segment, loc.offset(), newStrength);
-
-                            // Record cooldown timestamp
-                            layout.writeLastAutoLtp(segment, loc.offset(), nowMs);
+                            router.strength().writeLastAutoLtp(loc.type(), slotIndex, nowMs);
                         }
                     }
                 }
