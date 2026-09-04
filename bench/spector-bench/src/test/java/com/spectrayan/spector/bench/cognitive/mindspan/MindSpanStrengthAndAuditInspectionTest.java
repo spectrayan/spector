@@ -32,17 +32,66 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import java.nio.file.Files;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MindSpanStrengthAndAuditInspectionTest {
 
+    private static Path resolveMindSpanDir() {
+        String prop = System.getProperty("datasetDir");
+        if (prop != null && !prop.isBlank()) {
+            Path p = Paths.get(prop).toAbsolutePath().normalize();
+            return p.getFileName().toString().equals("data") ? p.getParent() : p;
+        }
+        String env = System.getenv("MINDSPAN_DATASET_DIR");
+        if (env != null && !env.isBlank()) {
+            Path p = Paths.get(env).toAbsolutePath().normalize();
+            return p.getFileName().toString().equals("data") ? p.getParent() : p;
+        }
+        Path curr = Paths.get(".").toAbsolutePath().normalize();
+        while (curr != null) {
+            Path candidate = curr.resolve("spector-datasets").resolve("mindspan");
+            if (Files.exists(candidate)) {
+                return candidate.normalize();
+            }
+            Path sibling = curr.resolve("..").resolve("spector-datasets").resolve("mindspan").normalize();
+            if (Files.exists(sibling)) {
+                return sibling;
+            }
+            curr = curr.getParent();
+        }
+        return Paths.get("..", "spector-datasets", "mindspan").toAbsolutePath().normalize();
+    }
+
+    private static Path resolveMemoryDir() {
+        String memProp = System.getProperty("memDir");
+        if (memProp != null && !memProp.isBlank()) {
+            return Paths.get(memProp).toAbsolutePath().normalize();
+        }
+        String outProp = System.getProperty("outputDir");
+        if (outProp != null && !outProp.isBlank()) {
+            Path p = Paths.get(outProp).resolve("v2-memory");
+            if (Files.exists(p)) return p;
+            return Paths.get(outProp).toAbsolutePath().normalize();
+        }
+        Path mindspanDir = resolveMindSpanDir();
+        Path candidate1 = mindspanDir.resolve("results").resolve("sample-run-10-verified").resolve("v2-memory");
+        if (Files.exists(candidate1)) return candidate1;
+        Path candidate2 = mindspanDir.resolve("results").resolve("test-ingest-sample10");
+        if (Files.exists(candidate2)) return candidate2;
+        return candidate1;
+    }
+
     @Test
     public void testInspectSubsystemsAndStrengthLayout() throws Exception {
-        Path memDir = Paths.get("d:/git/spector-datasets/mindspan/results/sample-run-10-verified/v2-memory");
-        assertTrue(memDir.toFile().exists(), "Memory dir must exist: " + memDir);
+        Path memDir = resolveMemoryDir();
+        org.junit.jupiter.api.Assumptions.assumeTrue(Files.exists(memDir),
+                "Memory dir must exist for audit inspection; skipping: " + memDir);
 
-        Path reportFile = memDir.getParent().resolve("audit_inspection.txt");
+        Path reportFile = memDir.getParent() != null
+                ? memDir.getParent().resolve("audit_inspection.txt")
+                : Paths.get("audit_inspection.txt");
 
         try (SpectorMemory memory = SpectorMemoryBuilder.create()
                 .dimensions(768)

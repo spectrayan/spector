@@ -67,16 +67,49 @@ public class MindSpanSampleIngestionTest {
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
+    private static Path resolveMindSpanDir() {
+        String prop = System.getProperty("datasetDir");
+        if (prop != null && !prop.isBlank()) {
+            Path p = Paths.get(prop).toAbsolutePath().normalize();
+            return p.getFileName().toString().equals("data") ? p.getParent() : p;
+        }
+        String env = System.getenv("MINDSPAN_DATASET_DIR");
+        if (env != null && !env.isBlank()) {
+            Path p = Paths.get(env).toAbsolutePath().normalize();
+            return p.getFileName().toString().equals("data") ? p.getParent() : p;
+        }
+        Path curr = Paths.get(".").toAbsolutePath().normalize();
+        while (curr != null) {
+            Path candidate = curr.resolve("spector-datasets").resolve("mindspan");
+            if (Files.exists(candidate)) {
+                return candidate.normalize();
+            }
+            Path sibling = curr.resolve("..").resolve("spector-datasets").resolve("mindspan").normalize();
+            if (Files.exists(sibling)) {
+                return sibling;
+            }
+            curr = curr.getParent();
+        }
+        return Paths.get("..", "spector-datasets", "mindspan").toAbsolutePath().normalize();
+    }
+
     @Test
     @DisplayName("Sample 10 MindSpan records (episodic + semantic) ingestion and verification")
     public void testSample10Ingestion() throws Exception {
-        Path datasetDir = Paths.get("d:/git/spector-datasets/mindspan/data");
+        Path mindSpanDir = resolveMindSpanDir();
+        Path datasetDir = Files.isDirectory(mindSpanDir.resolve("data")) ? mindSpanDir.resolve("data") : mindSpanDir;
         Path corpusFile = datasetDir.resolve("corpus.jsonl");
         Path cacheFile = datasetDir.resolve("embeddings.bin");
-        Path newOutputDir = Paths.get("d:/git/spector-datasets/mindspan/results/test-ingest-sample10");
 
-        assertTrue(Files.exists(corpusFile), "Corpus file must exist at: " + corpusFile);
-        assertTrue(Files.exists(cacheFile), "Embeddings cache must exist at: " + cacheFile);
+        org.junit.jupiter.api.Assumptions.assumeTrue(Files.exists(corpusFile),
+                "Corpus file must exist at: " + corpusFile);
+        org.junit.jupiter.api.Assumptions.assumeTrue(Files.exists(cacheFile),
+                "Embeddings cache must exist at: " + cacheFile);
+
+        String outProp = System.getProperty("outputDir");
+        Path newOutputDir = (outProp != null && !outProp.isBlank())
+                ? Paths.get(outProp).toAbsolutePath().normalize()
+                : mindSpanDir.resolve("results").resolve("test-ingest-sample10");
 
         // 1. Clean previous run in new output folder if present
         if (Files.exists(newOutputDir)) {
