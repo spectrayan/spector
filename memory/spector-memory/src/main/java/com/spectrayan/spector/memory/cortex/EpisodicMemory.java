@@ -62,7 +62,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * @see EpisodicHeaderAccessor
  * @see LegacyEpisodeHeaderReader
  */
-public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> {
+public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> implements EngramMemory {
 
     private static final Logger log = LoggerFactory.getLogger(EpisodicMemory.class);
 
@@ -200,7 +200,7 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> {
             }
 
             // Write 64B EncodingHeader at writeOffset + 16
-            EpisodicHeaderAccessor.writeHeader(segment(), writeOffset, header);
+            layout().headerLayout().writeHeaderRecord(segment(), writeOffset, header);
 
             // Compute CRC32C over sequenceId, 64B header, and payload
             MemorySegment headerSlice = segment().asSlice(writeOffset + EpisodeLayout.PREFIX_BYTES, EpisodeLayout.HEADER_BYTES);
@@ -250,10 +250,11 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> {
      */
     public EpisodeRecord readTurn(long offset, boolean includeBody) {
         long absoluteOffset = dataOffset() + offset;
-        if (EpisodicHeaderAccessor.isOptionBRecord(segment(), absoluteOffset)) {
-            int payloadBytes = EpisodicHeaderAccessor.readPayloadBytes(segment(), absoluteOffset);
-            int sequenceId = EpisodicHeaderAccessor.readSequenceId(segment(), absoluteOffset);
-            EncodingHeader header = EpisodicHeaderAccessor.readHeader(segment(), absoluteOffset);
+        var headerLayout = layout().headerLayout();
+        if (headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
+            int payloadBytes = headerLayout.readPayloadBytes(segment(), absoluteOffset);
+            int sequenceId = headerLayout.readSequenceId(segment(), absoluteOffset);
+            EncodingHeader header = headerLayout.readHeaderRecord(segment(), absoluteOffset);
 
             long payloadOffset = absoluteOffset + EpisodeLayout.FIXED_OVERHEAD_BYTES;
             EpisodeCodec.DecodedPayload decoded = EpisodeCodec.decode(segment(), payloadOffset, payloadBytes, includeBody);
@@ -271,7 +272,7 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> {
                     decoded.latencyMs(),
                     decoded.userId(),
                     header.soulVersion(),
-                    EpisodicHeaderAccessor.readModality(segment(), absoluteOffset),
+                    headerLayout.readModalityRecord(segment(), absoluteOffset),
                     header.flags(),
                     header.importance(),
                     header.valence(),
@@ -303,9 +304,10 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> {
     public void tombstone(long offset) {
         long absoluteOffset = dataOffset() + offset;
         boolean wasTombstoned;
-        if (EpisodicHeaderAccessor.isOptionBRecord(segment(), absoluteOffset)) {
-            wasTombstoned = EncodingHeaderFields.isTombstoned(EpisodicHeaderAccessor.readFlags(segment(), absoluteOffset));
-            EpisodicHeaderAccessor.tombstone(segment(), absoluteOffset);
+        var headerLayout = layout().headerLayout();
+        if (headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
+            wasTombstoned = headerLayout.isTombstonedRecord(segment(), absoluteOffset);
+            headerLayout.tombstoneRecord(segment(), absoluteOffset);
         } else {
             byte flags = LegacyEpisodeHeaderReader.readFlags(segment(), absoluteOffset);
             wasTombstoned = EncodingHeaderFields.isTombstoned(flags);
@@ -322,8 +324,9 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> {
      */
     public void markConsolidated(long offset) {
         long absoluteOffset = dataOffset() + offset;
-        if (EpisodicHeaderAccessor.isOptionBRecord(segment(), absoluteOffset)) {
-            EpisodicHeaderAccessor.markConsolidated(segment(), absoluteOffset);
+        var headerLayout = layout().headerLayout();
+        if (headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
+            headerLayout.markConsolidatedRecord(segment(), absoluteOffset);
         } else {
             byte flags = LegacyEpisodeHeaderReader.readFlags(segment(), absoluteOffset);
             flags = (byte) (flags | EncodingHeaderFields.FLAG_CONSOLIDATED);
@@ -336,8 +339,9 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> {
      */
     public void markResolved(long offset) {
         long absoluteOffset = dataOffset() + offset;
-        if (EpisodicHeaderAccessor.isOptionBRecord(segment(), absoluteOffset)) {
-            EpisodicHeaderAccessor.markResolved(segment(), absoluteOffset);
+        var headerLayout = layout().headerLayout();
+        if (headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
+            headerLayout.markResolvedRecord(segment(), absoluteOffset);
         } else {
             byte flags = LegacyEpisodeHeaderReader.readFlags(segment(), absoluteOffset);
             flags = (byte) (flags | EncodingHeaderFields.FLAG_RESOLVED);
@@ -350,8 +354,9 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> {
      */
     public void markUnresolved(long offset) {
         long absoluteOffset = dataOffset() + offset;
-        if (EpisodicHeaderAccessor.isOptionBRecord(segment(), absoluteOffset)) {
-            EpisodicHeaderAccessor.markUnresolved(segment(), absoluteOffset);
+        var headerLayout = layout().headerLayout();
+        if (headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
+            headerLayout.markUnresolvedRecord(segment(), absoluteOffset);
         } else {
             byte flags = LegacyEpisodeHeaderReader.readFlags(segment(), absoluteOffset);
             flags = (byte) (flags & ~EncodingHeaderFields.FLAG_RESOLVED);
@@ -383,13 +388,14 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> {
         long limit = base + count;
         long current = base;
 
+        var headerLayout = layout().headerLayout();
         while (current + EpisodeLayout.HEADER_BYTES <= limit) {
-            if (EpisodicHeaderAccessor.isOptionBRecord(segment(), current)) {
-                int payloadBytes = EpisodicHeaderAccessor.readPayloadBytes(segment(), current);
+            if (headerLayout.isOptionBRecord(segment(), current)) {
+                int payloadBytes = headerLayout.readPayloadBytes(segment(), current);
                 if (payloadBytes < 0 || current + EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {
                     break;
                 }
-                byte flags = EpisodicHeaderAccessor.readFlags(segment(), current);
+                byte flags = headerLayout.readFlagsRecord(segment(), current);
                 if (!EncodingHeaderFields.isTombstoned(flags) && !EncodingHeaderFields.isConsolidated(flags)) {
                     offsets.add(current - base);
                 }
@@ -428,13 +434,14 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> {
         long limit = base + this.count;
         long current = base;
 
+        var headerLayout = layout().headerLayout();
         while (current + EpisodeLayout.HEADER_BYTES <= limit) {
-            if (EpisodicHeaderAccessor.isOptionBRecord(segment(), current)) {
-                int payloadBytes = EpisodicHeaderAccessor.readPayloadBytes(segment(), current);
+            if (headerLayout.isOptionBRecord(segment(), current)) {
+                int payloadBytes = headerLayout.readPayloadBytes(segment(), current);
                 if (payloadBytes < 0 || current + EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {
                     break;
                 }
-                byte flags = EpisodicHeaderAccessor.readFlags(segment(), current);
+                byte flags = headerLayout.readFlagsRecord(segment(), current);
                 if (!EncodingHeaderFields.isTombstoned(flags)) {
                     liveCount++;
                 }
@@ -481,18 +488,19 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> {
         long limit = base + count;
         long current = base;
 
+        var headerLayout = layout().headerLayout();
         while (current + EpisodeLayout.HEADER_BYTES <= limit) {
-            if (EpisodicHeaderAccessor.isOptionBRecord(segment(), current)) {
-                int payloadBytes = EpisodicHeaderAccessor.readPayloadBytes(segment(), current);
+            if (headerLayout.isOptionBRecord(segment(), current)) {
+                int payloadBytes = headerLayout.readPayloadBytes(segment(), current);
                 if (payloadBytes < 0 || current + EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {
                     break;
                 }
-                byte flags = EpisodicHeaderAccessor.readFlags(segment(), current);
+                byte flags = headerLayout.readFlagsRecord(segment(), current);
                 if (!EncodingHeaderFields.isTombstoned(flags)) {
-                    long ts = EpisodicHeaderAccessor.readTimestamp(segment(), current);
+                    long ts = headerLayout.readTimestampRecord(segment(), current);
                     if (ts < thresholdMs) {
-                        float oldImp = EpisodicHeaderAccessor.readImportance(segment(), current);
-                        EpisodicHeaderAccessor.writeImportance(segment(), current, oldImp * factor);
+                        float oldImp = headerLayout.readImportanceRecord(segment(), current);
+                        headerLayout.writeImportanceRecord(segment(), current, oldImp * factor);
                         decayed++;
                     }
                 }
@@ -506,5 +514,77 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodeLayout> {
             }
         }
         return decayed;
+    }
+
+    // ── EngramMemory Implementation (ADR-0030) ──
+
+    @Override
+    public MemoryType type() {
+        return MemoryType.EPISODIC;
+    }
+
+    @Override
+    public int visibleCount() {
+        return liveTurnCount.get();
+    }
+
+    @Override
+    public float tombstoneRatio() {
+        return 0.0f;
+    }
+
+    @Override
+    public MemorySegment headerSlab() {
+        return null;
+    }
+
+    @Override
+    public long recordOffset(long index) {
+        throw new UnsupportedOperationException("EpisodicMemory records are variable-length; recordOffset by index is unsupported");
+    }
+
+    @Override
+    public long write(EncodingHeader header, byte[] payload) {
+        return appendTurn(
+                ConversationRole.SYSTEM, 0,
+                header.timestampMs(), header.synapticTags(),
+                payload != null ? payload : new byte[0],
+                (short) 0, 0, 0, 0, 0L,
+                header.soulVersion(),
+                SourceModality.fromOrdinal(EncodingHeaderFields.sourceModalityOrdinal(header.flags())),
+                header.importance(), header.valence(), header.arousal(),
+                header.source()
+        );
+    }
+
+    /**
+     * Checks if the record at the given relative byte offset is tombstoned.
+     */
+    public boolean isTombstoned(long offset) {
+        long absoluteOffset = dataOffset() + offset;
+        var headerLayout = layout().headerLayout();
+        if (headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
+            return headerLayout.isTombstonedRecord(segment(), absoluteOffset);
+        } else {
+            return EncodingHeaderFields.isTombstoned(LegacyEpisodeHeaderReader.readFlags(segment(), absoluteOffset));
+        }
+    }
+
+    /**
+     * Reads the 64-byte encoding header of a record at the given relative byte offset.
+     */
+    public EncodingHeader readHeader(long offset) {
+        long absoluteOffset = dataOffset() + offset;
+        var headerLayout = layout().headerLayout();
+        if (headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
+            return headerLayout.readHeaderRecord(segment(), absoluteOffset);
+        } else {
+            var rec = LegacyEpisodeHeaderReader.readRecord(segment(), absoluteOffset, false);
+            return new EncodingHeader(
+                    rec.timestampMs(), rec.sessionId(), 0.0f, rec.importance(), 0, (short) 0,
+                    rec.valence(), rec.flags(), rec.arousal(), 1.0f, (byte) 0, (byte) 0, (byte) 0,
+                    rec.soulVersion(), 0.0f, (byte) 0, rec.source() != null ? rec.source() : EngramSource.EXPERIENCED
+            );
+        }
     }
 }

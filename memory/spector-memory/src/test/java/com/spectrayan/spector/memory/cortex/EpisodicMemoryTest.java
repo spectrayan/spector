@@ -254,4 +254,34 @@ class EpisodicMemoryTest {
         assertEquals("Legacy message", new String(legacyRec.body()));
         assertEquals(888L, legacyRec.userId());
     }
+
+    @Test
+    @DisplayName("EpisodicMemory satisfies EngramMemory contract")
+    void episodicMemoryEngramContract() {
+        assertEquals(com.spectrayan.spector.memory.model.MemoryType.EPISODIC, episodicMemory.type());
+        assertEquals(0, episodicMemory.visibleCount());
+        assertEquals(0.0f, episodicMemory.tombstoneRatio());
+        assertNull(episodicMemory.headerSlab());
+
+        long offset = episodicMemory.appendTurn(
+                ConversationRole.USER, 1, 1000L, 123L,
+                "Testing EngramMemory contract".getBytes(), (short) 1, 10, 0, 0, 999L, (short) 1,
+                SourceModality.TEXT, 0.75f, (byte) 15, (byte) 30, EngramSource.EXPERIENCED
+        );
+
+        assertEquals(1, episodicMemory.visibleCount());
+        assertFalse(episodicMemory.isTombstoned(offset));
+
+        var header = episodicMemory.readHeader(offset);
+        assertNotNull(header);
+        assertEquals(1000L, header.timestampMs());
+        assertEquals(0.75f, header.importance(), 0.001f);
+        assertEquals(15, header.valence());
+        assertEquals(30, header.arousal());
+        assertEquals(EngramSource.EXPERIENCED, header.source());
+
+        episodicMemory.tombstone(offset);
+        assertTrue(episodicMemory.isTombstoned(offset));
+        assertEquals(0, episodicMemory.visibleCount());
+    }
 }
