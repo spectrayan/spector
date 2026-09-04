@@ -12,7 +12,8 @@
  */
 package com.spectrayan.spector.memory.neuromod.amygdala;
 
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import org.slf4j.Logger;
@@ -31,7 +32,7 @@ import java.lang.foreign.MemorySegment;
  *
  * <h3>Design: Outcome-Driven, Not LLM-Guessed</h3>
  * <p>Valence is NOT assigned at ingestion time. It's updated via
- * {@link #reinforce(MemorySegment, long, CognitiveRecordLayout, byte)} after
+ * {@link #reinforce(MemorySegment, long, EngramLayout, byte)} after
  * the agent observes whether using a memory led to success or failure.
  * This gives ground-truth reinforcement, not hallucinated importance.</p>
  *
@@ -75,7 +76,7 @@ public final class ValenceTracker {
      * @param outcome   outcome valence (use {@link Valence} constants)
      */
     public void reinforce(MemorySegment segment, long offset,
-                           CognitiveRecordLayout layout, byte outcome) {
+                           EngramLayout layout, byte outcome) {
         byte currentValence = layout.readValence(segment, offset);
         byte blended = Valence.blend(currentValence, outcome, learningRate);
 

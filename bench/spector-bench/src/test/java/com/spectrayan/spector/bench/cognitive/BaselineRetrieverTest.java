@@ -25,8 +25,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
@@ -44,14 +44,14 @@ class BaselineRetrieverTest {
     private static final int DIMS = 8;
 
     private Arena arena;
-    private CognitiveRecordLayout layout;
+    private EngramLayout layout;
     private float[] mins;
     private float[] scales;
 
     @BeforeEach
     void setUp() {
         arena = Arena.ofConfined();
-        layout = new CognitiveRecordLayout(DIMS);
+        layout = new EngramLayout(DIMS);
         mins = IdentityCalibration.mins(DIMS);
         scales = IdentityCalibration.scales(DIMS);
     }
@@ -252,8 +252,8 @@ class BaselineRetrieverTest {
                                              float importance, byte valence) {
         long offset = (long) index * layout.stride();
 
-        // Write header using CognitiveHeader
-        CognitiveHeader header = new CognitiveHeader(
+        // Write header using EncodingHeader
+        EncodingHeader header = new EncodingHeader(
                 System.currentTimeMillis(), // timestamp
                 0L,                         // synaptic tags
                 1.0f,                       // exact norm

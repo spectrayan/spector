@@ -12,9 +12,9 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 import org.junit.jupiter.api.Test;
 
@@ -24,12 +24,19 @@ import java.lang.foreign.MemorySegment;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for {@link CognitiveRecordLayout} — versioned header read/write.
+ * Tests for {@link EngramLayout} — versioned header read/write.
  */
-class CognitiveRecordLayoutTest {
+class EngramLayoutTest {
 
     private static final int VECTOR_BYTES = 768; // 768 bytes for quantized vector
-    private final CognitiveRecordLayout layout = new CognitiveRecordLayout(VECTOR_BYTES);
+    private final EngramLayout layout = new EngramLayout(VECTOR_BYTES);
+
+    @Test
+    void layoutIdAndNamePinned() {
+        assertThat(layout.layoutId()).isEqualTo(EngramLayout.LAYOUT_ID);
+        assertThat(layout.layoutId()).isEqualTo(0x434F4700);
+        assertThat(layout.name()).isEqualTo("EngramLayout");
+    }
 
     @Test
     void strideIs64PlusVectorBytes() {
@@ -49,7 +56,7 @@ class CognitiveRecordLayoutTest {
 
             long timestamp = System.currentTimeMillis();
             long tags = SynapticTagEncoder.encode("java", "performance");
-            var header = new CognitiveRecordLayout.CognitiveHeader(
+            var header = new EncodingHeader(
                     timestamp, tags, 1.5f, 0.8f, 7,
                     (short) 42, (byte) -50, (byte) 0x12
             );
@@ -75,7 +82,7 @@ class CognitiveRecordLayoutTest {
 
             long timestamp = 12345L;
             long tags = 0xDEAD_BEEF_CAFE_BABEL;
-            var header = CognitiveRecordLayout.CognitiveHeader.create(
+            var header = EncodingHeader.create(
                     timestamp, tags, 2.0f, 5.0f, (short) 99, MemoryType.SEMANTIC
             );
 
@@ -94,7 +101,7 @@ class CognitiveRecordLayoutTest {
         try (var arena = Arena.ofConfined()) {
             MemorySegment segment = arena.allocate(layout.stride());
 
-            var header = CognitiveRecordLayout.CognitiveHeader.create(
+            var header = EncodingHeader.create(
                     System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC
             );
             layout.writeHeader(segment, 0, header);
@@ -111,7 +118,7 @@ class CognitiveRecordLayoutTest {
         try (var arena = Arena.ofConfined()) {
             MemorySegment segment = arena.allocate(layout.stride());
 
-            var header = CognitiveRecordLayout.CognitiveHeader.create(
+            var header = EncodingHeader.create(
                     System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC
             );
             layout.writeHeader(segment, 0, header);
@@ -129,7 +136,7 @@ class CognitiveRecordLayoutTest {
         try (var arena = Arena.ofConfined()) {
             MemorySegment segment = arena.allocate(layout.stride());
 
-            var header = CognitiveRecordLayout.CognitiveHeader.create(
+            var header = EncodingHeader.create(
                     System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC
             );
             layout.writeHeader(segment, 0, header);
@@ -146,7 +153,7 @@ class CognitiveRecordLayoutTest {
             MemorySegment segment = arena.allocate(layout.stride());
 
             for (MemoryType type : MemoryType.values()) {
-                var header = CognitiveRecordLayout.CognitiveHeader.create(
+                var header = EncodingHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, type
                 );
                 layout.writeHeader(segment, 0, header);
@@ -165,7 +172,7 @@ class CognitiveRecordLayoutTest {
             MemorySegment segment = arena.allocate(layout.stride());
 
             long initialTags = SynapticTagEncoder.encode("java");
-            var header = CognitiveRecordLayout.CognitiveHeader.create(
+            var header = EncodingHeader.create(
                     System.currentTimeMillis(), initialTags, 1.0f, 1.0f, (short) 0, MemoryType.SEMANTIC
             );
             layout.writeHeader(segment, 0, header);

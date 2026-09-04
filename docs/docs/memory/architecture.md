@@ -68,7 +68,7 @@ sequenceDiagram
     CT->>SQ: encode(float[]) → byte[]
     
     Note over CT: Step 6: Build header
-    CT->>CT: CognitiveHeader(timestamp, tags, importance, ...)
+    CT->>CT: EncodingHeader(timestamp, tags, importance, ...)
     
     Note over CT: Step 7: Route & write
     CT->>TR: write(type, header, quantized)

@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added & Fixed — Cognitive Memory Review Remediation (MR-01 — MR-09) (#661)
-- **spector-memory (MR-01):** Implemented simulated-memory binary provenance in `HeaderLayout64` using `FLAG_SIMULATED` (0x20 in consolidation flags, byte 34) and `soulVersion` (bytes 46-47); fixed roundtrip persistence durability and `CognitiveHeader.createSynthetic`
+- **spector-memory (MR-01):** Implemented simulated-memory binary provenance in `HeaderLayout64` using `FLAG_SIMULATED` (0x20 in consolidation flags, byte 34) and `soulVersion` (bytes 46-47); fixed roundtrip persistence durability and `EncodingHeader.createSynthetic`
 - **spector-memory (MR-02):** Resolved fused score formula truth with `ScoreFusionMode` (`MULTIPLICATIVE` vs `ADDITIVE`); validated $\alpha \in [0.0, 1.0]$ in `RecallOptions` and `ScoringOptions`; added `FusedScoreFormulaPropertyTest`
 - **spector-memory (MR-03):** Implemented dynamic soul-conditioned scoring regime (FERS: $\alpha \cdot \text{Sim} + \beta \cdot \sigma(\Delta F) + \gamma \cdot \text{Resonance}$) in `FreeEnergyGuidedRelay` and `CognitiveScorer`; added `SoulConditionedWeightProvider` with EMA hysteresis damping and slew rate limits; wired `usePathwayEngine` reachability
 - **spector-memory (MR-04):** Implemented dentate-gyrus lateral inhibition & recall interference resolution (`LateralInhibitionRelay`) with single-linkage clustering ($\theta \ge 0.88$), soft rank-ordered redundancy attenuation, multi-factor confidence arbitration, and hard contradiction penalties

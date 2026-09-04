@@ -1,6 +1,6 @@
 ---
 title: "Synapse — Tags & Scoring"
-description: "The 64-byte cache-line-aligned synaptic header (HeaderLayout64), 64-bit inline Bloom filter, arousal-modulated decay, and CognitiveRecordLayout binary format."
+description: "The 64-byte cache-line-aligned synaptic header (HeaderLayout64), 64-bit inline Bloom filter, arousal-modulated decay, and EngramLayout binary format."
 ---
 
 # 🔗 Synapse — Tags & Scoring
@@ -125,7 +125,7 @@ This ratio is used as a multiplier in the scoring formula: `finalScore = baseSco
 
 ---
 
-## CognitiveRecordLayout — Binary Format
+## EngramLayout — Binary Format
 
 The record layout manages reading/writing headers and quantized vectors to/from off-heap memory. Each record is: **64-byte header + N-byte quantized vector**.
 
@@ -134,7 +134,7 @@ Record stride = 64B header + quantized vector bytes
 Example (768-dim INT8): stride = 64 + 768 = 832 bytes
 ```
 
-### CognitiveHeader Fields
+### EncodingHeader Fields
 
 | Field | Type | Description |
 |:---|:---|:---|

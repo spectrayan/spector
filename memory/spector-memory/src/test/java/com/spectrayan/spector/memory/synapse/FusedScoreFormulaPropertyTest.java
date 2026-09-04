@@ -13,8 +13,8 @@
 package com.spectrayan.spector.memory.synapse;
 
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -55,11 +55,11 @@ class FusedScoreFormulaPropertyTest {
     @DisplayName("MR-02: MULTIPLICATIVE mode preserves backwards compatible score formula")
     void multiplicativeModeFormula() {
         SemanticMemory store = new SemanticMemory(DIMS, 10);
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        EngramLayout layout = new EngramLayout(DIMS);
         byte flags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
 
         long now = System.currentTimeMillis();
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 now, 0L, 1.0f, 5.0f, 0, (short) 0, (byte) 0, flags
         );
         byte[] vecBytes = new byte[layout.quantizedVecBytes()];
@@ -97,12 +97,12 @@ class FusedScoreFormulaPropertyTest {
     @DisplayName("MR-02: ADDITIVE mode correctly balances vector similarity and semantic tag overlap with live alpha")
     void additiveModeFormulaRespectsAlpha() {
         SemanticMemory store = new SemanticMemory(DIMS, 10);
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        EngramLayout layout = new EngramLayout(DIMS);
         byte flags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
 
         long now = System.currentTimeMillis();
         long tags = SynapticTagEncoder.encode("database", "indexing");
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 now, tags, 1.0f, 5.0f, 0, (short) 0, (byte) 0, flags
         );
         byte[] vecBytes = new byte[layout.quantizedVecBytes()];

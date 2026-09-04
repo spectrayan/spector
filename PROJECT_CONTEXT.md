@@ -133,7 +133,7 @@ graph TD
 
 *   **Virtual Threads Safe Concurrency**: Spector is built on virtual threads. Never use the `synchronized` keyword (which pins carrier threads). Use `ReentrantLock`, `StampedLock`, or non-pinning concurrency utilities.
 *   **Platform-Agnostic SIMD**: Lane widths cannot be hardcoded (e.g., AVX-512 vs. AVX2). Use `FloatVector.SPECIES_PREFERRED` inside `spector-core`, `spector-cpu`, `spector-index`, or `spector-memory`.
-*   **Bundle Kernel Architecture**: Storage and persistence are encapsulated within `spector-memory` using zero-copy Panama FFM memory layouts (`PartitionBundle`, `RuntimeBundle`, `CognitiveRecordLayout`). Vector indexes are managed in-memory by `spector-index`.
+*   **Bundle Kernel Architecture**: Storage and persistence are encapsulated within `spector-memory` using zero-copy Panama FFM memory layouts (`PartitionBundle`, `RuntimeBundle`, `EngramLayout`). Vector indexes are managed in-memory by `spector-index`.
 *   **Structured Concurrency**: Centralized in `ConcurrentTasks` (`spector-commons`) with automatic fallback to classic virtual thread executors via `-Dspector.concurrency.structured=false`.
 
 ---

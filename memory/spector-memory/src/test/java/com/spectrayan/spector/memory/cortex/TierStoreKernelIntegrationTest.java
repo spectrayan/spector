@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -48,7 +48,7 @@ class TierStoreKernelIntegrationTest {
     @DisplayName("WorkingMemory exposes kernel layout directly")
     void workingMemoryStoreKernelLayout() {
         try (var store = new WorkingMemory(VEC_BYTES, CAPACITY)) {
-            CognitiveRecordLayout layout = store.layout();
+            EngramLayout layout = store.layout();
             assertThat(layout).isNotNull();
             assertThat(layout.recordStride()).isEqualTo(store.layout().stride());
             assertThat(layout.schemaVersion()).isGreaterThan(0);
@@ -79,7 +79,7 @@ class TierStoreKernelIntegrationTest {
     @DisplayName("SemanticMemory exposes kernel layout directly")
     void semanticMemoryStoreKernelLayout() {
         try (var store = new SemanticMemory(VEC_BYTES, CAPACITY)) {
-            CognitiveRecordLayout layout = store.layout();
+            EngramLayout layout = store.layout();
             assertThat(layout).isNotNull();
             assertThat(layout.recordStride()).isEqualTo(store.layout().stride());
         }
@@ -101,7 +101,7 @@ class TierStoreKernelIntegrationTest {
     @DisplayName("ProceduralMemory exposes kernel layout directly")
     void proceduralMemoryStoreKernelLayout() {
         try (var store = new ProceduralMemory(VEC_BYTES, CAPACITY)) {
-            CognitiveRecordLayout layout = store.layout();
+            EngramLayout layout = store.layout();
             assertThat(layout).isNotNull();
             assertThat(layout.recordStride()).isEqualTo(store.layout().stride());
         }
@@ -143,8 +143,8 @@ class TierStoreKernelIntegrationTest {
     @DisplayName("kernel layout crcEnabled matches cognitive layout")
     void kernelLayoutCrcFlag() {
         try (var store = new WorkingMemory(VEC_BYTES, CAPACITY)) {
-            // CognitiveRecordLayout doesn't enable CRC by default
-            CognitiveRecordLayout layout = store.layout();
+            // EngramLayout doesn't enable CRC by default
+            EngramLayout layout = store.layout();
             assertThat(layout.crcEnabled()).isFalse();
         }
     }

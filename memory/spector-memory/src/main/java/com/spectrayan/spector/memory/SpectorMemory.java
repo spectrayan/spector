@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.aisme.continuity.IdentityTrajectorySnapshot;
 import com.spectrayan.spector.memory.api.MemoryAdminView;
 import com.spectrayan.spector.memory.api.MemoryRecall;
@@ -507,7 +508,7 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * <p>Combines data from three subsystems into a single {@link CognitiveRecord}:</p>
      * <ul>
      *   <li><b>MemoryIndex</b>: text, source, tags, physical location</li>
-     *   <li><b>CognitiveHeader</b> (64-byte off-heap): importance, valence, arousal,
+     *   <li><b>EncodingHeader</b> (64-byte off-heap): importance, valence, arousal,
      *       recall count, storage strength, synaptic tags, flags</li>
      *   <li><b>Vector payload</b>: quantized INT8 bytes</li>
      * </ul>

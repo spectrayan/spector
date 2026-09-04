@@ -25,7 +25,7 @@ import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
@@ -130,8 +130,8 @@ class PartitionManagerTest {
                 /* useBundleMode */ false, /* activePartitionBundle */ null);
     }
 
-    private static CognitiveHeader semanticHeader(long timestampMs) {
-        return CognitiveHeader.create(timestampMs, 0L, 1.0f, 0.5f, (short) 0, MemoryType.SEMANTIC);
+    private static EncodingHeader semanticHeader(long timestampMs) {
+        return EncodingHeader.create(timestampMs, 0L, 1.0f, 0.5f, (short) 0, MemoryType.SEMANTIC);
     }
 
     private static byte[] vec() {
@@ -236,7 +236,7 @@ class PartitionManagerTest {
                     int visible = semantic0.visibleCount();
                     assertThat(visible).isEqualTo(SEMANTIC_CAP);
                     // Read record 0 — must remain the value written before the roll.
-                    CognitiveHeader h = semantic0.readHeader(0);
+                    EncodingHeader h = semantic0.readHeader(0);
                     assertThat(h.timestampMs()).isEqualTo(1_000L);
                     sawData.set(true);
                 }

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.synapse.scan;
 
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
 
 import java.util.ArrayList;
@@ -21,7 +21,7 @@ import java.util.List;
 /**
  * A fixed-capacity min-heap backed by parallel primitive arrays for zero-allocation top-K scoring.
  *
- * <p>Header fields are stored in flat primitive arrays during the scan loop. {@link CognitiveHeader}
+ * <p>Header fields are stored in flat primitive arrays during the scan loop. {@link EncodingHeader}
  * and {@link ScoredRecord} objects are created ONLY when {@link #drain()} is called on the surviving top-K.</p>
  */
 public final class FlatMinHeap {
@@ -34,7 +34,7 @@ public final class FlatMinHeap {
     private final long[] offsets;
     private final int[] indices;
 
-    // Header fields (stored flat, assembled into CognitiveHeader on drain)
+    // Header fields (stored flat, assembled into EncodingHeader on drain)
     private final long[] timestamps;
     private final long[] synapticTags;
     private final float[] exactNorms;
@@ -105,7 +105,7 @@ public final class FlatMinHeap {
     public List<ScoredRecord> drain() {
         final List<ScoredRecord> results = new ArrayList<>(size);
         for (int h = 0; h < size; h++) {
-            final CognitiveHeader header = new CognitiveHeader(
+            final EncodingHeader header = new EncodingHeader(
                     timestamps[h], synapticTags[h], exactNorms[h], importances[h],
                     agentRecallCounts[h], centroidIds[h], valences[h], flags[h]);
             results.add(new ScoredRecord(offsets[h], scores[h], indices[h], header));

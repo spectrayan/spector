@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
@@ -29,7 +30,7 @@ import java.util.Map;
  * <p>Combines data from three subsystems into a single record:</p>
  * <ul>
  *   <li><b>MemoryIndex</b>: id, text, source, tags, location</li>
- *   <li><b>CognitiveHeader</b> (64-byte off-heap): timestamp, synaptic tags bloom,
+ *   <li><b>EncodingHeader</b> (64-byte off-heap): timestamp, synaptic tags bloom,
  *       importance, recall counts, valence, arousal, storage strength, flags</li>
  *   <li><b>Vector payload</b>: quantized INT8 vector bytes</li>
  * </ul>

@@ -47,8 +47,8 @@ import com.spectrayan.spector.bench.conformance.model.MfValenceWindow;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.BigFiveTraits;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
@@ -643,7 +643,7 @@ public final class MfConformanceHarness {
                     var segment = router.segmentFor(loc.type());
                     var layout = router.layoutFor(loc.type());
                     if (segment != null && layout != null) {
-                        CognitiveHeader existing = layout.readHeader(segment, loc.offset());
+                        EncodingHeader existing = layout.readHeader(segment, loc.offset());
                         byte flags = existing.flags();
                         if (record.memoryType() != null) {
                             flags = EncodingHeaderFields.withMemoryType(flags, record.memoryType().ordinal());
@@ -657,7 +657,7 @@ public final class MfConformanceHarness {
                         if ("simulated".equalsIgnoreCase(record.source())) {
                             cFlags = EncodingHeaderFields.withSimulated(cFlags, true);
                         }
-                        CognitiveHeader updated = new CognitiveHeader(
+                        EncodingHeader updated = new EncodingHeader(
                                 record.timestampMs(),
                                 existing.synapticTags(),
                                 existing.exactNorm(),

@@ -16,7 +16,8 @@ import java.lang.foreign.MemorySegment;
 import java.nio.file.Path;
 
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.shape.RecordMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
 
@@ -27,7 +28,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
  * for engram record operations, SWMR visibility, and persistence,
  * eliminating downcasting anti-patterns.</p>
  */
-public interface EngramMemory extends RecordMemory<CognitiveRecordLayout>, AutoCloseable {
+public interface EngramMemory extends RecordMemory<EngramLayout>, AutoCloseable {
 
     /** Size of the {@link RegionPreamble} region prologue in bytes. */
     int METADATA_PREAMBLE_BYTES = RegionPreamble.PREAMBLE_BYTES;
@@ -46,7 +47,7 @@ public interface EngramMemory extends RecordMemory<CognitiveRecordLayout>, AutoC
      * @param quantized quantized vector bytes
      * @return byte offset where record was written
      */
-    long write(CognitiveRecordLayout.CognitiveHeader header, byte[] quantized);
+    long write(EncodingHeader header, byte[] quantized);
 
     /**
      * Returns the memory tier type (WORKING, SEMANTIC, PROCEDURAL, EPISODIC).
@@ -69,7 +70,7 @@ public interface EngramMemory extends RecordMemory<CognitiveRecordLayout>, AutoC
      *
      * @return the cognitive record layout
      */
-    CognitiveRecordLayout cognitiveLayout();
+    EngramLayout cognitiveLayout();
 
     /**
      * Returns the maximum record index readable by concurrent readers (SWMR barrier).

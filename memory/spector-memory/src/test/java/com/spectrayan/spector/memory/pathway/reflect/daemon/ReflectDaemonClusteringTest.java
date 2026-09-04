@@ -17,8 +17,8 @@ import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
@@ -90,7 +90,7 @@ class ReflectDaemonClusteringTest {
         }).when(target).ingestCognitiveWithHeader(
                 anyString(), any(), any(float[].class),
                 any(MemoryType.class), any(String[].class),
-                any(), any(CognitiveHeader.class));
+                any(), any(EncodingHeader.class));
 
         return target;
     }
@@ -111,7 +111,7 @@ class ReflectDaemonClusteringTest {
             };
 
             for (int i = 0; i < 20; i++) {
-                CognitiveHeader header = new CognitiveHeader(
+                EncodingHeader header = new EncodingHeader(
                         System.currentTimeMillis(),
                         (long) (i + 1) * 7, // synaptic tags
                         1.0f,                // exactNorm
@@ -146,7 +146,7 @@ class ReflectDaemonClusteringTest {
 
             // Create 6 memories in the same centroid
             for (int i = 0; i < 6; i++) {
-                CognitiveHeader header = new CognitiveHeader(
+                EncodingHeader header = new EncodingHeader(
                         System.currentTimeMillis(),
                         0xFFL, 1.0f, 1.5f,
                         0, // agentRecallCount
@@ -183,7 +183,7 @@ class ReflectDaemonClusteringTest {
 
             // Create 5 memories with importance  >=  1.0
             for (int i = 0; i < 5; i++) {
-                CognitiveHeader header = new CognitiveHeader(
+                EncodingHeader header = new EncodingHeader(
                         System.currentTimeMillis(),
                         0L, 1.0f, 2.0f, // importance = 2.0 (above threshold)
                         0, (short) 0, (byte) 0,
@@ -209,7 +209,7 @@ class ReflectDaemonClusteringTest {
 
             // Create 6 memories in centroid 1
             for (int i = 0; i < 6; i++) {
-                CognitiveHeader header = new CognitiveHeader(
+                EncodingHeader header = new EncodingHeader(
                         System.currentTimeMillis(),
                         0L, 1.0f, 1.0f,
                         0, (short) 1, (byte) 0,
@@ -244,7 +244,7 @@ class ReflectDaemonClusteringTest {
 
             // 6 memories in centroid 1
             for (int i = 0; i < 6; i++) {
-                CognitiveHeader header = new CognitiveHeader(
+                EncodingHeader header = new EncodingHeader(
                         System.currentTimeMillis(),
                         0L, 1.0f, 1.0f,
                         0, (short) 1, (byte) 0,

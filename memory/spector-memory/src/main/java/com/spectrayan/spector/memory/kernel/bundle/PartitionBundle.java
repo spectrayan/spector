@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.foreign.Arena;
@@ -102,8 +104,8 @@ public final class PartitionBundle implements AutoCloseable {
          * @param proceduralCapacity max records for procedural region
          * @param textBytes          allocated bytes for the text append region
          * @param quantizedVecBytes  bytes per quantized vector (for stride calculation)
-         * @param cognitiveLayoutId  the layoutId from CognitiveRecordLayout
-         * @param cognitiveSchemaVer the schemaVersion from CognitiveRecordLayout
+         * @param cognitiveLayoutId  the layoutId from EngramLayout
+         * @param cognitiveSchemaVer the schemaVersion from EngramLayout
          * @param textLayoutId       the layoutId from TextBlobLayout
          * @param textSchemaVer      the schemaVersion from TextBlobLayout
          * @return an open PartitionBundle ready for use
@@ -205,8 +207,8 @@ public final class PartitionBundle implements AutoCloseable {
          * @param proceduralCapacity max records for procedural region
          * @param textBytes          allocated bytes for the text append region
          * @param quantizedVecBytes  bytes per quantized vector
-         * @param cognitiveLayoutId  the layoutId from CognitiveRecordLayout
-         * @param cognitiveSchemaVer the schemaVersion from CognitiveRecordLayout
+         * @param cognitiveLayoutId  the layoutId from EngramLayout
+         * @param cognitiveSchemaVer the schemaVersion from EngramLayout
          * @param textLayoutId       the layoutId from TextBlobLayout
          * @param textSchemaVer      the schemaVersion from TextBlobLayout
          * @return an in-memory PartitionBundle
@@ -263,7 +265,7 @@ public final class PartitionBundle implements AutoCloseable {
 
         /**
          * Computes the cognitive record stride from the quantized vector bytes.
-         * This mirrors CognitiveRecordLayout.stride() = EncodingHeaderFields.HEADER_BYTES + quantizedVecBytes
+         * This mirrors EngramLayout.stride() = EncodingHeaderFields.HEADER_BYTES + quantizedVecBytes
          */
         private static int computeCognitiveStride(int quantizedVecBytes) {
             // EncodingHeaderFields.HEADER_BYTES = 64

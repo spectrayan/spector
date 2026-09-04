@@ -156,18 +156,18 @@ boolean hasJava = SynapticTagEncoder.matches(recordTags, "java");
 
 ---
 
-## CognitiveRecordLayout
+## EngramLayout
 
 Binary layout for the 64-byte header + quantized vector:
 
 ```java
-CognitiveRecordLayout layout = new CognitiveRecordLayout(quantizedVecBytes);
+EngramLayout layout = new EngramLayout(quantizedVecBytes);
 
 // Record stride (header + vector)
 int stride = layout.stride();            // e.g., 832 for 768-dim INT8
 
 // Read/write header
-CognitiveHeader header = layout.readHeader(segment, offset);
+EncodingHeader header = layout.readHeader(segment, offset);
 layout.writeHeader(segment, offset, header);
 
 // Read individual fields
@@ -178,10 +178,10 @@ float importance = layout.readImportance(segment, offset);
 layout.mergeSynapticTags(segment, offset, additionalTags);
 ```
 
-### CognitiveHeader
+### EncodingHeader
 
 ```java
-public record CognitiveHeader(
+public record EncodingHeader(
     long timestampMs,       // Unix epoch milliseconds
     long synapticTags,      // 64-bit Bloom filter
     float exactNorm,        // L2 norm of original float vector
@@ -221,7 +221,7 @@ int tombstoneCount = partition.tombstoneCount();
 float tombstoneRatio = partition.tombstoneRatio();
 PartitionState state = partition.state();
 MemorySegment segment = partition.segment();
-CognitiveRecordLayout layout = partition.layout();
+EngramLayout layout = partition.layout();
 
 // Lifecycle operations
 partition.seal();                          // Prevent further writes

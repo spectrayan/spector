@@ -13,8 +13,8 @@
 package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import org.slf4j.Logger;
@@ -63,7 +63,7 @@ public final class SemanticMemory extends AbstractEngramMemory {
      */
     public SemanticMemory(int quantizedVecBytes, int capacity) {
         super(MemoryType.SEMANTIC, quantizedVecBytes, capacity,
-                (long) new CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
+                (long) new EngramLayout(quantizedVecBytes).stride() * capacity);
 
         log.info("SemanticMemory initialized: capacity={}, stride={}B, persistent=false, headerVersion=V{}",
                 capacity, layout.stride(), layout.headerLayout().version());
@@ -78,7 +78,7 @@ public final class SemanticMemory extends AbstractEngramMemory {
      */
     public SemanticMemory(int quantizedVecBytes, int capacity, Path filePath) {
         super(MemoryType.SEMANTIC, quantizedVecBytes, capacity,
-                (long) new CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
+                (long) new EngramLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
 
         log.info("SemanticMemory initialized: capacity={}, stride={}B, persistent=true, count={}, headerVersion=V{}",
@@ -107,7 +107,7 @@ public final class SemanticMemory extends AbstractEngramMemory {
 
     private SemanticMemory(Arena arena, MemorySegment regionSlice, int capacity,
                            int quantizedVecBytes, Path bundlePath, boolean isNew) {
-        super(MemoryType.SEMANTIC, new CognitiveRecordLayout(quantizedVecBytes),
+        super(MemoryType.SEMANTIC, new EngramLayout(quantizedVecBytes),
               capacity, arena, regionSlice, bundlePath, isNew);
     }
 
@@ -117,13 +117,13 @@ public final class SemanticMemory extends AbstractEngramMemory {
     }
 
     @Override
-    public long write(CognitiveHeader header, byte[] quantizedVec) {
+    public long write(EncodingHeader header, byte[] quantizedVec) {
         long offset = dataOffset() + (long) getCount() * layout.stride();
         append(header, quantizedVec);
         return offset;
     }
 
-    public int store(CognitiveHeader header) {
+    public int store(EncodingHeader header) {
         writeLock.lock();
         try {
             if (getCount() >= capacity()) {
@@ -142,7 +142,7 @@ public final class SemanticMemory extends AbstractEngramMemory {
         }
     }
 
-    public CognitiveHeader readHeader(int index) {
+    public EncodingHeader readHeader(int index) {
         long offset = dataOffset() + (long) index * layout.stride();
         return layout.readHeader(segment(), offset);
     }

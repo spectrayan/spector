@@ -18,8 +18,8 @@ import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -37,11 +37,11 @@ class SynapticPruningRelayTest {
     @Test
     @DisplayName("Downscales low importance memories and prunes below min-importance threshold")
     void testDeepSleepPruning() {
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        EngramLayout layout = new EngramLayout(DIMS);
         EpisodicRecordMemory episodicMemory = new EpisodicRecordMemory(DIMS, 100);
         WorkingMemory workingMemory = new WorkingMemory(DIMS, 100);
 
-        CognitiveHeader weakHeader = new CognitiveHeader(
+        EncodingHeader weakHeader = new EncodingHeader(
                 System.currentTimeMillis() - 100_000_000L, // old timestamp
                 0L,
                 1.0f,

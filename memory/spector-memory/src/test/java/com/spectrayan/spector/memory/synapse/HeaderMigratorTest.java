@@ -15,7 +15,8 @@ package com.spectrayan.spector.memory.synapse;
 import com.spectrayan.spector.memory.cortex.StrengthMemory;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout.StrengthState;
@@ -133,7 +134,7 @@ class HeaderMigratorTest {
             try (Arena arena = Arena.ofConfined()) {
                 MemorySegment seg = fc.map(FileChannel.MapMode.READ_WRITE, 0, totalSize, arena);
                 RegionPreamble.write(seg, 0, 1, MemoryShape.RECORD, 1, capacity, recordCount,
-                        v1Stride, CognitiveRecordLayout.LAYOUT_ID, 1000L, 2000L);
+                        v1Stride, EngramLayout.LAYOUT_ID, 1000L, 2000L);
 
                 for (int i = 0; i < recordCount; i++) {
                     long recOff = RegionPreamble.PREAMBLE_BYTES + (long) i * v1Stride;

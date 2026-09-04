@@ -27,7 +27,7 @@ import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -109,7 +109,7 @@ public final class ProceduralCrystallizationRelay implements SynapticRelay<Refle
                     byte procFlags = EncodingHeaderFields.withMemoryType(
                             (byte) 0, MemoryType.PROCEDURAL.ordinal());
                     short soulVer = signal.rememberPathway().currentSoulVersion();
-                    CognitiveHeader header = CognitiveHeader.createSynthetic(
+                    EncodingHeader header = EncodingHeader.createSynthetic(
                             System.currentTimeMillis(), 0L, exactNorm, 1.0f,
                             (byte) 0, (byte) 0, procFlags,
                             EncodingHeaderFields.FLAG_CRYSTALLIZED,

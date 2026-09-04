@@ -16,8 +16,8 @@ import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -48,7 +48,7 @@ import java.util.Map;
  * <ol>
  *   <li>Queries HNSW for {@code topK * semanticCandidateMultiplier} candidates</li>
  *   <li>Resolves each candidate ID to its physical partition and offset via {@link MemoryIndex#location(String)}</li>
- *   <li>Reads the 64-byte {@link CognitiveHeader} from the partition's off-heap slab segment</li>
+ *   <li>Reads the 64-byte {@link EncodingHeader} from the partition's off-heap slab segment</li>
  *   <li>Applies tombstones, contradiction gating, temporal bounds, synaptic tags / hyperfocus, valence, and importance filtering</li>
  *   <li>Computes the fused cognitive score (similarity + decay * importance * tag boost)</li>
  *   <li>Sorts and returns the top-K cognitive results</li>
@@ -132,7 +132,7 @@ public final class SemanticRecallStrategy {
 
             if (store == null) continue;
 
-            CognitiveRecordLayout layout = store.cognitiveLayout();
+            EngramLayout layout = store.cognitiveLayout();
             MemorySegment headerSlab = store.primarySegment();
 
             // Bounds check: ensure we're within the slab
@@ -140,7 +140,7 @@ public final class SemanticRecallStrategy {
                 continue;
             }
 
-            CognitiveHeader header = layout.readHeader(headerSlab, headerOffset);
+            EncodingHeader header = layout.readHeader(headerSlab, headerOffset);
 
             // Phase 1: Tombstone check (always applied)
             if (EncodingHeaderFields.isTombstoned(header.flags())) continue;

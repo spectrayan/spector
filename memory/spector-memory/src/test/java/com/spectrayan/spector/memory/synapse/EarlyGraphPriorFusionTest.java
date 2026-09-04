@@ -13,8 +13,8 @@
 package com.spectrayan.spector.memory.synapse;
 
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -36,26 +36,26 @@ class EarlyGraphPriorFusionTest {
 
     private static final int DIMS = 8;
     private SemanticMemory store;
-    private CognitiveRecordLayout layout;
+    private EngramLayout layout;
     private float[] queryVector;
     private long nowMs;
 
     @BeforeEach
     void setUp() {
         store = new SemanticMemory(DIMS, 10);
-        layout = new CognitiveRecordLayout(DIMS);
+        layout = new EngramLayout(DIMS);
         nowMs = System.currentTimeMillis();
         queryVector = new float[]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
 
         byte flags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
 
         // Record 0: Novel memory (perfect similarity, zero prior)
-        CognitiveHeader h0 = new CognitiveHeader(nowMs, 0L, 1.0f, 5.0f, 0, (short) 0, (byte) 0, flags);
+        EncodingHeader h0 = new EncodingHeader(nowMs, 0L, 1.0f, 5.0f, 0, (short) 0, (byte) 0, flags);
         byte[] v0 = new byte[]{(byte) 255, (byte) 128, (byte) 128, (byte) 128, (byte) 128, (byte) 128, (byte) 128, (byte) 128};
         store.append(h0, v0);
 
         // Record 1: Associative memory (slightly lower similarity, has graph prior)
-        CognitiveHeader h1 = new CognitiveHeader(nowMs, 0L, 1.0f, 5.0f, 0, (short) 0, (byte) 0, flags);
+        EncodingHeader h1 = new EncodingHeader(nowMs, 0L, 1.0f, 5.0f, 0, (short) 0, (byte) 0, flags);
         byte[] v1 = new byte[]{(byte) 230, (byte) 150, (byte) 128, (byte) 128, (byte) 128, (byte) 128, (byte) 128, (byte) 128};
         store.append(h1, v1);
     }

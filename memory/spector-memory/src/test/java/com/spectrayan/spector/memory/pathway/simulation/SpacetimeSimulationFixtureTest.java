@@ -21,8 +21,8 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
 import com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -169,17 +169,17 @@ class SpacetimeSimulationFixtureTest {
         @DisplayName("Fixture D: Dream memory with future timestamp (t_s > now) is dropped by default recall, admitted when allowFuture=true")
         void syntheticDreamRowDroppedByDefaultRecall() {
             final SemanticMemory store = new SemanticMemory(DIMS, 10);
-            final CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+            final EngramLayout layout = new EngramLayout(DIMS);
             final long now = System.currentTimeMillis();
 
             // Record 0: Factual waking memory
-            final CognitiveHeader wakingHeader = new CognitiveHeader(
+            final EncodingHeader wakingHeader = new EncodingHeader(
                     now - 3600_000L, 0L, 1.0f, 5.0f, 0, (short) 0, (byte) 0, (byte) 0);
             store.append(wakingHeader, new byte[layout.quantizedVecBytes()]);
 
             // Record 1: Synthetic future dream memory (t_s = now + 1 day, FLAG_DREAMED | FLAG_SIMULATED)
             final byte dreamConsolidationFlags = (byte) (EncodingHeaderFields.FLAG_DREAMED | EncodingHeaderFields.FLAG_SIMULATED);
-            final CognitiveHeader dreamHeader = new CognitiveHeader(
+            final EncodingHeader dreamHeader = new EncodingHeader(
                     now + ONE_DAY_MS, 0L, 1.0f, 6.0f, 0, (short) 0, (byte) 0, (byte) 0,
                     (byte) 0, 1.0f, (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f, dreamConsolidationFlags);
             store.append(dreamHeader, new byte[layout.quantizedVecBytes()]);

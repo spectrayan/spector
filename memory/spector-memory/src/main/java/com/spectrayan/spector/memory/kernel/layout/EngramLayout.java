@@ -22,9 +22,9 @@ import java.lang.foreign.ValueLayout;
 import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
- * Read/write operations for cognitive memory records.
+ * Read/write operations for engram memory records.
  *
- * <p>A cognitive record = 64-byte synaptic header + quantized vector payload.
+ * <p>An engram record = 64-byte encoding header + quantized vector payload.
  * This layout is the zero-copy Panama FFM memory layout specific to
  * {@code spector-memory}.</p>
  *
@@ -44,8 +44,9 @@ import com.spectrayan.spector.memory.kernel.RegionLayout;
  * @param headerLayout      the encoding header layout to use for read/write
  *
  * @see EncodingHeaderLayout
+ * @see EncodingHeader
  */
-public record CognitiveRecordLayout(int quantizedVecBytes, EncodingHeaderLayout headerLayout) implements RegionLayout {
+public record EngramLayout(int quantizedVecBytes, EncodingHeaderLayout headerLayout) implements RegionLayout {
 
     public static final int LAYOUT_ID = 0x434F4700; // 'COG\0'
 
@@ -54,7 +55,7 @@ public record CognitiveRecordLayout(int quantizedVecBytes, EncodingHeaderLayout 
      *
      * @param quantizedVecBytes bytes per quantized vector payload
      */
-    public CognitiveRecordLayout(int quantizedVecBytes) {
+    public EngramLayout(int quantizedVecBytes) {
         this(quantizedVecBytes, EncodingHeaderLayout.defaultLayout());
     }
 
@@ -80,7 +81,7 @@ public record CognitiveRecordLayout(int quantizedVecBytes, EncodingHeaderLayout 
 
     @Override
     public String name() {
-        return "CognitiveRecordLayout";
+        return "EngramLayout";
     }
 
     /**
@@ -100,16 +101,16 @@ public record CognitiveRecordLayout(int quantizedVecBytes, EncodingHeaderLayout 
     // ── Write operations (delegate to HeaderLayout) ──
 
     /**
-     * Writes a complete cognitive header to the given segment at the specified record offset.
+     * Writes a complete encoding header to the given segment at the specified record offset.
      */
-    public void writeHeader(MemorySegment segment, long offset, CognitiveHeader header) {
+    public void writeHeader(MemorySegment segment, long offset, EncodingHeader header) {
         headerLayout.writeHeader(segment, offset, header);
     }
 
     /**
-     * Reads a complete cognitive header from the given segment at the specified record offset.
+     * Reads a complete encoding header from the given segment at the specified record offset.
      */
-    public CognitiveHeader readHeader(MemorySegment segment, long offset) {
+    public EncodingHeader readHeader(MemorySegment segment, long offset) {
         return headerLayout.readHeader(segment, offset);
     }
 
@@ -380,182 +381,5 @@ public record CognitiveRecordLayout(int quantizedVecBytes, EncodingHeaderLayout 
                                       float[] vector, ScalarQuantizer quantizer) {
         byte[] quantized = quantizer.encode(vector);
         writeQuantizedVector(segment, recordOffset, quantized);
-    }
-
-    /**
-     * Immutable record holding all header fields across all layout versions.
-     *
-     * <p>V1-only code can use the 8-arg constructor; the extended fields
-     * default to {@code arousal=0} and {@code storageStrength=1.0f}.</p>
-     *
-     * <p><b>TODO (JDK 28+ / Project Valhalla):</b> Convert to {@code value record} once
-     * JEP 401 (Value Classes) is available. As a value class, CognitiveHeader would
-     * be identity-free and scalarizable by the JIT — the 30 bytes of payload would
-     * live in CPU registers instead of as a 48-byte heap object. When nested inside
-     * {@code ScoredRecord} (also a value class), both would be flattened inline,
-     * eliminating pointer indirection and reducing per-candidate cost from ~96B
-     * heap to 0B (scalarized). Specialized generics (JEP 402) would further enable
-     * flat storage in generic collections like {@code PriorityQueue}.</p>
-     *
-     * @param timestampMs     when the memory was formed (epoch millis)
-     * @param synapticTags    64-bit Bloom filter of contextual markers
-     * @param exactNorm       L2 norm for SIMD distance computation
-     * @param importance      base importance (set by Prediction Error engine)
-     * @param agentRecallCount     LTP reinforcement counter
-     * @param centroidId      IVF partition routing ID
-     * @param valence         signed emotion/reward (-128 to +127)
-     * @param flags           bit field (tombstone, type, consolidated, pinned, resolved)
-     * @param arousal         emotional intensity (unsigned 0-255, V2+)
-     * @param storageStrength Two-Factor Memory storage strength (V2+, default 1.0f)
-     * @param encodingProfile   cognitive state at encoding (bit7=soul-derived, bits0-3=profile ordinal)
-     * @param encodingAlpha     quantized alpha weight at encoding (0-255 → 0.0-1.0)
-     * @param encodingBeta      quantized beta weight at encoding (0-255 → 0.0-1.0)
-     * @param soulVersion       monotonic soul configuration version counter
-     * @param encodingSurprise  surprise z-score from SurpriseDetector at ingestion
-     * @param consolidationFlags provenance & consolidation flags (V3+, offset 34; e.g., FLAG_SIMULATED, FLAG_CRYSTALLIZED)
-     */
-    public record CognitiveHeader(
-            long timestampMs,
-            long synapticTags,
-            float exactNorm,
-            float importance,
-            int agentRecallCount,
-            short centroidId,
-            byte valence,
-            byte flags,
-            // ── Extended fields (V2+) ──
-            byte arousal,
-            float storageStrength,
-            // ── Encoding State ──
-            byte encodingProfile,
-            byte encodingAlpha,
-            byte encodingBeta,
-            short soulVersion,
-            float encodingSurprise,
-            // ── Provenance (V3+) ──
-            byte consolidationFlags
-    ) {
-        /**
-         * V1-compatible constructor — defaults for extended fields.
-         *
-         * <p>Provides backward compatibility for code that constructs headers
-         * without arousal or storage strength fields.</p>
-         */
-        public CognitiveHeader(long timestampMs, long synapticTags, float exactNorm,
-                                float importance, int agentRecallCount, short centroidId,
-                                byte valence, byte flags) {
-            this(timestampMs, synapticTags, exactNorm, importance,
-                 agentRecallCount, centroidId, valence, flags,
-                 (byte) 0, 1.0f,
-                 (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
-                 (byte) 0);
-        }
-
-        /**
-         * V2-compatible constructor — defaults for encoding state fields.
-         */
-        public CognitiveHeader(long timestampMs, long synapticTags, float exactNorm,
-                                float importance, int agentRecallCount, short centroidId,
-                                byte valence, byte flags,
-                                byte arousal, float storageStrength) {
-            this(timestampMs, synapticTags, exactNorm, importance,
-                 agentRecallCount, centroidId, valence, flags,
-                 arousal, storageStrength,
-                 (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
-                 (byte) 0);
-        }
-
-        /**
-         * Creates a new header for initial ingestion with default recall count and valence.
-         */
-        public static CognitiveHeader create(long timestampMs, long synapticTags, float exactNorm,
-                                              float importance, short centroidId, MemoryType memoryType) {
-            byte flags = EncodingHeaderFields.withMemoryType((byte) 0, memoryType.ordinal());
-            return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
-                    0, centroidId, (byte) 0, flags,
-                    (byte) 0, 1.0f,
-                    (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
-                    (byte) 0);
-        }
-
-        /**
-         * Creates a new header with arousal for V2+ ingestion.
-         */
-        public static CognitiveHeader createWithArousal(long timestampMs, long synapticTags,
-                                                          float exactNorm, float importance,
-                                                          short centroidId, MemoryType memoryType,
-                                                          byte valence, byte arousal) {
-            byte flags = EncodingHeaderFields.withMemoryType((byte) 0, memoryType.ordinal());
-            return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
-                    0, centroidId, valence, flags, arousal, 1.0f,
-                    (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
-                    (byte) 0);
-        }
-
-        /**
-         * Creates a new header with source modality for multimodal ingestion.
-         *
-         * <p>Encodes both the memory type (bits 1-2) and source modality (bits 6-7)
-         * into the flags byte. Used by the ingestion pipeline when processing
-         * non-text content (images, audio, video).</p>
-         *
-         * @param timestampMs  when the memory was formed (epoch millis)
-         * @param synapticTags 64-bit Bloom filter of contextual markers
-         * @param exactNorm    L2 norm for SIMD distance computation
-         * @param importance   base importance (set by Prediction Error engine)
-         * @param centroidId   IVF partition routing ID
-         * @param memoryType   cognitive memory tier
-         * @param modality     source modality (TEXT, IMAGE, AUDIO, VIDEO)
-         * @param valence      signed emotion/reward (-128 to +127)
-         * @param arousal      emotional intensity (unsigned 0-255)
-         */
-        public static CognitiveHeader createWithModality(long timestampMs, long synapticTags,
-                                                          float exactNorm, float importance,
-                                                          short centroidId, MemoryType memoryType,
-                                                          SourceModality modality,
-                                                          byte valence, byte arousal) {
-            byte flags = EncodingHeaderFields.withMemoryType((byte) 0, memoryType.ordinal());
-            if (modality != null && modality != SourceModality.TEXT) {
-                flags = EncodingHeaderFields.withSourceModality(flags, modality.ordinal());
-            }
-            return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
-                    0, centroidId, valence, flags, arousal, 1.0f,
-                    (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
-                    (byte) 0);
-        }
-
-        /**
-         * Creates a new header with full encoding state for V3+ ingestion.
-         */
-        public static CognitiveHeader createWithEncodingState(
-                long timestampMs, long synapticTags, float exactNorm, float importance,
-                short centroidId, MemoryType memoryType, SourceModality modality,
-                byte valence, byte arousal,
-                byte encodingProfile, byte encodingAlpha, byte encodingBeta,
-                short soulVersion, float encodingSurprise) {
-            byte flags = EncodingHeaderFields.withMemoryType((byte) 0, memoryType.ordinal());
-            if (modality != null && modality != SourceModality.TEXT) {
-                flags = EncodingHeaderFields.withSourceModality(flags, modality.ordinal());
-            }
-            return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
-                    0, centroidId, valence, flags, arousal, 1.0f,
-                    encodingProfile, encodingAlpha, encodingBeta,
-                    soulVersion, encodingSurprise,
-                    (byte) 0);
-        }
-
-        /**
-         * Creates a new header for synthetically generated memories (constructive simulation,
-         * procedural crystallization) with explicit consolidation/provenance flags and current soul version.
-         */
-        public static CognitiveHeader createSynthetic(
-                long timestampMs, long synapticTags, float exactNorm, float importance,
-                byte valence, byte arousal, byte flags,
-                byte consolidationFlags, short soulVersion, float encodingSurprise) {
-            return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
-                    0, (short) 0, valence, flags, arousal, 1.0f,
-                    (byte) 0, (byte) 0, (byte) 0, soulVersion, encodingSurprise,
-                    consolidationFlags);
-        }
     }
 }

@@ -15,8 +15,8 @@ package com.spectrayan.spector.memory.pathway.reflect.daemon;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,14 +54,14 @@ class TombstoneCompactorRebuildTest {
         try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             // Add 100 records
             for (int i = 0; i < 100; i++) {
-                CognitiveHeader header = CognitiveHeader.create(
+                EncodingHeader header = EncodingHeader.create(
                         System.currentTimeMillis(), (long) i, 1.0f,
                         (float) i / 10, (short) 0, MemoryType.EPISODIC);
                 store.append(header, makeVec(i));
             }
 
             EpisodicPartition partition = store.partitions().getFirst();
-            CognitiveRecordLayout layout = partition.layout();
+            EngramLayout layout = partition.layout();
             MemorySegment segment = partition.segment();
 
             // Tombstone 40 records (indices 0-39)
@@ -84,7 +84,7 @@ class TombstoneCompactorRebuildTest {
             assertThat(compacted.tombstoneCount()).isEqualTo(0);
 
             // Verify compacted partition has correct data (records 40-99 from original)
-            CognitiveRecordLayout compactedLayout = compacted.layout();
+            EngramLayout compactedLayout = compacted.layout();
             MemorySegment compactedSegment = compacted.segment();
 
             // First live record in compacted should have importance of index 40 → 4.0f
@@ -106,13 +106,13 @@ class TombstoneCompactorRebuildTest {
         try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             // Add 10 records with distinctive vectors
             for (int i = 0; i < 10; i++) {
-                CognitiveHeader header = CognitiveHeader.create(
+                EncodingHeader header = EncodingHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC);
                 store.append(header, makeVec(i * 100)); // distinctive seed
             }
 
             EpisodicPartition partition = store.partitions().getFirst();
-            CognitiveRecordLayout layout = partition.layout();
+            EngramLayout layout = partition.layout();
             MemorySegment segment = partition.segment();
 
             // Tombstone records 0, 2, 4 (keep 1, 3, 5, 6, 7, 8, 9)
@@ -143,13 +143,13 @@ class TombstoneCompactorRebuildTest {
     void buildOffsetRemapProducesCorrectMapping() {
         try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             for (int i = 0; i < 10; i++) {
-                CognitiveHeader header = CognitiveHeader.create(
+                EncodingHeader header = EncodingHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC);
                 store.append(header, makeVec(i));
             }
 
             EpisodicPartition partition = store.partitions().getFirst();
-            CognitiveRecordLayout layout = partition.layout();
+            EngramLayout layout = partition.layout();
 
             // Tombstone records 3, 5, 7
             for (int idx : new int[]{3, 5, 7}) {
@@ -184,13 +184,13 @@ class TombstoneCompactorRebuildTest {
     void replacePartitionSwapsInStore() {
         try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             for (int i = 0; i < 20; i++) {
-                CognitiveHeader header = CognitiveHeader.create(
+                EncodingHeader header = EncodingHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC);
                 store.append(header, makeVec(i));
             }
 
             EpisodicPartition partition = store.partitions().getFirst();
-            CognitiveRecordLayout layout = partition.layout();
+            EngramLayout layout = partition.layout();
 
             // Tombstone 10 records
             for (int i = 0; i < 10; i++) {
@@ -219,7 +219,7 @@ class TombstoneCompactorRebuildTest {
     void compactWithAllTombstonedReturnsNull() {
         try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             for (int i = 0; i < 5; i++) {
-                store.append(CognitiveHeader.create(
+                store.append(EncodingHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC), makeVec(i));
             }
 
@@ -239,7 +239,7 @@ class TombstoneCompactorRebuildTest {
     void shouldCompactRespectThreshold() {
         try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             for (int i = 0; i < 10; i++) {
-                store.append(CognitiveHeader.create(
+                store.append(EncodingHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC), makeVec(i));
             }
 

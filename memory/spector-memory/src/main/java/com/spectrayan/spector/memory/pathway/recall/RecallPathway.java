@@ -28,7 +28,7 @@ import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -84,8 +84,8 @@ import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.sync.ReplaySnapshot;
 import com.spectrayan.spector.memory.sync.WalReplayer;
@@ -434,7 +434,7 @@ public final class RecallPathway {
             }
 
             final List<CognitiveResult> results = new ArrayList<>();
-            final CognitiveRecordLayout layout = new CognitiveRecordLayout(quantizedVecBytes);
+            final EngramLayout layout = new EngramLayout(quantizedVecBytes);
 
             for (final String memId : snapshot.index().allIds()) {
                 final var loc = snapshot.index().locate(memId);
@@ -641,7 +641,7 @@ public final class RecallPathway {
     }
 
     private List<CognitiveResult> scoreStoreToList(final MemorySegment segment, final int recordCount,
-                                                   final CognitiveRecordLayout layout, final float[] queryVector,
+                                                   final EngramLayout layout, final float[] queryVector,
                                                    final RecallOptions options, final long nowMs, final MemoryType type,
                                                    final long baseOffset, final int partitionSeq) {
         com.spectrayan.spector.memory.synapse.QueryAssociativeContext priorContext = null;
@@ -667,7 +667,7 @@ public final class RecallPathway {
         return results;
     }
 
-    private CognitiveResult headerToResult(final ScoredRecord sr, final CognitiveHeader header, final MemoryType type,
+    private CognitiveResult headerToResult(final ScoredRecord sr, final EncodingHeader header, final MemoryType type,
                                            final int partitionSeq) {
         final String id = index.findIdByOffset(partitionSeq, type, sr.offset());
         final String text = id != null ? index.text(id) : "";

@@ -17,8 +17,8 @@ import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
 import com.spectrayan.spector.memory.cortex.WorkingMemory;
@@ -98,14 +98,14 @@ class PerformanceBenchmarkTest {
     }
 
     // ==============================================================
-    // P8: ScoredRecord carries CognitiveHeader (no double read)
+    // P8: ScoredRecord carries EncodingHeader (no double read)
     // ==============================================================
 
     @Test
     @Order(2)
-    @DisplayName("P8: ScoredRecord carries CognitiveHeader  --  no re-read needed")
+    @DisplayName("P8: ScoredRecord carries EncodingHeader  --  no re-read needed")
     void p8_scoredRecordContainsHeader() {
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 System.currentTimeMillis(), 0x1234L, 1.0f, 0.8f,
                 5, (short) 42, (byte) 10, (byte) 0);
 
@@ -248,7 +248,7 @@ class PerformanceBenchmarkTest {
     void cognitiveScorer_fullPipelineTiming() {
         int dims = DIMS;
         int count = 10_000;
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(dims);
+        EngramLayout layout = new EngramLayout(dims);
         int stride = layout.stride();
 
         // Build calibration
@@ -269,7 +269,7 @@ class PerformanceBenchmarkTest {
 
             for (int i = 0; i < count; i++) {
                 long offset = (long) i * stride;
-                CognitiveHeader header = CognitiveHeader.create(
+                EncodingHeader header = EncodingHeader.create(
                         System.currentTimeMillis() - rng.nextInt(86_400_000),
                         rng.nextLong(), 1.0f,
                         0.3f + rng.nextFloat() * 0.7f,

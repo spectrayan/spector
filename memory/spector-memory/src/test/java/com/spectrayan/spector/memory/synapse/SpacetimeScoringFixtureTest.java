@@ -15,8 +15,8 @@ package com.spectrayan.spector.memory.synapse;
 import com.spectrayan.spector.core.spacetime.Time2VecProjector;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.StrengthMemory;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -52,16 +52,16 @@ class SpacetimeScoringFixtureTest {
         @DisplayName("Fixture E: Future memory (t_i > t_q) is hard-dropped when allowFuture=false")
         void futureMemoryDroppedByDefault() {
             final SemanticMemory store = new SemanticMemory(DIMS, 10);
-            final CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+            final EngramLayout layout = new EngramLayout(DIMS);
             final long now = System.currentTimeMillis();
 
             // Record 0: Normal past memory
-            final CognitiveHeader pastHeader = new CognitiveHeader(
+            final EncodingHeader pastHeader = new EncodingHeader(
                     now - 60_000L, 0L, 1.0f, 5.0f, 0, (short) 0, (byte) 0, (byte) 0);
             store.append(pastHeader, new byte[layout.quantizedVecBytes()]);
 
             // Record 1: Future memory (tomorrow)
-            final CognitiveHeader futureHeader = new CognitiveHeader(
+            final EncodingHeader futureHeader = new EncodingHeader(
                     now + ONE_DAY_MS, 0L, 1.0f, 9.0f, 0, (short) 0, (byte) 0, (byte) 0);
             store.append(futureHeader, new byte[layout.quantizedVecBytes()]);
 
@@ -85,11 +85,11 @@ class SpacetimeScoringFixtureTest {
         @DisplayName("Fixture E: Future memory (t_i > t_q) is admitted when allowFuture=true (DMN mode)")
         void futureMemoryAdmittedInDmnMode() {
             final SemanticMemory store = new SemanticMemory(DIMS, 10);
-            final CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+            final EngramLayout layout = new EngramLayout(DIMS);
             final long now = System.currentTimeMillis();
 
             // Record 0: Future memory (tomorrow)
-            final CognitiveHeader futureHeader = new CognitiveHeader(
+            final EncodingHeader futureHeader = new EncodingHeader(
                     now + ONE_DAY_MS, 0L, 1.0f, 8.0f, 0, (short) 0, (byte) 0, (byte) 0);
             store.append(futureHeader, new byte[layout.quantizedVecBytes()]);
 
@@ -117,7 +117,7 @@ class SpacetimeScoringFixtureTest {
         @DisplayName("Fixture A: High-mass memory with I < 1.0 is exempted from stale pruning via M >= 0.30")
         void highMassExemptsLowImportanceStaleMemory() {
             final SemanticMemory store = new SemanticMemory(DIMS, 10);
-            final CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+            final EngramLayout layout = new EngramLayout(DIMS);
             final long now = System.currentTimeMillis();
 
             // Record 0: 5-year-old memory with low base importance (0.8 < 1.0) but high arousal (240) and storage strength (4.0)
@@ -131,12 +131,12 @@ class SpacetimeScoringFixtureTest {
             // Record 0: High-mass memory (I=0.8 < 1.0, A=240, S=4.0) -> Survives Phase 4 via M >= FLASHBULB_MASS_FLOOR exemption
             final byte flagsResolved = EncodingHeaderFields.withMemoryType(
                     EncodingHeaderFields.FLAG_RESOLVED, MemoryType.EPISODIC.ordinal());
-            final CognitiveHeader highMassHeader = new CognitiveHeader(
+            final EncodingHeader highMassHeader = new EncodingHeader(
                     now - FIVE_YEARS_MS, 0L, 1.0f, 0.8f, 0, (short) 0, (byte) 50, flagsResolved, (byte) 240, 4.0f);
             store.append(highMassHeader, new byte[layout.quantizedVecBytes()]);
 
             // Record 1: Stale & weak control memory (5 years old, I=0.5 < 1.0, A=0, S=1.0, RESOLVED) -> Must be pruned
-            final CognitiveHeader lowMassHeader = new CognitiveHeader(
+            final EncodingHeader lowMassHeader = new EncodingHeader(
                     now - FIVE_YEARS_MS, 0L, 1.0f, 0.5f, 0, (short) 0, (byte) 0, flagsResolved, (byte) 0, 1.0f);
             store.append(lowMassHeader, new byte[layout.quantizedVecBytes()]);
 

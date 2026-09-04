@@ -16,7 +16,7 @@ import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -111,7 +111,7 @@ public final class ConstructiveMemoryPersistenceRelay implements SynapticRelay<R
                 byte procFlags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal());
                 float norm = VectorOps.magnitude(vector);
                 short soulVer = rememberPathway.currentSoulVersion();
-                CognitiveHeader header = CognitiveHeader.createSynthetic(
+                EncodingHeader header = EncodingHeader.createSynthetic(
                         System.currentTimeMillis(), 0L, norm, result.importance(),
                         result.valence(), (byte) 128, procFlags,
                         EncodingHeaderFields.FLAG_SIMULATED,

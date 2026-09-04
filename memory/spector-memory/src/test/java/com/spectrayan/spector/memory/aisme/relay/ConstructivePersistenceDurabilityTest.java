@@ -13,8 +13,8 @@
 package com.spectrayan.spector.memory.aisme.relay;
 
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
 import org.junit.jupiter.api.DisplayName;
@@ -32,7 +32,7 @@ class ConstructivePersistenceDurabilityTest {
     @Test
     @DisplayName("MR-01: Persisted synthetic simulation retains FLAG_SIMULATED, arousal, and soulVersion across store operations")
     void testSyntheticMemoryDurabilityInSemanticStore() {
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        EngramLayout layout = new EngramLayout(DIMS);
         SemanticMemory semanticStore = new SemanticMemory(DIMS, 100);
 
         long timestamp = System.currentTimeMillis();
@@ -42,7 +42,7 @@ class ConstructivePersistenceDurabilityTest {
         byte valence = (byte) 25;
         float importance = 8.2f;
 
-        CognitiveHeader syntheticHeader = CognitiveHeader.createSynthetic(
+        EncodingHeader syntheticHeader = EncodingHeader.createSynthetic(
                 timestamp, 0x55AAL, 1.0f, importance,
                 valence, arousal, procFlags,
                 EncodingHeaderFields.FLAG_SIMULATED,
@@ -57,8 +57,8 @@ class ConstructivePersistenceDurabilityTest {
         byte cFlags = layout.readConsolidationFlags(semanticStore.segment(), offset);
         assertThat(EncodingHeaderFields.isSimulated(cFlags)).isTrue();
 
-        // 2. Full CognitiveHeader read
-        CognitiveHeader readHeader = layout.readHeader(semanticStore.segment(), offset);
+        // 2. Full EncodingHeader read
+        EncodingHeader readHeader = layout.readHeader(semanticStore.segment(), offset);
         assertThat(EncodingHeaderFields.isSimulated(readHeader.consolidationFlags())).isTrue();
         assertThat(readHeader.arousal()).isEqualTo(arousal); // Must NOT be corrupted to FLAG_SIMULATED (32)
         assertThat(readHeader.valence()).isEqualTo(valence);

@@ -24,7 +24,8 @@ import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.SalienceProfile;
@@ -319,7 +320,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
             final MemoryType type,
             final String[] tags,
             final MemorySource source,
-            final com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader preservedHeader) {
+            final com.spectrayan.spector.memory.kernel.layout.EncodingHeader preservedHeader) {
         final RememberSignal signal = RememberSignal.forCognitiveWithHeader(
                 id, text, vector, type, tags, source, preservedHeader
         );

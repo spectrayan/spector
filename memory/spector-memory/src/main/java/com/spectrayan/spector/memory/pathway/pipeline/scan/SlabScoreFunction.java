@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.pathway.pipeline.scan;
 
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -24,7 +24,7 @@ import java.util.List;
  */
 @FunctionalInterface
 public interface SlabScoreFunction {
-    List<CognitiveResult> score(MemorySegment segment, int recordCount, CognitiveRecordLayout layout,
+    List<CognitiveResult> score(MemorySegment segment, int recordCount, EngramLayout layout,
                                 float[] queryVector, RecallOptions options, long nowMs,
                                 MemoryType type, long baseOffset, int partitionSeq);
 }

@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pathway.remember.relay;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.SalienceProfile;
@@ -47,7 +47,7 @@ public final class RememberSignal {
     private float nearestDist;
     private float importance;
     private boolean flashbulb;
-    private CognitiveHeader header;
+    private EncodingHeader header;
     private long offset = -1L;
     private int graphSlot = -1;
     private boolean duplicate = false;
@@ -123,7 +123,7 @@ public final class RememberSignal {
             final MemoryType type,
             final String[] tags,
             final MemorySource source,
-            final CognitiveHeader header) {
+            final EncodingHeader header) {
         final RememberSignal signal = new RememberSignal(
                 id, text, vector, type, tags, source, null, null,
                 SalienceProfile.NEUTRAL, header != null ? header.soulVersion() : 0,
@@ -180,8 +180,8 @@ public final class RememberSignal {
     public boolean isFlashbulb() { return flashbulb; }
     public void flashbulb(final boolean flashbulb) { this.flashbulb = flashbulb; }
 
-    public CognitiveHeader header() { return header; }
-    public void header(final CognitiveHeader header) { this.header = header; }
+    public EncodingHeader header() { return header; }
+    public void header(final EncodingHeader header) { this.header = header; }
 
     public long offset() { return offset; }
     public void offset(final long offset) { this.offset = offset; }

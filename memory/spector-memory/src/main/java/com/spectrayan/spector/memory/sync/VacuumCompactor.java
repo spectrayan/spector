@@ -23,8 +23,8 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
 
@@ -79,7 +79,7 @@ public final class VacuumCompactor {
                                             MemoryIndex index) {
         long startMs = System.currentTimeMillis();
 
-        CognitiveRecordLayout layout = store.cognitiveLayout();
+        EngramLayout layout = store.cognitiveLayout();
         int totalRecords = store.size();
         long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0;
         int stride = layout.stride();
@@ -89,7 +89,7 @@ public final class VacuumCompactor {
         int tombstoneCount = 0;
         for (int i = 0; i < totalRecords; i++) {
             long offset = baseOffset + (long) i * stride;
-            CognitiveHeader header = layout.readHeader(store.segment(), offset);
+            EncodingHeader header = layout.readHeader(store.segment(), offset);
             if (EncodingHeaderFields.isTombstoned(header.flags())) {
                 tombstoneCount++;
             } else {
@@ -118,7 +118,7 @@ public final class VacuumCompactor {
 
         for (int i = 0; i < totalRecords; i++) {
             long oldOffset = baseOffset + (long) i * stride;
-            CognitiveHeader header = layout.readHeader(store.segment(), oldOffset);
+            EncodingHeader header = layout.readHeader(store.segment(), oldOffset);
 
             if (EncodingHeaderFields.isTombstoned(header.flags())) {
                 continue; // skip tombstoned

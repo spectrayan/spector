@@ -54,7 +54,7 @@ spector-memory/
 │     └── ProceduralMemoryStore.java    (Basal Ganglia — learned procedures)
 │
 ├── synapse/                        ← "Synaptic Machinery" — header layout + scoring
-│     ├── CognitiveRecordLayout.java    (64-byte cache-line-aligned synaptic header)
+│     ├── EngramLayout.java    (64-byte cache-line-aligned synaptic header)
 │     ├── CognitiveScorer.java          (6-phase fused scoring hot-loop)
 │     ├── SynapticTagEncoder.java       (64-bit inline Bloom filter)
 │     ├── EncodingHeaderFields.java     (offsets, masks, field sizes)
@@ -115,7 +115,7 @@ spector-memory/
 |---|---|---|---|
 | 💾 Sub-cortical Core | `kernel/` | `Memory`, `RegionPreamble`, `MemoryShape` | Core Panama storage abstractions (RecordMemory, AppendMemory, etc.) |
 | 🧠 Cerebral Cortex | `cortex/` | `TierRouter`, `TierStore`, 4 stores | 4-tier memory storage (Working → Episodic → Semantic → Procedural) |
-| 🔗 Synapses | `synapse/` | `CognitiveScorer`, `SynapticTagEncoder`, `CognitiveRecordLayout` | 64-byte header, 6-phase scoring, Bloom filter gating |
+| 🔗 Synapses | `synapse/` | `CognitiveScorer`, `SynapticTagEncoder`, `EngramLayout` | 64-byte header, 6-phase scoring, Bloom filter gating |
 | ⚡ Dopamine System | `dopamine/` | `SurpriseDetector`, `FlashbulbPolicy` | Surprise detection, auto-importance, flashbulb pinning |
 | 😱 Amygdala | `amygdala/` | `ValenceTracker` | Emotional coloring (positive/negative/neutral) |
 | 🔄 Hebbian Learning | `hebbian/` | `CoActivationTracker`, `HebbianGraph` | "Neurons that fire together wire together" |

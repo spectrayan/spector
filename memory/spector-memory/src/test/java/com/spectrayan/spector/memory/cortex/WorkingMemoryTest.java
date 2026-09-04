@@ -13,8 +13,8 @@
 package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 import org.junit.jupiter.api.AfterEach;
@@ -100,8 +100,8 @@ class WorkingMemoryTest {
         assertThat(store.capacity()).isEqualTo(5);
     }
 
-    private CognitiveHeader createHeader(String... tags) {
-        return CognitiveHeader.create(
+    private EncodingHeader createHeader(String... tags) {
+        return EncodingHeader.create(
                 System.currentTimeMillis(),
                 SynapticTagEncoder.encode(tags),
                 1.0f,

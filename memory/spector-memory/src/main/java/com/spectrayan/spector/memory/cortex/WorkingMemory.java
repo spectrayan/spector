@@ -14,7 +14,8 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import org.slf4j.Logger;
@@ -66,7 +67,7 @@ public final class WorkingMemory extends AbstractEngramMemory {
      */
     public WorkingMemory(int quantizedVecBytes, int capacity) {
         super(MemoryType.WORKING, quantizedVecBytes, capacity,
-                (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
+                (long) new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes).stride() * capacity);
 
         log.info("WorkingMemory initialized: capacity={}, stride={}B, total={}KB, persistent=false",
                 capacity, layout.stride(), (long) layout.stride() * capacity / 1024);
@@ -85,7 +86,7 @@ public final class WorkingMemory extends AbstractEngramMemory {
      */
     public WorkingMemory(int quantizedVecBytes, int capacity, Path filePath) {
         super(MemoryType.WORKING, quantizedVecBytes, capacity,
-                (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
+                (long) new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
 
         // Restore writeIndex from metadata header extra1 field
@@ -109,7 +110,7 @@ public final class WorkingMemory extends AbstractEngramMemory {
 
     private WorkingMemory(Arena arena, MemorySegment regionSlice, int capacity,
                           int quantizedVecBytes, Path bundlePath, boolean isNew) {
-        super(MemoryType.WORKING, new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes),
+        super(MemoryType.WORKING, new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes),
               capacity, arena, regionSlice, bundlePath, isNew);
         
         // Restore writeIndex from metadata header extra1 field
@@ -140,7 +141,7 @@ public final class WorkingMemory extends AbstractEngramMemory {
     }
 
     @Override
-    public long write(CognitiveHeader header, byte[] quantizedVec) {
+    public long write(EncodingHeader header, byte[] quantizedVec) {
         long offset = dataOffset() + (long) writeIndex * layout.stride();
         put(header, quantizedVec);
         return offset;
@@ -155,7 +156,7 @@ public final class WorkingMemory extends AbstractEngramMemory {
      * @param header       cognitive header for this memory
      * @param quantizedVec the quantized vector bytes
      */
-    public void put(CognitiveHeader header, byte[] quantizedVec) {
+    public void put(EncodingHeader header, byte[] quantizedVec) {
         writeLock.lock();
         try {
             long offset = dataOffset() + (long) writeIndex * layout.stride();

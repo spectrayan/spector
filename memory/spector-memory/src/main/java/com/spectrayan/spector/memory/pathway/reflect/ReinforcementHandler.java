@@ -21,7 +21,8 @@ import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -46,7 +47,8 @@ import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
 import com.spectrayan.spector.memory.pathway.recall.RecallPathway;
 import com.spectrayan.spector.memory.synapse.ActRActivation;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -131,7 +133,7 @@ public final class ReinforcementHandler {
         CognitiveMemoryRouter cognitiveRouter = partitionRegistry.routerFor(loc.colocatedPartition());
         MemorySegment segment = cognitiveRouter.segmentFor(loc.type());
         if (segment != null) {
-            CognitiveRecordLayout layout = cognitiveRouter.layoutFor(loc.type());
+            EngramLayout layout = cognitiveRouter.layoutFor(loc.type());
 
             if (cognitiveRouter.strength() != null) {
                 int slotIndex = (int) (loc.offset() / layout.stride());
@@ -251,7 +253,7 @@ public final class ReinforcementHandler {
         MemorySegment segment = cognitiveRouter.segmentFor(loc.type());
         if (segment == null) return;
 
-        CognitiveRecordLayout layout = cognitiveRouter.layoutFor(loc.type());
+        EngramLayout layout = cognitiveRouter.layoutFor(loc.type());
         var headerLayout = layout.headerLayout();
 
         float oldImportance = layout.readImportance(segment, loc.offset());

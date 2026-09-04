@@ -17,7 +17,7 @@ import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.StrengthMemory;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -46,7 +46,7 @@ class LtpReconsolidationListenerTest {
             CognitiveMemoryRouter router = mock(CognitiveMemoryRouter.class);
 
             final int dimensions = 4;
-            CognitiveRecordLayout layout = new CognitiveRecordLayout(dimensions);
+            EngramLayout layout = new EngramLayout(dimensions);
             MemorySegment engramSegment = arena.allocate(layout.stride() * 2);
 
             // Write a timestamp into slot 0

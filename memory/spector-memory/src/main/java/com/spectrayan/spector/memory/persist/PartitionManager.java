@@ -31,7 +31,7 @@ import com.spectrayan.spector.memory.kernel.bundle.BundleMigrationCli;
 import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
 import com.spectrayan.spector.memory.kernel.bundle.RegionId;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
@@ -382,7 +382,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
 
                 // ── V4 Bundle Mode ──
                 Path bundleFile = StorageLayout.partitionBundleFile(newPartition);
-                CognitiveRecordLayout cogLayout = new CognitiveRecordLayout(quantizedVecBytes);
+                EngramLayout cogLayout = new EngramLayout(quantizedVecBytes);
                 TextBlobLayout textLayout = new TextBlobLayout();
                 long textSize = Long.getLong("spector.memory.text-segment-size", 32 * 1024 * 1024L);
 

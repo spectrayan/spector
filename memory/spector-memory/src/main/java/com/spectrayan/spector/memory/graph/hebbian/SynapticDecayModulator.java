@@ -16,8 +16,8 @@ import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import java.lang.foreign.MemorySegment;
@@ -76,7 +76,7 @@ public final class SynapticDecayModulator implements DecayModulator {
                 CognitiveMemoryRouter.CognitiveRecordBody body = router.readRecordBody(loc, false);
                 if (body == null || body.header() == null) continue;
 
-                CognitiveHeader header = body.header();
+                EncodingHeader header = body.header();
                 if (EncodingHeaderFields.isTombstoned(header.flags())) continue;
 
                 float normArousal = (header.arousal() & 0xFF) / 255.0f;  // unsigned [0,1]
@@ -109,7 +109,7 @@ public final class SynapticDecayModulator implements DecayModulator {
         var episodic = cognitiveRouter.episodic();
         if (episodic == null) return;
 
-        CognitiveRecordLayout layout = episodic.cognitiveLayout();
+        EngramLayout layout = episodic.cognitiveLayout();
         MemorySegment segment = episodic.segment();
         int count = Math.min(episodic.totalRecords(), capacity);
 

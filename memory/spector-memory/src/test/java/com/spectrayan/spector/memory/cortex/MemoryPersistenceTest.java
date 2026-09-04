@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,8 +37,8 @@ class MemoryPersistenceTest {
     @TempDir
     Path tmpDir;
 
-    private CognitiveHeader createHeader(long timestamp, float importance) {
-        return CognitiveHeader.create(timestamp, 0xCAFEL, 1.0f, importance, (short) 0, MemoryType.WORKING);
+    private EncodingHeader createHeader(long timestamp, float importance) {
+        return EncodingHeader.create(timestamp, 0xCAFEL, 1.0f, importance, (short) 0, MemoryType.WORKING);
     }
 
     private byte[] dummyVec(int len, byte fill) {
@@ -110,7 +110,7 @@ class MemoryPersistenceTest {
         // Write 3 headers
         try (var store = new SemanticMemory(VEC_BYTES, CAPACITY, file)) {
             for (int i = 0; i < 3; i++) {
-                var header = CognitiveHeader.create(
+                var header = EncodingHeader.create(
                         System.currentTimeMillis(), 0xBEEFL, 1.0f, 0.7f + i * 0.1f, (short) i, MemoryType.SEMANTIC);
                 store.store(header);
             }

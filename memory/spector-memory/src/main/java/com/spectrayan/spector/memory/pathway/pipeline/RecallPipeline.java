@@ -57,8 +57,8 @@ import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.ReplaySnapshot;
 import com.spectrayan.spector.memory.sync.WalReplayer;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
@@ -1070,7 +1070,7 @@ public final class RecallPipeline {
     // ==============================================================
 
     private List<CognitiveResult> scoreStoreToList(MemorySegment segment, int recordCount,
-                                                     CognitiveRecordLayout layout, float[] queryVector,
+                                                     EngramLayout layout, float[] queryVector,
                                                      RecallOptions options, long nowMs, MemoryType type,
                                                      long baseOffset, int partitionSeq) {
         var router = partitionRegistry != null ? partitionRegistry.routerFor(partitionSeq) : null;
@@ -1092,7 +1092,7 @@ public final class RecallPipeline {
         return results;
     }
 
-    private CognitiveResult headerToResult(ScoredRecord sr, CognitiveHeader header, MemoryType type,
+    private CognitiveResult headerToResult(ScoredRecord sr, EncodingHeader header, MemoryType type,
                                             int partitionSeq) {
         // #443: resolve id via the partition being scanned (partition-aware reverse key).
         String id = index.findIdByOffset(partitionSeq, type, sr.offset());  // O(1) via reverse index
@@ -1239,7 +1239,7 @@ public final class RecallPipeline {
             // Step 3: Linear scan of the reconstructed segment
             // Use the ephemeral index to find all live memory IDs and their locations
             List<CognitiveResult> results = new ArrayList<>();
-            CognitiveRecordLayout layout = new CognitiveRecordLayout(quantizedVecBytes);
+            EngramLayout layout = new EngramLayout(quantizedVecBytes);
 
             for (String memId : snapshot.index().allIds()) {
                 var loc = snapshot.index().locate(memId);

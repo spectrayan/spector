@@ -14,7 +14,8 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -133,7 +134,7 @@ public record PartitionSummary(
         // 1. Semantic store
         if (router.semantic() != null && router.semantic().visibleCount() > 0) {
             MemorySegment segment = router.semantic().segment();
-            CognitiveRecordLayout layout = router.semantic().cognitiveLayout();
+            EngramLayout layout = router.semantic().cognitiveLayout();
             int count = router.semantic().visibleCount();
             int stride = layout.stride();
             long base = router.semantic().dataOffset();
@@ -178,7 +179,7 @@ public record PartitionSummary(
             for (EpisodicPartition part : router.episodic().partitions()) {
                 if (part.visibleCount() <= 0) continue;
                 MemorySegment segment = part.segment();
-                CognitiveRecordLayout layout = part.layout();
+                EngramLayout layout = part.layout();
                 int count = part.visibleCount();
                 int stride = layout.stride();
                 long base = part.dataOffset();
@@ -201,7 +202,7 @@ public record PartitionSummary(
         // 3. Procedural store
         if (router.procedural() != null && router.procedural().visibleCount() > 0) {
             MemorySegment segment = router.procedural().segment();
-            CognitiveRecordLayout layout = router.procedural().cognitiveLayout();
+            EngramLayout layout = router.procedural().cognitiveLayout();
             int count = router.procedural().visibleCount();
             int stride = layout.stride();
             long base = router.procedural().dataOffset();

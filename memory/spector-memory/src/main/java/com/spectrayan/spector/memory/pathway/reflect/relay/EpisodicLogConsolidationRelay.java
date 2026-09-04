@@ -17,7 +17,7 @@ import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
 import com.spectrayan.spector.memory.model.IngestionContext;
@@ -157,7 +157,7 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                         float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
                         byte semanticFlags = EncodingHeaderFields.withMemoryType(
                                 EncodingHeaderFields.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal());
-                        CognitiveHeader header = new CognitiveHeader(
+                        EncodingHeader header = new EncodingHeader(
                                 sessionTimestampMs, 0L, exactNorm, 1.0f, 1,
                                 (short) 0, (byte) 0, semanticFlags, (byte) 0, 1.0f
                         );

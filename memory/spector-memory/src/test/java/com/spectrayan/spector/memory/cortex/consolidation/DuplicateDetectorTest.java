@@ -17,7 +17,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.cortex.consolidation.DuplicateDetector.DuplicatePair;
 
@@ -167,7 +167,7 @@ class DuplicateDetectorTest {
                 EncodingHeaderFields.withMemoryType(EncodingHeaderFields.FLAG_TOMBSTONE, MemoryType.SEMANTIC.ordinal()) :
                 EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
 
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 System.currentTimeMillis(), // timestampMs
                 0L, // synapticTags
                 1.0f, // norm

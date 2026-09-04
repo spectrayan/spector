@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
 import com.spectrayan.spector.memory.error.SpectorPartitionFrozenException;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.IngestionContext;
@@ -42,7 +42,7 @@ import java.util.Objects;
  * <p>Per ADR Decision #2, the sequential write phase comprises tightly coupled, interdependent steps:
  * <ol>
  *   <li><b>L2 Normalization & INT8 Quantization</b>: Projects continuous embeddings into calibrated off-heap byte representations.</li>
- *   <li><b>Neuromodulatory Header Assembly</b>: Builds the 64-byte {@link CognitiveHeader} incorporating emotional valence/arousal,
+ *   <li><b>Neuromodulatory Header Assembly</b>: Builds the 64-byte {@link EncodingHeader} incorporating emotional valence/arousal,
  *       personality modulation, soul version stamp, and formation-time surprise z-scores.</li>
  *   <li><b>Off-Heap Slab Allocation & Segment Write</b>: Atomically persists the header and quantized payload to the target
  *       memory tier, automatically rolling active partitions when capacity limits are encountered.</li>
@@ -105,11 +105,11 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
         final SalienceProfile salienceProfile = signal.salienceProfile();
         final float l2Norm = (vector != null) ? VectorOps.magnitude(vector) : 0.0f;
 
-        final CognitiveHeader preserved = signal.header();
-        final CognitiveHeader header;
+        final EncodingHeader preserved = signal.header();
+        final EncodingHeader header;
         if (preserved != null) {
             long synapticTags = signal.synapticTags() != 0 ? signal.synapticTags() : preserved.synapticTags();
-            header = new CognitiveHeader(
+            header = new EncodingHeader(
                     preserved.timestampMs(),
                     synapticTags,
                     l2Norm,
@@ -149,7 +149,7 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
             final byte encodingAlpha = computeEncodingAlpha(salienceProfile);
             final byte encodingBeta = computeEncodingBeta(salienceProfile);
 
-            header = new CognitiveHeader(
+            header = new EncodingHeader(
                     signal.timestampMs(),
                     signal.synapticTags(),
                     l2Norm,

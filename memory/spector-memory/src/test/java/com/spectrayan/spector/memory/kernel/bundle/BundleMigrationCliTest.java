@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 
@@ -290,15 +290,15 @@ class BundleMigrationCliTest {
         byte[] vec = new byte[VEC_BYTES];
         for (int i = 0; i < recordCount; i++) {
             long ts = System.currentTimeMillis();
-            var header = CognitiveHeader.create(
+            var header = EncodingHeader.create(
                     ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.SEMANTIC);
             semantic.write(header, vec);
 
-            header = CognitiveHeader.create(
+            header = EncodingHeader.create(
                     ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.EPISODIC);
             episodic.write(header, vec);
 
-            header = CognitiveHeader.create(
+            header = EncodingHeader.create(
                     ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.PROCEDURAL);
             procedural.write(header, vec);
         }

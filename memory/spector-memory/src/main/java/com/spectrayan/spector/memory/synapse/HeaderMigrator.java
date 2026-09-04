@@ -35,7 +35,8 @@ import com.spectrayan.spector.memory.cortex.StrengthMemory;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
@@ -232,7 +233,7 @@ public final class HeaderMigrator {
                     long targetOff = METADATA_PREAMBLE_BYTES + (long) i * targetRecordStride;
 
                     // Read header from source layout (extended fields get defaults)
-                    CognitiveRecordLayout.CognitiveHeader header =
+                    EncodingHeader header =
                             source.readHeader(sourceSegment, sourceOff);
 
                     // Write header with target layout

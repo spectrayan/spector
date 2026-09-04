@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
 import org.junit.jupiter.api.DisplayName;
@@ -24,9 +24,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SemanticMemoryTest {
 
-    private CognitiveHeader createHeader() {
+    private EncodingHeader createHeader() {
         byte flags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
-        return new CognitiveHeader(12345L, 0L, 1.0f, 0.5f, 0, (short)0, (byte)0, flags, (byte)0, 1.0f);
+        return new EncodingHeader(12345L, 0L, 1.0f, 0.5f, 0, (short)0, (byte)0, flags, (byte)0, 1.0f);
     }
 
     @Test
@@ -64,7 +64,7 @@ class SemanticMemoryTest {
     void readHeaderReturnsWrittenData() {
         try (SemanticMemory store = new SemanticMemory(128, 100)) {
             store.write(createHeader(), new byte[128]);
-            CognitiveHeader readHeader = store.readHeader(0);
+            EncodingHeader readHeader = store.readHeader(0);
             assertThat(readHeader.timestampMs()).isEqualTo(12345L);
         }
     }

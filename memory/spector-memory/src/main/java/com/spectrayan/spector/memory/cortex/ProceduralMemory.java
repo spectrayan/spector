@@ -13,7 +13,8 @@
 package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +61,7 @@ public final class ProceduralMemory extends AbstractEngramMemory {
      */
     public ProceduralMemory(int quantizedVecBytes, int capacity) {
         super(MemoryType.PROCEDURAL, quantizedVecBytes, capacity,
-                (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
+                (long) new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes).stride() * capacity);
 
         log.info("ProceduralMemory initialized: capacity={}, stride={}B, persistent=false",
                 capacity, layout.stride());
@@ -75,7 +76,7 @@ public final class ProceduralMemory extends AbstractEngramMemory {
      */
     public ProceduralMemory(int quantizedVecBytes, int capacity, Path filePath) {
         super(MemoryType.PROCEDURAL, quantizedVecBytes, capacity,
-                (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
+                (long) new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
 
         log.info("ProceduralMemory initialized: capacity={}, stride={}B, persistent=true, count={}",
@@ -109,7 +110,7 @@ public final class ProceduralMemory extends AbstractEngramMemory {
     private ProceduralMemory(Arena arena, MemorySegment regionSlice, int capacity,
                              int quantizedVecBytes, Path bundlePath, boolean isNew) {
         super(MemoryType.PROCEDURAL,
-              new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes),
+              new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes),
               capacity, arena, regionSlice, bundlePath, isNew);
     }
 
@@ -119,7 +120,7 @@ public final class ProceduralMemory extends AbstractEngramMemory {
     }
 
     @Override
-    public long write(CognitiveHeader header, byte[] quantizedVec) {
+    public long write(EncodingHeader header, byte[] quantizedVec) {
         long offset = dataOffset() + (long) getCount() * layout.stride();
         append(header, quantizedVec);
         return offset;

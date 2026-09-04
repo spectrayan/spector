@@ -14,8 +14,8 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
@@ -138,7 +138,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      * @param quantized  quantized vector bytes
      * @return byte offset where the record was written
      */
-    public long write(MemoryType type, CognitiveHeader header, byte[] quantized) {
+    public long write(MemoryType type, EncodingHeader header, byte[] quantized) {
         long offset = get(type).write(header, quantized);
         if (strengthStore != null && type != MemoryType.WORKING) {
             int slotIndex = (int) ((offset - get(type).dataOffset()) / layoutFor(type).stride());
@@ -157,7 +157,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     /**
      * Returns the layout for a given memory type.
      */
-    public CognitiveRecordLayout layoutFor(MemoryType type) {
+    public EngramLayout layoutFor(MemoryType type) {
         return get(type).cognitiveLayout();
     }
 
@@ -248,7 +248,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      * Returns {@code false} when the tier segment/layout is unavailable.
      */
     public boolean isTombstoned(MemoryLocation loc) {
-        CognitiveRecordLayout layout = layoutFor(loc.type());
+        EngramLayout layout = layoutFor(loc.type());
         MemorySegment segment = segmentFor(loc.type());
         if (layout == null || segment == null) return false;
         byte flags = segment.get(EncodingHeaderFields.LAYOUT_FLAGS,
@@ -267,15 +267,15 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      *                      is {@code null} (avoids a per-record copy in scan-style callers)
      */
     public CognitiveRecordBody readRecordBody(MemoryLocation loc, boolean includeVector) {
-        CognitiveRecordLayout layout = layoutFor(loc.type());
+        EngramLayout layout = layoutFor(loc.type());
         MemorySegment segment = segmentFor(loc.type());
         if (layout == null || segment == null) return null;
 
         long offset = loc.offset();
-        CognitiveHeader header = layout.readHeader(segment, offset);
+        EncodingHeader header = layout.readHeader(segment, offset);
         if (strengthStore != null && loc.type() != MemoryType.WORKING) {
             int slotIndex = (int) ((offset - get(loc.type()).dataOffset()) / layout.stride());
-            header = new CognitiveHeader(
+            header = new EncodingHeader(
                     header.timestampMs(),
                     header.synapticTags(),
                     header.exactNorm(),
@@ -315,11 +315,11 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
 
     /**
      * Immutable value carrying the decoded body of a cognitive record read from a single
-     * segment snapshot: the base {@link CognitiveHeader}, the optional quantized vector
+     * segment snapshot: the base {@link EncodingHeader}, the optional quantized vector
      * payload ({@code null} when the caller requested header-only), and the extended fields
      * ({@code spectorRecallCount}, {@code consolidationFlags}) that live outside the base header.
      */
-    public record CognitiveRecordBody(CognitiveHeader header,
+    public record CognitiveRecordBody(EncodingHeader header,
                                       byte[] quantizedVector,
                                       int spectorRecallCount,
                                       byte consolidationFlags) {

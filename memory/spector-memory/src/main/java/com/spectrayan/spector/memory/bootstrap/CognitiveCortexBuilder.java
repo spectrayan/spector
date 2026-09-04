@@ -38,7 +38,7 @@ import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.memory.kernel.codec.MigrationResult;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.ContinuityLayout;
 import com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout;
 import com.spectrayan.spector.memory.kernel.layout.HebbianLayout;
@@ -254,7 +254,7 @@ public final class CognitiveCortexBuilder {
             }
             boolean isNew = !Files.exists(bundleFile);
 
-            CognitiveRecordLayout cogLayout = new CognitiveRecordLayout(quantizedVecBytes);
+            EngramLayout cogLayout = new EngramLayout(quantizedVecBytes);
             TextBlobLayout textLayout = new TextBlobLayout();
             long textSize = Long.getLong("spector.memory.text-segment-size", 32 * 1024 * 1024L);
             long episodicSize = Long.getLong("spector.memory.episodic-segment-size",
@@ -366,11 +366,11 @@ public final class CognitiveCortexBuilder {
         return List.of(
                 new RegionSizeSpec(
                         RegionId.WORKING,
-                        com.spectrayan.spector.memory.kernel.RegionPreamble.PREAMBLE_BYTES + (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).recordStride() * workingCap,
+                        com.spectrayan.spector.memory.kernel.RegionPreamble.PREAMBLE_BYTES + (long) new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes).recordStride() * workingCap,
                         workingCap,
-                        new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).recordStride(),
-                        new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).layoutId(),
-                        new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).schemaVersion(),
+                        new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes).recordStride(),
+                        new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes).layoutId(),
+                        new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes).schemaVersion(),
                         false
                 ),
                 new RegionSizeSpec(

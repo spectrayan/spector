@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.kernel.bundle;
 import com.spectrayan.spector.memory.cortex.StrengthMemory;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.synapse.HeaderMigrator;
@@ -155,7 +155,7 @@ public final class BundleMigrationCli {
             V3StoreInfo rtypes = readV3Store(readArena, rtypesFile, "relation-types");
             V3StoreInfo ckpt = readV3Store(readArena, ckptFile, "checkpoint");
 
-            CognitiveRecordLayout cogLayout = new CognitiveRecordLayout(dimensions);
+            EngramLayout cogLayout = new EngramLayout(dimensions);
             int workingCap = Math.max(working.count, 1000);
             int graphCap = Math.max(hebbian.count, 10000);
             int temporalCap = Math.max(temporal.count, 10000);
@@ -473,7 +473,7 @@ public final class BundleMigrationCli {
             V3StoreInfo text = readV3Store(readArena, textFile, "text");
 
             // Compute capacities from V3 store metadata
-            CognitiveRecordLayout cogLayout = new CognitiveRecordLayout(dimensions);
+            EngramLayout cogLayout = new EngramLayout(dimensions);
             TextBlobLayout textLayout = new TextBlobLayout();
 
             // Compute capacities from V3 file sizes (not record count).

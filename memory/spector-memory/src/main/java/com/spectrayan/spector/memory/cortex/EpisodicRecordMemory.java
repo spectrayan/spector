@@ -20,8 +20,8 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
@@ -61,7 +61,7 @@ public class EpisodicRecordMemory extends AbstractEngramMemory {
      */
     public EpisodicRecordMemory(int quantizedVecBytes, int capacity) {
         super(MemoryType.EPISODIC, quantizedVecBytes, capacity,
-                (long) new CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
+                (long) new EngramLayout(quantizedVecBytes).stride() * capacity);
 
         log.info("EpisodicRecordMemory initialized: capacity={}, stride={}B, persistent=false",
                 capacity, layout.stride());
@@ -76,7 +76,7 @@ public class EpisodicRecordMemory extends AbstractEngramMemory {
      */
     public EpisodicRecordMemory(int quantizedVecBytes, int capacity, Path filePath) {
         super(MemoryType.EPISODIC, quantizedVecBytes, capacity,
-                (long) new CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
+                (long) new EngramLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
 
         log.info("EpisodicRecordMemory initialized: capacity={}, stride={}B, persistent=true, count={}",
@@ -106,7 +106,7 @@ public class EpisodicRecordMemory extends AbstractEngramMemory {
 
     private EpisodicRecordMemory(Arena arena, MemorySegment regionSlice, int capacity,
                                   int quantizedVecBytes, Path bundlePath, boolean isNew) {
-        super(MemoryType.EPISODIC, new CognitiveRecordLayout(quantizedVecBytes),
+        super(MemoryType.EPISODIC, new EngramLayout(quantizedVecBytes),
               capacity, arena, regionSlice, bundlePath, isNew);
     }
 
@@ -116,7 +116,7 @@ public class EpisodicRecordMemory extends AbstractEngramMemory {
     }
 
     @Override
-    public long write(CognitiveHeader header, byte[] quantizedVec) {
+    public long write(EncodingHeader header, byte[] quantizedVec) {
         long offset = dataOffset() + (long) getCount() * layout.stride();
         append(header, quantizedVec);
         return offset;
@@ -125,7 +125,7 @@ public class EpisodicRecordMemory extends AbstractEngramMemory {
     /**
      * Reads the cognitive header at the given index.
      */
-    public CognitiveHeader readHeader(int index) {
+    public EncodingHeader readHeader(int index) {
         long offset = dataOffset() + (long) index * layout.stride();
         return layout.readHeader(segment, offset);
     }
@@ -208,7 +208,7 @@ public class EpisodicRecordMemory extends AbstractEngramMemory {
 
         public MemorySegment segment() { return store.segment(); }
 
-        public CognitiveRecordLayout layout() { return store.layout(); }
+        public EngramLayout layout() { return store.layout(); }
 
         public int capacity() { return store.capacity(); }
 
@@ -242,7 +242,7 @@ public class EpisodicRecordMemory extends AbstractEngramMemory {
         /**
          * Appends to the underlying store.
          */
-        public void append(CognitiveHeader header, byte[] quantizedVec) {
+        public void append(EncodingHeader header, byte[] quantizedVec) {
             store.append(header, quantizedVec);
         }
     }

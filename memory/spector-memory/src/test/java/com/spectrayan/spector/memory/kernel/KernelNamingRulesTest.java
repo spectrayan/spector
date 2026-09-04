@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel;
 
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -85,8 +87,6 @@ class KernelNamingRulesTest {
     private static final Set<String> SHAPE_TOKEN_ALLOWLIST = Set.of(
             // Requirements §6 decision 6: out of scope, IndexRecordMemory & MemoryIndex keep their names
             "IndexRecordMemory",
-            // Deferred to Group 3 task 3.6: CognitiveRecordLayout -> EngramLayout
-            "CognitiveRecordLayout",
             // Deferred to Group 6 task 6.1: EpisodicRecordMemory deleted (double-wrap elimination)
             "EpisodicRecordMemory"
     );
@@ -238,7 +238,7 @@ class KernelNamingRulesTest {
      * is correct while {@code SemanticRecordMemory} is not.</p>
      *
      * <p>When the spec was written only 3 of 18 region-layout implementors carried {@code Record}
-     * ({@code AuditRecordLayout}, {@code CognitiveRecordLayout}, {@code WalRecordLayout}), so dropping it
+     * ({@code AuditRecordLayout}, {@code EngramLayout}, {@code WalRecordLayout}), so dropping it
      * conforms the outliers to the existing 15 rather than inventing a convention.</p>
      */
     @Test

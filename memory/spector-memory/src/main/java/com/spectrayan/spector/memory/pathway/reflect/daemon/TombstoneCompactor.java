@@ -14,8 +14,8 @@ package com.spectrayan.spector.memory.pathway.reflect.daemon;
 
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
@@ -79,7 +79,7 @@ public final class TombstoneCompactor {
      */
     public int pruneDecayed(EpisodicPartition partition, float pruneThreshold, long nowMs) {
         int pruned = 0;
-        CognitiveRecordLayout layout = partition.layout();
+        EngramLayout layout = partition.layout();
         MemorySegment segment = partition.segment();
         int count = partition.count();
 
@@ -128,7 +128,7 @@ public final class TombstoneCompactor {
      * @return the compacted partition, or null if there are no live records
      */
     public EpisodicPartition compact(EpisodicPartition source, Path basePath, String key) {
-        CognitiveRecordLayout layout = source.layout();
+        EngramLayout layout = source.layout();
         MemorySegment srcSegment = source.segment();
         int srcCount = source.count();
 
@@ -161,7 +161,7 @@ public final class TombstoneCompactor {
             if (EncodingHeaderFields.isTombstoned(flags)) continue;
 
             // Read header from source
-            CognitiveHeader header = layout.readHeader(srcSegment, srcOffset);
+            EncodingHeader header = layout.readHeader(srcSegment, srcOffset);
 
             // Read quantized vector from source
             byte[] quantizedVec = new byte[layout.quantizedVecBytes()];
@@ -191,7 +191,7 @@ public final class TombstoneCompactor {
      * @return map of old byte offsets to new byte offsets
      */
     public Map<Long, Long> buildOffsetRemap(EpisodicPartition source, EpisodicPartition compacted) {
-        CognitiveRecordLayout layout = source.layout();
+        EngramLayout layout = source.layout();
         MemorySegment srcSegment = source.segment();
         int srcCount = source.count();
 

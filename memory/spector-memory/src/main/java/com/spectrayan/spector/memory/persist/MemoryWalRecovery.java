@@ -26,7 +26,7 @@ import com.spectrayan.spector.memory.kernel.Memory;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.shape.AppendMemory;
 import com.spectrayan.spector.memory.kernel.shape.RecordMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -217,7 +217,7 @@ public final class MemoryWalRecovery {
                     }
                     case REMEMBER -> {
                         if (lastRecordOffset != -1 && lastRecordType != null) {
-                            // CognitiveRecordLayout has dynamic stride
+                            // EngramLayout has dynamic stride
                             int stride = 164; // default
                             MemoryId targetId = switch (lastRecordType) {
                                 case WORKING -> SystemMemoryId.WORKING.id();

@@ -16,7 +16,6 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.memory.kernel.FloatUnaryOperator;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -306,8 +305,8 @@ public record EncodingHeaderLayout() {
 
     // ── Full header read/write ──
 
-    public CognitiveHeader readHeader(MemorySegment seg, long off) {
-        return new CognitiveHeader(
+    public EncodingHeader readHeader(MemorySegment seg, long off) {
+        return new EncodingHeader(
                 readTimestamp(seg, off),
                 readSynapticTags(seg, off),
                 readExactNorm(seg, off),
@@ -327,7 +326,7 @@ public record EncodingHeaderLayout() {
         );
     }
 
-    public void writeHeader(MemorySegment seg, long off, CognitiveHeader header) {
+    public void writeHeader(MemorySegment seg, long off, EncodingHeader header) {
         seg.set(LAYOUT_HEADER_VERSION, off + OFFSET_HEADER_VERSION, (byte) HEADER_VERSION_V2);
         seg.set(LAYOUT_FLAGS,         off + OFFSET_FLAGS,          header.flags());
         seg.set(LAYOUT_VALENCE,       off + OFFSET_VALENCE,        header.valence());

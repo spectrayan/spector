@@ -32,7 +32,8 @@ import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
@@ -749,7 +750,7 @@ public final class GraphExpansionStage {
                         ? partitionRegistry.routerFor(loc.colocatedPartition()) : null;
                 if (router != null) {
                     MemorySegment seg = router.segmentFor(loc.type());
-                    CognitiveRecordLayout layout = router.layoutFor(loc.type());
+                    EngramLayout layout = router.layoutFor(loc.type());
                     if (seg != null && layout != null) {
                         ts = layout.readTimestamp(seg, loc.offset());
                         valence = layout.readValence(seg, loc.offset());
@@ -782,7 +783,7 @@ public final class GraphExpansionStage {
             MemorySegment seg = router.segmentFor(loc.type());
             if (seg == null) return 0f;
 
-            CognitiveRecordLayout layout = router.layoutFor(loc.type());
+            EngramLayout layout = router.layoutFor(loc.type());
             float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
                     queryVector, seg, layout.vectorOffset(loc.offset()),
                     calibrationMins, calibrationScales, layout.quantizedVecBytes());
@@ -829,7 +830,7 @@ public final class GraphExpansionStage {
         if (router == null) return false;
         MemorySegment seg = router.segmentFor(loc.type());
         if (seg == null) return false;
-        CognitiveRecordLayout layout = router.layoutFor(loc.type());
+        EngramLayout layout = router.layoutFor(loc.type());
         if (layout == null) return false;
 
         byte flags = layout.readFlags(seg, loc.offset());

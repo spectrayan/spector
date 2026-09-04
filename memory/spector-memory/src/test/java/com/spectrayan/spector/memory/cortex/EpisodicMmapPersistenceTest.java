@@ -13,8 +13,8 @@
 package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,7 +53,7 @@ class EpisodicMmapPersistenceTest {
         // Write records to the store
         try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             for (int i = 0; i < 50; i++) {
-                CognitiveHeader header = CognitiveHeader.create(
+                EncodingHeader header = EncodingHeader.create(
                         System.currentTimeMillis(), i * 7L, 1.0f,
                         (float) i / 10, (short) 0, MemoryType.EPISODIC);
                 byte[] vec = makeVec(i);
@@ -68,7 +68,7 @@ class EpisodicMmapPersistenceTest {
 
             // Verify record content
             EpisodicRecordMemory.EpisodicPartition partition = store2.partitions().getFirst();
-            CognitiveRecordLayout layout = partition.layout();
+            EngramLayout layout = partition.layout();
             var segment = partition.segment();
 
             // Check first record
@@ -85,7 +85,7 @@ class EpisodicMmapPersistenceTest {
     void metadataHeaderPreservesCountAndTombstones() {
         try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             for (int i = 0; i < 20; i++) {
-                CognitiveHeader header = CognitiveHeader.create(
+                EncodingHeader header = EncodingHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC);
                 store.append(header, makeVec(i));
             }
@@ -116,7 +116,7 @@ class EpisodicMmapPersistenceTest {
     void appendAfterRecovery() {
         try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             for (int i = 0; i < 10; i++) {
-                store.append(CognitiveHeader.create(
+                store.append(EncodingHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC), makeVec(i));
             }
         }
@@ -126,7 +126,7 @@ class EpisodicMmapPersistenceTest {
 
             // Append more records
             for (int i = 10; i < 20; i++) {
-                store2.append(CognitiveHeader.create(
+                store2.append(EncodingHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, 2.0f, (short) 0, MemoryType.EPISODIC), makeVec(i));
             }
             assertThat(store2.totalRecords()).isEqualTo(20);
@@ -151,7 +151,7 @@ class EpisodicMmapPersistenceTest {
     @Test
     void partitionStatesLifecycle() {
         try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
-            store.append(CognitiveHeader.create(
+            store.append(EncodingHeader.create(
                     System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC), makeVec(0));
 
             EpisodicRecordMemory.EpisodicPartition partition = store.partitions().getFirst();
@@ -168,7 +168,7 @@ class EpisodicMmapPersistenceTest {
     @Test
     void partitionFileCreatedOnDisk() throws IOException {
         try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
-            store.append(CognitiveHeader.create(
+            store.append(EncodingHeader.create(
                     System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC), makeVec(0));
         }
 
@@ -180,7 +180,7 @@ class EpisodicMmapPersistenceTest {
     @Test
     void recordOffsetAccountsForMetadataHeader() {
         try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
-            store.append(CognitiveHeader.create(
+            store.append(EncodingHeader.create(
                     System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC), makeVec(0));
 
             EpisodicRecordMemory.EpisodicPartition partition = store.partitions().getFirst();
@@ -202,7 +202,7 @@ class EpisodicMmapPersistenceTest {
     void replacePartitionIsNoOpForSingleFileStore() {
         try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             for (int i = 0; i < 10; i++) {
-                store.append(CognitiveHeader.create(
+                store.append(EncodingHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, (float) i, (short) 0, MemoryType.EPISODIC), makeVec(i));
             }
 

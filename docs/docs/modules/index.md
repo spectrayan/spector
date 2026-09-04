@@ -97,7 +97,7 @@ graph TD
 > **Legend:** Solid arrows = compile dependency. Dotted arrows = optional/benchmark dependency.
 
 !!! important "Bundle Kernel Architecture"
-    `spector-memory` is backed by the off-heap **Bundle Kernel Architecture** (`PartitionBundle`, `RuntimeBundle`, `CognitiveRecordLayout`). In-memory vector indexes are managed directly by `spector-index`, and SIMD/GPU operations are accelerated by `spector-cpu` and `spector-gpu`.
+    `spector-memory` is backed by the off-heap **Bundle Kernel Architecture** (`PartitionBundle`, `RuntimeBundle`, `EngramLayout`). In-memory vector indexes are managed directly by `spector-index`, and SIMD/GPU operations are accelerated by `spector-cpu` and `spector-gpu`.
 
 ---
 

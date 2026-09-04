@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,9 +27,9 @@ import static org.assertj.core.api.Assertions.within;
 
 class AbstractEngramMemoryTest {
 
-    private CognitiveHeader createHeader() {
+    private EncodingHeader createHeader() {
         byte flags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
-        return new CognitiveHeader(12345L, 0L, 1.0f, 0.5f, 0, (short)0, (byte)0, flags, (byte)0, 1.0f);
+        return new EncodingHeader(12345L, 0L, 1.0f, 0.5f, 0, (short)0, (byte)0, flags, (byte)0, 1.0f);
     }
 
     @Test
@@ -126,7 +126,7 @@ class AbstractEngramMemoryTest {
         SemanticMemory store = new SemanticMemory(128, 100);
         store.close();
         // After close, writing to the store should throw because the arena is closed
-        CognitiveHeader header = createHeader();
+        EncodingHeader header = createHeader();
         assertThatThrownBy(() -> store.write(header, new byte[128]))
             .isInstanceOf(IllegalStateException.class);
     }

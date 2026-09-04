@@ -65,7 +65,8 @@ import com.spectrayan.spector.memory.cortex.interference.SemanticDeduplicator;
 import com.spectrayan.spector.memory.kernel.Memory;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
@@ -222,7 +223,8 @@ import com.spectrayan.spector.memory.sync.VacuumCompactor;
 import com.spectrayan.spector.commons.concurrent.DaemonSupervisor;
 import com.spectrayan.spector.commons.concurrent.DaemonPolicy;
 import com.spectrayan.spector.memory.synapse.ActRActivation;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.namespace.NamespaceQuotas;
@@ -1530,7 +1532,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             for (var partition : partitions) {
                 tasks.add(() -> {
                     int count = 0;
-                    CognitiveRecordLayout layout = partition.layout();
+                    EngramLayout layout = partition.layout();
                     MemorySegment segment = partition.segment();
                     for (int i = 0; i < partition.count(); i++) {
                         long offset = partition.recordOffset(i);
@@ -1556,7 +1558,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             log.warn("Parallel decay failed, falling back to sequential: {}", e.getMessage());
             int affected = 0;
             for (var partition : partitions) {
-                CognitiveRecordLayout layout = partition.layout();
+                EngramLayout layout = partition.layout();
                 MemorySegment segment = partition.segment();
                 for (int i = 0; i < partition.count(); i++) {
                     long offset = partition.recordOffset(i);

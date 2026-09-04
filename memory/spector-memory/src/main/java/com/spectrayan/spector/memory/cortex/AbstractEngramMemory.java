@@ -32,7 +32,8 @@ import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -47,7 +48,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
  * @see EngramMemory for the common interface
  */
 public abstract class AbstractEngramMemory 
-        extends AbstractRecordMemory<CognitiveRecordLayout> 
+        extends AbstractRecordMemory<EngramLayout> 
         implements EngramMemory {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractEngramMemory.class);
@@ -116,7 +117,7 @@ public abstract class AbstractEngramMemory
     }
 
     private AbstractEngramMemory(MemoryType type, int quantizedVecBytes, int capacity, long segmentBytes, Arena sharedArena) {
-        this(type, new CognitiveRecordLayout(quantizedVecBytes),
+        this(type, new EngramLayout(quantizedVecBytes),
              capacity, sharedArena,
              sharedArena.allocate(segmentBytes, EncodingHeaderFields.HEADER_BYTES),
              0, false, null, null);
@@ -129,11 +130,11 @@ public abstract class AbstractEngramMemory
      *             {@link MemoryId} up-front so identity is final and lock-free.
      */
     protected AbstractEngramMemory(MemoryType type, int quantizedVecBytes, int capacity, long segmentBytes, Path filePath) {
-        this(type, new CognitiveRecordLayout(quantizedVecBytes),
+        this(type, new EngramLayout(quantizedVecBytes),
              capacity, segmentBytes, filePath, mmapFile(filePath, segmentBytes));
     }
 
-    private AbstractEngramMemory(MemoryType type, CognitiveRecordLayout cogLayout,
+    private AbstractEngramMemory(MemoryType type, EngramLayout cogLayout,
                                   int capacity, long segmentBytes, Path filePath, MmapResult res) {
         super(tierId(type), cogLayout, capacity,
               res.arena, res.segment, 0, true, filePath, res.fileChannel);
@@ -150,7 +151,7 @@ public abstract class AbstractEngramMemory
         }
     }
 
-    private AbstractEngramMemory(MemoryType type, CognitiveRecordLayout cogLayout,
+    private AbstractEngramMemory(MemoryType type, EngramLayout cogLayout,
                                   int capacity, Arena arena, MemorySegment segment, int count,
                                   boolean persistent, Path filePath, FileChannel fileChannel) {
         super(tierId(type), cogLayout, capacity,
@@ -173,7 +174,7 @@ public abstract class AbstractEngramMemory
      * @param bundlePath   the path to the bundle file (for diagnostics)
      * @param isNew        true if the region was just created and needs header initialization
      */
-    protected AbstractEngramMemory(MemoryType type, CognitiveRecordLayout cogLayout,
+    protected AbstractEngramMemory(MemoryType type, EngramLayout cogLayout,
                                     int capacity, Arena arena, MemorySegment regionSlice,
                                     Path bundlePath, boolean isNew) {
         super(tierId(type), cogLayout, capacity,
@@ -257,12 +258,12 @@ public abstract class AbstractEngramMemory
     }
 
     @Override
-    public CognitiveRecordLayout layout() {
+    public EngramLayout layout() {
         return layout;
     }
 
     @Override
-    public CognitiveRecordLayout cognitiveLayout() {
+    public EngramLayout cognitiveLayout() {
         return layout;
     }
 
@@ -374,7 +375,7 @@ public abstract class AbstractEngramMemory
         this.frozen = true;
     }
 
-    public void append(CognitiveRecordLayout.CognitiveHeader header, byte[] quantizedVec) {
+    public void append(EncodingHeader header, byte[] quantizedVec) {
         if (frozen) throw new SpectorPartitionFrozenException(type().name());
         writeLock.lock();
         try {

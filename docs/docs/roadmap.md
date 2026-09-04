@@ -125,7 +125,7 @@ Separate documentation into two tracks to prevent the "19 packages overwhelm dev
 | **User Guide** | Agent developers, MCP users | 5-minute quickstart, MCP tool reference, Python/JS SDK, RecallOptions presets |
 | **Architecture Guide** | Spector contributors | Off-heap layouts, SIMD scoring, Bloom filter encoding, Panama internals |
 
-**Key principle:** A developer using `memory.recall("query")` should never see `EncodingHeaderFields` or `CognitiveRecordLayout` in the getting-started docs.
+**Key principle:** A developer using `memory.recall("query")` should never see `EncodingHeaderFields` or `EngramLayout` in the getting-started docs.
 
 ---
 
@@ -205,7 +205,7 @@ Migrate hot-path intermediate records to `value class` (or `value record`). JDK 
 
 **Current preparation:**
 
-- **Javadoc TODOs** added to all 5 hot-path records: `CognitiveHeader`, `ScoredRecord`, `HebbianEdge`, `EntityEdge`, `TraversalResult`
+- **Javadoc TODOs** added to all 5 hot-path records: `EncodingHeader`, `ScoredRecord`, `HebbianEdge`, `EntityEdge`, `TraversalResult`
 - **Manual flat-array optimization** (`FlatMinHeap`) serves as the bridge pattern — will be replaceable with `PriorityQueue<value ScoredRecord>` once specialized generics land
 - **Performance optimizations** implemented as stop-gap: autoboxing elimination (`int[]` vs `List<Integer>`), `boolean[]` vs `HashSet<Integer>`, LUT-based `Math.pow` replacement
 

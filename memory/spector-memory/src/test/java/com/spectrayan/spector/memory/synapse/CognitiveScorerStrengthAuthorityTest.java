@@ -14,8 +14,8 @@ package com.spectrayan.spector.memory.synapse;
 
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.StrengthMemory;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import org.junit.jupiter.api.DisplayName;
@@ -38,10 +38,10 @@ class CognitiveScorerStrengthAuthorityTest {
 
         final SemanticMemory store = new SemanticMemory(DIMS, 10);
         try {
-            final CognitiveRecordLayout layout = store.cognitiveLayout();
+            final EngramLayout layout = store.cognitiveLayout();
 
             // Header has V1 default storageStrength = 1.0f, agentRecallCount = 0
-            final CognitiveHeader header = new CognitiveHeader(
+            final EncodingHeader header = new EncodingHeader(
                     timestamp, 0L, 1.0f, 6.0f, 0, (short) 0, (byte) 0, (byte) 0,
                     (byte) 50, 1.0f);
             final byte[] vec = new byte[DIMS];
@@ -86,10 +86,10 @@ class CognitiveScorerStrengthAuthorityTest {
 
         final SemanticMemory store = new SemanticMemory(DIMS, 10);
         try {
-            final CognitiveRecordLayout layout = store.cognitiveLayout();
+            final EngramLayout layout = store.cognitiveLayout();
 
             // Header has low base importance = 2.0f
-            final CognitiveHeader header = new CognitiveHeader(
+            final EncodingHeader header = new EncodingHeader(
                     timestamp, 0L, 1.0f, 2.0f, 0, (short) 0, (byte) 0, (byte) 0);
             final byte[] vec = new byte[DIMS];
             store.append(header, vec);

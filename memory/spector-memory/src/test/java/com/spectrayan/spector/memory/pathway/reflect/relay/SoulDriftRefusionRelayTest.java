@@ -19,8 +19,8 @@ import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.WorkingMemory;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -39,7 +39,7 @@ class SoulDriftRefusionRelayTest {
     @DisplayName("SoulDriftRefusionRelay detects outdated soul versions and updates headers in-place")
     void testSoulDriftDetectionAndRefusion() {
         ScalarQuantizer quantizer = Mockito.mock(ScalarQuantizer.class);
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        EngramLayout layout = new EngramLayout(DIMS);
         SemanticMemory semanticMemory = new SemanticMemory(DIMS, 100);
         WorkingMemory workingMemory = new WorkingMemory(DIMS, 100);
 
@@ -52,7 +52,7 @@ class SoulDriftRefusionRelayTest {
         when(rememberPathway.currentSoulVersion()).thenReturn((short) 2);
 
         // Write a memory with soulVersion = 1, importance = 0.4, encodingSurprise = 2.5
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 System.currentTimeMillis(),
                 0L,
                 1.0f,
@@ -106,14 +106,14 @@ class SoulDriftRefusionRelayTest {
         java.util.Arrays.fill(memoryVec, 1.0f);
         when(quantizer.decode(Mockito.any(byte[].class))).thenReturn(memoryVec);
 
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        EngramLayout layout = new EngramLayout(DIMS);
         SemanticMemory semanticMemory = new SemanticMemory(DIMS, 100);
         CognitiveMemoryRouter router = new CognitiveMemoryRouter(null, null, semanticMemory, null);
         PartitionManager partitionManager = Mockito.mock(PartitionManager.class);
         PartitionHandle handle = new PartitionHandle(0, null, router, null, false);
         when(partitionManager.snapshot()).thenReturn(List.of(handle));
 
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 System.currentTimeMillis(), 0L, 1.0f, 0.4f, 0, (short) 0,
                 (byte) 10, (byte) 0, (byte) 5, 1.0f, (byte) 0, (byte) 0, (byte) 0, (short) 2, 1.0f, (byte) 0
         );

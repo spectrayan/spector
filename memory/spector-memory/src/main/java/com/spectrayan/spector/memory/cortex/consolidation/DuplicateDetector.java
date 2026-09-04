@@ -23,7 +23,8 @@ import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 /**
@@ -82,7 +83,7 @@ public final class DuplicateDetector {
             if (recordCount == 0) continue;
 
             MemorySegment segment = store.segment();
-            CognitiveRecordLayout layout = store.cognitiveLayout();
+            EngramLayout layout = store.cognitiveLayout();
             long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0L;
             int stride = layout.stride();
             int qVecBytes = layout.quantizedVecBytes();

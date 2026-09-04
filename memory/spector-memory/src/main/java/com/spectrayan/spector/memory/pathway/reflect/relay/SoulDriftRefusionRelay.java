@@ -15,8 +15,8 @@ package com.spectrayan.spector.memory.pathway.reflect.relay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.EngramMemory;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.ImportanceContext;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -125,7 +125,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
 
             for (EngramMemory store : stores) {
                 if (store != null && store.segment() != null) {
-                    CognitiveRecordLayout layout = store.cognitiveLayout();
+                    EngramLayout layout = store.cognitiveLayout();
                     MemorySegment segment = store.segment();
                     int size = store.size();
                     int vecBytes = layout.quantizedVecBytes();
@@ -163,7 +163,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
                            PriorityQueue<DriftCandidate> heap, ReflectSignal signal) {
         if (store == null || store.segment() == null) return;
 
-        CognitiveRecordLayout layout = store.cognitiveLayout();
+        EngramLayout layout = store.cognitiveLayout();
         MemorySegment segment = store.segment();
         int size = store.size();
 
@@ -185,11 +185,11 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
 
     private void refuseMemory(DriftCandidate candidate, short targetVersion, ReflectSignal signal) {
         EngramMemory store = candidate.store();
-        CognitiveRecordLayout layout = store.cognitiveLayout();
+        EngramLayout layout = store.cognitiveLayout();
         MemorySegment segment = store.segment();
         long offset = candidate.offset();
 
-        CognitiveHeader header = layout.readHeader(segment, offset);
+        EncodingHeader header = layout.readHeader(segment, offset);
         if (EncodingHeaderFields.isTombstoned(header.flags())) return;
 
         int vecBytes = layout.quantizedVecBytes();

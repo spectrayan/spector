@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.kernel.bundle;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.ContinuityLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import org.junit.jupiter.api.DisplayName;
@@ -86,7 +86,7 @@ class BundleFormatCompatibilityTest {
     private static final long SEMANTIC_COUNT = 3;
     private static final long PROCEDURAL_COUNT = 2;
 
-    private static final CognitiveRecordLayout COG = new CognitiveRecordLayout(DIMS);
+    private static final EngramLayout COG = new EngramLayout(DIMS);
     private static final TextBlobLayout TEXT = new TextBlobLayout();
 
     /** Region set of the frozen runtime fixture, mirroring {@link #runtimeSpecs()}. */

@@ -17,7 +17,7 @@ import com.spectrayan.spector.memory.kernel.RegionLayout;
 /**
  * Memory layout for the log-structured episodic conversation store.
  *
- * <p>Unlike {@link CognitiveRecordLayout} which defines a fixed stride
+ * <p>Unlike {@link EngramLayout} which defines a fixed stride
  * (64B header + quantized vector), the episodic log uses variable-length
  * records: each record is a 64B header followed by a CBOR body whose
  * length is stored in the header's {@code body_length} field (offset 56).</p>

@@ -18,7 +18,8 @@ import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.core.similarity.CosineSimilarity;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import org.slf4j.Logger;
@@ -84,7 +85,7 @@ public final class AutobiographicalSamplingRelay implements SynapticRelay<Wander
             return 0;
         }
 
-        CognitiveRecordLayout layout = store.cognitiveLayout();
+        EngramLayout layout = store.cognitiveLayout();
         MemorySegment segment = store.segment();
         int size = store.size();
         if (size <= 0) {

@@ -17,7 +17,8 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -144,7 +145,7 @@ public final class WalReplayer {
                 liveCount, rememberCount, rememberCount - liveCount);
 
         // Step 3: Allocate ephemeral off-heap segment for the reconstructed tier
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(quantizedVecBytes);
+        EngramLayout layout = new EngramLayout(quantizedVecBytes);
         int stride = layout.stride();
 
         Arena arena = Arena.ofConfined();
@@ -161,9 +162,9 @@ public final class WalReplayer {
         for (ReplayEntry entry : liveMemories.values()) {
             long offset = (long) slot * stride;
 
-            // Build a CognitiveHeader for this replay entry
-            CognitiveRecordLayout.CognitiveHeader header =
-                    CognitiveRecordLayout.CognitiveHeader.createWithArousal(
+            // Build a EncodingHeader for this replay entry
+            EncodingHeader header =
+                    EncodingHeader.createWithArousal(
                             entry.timestamp.toEpochMilli(),
                             0L,             // synaptic tags (not stored in WAL payload)
                             0f,             // exact norm (not available in WAL)

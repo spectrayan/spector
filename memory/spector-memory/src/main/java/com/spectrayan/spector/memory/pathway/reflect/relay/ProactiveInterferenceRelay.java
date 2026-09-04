@@ -15,8 +15,8 @@ package com.spectrayan.spector.memory.pathway.reflect.relay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
 import org.slf4j.Logger;
@@ -64,14 +64,14 @@ public final class ProactiveInterferenceRelay implements SynapticRelay<ReflectSi
         int count = partition.count();
         if (count < 2) return;
 
-        CognitiveRecordLayout layout = partition.layout();
+        EngramLayout layout = partition.layout();
         MemorySegment segment = partition.segment();
         if (segment == null) return;
 
         Map<Integer, List<Integer>> centroidClusters = new HashMap<>();
         for (int i = 0; i < count; i++) {
             long offset = partition.recordOffset(i);
-            CognitiveHeader header = layout.readHeader(segment, offset);
+            EncodingHeader header = layout.readHeader(segment, offset);
             if (EncodingHeaderFields.isTombstoned(header.flags()) || EncodingHeaderFields.isConsolidated(header.flags())) {
                 continue;
             }
@@ -86,7 +86,7 @@ public final class ProactiveInterferenceRelay implements SynapticRelay<ReflectSi
     }
 
     private void applyInterference(EpisodicPartition partition, List<Integer> clusterIndices, ReflectSignal signal) {
-        CognitiveRecordLayout layout = partition.layout();
+        EngramLayout layout = partition.layout();
         MemorySegment segment = partition.segment();
         float threshold = signal.policy().interferenceThreshold();
         float decayFactor = signal.policy().interferenceDecayFactor();
@@ -111,7 +111,7 @@ public final class ProactiveInterferenceRelay implements SynapticRelay<ReflectSi
 
         for (int i = 0; i < candidates.size(); i++) {
             long offsetA = partition.recordOffset(candidates.get(i));
-            CognitiveHeader headerA = layout.readHeader(segment, offsetA);
+            EncodingHeader headerA = layout.readHeader(segment, offsetA);
             if (EncodingHeaderFields.isTombstoned(headerA.flags())) continue;
 
             long vecOffsetA = layout.vectorOffset(offsetA);
@@ -121,7 +121,7 @@ public final class ProactiveInterferenceRelay implements SynapticRelay<ReflectSi
 
             for (int j = i + 1; j < candidates.size(); j++) {
                 long offsetB = partition.recordOffset(candidates.get(j));
-                CognitiveHeader headerB = layout.readHeader(segment, offsetB);
+                EncodingHeader headerB = layout.readHeader(segment, offsetB);
                 if (EncodingHeaderFields.isTombstoned(headerB.flags())) continue;
 
                 float dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(

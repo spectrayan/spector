@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 class CognitiveVectorAccessorTest {
@@ -58,7 +58,7 @@ class CognitiveVectorAccessorTest {
         MemoryIndex index = mock(MemoryIndex.class);
         PartitionRegistry registry = mock(PartitionRegistry.class);
         CognitiveMemoryRouter router = mock(CognitiveMemoryRouter.class);
-        CognitiveRecordLayout layout = mock(CognitiveRecordLayout.class);
+        EngramLayout layout = mock(EngramLayout.class);
         ScalarQuantizer quantizer = mock(ScalarQuantizer.class);
 
         float[] mins = new float[]{0.0f, -1.0f};

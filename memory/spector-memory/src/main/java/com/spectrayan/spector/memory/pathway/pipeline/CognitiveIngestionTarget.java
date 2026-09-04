@@ -40,7 +40,7 @@ import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.IngestionContext;
@@ -513,7 +513,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         byte encodingProfile = computeEncodingProfile(salienceProfile);
         byte encodingAlpha = computeEncodingAlpha(salienceProfile);
         byte encodingBeta = computeEncodingBeta(salienceProfile);
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 System.currentTimeMillis(), synapticTags, l2Norm, importance,
                 0, (short) 0, valence, flags, arousal, 1.0f,
                 encodingProfile, encodingAlpha, encodingBeta,
@@ -577,7 +577,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     // ===============================================================
 
     /**
-     * Migration-aware ingestion that preserves the original {@link CognitiveHeader}.
+     * Migration-aware ingestion that preserves the original {@link EncodingHeader}.
      *
      * <p>Used during dimension migration to re-ingest memories with new embeddings
      * while preserving all cognitive metadata (importance, recall count, valence,
@@ -602,7 +602,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     public void ingestCognitiveWithHeader(String id, String text, float[] vector,
                                            MemoryType type, String[] tags,
                                            MemorySource source,
-                                           CognitiveHeader preservedHeader) {
+                                           EncodingHeader preservedHeader) {
         // Dedup guard  --  same as normal ingestion
         if (index.locate(id) != null) {
             log.debug("Migration: skipping duplicate '{}'  --  already indexed", id);
@@ -622,7 +622,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
         // Step 6: Build header  --  preserve original fields, recompute vector-derived ones
         float l2Norm = computeL2Norm(vector);
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 preservedHeader.timestampMs(),       // [x] original timestamp
                 synapticTags,                        // 🔄 re-encoded (same tags)
                 l2Norm,                              // 🔄 from new vector
@@ -767,7 +767,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         byte encodingProfile = computeEncodingProfile(salienceProfile);
         byte encodingAlpha = computeEncodingAlpha(salienceProfile);
         byte encodingBeta = computeEncodingBeta(salienceProfile);
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 timestampMs, synapticTags, l2Norm, importance,
                 0, (short) 0, valence, flags, arousal, 1.0f,
                 encodingProfile, encodingAlpha, encodingBeta,

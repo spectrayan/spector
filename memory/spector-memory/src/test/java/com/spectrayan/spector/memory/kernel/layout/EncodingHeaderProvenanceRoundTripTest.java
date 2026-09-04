@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.compat.LegacyEncodingHeaderReader;
 import com.spectrayan.spector.memory.model.MemoryType;
 import org.junit.jupiter.api.DisplayName;
@@ -42,14 +41,14 @@ class EncodingHeaderProvenanceRoundTripTest {
 
             long now = System.currentTimeMillis();
             byte procFlags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal());
-            CognitiveHeader header = CognitiveHeader.createSynthetic(
+            EncodingHeader header = EncodingHeader.createSynthetic(
                     now, 0xABCDEFL, 1.25f, 7.5f,
                     (byte) 42, (byte) 200, procFlags,
                     EncodingHeaderFields.FLAG_SIMULATED, (short) 9, 3.14f
             );
 
             layout.writeHeader(segment, 0L, header);
-            CognitiveHeader read = layout.readHeader(segment, 0L);
+            EncodingHeader read = layout.readHeader(segment, 0L);
 
             assertThat(read.timestampMs()).isEqualTo(now);
             assertThat(read.synapticTags()).isEqualTo(0xABCDEFL);
@@ -73,14 +72,14 @@ class EncodingHeaderProvenanceRoundTripTest {
 
             long now = System.currentTimeMillis();
             byte procFlags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.PROCEDURAL.ordinal());
-            CognitiveHeader header = CognitiveHeader.createSynthetic(
+            EncodingHeader header = EncodingHeader.createSynthetic(
                     now, 0x123456L, 1.0f, 4.0f,
                     (byte) 0, (byte) 0, procFlags,
                     EncodingHeaderFields.FLAG_CRYSTALLIZED, (short) 3, 0.0f
             );
 
             layout.writeHeader(segment, 0L, header);
-            CognitiveHeader read = layout.readHeader(segment, 0L);
+            EncodingHeader read = layout.readHeader(segment, 0L);
 
             assertThat(read.consolidationFlags()).isEqualTo(EncodingHeaderFields.FLAG_CRYSTALLIZED);
             assertThat(EncodingHeaderFields.isCrystallized(read.consolidationFlags())).isTrue();
@@ -122,7 +121,7 @@ class EncodingHeaderProvenanceRoundTripTest {
             assertThat(legacyReader.version()).isEqualTo(1);
             assertThat(legacyReader.headerBytes()).isEqualTo(64);
 
-            CognitiveHeader read = legacyReader.readHeader(segment, 0L);
+            EncodingHeader read = legacyReader.readHeader(segment, 0L);
             assertThat(read.timestampMs()).isEqualTo(now);
             assertThat(read.synapticTags()).isEqualTo(0xCAFEBABE1234L);
             assertThat(read.exactNorm()).isEqualTo(1.12f);

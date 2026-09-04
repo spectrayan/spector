@@ -13,8 +13,8 @@
 package com.spectrayan.spector.memory.synapse;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreFusionMode;
 import com.spectrayan.spector.memory.model.ScoringMode;
@@ -56,11 +56,11 @@ public final class CognitiveScorer {
      *
      * @param lateral true if this record came from the lateral retrieval heap
      */
-    public record ScoredRecord(long offset, float score, int index, CognitiveHeader header, boolean lateral)
+    public record ScoredRecord(long offset, float score, int index, EncodingHeader header, boolean lateral)
             implements Comparable<ScoredRecord> {
 
         /** Standard (non-lateral) constructor for backward compatibility. */
-        public ScoredRecord(final long offset, final float score, final int index, final CognitiveHeader header) {
+        public ScoredRecord(final long offset, final float score, final int index, final EncodingHeader header) {
             this(offset, score, index, header, false);
         }
 
@@ -74,7 +74,7 @@ public final class CognitiveScorer {
      * Scans a memory segment and returns the top-K scored records.
      */
     public static List<ScoredRecord> score(
-            final MemorySegment segment, final int recordCount, final CognitiveRecordLayout layout,
+            final MemorySegment segment, final int recordCount, final EngramLayout layout,
             final float[] queryVector, final RecallOptions options, final long nowMs) {
         return score(segment, recordCount, layout, queryVector, options, nowMs, 0L, null, null);
     }
@@ -83,7 +83,7 @@ public final class CognitiveScorer {
      * Scans a memory segment and returns the top-K scored records with base offset.
      */
     public static List<ScoredRecord> score(
-            final MemorySegment segment, final int recordCount, final CognitiveRecordLayout layout,
+            final MemorySegment segment, final int recordCount, final EngramLayout layout,
             final float[] queryVector, final RecallOptions options, final long nowMs, final long baseOffset) {
         return score(segment, recordCount, layout, queryVector, options, nowMs, baseOffset, null, null);
     }
@@ -92,7 +92,7 @@ public final class CognitiveScorer {
      * Scans a memory segment using calibrated scalar quantization parameters.
      */
     public static List<ScoredRecord> score(
-            final MemorySegment segment, final int recordCount, final CognitiveRecordLayout layout,
+            final MemorySegment segment, final int recordCount, final EngramLayout layout,
             final float[] queryVector, final RecallOptions options, final long nowMs, final long baseOffset,
             final float[] mins, final float[] scales) {
         return score(segment, recordCount, layout, queryVector, options, nowMs, baseOffset, mins, scales, null, null);
@@ -102,7 +102,7 @@ public final class CognitiveScorer {
      * Full scan entrypoint with calibrated distance and early associative prior (MR-06).
      */
     public static List<ScoredRecord> score(
-            final MemorySegment segment, final int recordCount, final CognitiveRecordLayout layout,
+            final MemorySegment segment, final int recordCount, final EngramLayout layout,
             final float[] queryVector, final RecallOptions options, final long nowMs, final long baseOffset,
             final float[] mins, final float[] scales,
             final AssociativePriorProvider priorProvider,
@@ -115,7 +115,7 @@ public final class CognitiveScorer {
      * Full scan entrypoint with calibrated distance, early associative prior, and authoritative strength region.
      */
     public static List<ScoredRecord> score(
-            final MemorySegment segment, final int recordCount, final CognitiveRecordLayout layout,
+            final MemorySegment segment, final int recordCount, final EngramLayout layout,
             final float[] queryVector, final RecallOptions options, final long nowMs, final long baseOffset,
             final float[] mins, final float[] scales,
             final AssociativePriorProvider priorProvider,
@@ -302,7 +302,7 @@ public final class CognitiveScorer {
 
     private static void scoreLateral(
             final PriorityQueue<ScoredRecord> lateralHeap, final int lateralMaxResults,
-            final MemorySegment segment, final long offset, final CognitiveRecordLayout layout,
+            final MemorySegment segment, final long offset, final EngramLayout layout,
             final float l2dist, final float tagOverlap, final float importance,
             final int adjustedBucket, final byte arousal,
             final long timestamp, final long recordTags, final byte valence, final byte flags,
@@ -318,7 +318,7 @@ public final class CognitiveScorer {
 
         final float exactNorm = layout.readExactNorm(segment, offset);
         final short centroidId = layout.readCentroidId(segment, offset);
-        final CognitiveHeader header = new CognitiveHeader(
+        final EncodingHeader header = new EncodingHeader(
                 timestamp, recordTags, exactNorm, importance,
                 agentRecallCount, centroidId, valence, flags,
                 arousal, storageStrength);

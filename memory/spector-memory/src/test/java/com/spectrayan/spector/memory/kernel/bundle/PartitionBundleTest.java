@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.kernel.bundle;
 
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 
 import org.junit.jupiter.api.Test;
@@ -31,7 +31,7 @@ class PartitionBundleTest {
     private static final int DIMS = 64;
     private static final int SEM_CAP = 100;
     private static final int EPI_CAP = 50;
-    private static final CognitiveRecordLayout COG_LAYOUT = new CognitiveRecordLayout(DIMS);
+    private static final EngramLayout COG_LAYOUT = new EngramLayout(DIMS);
     private static final long EPI_BYTES = (long) EPI_CAP * COG_LAYOUT.recordStride();
     private static final int PROC_CAP = 20;
     private static final long TEXT_BYTES = 4096;

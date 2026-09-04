@@ -21,7 +21,7 @@
  * <table border="1">
  *   <caption>Reserved Vocabulary and Realized Concepts</caption>
  *   <tr><th>Term</th><th>Meaning</th><th>Owning Type</th><th>MF-001 Concept</th></tr>
- *   <tr><td><b>Engram</b></td><td>One stored memory trace</td><td>{@link com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout} (becoming {@code EngramLayout})</td><td>Trace \(T\)</td></tr>
+ *   <tr><td><b>Engram</b></td><td>One stored memory trace</td><td>{@link com.spectrayan.spector.memory.kernel.layout.EngramLayout} (becoming {@code EngramLayout})</td><td>Trace \(T\)</td></tr>
  *   <tr><td><b>Preamble</b></td><td>Fixed prologue of a region or store file (64 bytes)</td><td>{@link com.spectrayan.spector.memory.kernel.RegionPreamble}</td><td>Physical container prologue</td></tr>
  *   <tr><td><b>Region Layout</b></td><td>Descriptor of a region's records (stride, schema, CRC)</td><td>{@link com.spectrayan.spector.memory.kernel.RegionLayout}</td><td>Physical record descriptor</td></tr>
  *   <tr><td><b>Encoding Header</b></td><td>Encoding-time identity: importance, valence, arousal, tags, source, timestamp</td><td>{@code EncodingHeaderLayout}, {@code EncodingHeader}, {@code EncodingHeaderFields}</td><td>Part of logical {@code header}</td></tr>

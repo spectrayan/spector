@@ -23,8 +23,8 @@ import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
@@ -308,7 +308,7 @@ public final class ReflectDaemon {
                     joinedText = joinedText.substring(0, 500);
                 }
                 float[] vec = embeddingProvider != null ? embeddingProvider.embed(joinedText).vector() : new float[rememberPathway.quantizer().dimensions()];
-                CognitiveHeader header = new CognitiveHeader(
+                EncodingHeader header = new EncodingHeader(
                         System.currentTimeMillis(),
                         0L,
                         1.0f,
@@ -497,14 +497,14 @@ public final class ReflectDaemon {
      *   <li>Mark all cluster members as consolidated</li>
      * </ol>
      */
-    private record PromotedFact(String text, float[] vector, CognitiveHeader header) {}
+    private record PromotedFact(String text, float[] vector, EncodingHeader header) {}
 
     private int clusterAndSynthesize(EpisodicPartition partition,
                                       RememberPathway rememberPathway,
                                       Function<Long, String> textLookup) {
         if (rememberPathway == null || partition.count() == 0) return 0;
 
-        CognitiveRecordLayout layout = partition.layout();
+        EngramLayout layout = partition.layout();
         var segment = partition.segment();
         int count = partition.count();
 
@@ -518,7 +518,7 @@ public final class ReflectDaemon {
             if (EncodingHeaderFields.isTombstoned(flags)) continue;
             if (EncodingHeaderFields.isConsolidated(flags)) continue;
 
-            CognitiveHeader header = layout.readHeader(segment, offset);
+            EncodingHeader header = layout.readHeader(segment, offset);
             int centroidId = header.centroidId();
 
             centroidClusters.computeIfAbsent(centroidId, k -> new ArrayList<>()).add(i);
@@ -549,7 +549,7 @@ public final class ReflectDaemon {
 
             for (int idx : clusterIndices) {
                 long offset = partition.recordOffset(idx);
-                CognitiveHeader header = layout.readHeader(segment, offset);
+                EncodingHeader header = layout.readHeader(segment, offset);
 
                 commonTags &= header.synapticTags();
 
@@ -580,8 +580,8 @@ public final class ReflectDaemon {
             if (promotedFact == null) {
                 // Fallback: promote highest-importance record (no LLM available)
                 long bestOffset = partition.recordOffset(bestIndex);
-                CognitiveHeader episodicHeader = layout.readHeader(segment, bestOffset);
-                CognitiveHeader promotedHeader = createSemanticHeader(episodicHeader, commonTags);
+                EncodingHeader episodicHeader = layout.readHeader(segment, bestOffset);
+                EncodingHeader promotedHeader = createSemanticHeader(episodicHeader, commonTags);
                 
                 String bestText = (textLookup != null) ? textLookup.apply(bestOffset) : "";
                 
@@ -661,7 +661,7 @@ public final class ReflectDaemon {
                                             List<Integer> clusterIndices) {
         if (clusterIndices.size() < 2) return 0;
 
-        CognitiveRecordLayout layout = partition.layout();
+        EngramLayout layout = partition.layout();
         var segment = partition.segment();
         float threshold = policy.interferenceThreshold();
         float decayFactor = policy.interferenceDecayFactor();
@@ -685,12 +685,12 @@ public final class ReflectDaemon {
 
         for (int i = 0; i < candidates.size(); i++) {
             long offsetA = partition.recordOffset(candidates.get(i));
-            CognitiveHeader headerA = layout.readHeader(segment, offsetA);
+            EncodingHeader headerA = layout.readHeader(segment, offsetA);
             if (EncodingHeaderFields.isTombstoned(headerA.flags())) continue;
 
             for (int j = i + 1; j < candidates.size(); j++) {
                 long offsetB = partition.recordOffset(candidates.get(j));
-                CognitiveHeader headerB = layout.readHeader(segment, offsetB);
+                EncodingHeader headerB = layout.readHeader(segment, offsetB);
                 if (EncodingHeaderFields.isTombstoned(headerB.flags())) continue;
 
                 // Compute L2 distance between quantized vectors.
@@ -773,7 +773,7 @@ public final class ReflectDaemon {
                     EncodingHeaderFields.FLAG_CONSOLIDATED,
                     MemoryType.SEMANTIC.ordinal());
 
-            CognitiveHeader header = new CognitiveHeader(
+            EncodingHeader header = new EncodingHeader(
                     System.currentTimeMillis(), commonTags, exactNorm, maxImportance,
                     0, (short) 0, (byte) 0, semanticFlags);
             
@@ -788,12 +788,12 @@ public final class ReflectDaemon {
     /**
      * Creates a SEMANTIC-type header from an episodic header, with consolidated flag.
      */
-    private CognitiveHeader createSemanticHeader(CognitiveHeader episodicHeader, long commonTags) {
+    private EncodingHeader createSemanticHeader(EncodingHeader episodicHeader, long commonTags) {
         byte semanticFlags = EncodingHeaderFields.withMemoryType(
                 (byte) (episodicHeader.flags() | EncodingHeaderFields.FLAG_CONSOLIDATED),
                 MemoryType.SEMANTIC.ordinal());
 
-        return new CognitiveHeader(
+        return new EncodingHeader(
                 episodicHeader.timestampMs(),
                 commonTags != 0 ? commonTags : episodicHeader.synapticTags(),
                 episodicHeader.exactNorm(),
@@ -815,7 +815,7 @@ public final class ReflectDaemon {
                                           Function<Long, String> textLookup) {
         if (rememberPathway == null || partition.count() == 0) return 0;
 
-        CognitiveRecordLayout layout = partition.layout();
+        EngramLayout layout = partition.layout();
         var segment = partition.segment();
         int count = partition.count();
 
@@ -841,8 +841,8 @@ public final class ReflectDaemon {
             long offset = partition.recordOffset(bestIndex);
 
             // Read the header and re-create as SEMANTIC type
-            CognitiveHeader episodicHeader = layout.readHeader(segment, offset);
-            CognitiveHeader semanticHeader = createSemanticHeader(episodicHeader,
+            EncodingHeader episodicHeader = layout.readHeader(segment, offset);
+            EncodingHeader semanticHeader = createSemanticHeader(episodicHeader,
                     episodicHeader.synapticTags());
 
             String bestText = (textLookup != null) ? textLookup.apply(offset) : "";

@@ -19,8 +19,8 @@ import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -174,7 +174,7 @@ public abstract class AbstractConsolidator implements Consolidator {
                 EncodingHeaderFields.FLAG_CONSOLIDATED,
                 MemoryType.SEMANTIC.ordinal());
 
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 merged.timestampMs(),
                 merged.synapticTags(),
                 1.0f,
@@ -235,7 +235,7 @@ public abstract class AbstractConsolidator implements Consolidator {
             }
         } else if (fallbackStore != null) {
             MemorySegment segment = fallbackStore.segment();
-            CognitiveRecordLayout layout = fallbackStore.cognitiveLayout();
+            EngramLayout layout = fallbackStore.cognitiveLayout();
             layout.tombstone(segment, record.byteOffset());
         }
 

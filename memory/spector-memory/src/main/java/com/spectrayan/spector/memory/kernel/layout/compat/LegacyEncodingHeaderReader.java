@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.layout.compat;
 
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import java.lang.foreign.MemorySegment;
@@ -126,10 +126,10 @@ public final class LegacyEncodingHeaderReader {
     }
 
     /**
-     * Reads all V1 header fields into an immutable {@link CognitiveHeader}.
+     * Reads all V1 header fields into an immutable {@link EncodingHeader}.
      */
-    public CognitiveHeader readHeader(MemorySegment seg, long off) {
-        return new CognitiveHeader(
+    public EncodingHeader readHeader(MemorySegment seg, long off) {
+        return new EncodingHeader(
                 readTimestamp(seg, off),
                 readSynapticTags(seg, off),
                 readExactNorm(seg, off),

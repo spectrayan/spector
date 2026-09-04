@@ -50,7 +50,7 @@ class EncodingHeaderLayoutTest {
             byte flags = 0x01;
             long tagsLo = 0x0123456789ABCDEFL;
             long tagsHi = 0xFEDCBA9876543210L;
-            CognitiveRecordLayout.CognitiveHeader header = new CognitiveRecordLayout.CognitiveHeader(
+            EncodingHeader header = new EncodingHeader(
                     timestamp, tagsLo, exactNorm, importance, 0, centroidId, valence, flags
             );
             layout.writeHeader(segment, offset, header);

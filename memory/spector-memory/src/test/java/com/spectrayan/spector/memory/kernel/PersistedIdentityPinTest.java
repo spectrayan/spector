@@ -17,8 +17,8 @@ import com.spectrayan.spector.memory.kernel.bundle.RegionId;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.InsularLayout;
 import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.ContinuityLayout;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout;
 import com.spectrayan.spector.memory.kernel.layout.EntityLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicLogLayout;
@@ -46,7 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <h3>Why this test exists</h3>
  *
  * <p>The engram layout unification (spec {@code engram-layout-unification}) renames a large number of
- * kernel types — {@code MemoryHeader} to {@link RegionPreamble}, {@code CognitiveRecordLayout} to
+ * kernel types — {@code MemoryHeader} to {@link RegionPreamble}, {@code EngramLayout} to
  * {@code EngramLayout}, {@code AuditRecordLayout} to {@code StrengthLayout}, and so on. Those renames
  * are safe <b>only because</b> the on-disk format never references a Java class name: region identity
  * is a {@code short} from {@link RegionId#id()}, store and layout identity is an {@code int}
@@ -175,7 +175,7 @@ class PersistedIdentityPinTest {
         @DisplayName("Every layoutId is pinned")
         void layoutIdsArePinned() {
             Map<String, String> actual = new LinkedHashMap<>();
-            actual.put("CognitiveRecordLayout", hex(new CognitiveRecordLayout(100).layoutId()));
+            actual.put("EngramLayout", hex(new EngramLayout(100).layoutId()));
             actual.put("StrengthLayout", hex(StrengthLayout.INSTANCE.layoutId()));
             actual.put("EpisodicLogLayout", hex(EpisodicLogLayout.INSTANCE.layoutId()));
             actual.put("ContinuityLayout", hex(ContinuityLayout.SINGLETON.layoutId()));
@@ -195,7 +195,7 @@ class PersistedIdentityPinTest {
             actual.put("WalLayout", hex(new WalLayout().layoutId()));
 
             Map<String, String> expected = new LinkedHashMap<>();
-            expected.put("CognitiveRecordLayout", "0x434F4700 'COG\\0'");
+            expected.put("EngramLayout", "0x434F4700 'COG\\0'");
             expected.put("StrengthLayout", "0x41554454 'AUDT'");
             expected.put("EpisodicLogLayout", "0x4550494C 'EPIL'");
             expected.put("ContinuityLayout", "0x434F4E54 'CONT'");
@@ -297,10 +297,10 @@ class PersistedIdentityPinTest {
         @Test
         @DisplayName("Engram stride is 64-byte header plus quantized vector")
         void engramStrideFormulaIsPinned() {
-            assertThat(new CognitiveRecordLayout(100).stride())
+            assertThat(new EngramLayout(100).stride())
                     .as("64B encoding header + 100B quantized vector").isEqualTo(164);
-            assertThat(new CognitiveRecordLayout(768).stride()).isEqualTo(64 + 768);
-            assertThat(new CognitiveRecordLayout(100).vectorOffset(0))
+            assertThat(new EngramLayout(768).stride()).isEqualTo(64 + 768);
+            assertThat(new EngramLayout(100).vectorOffset(0))
                     .as("vector payload starts immediately after the 64-byte header").isEqualTo(64);
         }
     }
