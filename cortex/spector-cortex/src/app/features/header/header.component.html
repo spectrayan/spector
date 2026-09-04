@@ -1,7 +1,11 @@
 <mat-toolbar class="cortex-toolbar">
   <!-- Brand -->
   <div class="brand">
-    <img src="assets/spector-favicon.png" alt="Spector" class="brand-logo" />
+    @if (theme.isDark()) {
+      <img src="assets/spector-logo-icon-dark.png" alt="Spector" class="brand-logo" />
+    } @else {
+      <img src="assets/spector-logo-icon-light.png" alt="Spector" class="brand-logo" />
+    }
     <span class="brand-name">Spector</span>
     <span class="brand-badge">Cortex</span>
   </div>
