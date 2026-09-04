@@ -649,9 +649,13 @@ public final class RecallPathway {
             priorContext = new com.spectrayan.spector.memory.synapse.QueryAssociativeContext(List.of(), List.of(), nowMs);
         }
 
+        var router = partitionRegistry != null ? partitionRegistry.routerFor(partitionSeq) : null;
+        var strengthStore = router != null ? router.strength() : null;
+
         final List<ScoredRecord> scored = CognitiveScorer.score(
                 segment, recordCount, layout, queryVector, options, nowMs, baseOffset,
-                calibrationMins, calibrationScales, associativePriorProvider, priorContext);
+                calibrationMins, calibrationScales, associativePriorProvider, priorContext,
+                strengthStore, type);
 
         final List<CognitiveResult> results = new ArrayList<>(scored.size());
         for (final ScoredRecord sr : scored) {
@@ -676,10 +680,7 @@ public final class RecallPathway {
         if (partitionRegistry != null) {
             var router = partitionRegistry.routerFor(partitionSeq);
             if (router != null && router.strength() != null) {
-                int strengthCount = router.strength().readAgentRecallCount(type, sr.index());
-                if (strengthCount > 0 || header.agentRecallCount() == 0) {
-                    recallCount = strengthCount;
-                }
+                recallCount = router.strength().readAgentRecallCount(type, sr.index());
             }
         }
 

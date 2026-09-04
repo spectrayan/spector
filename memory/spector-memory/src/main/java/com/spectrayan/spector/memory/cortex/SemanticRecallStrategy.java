@@ -170,12 +170,24 @@ public final class SemanticRecallStrategy {
             byte valence = header.valence();
             if (valence < minValence || valence > maxValence) continue;
 
+            StrengthMemory strengthStore = handle.router().strength();
+            int slotIndex = (int) ((headerOffset - store.dataOffset()) / layout.stride());
+
             // Phase 4: Importance threshold
-            float importance = header.importance();
+            float rawImportance = header.importance();
+            float importance;
+            if (strengthStore != null) {
+                float eff = strengthStore.readEffectiveImportance(MemoryType.SEMANTIC, slotIndex);
+                importance = eff != 0.0f ? eff : rawImportance;
+            } else {
+                importance = rawImportance;
+            }
             if (importance < minImportance) continue;
 
             float finalScore;
-            int agentRecallCount = header.agentRecallCount();
+            int agentRecallCount = (strengthStore != null)
+                    ? strengthStore.readAgentRecallCount(MemoryType.SEMANTIC, slotIndex)
+                    : header.agentRecallCount();
             float decay;
             float rawDecay;
 
@@ -192,9 +204,15 @@ public final class SemanticRecallStrategy {
                 rawDecay = 1.0f;
             } else {
                 final byte arousal = layout.headerLayout().version() >= 2 ? header.arousal() : (byte) 0;
-                final float storage = layout.headerLayout().version() >= 2
-                        ? layout.headerLayout().readStorageStrength(headerSlab, headerOffset)
-                        : 1.0f;
+                final float storage;
+                if (strengthStore != null) {
+                    float s = strengthStore.readStorageStrength(MemoryType.SEMANTIC, slotIndex);
+                    storage = s > 0.0f ? s : 1.0f;
+                } else if (layout.headerLayout().version() >= 2) {
+                    storage = layout.headerLayout().readStorageStrength(headerSlab, headerOffset);
+                } else {
+                    storage = 1.0f;
+                }
                 final float cognitiveMass = CognitiveScoreFusion.computeCognitiveMass(importance, arousal, storage);
 
                 decay = CognitiveScoreFusion.computeMassDilatedDecay(timestamp, nowMs, cognitiveMass, arousal, agentRecallCount, false);

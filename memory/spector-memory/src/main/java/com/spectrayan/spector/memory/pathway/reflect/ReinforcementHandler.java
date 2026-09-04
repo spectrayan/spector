@@ -24,6 +24,7 @@ import com.spectrayan.spector.memory.kernel.Memory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
+import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
@@ -200,7 +201,7 @@ public final class ReinforcementHandler {
                 byte profileOrdinal;
                 if (cognitiveRouter.strength() != null) {
                     int slotIndex = (int) (loc.offset() / cognitiveRouter.layoutFor(loc.type()).stride());
-                    profileOrdinal = cognitiveRouter.strength().readStrengthState(loc.type(), slotIndex).lastRecallProfile();
+                    profileOrdinal = cognitiveRouter.strength().readLastRecallProfile(loc.type(), slotIndex);
                 } else {
                     profileOrdinal = segment.get(
                             java.lang.foreign.ValueLayout.JAVA_BYTE,
@@ -281,6 +282,10 @@ public final class ReinforcementHandler {
         if (Math.abs(finalImportance - oldImportance) > 0.001f) {
             log.debug("Reinforce re-fusion: '{}' importance {} → {}",
                     memoryId, oldImportance, finalImportance);
+            if (cognitiveRouter.strength() != null && loc.type() != MemoryType.WORKING) {
+                int slotIndex = (int) (loc.offset() / layout.stride());
+                cognitiveRouter.strength().casEffectiveImportance(loc.type(), slotIndex, current -> finalImportance);
+            }
         }
     }
 }

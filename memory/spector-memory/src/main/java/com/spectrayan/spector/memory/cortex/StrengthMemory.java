@@ -162,6 +162,30 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
     }
 
     /**
+     * Initializes audit fields with preserved storage strength and recall count at (tier, slotIndex).
+     */
+    public void initializeDefault(MemoryType tier, int slotIndex, float baseImportance, float storageStrength, int agentRecallCount) {
+        long offset = strengthOffset(tier, slotIndex);
+        layout.initializeDefaultRecord(segment, offset, tier, baseImportance, storageStrength, agentRecallCount);
+    }
+
+    /**
+     * Reads the effective importance for (tier, slotIndex).
+     */
+    public float readEffectiveImportance(MemoryType tier, int slotIndex) {
+        long offset = strengthOffset(tier, slotIndex);
+        return layout.readEffectiveImportance(segment, offset);
+    }
+
+    /**
+     * Resets/zeroes the audit record for (tier, slotIndex) on tombstone.
+     */
+    public void resetRecord(MemoryType tier, int slotIndex) {
+        long offset = strengthOffset(tier, slotIndex);
+        layout.resetRecord(segment, offset);
+    }
+
+    /**
      * Reads the immutable {@link StrengthState} snapshot for (tier, slotIndex).
      */
     public StrengthState readStrengthState(MemoryType tier, int slotIndex) {
@@ -266,5 +290,37 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
     public float computeActRActivation(MemoryType tier, int slotIndex, long creationMs, long nowMs) {
         long offset = strengthOffset(tier, slotIndex);
         return layout.computeActRActivation(segment, offset, creationMs, nowMs);
+    }
+
+    /**
+     * Reads the epoch timestamp of the last auto-LTP cooldown window for (tier, slotIndex).
+     */
+    public long readLastAutoLtp(MemoryType tier, int slotIndex) {
+        long offset = strengthOffset(tier, slotIndex);
+        return layout.readLastAutoLtp(segment, offset);
+    }
+
+    /**
+     * Writes the epoch timestamp of the last auto-LTP cooldown window for (tier, slotIndex).
+     */
+    public void writeLastAutoLtp(MemoryType tier, int slotIndex, long timestampMs) {
+        long offset = strengthOffset(tier, slotIndex);
+        layout.writeLastAutoLtp(segment, offset, timestampMs);
+    }
+
+    /**
+     * Reads the cognitive profile ordinal used during the last recall for (tier, slotIndex).
+     */
+    public byte readLastRecallProfile(MemoryType tier, int slotIndex) {
+        long offset = strengthOffset(tier, slotIndex);
+        return layout.readLastRecallProfile(segment, offset);
+    }
+
+    /**
+     * Writes the cognitive profile ordinal used during the last recall for (tier, slotIndex).
+     */
+    public void writeLastRecallProfile(MemoryType tier, int slotIndex, byte profileOrdinal) {
+        long offset = strengthOffset(tier, slotIndex);
+        layout.writeLastRecallProfile(segment, offset, profileOrdinal);
     }
 }

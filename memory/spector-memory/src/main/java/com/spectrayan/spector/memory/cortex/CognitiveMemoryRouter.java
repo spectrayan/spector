@@ -142,7 +142,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
         long offset = get(type).write(header, quantized);
         if (strengthStore != null && type != MemoryType.WORKING) {
             int slotIndex = (int) ((offset - get(type).dataOffset()) / layoutFor(type).stride());
-            strengthStore.initializeDefault(type, slotIndex, header.importance());
+            strengthStore.initializeDefault(type, slotIndex, header.importance(), header.storageStrength(), header.agentRecallCount());
         }
         return offset;
     }
@@ -227,6 +227,10 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
         if (segment != null) {
             layoutFor(loc.type()).tombstone(segment, loc.offset());
         }
+        if (strengthStore != null && loc.type() != MemoryType.WORKING) {
+            int slotIndex = (int) ((loc.offset() - get(loc.type()).dataOffset()) / layoutFor(loc.type()).stride());
+            strengthStore.resetRecord(loc.type(), slotIndex);
+        }
     }
 
     /** Sets the resolved flag (Zeigarnik Effect) for the record at the given location. */
@@ -269,6 +273,27 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
 
         long offset = loc.offset();
         CognitiveHeader header = layout.readHeader(segment, offset);
+        if (strengthStore != null && loc.type() != MemoryType.WORKING) {
+            int slotIndex = (int) ((offset - get(loc.type()).dataOffset()) / layout.stride());
+            header = new CognitiveHeader(
+                    header.timestampMs(),
+                    header.synapticTags(),
+                    header.exactNorm(),
+                    strengthStore.readEffectiveImportance(loc.type(), slotIndex),
+                    strengthStore.readAgentRecallCount(loc.type(), slotIndex),
+                    header.centroidId(),
+                    header.valence(),
+                    header.flags(),
+                    header.arousal(),
+                    strengthStore.readStorageStrength(loc.type(), slotIndex),
+                    header.encodingProfile(),
+                    header.encodingAlpha(),
+                    header.encodingBeta(),
+                    header.soulVersion(),
+                    header.encodingSurprise(),
+                    header.consolidationFlags()
+            );
+        }
 
         byte[] quantizedVec = null;
         if (includeVector) {
@@ -281,7 +306,9 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
                     ValueLayout.JAVA_BYTE, 0, vecBytes);
         }
 
-        int spectorRecallCount = layout.readSpectorRecallCount(segment, offset);
+        int spectorRecallCount = (strengthStore != null && loc.type() != MemoryType.WORKING)
+                ? strengthStore.readSpectorRecallCount(loc.type(), (int) ((offset - get(loc.type()).dataOffset()) / layout.stride()))
+                : layout.readSpectorRecallCount(segment, offset);
         byte consolidationFlags = layout.readConsolidationFlags(segment, offset);
         return new CognitiveRecordBody(header, quantizedVec, spectorRecallCount, consolidationFlags);
     }

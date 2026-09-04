@@ -102,6 +102,36 @@ class StrengthMemoryTest {
             assertThat(semAudit.memoryType()).isEqualTo(MemoryType.SEMANTIC);
             assertThat(semAudit.agentRecallCount()).isEqualTo(0);
             assertThat(semAudit.effectiveImportance()).isCloseTo(4.0f, within(1e-5f));
+            assertThat(store.readEffectiveImportance(MemoryType.SEMANTIC, 2)).isCloseTo(4.0f, within(1e-5f));
+        }
+    }
+
+    @Test
+    @DisplayName("Verify initializeDefault with preserved values and resetRecord")
+    void testInitializeDefaultPreservedAndReset() {
+        try (Arena arena = Arena.ofConfined()) {
+            StrengthMemory store = StrengthMemory.heap(10, 10, 10);
+
+            // Initialize slot with preserved consolidation values
+            store.initializeDefault(MemoryType.SEMANTIC, 3, 5.5f, 2.75f, 4);
+            assertThat(store.readEffectiveImportance(MemoryType.SEMANTIC, 3)).isCloseTo(5.5f, within(1e-5f));
+            assertThat(store.readStorageStrength(MemoryType.SEMANTIC, 3)).isCloseTo(2.75f, within(1e-5f));
+            assertThat(store.readAgentRecallCount(MemoryType.SEMANTIC, 3)).isEqualTo(4);
+
+            // Telemetry accessors
+            store.writeLastAutoLtp(MemoryType.SEMANTIC, 3, 1716900005000L);
+            assertThat(store.readLastAutoLtp(MemoryType.SEMANTIC, 3)).isEqualTo(1716900005000L);
+
+            store.writeLastRecallProfile(MemoryType.SEMANTIC, 3, (byte) 2);
+            assertThat(store.readLastRecallProfile(MemoryType.SEMANTIC, 3)).isEqualTo((byte) 2);
+
+            // Reset record (tombstone)
+            store.resetRecord(MemoryType.SEMANTIC, 3);
+            assertThat(store.readEffectiveImportance(MemoryType.SEMANTIC, 3)).isZero();
+            assertThat(store.readStorageStrength(MemoryType.SEMANTIC, 3)).isZero();
+            assertThat(store.readAgentRecallCount(MemoryType.SEMANTIC, 3)).isZero();
+            assertThat(store.readLastAutoLtp(MemoryType.SEMANTIC, 3)).isZero();
+            assertThat(store.readLastRecallProfile(MemoryType.SEMANTIC, 3)).isZero();
         }
     }
 }

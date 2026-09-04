@@ -18,6 +18,8 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.Cogniti
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreFusionMode;
 import com.spectrayan.spector.memory.model.ScoringMode;
+import com.spectrayan.spector.memory.cortex.StrengthMemory;
+import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion;
 import com.spectrayan.spector.memory.synapse.scan.FlatMinHeap;
 import com.spectrayan.spector.memory.synapse.scan.RecordGates;
@@ -105,6 +107,21 @@ public final class CognitiveScorer {
             final float[] mins, final float[] scales,
             final AssociativePriorProvider priorProvider,
             final QueryAssociativeContext priorContext) {
+        return score(segment, recordCount, layout, queryVector, options, nowMs, baseOffset,
+                mins, scales, priorProvider, priorContext, null, null);
+    }
+
+    /**
+     * Full scan entrypoint with calibrated distance, early associative prior, and authoritative strength region.
+     */
+    public static List<ScoredRecord> score(
+            final MemorySegment segment, final int recordCount, final CognitiveRecordLayout layout,
+            final float[] queryVector, final RecallOptions options, final long nowMs, final long baseOffset,
+            final float[] mins, final float[] scales,
+            final AssociativePriorProvider priorProvider,
+            final QueryAssociativeContext priorContext,
+            final StrengthMemory strengthStore,
+            final MemoryType tier) {
 
         final int topK = options.topK();
         final long queryTagMask = options.synapticTagMask();
@@ -146,6 +163,7 @@ public final class CognitiveScorer {
         final int stride = layout.stride();
         final boolean hasArousal = layout.headerLayout().version() >= 2;
         final boolean hasStorageStrength = hasArousal;
+        final boolean useStrength = strengthStore != null && tier != null && tier != MemoryType.WORKING;
 
         final FlatMinHeap heap = new FlatMinHeap(topK);
         final PriorityQueue<ScoredRecord> lateralHeap = lateralMode
@@ -197,17 +215,28 @@ public final class CognitiveScorer {
             }
 
             // Phase 4: Temporal / importance pre-screen with reconsolidation & high-mass exemption
-            final float importance = segment.get(LAYOUT_IMPORTANCE, offset + OFFSET_IMPORTANCE);
+            final float rawImportance = segment.get(LAYOUT_IMPORTANCE, offset + OFFSET_IMPORTANCE);
+            final float importance;
+            if (useStrength) {
+                float eff = strengthStore.readEffectiveImportance(tier, i);
+                importance = eff != 0.0f ? eff : rawImportance;
+            } else {
+                importance = rawImportance;
+            }
             if (importance < minImportance) {
                 continue;
             }
 
-            final int agentRecallCount = segment.get(LAYOUT_AGENT_RECALL_COUNT, offset + OFFSET_AGENT_RECALL_COUNT);
+            final int agentRecallCount = useStrength
+                    ? strengthStore.readAgentRecallCount(tier, i)
+                    : segment.get(LAYOUT_AGENT_RECALL_COUNT, offset + OFFSET_AGENT_RECALL_COUNT);
             final int rawBucket = DecayStrategy.ageToBucket(timestamp, nowMs);
             int adjustedBucket = DecayStrategy.adjustForReconsolidation(rawBucket, agentRecallCount);
 
-            if (hasStorageStrength) {
-                final int spectorRecallCount = segment.get(LAYOUT_SPECTOR_RECALL_COUNT, offset + OFFSET_SPECTOR_RECALL_COUNT);
+            if (hasStorageStrength || useStrength) {
+                final int spectorRecallCount = useStrength
+                        ? strengthStore.readSpectorRecallCount(tier, i)
+                        : segment.get(LAYOUT_SPECTOR_RECALL_COUNT, offset + OFFSET_SPECTOR_RECALL_COUNT);
                 adjustedBucket = DecayStrategy.adjustForAutoRecall(adjustedBucket, spectorRecallCount);
             }
 
@@ -215,9 +244,15 @@ public final class CognitiveScorer {
             final boolean zeroTimeDecay = focusMatch || (!isResolved(flags) && !isPinned(flags));
 
             final byte arousal = hasArousal ? segment.get(LAYOUT_AROUSAL, offset + OFFSET_AROUSAL) : (byte) 0;
-            final float storageStrength = hasStorageStrength
-                    ? layout.headerLayout().readStorageStrength(segment, offset)
-                    : 1.0f;
+            final float storageStrength;
+            if (useStrength) {
+                float s = strengthStore.readStorageStrength(tier, i);
+                storageStrength = s > 0.0f ? s : 1.0f;
+            } else if (hasStorageStrength) {
+                storageStrength = layout.headerLayout().readStorageStrength(segment, offset);
+            } else {
+                storageStrength = 1.0f;
+            }
             final float cognitiveMass = CognitiveScoreFusion.computeCognitiveMass(importance, arousal, storageStrength);
 
             if (RecordGates.isStaleAndWeak(adjustedBucket, importance, flags, cognitiveMass)) {
@@ -235,13 +270,13 @@ public final class CognitiveScorer {
             if (lateralMode && l2dist > lateralDistanceThreshold && tagOverlap >= lateralMinTagOverlap) {
                 scoreLateral(lateralHeap, lateralMaxResults, segment, offset,
                         l2dist, tagOverlap, importance, adjustedBucket, arousal,
-                        timestamp, recordTags, valence, flags, agentRecallCount, i);
+                        timestamp, recordTags, valence, flags, agentRecallCount, i, storageStrength);
                 continue;
             }
 
             final float finalScore = CognitiveScoreFusion.computeFusedScore(
                     l2dist, strictness, pureSimilarity, timestamp, nowMs, cognitiveMass,
-                    arousal, storageStrength, hasStorageStrength, twoFactorEnabled, sExponent,
+                    arousal, storageStrength, hasStorageStrength || useStrength, twoFactorEnabled, sExponent,
                     agentRecallCount, importance, beta, alpha, tagOverlap, fusionMode,
                     valenceAlign, queryValence, valence, tagRelevanceBoost, focusMatch,
                     zeroTimeDecay, hyperfocusBoost, flags, enableAssociativePrior,
@@ -271,7 +306,7 @@ public final class CognitiveScorer {
             final float l2dist, final float tagOverlap, final float importance,
             final int adjustedBucket, final byte arousal,
             final long timestamp, final long recordTags, final byte valence, final byte flags,
-            final int agentRecallCount, final int recordIndex) {
+            final int agentRecallCount, final int recordIndex, final float storageStrength) {
 
         final float l2sq = l2dist * l2dist;
         final float diff = l2sq - 2.0f;
@@ -285,7 +320,8 @@ public final class CognitiveScorer {
         final short centroidId = segment.get(LAYOUT_CENTROID_ID, offset + OFFSET_CENTROID_ID);
         final CognitiveHeader header = new CognitiveHeader(
                 timestamp, recordTags, exactNorm, importance,
-                agentRecallCount, centroidId, valence, flags);
+                agentRecallCount, centroidId, valence, flags,
+                arousal, storageStrength);
 
         if (lateralHeap.size() < lateralMaxResults) {
             lateralHeap.offer(new ScoredRecord(offset, lateralScore, recordIndex, header, true));

@@ -1073,9 +1073,13 @@ public final class RecallPipeline {
                                                      CognitiveRecordLayout layout, float[] queryVector,
                                                      RecallOptions options, long nowMs, MemoryType type,
                                                      long baseOffset, int partitionSeq) {
+        var router = partitionRegistry != null ? partitionRegistry.routerFor(partitionSeq) : null;
+        var strengthStore = router != null ? router.strength() : null;
+
         List<ScoredRecord> scored = CognitiveScorer.score(
                 segment, recordCount, layout, queryVector, options, nowMs, baseOffset,
-                calibrationMins, calibrationScales);
+                calibrationMins, calibrationScales, null, null,
+                strengthStore, type);
 
         List<CognitiveResult> results = new ArrayList<>(scored.size());
         for (ScoredRecord sr : scored) {
@@ -1103,10 +1107,7 @@ public final class RecallPipeline {
         if (partitionRegistry != null) {
             var router = partitionRegistry.routerFor(partitionSeq);
             if (router != null && router.strength() != null) {
-                int strengthCount = router.strength().readAgentRecallCount(type, sr.index());
-                if (strengthCount > 0 || header.agentRecallCount() == 0) {
-                    recallCount = strengthCount;
-                }
+                recallCount = router.strength().readAgentRecallCount(type, sr.index());
             }
         }
 

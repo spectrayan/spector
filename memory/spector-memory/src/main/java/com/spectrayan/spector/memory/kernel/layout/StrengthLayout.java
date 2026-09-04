@@ -511,20 +511,36 @@ public final class StrengthLayout implements RegionLayout {
      * Initializes default audit fields for a freshly ingested memory record.
      */
     public void initializeDefaultRecord(MemorySegment seg, long recordOffset, MemoryType memoryType, float baseImportance) {
+        initializeDefaultRecord(seg, recordOffset, memoryType, baseImportance,
+                SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_INITIAL_STORAGE_STRENGTH, 0);
+    }
+
+    /**
+     * Initializes audit fields with preserved storage strength and recall count (e.g. from consolidation).
+     */
+    public void initializeDefaultRecord(MemorySegment seg, long recordOffset, MemoryType memoryType,
+                                        float baseImportance, float storageStrength, int agentRecallCount) {
         writeRecord(seg, recordOffset, new StrengthState(
                 (byte) (memoryType != null ? memoryType.ordinal() : MemoryType.SEMANTIC.ordinal()),
                 (byte) 0,
                 (byte) 0,
-                0,
+                agentRecallCount,
                 0,
                 baseImportance,
-                SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_INITIAL_STORAGE_STRENGTH,
+                storageStrength > 0.0f ? storageStrength : SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_INITIAL_STORAGE_STRENGTH,
                 0,
                 0L,
                 0L,
                 new int[ACT_R_RING_BUFFER_SLOTS],
                 0L
         ));
+    }
+
+    /**
+     * Resets/zeroes all fields for an audit record at the given record offset (e.g. on tombstone).
+     */
+    public void resetRecord(MemorySegment seg, long recordOffset) {
+        seg.asSlice(recordOffset, STRIDE_BYTES).fill((byte) 0);
     }
 
     /**
