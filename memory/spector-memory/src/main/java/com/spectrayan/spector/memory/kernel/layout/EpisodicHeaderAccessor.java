@@ -16,7 +16,6 @@ import com.spectrayan.spector.memory.model.EngramSource;
 import com.spectrayan.spector.memory.model.SourceModality;
 
 import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 
 /**
  * Accessor for the 64-byte {@link EncodingHeaderLayout encoding header} embedded within
@@ -28,13 +27,15 @@ import java.lang.foreign.ValueLayout;
  * without decoding the variable conversation payload.</p>
  *
  * @since 1.4.0
+ * @deprecated Use {@link EpisodicHeaderLayout} or {@link EpisodeLayout#headerLayout()} instead (ADR-0030).
+ * @see EpisodicHeaderLayout
  * @see EpisodeLayout
  * @see EpisodeCodec
- * @see EncodingHeaderLayout
  */
+@Deprecated(since = "1.5.0", forRemoval = true)
 public final class EpisodicHeaderAccessor {
 
-    private static final long HEADER_OFFSET = EpisodeLayout.PREFIX_BYTES; // +16
+    private static final EpisodicHeaderLayout LAYOUT = EpisodicHeaderLayout.INSTANCE;
 
     private EpisodicHeaderAccessor() {} // static utility
 
@@ -44,38 +45,35 @@ public final class EpisodicHeaderAccessor {
      * Reads the payload byte length from the prefix (offset 0).
      */
     public static int readPayloadBytes(MemorySegment segment, long recordOffset) {
-        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, recordOffset);
+        return LAYOUT.readPayloadBytes(segment, recordOffset);
     }
 
     /**
      * Reads the monotonic sequence ID from the prefix (offset 4).
      */
     public static int readSequenceId(MemorySegment segment, long recordOffset) {
-        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, recordOffset + 4);
+        return LAYOUT.readSequenceId(segment, recordOffset);
     }
 
     /**
      * Reads the CRC32C checksum from the prefix (offset 8).
      */
     public static int readChecksum(MemorySegment segment, long recordOffset) {
-        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, recordOffset + 8);
+        return LAYOUT.readChecksum(segment, recordOffset);
     }
 
     /**
      * Reads the magic marker from the prefix (offset 12).
      */
     public static int readMagic(MemorySegment segment, long recordOffset) {
-        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, recordOffset + 12);
+        return LAYOUT.readMagic(segment, recordOffset);
     }
 
     /**
      * Checks if the record at the given offset matches Option B format ('EPIS' magic marker at offset +12).
      */
     public static boolean isOptionBRecord(MemorySegment segment, long recordOffset) {
-        if (segment.byteSize() < recordOffset + EpisodeLayout.FIXED_OVERHEAD_BYTES) {
-            return false;
-        }
-        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, recordOffset + 12) == EpisodeLayout.MAGIC;
+        return LAYOUT.isOptionBRecord(segment, recordOffset);
     }
 
     // ── Header Delegations (Offset +16) ──
@@ -84,142 +82,132 @@ public final class EpisodicHeaderAccessor {
      * Reads the complete 64-byte {@link EncodingHeader} at {@code recordOffset + 16}.
      */
     public static EncodingHeader readHeader(MemorySegment segment, long recordOffset) {
-        return EncodingHeaderLayout.read(segment, recordOffset + HEADER_OFFSET);
+        return LAYOUT.readHeaderRecord(segment, recordOffset);
     }
 
     /**
      * Writes the complete 64-byte {@link EncodingHeader} at {@code recordOffset + 16}.
      */
     public static void writeHeader(MemorySegment segment, long recordOffset, EncodingHeader header) {
-        EncodingHeaderLayout.write(segment, recordOffset + HEADER_OFFSET, header);
+        LAYOUT.writeHeaderRecord(segment, recordOffset, header);
     }
 
     /**
      * Reads the true floating-point salience importance from the header (offset 16 + 4 = 20).
      */
     public static float readImportance(MemorySegment segment, long recordOffset) {
-        return segment.get(ValueLayout.JAVA_FLOAT_UNALIGNED, recordOffset + HEADER_OFFSET + EncodingHeaderFields.OFFSET_IMPORTANCE);
+        return LAYOUT.readImportanceRecord(segment, recordOffset);
     }
 
     /**
      * Writes the floating-point salience importance into the header (offset 16 + 4 = 20).
      */
     public static void writeImportance(MemorySegment segment, long recordOffset, float importance) {
-        segment.set(ValueLayout.JAVA_FLOAT_UNALIGNED, recordOffset + HEADER_OFFSET + EncodingHeaderFields.OFFSET_IMPORTANCE, importance);
+        LAYOUT.writeImportanceRecord(segment, recordOffset, importance);
     }
 
     /**
      * Reads the emotional valence byte [-128, 127] from the header (offset 16 + 2 = 18).
      */
     public static byte readValence(MemorySegment segment, long recordOffset) {
-        return segment.get(ValueLayout.JAVA_BYTE, recordOffset + HEADER_OFFSET + EncodingHeaderFields.OFFSET_VALENCE);
+        return LAYOUT.readValenceRecord(segment, recordOffset);
     }
 
     /**
      * Writes the emotional valence byte [-128, 127] into the header (offset 16 + 2 = 18).
      */
     public static void writeValence(MemorySegment segment, long recordOffset, byte valence) {
-        segment.set(ValueLayout.JAVA_BYTE, recordOffset + HEADER_OFFSET + EncodingHeaderFields.OFFSET_VALENCE, valence);
+        LAYOUT.writeValenceRecord(segment, recordOffset, valence);
     }
 
     /**
      * Reads the emotional arousal byte [-128, 127] from the header (offset 16 + 3 = 19).
      */
     public static byte readArousal(MemorySegment segment, long recordOffset) {
-        return segment.get(ValueLayout.JAVA_BYTE, recordOffset + HEADER_OFFSET + EncodingHeaderFields.OFFSET_AROUSAL);
+        return LAYOUT.readArousalRecord(segment, recordOffset);
     }
 
     /**
      * Writes the emotional arousal byte [-128, 127] into the header (offset 16 + 3 = 19).
      */
     public static void writeArousal(MemorySegment segment, long recordOffset, byte arousal) {
-        segment.set(ValueLayout.JAVA_BYTE, recordOffset + HEADER_OFFSET + EncodingHeaderFields.OFFSET_AROUSAL, arousal);
+        LAYOUT.writeArousalRecord(segment, recordOffset, arousal);
     }
 
     /**
      * Reads the creation timestamp in epoch milliseconds (offset 16 + 8 = 24).
      */
     public static long readTimestamp(MemorySegment segment, long recordOffset) {
-        return segment.get(ValueLayout.JAVA_LONG_UNALIGNED, recordOffset + HEADER_OFFSET + EncodingHeaderFields.OFFSET_TIMESTAMP);
+        return LAYOUT.readTimestampRecord(segment, recordOffset);
     }
 
     /**
      * Reads the header flags byte (offset 16 + 1 = 17).
      */
     public static byte readFlags(MemorySegment segment, long recordOffset) {
-        return segment.get(ValueLayout.JAVA_BYTE, recordOffset + HEADER_OFFSET + EncodingHeaderFields.OFFSET_FLAGS);
+        return LAYOUT.readFlagsRecord(segment, recordOffset);
     }
 
     /**
      * Reads the engram provenance source from the header (offset 16 + 46 = 62).
      */
     public static EngramSource readSource(MemorySegment segment, long recordOffset) {
-        byte ordinal = segment.get(ValueLayout.JAVA_BYTE, recordOffset + HEADER_OFFSET + EncodingHeaderFields.OFFSET_SOURCE);
-        return EngramSource.fromOrdinal(ordinal);
+        return LAYOUT.readSourceRecord(segment, recordOffset);
     }
 
     /**
      * Extracts the source modality from the flags byte.
      */
     public static SourceModality readModality(MemorySegment segment, long recordOffset) {
-        byte flags = readFlags(segment, recordOffset);
-        return SourceModality.fromOrdinal(EncodingHeaderFields.sourceModalityOrdinal(flags));
+        return LAYOUT.readModalityRecord(segment, recordOffset);
     }
 
     /**
      * Reads the agent soul configuration version (offset 16 + 46 = 62 or 47).
      */
     public static short readSoulVersion(MemorySegment segment, long recordOffset) {
-        return segment.get(ValueLayout.JAVA_SHORT_UNALIGNED, recordOffset + HEADER_OFFSET + EncodingHeaderFields.OFFSET_SOUL_VERSION);
+        return LAYOUT.readSoulVersionRecord(segment, recordOffset);
     }
 
     /**
      * Checks if this record has been tombstoned.
      */
     public static boolean isTombstoned(MemorySegment segment, long recordOffset) {
-        return EncodingHeaderFields.isTombstoned(readFlags(segment, recordOffset));
+        return LAYOUT.isTombstonedRecord(segment, recordOffset);
     }
 
     /**
      * Checks if this record has been consolidated into semantic memory.
      */
     public static boolean isConsolidated(MemorySegment segment, long recordOffset) {
-        return EncodingHeaderFields.isConsolidated(readFlags(segment, recordOffset));
+        return LAYOUT.isConsolidatedRecord(segment, recordOffset);
     }
 
     /**
      * Logically tombstones the episodic record by setting the tombstone flag in the header.
      */
     public static void tombstone(MemorySegment segment, long recordOffset) {
-        long flagOffset = recordOffset + HEADER_OFFSET + EncodingHeaderFields.OFFSET_FLAGS;
-        byte flags = segment.get(ValueLayout.JAVA_BYTE, flagOffset);
-        segment.set(ValueLayout.JAVA_BYTE, flagOffset, (byte) (flags | EncodingHeaderFields.FLAG_TOMBSTONE));
+        LAYOUT.tombstoneRecord(segment, recordOffset);
     }
 
     /**
      * Marks the episodic record as consolidated by setting the consolidated flag in the header.
      */
     public static void markConsolidated(MemorySegment segment, long recordOffset) {
-        long flagOffset = recordOffset + HEADER_OFFSET + EncodingHeaderFields.OFFSET_FLAGS;
-        byte flags = segment.get(ValueLayout.JAVA_BYTE, flagOffset);
-        segment.set(ValueLayout.JAVA_BYTE, flagOffset, (byte) (flags | EncodingHeaderFields.FLAG_CONSOLIDATED));
+        LAYOUT.markConsolidatedRecord(segment, recordOffset);
     }
 
     /**
      * Marks the episodic record as resolved (Zeigarnik Effect) by setting the resolved flag in the header.
      */
     public static void markResolved(MemorySegment segment, long recordOffset) {
-        long flagOffset = recordOffset + HEADER_OFFSET + EncodingHeaderFields.OFFSET_FLAGS;
-        byte flags = segment.get(ValueLayout.JAVA_BYTE, flagOffset);
-        segment.set(ValueLayout.JAVA_BYTE, flagOffset, (byte) (flags | EncodingHeaderFields.FLAG_RESOLVED));
+        LAYOUT.markResolvedRecord(segment, recordOffset);
     }
 
     /**
      * Marks the episodic record as unresolved (Zeigarnik Effect) by clearing the resolved flag in the header.
      */
     public static void markUnresolved(MemorySegment segment, long recordOffset) {
-        long flagOffset = recordOffset + HEADER_OFFSET + EncodingHeaderFields.OFFSET_FLAGS;
-        byte flags = segment.get(ValueLayout.JAVA_BYTE, flagOffset);
-        segment.set(ValueLayout.JAVA_BYTE, flagOffset, (byte) (flags & ~EncodingHeaderFields.FLAG_RESOLVED));
+        LAYOUT.markUnresolvedRecord(segment, recordOffset);
     }
 }
