@@ -24,7 +24,7 @@ import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 /**
  * Detector for finding near-duplicate memory records within a specific memory store tier.
@@ -90,9 +90,9 @@ public final class DuplicateDetector {
 
             for (int i = 0; i < recordCount; i++) {
                 long offset = baseOffset + (long) i * stride;
-                byte flags = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS, offset + SynapticHeaderConstants.OFFSET_FLAGS);
+                byte flags = segment.get(EncodingHeaderFields.LAYOUT_FLAGS, offset + EncodingHeaderFields.OFFSET_FLAGS);
 
-                if (SynapticHeaderConstants.isTombstoned(flags)) {
+                if (EncodingHeaderFields.isTombstoned(flags)) {
                     continue;
                 }
 

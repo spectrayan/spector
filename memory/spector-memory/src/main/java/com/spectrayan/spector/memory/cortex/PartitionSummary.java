@@ -16,7 +16,7 @@ import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartiti
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 import java.lang.foreign.MemorySegment;
@@ -140,7 +140,7 @@ public record PartitionSummary(
             for (int i = 0; i < count; i++) {
                 long offset = base + (long) i * stride;
                 byte flags = layout.headerLayout().readFlags(segment, offset);
-                if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+                if (EncodingHeaderFields.isTombstoned(flags)) continue;
                 semCount++;
                 long ts = layout.headerLayout().readTimestamp(segment, offset);
                 long tags = layout.headerLayout().readSynapticTags(segment, offset);
@@ -157,13 +157,13 @@ public record PartitionSummary(
             long base = router.episodicLog().dataOffset();
             long limit = base + router.episodicLog().writePosition();
             long current = base;
-            while (current + SynapticHeaderConstants.HEADER_BYTES <= limit) {
-                byte flags = router.episodicLog().segment().get(SynapticHeaderConstants.LAYOUT_FLAGS, current + SynapticHeaderConstants.OFFSET_FLAGS);
+            while (current + EncodingHeaderFields.HEADER_BYTES <= limit) {
+                byte flags = router.episodicLog().segment().get(EncodingHeaderFields.LAYOUT_FLAGS, current + EncodingHeaderFields.OFFSET_FLAGS);
                 int bodyLength = router.episodicLog().segment().get(ValueLayout.JAVA_INT_UNALIGNED, current + 56);
-                if (bodyLength < 0 || current + SynapticHeaderConstants.HEADER_BYTES + bodyLength > limit) {
+                if (bodyLength < 0 || current + EncodingHeaderFields.HEADER_BYTES + bodyLength > limit) {
                     break;
                 }
-                if (!SynapticHeaderConstants.isTombstoned(flags)) {
+                if (!EncodingHeaderFields.isTombstoned(flags)) {
                     epiCount++;
                     long ts = EpisodicFieldAccessor.readTimestamp(router.episodicLog().segment(), current);
                     if (ts > 0) {
@@ -171,7 +171,7 @@ public record PartitionSummary(
                         maxTs = Math.max(maxTs, ts);
                     }
                 }
-                current += SynapticHeaderConstants.HEADER_BYTES + bodyLength;
+                current += EncodingHeaderFields.HEADER_BYTES + bodyLength;
             }
         }
         if (router.episodic() != null && router.episodicLog() == null && router.episodic().visibleCount() > 0) {
@@ -185,7 +185,7 @@ public record PartitionSummary(
                 for (int i = 0; i < count; i++) {
                     long offset = base + (long) i * stride;
                     byte flags = layout.headerLayout().readFlags(segment, offset);
-                    if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+                    if (EncodingHeaderFields.isTombstoned(flags)) continue;
                     epiCount++;
                     long ts = layout.headerLayout().readTimestamp(segment, offset);
                     long tags = layout.headerLayout().readSynapticTags(segment, offset);
@@ -208,7 +208,7 @@ public record PartitionSummary(
             for (int i = 0; i < count; i++) {
                 long offset = base + (long) i * stride;
                 byte flags = layout.headerLayout().readFlags(segment, offset);
-                if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+                if (EncodingHeaderFields.isTombstoned(flags)) continue;
                 procCount++;
                 long ts = layout.headerLayout().readTimestamp(segment, offset);
                 long tags = layout.headerLayout().readSynapticTags(segment, offset);

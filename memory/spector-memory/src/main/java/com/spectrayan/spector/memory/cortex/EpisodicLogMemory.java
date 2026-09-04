@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor.EpisodicRecord;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicLogLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.shape.AbstractAppendMemory;
 import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.SourceModality;
@@ -177,7 +177,7 @@ public final class EpisodicLogMemory extends AbstractAppendMemory<EpisodicLogLay
                             int latencyMs, long userId,
                             short soulVersion, SourceModality modality) {
         int bodyLength = (body != null) ? body.length : 0;
-        int totalRecordSize = SynapticHeaderConstants.HEADER_BYTES + bodyLength;
+        int totalRecordSize = EncodingHeaderFields.HEADER_BYTES + bodyLength;
 
         writeLock.lock();
         try {
@@ -200,7 +200,7 @@ public final class EpisodicLogMemory extends AbstractAppendMemory<EpisodicLogLay
             if (body != null && body.length > 0) {
                 MemorySegment.copy(
                         MemorySegment.ofArray(body), 0,
-                        segment(), writeOffset + SynapticHeaderConstants.HEADER_BYTES,
+                        segment(), writeOffset + EncodingHeaderFields.HEADER_BYTES,
                         bodyLength);
             }
 
@@ -240,7 +240,7 @@ public final class EpisodicLogMemory extends AbstractAppendMemory<EpisodicLogLay
         for (long offset : offsets) {
             long absoluteOffset = dataOffset() + offset;
             EpisodicRecord record = EpisodicFieldAccessor.readRecord(segment(), absoluteOffset, includeBody);
-            if (!SynapticHeaderConstants.isTombstoned(record.flags())) {
+            if (!EncodingHeaderFields.isTombstoned(record.flags())) {
                 records.add(record);
             }
         }
@@ -297,18 +297,18 @@ public final class EpisodicLogMemory extends AbstractAppendMemory<EpisodicLogLay
         long limit = base + count;
         long current = base;
 
-        while (current + SynapticHeaderConstants.HEADER_BYTES <= limit) {
-            byte flags = segment().get(SynapticHeaderConstants.LAYOUT_FLAGS, current + SynapticHeaderConstants.OFFSET_FLAGS);
+        while (current + EncodingHeaderFields.HEADER_BYTES <= limit) {
+            byte flags = segment().get(EncodingHeaderFields.LAYOUT_FLAGS, current + EncodingHeaderFields.OFFSET_FLAGS);
             int bodyLength = segment().get(ValueLayout.JAVA_INT_UNALIGNED, current + 56);
-            if (bodyLength < 0 || current + SynapticHeaderConstants.HEADER_BYTES + bodyLength > limit) {
+            if (bodyLength < 0 || current + EncodingHeaderFields.HEADER_BYTES + bodyLength > limit) {
                 break; // corrupt or incomplete entry
             }
 
-            if (!SynapticHeaderConstants.isTombstoned(flags) && !SynapticHeaderConstants.isConsolidated(flags)) {
+            if (!EncodingHeaderFields.isTombstoned(flags) && !EncodingHeaderFields.isConsolidated(flags)) {
                 offsets.add(current - base);
             }
 
-            current += SynapticHeaderConstants.HEADER_BYTES + bodyLength;
+            current += EncodingHeaderFields.HEADER_BYTES + bodyLength;
         }
 
         return offsets;

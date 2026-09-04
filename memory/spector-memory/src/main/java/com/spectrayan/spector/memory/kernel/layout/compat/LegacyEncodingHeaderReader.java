@@ -13,12 +13,12 @@
 package com.spectrayan.spector.memory.kernel.layout.compat;
 
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
-import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.*;
+import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.*;
 
 /**
  * Read-only decoder for legacy V1 (64-byte mixed-tenancy) engram headers.

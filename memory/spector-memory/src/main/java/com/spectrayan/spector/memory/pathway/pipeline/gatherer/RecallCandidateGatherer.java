@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.cortex.MemoryBM25Index.BM25Candidate;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -125,7 +125,7 @@ public class RecallCandidateGatherer {
                         if (segment != null) {
                             CognitiveRecordLayout layout = router.layoutFor(type);
                             byte cFlags = layout.readConsolidationFlags(segment, loc.offset());
-                            if (!options.includeContradictions() && SynapticHeaderConstants.isContradicted(cFlags)) continue;
+                            if (!options.includeContradictions() && EncodingHeaderFields.isContradicted(cFlags)) continue;
 
                             var header = layout.readHeader(segment, loc.offset());
                             importance = header.importance();

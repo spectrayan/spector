@@ -29,7 +29,7 @@ import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -86,7 +86,7 @@ import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.sync.ReplaySnapshot;
 import com.spectrayan.spector.memory.sync.WalReplayer;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
@@ -619,7 +619,7 @@ public final class RecallPathway {
                     final MemorySegment segment = router.segmentFor(loc.type());
                     if (segment != null) {
                         segment.set(java.lang.foreign.ValueLayout.JAVA_BYTE,
-                                loc.offset() + SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE,
+                                loc.offset() + EncodingHeaderFields.OFFSET_LAST_RECALL_PROFILE,
                                 profileOrdinal);
                     }
                 }
@@ -710,7 +710,7 @@ public final class RecallPathway {
         );
 
         final SourceModality modality = SourceModality.fromOrdinal(
-                SynapticHeaderConstants.sourceModalityOrdinal(header.flags()));
+                EncodingHeaderFields.sourceModalityOrdinal(header.flags()));
         Map<String, String> metadata = id != null ? index.metadata(id) : Map.of();
 
         String resultText = text;

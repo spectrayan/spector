@@ -263,10 +263,10 @@ public final class PartitionBundle implements AutoCloseable {
 
         /**
          * Computes the cognitive record stride from the quantized vector bytes.
-         * This mirrors CognitiveRecordLayout.stride() = SynapticHeaderConstants.HEADER_BYTES + quantizedVecBytes
+         * This mirrors CognitiveRecordLayout.stride() = EncodingHeaderFields.HEADER_BYTES + quantizedVecBytes
          */
         private static int computeCognitiveStride(int quantizedVecBytes) {
-            // SynapticHeaderConstants.HEADER_BYTES = 64
+            // EncodingHeaderFields.HEADER_BYTES = 64
             return 64 + quantizedVecBytes;
         }
     }

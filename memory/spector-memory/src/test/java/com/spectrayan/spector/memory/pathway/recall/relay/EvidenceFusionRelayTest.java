@@ -21,7 +21,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.ConflictMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -42,7 +42,7 @@ class EvidenceFusionRelayTest {
     void transmit_multiEvidenceMode_preservesAllCandidates() {
         CognitiveResult cand1 = mock(CognitiveResult.class);
         when(cand1.id()).thenReturn("c-1");
-        when(cand1.consolidationFlags()).thenReturn(SynapticHeaderConstants.FLAG_CONTRADICTED);
+        when(cand1.consolidationFlags()).thenReturn(EncodingHeaderFields.FLAG_CONTRADICTED);
 
         CognitiveResult cand2 = mock(CognitiveResult.class);
         when(cand2.id()).thenReturn("c-2");
@@ -60,7 +60,7 @@ class EvidenceFusionRelayTest {
     void transmit_failClosedMode_dropsContradictedCandidates() {
         CognitiveResult cand1 = mock(CognitiveResult.class);
         when(cand1.id()).thenReturn("c-1");
-        when(cand1.consolidationFlags()).thenReturn(SynapticHeaderConstants.FLAG_CONTRADICTED);
+        when(cand1.consolidationFlags()).thenReturn(EncodingHeaderFields.FLAG_CONTRADICTED);
 
         CognitiveResult cand2 = mock(CognitiveResult.class);
         when(cand2.id()).thenReturn("c-2");
@@ -80,13 +80,13 @@ class EvidenceFusionRelayTest {
         when(winner.id()).thenReturn("win");
         when(winner.text()).thenReturn("Alice is Lead Engineer");
         when(winner.score()).thenReturn(0.95f);
-        when(winner.consolidationFlags()).thenReturn(SynapticHeaderConstants.FLAG_CONTRADICTED);
+        when(winner.consolidationFlags()).thenReturn(EncodingHeaderFields.FLAG_CONTRADICTED);
 
         CognitiveResult loser = mock(CognitiveResult.class);
         when(loser.id()).thenReturn("lose");
         when(loser.text()).thenReturn("Alice is Lead Engineer");
         when(loser.score()).thenReturn(0.80f);
-        when(loser.consolidationFlags()).thenReturn(SynapticHeaderConstants.FLAG_CONTRADICTED);
+        when(loser.consolidationFlags()).thenReturn(EncodingHeaderFields.FLAG_CONTRADICTED);
 
         RecallOptions options = RecallOptions.builder().conflictMode(ConflictMode.HIGHEST_CONFIDENCE).build();
         RecallSignal signal = RecallSignal.forTextQuery("query", options);

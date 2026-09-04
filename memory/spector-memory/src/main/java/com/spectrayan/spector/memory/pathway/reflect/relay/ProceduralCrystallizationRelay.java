@@ -29,7 +29,7 @@ import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
@@ -106,13 +106,13 @@ public final class ProceduralCrystallizationRelay implements SynapticRelay<Refle
                 String[] tags = new String[]{"procedural", "crystallized", "skill"};
                 if (signal.rememberPathway() != null) {
                     float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
-                    byte procFlags = SynapticHeaderConstants.withMemoryType(
+                    byte procFlags = EncodingHeaderFields.withMemoryType(
                             (byte) 0, MemoryType.PROCEDURAL.ordinal());
                     short soulVer = signal.rememberPathway().currentSoulVersion();
                     CognitiveHeader header = CognitiveHeader.createSynthetic(
                             System.currentTimeMillis(), 0L, exactNorm, 1.0f,
                             (byte) 0, (byte) 0, procFlags,
-                            SynapticHeaderConstants.FLAG_CRYSTALLIZED,
+                            EncodingHeaderFields.FLAG_CRYSTALLIZED,
                             soulVer, 0.0f
                     );
                     signal.rememberPathway().ingestCognitiveWithHeader(

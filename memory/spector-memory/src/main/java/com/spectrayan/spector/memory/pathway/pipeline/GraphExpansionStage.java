@@ -36,7 +36,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
-import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.*;
+import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

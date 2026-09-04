@@ -21,7 +21,7 @@ import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
@@ -170,8 +170,8 @@ public abstract class AbstractConsolidator implements Consolidator {
         tombstoneRecord(recordA, partitionManager, store, index, wal);
         tombstoneRecord(recordB, partitionManager, store, index, wal);
 
-        byte semanticFlags = SynapticHeaderConstants.withMemoryType(
-                SynapticHeaderConstants.FLAG_CONSOLIDATED,
+        byte semanticFlags = EncodingHeaderFields.withMemoryType(
+                EncodingHeaderFields.FLAG_CONSOLIDATED,
                 MemoryType.SEMANTIC.ordinal());
 
         CognitiveHeader header = new CognitiveHeader(

@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.InterestDomain;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
@@ -147,7 +147,7 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
         for (int i = 0; i < size && candidates.size() < limit; i += stride) {
             long offset = store.recordOffset(i);
             byte flags = layout.readFlags(segment, offset);
-            if (SynapticHeaderConstants.isTombstoned(flags)) {
+            if (EncodingHeaderFields.isTombstoned(flags)) {
                 continue;
             }
 
@@ -161,8 +161,8 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
 
             // Read metadata for composite salience score
             long epochSecs = layout.readTimestamp(segment, offset);
-            boolean simulated = SynapticHeaderConstants.isSimulated(flags);
-            boolean dreamed = SynapticHeaderConstants.isDreamed(flags);
+            boolean simulated = EncodingHeaderFields.isSimulated(flags);
+            boolean dreamed = EncodingHeaderFields.isDreamed(flags);
 
             // 1. Recency
             float recencyScore = (float) Math.exp(-Math.max(0L, System.currentTimeMillis() / 1000L - epochSecs) / RECENCY_DECAY_PERIOD_SECONDS);

@@ -38,7 +38,7 @@ import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.compat.LegacyEncodingHeaderReader;
 import com.spectrayan.spector.memory.model.MemoryType;
 
@@ -326,12 +326,12 @@ public final class HeaderMigrator {
     public static void copyV1HeaderToStrength(MemorySegment engramSegment, long engramRecordOffset,
                                               MemorySegment strengthSegment, long strengthRecordOffset,
                                               MemoryType tier) {
-        float importance = engramSegment.get(ValueLayout.JAVA_FLOAT, engramRecordOffset + SynapticHeaderConstants.OFFSET_IMPORTANCE);
-        int agentRecallCount = engramSegment.get(ValueLayout.JAVA_INT, engramRecordOffset + SynapticHeaderConstants.OFFSET_AGENT_RECALL_COUNT);
-        float storageStrength = engramSegment.get(ValueLayout.JAVA_FLOAT, engramRecordOffset + SynapticHeaderConstants.OFFSET_STORAGE_STRENGTH);
-        int spectorRecallCount = engramSegment.get(ValueLayout.JAVA_INT, engramRecordOffset + SynapticHeaderConstants.OFFSET_SPECTOR_RECALL_COUNT);
-        long lastAutoLtp = engramSegment.get(ValueLayout.JAVA_LONG, engramRecordOffset + SynapticHeaderConstants.OFFSET_LAST_AUTO_LTP);
-        byte lastRecallProfile = engramSegment.get(ValueLayout.JAVA_BYTE, engramRecordOffset + SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE);
+        float importance = engramSegment.get(ValueLayout.JAVA_FLOAT, engramRecordOffset + EncodingHeaderFields.OFFSET_IMPORTANCE);
+        int agentRecallCount = engramSegment.get(ValueLayout.JAVA_INT, engramRecordOffset + EncodingHeaderFields.OFFSET_AGENT_RECALL_COUNT);
+        float storageStrength = engramSegment.get(ValueLayout.JAVA_FLOAT, engramRecordOffset + EncodingHeaderFields.OFFSET_STORAGE_STRENGTH);
+        int spectorRecallCount = engramSegment.get(ValueLayout.JAVA_INT, engramRecordOffset + EncodingHeaderFields.OFFSET_SPECTOR_RECALL_COUNT);
+        long lastAutoLtp = engramSegment.get(ValueLayout.JAVA_LONG, engramRecordOffset + EncodingHeaderFields.OFFSET_LAST_AUTO_LTP);
+        byte lastRecallProfile = engramSegment.get(ValueLayout.JAVA_BYTE, engramRecordOffset + EncodingHeaderFields.OFFSET_LAST_RECALL_PROFILE);
 
         if (storageStrength <= 0.0f) {
             storageStrength = 1.0f;
@@ -429,9 +429,9 @@ public final class HeaderMigrator {
             }
             int headerBytes = isHeaderOnly ? stride : stride - vectorBytes;
 
-            if (headerBytes != SynapticHeaderConstants.HEADER_BYTES) {
+            if (headerBytes != EncodingHeaderFields.HEADER_BYTES) {
                 log.warn("Unexpected header size {} in {} (expected {}), assuming current layout",
-                        headerBytes, storePath, SynapticHeaderConstants.HEADER_BYTES);
+                        headerBytes, storePath, EncodingHeaderFields.HEADER_BYTES);
             }
 
             return SpectorPropertyConstants.DEFAULT_MEMORY_HEADER_VERSION;

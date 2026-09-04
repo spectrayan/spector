@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.synapse;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreFusionMode;
@@ -47,7 +47,7 @@ class EarlyGraphPriorFusionTest {
         nowMs = System.currentTimeMillis();
         queryVector = new float[]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
 
-        byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
+        byte flags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
 
         // Record 0: Novel memory (perfect similarity, zero prior)
         CognitiveHeader h0 = new CognitiveHeader(nowMs, 0L, 1.0f, 5.0f, 0, (short) 0, (byte) 0, flags);

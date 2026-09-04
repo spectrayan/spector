@@ -41,7 +41,7 @@ import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -496,9 +496,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         float importance = importanceResult.importance();
 
         // Step 4: Flashbulb check
-        byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, type.ordinal());
+        byte flags = EncodingHeaderFields.withMemoryType((byte) 0, type.ordinal());
         if (importanceResult.isFlashbulb()) {
-            flags = (byte) (flags | SynapticHeaderConstants.FLAG_PINNED);
+            flags = (byte) (flags | EncodingHeaderFields.FLAG_PINNED);
         }
 
         // Step 6: Build cognitive header (with emotional context and encoding state)
@@ -743,15 +743,15 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         float importance = importanceResult.importance();
 
         // Step 4: Flashbulb check
-        byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, type.ordinal());
+        byte flags = EncodingHeaderFields.withMemoryType((byte) 0, type.ordinal());
         if (importanceResult.isFlashbulb()) {
-            flags = (byte) (flags | SynapticHeaderConstants.FLAG_PINNED);
+            flags = (byte) (flags | EncodingHeaderFields.FLAG_PINNED);
         }
 
         // Step 4b: Encode source modality from metadata (if provided)
         SourceModality modality = context.sourceModality();
         if (modality != null && modality != SourceModality.TEXT) {
-            flags = SynapticHeaderConstants.withSourceModality(flags, modality.ordinal());
+            flags = EncodingHeaderFields.withSourceModality(flags, modality.ordinal());
         }
 
         // Step 6: Build cognitive header (use override timestamp if provided)
@@ -894,14 +894,14 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     private static byte computeEncodingProfile(SalienceProfile profile) {
         if (profile.alpha() != null || profile.beta() != null) {
             // Soul-derived: custom α/β from InsulaSelfModel
-            return SynapticHeaderConstants.soulDerivedEncodingProfile();
+            return EncodingHeaderFields.soulDerivedEncodingProfile();
         }
         // Preset profile
         com.spectrayan.spector.memory.model.CognitiveProfile cogProfile =
                 profile.defaultProfile() != null
                         ? profile.defaultProfile()
                         : com.spectrayan.spector.memory.model.CognitiveProfile.BALANCED;
-        return SynapticHeaderConstants.presetEncodingProfile(cogProfile.ordinal());
+        return EncodingHeaderFields.presetEncodingProfile(cogProfile.ordinal());
     }
 
     /**
@@ -919,7 +919,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                             : com.spectrayan.spector.memory.model.CognitiveProfile.BALANCED;
             alpha = cogProfile.alpha();
         }
-        return SynapticHeaderConstants.quantizeWeight(alpha);
+        return EncodingHeaderFields.quantizeWeight(alpha);
     }
 
     /**
@@ -937,7 +937,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                             : com.spectrayan.spector.memory.model.CognitiveProfile.BALANCED;
             beta = cogProfile.beta();
         }
-        return SynapticHeaderConstants.quantizeWeight(beta);
+        return EncodingHeaderFields.quantizeWeight(beta);
     }
 
     /**

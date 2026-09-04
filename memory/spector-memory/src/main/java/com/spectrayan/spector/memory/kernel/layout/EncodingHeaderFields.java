@@ -16,60 +16,66 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
 /**
- * Constants for the Synaptic Header — the 64-byte cache-line-aligned binary format.
+ * Constants and field definitions for the 64-byte engram encoding header.
  *
- * <h3>Layout (64 bytes — V1, full cache line)</h3>
+ * <p>This class realizes the <b>MF-001</b> pure encoding identity model (ADR-0028).
+ * The 64-byte engram header is strictly immutable or read-mostly after formation.
+ * All mutable telemetry (recall counters, storage strength, auto-LTP cooldowns) has
+ * been relocated to {@code StrengthLayout} / {@code StrengthMemory} (Region 4).</p>
+ *
+ * <h3>Layout (64 bytes — V2 Pure Encoding Header, full cache line)</h3>
  * <pre>
- *   Offset  Size  Field              Access Phase  Frequency
- *   ──────  ────  ─────────────────  ────────────  ──────────
- *    0      1B    header_version     One-time      Format detection (byte 0)
- *    1      1B    flags              Phase 1       EVERY record (tombstone check)
- *    2      1B    valence            Phase 3       ~98% (emotion filter)
- *    3      1B    arousal            Phase 4.5     ~90% (emotional intensity)
- *    4      4B    importance         Phase 4       ~95% (importance pre-screen)
- *    8      8B    timestamp_ms       Phase 1b      ~99% (temporal gating)
- *   16      4B    agent_recall_count Phase 4       ~95% (reconsolidation)
- *   20      4B    exact_norm         Heap insert   ~0.1% (cosine normalization)
- *   24      8B    synaptic_tags      Phase 2       ~98% (Bloom filter)
- *   32      2B    centroid_id        Heap insert   ~0.1% (IVF routing)
- *   34      1B    consolidation_flags Phase 5      ~2% (semantic deduplication)
- *   35      1B    encoding_profile   Phase 5       ~2% (cognitive state stamp)
- *   36      4B    storage_strength   Phase 6       ~1-10% (Two-Factor scoring)
- *   40      4B    spector_recall_cnt Auto-LTP      Passive retrieval counter
- *   44      1B    encoding_alpha     Phase 6       ~1% (weight encoding)
- *   45      1B    encoding_beta      Phase 6       ~1% (weight encoding)
- *   46      2B    soul_version       Phase 5       ~2% (config tracking)
- *   48      8B    last_auto_ltp      Auto-LTP      Auto-LTP timestamp
- *   56      4B    encoding_surprise  Phase 6       ~1% (surprise encoding)
- *   60      1B    last_recall_profile Phase 5      ~2% (cognitive state stamp)
- *   61      3B    _reserved          —             Alignment padding
- *   ── 64B: full cache line ────────────────────────────────────────────
+ *   Offset  Size  Field                Type     Description
+ *   ──────  ────  ─────────────────    ───────  ──────────────────────────────────────────
+ *    0      1B    header_version       uint8    Format version (always 2)
+ *    1      1B    flags                uint8    Tombstone, memory type, consolidated, pinned, resolved, modality
+ *    2      1B    valence              int8     Initial signed emotional valence (-128 to +127)
+ *    3      1B    arousal              uint8    Initial unsigned emotional arousal (0-255)
+ *    4      4B    importance           float32  Initial base importance score
+ *    8      8B    timestamp_ms         int64    Unix epoch ms when memory was formed
+ *   16      4B    exact_norm           float32  L2 norm of unquantized vector
+ *   20      2B    centroid_id          int16    IVF partition routing cluster ID
+ *   22      2B    _pad0                bytes    Alignment padding
+ *   24      8B    synaptic_tags_lo     uint64   128-bit Bloom filter low 64 bits
+ *   32      8B    synaptic_tags_hi     uint64   128-bit Bloom filter high 64 bits
+ *   40      1B    consolidation_flags  uint8    Provenance flags (contradicted, retracted, unverified, restricted, crystallized, simulated, dreamed)
+ *   41      1B    encoding_profile     uint8    Cognitive state at ingestion (bit 7=soul-derived)
+ *   42      1B    encoding_alpha       uint8    Quantized alpha weight at ingestion (0-255)
+ *   43      1B    encoding_beta        uint8    Quantized beta weight at ingestion (0-255)
+ *   44      2B    soul_version         uint16   Monotonic soul configuration generation counter
+ *   46      2B    _reserved_geo        bytes    Reserved for manifold geodesic coordinates
+ *   48      4B    encoding_surprise    float32  Bayesian surprise z-score at ingestion
+ *   52     12B    _reserved            bytes    Zero-padded reserved block for neural tensor invariants
+ *   ── 64B total cache line ───────────────────────────────────────────────────────────────
  * </pre>
- *
- * <h3>Design Principles</h3>
- * <ul>
- *   <li><b>Version at byte 0</b> — universal convention (ELF, PNG, Java .class).</li>
- *   <li><b>Flags at byte 1</b> — first decision field in scoring hot path.</li>
- *   <li><b>Natural alignment</b> — longs at 8B boundaries, ints/floats at 4B.</li>
- *   <li><b>128-bit tags</b> — will be addressed via header version bump.</li>
- * </ul>
  *
  * <h3>Flags Bitfield (byte 1)</h3>
  * <pre>
  *   bit 0:   tombstone  (deleted / pruned by Deep Sleep)
- *   bit 1-2: memory_type (2 bits → 4 types)
+ *   bit 1-2: memory_type (2 bits → 4 types: WORKING, EPISODIC, SEMANTIC, PROCEDURAL)
  *   bit 3:   consolidated (has been reflected into Semantic tier)
  *   bit 4:   pinned (exempt from decay/pruning)
  *   bit 5:   resolved (Zeigarnik Effect — unresolved tasks resist decay)
  *   bit 6-7: source_modality (2 bits → 4 modalities: TEXT, IMAGE, AUDIO, VIDEO)
  * </pre>
  *
- * @see HeaderLayout
- * @see CognitiveRecordLayout
+ * <h3>Consolidation &amp; Governance Flags (byte 40)</h3>
+ * <pre>
+ *   bit 0: contradicted (CADP contradiction loser)
+ *   bit 1: retracted (legally/explicitly retracted)
+ *   bit 2: unverified (low-trust source)
+ *   bit 3: restricted (RBAC or sovereign policy)
+ *   bit 4: crystallized (skill synthesized from episodes)
+ *   bit 5: simulated (counterfactual simulation, NF7)
+ *   bit 7: dreamed (generated during sleep cycle)
+ * </pre>
+ *
+ * @see EncodingHeaderLayout
+ * @see StrengthLayout
  */
-public final class SynapticHeaderConstants {
+public final class EncodingHeaderFields {
 
-    private SynapticHeaderConstants() {}
+    private EncodingHeaderFields() {}
 
     /** Header size in bytes (64B = full cache line). */
     public static final int HEADER_BYTES = 64;

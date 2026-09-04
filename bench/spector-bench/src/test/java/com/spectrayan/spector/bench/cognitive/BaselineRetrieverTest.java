@@ -28,7 +28,7 @@ import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 /**
  * Unit tests for {@link BaselineRetriever} verifying:
@@ -110,7 +110,7 @@ class BaselineRetrieverTest {
         writeRecord(segment, 0, fill(0.0f), (byte) 0);
         // Record 1: TOMBSTONED, even closer (should be excluded)
         writeRecord(segment, 1, fill(0.0f),
-                SynapticHeaderConstants.FLAG_TOMBSTONE);
+                EncodingHeaderFields.FLAG_TOMBSTONE);
         // Record 2: alive, farther away
         writeRecord(segment, 2, fill(0.5f), (byte) 0);
 

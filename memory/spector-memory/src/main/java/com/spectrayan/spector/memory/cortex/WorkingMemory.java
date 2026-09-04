@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.cortex;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -210,7 +210,7 @@ public final class WorkingMemory extends AbstractEngramMemory {
 
             // Phase 1: Skip tombstones
             byte flags = layout.readFlags(segment, offset);
-            if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+            if (EncodingHeaderFields.isTombstoned(flags)) continue;
 
             // Phase 2: Synaptic tag gating
             if (queryTagMask != 0) {
@@ -255,7 +255,7 @@ public final class WorkingMemory extends AbstractEngramMemory {
 
             // Skip tombstoned records
             byte flags = layout.readFlags(segment(), offset);
-            if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+            if (EncodingHeaderFields.isTombstoned(flags)) continue;
 
             // Compute calibrated L2 distance via SIMD kernel
             int dims = Math.min(queryVector.length, Math.min(mins.length, layout.quantizedVecBytes()));

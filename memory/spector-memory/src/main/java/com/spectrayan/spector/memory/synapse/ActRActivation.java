@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.synapse;
 
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;

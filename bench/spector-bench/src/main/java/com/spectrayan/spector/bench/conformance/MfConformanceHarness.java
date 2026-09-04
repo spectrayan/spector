@@ -49,7 +49,7 @@ import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.BigFiveTraits;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -646,16 +646,16 @@ public final class MfConformanceHarness {
                         CognitiveHeader existing = layout.readHeader(segment, loc.offset());
                         byte flags = existing.flags();
                         if (record.memoryType() != null) {
-                            flags = SynapticHeaderConstants.withMemoryType(flags, record.memoryType().ordinal());
+                            flags = EncodingHeaderFields.withMemoryType(flags, record.memoryType().ordinal());
                         }
                         if (record.resolved()) {
-                            flags = (byte) (flags | SynapticHeaderConstants.FLAG_RESOLVED);
+                            flags = (byte) (flags | EncodingHeaderFields.FLAG_RESOLVED);
                         } else {
-                            flags = (byte) (flags & ~SynapticHeaderConstants.FLAG_RESOLVED);
+                            flags = (byte) (flags & ~EncodingHeaderFields.FLAG_RESOLVED);
                         }
                         byte cFlags = existing.consolidationFlags();
                         if ("simulated".equalsIgnoreCase(record.source())) {
-                            cFlags = SynapticHeaderConstants.withSimulated(cFlags, true);
+                            cFlags = EncodingHeaderFields.withSimulated(cFlags, true);
                         }
                         CognitiveHeader updated = new CognitiveHeader(
                                 record.timestampMs(),

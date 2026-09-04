@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.synapse;
 
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import com.spectrayan.spector.memory.model.MemoryType;
 import org.junit.jupiter.api.Test;
@@ -116,11 +116,11 @@ class CognitiveRecordLayoutTest {
             );
             layout.writeHeader(segment, 0, header);
 
-            assertThat(SynapticHeaderConstants.isTombstoned(layout.readFlags(segment, 0))).isFalse();
+            assertThat(EncodingHeaderFields.isTombstoned(layout.readFlags(segment, 0))).isFalse();
 
             layout.tombstone(segment, 0);
 
-            assertThat(SynapticHeaderConstants.isTombstoned(layout.readFlags(segment, 0))).isTrue();
+            assertThat(EncodingHeaderFields.isTombstoned(layout.readFlags(segment, 0))).isTrue();
         }
     }
 
@@ -136,7 +136,7 @@ class CognitiveRecordLayoutTest {
 
             layout.markConsolidated(segment, 0);
 
-            assertThat(SynapticHeaderConstants.isConsolidated(layout.readFlags(segment, 0))).isTrue();
+            assertThat(EncodingHeaderFields.isConsolidated(layout.readFlags(segment, 0))).isTrue();
         }
     }
 
@@ -152,7 +152,7 @@ class CognitiveRecordLayoutTest {
                 layout.writeHeader(segment, 0, header);
 
                 byte flags = layout.readFlags(segment, 0);
-                assertThat(SynapticHeaderConstants.memoryTypeOrdinal(flags))
+                assertThat(EncodingHeaderFields.memoryTypeOrdinal(flags))
                         .as("MemoryType %s", type)
                         .isEqualTo(type.ordinal());
             }

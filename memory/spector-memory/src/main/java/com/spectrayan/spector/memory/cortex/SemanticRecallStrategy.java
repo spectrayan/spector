@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocati
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -143,12 +143,12 @@ public final class SemanticRecallStrategy {
             CognitiveHeader header = layout.readHeader(headerSlab, headerOffset);
 
             // Phase 1: Tombstone check (always applied)
-            if (SynapticHeaderConstants.isTombstoned(header.flags())) continue;
+            if (EncodingHeaderFields.isTombstoned(header.flags())) continue;
 
             // Phase 1c: Contradiction Gating
             if (!options.includeContradictions()) {
                 byte cFlags = layout.readConsolidationFlags(headerSlab, headerOffset);
-                if (SynapticHeaderConstants.isContradicted(cFlags)) continue;
+                if (EncodingHeaderFields.isContradicted(cFlags)) continue;
             }
 
             // Phase 1b: Temporal gating & Future causal horizon gate

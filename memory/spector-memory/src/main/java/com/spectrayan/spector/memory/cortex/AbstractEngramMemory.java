@@ -33,7 +33,7 @@ import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
 
@@ -118,7 +118,7 @@ public abstract class AbstractEngramMemory
     private AbstractEngramMemory(MemoryType type, int quantizedVecBytes, int capacity, long segmentBytes, Arena sharedArena) {
         this(type, new CognitiveRecordLayout(quantizedVecBytes),
              capacity, sharedArena,
-             sharedArena.allocate(segmentBytes, SynapticHeaderConstants.HEADER_BYTES),
+             sharedArena.allocate(segmentBytes, EncodingHeaderFields.HEADER_BYTES),
              0, false, null, null);
     }
 
@@ -321,7 +321,7 @@ public abstract class AbstractEngramMemory
         int stride = layout.stride();
         for (int i = 0; i < count; i++) {
             byte flags = layout.readFlags(segment, base + (long) i * stride);
-            if (SynapticHeaderConstants.isTombstoned(flags)) {
+            if (EncodingHeaderFields.isTombstoned(flags)) {
                 tombstones++;
             }
         }

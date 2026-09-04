@@ -23,7 +23,7 @@ import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -153,12 +153,12 @@ class ArousalOrderingPropertyTest {
         // Write core header fields
         var header = new CognitiveRecordLayout.CognitiveHeader(
                 timestamp, 0L, 1.0f, importance, 0, (short) 0, (byte) 0,
-                SynapticHeaderConstants.FLAG_RESOLVED);
+                EncodingHeaderFields.FLAG_RESOLVED);
         layout.writeHeader(segment, offset, header);
 
         // Write V2 arousal field
         segment.set(java.lang.foreign.ValueLayout.JAVA_BYTE,
-                offset + SynapticHeaderConstants.OFFSET_AROUSAL, arousal);
+                offset + EncodingHeaderFields.OFFSET_AROUSAL, arousal);
 
         // Write vector
         byte[] quantized = new byte[DIMS];

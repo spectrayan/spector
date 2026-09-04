@@ -29,7 +29,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
 
-import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.*;
+import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.*;
 
 /**
  * Fused SIMD cognitive scoring loop — the heart of Spector Memory's performance.
@@ -188,7 +188,7 @@ public final class CognitiveScorer {
                 if (!options.includeContradictions() && isContradicted(cFlags)) {
                     continue;
                 }
-                if (!options.allowSimulated() && com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.isSimulated(cFlags)) {
+                if (!options.allowSimulated() && com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isSimulated(cFlags)) {
                     continue;
                 }
             }

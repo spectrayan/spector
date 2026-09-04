@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,7 +99,7 @@ public final class AutobiographicalSamplingRelay implements SynapticRelay<Wander
         for (int i = 0; i < size && count < limit; i += strideStep) {
             long offset = store.recordOffset(i);
             byte flags = layout.readFlags(segment, offset);
-            if (SynapticHeaderConstants.isTombstoned(flags)) {
+            if (EncodingHeaderFields.isTombstoned(flags)) {
                 continue;
             }
 

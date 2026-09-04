@@ -166,7 +166,7 @@ class ProceduralCrystallizationRelayTest {
         );
 
         var header = captor.getValue();
-        assertThat(com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.isCrystallized(header.consolidationFlags())).isTrue();
+        assertThat(com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isCrystallized(header.consolidationFlags())).isTrue();
         assertThat(header.soulVersion()).isEqualTo((short) 4);
     }
 }

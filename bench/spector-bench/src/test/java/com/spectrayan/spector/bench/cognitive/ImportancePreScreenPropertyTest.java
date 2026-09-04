@@ -24,7 +24,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
@@ -71,11 +71,11 @@ class ImportancePreScreenPropertyTest {
             // Record 0: Should be excluded (low importance, very old, unpinned, resolved)
             long veryOldTimestamp = System.currentTimeMillis() - (6L * 365 * 24 * 60 * 60 * 1000); // 6 years ago
             writeRecord(segment, layout, 0, queryVec, lowImportance,
-                    veryOldTimestamp, 0, SynapticHeaderConstants.FLAG_RESOLVED, mins, scales);
+                    veryOldTimestamp, 0, EncodingHeaderFields.FLAG_RESOLVED, mins, scales);
 
             // Record 1: Should NOT be excluded (high importance)
             writeRecord(segment, layout, 1, queryVec, 5.0f,
-                    veryOldTimestamp, 0, SynapticHeaderConstants.FLAG_RESOLVED, mins, scales);
+                    veryOldTimestamp, 0, EncodingHeaderFields.FLAG_RESOLVED, mins, scales);
 
             RecallOptions options = RecallOptions.builder()
                     .topK(corpusSize)
@@ -121,7 +121,7 @@ class ImportancePreScreenPropertyTest {
             long veryOldTimestamp = System.currentTimeMillis() - (6L * 365 * 24 * 60 * 60 * 1000);
 
             // Pinned + resolved + low importance + very old
-            byte flags = (byte) (SynapticHeaderConstants.FLAG_PINNED | SynapticHeaderConstants.FLAG_RESOLVED);
+            byte flags = (byte) (EncodingHeaderFields.FLAG_PINNED | EncodingHeaderFields.FLAG_RESOLVED);
             writeRecord(segment, layout, 0, queryVec, lowImportance,
                     veryOldTimestamp, 0, flags, mins, scales);
 

@@ -24,7 +24,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -78,7 +78,7 @@ class ConsolidationPropertyTest {
                 float[] vec = generateVector(i, corpusSize);
                 long timestamp = nowMs - (long) i * 3600_000;
                 // All records are alive (not tombstoned) and resolved
-                byte flags = SynapticHeaderConstants.FLAG_RESOLVED;
+                byte flags = EncodingHeaderFields.FLAG_RESOLVED;
                 writeRecord(segment, layout, i, vec, 5.0f, timestamp, flags, mins, scales);
             }
 

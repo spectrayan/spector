@@ -17,7 +17,7 @@ import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocati
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -251,9 +251,9 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
         CognitiveRecordLayout layout = layoutFor(loc.type());
         MemorySegment segment = segmentFor(loc.type());
         if (layout == null || segment == null) return false;
-        byte flags = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS,
-                loc.offset() + SynapticHeaderConstants.OFFSET_FLAGS);
-        return SynapticHeaderConstants.isTombstoned(flags);
+        byte flags = segment.get(EncodingHeaderFields.LAYOUT_FLAGS,
+                loc.offset() + EncodingHeaderFields.OFFSET_FLAGS);
+        return EncodingHeaderFields.isTombstoned(flags);
     }
 
     /**

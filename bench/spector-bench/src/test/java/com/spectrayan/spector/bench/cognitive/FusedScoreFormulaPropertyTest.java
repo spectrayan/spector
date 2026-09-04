@@ -24,7 +24,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 
 import net.jqwik.api.Arbitraries;
@@ -79,7 +79,7 @@ class FusedScoreFormulaPropertyTest {
             }
 
             long synapticTags = SynapticTagEncoder.encode("test-tag");
-            byte flags = SynapticHeaderConstants.FLAG_RESOLVED;
+            byte flags = EncodingHeaderFields.FLAG_RESOLVED;
 
             CognitiveHeader header = new CognitiveHeader(
                     timestamp,

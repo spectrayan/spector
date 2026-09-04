@@ -22,7 +22,7 @@ import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.Memory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
@@ -205,7 +205,7 @@ public final class ReinforcementHandler {
                 } else {
                     profileOrdinal = segment.get(
                             java.lang.foreign.ValueLayout.JAVA_BYTE,
-                            loc.offset() + com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE);
+                            loc.offset() + com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.OFFSET_LAST_RECALL_PROFILE);
                 }
                 if (profileOrdinal >= 0 && profileOrdinal < com.spectrayan.spector.memory.model.CognitiveProfile.values().length) {
                     com.spectrayan.spector.memory.model.CognitiveProfile usedProfile =

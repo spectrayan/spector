@@ -24,7 +24,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -79,7 +79,7 @@ class ZeigarnickPropertyTest {
                     oldTimestamp, 0, unresolvedFlags, mins, scales);
 
             // Record 1: RESOLVED + old â†’ normal decay
-            byte resolvedFlags = SynapticHeaderConstants.FLAG_RESOLVED;
+            byte resolvedFlags = EncodingHeaderFields.FLAG_RESOLVED;
             writeRecord(segment, layout, 1, identicalVec, importance,
                     oldTimestamp, 0, resolvedFlags, mins, scales);
 

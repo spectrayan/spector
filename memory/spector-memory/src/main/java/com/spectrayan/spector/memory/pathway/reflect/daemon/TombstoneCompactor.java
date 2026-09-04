@@ -17,7 +17,7 @@ import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartiti
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,10 +87,10 @@ public final class TombstoneCompactor {
             long offset = partition.recordOffset(i);
 
             byte flags = layout.readFlags(segment, offset);
-            if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+            if (EncodingHeaderFields.isTombstoned(flags)) continue;
 
             // Don't prune pinned memories
-            if (SynapticHeaderConstants.isPinned(flags)) continue;
+            if (EncodingHeaderFields.isPinned(flags)) continue;
 
             long timestamp = layout.readTimestamp(segment, offset);
             int agentRecallCount = layout.readAgentRecallCount(segment, offset);
@@ -137,7 +137,7 @@ public final class TombstoneCompactor {
         for (int i = 0; i < srcCount; i++) {
             long offset = source.recordOffset(i);
             byte flags = layout.readFlags(srcSegment, offset);
-            if (!SynapticHeaderConstants.isTombstoned(flags)) {
+            if (!EncodingHeaderFields.isTombstoned(flags)) {
                 liveCount++;
             }
         }
@@ -158,7 +158,7 @@ public final class TombstoneCompactor {
         for (int i = 0; i < srcCount; i++) {
             long srcOffset = source.recordOffset(i);
             byte flags = layout.readFlags(srcSegment, srcOffset);
-            if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+            if (EncodingHeaderFields.isTombstoned(flags)) continue;
 
             // Read header from source
             CognitiveHeader header = layout.readHeader(srcSegment, srcOffset);
@@ -201,7 +201,7 @@ public final class TombstoneCompactor {
         for (int i = 0; i < srcCount; i++) {
             long srcOffset = source.recordOffset(i);
             byte flags = layout.readFlags(srcSegment, srcOffset);
-            if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+            if (EncodingHeaderFields.isTombstoned(flags)) continue;
 
             long destOffset = compacted.recordOffset(destIndex);
             remap.put(srcOffset, destOffset);

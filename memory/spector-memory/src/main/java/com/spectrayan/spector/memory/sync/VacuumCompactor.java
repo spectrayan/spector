@@ -25,7 +25,7 @@ import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
@@ -90,7 +90,7 @@ public final class VacuumCompactor {
         for (int i = 0; i < totalRecords; i++) {
             long offset = baseOffset + (long) i * stride;
             CognitiveHeader header = layout.readHeader(store.segment(), offset);
-            if (SynapticHeaderConstants.isTombstoned(header.flags())) {
+            if (EncodingHeaderFields.isTombstoned(header.flags())) {
                 tombstoneCount++;
             } else {
                 liveCount++;
@@ -110,7 +110,7 @@ public final class VacuumCompactor {
         long newTotalBytes = baseOffset + newDataBytes;
         Arena newArena = Arena.ofShared();
         MemorySegment newSegment = newArena.allocate(newTotalBytes,
-                SynapticHeaderConstants.HEADER_BYTES);
+                EncodingHeaderFields.HEADER_BYTES);
 
         // Phase 3: Copy live records sequentially, building offset remap
         Map<String, Long> relocations = new HashMap<>();
@@ -120,7 +120,7 @@ public final class VacuumCompactor {
             long oldOffset = baseOffset + (long) i * stride;
             CognitiveHeader header = layout.readHeader(store.segment(), oldOffset);
 
-            if (SynapticHeaderConstants.isTombstoned(header.flags())) {
+            if (EncodingHeaderFields.isTombstoned(header.flags())) {
                 continue; // skip tombstoned
             }
 

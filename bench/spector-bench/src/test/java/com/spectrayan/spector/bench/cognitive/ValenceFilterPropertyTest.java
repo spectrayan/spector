@@ -24,7 +24,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -130,7 +130,7 @@ class ValenceFilterPropertyTest {
                 0,
                 (short) 0,
                 valence,
-                SynapticHeaderConstants.FLAG_RESOLVED
+                EncodingHeaderFields.FLAG_RESOLVED
         );
         layout.writeHeader(segment, offset, header);
 

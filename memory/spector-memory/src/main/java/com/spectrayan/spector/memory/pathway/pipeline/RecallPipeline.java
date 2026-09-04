@@ -62,7 +62,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.Cogniti
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
@@ -1147,7 +1147,7 @@ public final class RecallPipeline {
 
         // Read source modality from flags byte (bits 6-7)
         SourceModality modality = SourceModality.fromOrdinal(
-                SynapticHeaderConstants.sourceModalityOrdinal(header.flags()));
+                EncodingHeaderFields.sourceModalityOrdinal(header.flags()));
         java.util.Map<String, String> metadata = id != null ? index.metadata(id) : java.util.Map.of();
         
         String resultText = text;
@@ -1321,7 +1321,7 @@ public final class RecallPipeline {
                     MemorySegment segment = router.segmentFor(loc.type());
                     if (segment != null) {
                         segment.set(java.lang.foreign.ValueLayout.JAVA_BYTE,
-                                loc.offset() + SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE,
+                                loc.offset() + EncodingHeaderFields.OFFSET_LAST_RECALL_PROFILE,
                                 profileOrdinal);
                     }
                 }

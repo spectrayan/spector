@@ -31,8 +31,8 @@ Byte 34 (Consolidation Flags):
           └── Bit 5: FLAG_SIMULATED (0x20)
 ```
 
-- **In-Memory:** Candidates carry `SynapticHeaderConstants.FLAG_SIMULATED` in `consolidationFlags()`.
-- **Durable Storage:** Stamped into byte 34 of `HeaderLayout64`. Any downstream scan instantly identifies simulated records via `SynapticHeaderConstants.isSimulated(flags)`.
+- **In-Memory:** Candidates carry `EncodingHeaderFields.FLAG_SIMULATED` in `consolidationFlags()`.
+- **Durable Storage:** Stamped into consolidation flags (byte 40 in `EncodingHeaderLayout`). Any downstream scan instantly identifies simulated records via `EncodingHeaderFields.isSimulated(flags)`.
 - **Soul Version Tracking:** Persisted with `soulVersion` (bytes 46–47) indicating the exact agent configuration under which the simulation was generated.
 
 ---

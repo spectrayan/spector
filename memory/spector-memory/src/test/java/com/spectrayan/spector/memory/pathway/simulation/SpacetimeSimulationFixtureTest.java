@@ -23,7 +23,7 @@ import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
 import com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -178,7 +178,7 @@ class SpacetimeSimulationFixtureTest {
             store.append(wakingHeader, new byte[layout.quantizedVecBytes()]);
 
             // Record 1: Synthetic future dream memory (t_s = now + 1 day, FLAG_DREAMED | FLAG_SIMULATED)
-            final byte dreamConsolidationFlags = (byte) (SynapticHeaderConstants.FLAG_DREAMED | SynapticHeaderConstants.FLAG_SIMULATED);
+            final byte dreamConsolidationFlags = (byte) (EncodingHeaderFields.FLAG_DREAMED | EncodingHeaderFields.FLAG_SIMULATED);
             final CognitiveHeader dreamHeader = new CognitiveHeader(
                     now + ONE_DAY_MS, 0L, 1.0f, 6.0f, 0, (short) 0, (byte) 0, (byte) 0,
                     (byte) 0, 1.0f, (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f, dreamConsolidationFlags);
@@ -234,8 +234,8 @@ class SpacetimeSimulationFixtureTest {
             final long now = System.currentTimeMillis();
 
             final CognitiveResult factMemory = createResultWithFlags("fact-1", (byte) 0, now - 1000L);
-            final CognitiveResult dreamMemory = createResultWithFlags("dream-1", (byte) (SynapticHeaderConstants.FLAG_DREAMED | SynapticHeaderConstants.FLAG_SIMULATED), now - 500L);
-            final CognitiveResult futureSimMemory = createResultWithFlags("future-sim-1", SynapticHeaderConstants.FLAG_SIMULATED, now + 10_000L);
+            final CognitiveResult dreamMemory = createResultWithFlags("dream-1", (byte) (EncodingHeaderFields.FLAG_DREAMED | EncodingHeaderFields.FLAG_SIMULATED), now - 500L);
+            final CognitiveResult futureSimMemory = createResultWithFlags("future-sim-1", EncodingHeaderFields.FLAG_SIMULATED, now + 10_000L);
 
             final List<CognitiveResult> allCandidates = List.of(factMemory, dreamMemory, futureSimMemory);
             final AgentSoul testSoul = AgentSoul.builder().id("soul-default").build();

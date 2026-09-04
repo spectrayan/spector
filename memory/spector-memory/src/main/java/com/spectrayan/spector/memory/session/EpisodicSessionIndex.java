@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.session;
 
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -204,7 +204,7 @@ public final class EpisodicSessionIndex {
         int tombstoneCount = 0;
         long cursor = dataOffset;
 
-        while (cursor + SynapticHeaderConstants.HEADER_BYTES <= writePosition) {
+        while (cursor + EncodingHeaderFields.HEADER_BYTES <= writePosition) {
             byte flags = EpisodicFieldAccessor.readFlags(segment, cursor);
             int bodyLength = EpisodicFieldAccessor.readBodyLength(segment, cursor);
 
@@ -214,14 +214,14 @@ public final class EpisodicSessionIndex {
                 break;
             }
 
-            long recordEnd = cursor + SynapticHeaderConstants.HEADER_BYTES + bodyLength;
+            long recordEnd = cursor + EncodingHeaderFields.HEADER_BYTES + bodyLength;
             if (recordEnd > writePosition) {
                 log.warn("Record at offset {} extends beyond write position ({} > {}) — stopping rebuild",
                         cursor, recordEnd, writePosition);
                 break;
             }
 
-            if (!SynapticHeaderConstants.isTombstoned(flags)) {
+            if (!EncodingHeaderFields.isTombstoned(flags)) {
                 long sessionId = EpisodicFieldAccessor.readSessionId(segment, cursor);
                 appendTurn(sessionId, cursor);
                 liveCount++;

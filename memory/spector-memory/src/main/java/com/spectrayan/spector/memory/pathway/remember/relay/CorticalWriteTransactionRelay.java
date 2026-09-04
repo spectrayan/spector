@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
 import com.spectrayan.spector.memory.error.SpectorPartitionFrozenException;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -128,14 +128,14 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
                     preserved.consolidationFlags()
             );
         } else {
-            byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, type.ordinal());
+            byte flags = EncodingHeaderFields.withMemoryType((byte) 0, type.ordinal());
             if (signal.isFlashbulb()) {
-                flags = (byte) (flags | SynapticHeaderConstants.FLAG_PINNED);
+                flags = (byte) (flags | EncodingHeaderFields.FLAG_PINNED);
             }
             if (context != null) {
                 final SourceModality modality = context.sourceModality();
                 if (modality != null && modality != SourceModality.TEXT) {
-                    flags = SynapticHeaderConstants.withSourceModality(flags, modality.ordinal());
+                    flags = EncodingHeaderFields.withSourceModality(flags, modality.ordinal());
                 }
             }
 
@@ -247,12 +247,12 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
 
     private static byte computeEncodingProfile(final SalienceProfile profile) {
         if (profile.alpha() != null || profile.beta() != null) {
-            return SynapticHeaderConstants.soulDerivedEncodingProfile();
+            return EncodingHeaderFields.soulDerivedEncodingProfile();
         }
         final CognitiveProfile cogProfile = profile.defaultProfile() != null
                 ? profile.defaultProfile()
                 : CognitiveProfile.BALANCED;
-        return SynapticHeaderConstants.presetEncodingProfile(cogProfile.ordinal());
+        return EncodingHeaderFields.presetEncodingProfile(cogProfile.ordinal());
     }
 
     private static byte computeEncodingAlpha(final SalienceProfile profile) {
@@ -265,7 +265,7 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
                     : CognitiveProfile.BALANCED;
             alpha = cogProfile.alpha();
         }
-        return SynapticHeaderConstants.quantizeWeight(alpha);
+        return EncodingHeaderFields.quantizeWeight(alpha);
     }
 
     private static byte computeEncodingBeta(final SalienceProfile profile) {
@@ -278,6 +278,6 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
                     : CognitiveProfile.BALANCED;
             beta = cogProfile.beta();
         }
-        return SynapticHeaderConstants.quantizeWeight(beta);
+        return EncodingHeaderFields.quantizeWeight(beta);
     }
 }

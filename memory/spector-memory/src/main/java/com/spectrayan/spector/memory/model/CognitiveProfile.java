@@ -224,7 +224,7 @@ public enum CognitiveProfile {
      * <p>At ingestion, when {@code salienceProfile.alpha()} or {@code .beta()}
      * are non-null (i.e., overridden by the soul), the encoding profile byte is
      * set to {@code SOUL_DERIVED.ordinal()} with bit7=1 via
-     * {@code SynapticHeaderConstants.soulDerivedEncodingProfile()}.</p>
+     * {@code EncodingHeaderFields.soulDerivedEncodingProfile()}.</p>
      */
     SOUL_DERIVED(0.6f, 0.4f, 0.3f, Byte.MIN_VALUE, Byte.MAX_VALUE, 0.40f);
 

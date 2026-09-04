@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.model.*;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import org.junit.jupiter.api.AfterEach;
@@ -476,7 +476,7 @@ class MemoryEnhancementTest {
     }
 
     // ===============================================================
-    // SynapticHeaderConstants Zeigarnik Flag
+    // EncodingHeaderFields Zeigarnik Flag
     // ===============================================================
 
     @Nested
@@ -486,32 +486,32 @@ class MemoryEnhancementTest {
         @Test
         @DisplayName("FLAG_RESOLVED is bit 5 (0x20)")
         void flagValue() {
-            assertThat(SynapticHeaderConstants.FLAG_RESOLVED).isEqualTo((byte) 0x20);
+            assertThat(EncodingHeaderFields.FLAG_RESOLVED).isEqualTo((byte) 0x20);
         }
 
         @Test
         @DisplayName("New memories are not resolved by default")
         void defaultNotResolved() {
             byte flags = 0;
-            assertThat(SynapticHeaderConstants.isResolved(flags)).isFalse();
+            assertThat(EncodingHeaderFields.isResolved(flags)).isFalse();
         }
 
         @Test
         @DisplayName("Setting resolved flag is detectable")
         void setResolved() {
-            byte flags = SynapticHeaderConstants.FLAG_RESOLVED;
-            assertThat(SynapticHeaderConstants.isResolved(flags)).isTrue();
+            byte flags = EncodingHeaderFields.FLAG_RESOLVED;
+            assertThat(EncodingHeaderFields.isResolved(flags)).isTrue();
         }
 
         @Test
         @DisplayName("Resolved flag does not interfere with other flags")
         void noInterference() {
-            byte flags = (byte) (SynapticHeaderConstants.FLAG_TOMBSTONE
-                    | SynapticHeaderConstants.FLAG_PINNED
-                    | SynapticHeaderConstants.FLAG_RESOLVED);
-            assertThat(SynapticHeaderConstants.isTombstoned(flags)).isTrue();
-            assertThat(SynapticHeaderConstants.isPinned(flags)).isTrue();
-            assertThat(SynapticHeaderConstants.isResolved(flags)).isTrue();
+            byte flags = (byte) (EncodingHeaderFields.FLAG_TOMBSTONE
+                    | EncodingHeaderFields.FLAG_PINNED
+                    | EncodingHeaderFields.FLAG_RESOLVED);
+            assertThat(EncodingHeaderFields.isTombstoned(flags)).isTrue();
+            assertThat(EncodingHeaderFields.isPinned(flags)).isTrue();
+            assertThat(EncodingHeaderFields.isResolved(flags)).isTrue();
         }
     }
 

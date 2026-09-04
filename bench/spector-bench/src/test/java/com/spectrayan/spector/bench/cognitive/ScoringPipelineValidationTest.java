@@ -29,7 +29,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 
 /**
@@ -72,10 +72,10 @@ class ScoringPipelineValidationTest {
 
             // Record 0: tombstoned
             writeRecord(segment, layout, 0, vec, 5.0f, System.currentTimeMillis(),
-                    SynapticHeaderConstants.FLAG_TOMBSTONE, (byte) 0, 0L, mins, scales);
+                    EncodingHeaderFields.FLAG_TOMBSTONE, (byte) 0, 0L, mins, scales);
             // Record 1: alive
             writeRecord(segment, layout, 1, vec, 5.0f, System.currentTimeMillis(),
-                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
+                    EncodingHeaderFields.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
 
             RecallOptions options = RecallOptions.builder().topK(2).build();
             List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
@@ -109,16 +109,16 @@ class ScoringPipelineValidationTest {
             // Record 0: has matching tags
             long matchingTags = SynapticTagEncoder.encode("java", "performance", "memory");
             writeRecord(segment, layout, 0, vec, 5.0f, System.currentTimeMillis(),
-                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, matchingTags, mins, scales);
+                    EncodingHeaderFields.FLAG_RESOLVED, (byte) 0, matchingTags, mins, scales);
 
             // Record 1: use 0L as tags (guaranteed zero overlap with any query mask)
             writeRecord(segment, layout, 1, vec, 5.0f, System.currentTimeMillis(),
-                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
+                    EncodingHeaderFields.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
 
             // Record 2: partial overlap (has "java" but not "performance")
             long partialTags = SynapticTagEncoder.encode("java", "cooking");
             writeRecord(segment, layout, 2, vec, 5.0f, System.currentTimeMillis(),
-                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, partialTags, mins, scales);
+                    EncodingHeaderFields.FLAG_RESOLVED, (byte) 0, partialTags, mins, scales);
 
             RecallOptions options = RecallOptions.builder()
                     .topK(3)
@@ -169,7 +169,7 @@ class ScoringPipelineValidationTest {
             byte[] valences = {-100, -50, 0, 50, 100};
             for (int i = 0; i < corpusSize; i++) {
                 writeRecord(segment, layout, i, vec, 5.0f, System.currentTimeMillis(),
-                        SynapticHeaderConstants.FLAG_RESOLVED, valences[i], 0L, mins, scales);
+                        EncodingHeaderFields.FLAG_RESOLVED, valences[i], 0L, mins, scales);
             }
 
             // Filter: only valence in [-60, 60]
@@ -212,11 +212,11 @@ class ScoringPipelineValidationTest {
 
             // Record 0: low importance, very old, resolved, unpinned â†’ should be excluded
             writeRecordWithTimestamp(segment, layout, 0, vec, 0.5f, veryOldTs,
-                    SynapticHeaderConstants.FLAG_RESOLVED, mins, scales);
+                    EncodingHeaderFields.FLAG_RESOLVED, mins, scales);
 
             // Record 1: high importance, very old â†’ should survive
             writeRecordWithTimestamp(segment, layout, 1, vec, 8.0f, veryOldTs,
-                    SynapticHeaderConstants.FLAG_RESOLVED, mins, scales);
+                    EncodingHeaderFields.FLAG_RESOLVED, mins, scales);
 
             RecallOptions options = RecallOptions.builder().topK(2).build();
             List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
@@ -257,9 +257,9 @@ class ScoringPipelineValidationTest {
             for (int i = 0; i < DIMS; i++) farVec[i] = 0.9f;
 
             writeRecord(segment, layout, 0, closeVec, 5.0f, System.currentTimeMillis(),
-                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
+                    EncodingHeaderFields.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
             writeRecord(segment, layout, 1, farVec, 5.0f, System.currentTimeMillis(),
-                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
+                    EncodingHeaderFields.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
 
             RecallOptions options = RecallOptions.builder()
                     .topK(2)
@@ -302,10 +302,10 @@ class ScoringPipelineValidationTest {
 
             // Record 0: high importance
             writeRecord(segment, layout, 0, vec, 9.0f, nowMs - 60_000,
-                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
+                    EncodingHeaderFields.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
             // Record 1: low importance (same vector)
             writeRecord(segment, layout, 1, vec, 1.0f, nowMs - 60_000,
-                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
+                    EncodingHeaderFields.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
 
             RecallOptions options = RecallOptions.builder()
                     .topK(2)
@@ -344,10 +344,10 @@ class ScoringPipelineValidationTest {
 
             // Record 0: high importance (9.0), but same vector
             writeRecord(segment, layout, 0, vec, 9.0f, nowMs - 60_000,
-                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
+                    EncodingHeaderFields.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
             // Record 1: low importance (1.0), same vector
             writeRecord(segment, layout, 1, vec, 1.0f, nowMs - 60_000,
-                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
+                    EncodingHeaderFields.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
 
             RecallOptions options = RecallOptions.builder()
                     .topK(2)
@@ -382,14 +382,14 @@ class ScoringPipelineValidationTest {
 
             // Record 0: old (10 days ago)
             writeRecord(segment, layout, 0, vec, 5.0f, nowMs - (10L * 24 * 60 * 60 * 1000),
-                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
+                    EncodingHeaderFields.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
             // Record 1: target (5 days ago)
             long targetTs = nowMs - (5L * 24 * 60 * 60 * 1000);
             writeRecord(segment, layout, 1, vec, 5.0f, targetTs,
-                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
+                    EncodingHeaderFields.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
             // Record 2: fresh (today)
             writeRecord(segment, layout, 2, vec, 5.0f, nowMs,
-                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
+                    EncodingHeaderFields.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
 
             // Filter for memories between 7 days ago and 2 days ago
             RecallOptions options = RecallOptions.builder()

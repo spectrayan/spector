@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocati
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import java.lang.foreign.MemorySegment;
 
@@ -77,7 +77,7 @@ public final class SynapticDecayModulator implements DecayModulator {
                 if (body == null || body.header() == null) continue;
 
                 CognitiveHeader header = body.header();
-                if (SynapticHeaderConstants.isTombstoned(header.flags())) continue;
+                if (EncodingHeaderFields.isTombstoned(header.flags())) continue;
 
                 float normArousal = (header.arousal() & 0xFF) / 255.0f;  // unsigned [0,1]
                 float normValence = Math.abs(header.valence()) / 127.0f; // absolute [0,1]
@@ -117,7 +117,7 @@ public final class SynapticDecayModulator implements DecayModulator {
             try {
                 long offset = episodic.recordOffset(i);
                 byte flags = layout.readFlags(segment, offset);
-                if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+                if (EncodingHeaderFields.isTombstoned(flags)) continue;
 
                 float importance = layout.readImportance(segment, offset);
                 byte arousal = layout.readArousal(segment, offset);

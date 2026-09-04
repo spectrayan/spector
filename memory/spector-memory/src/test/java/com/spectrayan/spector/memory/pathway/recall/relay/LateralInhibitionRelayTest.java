@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pathway.recall.relay;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -111,7 +111,7 @@ class LateralInhibitionRelayTest {
                 .build();
         RecallSignal signal = RecallSignal.forTextQuery("test", opts);
 
-        byte flags = SynapticHeaderConstants.FLAG_CONTRADICTED;
+        byte flags = EncodingHeaderFields.FLAG_CONTRADICTED;
         // m1: fresh (age 1 day, high importance 9) -> high confidence
         CognitiveResult r1 = new CognitiveResult(
                 "m1", "Server runs on port 8080", 0.95f, 9.0f, 1.0f, 5, (byte) 0,

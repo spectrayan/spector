@@ -17,7 +17,7 @@ import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.ImportanceContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
@@ -134,7 +134,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
                     for (int i = 0; i < size && count < 2000; i++) {
                         long offset = store.recordOffset(i);
                         byte flags = layout.readFlags(segment, offset);
-                        if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+                        if (EncodingHeaderFields.isTombstoned(flags)) continue;
 
                         MemorySegment.copy(segment, layout.vectorOffset(offset), MemorySegment.ofArray(qBytes), 0, vecBytes);
                         float[] vec = quantizer.decode(qBytes);
@@ -170,7 +170,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         for (int i = 0; i < size; i++) {
             long offset = store.recordOffset(i);
             byte flags = layout.readFlags(segment, offset);
-            if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+            if (EncodingHeaderFields.isTombstoned(flags)) continue;
 
             short recordSoulVersion = layout.readSoulVersion(segment, offset);
             if (recordSoulVersion < currentSoulVersion) {
@@ -190,7 +190,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         long offset = candidate.offset();
 
         CognitiveHeader header = layout.readHeader(segment, offset);
-        if (SynapticHeaderConstants.isTombstoned(header.flags())) return;
+        if (EncodingHeaderFields.isTombstoned(header.flags())) return;
 
         int vecBytes = layout.quantizedVecBytes();
         byte[] quantized = new byte[vecBytes];
@@ -202,7 +202,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         }
         float[] vector = (quantizer != null) ? quantizer.decode(quantized) : new float[vecBytes];
 
-        MemoryType memoryType = SynapticHeaderConstants.memoryTypeOf(header.flags());
+        MemoryType memoryType = EncodingHeaderFields.memoryTypeOf(header.flags());
         IngestionHints hints = new IngestionHints(
                 Math.clamp(header.importance() / 10.0f, 0.0f, 1.0f),
                 0.5f,

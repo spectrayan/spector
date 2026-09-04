@@ -153,7 +153,7 @@ public record CognitiveRecordLayout(int quantizedVecBytes, EncodingHeaderLayout 
      */
     public SourceModality readSourceModality(MemorySegment segment, long offset) {
         byte flags = headerLayout.readFlags(segment, offset);
-        return SourceModality.fromOrdinal(SynapticHeaderConstants.sourceModalityOrdinal(flags));
+        return SourceModality.fromOrdinal(EncodingHeaderFields.sourceModalityOrdinal(flags));
     }
 
     /** Reads the valence byte at the given record offset. */
@@ -470,7 +470,7 @@ public record CognitiveRecordLayout(int quantizedVecBytes, EncodingHeaderLayout 
          */
         public static CognitiveHeader create(long timestampMs, long synapticTags, float exactNorm,
                                               float importance, short centroidId, MemoryType memoryType) {
-            byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, memoryType.ordinal());
+            byte flags = EncodingHeaderFields.withMemoryType((byte) 0, memoryType.ordinal());
             return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
                     0, centroidId, (byte) 0, flags,
                     (byte) 0, 1.0f,
@@ -485,7 +485,7 @@ public record CognitiveRecordLayout(int quantizedVecBytes, EncodingHeaderLayout 
                                                           float exactNorm, float importance,
                                                           short centroidId, MemoryType memoryType,
                                                           byte valence, byte arousal) {
-            byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, memoryType.ordinal());
+            byte flags = EncodingHeaderFields.withMemoryType((byte) 0, memoryType.ordinal());
             return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
                     0, centroidId, valence, flags, arousal, 1.0f,
                     (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
@@ -514,9 +514,9 @@ public record CognitiveRecordLayout(int quantizedVecBytes, EncodingHeaderLayout 
                                                           short centroidId, MemoryType memoryType,
                                                           SourceModality modality,
                                                           byte valence, byte arousal) {
-            byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, memoryType.ordinal());
+            byte flags = EncodingHeaderFields.withMemoryType((byte) 0, memoryType.ordinal());
             if (modality != null && modality != SourceModality.TEXT) {
-                flags = SynapticHeaderConstants.withSourceModality(flags, modality.ordinal());
+                flags = EncodingHeaderFields.withSourceModality(flags, modality.ordinal());
             }
             return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
                     0, centroidId, valence, flags, arousal, 1.0f,
@@ -533,9 +533,9 @@ public record CognitiveRecordLayout(int quantizedVecBytes, EncodingHeaderLayout 
                 byte valence, byte arousal,
                 byte encodingProfile, byte encodingAlpha, byte encodingBeta,
                 short soulVersion, float encodingSurprise) {
-            byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, memoryType.ordinal());
+            byte flags = EncodingHeaderFields.withMemoryType((byte) 0, memoryType.ordinal());
             if (modality != null && modality != SourceModality.TEXT) {
-                flags = SynapticHeaderConstants.withSourceModality(flags, modality.ordinal());
+                flags = EncodingHeaderFields.withSourceModality(flags, modality.ordinal());
             }
             return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
                     0, centroidId, valence, flags, arousal, 1.0f,

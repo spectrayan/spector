@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.cortex.consolidation.DuplicateDetector.DuplicatePair;
 
 import org.junit.jupiter.api.AfterEach;
@@ -164,8 +164,8 @@ class DuplicateDetectorTest {
 
     private void writeRecord(String id, byte[] vector, boolean isTombstone) {
         byte flags = isTombstone ? 
-                SynapticHeaderConstants.withMemoryType(SynapticHeaderConstants.FLAG_TOMBSTONE, MemoryType.SEMANTIC.ordinal()) :
-                SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
+                EncodingHeaderFields.withMemoryType(EncodingHeaderFields.FLAG_TOMBSTONE, MemoryType.SEMANTIC.ordinal()) :
+                EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
 
         CognitiveHeader header = new CognitiveHeader(
                 System.currentTimeMillis(), // timestampMs

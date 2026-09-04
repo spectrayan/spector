@@ -25,7 +25,7 @@ import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
@@ -316,7 +316,7 @@ public final class ReflectDaemon {
                         1,
                         (short) 0,
                         (byte) 0,
-                        SynapticHeaderConstants.withMemoryType(SynapticHeaderConstants.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal()),
+                        EncodingHeaderFields.withMemoryType(EncodingHeaderFields.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal()),
                         (byte) 0,
                         1.0f
                 );
@@ -515,8 +515,8 @@ public final class ReflectDaemon {
             long offset = partition.recordOffset(i);
             byte flags = layout.readFlags(segment, offset);
 
-            if (SynapticHeaderConstants.isTombstoned(flags)) continue;
-            if (SynapticHeaderConstants.isConsolidated(flags)) continue;
+            if (EncodingHeaderFields.isTombstoned(flags)) continue;
+            if (EncodingHeaderFields.isConsolidated(flags)) continue;
 
             CognitiveHeader header = layout.readHeader(segment, offset);
             int centroidId = header.centroidId();
@@ -686,12 +686,12 @@ public final class ReflectDaemon {
         for (int i = 0; i < candidates.size(); i++) {
             long offsetA = partition.recordOffset(candidates.get(i));
             CognitiveHeader headerA = layout.readHeader(segment, offsetA);
-            if (SynapticHeaderConstants.isTombstoned(headerA.flags())) continue;
+            if (EncodingHeaderFields.isTombstoned(headerA.flags())) continue;
 
             for (int j = i + 1; j < candidates.size(); j++) {
                 long offsetB = partition.recordOffset(candidates.get(j));
                 CognitiveHeader headerB = layout.readHeader(segment, offsetB);
-                if (SynapticHeaderConstants.isTombstoned(headerB.flags())) continue;
+                if (EncodingHeaderFields.isTombstoned(headerB.flags())) continue;
 
                 // Compute L2 distance between quantized vectors.
                 // Read A's quantized bytes  ->  dequantize to float[]  ->  compare against B.
@@ -769,8 +769,8 @@ public final class ReflectDaemon {
                 }
             }
 
-            byte semanticFlags = SynapticHeaderConstants.withMemoryType(
-                    SynapticHeaderConstants.FLAG_CONSOLIDATED,
+            byte semanticFlags = EncodingHeaderFields.withMemoryType(
+                    EncodingHeaderFields.FLAG_CONSOLIDATED,
                     MemoryType.SEMANTIC.ordinal());
 
             CognitiveHeader header = new CognitiveHeader(
@@ -789,8 +789,8 @@ public final class ReflectDaemon {
      * Creates a SEMANTIC-type header from an episodic header, with consolidated flag.
      */
     private CognitiveHeader createSemanticHeader(CognitiveHeader episodicHeader, long commonTags) {
-        byte semanticFlags = SynapticHeaderConstants.withMemoryType(
-                (byte) (episodicHeader.flags() | SynapticHeaderConstants.FLAG_CONSOLIDATED),
+        byte semanticFlags = EncodingHeaderFields.withMemoryType(
+                (byte) (episodicHeader.flags() | EncodingHeaderFields.FLAG_CONSOLIDATED),
                 MemoryType.SEMANTIC.ordinal());
 
         return new CognitiveHeader(
@@ -827,8 +827,8 @@ public final class ReflectDaemon {
             byte flags = layout.readFlags(segment, offset);
 
             // Skip tombstoned and already-consolidated
-            if (SynapticHeaderConstants.isTombstoned(flags)) continue;
-            if (SynapticHeaderConstants.isConsolidated(flags)) continue;
+            if (EncodingHeaderFields.isTombstoned(flags)) continue;
+            if (EncodingHeaderFields.isConsolidated(flags)) continue;
 
             float importance = layout.readImportance(segment, offset);
             if (importance > maxImportance) {

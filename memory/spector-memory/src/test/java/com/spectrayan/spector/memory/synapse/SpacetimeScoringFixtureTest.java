@@ -17,7 +17,7 @@ import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.StrengthMemory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -129,8 +129,8 @@ class SpacetimeScoringFixtureTest {
             assertThat(lowMass).isLessThan(RecordGates.FLASHBULB_MASS_FLOOR);
 
             // Record 0: High-mass memory (I=0.8 < 1.0, A=240, S=4.0) -> Survives Phase 4 via M >= FLASHBULB_MASS_FLOOR exemption
-            final byte flagsResolved = SynapticHeaderConstants.withMemoryType(
-                    SynapticHeaderConstants.FLAG_RESOLVED, MemoryType.EPISODIC.ordinal());
+            final byte flagsResolved = EncodingHeaderFields.withMemoryType(
+                    EncodingHeaderFields.FLAG_RESOLVED, MemoryType.EPISODIC.ordinal());
             final CognitiveHeader highMassHeader = new CognitiveHeader(
                     now - FIVE_YEARS_MS, 0L, 1.0f, 0.8f, 0, (short) 0, (byte) 50, flagsResolved, (byte) 240, 4.0f);
             store.append(highMassHeader, new byte[layout.quantizedVecBytes()]);

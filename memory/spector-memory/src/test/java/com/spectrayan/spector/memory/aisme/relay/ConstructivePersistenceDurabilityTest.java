@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.aisme.relay;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,7 +36,7 @@ class ConstructivePersistenceDurabilityTest {
         SemanticMemory semanticStore = new SemanticMemory(DIMS, 100);
 
         long timestamp = System.currentTimeMillis();
-        byte procFlags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
+        byte procFlags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
         short soulVersion = 3;
         byte arousal = (byte) 180;
         byte valence = (byte) 25;
@@ -45,7 +45,7 @@ class ConstructivePersistenceDurabilityTest {
         CognitiveHeader syntheticHeader = CognitiveHeader.createSynthetic(
                 timestamp, 0x55AAL, 1.0f, importance,
                 valence, arousal, procFlags,
-                SynapticHeaderConstants.FLAG_SIMULATED,
+                EncodingHeaderFields.FLAG_SIMULATED,
                 soulVersion, 0.45f
         );
 
@@ -55,11 +55,11 @@ class ConstructivePersistenceDurabilityTest {
 
         // 1. Direct segment read
         byte cFlags = layout.readConsolidationFlags(semanticStore.segment(), offset);
-        assertThat(SynapticHeaderConstants.isSimulated(cFlags)).isTrue();
+        assertThat(EncodingHeaderFields.isSimulated(cFlags)).isTrue();
 
         // 2. Full CognitiveHeader read
         CognitiveHeader readHeader = layout.readHeader(semanticStore.segment(), offset);
-        assertThat(SynapticHeaderConstants.isSimulated(readHeader.consolidationFlags())).isTrue();
+        assertThat(EncodingHeaderFields.isSimulated(readHeader.consolidationFlags())).isTrue();
         assertThat(readHeader.arousal()).isEqualTo(arousal); // Must NOT be corrupted to FLAG_SIMULATED (32)
         assertThat(readHeader.valence()).isEqualTo(valence);
         assertThat(readHeader.soulVersion()).isEqualTo(soulVersion);

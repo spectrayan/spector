@@ -16,7 +16,7 @@ import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -134,9 +134,9 @@ public final class SemanticDeduplicator {
             long offset = baseOffset + (long) i * stride;
 
             // Skip tombstoned records
-            byte flags = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS,
-                    offset + SynapticHeaderConstants.OFFSET_FLAGS);
-            if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+            byte flags = segment.get(EncodingHeaderFields.LAYOUT_FLAGS,
+                    offset + EncodingHeaderFields.OFFSET_FLAGS);
+            if (EncodingHeaderFields.isTombstoned(flags)) continue;
 
             // Compute calibrated L2 distance via SimilarityFunction
             float dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(

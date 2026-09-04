@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout.StrengthState;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.compat.LegacyEncodingHeaderReader;
 import com.spectrayan.spector.memory.model.MemoryType;
 import org.junit.jupiter.api.DisplayName;
@@ -60,12 +60,12 @@ class HeaderMigratorTest {
             long expectedLastAutoLtp = 1716900005000L;
             byte expectedLastRecallProfile = (byte) 3;
 
-            engramSeg.set(ValueLayout.JAVA_FLOAT, SynapticHeaderConstants.OFFSET_IMPORTANCE, expectedImportance);
-            engramSeg.set(ValueLayout.JAVA_INT, SynapticHeaderConstants.OFFSET_AGENT_RECALL_COUNT, expectedAgentRecallCount);
-            engramSeg.set(ValueLayout.JAVA_FLOAT, SynapticHeaderConstants.OFFSET_STORAGE_STRENGTH, expectedStorageStrength);
-            engramSeg.set(ValueLayout.JAVA_INT, SynapticHeaderConstants.OFFSET_SPECTOR_RECALL_COUNT, expectedSpectorRecallCount);
-            engramSeg.set(ValueLayout.JAVA_LONG, SynapticHeaderConstants.OFFSET_LAST_AUTO_LTP, expectedLastAutoLtp);
-            engramSeg.set(ValueLayout.JAVA_BYTE, SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE, expectedLastRecallProfile);
+            engramSeg.set(ValueLayout.JAVA_FLOAT, EncodingHeaderFields.OFFSET_IMPORTANCE, expectedImportance);
+            engramSeg.set(ValueLayout.JAVA_INT, EncodingHeaderFields.OFFSET_AGENT_RECALL_COUNT, expectedAgentRecallCount);
+            engramSeg.set(ValueLayout.JAVA_FLOAT, EncodingHeaderFields.OFFSET_STORAGE_STRENGTH, expectedStorageStrength);
+            engramSeg.set(ValueLayout.JAVA_INT, EncodingHeaderFields.OFFSET_SPECTOR_RECALL_COUNT, expectedSpectorRecallCount);
+            engramSeg.set(ValueLayout.JAVA_LONG, EncodingHeaderFields.OFFSET_LAST_AUTO_LTP, expectedLastAutoLtp);
+            engramSeg.set(ValueLayout.JAVA_BYTE, EncodingHeaderFields.OFFSET_LAST_RECALL_PROFILE, expectedLastRecallProfile);
 
             HeaderMigrator.copyV1HeaderToStrength(engramSeg, 0, strengthSeg, 0, MemoryType.SEMANTIC);
 
@@ -93,11 +93,11 @@ class HeaderMigratorTest {
 
             for (int i = 0; i < recordCount; i++) {
                 long offset = dataOffset + (long) i * stride;
-                engramSeg.set(ValueLayout.JAVA_FLOAT, offset + SynapticHeaderConstants.OFFSET_IMPORTANCE, 0.1f * (i + 1));
-                engramSeg.set(ValueLayout.JAVA_INT, offset + SynapticHeaderConstants.OFFSET_AGENT_RECALL_COUNT, i);
-                engramSeg.set(ValueLayout.JAVA_FLOAT, offset + SynapticHeaderConstants.OFFSET_STORAGE_STRENGTH, 1.0f + i * 0.5f);
-                engramSeg.set(ValueLayout.JAVA_INT, offset + SynapticHeaderConstants.OFFSET_SPECTOR_RECALL_COUNT, i * 2);
-                engramSeg.set(ValueLayout.JAVA_LONG, offset + SynapticHeaderConstants.OFFSET_LAST_AUTO_LTP, 1000L * i);
+                engramSeg.set(ValueLayout.JAVA_FLOAT, offset + EncodingHeaderFields.OFFSET_IMPORTANCE, 0.1f * (i + 1));
+                engramSeg.set(ValueLayout.JAVA_INT, offset + EncodingHeaderFields.OFFSET_AGENT_RECALL_COUNT, i);
+                engramSeg.set(ValueLayout.JAVA_FLOAT, offset + EncodingHeaderFields.OFFSET_STORAGE_STRENGTH, 1.0f + i * 0.5f);
+                engramSeg.set(ValueLayout.JAVA_INT, offset + EncodingHeaderFields.OFFSET_SPECTOR_RECALL_COUNT, i * 2);
+                engramSeg.set(ValueLayout.JAVA_LONG, offset + EncodingHeaderFields.OFFSET_LAST_AUTO_LTP, 1000L * i);
             }
 
             StrengthMemory store = StrengthMemory.heap(10, 10, 10);
@@ -137,10 +137,10 @@ class HeaderMigratorTest {
 
                 for (int i = 0; i < recordCount; i++) {
                     long recOff = RegionPreamble.PREAMBLE_BYTES + (long) i * v1Stride;
-                    seg.set(ValueLayout.JAVA_FLOAT, recOff + SynapticHeaderConstants.OFFSET_IMPORTANCE, 0.75f);
-                    seg.set(ValueLayout.JAVA_INT, recOff + SynapticHeaderConstants.OFFSET_AGENT_RECALL_COUNT, 3);
-                    seg.set(ValueLayout.JAVA_FLOAT, recOff + SynapticHeaderConstants.OFFSET_STORAGE_STRENGTH, 2.5f);
-                    seg.set(ValueLayout.JAVA_INT, recOff + SynapticHeaderConstants.OFFSET_SPECTOR_RECALL_COUNT, 4);
+                    seg.set(ValueLayout.JAVA_FLOAT, recOff + EncodingHeaderFields.OFFSET_IMPORTANCE, 0.75f);
+                    seg.set(ValueLayout.JAVA_INT, recOff + EncodingHeaderFields.OFFSET_AGENT_RECALL_COUNT, 3);
+                    seg.set(ValueLayout.JAVA_FLOAT, recOff + EncodingHeaderFields.OFFSET_STORAGE_STRENGTH, 2.5f);
+                    seg.set(ValueLayout.JAVA_INT, recOff + EncodingHeaderFields.OFFSET_SPECTOR_RECALL_COUNT, 4);
                 }
             }
         }

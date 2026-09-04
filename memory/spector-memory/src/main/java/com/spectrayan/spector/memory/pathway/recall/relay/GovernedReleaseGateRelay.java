@@ -20,7 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 
@@ -50,14 +50,14 @@ public final class GovernedReleaseGateRelay implements SynapticRelay<RecallSigna
             byte cFlags = r.consolidationFlags();
 
             // Fail-closed check: retracted memory records are never released
-            if (SynapticHeaderConstants.isRetracted(cFlags)) {
+            if (EncodingHeaderFields.isRetracted(cFlags)) {
                 log.debug("Dropping retracted memory candidate: {}", r.id());
                 it.remove();
                 continue;
             }
 
             // Sovereign restriction check
-            if (SynapticHeaderConstants.isRestricted(cFlags)) {
+            if (EncodingHeaderFields.isRestricted(cFlags)) {
                 // If caller persona is not explicitly authorized, drop candidate
                 String persona = signal.options().personaId();
                 if (persona == null || persona.isBlank()) {
@@ -68,7 +68,7 @@ public final class GovernedReleaseGateRelay implements SynapticRelay<RecallSigna
             }
 
             // Trust-gating check: unverified records must satisfy minTrustScore
-            if (SynapticHeaderConstants.isUnverified(cFlags) && minTrust > 0.0f) {
+            if (EncodingHeaderFields.isUnverified(cFlags) && minTrust > 0.0f) {
                 if (r.score() < minTrust && r.ltpAdjustedDecay() < minTrust) {
                     log.debug("Dropping unverified candidate below minTrustScore ({}): {}", minTrust, r.id());
                     it.remove();

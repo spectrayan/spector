@@ -21,7 +21,7 @@ import java.lang.foreign.ValueLayout;
 
 /**
  * Episodic field accessor — reinterprets the 64-byte
- * {@link SynapticHeaderConstants synaptic header} for conversation records.
+ * {@link EncodingHeaderFields synaptic header} for conversation records.
  *
  * <h3>Design Rationale</h3>
  * <p>The same 64-byte cache-line-aligned header is shared across all memory tiers
@@ -61,7 +61,7 @@ import java.lang.foreign.ValueLayout;
  *
  * @since 1.3.0
  * @see HeaderLayout64
- * @see SynapticHeaderConstants
+ * @see EncodingHeaderFields
  * @see ConversationRole
  */
 public final class EpisodicFieldAccessor {
@@ -74,7 +74,7 @@ public final class EpisodicFieldAccessor {
      * Reads the conversation role from the valence byte (offset 2).
      */
     public static ConversationRole readRole(MemorySegment segment, long offset) {
-        byte ordinal = segment.get(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_VALENCE);
+        byte ordinal = segment.get(ValueLayout.JAVA_BYTE, offset + EncodingHeaderFields.OFFSET_VALENCE);
         return ConversationRole.fromOrdinal(ordinal & 0xFF);
     }
 
@@ -86,7 +86,7 @@ public final class EpisodicFieldAccessor {
      * not a float, despite sharing the same offset.</p>
      */
     public static int readSequenceId(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_IMPORTANCE);
+        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + EncodingHeaderFields.OFFSET_IMPORTANCE);
     }
 
     /**
@@ -94,7 +94,7 @@ public final class EpisodicFieldAccessor {
      * Same interpretation as cognitive records.
      */
     public static long readTimestamp(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_LONG_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_TIMESTAMP);
+        return segment.get(ValueLayout.JAVA_LONG_UNALIGNED, offset + EncodingHeaderFields.OFFSET_TIMESTAMP);
     }
 
     /**
@@ -105,14 +105,14 @@ public final class EpisodicFieldAccessor {
      * enabling direct equality comparison for session-scoped queries.</p>
      */
     public static long readSessionId(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_LONG_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_SYNAPTIC_TAGS);
+        return segment.get(ValueLayout.JAVA_LONG_UNALIGNED, offset + EncodingHeaderFields.OFFSET_SYNAPTIC_TAGS);
     }
 
     /**
      * Reads the input token count from the agent_recall_count field (offset 16).
      */
     public static int readTokenInCount(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_AGENT_RECALL_COUNT);
+        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + EncodingHeaderFields.OFFSET_AGENT_RECALL_COUNT);
     }
 
     /**
@@ -121,14 +121,14 @@ public final class EpisodicFieldAccessor {
      * <p>Reinterprets the 4-byte exact_norm float as an int32 token counter.</p>
      */
     public static int readTokenOutCount(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_EXACT_NORM);
+        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + EncodingHeaderFields.OFFSET_EXACT_NORM);
     }
 
     /**
      * Reads the LLM model registry ID from the centroid_id field (offset 32).
      */
     public static short readModelId(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_SHORT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_CENTROID_ID);
+        return segment.get(ValueLayout.JAVA_SHORT_UNALIGNED, offset + EncodingHeaderFields.OFFSET_CENTROID_ID);
     }
 
     /**
@@ -137,7 +137,7 @@ public final class EpisodicFieldAccessor {
      * <p>Reinterprets the 4-byte storage_strength float as an int32 latency counter.</p>
      */
     public static int readLatencyMs(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_STORAGE_STRENGTH);
+        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + EncodingHeaderFields.OFFSET_STORAGE_STRENGTH);
     }
 
     /**
@@ -147,7 +147,7 @@ public final class EpisodicFieldAccessor {
      * conversation session.</p>
      */
     public static long readUserId(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_LONG_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_LAST_AUTO_LTP);
+        return segment.get(ValueLayout.JAVA_LONG_UNALIGNED, offset + EncodingHeaderFields.OFFSET_LAST_AUTO_LTP);
     }
 
     /**
@@ -158,28 +158,28 @@ public final class EpisodicFieldAccessor {
      * {@code offset + 64 + bodyLength}.</p>
      */
     public static int readBodyLength(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_ENCODING_SURPRISE);
+        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + EncodingHeaderFields.OFFSET_ENCODING_SURPRISE);
     }
 
     /**
      * Reads the flags byte (offset 1). Same interpretation as cognitive records.
      */
     public static byte readFlags(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_FLAGS);
+        return segment.get(ValueLayout.JAVA_BYTE, offset + EncodingHeaderFields.OFFSET_FLAGS);
     }
 
     /**
      * Reads the conversation flags byte (offset 34).
      */
     public static byte readConversationFlags(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_CONSOLIDATION_FLAGS);
+        return segment.get(ValueLayout.JAVA_BYTE, offset + EncodingHeaderFields.OFFSET_CONSOLIDATION_FLAGS);
     }
 
     /**
      * Reads the soul version (offset 46). Same interpretation as cognitive records.
      */
     public static short readSoulVersion(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_SHORT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_SOUL_VERSION);
+        return segment.get(ValueLayout.JAVA_SHORT_UNALIGNED, offset + EncodingHeaderFields.OFFSET_SOUL_VERSION);
     }
 
     /**
@@ -187,35 +187,35 @@ public final class EpisodicFieldAccessor {
      */
     public static SourceModality readModality(MemorySegment segment, long offset) {
         byte flags = readFlags(segment, offset);
-        return SourceModality.fromOrdinal(SynapticHeaderConstants.sourceModalityOrdinal(flags));
+        return SourceModality.fromOrdinal(EncodingHeaderFields.sourceModalityOrdinal(flags));
     }
 
     /**
      * Checks if this record has been tombstoned (logically deleted).
      */
     public static boolean isTombstoned(MemorySegment segment, long offset) {
-        return SynapticHeaderConstants.isTombstoned(readFlags(segment, offset));
+        return EncodingHeaderFields.isTombstoned(readFlags(segment, offset));
     }
 
     /**
      * Checks if the given flags byte has the tombstone bit set.
      */
     public static boolean isTombstoned(byte flags) {
-        return SynapticHeaderConstants.isTombstoned(flags);
+        return EncodingHeaderFields.isTombstoned(flags);
     }
 
     /**
      * Checks if this record has been consolidated (reflected into SEMANTIC tier).
      */
     public static boolean isConsolidated(MemorySegment segment, long offset) {
-        return SynapticHeaderConstants.isConsolidated(readFlags(segment, offset));
+        return EncodingHeaderFields.isConsolidated(readFlags(segment, offset));
     }
 
     /**
      * Checks if the given flags byte has the consolidated bit set.
      */
     public static boolean isConsolidated(byte flags) {
-        return SynapticHeaderConstants.isConsolidated(flags);
+        return EncodingHeaderFields.isConsolidated(flags);
     }
 
     // ── Write accessors ──
@@ -249,68 +249,68 @@ public final class EpisodicFieldAccessor {
                                     int latencyMs, long userId,
                                     short soulVersion, SourceModality modality) {
         // Byte 0: header version
-        segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_HEADER_VERSION,
-                (byte) SynapticHeaderConstants.HEADER_VERSION);
+        segment.set(ValueLayout.JAVA_BYTE, offset + EncodingHeaderFields.OFFSET_HEADER_VERSION,
+                (byte) EncodingHeaderFields.HEADER_VERSION);
 
         // Byte 1: flags (type=EPISODIC, modality, no tombstone/consolidated/pinned)
-        byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal());
+        byte flags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal());
         if (modality != null && modality != SourceModality.TEXT) {
-            flags = SynapticHeaderConstants.withSourceModality(flags, modality.ordinal());
+            flags = EncodingHeaderFields.withSourceModality(flags, modality.ordinal());
         }
-        segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_FLAGS, flags);
+        segment.set(ValueLayout.JAVA_BYTE, offset + EncodingHeaderFields.OFFSET_FLAGS, flags);
 
         // Byte 2: role (reinterprets valence)
-        segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_VALENCE,
+        segment.set(ValueLayout.JAVA_BYTE, offset + EncodingHeaderFields.OFFSET_VALENCE,
                 (byte) role.ordinal());
 
         // Byte 3: reserved (reinterprets arousal)
-        segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_AROUSAL, (byte) 0);
+        segment.set(ValueLayout.JAVA_BYTE, offset + EncodingHeaderFields.OFFSET_AROUSAL, (byte) 0);
 
         // Bytes 4-7: sequence_id (reinterprets importance as int32)
-        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_IMPORTANCE, sequenceId);
+        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + EncodingHeaderFields.OFFSET_IMPORTANCE, sequenceId);
 
         // Bytes 8-15: timestamp_ms (same interpretation)
-        segment.set(ValueLayout.JAVA_LONG_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_TIMESTAMP, timestampMs);
+        segment.set(ValueLayout.JAVA_LONG_UNALIGNED, offset + EncodingHeaderFields.OFFSET_TIMESTAMP, timestampMs);
 
         // Bytes 16-19: token_in_count (reinterprets agent_recall_count)
-        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_AGENT_RECALL_COUNT, tokenIn);
+        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + EncodingHeaderFields.OFFSET_AGENT_RECALL_COUNT, tokenIn);
 
         // Bytes 20-23: token_out_count (reinterprets exact_norm as int32)
-        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_EXACT_NORM, tokenOut);
+        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + EncodingHeaderFields.OFFSET_EXACT_NORM, tokenOut);
 
         // Bytes 24-31: session_id (reinterprets synaptic_tags as raw hash)
-        segment.set(ValueLayout.JAVA_LONG_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_SYNAPTIC_TAGS, sessionId);
+        segment.set(ValueLayout.JAVA_LONG_UNALIGNED, offset + EncodingHeaderFields.OFFSET_SYNAPTIC_TAGS, sessionId);
 
         // Bytes 32-33: model_id (reinterprets centroid_id)
-        segment.set(ValueLayout.JAVA_SHORT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_CENTROID_ID, modelId);
+        segment.set(ValueLayout.JAVA_SHORT_UNALIGNED, offset + EncodingHeaderFields.OFFSET_CENTROID_ID, modelId);
 
         // Byte 34: conversation_flags (reinterprets consolidation_flags)
-        segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_CONSOLIDATION_FLAGS, (byte) 0);
+        segment.set(ValueLayout.JAVA_BYTE, offset + EncodingHeaderFields.OFFSET_CONSOLIDATION_FLAGS, (byte) 0);
 
         // Byte 35: reserved (reinterprets encoding_profile)
-        segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_ENCODING_PROFILE, (byte) 0);
+        segment.set(ValueLayout.JAVA_BYTE, offset + EncodingHeaderFields.OFFSET_ENCODING_PROFILE, (byte) 0);
 
         // Bytes 36-39: latency_ms (reinterprets storage_strength as int32)
-        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_STORAGE_STRENGTH, latencyMs);
+        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + EncodingHeaderFields.OFFSET_STORAGE_STRENGTH, latencyMs);
 
         // Bytes 40-43: reserved (reinterprets spector_recall_cnt)
-        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_SPECTOR_RECALL_COUNT, 0);
+        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + EncodingHeaderFields.OFFSET_SPECTOR_RECALL_COUNT, 0);
 
         // Bytes 44-45: reserved (reinterprets encoding_alpha/beta)
-        segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_ENCODING_ALPHA, (byte) 0);
-        segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_ENCODING_BETA, (byte) 0);
+        segment.set(ValueLayout.JAVA_BYTE, offset + EncodingHeaderFields.OFFSET_ENCODING_ALPHA, (byte) 0);
+        segment.set(ValueLayout.JAVA_BYTE, offset + EncodingHeaderFields.OFFSET_ENCODING_BETA, (byte) 0);
 
         // Bytes 46-47: soul_version (same interpretation)
-        segment.set(ValueLayout.JAVA_SHORT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_SOUL_VERSION, soulVersion);
+        segment.set(ValueLayout.JAVA_SHORT_UNALIGNED, offset + EncodingHeaderFields.OFFSET_SOUL_VERSION, soulVersion);
 
         // Bytes 48-55: user_id (reinterprets last_auto_ltp as raw hash)
-        segment.set(ValueLayout.JAVA_LONG_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_LAST_AUTO_LTP, userId);
+        segment.set(ValueLayout.JAVA_LONG_UNALIGNED, offset + EncodingHeaderFields.OFFSET_LAST_AUTO_LTP, userId);
 
         // Bytes 56-59: body_length (reinterprets encoding_surprise as int32)
-        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_ENCODING_SURPRISE, bodyLength);
+        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + EncodingHeaderFields.OFFSET_ENCODING_SURPRISE, bodyLength);
 
         // Byte 60: reserved (reinterprets last_recall_profile)
-        segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE, (byte) 0);
+        segment.set(ValueLayout.JAVA_BYTE, offset + EncodingHeaderFields.OFFSET_LAST_RECALL_PROFILE, (byte) 0);
 
         // Bytes 61-63: reserved padding (zero-fill)
         segment.set(ValueLayout.JAVA_BYTE, offset + 61, (byte) 0);
@@ -323,8 +323,8 @@ public final class EpisodicFieldAccessor {
      */
     public static void tombstone(MemorySegment segment, long offset) {
         byte flags = readFlags(segment, offset);
-        flags = (byte) (flags | SynapticHeaderConstants.FLAG_TOMBSTONE);
-        segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_FLAGS, flags);
+        flags = (byte) (flags | EncodingHeaderFields.FLAG_TOMBSTONE);
+        segment.set(ValueLayout.JAVA_BYTE, offset + EncodingHeaderFields.OFFSET_FLAGS, flags);
     }
 
     /**
@@ -332,8 +332,8 @@ public final class EpisodicFieldAccessor {
      */
     public static void markConsolidated(MemorySegment segment, long offset) {
         byte flags = readFlags(segment, offset);
-        flags = (byte) (flags | SynapticHeaderConstants.FLAG_CONSOLIDATED);
-        segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_FLAGS, flags);
+        flags = (byte) (flags | EncodingHeaderFields.FLAG_CONSOLIDATED);
+        segment.set(ValueLayout.JAVA_BYTE, offset + EncodingHeaderFields.OFFSET_FLAGS, flags);
     }
 
     // ── Episodic record ──
@@ -390,7 +390,7 @@ public final class EpisodicFieldAccessor {
 
         byte[] body = null;
         if (includeBody && bodyLength > 0) {
-            long bodyOffset = offset + SynapticHeaderConstants.HEADER_BYTES;
+            long bodyOffset = offset + EncodingHeaderFields.HEADER_BYTES;
             body = segment.asSlice(bodyOffset, bodyLength).toArray(ValueLayout.JAVA_BYTE);
         }
 
@@ -407,7 +407,7 @@ public final class EpisodicFieldAccessor {
                 readLatencyMs(segment, offset),
                 readUserId(segment, offset),
                 readSoulVersion(segment, offset),
-                SourceModality.fromOrdinal(SynapticHeaderConstants.sourceModalityOrdinal(flags)),
+                SourceModality.fromOrdinal(EncodingHeaderFields.sourceModalityOrdinal(flags)),
                 flags
         );
     }

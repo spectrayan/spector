@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.neuromod.amygdala;
 
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,8 +79,8 @@ public final class ValenceTracker {
         byte currentValence = layout.readValence(segment, offset);
         byte blended = Valence.blend(currentValence, outcome, learningRate);
 
-        segment.set(SynapticHeaderConstants.LAYOUT_VALENCE,
-                offset + SynapticHeaderConstants.OFFSET_VALENCE, blended);
+        segment.set(EncodingHeaderFields.LAYOUT_VALENCE,
+                offset + EncodingHeaderFields.OFFSET_VALENCE, blended);
 
         log.debug("Valence reinforced at offset {}: {} → {} (outcome={})",
                 offset, currentValence, blended, outcome);

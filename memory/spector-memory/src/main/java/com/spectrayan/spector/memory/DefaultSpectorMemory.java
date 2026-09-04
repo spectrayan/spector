@@ -67,7 +67,7 @@ import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
@@ -223,7 +223,7 @@ import com.spectrayan.spector.commons.concurrent.DaemonSupervisor;
 import com.spectrayan.spector.commons.concurrent.DaemonPolicy;
 import com.spectrayan.spector.memory.synapse.ActRActivation;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.namespace.NamespaceQuotas;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
@@ -1427,7 +1427,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             var body = partitionManager.routerFor(loc.colocatedPartition()).readRecordBody(loc, false);
             if (body != null) {
                 var header = body.header();
-                if (!SynapticHeaderConstants.isTombstoned(header.flags())) {
+                if (!EncodingHeaderFields.isTombstoned(header.flags())) {
                     String[] memTags = index.tags(memId);
                     results.add(new CognitiveRecord(
                             memId, index.text(memId), loc.type(),
@@ -1535,7 +1535,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     for (int i = 0; i < partition.count(); i++) {
                         long offset = partition.recordOffset(i);
                         byte flags = layout.readFlags(segment, offset);
-                        if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+                        if (EncodingHeaderFields.isTombstoned(flags)) continue;
                         long ts = layout.readTimestamp(segment, offset);
                         if (ts < thresholdMs) {
                             float oldImp = layout.readImportance(segment, offset);
@@ -1561,7 +1561,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 for (int i = 0; i < partition.count(); i++) {
                     long offset = partition.recordOffset(i);
                     byte flags = layout.readFlags(segment, offset);
-                    if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+                    if (EncodingHeaderFields.isTombstoned(flags)) continue;
                     long ts = layout.readTimestamp(segment, offset);
                     if (ts < thresholdMs) {
                         float oldImp = layout.readImportance(segment, offset);

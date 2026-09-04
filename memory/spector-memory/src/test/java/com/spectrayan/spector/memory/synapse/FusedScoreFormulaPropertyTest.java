@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.synapse;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreFusionMode;
@@ -56,7 +56,7 @@ class FusedScoreFormulaPropertyTest {
     void multiplicativeModeFormula() {
         SemanticMemory store = new SemanticMemory(DIMS, 10);
         CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
-        byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
+        byte flags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
 
         long now = System.currentTimeMillis();
         CognitiveHeader header = new CognitiveHeader(
@@ -98,7 +98,7 @@ class FusedScoreFormulaPropertyTest {
     void additiveModeFormulaRespectsAlpha() {
         SemanticMemory store = new SemanticMemory(DIMS, 10);
         CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
-        byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
+        byte flags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
 
         long now = System.currentTimeMillis();
         long tags = SynapticTagEncoder.encode("database", "indexing");

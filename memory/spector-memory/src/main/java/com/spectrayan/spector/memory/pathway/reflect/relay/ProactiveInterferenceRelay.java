@@ -17,7 +17,7 @@ import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,7 +72,7 @@ public final class ProactiveInterferenceRelay implements SynapticRelay<ReflectSi
         for (int i = 0; i < count; i++) {
             long offset = partition.recordOffset(i);
             CognitiveHeader header = layout.readHeader(segment, offset);
-            if (SynapticHeaderConstants.isTombstoned(header.flags()) || SynapticHeaderConstants.isConsolidated(header.flags())) {
+            if (EncodingHeaderFields.isTombstoned(header.flags()) || EncodingHeaderFields.isConsolidated(header.flags())) {
                 continue;
             }
             int centroidId = header.centroidId();
@@ -112,7 +112,7 @@ public final class ProactiveInterferenceRelay implements SynapticRelay<ReflectSi
         for (int i = 0; i < candidates.size(); i++) {
             long offsetA = partition.recordOffset(candidates.get(i));
             CognitiveHeader headerA = layout.readHeader(segment, offsetA);
-            if (SynapticHeaderConstants.isTombstoned(headerA.flags())) continue;
+            if (EncodingHeaderFields.isTombstoned(headerA.flags())) continue;
 
             long vecOffsetA = layout.vectorOffset(offsetA);
             for (int d = 0; d < vecBytes; d++) {
@@ -122,7 +122,7 @@ public final class ProactiveInterferenceRelay implements SynapticRelay<ReflectSi
             for (int j = i + 1; j < candidates.size(); j++) {
                 long offsetB = partition.recordOffset(candidates.get(j));
                 CognitiveHeader headerB = layout.readHeader(segment, offsetB);
-                if (SynapticHeaderConstants.isTombstoned(headerB.flags())) continue;
+                if (EncodingHeaderFields.isTombstoned(headerB.flags())) continue;
 
                 float dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
                         scratchVecA, segment, layout.vectorOffset(offsetB),

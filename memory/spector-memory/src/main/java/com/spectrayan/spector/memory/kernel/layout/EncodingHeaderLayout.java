@@ -22,7 +22,7 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.VarHandle;
 
-import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.*;
+import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.*;
 
 /**
  * Pure 64-byte cache-line-aligned encoding header layout (V2, ADR-0028).
@@ -68,7 +68,7 @@ import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstant
  * </pre>
  *
  * @see StrengthLayout
- * @see SynapticHeaderConstants
+ * @see EncodingHeaderFields
  */
 public record EncodingHeaderLayout() {
 
@@ -80,7 +80,7 @@ public record EncodingHeaderLayout() {
     public static final VarHandle VAR_HANDLE_IMPORTANCE_V2    = LAYOUT_IMPORTANCE.varHandle();
 
     /** Header size in bytes (64 bytes, 1 CPU cache line). */
-    public static final int HEADER_BYTES = SynapticHeaderConstants.HEADER_BYTES;
+    public static final int HEADER_BYTES = EncodingHeaderFields.HEADER_BYTES;
 
     /** Default layout for all new stores (V2, 64 bytes). */
     public static EncodingHeaderLayout defaultLayout() {

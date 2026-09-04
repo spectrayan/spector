@@ -26,7 +26,7 @@ import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 /**
  * Baseline retriever that scores corpus memories using <b>only</b> L2 vector distance
@@ -165,8 +165,8 @@ public final class BaselineRetriever {
 
                 // Skip tombstoned records (bit 0 of flags byte)
                 byte flags = segment.get(ValueLayout.JAVA_BYTE,
-                        offset + SynapticHeaderConstants.OFFSET_FLAGS);
-                if (SynapticHeaderConstants.isTombstoned(flags)) {
+                        offset + EncodingHeaderFields.OFFSET_FLAGS);
+                if (EncodingHeaderFields.isTombstoned(flags)) {
                     continue;
                 }
 

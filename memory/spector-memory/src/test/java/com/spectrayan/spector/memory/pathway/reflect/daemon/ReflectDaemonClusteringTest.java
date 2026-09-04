@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartiti
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -119,7 +119,7 @@ class ReflectDaemonClusteringTest {
                         0,                   // agentRecallCount
                         (short) centroidAssignments[i],  // centroid ID
                         (byte) 0,
-                        SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal())
+                        EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal())
                 );
                 episodicStore.append(header, makeVec(i));
             }
@@ -152,7 +152,7 @@ class ReflectDaemonClusteringTest {
                         0, // agentRecallCount
                         (short) 5, // centroid 5
                         (byte) 0,
-                        SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal())
+                        EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal())
                 );
                 episodicStore.append(header, makeVec(i));
             }
@@ -187,7 +187,7 @@ class ReflectDaemonClusteringTest {
                         System.currentTimeMillis(),
                         0L, 1.0f, 2.0f, // importance = 2.0 (above threshold)
                         0, (short) 0, (byte) 0,
-                        SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal())
+                        EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal())
                 );
                 episodicStore.append(header, makeVec(i));
             }
@@ -213,7 +213,7 @@ class ReflectDaemonClusteringTest {
                         System.currentTimeMillis(),
                         0L, 1.0f, 1.0f,
                         0, (short) 1, (byte) 0,
-                        SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal())
+                        EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal())
                 );
                 episodicStore.append(header, makeVec(i));
             }
@@ -231,7 +231,7 @@ class ReflectDaemonClusteringTest {
             for (int i = 0; i < 6; i++) {
                 long offset = partition.recordOffset(i);
                 byte flags = layout.readFlags(segment, offset);
-                assertThat(SynapticHeaderConstants.isConsolidated(flags))
+                assertThat(EncodingHeaderFields.isConsolidated(flags))
                         .as("Record %d should be consolidated", i)
                         .isTrue();
             }
@@ -248,7 +248,7 @@ class ReflectDaemonClusteringTest {
                         System.currentTimeMillis(),
                         0L, 1.0f, 1.0f,
                         0, (short) 1, (byte) 0,
-                        SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal())
+                        EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal())
                 );
                 episodicStore.append(header, makeVec(i));
             }

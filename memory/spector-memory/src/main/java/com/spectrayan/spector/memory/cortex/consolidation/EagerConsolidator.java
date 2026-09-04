@@ -34,7 +34,7 @@ import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
@@ -173,8 +173,8 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
             }
 
             // Phase 1: Gated checks (tombstone, contradicted)
-            byte flagsJ = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS, offsetJ + SynapticHeaderConstants.OFFSET_FLAGS);
-            if (SynapticHeaderConstants.isTombstoned(flagsJ) || SynapticHeaderConstants.isContradicted(flagsJ)) {
+            byte flagsJ = segment.get(EncodingHeaderFields.LAYOUT_FLAGS, offsetJ + EncodingHeaderFields.OFFSET_FLAGS);
+            if (EncodingHeaderFields.isTombstoned(flagsJ) || EncodingHeaderFields.isContradicted(flagsJ)) {
                 continue;
             }
 

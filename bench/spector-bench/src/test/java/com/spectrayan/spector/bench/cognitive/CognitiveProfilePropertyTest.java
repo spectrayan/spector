@@ -25,7 +25,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
@@ -176,7 +176,7 @@ class CognitiveProfilePropertyTest {
         long offset = (long) index * layout.stride();
         CognitiveHeader header = new CognitiveHeader(
                 timestamp, 0L, 1.0f, 5.0f, 0, (short) 0, valence,
-                SynapticHeaderConstants.FLAG_RESOLVED);
+                EncodingHeaderFields.FLAG_RESOLVED);
         layout.writeHeader(segment, offset, header);
 
         byte[] quantized = new byte[DIMS];
@@ -194,7 +194,7 @@ class CognitiveProfilePropertyTest {
         long offset = (long) index * layout.stride();
         CognitiveHeader header = new CognitiveHeader(
                 timestamp, 0L, 1.0f, importance, 0, (short) 0, (byte) 0,
-                SynapticHeaderConstants.FLAG_RESOLVED);
+                EncodingHeaderFields.FLAG_RESOLVED);
         layout.writeHeader(segment, offset, header);
 
         byte[] quantized = new byte[DIMS];
