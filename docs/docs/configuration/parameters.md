@@ -200,6 +200,19 @@ SPECTOR_API_KEY=my-secret-key mvn -Psynapse -pl synapse/spector-synapse spring-b
 | `semanticCapacity` | 5,000 | 100–1,000,000 | Single-file semantic capacity (in-memory mode) |
 | `proceduralCapacity` | 500 | 10–100,000 | Procedural memory slots |
 
+### Strength & Recall Telemetry Parameters
+
+| Parameter | Default | Range | Description |
+|-----------|---------|-------|-------------|
+| `spector.memory.strength.enabled` | `true` | true/false | Enable the dedicated strength and recall audit memory region (`RegionId.STRENGTH`) |
+| `spector.memory.strength.stride-bytes` | `96` | 64–256 | Record stride in bytes for each strength entry (`DEFAULT_MEMORY_STRENGTH_STRIDE_BYTES`) |
+| `spector.memory.strength.auto-ltp-cooldown-ms` | `300000` (5 min) | ≥ 0 | Cooldown window in ms between passive Auto-LTP reinforcement passes |
+| `spector.memory.strength.auto-ltp-storage-increment` | `0.05` | 0.0–1.0 | Storage strength $S(t)$ increment applied during Auto-LTP passes |
+| `spector.memory.strength.reserved-bytes` | `16` | 0–64 | Trailing reserved bytes per strength record for forward compatibility |
+
+> [!NOTE]
+> These configuration keys configure the dedicated strength region (`RegionId.STRENGTH`). Default values are supplied via `SpectorPropertyConstants.DEFAULT_MEMORY_STRENGTH_*`.
+
 ### Retrieval Stack Parameters
 
 | Parameter | Default | Options | Description |

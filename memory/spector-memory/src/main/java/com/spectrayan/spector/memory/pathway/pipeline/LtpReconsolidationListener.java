@@ -51,7 +51,7 @@ public final class LtpReconsolidationListener implements RecallListener {
      * Minimum interval between auto-LTP reinforcements for the same memory (5 minutes).
      * Prevents runaway LTP from repeated queries hitting the same results.
      */
-    private static final long AUTO_LTP_COOLDOWN_MS = SpectorPropertyConstants.DEFAULT_MEMORY_AUDIT_AUTO_LTP_COOLDOWN_MS;
+    private static final long AUTO_LTP_COOLDOWN_MS = SpectorPropertyConstants.DEFAULT_MEMORY_STRENGTH_AUTO_LTP_COOLDOWN_MS;
 
     private final MemoryIndex index;
     private final PartitionRegistry partitionRegistry;

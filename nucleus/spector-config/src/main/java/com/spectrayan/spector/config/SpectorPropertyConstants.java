@@ -270,27 +270,44 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_LTP_COOLDOWN_MS = "spector.memory.ltp-cooldown-ms";
     public static final long DEFAULT_MEMORY_LTP_COOLDOWN_MS = 300_000L;
 
-    // Memory — Header & Audit Region Layout
+    // Memory — Header & Strength Region Layout
     public static final String MEMORY_HEADER_VERSION = "spector.memory.header.version";
     public static final int DEFAULT_MEMORY_HEADER_VERSION = 2;
 
-    public static final String MEMORY_AUDIT_ENABLED = "spector.memory.audit.enabled";
-    public static final boolean DEFAULT_MEMORY_AUDIT_ENABLED = true;
+    public static final String MEMORY_STRENGTH_ENABLED = "spector.memory.strength.enabled";
+    public static final boolean DEFAULT_MEMORY_STRENGTH_ENABLED = true;
+    @Deprecated
+    public static final String MEMORY_AUDIT_ENABLED = MEMORY_STRENGTH_ENABLED;
+    @Deprecated
+    public static final boolean DEFAULT_MEMORY_AUDIT_ENABLED = DEFAULT_MEMORY_STRENGTH_ENABLED;
 
-    public static final String MEMORY_AUDIT_STRIDE_BYTES = "spector.memory.audit.stride-bytes";
-    public static final int DEFAULT_MEMORY_AUDIT_STRIDE_BYTES = 96;
+    public static final String MEMORY_STRENGTH_STRIDE_BYTES = "spector.memory.strength.stride-bytes";
+    public static final int DEFAULT_MEMORY_STRENGTH_STRIDE_BYTES = 96;
+    @Deprecated
+    public static final String MEMORY_AUDIT_STRIDE_BYTES = MEMORY_STRENGTH_STRIDE_BYTES;
+    @Deprecated
+    public static final int DEFAULT_MEMORY_AUDIT_STRIDE_BYTES = DEFAULT_MEMORY_STRENGTH_STRIDE_BYTES;
 
     public static final String MEMORY_ACTR_RING_BUFFER_SLOTS = "spector.memory.actr.ring-buffer-slots";
     public static final int DEFAULT_MEMORY_ACTR_RING_BUFFER_SLOTS = 8;
 
-    public static final String MEMORY_AUDIT_AUTO_LTP_COOLDOWN_MS = "spector.memory.audit.auto-ltp-cooldown-ms";
-    public static final long DEFAULT_MEMORY_AUDIT_AUTO_LTP_COOLDOWN_MS = 300_000L;
+    public static final String MEMORY_STRENGTH_AUTO_LTP_COOLDOWN_MS = "spector.memory.strength.auto-ltp-cooldown-ms";
+    public static final long DEFAULT_MEMORY_STRENGTH_AUTO_LTP_COOLDOWN_MS = 300_000L;
+    @Deprecated
+    public static final String MEMORY_AUDIT_AUTO_LTP_COOLDOWN_MS = MEMORY_STRENGTH_AUTO_LTP_COOLDOWN_MS;
+    @Deprecated
+    public static final long DEFAULT_MEMORY_AUDIT_AUTO_LTP_COOLDOWN_MS = DEFAULT_MEMORY_STRENGTH_AUTO_LTP_COOLDOWN_MS;
 
-    public static final String MEMORY_AUTO_LTP_STORAGE_INCREMENT = "spector.memory.audit.auto-ltp-storage-increment";
+    public static final String MEMORY_AUTO_LTP_STORAGE_INCREMENT = "spector.memory.strength.auto-ltp-storage-increment";
+    public static final String MEMORY_STRENGTH_AUTO_LTP_STORAGE_INCREMENT = MEMORY_AUTO_LTP_STORAGE_INCREMENT;
     public static final float DEFAULT_MEMORY_AUTO_LTP_STORAGE_INCREMENT = 0.05f;
 
-    public static final String MEMORY_AUDIT_RESERVED_BYTES = "spector.memory.audit.reserved-bytes";
-    public static final int DEFAULT_MEMORY_AUDIT_RESERVED_BYTES = 16;
+    public static final String MEMORY_STRENGTH_RESERVED_BYTES = "spector.memory.strength.reserved-bytes";
+    public static final int DEFAULT_MEMORY_STRENGTH_RESERVED_BYTES = 16;
+    @Deprecated
+    public static final String MEMORY_AUDIT_RESERVED_BYTES = MEMORY_STRENGTH_RESERVED_BYTES;
+    @Deprecated
+    public static final int DEFAULT_MEMORY_AUDIT_RESERVED_BYTES = DEFAULT_MEMORY_STRENGTH_RESERVED_BYTES;
 
     public static final String MEMORY_HEADER_V2_RESERVED_BYTES = "spector.memory.header.v2-reserved-bytes";
     public static final int DEFAULT_MEMORY_HEADER_V2_RESERVED_BYTES = 12;

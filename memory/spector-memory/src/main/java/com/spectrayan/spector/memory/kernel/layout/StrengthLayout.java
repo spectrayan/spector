@@ -64,7 +64,7 @@ public final class StrengthLayout implements RegionLayout {
     public static final int SCHEMA_VERSION = 1;
 
     /** Fixed stride in bytes per audit record (96 bytes). */
-    public static final int STRIDE_BYTES = SpectorPropertyConstants.DEFAULT_MEMORY_AUDIT_STRIDE_BYTES;
+    public static final int STRIDE_BYTES = SpectorPropertyConstants.DEFAULT_MEMORY_STRENGTH_STRIDE_BYTES;
 
     /** Number of slots in the ACT-R recall timestamp ring buffer (8 slots). */
     public static final int ACT_R_RING_BUFFER_SLOTS = SpectorPropertyConstants.DEFAULT_MEMORY_ACTR_RING_BUFFER_SLOTS;
@@ -502,7 +502,7 @@ public final class StrengthLayout implements RegionLayout {
 
         seg.set(LAYOUT_RECONSOLIDATION_DELTA, recordOffset + OFFSET_RECONSOLIDATION_DELTA, record.reconsolidationDelta());
         // Zero reserved bytes
-        for (long o = 0; o < SpectorPropertyConstants.DEFAULT_MEMORY_AUDIT_RESERVED_BYTES; o += 8) {
+        for (long o = 0; o < SpectorPropertyConstants.DEFAULT_MEMORY_STRENGTH_RESERVED_BYTES; o += 8) {
             seg.set(ValueLayout.JAVA_LONG, recordOffset + OFFSET_RESERVED + o, 0L);
         }
     }
