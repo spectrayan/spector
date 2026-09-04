@@ -222,6 +222,8 @@ public class SpectorInspectCli {
                     statusStr += "+G";
                 }
 
+                // Note: STRENGTH regions (RegionId.STRENGTH(4)) maintain persisted Layout ID 0x41554454 ('AUDT')
+                // for bundle backward compatibility (ADR-0028), so layoutStr decodes as "AUDT" while region name is STRENGTH.
                 String layoutStr = decodeLayoutId(entry.layoutId());
 
                 System.out.printf("%-2d %-16s %-6s 0x%08X %-12d %-12d %-8d %-8d 0x%08X %-7d\n",

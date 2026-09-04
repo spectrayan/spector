@@ -113,6 +113,8 @@ class SpectorInspectCliTest {
                 .contains("EPISODIC")
                 .contains("PROCEDURAL")
                 .contains("TEXT")
+                .contains("STRENGTH")
+                .doesNotContain("AUDIT")
                 .contains("Fragmentation & Compaction Metrics")
                 .contains("[Optimal] No fragmented or DEAD regions detected. Bundle is compact.");
     }
