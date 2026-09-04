@@ -21,6 +21,7 @@ import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 import org.junit.jupiter.api.Test;
@@ -136,6 +137,15 @@ class BundleMigrationCliTest {
         MemorySegment epiSlice = bundle.regionSegment(RegionId.EPISODIC);
         int epiCount = (int) RegionPreamble.readCount(epiSlice, 0);
         assertEquals(recordCount, epiCount, "Episodic record count should match");
+
+        MemorySegment strengthSlice = bundle.regionSegment(RegionId.STRENGTH);
+        int strengthCount = (int) RegionPreamble.readCount(strengthSlice, 0);
+        assertEquals(recordCount * 3, strengthCount, "Strength record count should match total migrated engrams");
+
+        // Verify strength state was populated for semantic slot 0
+        StrengthLayout strengthLayout = StrengthLayout.INSTANCE;
+        float effImportance = strengthLayout.readEffectiveImportance(strengthSlice, RegionPreamble.PREAMBLE_BYTES);
+        assertEquals(0.5f, effImportance, 1e-4f, "Effective importance should match V1 header importance");
 
         bundle.close();
     }

@@ -12,10 +12,13 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
+import com.spectrayan.spector.memory.cortex.StrengthMemory;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.synapse.HeaderMigrator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -500,6 +503,41 @@ public final class BundleMigrationCli {
             copyRegionData(procedural, bundle, RegionId.PROCEDURAL, "procedural");
             copyRegionData(text, bundle, RegionId.TEXT, "text");
 
+            // Migrate V1 engram header counters into RegionId.STRENGTH
+            int totalStrengthCount = 0;
+            if (bundle.hasRegion(RegionId.STRENGTH)) {
+                MemorySegment strengthSlice = bundle.regionSegment(RegionId.STRENGTH);
+                StrengthMemory strengthStore = StrengthMemory.fromBundle(
+                        bundle.arena(), strengthSlice,
+                        semanticCap, episodicCap, proceduralCap,
+                        bundle.bundlePath());
+
+                if (semantic.exists() && semantic.count > 0) {
+                    HeaderMigrator.migrateRecordsToStrength(
+                            semantic.segment, RegionPreamble.PREAMBLE_BYTES,
+                            cogStride, semantic.count, strengthStore, MemoryType.SEMANTIC);
+                    totalStrengthCount += semantic.count;
+                }
+
+                boolean isFixedStrideEpisodic = episodic.exists() && episodic.count > 0
+                        && episodic.segment.byteSize() >= RegionPreamble.PREAMBLE_BYTES + (long) episodic.count * cogStride;
+                if (isFixedStrideEpisodic) {
+                    HeaderMigrator.migrateRecordsToStrength(
+                            episodic.segment, RegionPreamble.PREAMBLE_BYTES,
+                            cogStride, episodic.count, strengthStore, MemoryType.EPISODIC);
+                    totalStrengthCount += episodic.count;
+                }
+
+                if (procedural.exists() && procedural.count > 0) {
+                    HeaderMigrator.migrateRecordsToStrength(
+                            procedural.segment, RegionPreamble.PREAMBLE_BYTES,
+                            cogStride, procedural.count, strengthStore, MemoryType.PROCEDURAL);
+                    totalStrengthCount += procedural.count;
+                }
+
+                RegionPreamble.writeCount(strengthSlice, 0, totalStrengthCount);
+            }
+
             // Fidelity check
             assertFidelity(bundle, semantic, episodic, procedural, text, partitionDir);
 
@@ -657,6 +695,16 @@ public final class BundleMigrationCli {
         // Text uses append-log; count check is best-effort
         if (text.exists()) {
             assertRegionCount(bundle, RegionId.TEXT, text.count, "text", partitionDir);
+        }
+        if (bundle.hasRegion(RegionId.STRENGTH)) {
+            MemorySegment strengthSlice = bundle.regionSegment(RegionId.STRENGTH);
+            int actualStrengthCount = (int) RegionPreamble.readCount(strengthSlice, 0);
+            int minExpectedStrength = semantic.count + procedural.count;
+            if (actualStrengthCount < minExpectedStrength) {
+                throw new MigrationException(String.format(
+                        "Strength record count mismatch in %s: expected at least %d, actual=%d",
+                        partitionDir.getFileName(), minExpectedStrength, actualStrengthCount));
+            }
         }
 
         log.info("BundleMigration: fidelity check passed for {}", partitionDir.getFileName());
