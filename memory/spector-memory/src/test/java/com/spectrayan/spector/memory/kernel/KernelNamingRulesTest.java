@@ -14,7 +14,6 @@ package com.spectrayan.spector.memory.kernel;
 
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -33,11 +32,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Enforces the kernel naming rules from the {@code engram-layout-unification} spec (design §2.1).
  *
- * <h3>Every rule here is currently {@link Disabled} and expected to FAIL</h3>
+ * <h3>All rules here are active, enforced, and passing</h3>
  *
- * <p>These rules describe the <em>target</em> vocabulary, not the current one. They are committed
- * up-front, disabled, so each rename task has an objective completion signal: enable the rule, watch
- * it go green, and it can never regress afterwards. Do not weaken a rule to make it pass.</p>
+ * <p>These rules enforce the canonical naming vocabulary across the kernel and cortex layers.
+ * They run as part of CI to guarantee that naming standards never regress.</p>
  *
  * <table border="1">
  *   <caption>Rule to spec task mapping</caption>
@@ -335,15 +333,11 @@ class KernelNamingRulesTest {
     }
 
     /**
-     * Documents that the rules are currently violated. When a rename task lands, its rule flips from
-     * {@code @Disabled} to enforcing, and the corresponding count here drops to zero.
-     *
-     * <p>Keeping this enabled means the "currently failing" claim in the javadoc is verified rather
-     * than asserted, so the disabled rules cannot rot into passing unnoticed.</p>
+     * Verifies that all rules have zero violations across the entire codebase.
      */
     @Test
-    @DisplayName("Disabled rules are genuinely violated today (baseline)")
-    void disabledRulesHaveRealViolationsToday() {
+    @DisplayName("All naming rules enforced with zero violations")
+    void allNamingRulesEnforcedWithZeroViolations() {
         long sizeOrVersion = ALL_TYPES.stream()
                 .filter(KernelNamingRulesTest::isAuthorNamed)
                 .filter(f -> packageOf(f).startsWith(KERNEL_PKG))
