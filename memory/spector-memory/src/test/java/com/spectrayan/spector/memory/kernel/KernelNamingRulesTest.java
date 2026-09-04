@@ -84,9 +84,7 @@ class KernelNamingRulesTest {
 
     private static final Set<String> SHAPE_TOKEN_ALLOWLIST = Set.of(
             // Requirements §6 decision 6: out of scope, IndexRecordMemory & MemoryIndex keep their names
-            "IndexRecordMemory",
-            // Deferred to Group 6 task 6.1: EpisodicRecordMemory deleted (double-wrap elimination)
-            "EpisodicRecordMemory"
+            "IndexRecordMemory"
     );
 
     /**

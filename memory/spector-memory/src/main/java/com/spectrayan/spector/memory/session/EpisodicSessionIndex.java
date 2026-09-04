@@ -12,8 +12,12 @@
  */
 package com.spectrayan.spector.memory.session;
 
-import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.layout.EpisodeCodec;
+import com.spectrayan.spector.memory.kernel.layout.EpisodeLayout;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
+import com.spectrayan.spector.memory.kernel.layout.compat.LegacyEpisodeHeaderReader;
+import java.lang.foreign.ValueLayout;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,7 +57,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * all sessions, this costs ~800 KB of heap. At 1M turns, ~8 MB.</p>
  *
  * @since 1.3.0
- * @see EpisodicFieldAccessor
+ * @see com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor
  */
 public final class EpisodicSessionIndex {
 
@@ -167,7 +171,7 @@ public final class EpisodicSessionIndex {
      *
      * <p>Note: this only removes the in-memory index entry. The underlying
      * mmap records must be separately tombstoned via
-     * {@link EpisodicFieldAccessor#tombstone}.</p>
+     * {@link com.spectrayan.spector.memory.cortex.EpisodicMemory#tombstone}.</p>
      *
      * @param sessionId the 8B TSID hash
      * @return the removed offset list, or null if session was unknown
@@ -205,31 +209,50 @@ public final class EpisodicSessionIndex {
         long cursor = dataOffset;
 
         while (cursor + EncodingHeaderFields.HEADER_BYTES <= writePosition) {
-            byte flags = EpisodicFieldAccessor.readFlags(segment, cursor);
-            int bodyLength = EpisodicFieldAccessor.readBodyLength(segment, cursor);
+            byte flags;
+            long sessionId;
+            long recordEnd;
 
-            // Validate body_length to prevent corrupt data from causing infinite loops
-            if (bodyLength < 0) {
-                log.warn("Negative body_length {} at offset {} — stopping rebuild", bodyLength, cursor);
-                break;
-            }
-
-            long recordEnd = cursor + EncodingHeaderFields.HEADER_BYTES + bodyLength;
-            if (recordEnd > writePosition) {
-                log.warn("Record at offset {} extends beyond write position ({} > {}) — stopping rebuild",
-                        cursor, recordEnd, writePosition);
-                break;
+            if (EpisodicHeaderAccessor.isOptionBRecord(segment, cursor)) {
+                int payloadBytes = EpisodicHeaderAccessor.readPayloadBytes(segment, cursor);
+                if (payloadBytes < 0) {
+                    log.warn("Negative payloadBytes {} at offset {} — stopping rebuild", payloadBytes, cursor);
+                    break;
+                }
+                recordEnd = cursor + EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
+                if (recordEnd > writePosition) {
+                    log.warn("Record at offset {} extends beyond write position ({} > {}) — stopping rebuild",
+                            cursor, recordEnd, writePosition);
+                    break;
+                }
+                flags = EpisodicHeaderAccessor.readFlags(segment, cursor);
+                long payloadOffset = cursor + EpisodeLayout.FIXED_OVERHEAD_BYTES;
+                sessionId = (payloadBytes >= EpisodeCodec.PAYLOAD_METADATA_BYTES)
+                        ? segment.get(ValueLayout.JAVA_LONG_UNALIGNED, payloadOffset + EpisodeCodec.OFFSET_SESSION_ID)
+                        : 0L;
+            } else {
+                flags = LegacyEpisodeHeaderReader.readFlags(segment, cursor);
+                int bodyLength = LegacyEpisodeHeaderReader.readBodyLength(segment, cursor);
+                if (bodyLength < 0) {
+                    log.warn("Negative body_length {} at offset {} — stopping rebuild", bodyLength, cursor);
+                    break;
+                }
+                recordEnd = cursor + EncodingHeaderFields.HEADER_BYTES + bodyLength;
+                if (recordEnd > writePosition) {
+                    log.warn("Record at offset {} extends beyond write position ({} > {}) — stopping rebuild",
+                            cursor, recordEnd, writePosition);
+                    break;
+                }
+                sessionId = LegacyEpisodeHeaderReader.readSessionId(segment, cursor);
             }
 
             if (!EncodingHeaderFields.isTombstoned(flags)) {
-                long sessionId = EpisodicFieldAccessor.readSessionId(segment, cursor);
                 appendTurn(sessionId, cursor);
                 liveCount++;
             } else {
                 tombstoneCount++;
             }
 
-            // Advance to next record: header (64B) + body (variable)
             cursor = recordEnd;
         }
 

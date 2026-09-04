@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.api;
 
-import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
+import com.spectrayan.spector.memory.model.EpisodeRecord;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -46,11 +46,11 @@ public interface MemoryRecall {
 
     List<CognitiveRecord> browse(String... tags);
 
-    default List<EpisodicFieldAccessor.EpisodicRecord> browseEpisodic(long sessionId, int offset, int limit) {
+    default List<EpisodeRecord> browseEpisodic(long sessionId, int offset, int limit) {
         return List.of();
     }
 
-    default List<EpisodicFieldAccessor.EpisodicRecord> tailEpisodic(long sessionId, int count) {
+    default List<EpisodeRecord> tailEpisodic(long sessionId, int count) {
         return List.of();
     }
 

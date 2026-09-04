@@ -28,7 +28,6 @@ import com.spectrayan.spector.ingestion.IngestionTarget;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.neuromod.dopamine.FlashbulbPolicy;

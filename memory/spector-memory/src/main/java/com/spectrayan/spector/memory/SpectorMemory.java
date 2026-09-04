@@ -34,7 +34,7 @@ import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
+import com.spectrayan.spector.memory.model.EpisodeRecord;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
@@ -101,7 +101,6 @@ import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
 import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.SourceModality;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
 import com.spectrayan.spector.memory.api.MemoryAdminView;
 import com.spectrayan.spector.memory.api.MemoryRemember;
 import com.spectrayan.spector.memory.api.MemoryRecall;
@@ -579,7 +578,7 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * @param limit     maximum number of turns
      * @return list of decoded episodic records
      */
-    default List<EpisodicFieldAccessor.EpisodicRecord> browseEpisodic(long sessionId, int offset, int limit) {
+    default List<EpisodeRecord> browseEpisodic(long sessionId, int offset, int limit) {
         return List.of();
     }
 
@@ -590,7 +589,7 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * @param count     number of recent turns
      * @return list of decoded episodic records
      */
-    default List<EpisodicFieldAccessor.EpisodicRecord> tailEpisodic(long sessionId, int count) {
+    default List<EpisodeRecord> tailEpisodic(long sessionId, int count) {
         return List.of();
     }
 

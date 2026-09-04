@@ -17,8 +17,7 @@ import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.cortex.StrengthMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.ContinuityMemory;
-import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.ProceduralMemory;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.TextBlobMemory;
@@ -105,7 +104,7 @@ public final class CognitiveCortexBuilder {
             RuntimeBundle runtimeBundle,
             InsularCortex insularCortex,
             ContinuityMemory continuityMemory,
-            EpisodicLogMemory episodicLogStore
+            EpisodicMemory episodicStore
     ) {}
 
     public static CortexFoundation build(SpectorMemoryBuilder builder) {
@@ -285,11 +284,8 @@ public final class CognitiveCortexBuilder {
             SemanticMemory semanticStore = SemanticMemory.fromBundle(
                     partitionBundle.arena(), semSlice,
                     builder.semanticCapacity(), quantizedVecBytes, bundleFile, isNew);
-            EpisodicRecordMemory episodicStore = EpisodicRecordMemory.fromBundle(
-                    partitionBundle.arena(), epiSlice,
-                    builder.episodicPartitionCapacity(), quantizedVecBytes, bundleFile, isNew);
-            EpisodicLogMemory episodicLogStore = EpisodicLogMemory.fromBundle(
-                    partitionBundle.arena(), epiSlice, bundleFile, isNew);
+            EpisodicMemory episodicStore = EpisodicMemory.fromBundle(
+                    partitionBundle.arena(), epiSlice, builder.episodicPartitionCapacity(), bundleFile, isNew);
             ProceduralMemory proceduralStore = ProceduralMemory.fromBundle(
                     partitionBundle.arena(), procSlice,
                     builder.proceduralCapacity(), quantizedVecBytes, bundleFile, isNew);
@@ -302,14 +298,13 @@ public final class CognitiveCortexBuilder {
                             builder.semanticCapacity(), builder.episodicPartitionCapacity(), builder.proceduralCapacity(), bundleFile)
                     : null;
 
-            cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore, episodicLogStore, strengthStore);
+            cognitiveRouter = new CognitiveMemoryRouter(workingStore, semanticStore, proceduralStore, episodicStore, strengthStore);
             log.info("V4 bundle mode: {} ({}, {} stores, episodic=log-structured)",
                     bundleFile.getFileName(), isNew ? "created" : "opened", 4);
 
         } else {
-            EpisodicRecordMemory episodicStore = new EpisodicRecordMemory(
-                    quantizedVecBytes, builder.episodicPartitionCapacity());
-            EpisodicLogMemory episodicLogStore = new EpisodicLogMemory(
+            EpisodicMemory episodicStore = EpisodicMemory.heap(
+                    builder.episodicPartitionCapacity(),
                     (long) builder.episodicPartitionCapacity() * 256L); // ~256B avg per turn
             ProceduralMemory proceduralStore = new ProceduralMemory(
                     quantizedVecBytes, builder.proceduralCapacity());
@@ -319,7 +314,7 @@ public final class CognitiveCortexBuilder {
             StrengthMemory strengthStore = StrengthMemory.heap(
                     builder.semanticCapacity(), builder.episodicPartitionCapacity(), builder.proceduralCapacity());
 
-            cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore, episodicLogStore, strengthStore);
+            cognitiveRouter = new CognitiveMemoryRouter(workingStore, semanticStore, proceduralStore, episodicStore, strengthStore);
         }
 
         if (insularCortex == null) {
@@ -330,13 +325,13 @@ public final class CognitiveCortexBuilder {
             continuityMemory = ContinuityMemory.heap(1000);
         }
 
-        EpisodicLogMemory episodicLogStore = cognitiveRouter.episodicLog();
+        EpisodicMemory episodicStore = cognitiveRouter.episodic();
 
         return new CortexFoundation(
                 isDisk, useBundleMode, basePath, quantizer, namespaceManager, quantizedVecBytes,
                 resolvedPartitionDir, frozenPartitionDirs, initialPartitionSeq,
                 cognitiveRouter, workingStore, partitionBundle, textStore,
-                runtimeBundle, insularCortex, continuityMemory, episodicLogStore);
+                runtimeBundle, insularCortex, continuityMemory, episodicStore);
     }
 
     private static List<RegionSizeSpec> getRuntimeBundleSpecs(SpectorMemoryBuilder builder, int quantizedVecBytes) {

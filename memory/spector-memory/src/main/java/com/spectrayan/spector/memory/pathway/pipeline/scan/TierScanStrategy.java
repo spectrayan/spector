@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.pathway.pipeline.scan;
 
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EngramMemory;
@@ -49,13 +48,9 @@ public interface TierScanStrategy {
         public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
             if (!CognitiveMemoryRouter.shouldScan(MemoryType.EPISODIC, ctx.targetTypes())) return;
             if (handle.router() == null || handle.router().episodic() == null) return;
-            for (EpisodicPartition partition : handle.router().episodic().partitions()) {
-                if (partition.visibleCount() > 0) {
-                    emitter.emitSlabScan(partition::segment, partition::visibleCount,
-                            partition.layout(), MemoryType.EPISODIC,
-                            partition.dataOffset(), handle.seq());
-                }
-            }
+            com.spectrayan.spector.memory.cortex.EpisodicMemory episodic = handle.router().episodic();
+            if (episodic.unconsolidatedTurnOffsets().isEmpty()) return;
+            emitter.emitEpisodicScan(episodic, handle.seq());
         }
     }
 

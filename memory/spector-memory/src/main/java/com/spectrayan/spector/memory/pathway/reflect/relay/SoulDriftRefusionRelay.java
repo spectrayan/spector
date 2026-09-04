@@ -82,9 +82,6 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
                 if (handle.router() == null) continue;
                 scanStore(handle.router().semantic(), currentSoulVersion, heap, signal);
                 scanStore(handle.router().working(), currentSoulVersion, heap, signal);
-                if (!handle.router().isEpisodicLogMode()) {
-                    scanStore(handle.router().episodic(), currentSoulVersion, heap, signal);
-                }
             }
 
             int reFused = 0;
@@ -119,8 +116,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
             if (handle.router() == null) continue;
             EngramMemory[] stores = new EngramMemory[]{
                     handle.router().semantic(),
-                    handle.router().working(),
-                    !handle.router().isEpisodicLogMode() ? handle.router().episodic() : null
+                    handle.router().working()
             };
 
             for (EngramMemory store : stores) {

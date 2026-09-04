@@ -86,9 +86,9 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
                 continue;
             }
 
-            collectCandidates(handle.router().episodic(), candidates, candidatePoolLimit, "epi-" + handle.seq(), soul, salience, config);
+            collectCandidates(handle.router().semantic(), candidates, candidatePoolLimit, "sem-" + handle.seq(), soul, salience, config);
             if (candidates.size() < candidatePoolLimit) {
-                collectCandidates(handle.router().semantic(), candidates, candidatePoolLimit, "sem-" + handle.seq(), soul, salience, config);
+                collectCandidates(handle.router().procedural(), candidates, candidatePoolLimit, "proc-" + handle.seq(), soul, salience, config);
             }
         }
 

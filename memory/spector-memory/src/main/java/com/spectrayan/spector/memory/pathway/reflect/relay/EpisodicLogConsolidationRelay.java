@@ -14,12 +14,12 @@ package com.spectrayan.spector.memory.pathway.reflect.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.similarity.VectorOps;
-import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
+import com.spectrayan.spector.memory.model.EpisodeRecord;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
@@ -45,7 +45,7 @@ import java.util.Set;
 /**
  * REM Sleep Conversation Turn Gist Extraction Relay (ADR-0006).
  *
- * <p>Consolidates variable-length conversation turns in {@link EpisodicLogMemory} into permanent
+ * <p>Consolidates variable-length conversation turns in {@link EpisodicMemory} into permanent
  * semantic facts via template-driven LLM synthesis or high-salience fallback, and ingests them
  * through {@link com.spectrayan.spector.memory.pathway.remember.RememberPathway}.</p>
  */
@@ -81,26 +81,24 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
         var handles = signal.partitionManager().snapshot();
         log.info("EpisodicLogConsolidationRelay: snapshot has {} partition handles", handles.size());
         for (var handle : handles) {
-            boolean isLogMode = handle.router() != null && handle.router().isEpisodicLogMode();
-            log.info("Handle seq={} router isLogMode={}", handle.seq(), isLogMode);
-            if (isLogMode) {
-                var logStore = handle.router().episodicLog();
-                if (logStore != null) {
-                    processLogStore(logStore, signal);
+            if (handle.router() != null) {
+                var episodicStore = handle.router().episodic();
+                if (episodicStore != null) {
+                    processLogStore(episodicStore, signal);
                 }
             }
         }
         return true;
     }
 
-    private void processLogStore(final EpisodicLogMemory logStore, final ReflectSignal signal) {
+    private void processLogStore(final EpisodicMemory logStore, final ReflectSignal signal) {
         List<Long> unconsolidatedOffsets = logStore.unconsolidatedTurnOffsets();
         log.info("EpisodicLogConsolidationRelay: found {} unconsolidated offsets in logStore", unconsolidatedOffsets.size());
-        List<EpisodicFieldAccessor.EpisodicRecord> turns = logStore.readTurns(unconsolidatedOffsets, true);
+        List<EpisodeRecord> turns = logStore.readTurns(unconsolidatedOffsets, true);
         if (turns.isEmpty()) return;
         log.info("EpisodicLogConsolidationRelay: read {} turns for {} unconsolidated offsets", turns.size(), unconsolidatedOffsets.size());
-        Map<Long, List<EpisodicFieldAccessor.EpisodicRecord>> sessionTurns = new HashMap<>();
-        Map<EpisodicFieldAccessor.EpisodicRecord, Long> turnToOffset = new HashMap<>();
+        Map<Long, List<EpisodeRecord>> sessionTurns = new HashMap<>();
+        Map<EpisodeRecord, Long> turnToOffset = new HashMap<>();
         for (int i = 0; i < turns.size(); i++) {
             var turn = turns.get(i);
             long offset = unconsolidatedOffsets.get(i);
@@ -113,7 +111,7 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
         // replace temporary retry and throttle logic.
         for (var entry : sessionTurns.entrySet()) {
             try {
-                List<EpisodicFieldAccessor.EpisodicRecord> sessionList = entry.getValue();
+                List<EpisodeRecord> sessionList = entry.getValue();
                 if (sessionList == null || sessionList.isEmpty()) continue;
 
                 List<String> turnTexts = new ArrayList<>();
@@ -339,7 +337,7 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
         return facts;
     }
 
-    private String extractTurnText(EpisodicFieldAccessor.EpisodicRecord turn) {
+    private String extractTurnText(EpisodeRecord turn) {
         if (turn.body() == null || turn.body().length == 0) return "";
         try {
             return new String(turn.body(), StandardCharsets.UTF_8);

@@ -94,6 +94,8 @@ public final class EncodingHeaderFields {
 
     /** Offset of header_version byte (always byte 0). */
     public static final long OFFSET_HEADER_VERSION      = 0L;
+    /** Alias for OFFSET_HEADER_VERSION. */
+    public static final long OFFSET_VERSION             = OFFSET_HEADER_VERSION;
     /** Offset of flags bitfield. */
     public static final long OFFSET_FLAGS               = 1L;
     /** Offset of valence byte (signed -128 to +127). */
@@ -160,6 +162,10 @@ public final class EncodingHeaderFields {
     public static final long OFFSET_V2_SOUL_VERSION        = 44L;
     /** V2: Offset of trace source classification (byte 46, NF7). */
     public static final long OFFSET_V2_SOURCE              = 46L;
+    /** Alias for OFFSET_V2_SOURCE (NF7). */
+    public static final long OFFSET_SOURCE                 = OFFSET_V2_SOURCE;
+    /** Alias for OFFSET_TIMESTAMP. */
+    public static final long OFFSET_TIMESTAMP_MS          = OFFSET_TIMESTAMP;
     /** V2: Reserved alignment padding (byte 47). */
     public static final long OFFSET_V2_PAD_SOURCE          = 47L;
     /** V2: Reserved for manifold geodesic coordinates (bytes 46-47, legacy alias). */

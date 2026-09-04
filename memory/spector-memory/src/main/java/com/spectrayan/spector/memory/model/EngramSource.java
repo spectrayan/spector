@@ -105,6 +105,16 @@ public enum EngramSource {
     }
 
     /**
+     * Resolves an {@code EngramSource} from an ordinal integer.
+     *
+     * @param ordinal ordinal value
+     * @return corresponding EngramSource
+     */
+    public static EngramSource fromOrdinal(int ordinal) {
+        return fromCode((byte) ordinal);
+    }
+
+    /**
      * Parses a string label into an {@code EngramSource} (case-insensitive).
      *
      * @param str string label

@@ -16,7 +16,7 @@ import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.ProceduralMemory;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
@@ -114,7 +114,7 @@ class PartitionManagerTest {
                 VEC_BYTES, SEMANTIC_CAP, StorageLayout.semanticMem(partitionDir));
         ProceduralMemory procedural = new ProceduralMemory(
                 VEC_BYTES, PROCEDURAL_CAP, StorageLayout.proceduralMem(partitionDir));
-        EpisodicLogMemory episodicLog = EpisodicLogMemory.heap();
+        EpisodicMemory episodicLog = EpisodicMemory.heap();
         CognitiveMemoryRouter router = new CognitiveMemoryRouter(working, semantic, procedural, episodicLog);
         routersToClose.add(router);
         return router;

@@ -108,27 +108,27 @@ public record EncodingHeaderLayout() {
     // ── Field reads ──
 
     public long readTimestamp(MemorySegment seg, long off) {
-        return seg.get(LAYOUT_TIMESTAMP, off + OFFSET_TIMESTAMP);
+        return seg.get(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_TIMESTAMP);
     }
 
     public long readSynapticTags(MemorySegment seg, long off) {
-        return seg.get(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_V2_SYNAPTIC_TAGS_LO);
+        return seg.get(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_LO);
     }
 
     public long readSynapticTagsLo(MemorySegment seg, long off) {
-        return seg.get(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_V2_SYNAPTIC_TAGS_LO);
+        return seg.get(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_LO);
     }
 
     public long readSynapticTagsHi(MemorySegment seg, long off) {
-        return seg.get(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_V2_SYNAPTIC_TAGS_HI);
+        return seg.get(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_HI);
     }
 
     public float readExactNorm(MemorySegment seg, long off) {
-        return seg.get(LAYOUT_EXACT_NORM, off + OFFSET_V2_EXACT_NORM);
+        return seg.get(ValueLayout.JAVA_FLOAT_UNALIGNED, off + OFFSET_V2_EXACT_NORM);
     }
 
     public float readImportance(MemorySegment seg, long off) {
-        return seg.get(LAYOUT_IMPORTANCE, off + OFFSET_IMPORTANCE);
+        return seg.get(ValueLayout.JAVA_FLOAT_UNALIGNED, off + OFFSET_IMPORTANCE);
     }
 
     public int readAgentRecallCount(MemorySegment seg, long off) {
@@ -136,7 +136,7 @@ public record EncodingHeaderLayout() {
     }
 
     public short readCentroidId(MemorySegment seg, long off) {
-        return seg.get(LAYOUT_CENTROID_ID, off + OFFSET_V2_CENTROID_ID);
+        return seg.get(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_V2_CENTROID_ID);
     }
 
     public byte readValence(MemorySegment seg, long off) {
@@ -168,11 +168,11 @@ public record EncodingHeaderLayout() {
     }
 
     public short readSoulVersion(MemorySegment seg, long off) {
-        return seg.get(LAYOUT_SOUL_VERSION, off + OFFSET_V2_SOUL_VERSION);
+        return seg.get(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_V2_SOUL_VERSION);
     }
 
     public float readEncodingSurprise(MemorySegment seg, long off) {
-        return seg.get(LAYOUT_ENCODING_SURPRISE, off + OFFSET_V2_ENCODING_SURPRISE);
+        return seg.get(ValueLayout.JAVA_FLOAT_UNALIGNED, off + OFFSET_V2_ENCODING_SURPRISE);
     }
 
     public byte readConsolidationFlags(MemorySegment seg, long off) {
@@ -216,7 +216,7 @@ public record EncodingHeaderLayout() {
     }
 
     public void writeSoulVersion(MemorySegment seg, long off, short version) {
-        seg.set(LAYOUT_SOUL_VERSION, off + OFFSET_V2_SOUL_VERSION, version);
+        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_V2_SOUL_VERSION, version);
     }
 
     public void writeSource(MemorySegment seg, long off, EngramSource source) {
@@ -224,7 +224,7 @@ public record EncodingHeaderLayout() {
     }
 
     public void writeEncodingSurprise(MemorySegment seg, long off, float surprise) {
-        seg.set(LAYOUT_ENCODING_SURPRISE, off + OFFSET_V2_ENCODING_SURPRISE, surprise);
+        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, off + OFFSET_V2_ENCODING_SURPRISE, surprise);
     }
 
     public void writeConsolidationFlags(MemorySegment seg, long off, byte consolidationFlags) {
@@ -232,16 +232,16 @@ public record EncodingHeaderLayout() {
     }
 
     public void writeImportance(MemorySegment seg, long off, float importance) {
-        seg.set(LAYOUT_IMPORTANCE, off + OFFSET_IMPORTANCE, importance);
+        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, off + OFFSET_IMPORTANCE, importance);
     }
 
     public void writeTimestamp(MemorySegment seg, long off, long timestampMs) {
-        seg.set(LAYOUT_TIMESTAMP, off + OFFSET_TIMESTAMP, timestampMs);
+        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_TIMESTAMP, timestampMs);
     }
 
     public void writeSynapticTags(MemorySegment seg, long off, long tagsLo, long tagsHi) {
-        seg.set(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_V2_SYNAPTIC_TAGS_LO, tagsLo);
-        seg.set(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_V2_SYNAPTIC_TAGS_HI, tagsHi);
+        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_LO, tagsLo);
+        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_HI, tagsHi);
     }
 
     public void mergeSynapticTags(MemorySegment seg, long off, long additionalTags) {
@@ -351,25 +351,39 @@ public record EncodingHeaderLayout() {
         seg.set(LAYOUT_FLAGS,         off + OFFSET_FLAGS,          header.flags());
         seg.set(LAYOUT_VALENCE,       off + OFFSET_VALENCE,        header.valence());
         seg.set(LAYOUT_AROUSAL,       off + OFFSET_AROUSAL,        header.arousal());
-        seg.set(LAYOUT_IMPORTANCE,    off + OFFSET_IMPORTANCE,     header.importance());
-        seg.set(LAYOUT_TIMESTAMP,     off + OFFSET_TIMESTAMP,      header.timestampMs());
-        seg.set(LAYOUT_EXACT_NORM,    off + OFFSET_V2_EXACT_NORM,  header.exactNorm());
-        seg.set(LAYOUT_CENTROID_ID,   off + OFFSET_V2_CENTROID_ID, header.centroidId());
-        seg.set(ValueLayout.JAVA_SHORT, off + OFFSET_V2_PAD0,     (short) 0);
-        seg.set(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_V2_SYNAPTIC_TAGS_LO, header.synapticTags());
-        seg.set(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_V2_SYNAPTIC_TAGS_HI, 0L);
+        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED,    off + OFFSET_IMPORTANCE,     header.importance());
+        seg.set(ValueLayout.JAVA_LONG_UNALIGNED,     off + OFFSET_TIMESTAMP,      header.timestampMs());
+        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED,    off + OFFSET_V2_EXACT_NORM,  header.exactNorm());
+        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED,   off + OFFSET_V2_CENTROID_ID, header.centroidId());
+        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_V2_PAD0,     (short) 0);
+        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_LO, header.synapticTags());
+        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_HI, 0L);
         seg.set(LAYOUT_CONSOLIDATION_FLAGS, off + OFFSET_V2_CONSOLIDATION_FLAGS, header.consolidationFlags());
         seg.set(LAYOUT_ENCODING_PROFILE, off + OFFSET_V2_ENCODING_PROFILE, header.encodingProfile());
         seg.set(LAYOUT_ENCODING_ALPHA, off + OFFSET_V2_ENCODING_ALPHA, header.encodingAlpha());
         seg.set(LAYOUT_ENCODING_BETA, off + OFFSET_V2_ENCODING_BETA, header.encodingBeta());
-        seg.set(LAYOUT_SOUL_VERSION, off + OFFSET_V2_SOUL_VERSION, header.soulVersion());
+        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_V2_SOUL_VERSION, header.soulVersion());
         EngramSource src = header.source() != null ? header.source() : EngramSource.EXPERIENCED;
         seg.set(LAYOUT_SOURCE, off + OFFSET_V2_SOURCE, src.code());
         seg.set(ValueLayout.JAVA_BYTE, off + OFFSET_V2_PAD_SOURCE, (byte) 0);
-        seg.set(LAYOUT_ENCODING_SURPRISE, off + OFFSET_V2_ENCODING_SURPRISE, header.encodingSurprise());
-        // Zero reserved block (12 bytes at 4-byte aligned offset 52)
-        seg.set(ValueLayout.JAVA_INT, off + OFFSET_V2_RESERVED, 0);
-        seg.set(ValueLayout.JAVA_INT, off + OFFSET_V2_RESERVED + 4L, 0);
-        seg.set(ValueLayout.JAVA_INT, off + OFFSET_V2_RESERVED + 8L, 0);
+        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, off + OFFSET_V2_ENCODING_SURPRISE, header.encodingSurprise());
+        // Zero reserved block (12 bytes at offset 52)
+        seg.set(ValueLayout.JAVA_INT_UNALIGNED, off + OFFSET_V2_RESERVED, 0);
+        seg.set(ValueLayout.JAVA_INT_UNALIGNED, off + OFFSET_V2_RESERVED + 4L, 0);
+        seg.set(ValueLayout.JAVA_INT_UNALIGNED, off + OFFSET_V2_RESERVED + 8L, 0);
+    }
+
+    /**
+     * Static utility to decode an EncodingHeader from a segment offset using the singleton layout.
+     */
+    public static EncodingHeader read(MemorySegment seg, long off) {
+        return INSTANCE.readHeader(seg, off);
+    }
+
+    /**
+     * Static utility to encode an EncodingHeader into a segment offset using the singleton layout.
+     */
+    public static void write(MemorySegment seg, long off, EncodingHeader header) {
+        INSTANCE.writeHeader(seg, off, header);
     }
 }

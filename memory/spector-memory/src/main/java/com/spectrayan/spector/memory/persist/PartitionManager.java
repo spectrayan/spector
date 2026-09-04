@@ -14,8 +14,7 @@ package com.spectrayan.spector.memory.persist;
 
 import com.spectrayan.spector.memory.cortex.StrengthMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.ProceduralMemory;
@@ -285,13 +284,12 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
         }
 
         // Fallback in-memory router if partition has no bundle
-        EpisodicLogMemory episodicLog = EpisodicLogMemory.heap();
+        EpisodicMemory episodic = EpisodicMemory.heap(episodicPartitionCapacity, (long) episodicPartitionCapacity * 256L);
         CognitiveMemoryRouter router = new CognitiveMemoryRouter(
                 workingStore,
-                new EpisodicRecordMemory(quantizedVecBytes, episodicPartitionCapacity),
                 new SemanticMemory(quantizedVecBytes, semanticCapacity),
                 new ProceduralMemory(quantizedVecBytes, proceduralCapacity),
-                episodicLog);
+                episodic);
         log.info("Opened empty fallback frozen partition seq={} ({})", seq, dir.getFileName());
         return new PartitionHandle(seq, dir, router, null, false);
     }
@@ -316,10 +314,8 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
 
         SemanticMemory semantic = SemanticMemory.fromBundle(
                 bundle.arena(), semSlice, semanticCapacity, quantizedVecBytes, bundleFile, false);
-        EpisodicRecordMemory episodic = EpisodicRecordMemory.fromBundle(
-                bundle.arena(), epiSlice, episodicPartitionCapacity, quantizedVecBytes, bundleFile, false);
-        EpisodicLogMemory episodicLog = EpisodicLogMemory.fromBundle(
-                bundle.arena(), epiSlice, bundleFile, false);
+        EpisodicMemory episodic = EpisodicMemory.fromBundle(
+                bundle.arena(), epiSlice, episodicPartitionCapacity, bundleFile, false);
         ProceduralMemory procedural = ProceduralMemory.fromBundle(
                 bundle.arena(), procSlice, proceduralCapacity, quantizedVecBytes, bundleFile, false);
         TextBlobMemory text = TextBlobMemory.fromBundle(
@@ -331,7 +327,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                 : null;
 
         CognitiveMemoryRouter router = new CognitiveMemoryRouter(
-                workingStore, episodic, semantic, procedural, episodicLog, audit);
+                workingStore, semantic, procedural, episodic, audit);
         log.info("Opened frozen bundle partition seq={} ({})", seq, dir.getFileName());
         return new PartitionHandle(seq, dir, router, text, false, bundle);
     }
@@ -400,12 +396,9 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                 SemanticMemory newSemantic = SemanticMemory.fromBundle(
                         newBundle.arena(), newBundle.regionSegment(RegionId.SEMANTIC),
                         semanticCapacity, quantizedVecBytes, bundleFile, true);
-                EpisodicRecordMemory newEpisodic = EpisodicRecordMemory.fromBundle(
+                EpisodicMemory newEpisodic = EpisodicMemory.fromBundle(
                         newBundle.arena(), newBundle.regionSegment(RegionId.EPISODIC),
-                        episodicPartitionCapacity, quantizedVecBytes, bundleFile, true);
-                EpisodicLogMemory newEpisodicLog = EpisodicLogMemory.fromBundle(
-                        newBundle.arena(), newBundle.regionSegment(RegionId.EPISODIC),
-                        bundleFile, true);
+                        episodicPartitionCapacity, bundleFile, true);
                 ProceduralMemory newProcedural = ProceduralMemory.fromBundle(
                         newBundle.arena(), newBundle.regionSegment(RegionId.PROCEDURAL),
                         proceduralCapacity, quantizedVecBytes, bundleFile, true);
@@ -419,7 +412,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                         : null;
 
                 newRouter = new CognitiveMemoryRouter(
-                        workingStore, newEpisodic, newSemantic, newProcedural, newEpisodicLog, newAudit);
+                        workingStore, newSemantic, newProcedural, newEpisodic, newAudit);
 
                 // Flush index + graphs to runtime/ before rolling
                 flushGlobalState();
@@ -429,9 +422,6 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                 List<PartitionHandle> current = registry;
                 PartitionHandle oldActive = current.get(current.size() - 1);
                 
-                if (oldActive.router().episodic() != null) {
-                    oldActive.router().episodic().markFrozen();
-                }
                 oldActive.router().semantic().markFrozen();
                 oldActive.router().procedural().markFrozen();
 

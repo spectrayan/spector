@@ -21,6 +21,7 @@ import com.spectrayan.spector.memory.graph.RelationType;
 import com.spectrayan.spector.memory.graph.TypeNormalizer;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.hebbian.SynapticDecayModulator;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.ReflectDaemon;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.Memory;
@@ -356,17 +357,20 @@ public final class ReflectionOrchestrator {
             int importancePruned = 0;
             if (cognitiveRouter != null && cognitiveRouter.episodic() != null) {
                 var episodic = cognitiveRouter.episodic();
-                var layout = episodic.layout();
+                var offsets = episodic.unconsolidatedTurnOffsets();
                 var segment = episodic.segment();
-                int totalRecs = episodic.totalRecords();
+                long base = episodic.dataOffset();
 
                 importancePruned = temporalChain.pruneByImportance(
                         cutoffMs, TEMPORAL_IMPORTANCE_THRESHOLD,
                         memIdx -> {
-                            if (memIdx < 0 || memIdx >= totalRecs) return 0f;
+                            if (memIdx < 0 || memIdx >= offsets.size()) return 0f;
                             try {
-                                long offset = episodic.recordOffset(memIdx);
-                                return layout.readImportance(segment, offset);
+                                long absOffset = base + offsets.get(memIdx);
+                                if (EpisodicHeaderAccessor.isOptionBRecord(segment, absOffset)) {
+                                    return EpisodicHeaderAccessor.readImportance(segment, absOffset);
+                                }
+                                return 0f;
                             } catch (RuntimeException e) {
                                 return 0f;
                             }

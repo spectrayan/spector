@@ -67,9 +67,6 @@ public final class AutobiographicalSamplingRelay implements SynapticRelay<Wander
             }
 
             collected += sampleFromStore(handle.router().semantic(), quantizer, signal, maxSamples - collected, "sem-" + handle.seq());
-            if (collected < maxSamples && !handle.router().isEpisodicLogMode()) {
-                collected += sampleFromStore(handle.router().episodic(), quantizer, signal, maxSamples - collected, "epi-" + handle.seq());
-            }
         }
 
         if (log.isDebugEnabled()) {

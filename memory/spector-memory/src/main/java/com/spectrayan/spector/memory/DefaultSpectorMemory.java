@@ -27,7 +27,7 @@ import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.ContinuityMemory;
-import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
@@ -67,7 +67,7 @@ import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
+import com.spectrayan.spector.memory.model.EpisodeRecord;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryIntrospector;
@@ -141,8 +141,6 @@ import com.spectrayan.spector.memory.cortex.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 
-import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
 import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
@@ -383,9 +381,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     private final com.spectrayan.spector.memory.session.SessionBufferManager sessionBufferManager = new com.spectrayan.spector.memory.session.SessionBufferManager();
 
-    //  Episodic Conversation Architecture (ADR-0006) 
+    // ── Episodic Conversation Architecture (ADR-0006) ──
     private final EpisodicSessionIndex episodicSessionIndex;
-    private final EpisodicLogMemory episodicLogStore;
+    private final EpisodicMemory episodicMemory;
 
     private final MemoryObservationHook hook;
 
@@ -519,11 +517,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             this.shutdownHook = null;
         }
 
-        //  Episodic Session Index rebuild (ADR-0006) 
-        this.episodicLogStore = partitionManager.cognitiveRouter().episodicLog();
+        // ── Episodic Session Index rebuild (ADR-0006) ──
+        this.episodicMemory = partitionManager.cognitiveRouter().episodic();
         this.episodicSessionIndex = new EpisodicSessionIndex();
-        if (episodicLogStore != null) {
-            int liveRecords = episodicLogStore.rebuildSessionIndex(episodicSessionIndex);
+        if (episodicMemory != null) {
+            int liveRecords = episodicMemory.rebuildSessionIndex(episodicSessionIndex);
             log.info("Episodic session index rebuilt: {} live records, {} sessions",
                     liveRecords, episodicSessionIndex.sessionCount());
         }
@@ -715,15 +713,38 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                   int tokenIn, int tokenOut,
                                   int latencyMs, long userId,
                                   short soulVersion, SourceModality modality) {
-        if (episodicLogStore == null) {
+        if (episodicMemory == null) {
             throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
-                    com.spectrayan.spector.commons.error.ErrorCode.MEMORY_PATHWAY_FAILED, "Episodic log store not available (store missing)");
+                    com.spectrayan.spector.commons.error.ErrorCode.MEMORY_PATHWAY_FAILED, "Episodic store not available (store missing)");
         }
 
-        long offset = episodicLogStore.appendTurn(role, sequenceId,
+        SalienceProfile profile = salienceProfile();
+        byte rawValence = (byte) 0;
+        byte rawArousal = (byte) 0;
+        byte valence = (profile != null) ? profile.modulateValence(rawValence) : rawValence;
+        byte arousal = (profile != null) ? profile.modulateArousal(rawArousal) : rawArousal;
+
+        float importance = 5.0f;
+        if (importanceProvider != null) {
+            try {
+                String text = (body != null) ? new String(body, java.nio.charset.StandardCharsets.UTF_8) : "";
+                importance = (float) importanceProvider.score(
+                        new com.spectrayan.spector.memory.model.ImportanceContext(
+                                text, new float[0], null, profile, MemoryType.EPISODIC, 0.0f, 0.0, false)
+                ).importance();
+                if (importance <= 0.0f) {
+                    importance = 5.0f;
+                }
+            } catch (Exception e) {
+                importance = 5.0f;
+            }
+        }
+
+        long offset = episodicMemory.appendTurn(role, sequenceId,
                 timestampMs, sessionId, body, modelId,
                 tokenIn, tokenOut, latencyMs, userId,
-                soulVersion, modality);
+                soulVersion, modality, importance, valence, arousal,
+                com.spectrayan.spector.memory.model.EngramSource.EXPERIENCED);
 
         // Update session index
         episodicSessionIndex.appendTurn(sessionId, offset);
@@ -731,8 +752,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         // Fire circadian trigger (episodic volume → auto-reflect)
         checkCircadianTrigger(MemoryType.EPISODIC);
 
-        log.debug("Episodic turn appended: session={}, seq={}, role={}, offset={}",
-                Long.toHexString(sessionId), sequenceId, role, offset);
+        log.debug("Episodic turn appended: session={}, seq={}, role={}, offset={}, importance={}",
+                Long.toHexString(sessionId), sequenceId, role, offset, importance);
         return offset;
     }
 
@@ -744,12 +765,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
      * @param limit     maximum number of turns to return
      * @return list of decoded episodic records with CBOR bodies
      */
-    public List<EpisodicFieldAccessor.EpisodicRecord> browseEpisodic(long sessionId, int offset, int limit) {
-        if (episodicLogStore == null) {
+    public List<EpisodeRecord> browseEpisodic(long sessionId, int offset, int limit) {
+        if (episodicMemory == null) {
             return List.of();
         }
         List<Long> offsets = episodicSessionIndex.paginate(sessionId, offset, limit);
-        return episodicLogStore.readTurns(offsets, true);
+        return episodicMemory.readTurns(offsets, true);
     }
 
     /**
@@ -759,12 +780,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
      * @param count     number of recent turns
      * @return list of decoded episodic records
      */
-    public List<EpisodicFieldAccessor.EpisodicRecord> tailEpisodic(long sessionId, int count) {
-        if (episodicLogStore == null) {
+    public List<EpisodeRecord> tailEpisodic(long sessionId, int count) {
+        if (episodicMemory == null) {
             return List.of();
         }
         List<Long> offsets = episodicSessionIndex.tailTurns(sessionId, count);
-        return episodicLogStore.readTurns(offsets, true);
+        return episodicMemory.readTurns(offsets, true);
     }
 
     /**
@@ -1523,58 +1544,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         long thresholdMs = nowMs - olderThan.toMillis();
 
         var episodicStore = partitionManager.cognitiveRouter().episodic();
-        if (episodicStore == null) return 0; // Log-structured mode: no importance decay for conversation turns
-        var partitions = episodicStore.partitions();
-        if (partitions.isEmpty()) return 0;
-
-        try {
-            java.util.List<java.util.concurrent.Callable<Integer>> tasks = new java.util.ArrayList<>(partitions.size());
-            for (var partition : partitions) {
-                tasks.add(() -> {
-                    int count = 0;
-                    EngramLayout layout = partition.layout();
-                    MemorySegment segment = partition.segment();
-                    for (int i = 0; i < partition.count(); i++) {
-                        long offset = partition.recordOffset(i);
-                        byte flags = layout.readFlags(segment, offset);
-                        if (EncodingHeaderFields.isTombstoned(flags)) continue;
-                        long ts = layout.readTimestamp(segment, offset);
-                        if (ts < thresholdMs) {
-                            float oldImp = layout.readImportance(segment, offset);
-                            layout.writeImportance(segment, offset, oldImp * factor);
-                            count++;
-                        }
-                    }
-                    return count;
-                });
-            }
-            java.util.List<Integer> results = ConcurrentTasks.forkJoinAll(tasks);
-            int affected = 0;
-            for (int c : results) affected += c;
-            log.info("Decay: {} memories older than {} multiplied by {}", affected, olderThan, factor);
-            return affected;
-        } catch (ConcurrentExecutionException | InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.warn("Parallel decay failed, falling back to sequential: {}", e.getMessage());
-            int affected = 0;
-            for (var partition : partitions) {
-                EngramLayout layout = partition.layout();
-                MemorySegment segment = partition.segment();
-                for (int i = 0; i < partition.count(); i++) {
-                    long offset = partition.recordOffset(i);
-                    byte flags = layout.readFlags(segment, offset);
-                    if (EncodingHeaderFields.isTombstoned(flags)) continue;
-                    long ts = layout.readTimestamp(segment, offset);
-                    if (ts < thresholdMs) {
-                        float oldImp = layout.readImportance(segment, offset);
-                        layout.writeImportance(segment, offset, oldImp * factor);
-                        affected++;
-                    }
-                }
-            }
-            log.info("Decay: {} memories older than {} multiplied by {}", affected, olderThan, factor);
-            return affected;
-        }
+        if (episodicStore == null) return 0;
+        int affected = episodicStore.decayOldTurns(thresholdMs, factor);
+        log.info("Decay: {} memories older than {} multiplied by {}", affected, olderThan, factor);
+        return affected;
     }
 
     // ==============================================================

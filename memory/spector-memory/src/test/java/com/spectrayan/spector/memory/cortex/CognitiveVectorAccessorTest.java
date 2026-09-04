@@ -66,15 +66,15 @@ class CognitiveVectorAccessorTest {
         when(quantizer.mins()).thenReturn(mins);
         when(quantizer.scales()).thenReturn(scales);
 
-        MemoryIndex.MemoryLocation loc = new MemoryIndex.MemoryLocation(MemoryType.EPISODIC, 100L, 0);
+        MemoryIndex.MemoryLocation loc = new MemoryIndex.MemoryLocation(MemoryType.SEMANTIC, 100L, 0);
         when(index.locate("mem-123")).thenReturn(loc);
         when(registry.routerFor(0)).thenReturn(router);
 
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment segment = arena.allocate(256);
             long vectorOffset = 64L;
-            when(router.segmentFor(MemoryType.EPISODIC)).thenReturn(segment);
-            when(router.layoutFor(MemoryType.EPISODIC)).thenReturn(layout);
+            when(router.segmentFor(MemoryType.SEMANTIC)).thenReturn(segment);
+            when(router.layoutFor(MemoryType.SEMANTIC)).thenReturn(layout);
             when(layout.vectorOffset(100L)).thenReturn(vectorOffset);
 
             // Write test bytes at vectorOffset: byte 0 = 128 (~0.5), byte 1 = 255 (1.0)
@@ -91,5 +91,20 @@ class CognitiveVectorAccessorTest {
             // dim 1: -1.0 + (255 / 255.0f) * 4.0 = 3.0f
             assertEquals(3.0f, result[1], 0.001f);
         }
+    }
+
+    @Test
+    void testEpisodicReturnsNull() {
+        MemoryIndex index = mock(MemoryIndex.class);
+        PartitionRegistry registry = mock(PartitionRegistry.class);
+        ScalarQuantizer quantizer = mock(ScalarQuantizer.class);
+        when(quantizer.mins()).thenReturn(new float[]{0.0f});
+        when(quantizer.scales()).thenReturn(new float[]{1.0f});
+
+        MemoryIndex.MemoryLocation loc = new MemoryIndex.MemoryLocation(MemoryType.EPISODIC, 100L, 0);
+        when(index.locate("epi-123")).thenReturn(loc);
+
+        CognitiveVectorAccessor accessor = new CognitiveVectorAccessor(index, registry, quantizer);
+        assertNull(accessor.apply("epi-123"));
     }
 }

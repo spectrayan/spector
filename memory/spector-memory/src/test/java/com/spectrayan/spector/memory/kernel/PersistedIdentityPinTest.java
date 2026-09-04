@@ -21,7 +21,7 @@ import com.spectrayan.spector.memory.kernel.layout.ContinuityLayout;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout;
 import com.spectrayan.spector.memory.kernel.layout.EntityLayout;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicLogLayout;
+import com.spectrayan.spector.memory.kernel.layout.EpisodeLayout;
 import com.spectrayan.spector.memory.kernel.layout.HebbianLayout;
 import com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout;
 import com.spectrayan.spector.memory.kernel.layout.IdBlobLayout;
@@ -177,7 +177,7 @@ class PersistedIdentityPinTest {
             Map<String, String> actual = new LinkedHashMap<>();
             actual.put("EngramLayout", hex(new EngramLayout(100).layoutId()));
             actual.put("StrengthLayout", hex(StrengthLayout.INSTANCE.layoutId()));
-            actual.put("EpisodicLogLayout", hex(EpisodicLogLayout.INSTANCE.layoutId()));
+            actual.put("EpisodeLayout", hex(EpisodeLayout.INSTANCE.layoutId()));
             actual.put("ContinuityLayout", hex(ContinuityLayout.SINGLETON.layoutId()));
             actual.put("InsularLayout", hex(InsularLayout.SINGLETON.layoutId()));
             actual.put("BundleLayout", hex(BundleLayout.LAYOUT_ID));
@@ -197,7 +197,7 @@ class PersistedIdentityPinTest {
             Map<String, String> expected = new LinkedHashMap<>();
             expected.put("EngramLayout", "0x434F4700 'COG\\0'");
             expected.put("StrengthLayout", "0x41554454 'AUDT'");
-            expected.put("EpisodicLogLayout", "0x4550494C 'EPIL'");
+            expected.put("EpisodeLayout", "0x4550494C 'EPIL'");
             expected.put("ContinuityLayout", "0x434F4E54 'CONT'");
             expected.put("InsularLayout", "0x494E534C 'INSL'");
             expected.put("BundleLayout", "0x42554E44 'BUND'");
@@ -285,7 +285,7 @@ class PersistedIdentityPinTest {
             // would make the bundle directory claim a fixed stride the data does not have.
             assertThat(new TextBlobLayout().recordStride()).as("text blobs are variable-length").isZero();
             assertThat(new IdBlobLayout().recordStride()).as("id blobs are variable-length").isZero();
-            assertThat(EpisodicLogLayout.INSTANCE.recordStride())
+            assertThat(EpisodeLayout.INSTANCE.recordStride())
                     .as("episode records are variable-length").isZero();
         }
 

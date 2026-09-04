@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.ProceduralMemory;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.TextBlobMemory;
@@ -21,6 +20,7 @@ import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 
@@ -281,8 +281,6 @@ class BundleMigrationCliTest {
         // Create cognitive stores using the real store constructors
         SemanticMemory semantic = new SemanticMemory(
                 VEC_BYTES, CAPACITY, StorageLayout.semanticMem(partDir));
-        EpisodicRecordMemory episodic = new EpisodicRecordMemory(
-                StorageLayout.episodicMem(partDir), VEC_BYTES, CAPACITY);
         ProceduralMemory procedural = new ProceduralMemory(
                 VEC_BYTES, CAPACITY, StorageLayout.proceduralMem(partDir));
 
@@ -295,17 +293,31 @@ class BundleMigrationCliTest {
             semantic.write(header, vec);
 
             header = EncodingHeader.create(
-                    ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.EPISODIC);
-            episodic.write(header, vec);
-
-            header = EncodingHeader.create(
                     ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.PROCEDURAL);
             procedural.write(header, vec);
         }
 
         semantic.close();
-        episodic.close();
         procedural.close();
+
+        // Create legacy V3 episodic.mem file directly
+        int cogStride = 64 + VEC_BYTES;
+        long totalBytes = RegionPreamble.PREAMBLE_BYTES + (long) CAPACITY * cogStride;
+        try (FileChannel ch = FileChannel.open(StorageLayout.episodicMem(partDir),
+                StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+            ch.truncate(totalBytes);
+            try (Arena arena = Arena.ofConfined()) {
+                MemorySegment seg = ch.map(FileChannel.MapMode.READ_WRITE, 0, totalBytes, arena);
+                RegionPreamble.write(seg, 0, 1, MemoryShape.RECORD, 1, CAPACITY, recordCount, cogStride,
+                        0x434F4700, System.currentTimeMillis(), System.currentTimeMillis());
+                for (int i = 0; i < recordCount; i++) {
+                    long ts = System.currentTimeMillis();
+                    var header = EncodingHeader.create(ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.EPISODIC);
+                    long recOffset = RegionPreamble.PREAMBLE_BYTES + (long) i * cogStride;
+                    EncodingHeaderLayout.write(seg, recOffset, header);
+                }
+            }
+        }
 
         // Create text.dat with a minimal SMKM header
         TextBlobMemory text = new TextBlobMemory(

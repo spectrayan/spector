@@ -12,11 +12,10 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
+import com.spectrayan.spector.memory.kernel.layout.EpisodeLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
 
@@ -80,9 +79,8 @@ public record PartitionSummary(
      */
     public boolean hasRecordsFor(MemoryType[] targetTypes, CognitiveMemoryRouter router) {
         if (writable && router != null) {
-            boolean hasEpi = (router.episodicLog() != null && router.episodicLog().writePosition() > 0)
-                    || (router.episodic() != null && router.episodic().visibleCount() > 0);
-            boolean hasStore = (router.semantic() != null || router.procedural() != null || router.episodicLog() != null || router.episodic() != null);
+            boolean hasEpi = router.episodic() != null && router.episodic().writePosition() > 0;
+            boolean hasStore = (router.semantic() != null || router.procedural() != null || router.episodic() != null);
             if (hasStore) {
                 if (targetTypes == null || targetTypes.length == 0) {
                     return (router.semantic() != null && router.semantic().visibleCount() > 0)
@@ -154,47 +152,51 @@ public record PartitionSummary(
         }
 
         // 2. Episodic store
-        if (router.episodicLog() != null && router.episodicLog().writePosition() > 0) {
-            long base = router.episodicLog().dataOffset();
-            long limit = base + router.episodicLog().writePosition();
+        if (router.episodic() != null && router.episodic().writePosition() > 0) {
+            long base = router.episodic().dataOffset();
+            long limit = base + router.episodic().writePosition();
             long current = base;
-            while (current + EncodingHeaderFields.HEADER_BYTES <= limit) {
-                byte flags = router.episodicLog().segment().get(EncodingHeaderFields.LAYOUT_FLAGS, current + EncodingHeaderFields.OFFSET_FLAGS);
-                int bodyLength = router.episodicLog().segment().get(ValueLayout.JAVA_INT_UNALIGNED, current + 56);
-                if (bodyLength < 0 || current + EncodingHeaderFields.HEADER_BYTES + bodyLength > limit) {
+            while (current < limit) {
+                if (current + 16 > limit) {
                     break;
                 }
-                if (!EncodingHeaderFields.isTombstoned(flags)) {
-                    epiCount++;
-                    long ts = EpisodicFieldAccessor.readTimestamp(router.episodicLog().segment(), current);
-                    if (ts > 0) {
-                        minTs = Math.min(minTs, ts);
-                        maxTs = Math.max(maxTs, ts);
+                int magic = router.episodic().segment().get(ValueLayout.JAVA_INT_UNALIGNED, current);
+                if (magic == EpisodeLayout.MAGIC) {
+                    // Option B record
+                    int payloadBytes = router.episodic().segment().get(ValueLayout.JAVA_INT_UNALIGNED, current + 4);
+                    if (payloadBytes < 0 || current + EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {
+                        break;
                     }
-                }
-                current += EncodingHeaderFields.HEADER_BYTES + bodyLength;
-            }
-        }
-        if (router.episodic() != null && router.episodicLog() == null && router.episodic().visibleCount() > 0) {
-            for (EpisodicPartition part : router.episodic().partitions()) {
-                if (part.visibleCount() <= 0) continue;
-                MemorySegment segment = part.segment();
-                EngramLayout layout = part.layout();
-                int count = part.visibleCount();
-                int stride = layout.stride();
-                long base = part.dataOffset();
-                for (int i = 0; i < count; i++) {
-                    long offset = base + (long) i * stride;
-                    byte flags = layout.headerLayout().readFlags(segment, offset);
-                    if (EncodingHeaderFields.isTombstoned(flags)) continue;
-                    epiCount++;
-                    long ts = layout.headerLayout().readTimestamp(segment, offset);
-                    long tags = layout.headerLayout().readSynapticTags(segment, offset);
-                    if (ts > 0) {
-                        minTs = Math.min(minTs, ts);
-                        maxTs = Math.max(maxTs, ts);
+                    long headerOffset = current + EpisodeLayout.PREFIX_BYTES;
+                    byte flags = router.episodic().segment().get(EncodingHeaderFields.LAYOUT_FLAGS, headerOffset + EncodingHeaderFields.OFFSET_FLAGS);
+                    if (!EncodingHeaderFields.isTombstoned(flags)) {
+                        epiCount++;
+                        long ts = router.episodic().segment().get(ValueLayout.JAVA_LONG_UNALIGNED, headerOffset + EncodingHeaderFields.OFFSET_TIMESTAMP_MS);
+                        if (ts > 0) {
+                            minTs = Math.min(minTs, ts);
+                            maxTs = Math.max(maxTs, ts);
+                        }
                     }
-                    tagMask |= tags;
+                    current += EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
+                } else {
+                    // Legacy punned turn (64B header + body)
+                    if (current + EncodingHeaderFields.HEADER_BYTES > limit) {
+                        break;
+                    }
+                    byte flags = router.episodic().segment().get(EncodingHeaderFields.LAYOUT_FLAGS, current + EncodingHeaderFields.OFFSET_FLAGS);
+                    int bodyLength = router.episodic().segment().get(ValueLayout.JAVA_INT_UNALIGNED, current + 56);
+                    if (bodyLength < 0 || current + EncodingHeaderFields.HEADER_BYTES + bodyLength > limit) {
+                        break;
+                    }
+                    if (!EncodingHeaderFields.isTombstoned(flags)) {
+                        epiCount++;
+                        long ts = router.episodic().segment().get(ValueLayout.JAVA_LONG_UNALIGNED, current + EncodingHeaderFields.OFFSET_TIMESTAMP_MS);
+                        if (ts > 0) {
+                            minTs = Math.min(minTs, ts);
+                            maxTs = Math.max(maxTs, ts);
+                        }
+                    }
+                    current += EncodingHeaderFields.HEADER_BYTES + bodyLength;
                 }
             }
         }

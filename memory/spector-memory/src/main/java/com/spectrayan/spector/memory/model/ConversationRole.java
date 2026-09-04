@@ -29,7 +29,7 @@ package com.spectrayan.spector.memory.model;
  *
  * @since 1.3.0
  * @see MemoryType#EPISODIC
- * @see com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor
+ * @see com.spectrayan.spector.memory.kernel.layout.EpisodeCodec
  */
 public enum ConversationRole {
 

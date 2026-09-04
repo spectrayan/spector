@@ -43,7 +43,7 @@ class SoulDriftRefusionRelayTest {
         SemanticMemory semanticMemory = new SemanticMemory(DIMS, 100);
         WorkingMemory workingMemory = new WorkingMemory(DIMS, 100);
 
-        CognitiveMemoryRouter router = new CognitiveMemoryRouter(workingMemory, null, semanticMemory, null);
+        CognitiveMemoryRouter router = new CognitiveMemoryRouter(workingMemory, semanticMemory, null, null);
         PartitionManager partitionManager = Mockito.mock(PartitionManager.class);
         PartitionHandle handle = new PartitionHandle(0, null, router, null, false);
         when(partitionManager.snapshot()).thenReturn(List.of(handle));
@@ -108,7 +108,7 @@ class SoulDriftRefusionRelayTest {
 
         EngramLayout layout = new EngramLayout(DIMS);
         SemanticMemory semanticMemory = new SemanticMemory(DIMS, 100);
-        CognitiveMemoryRouter router = new CognitiveMemoryRouter(null, null, semanticMemory, null);
+        CognitiveMemoryRouter router = new CognitiveMemoryRouter(null, semanticMemory, null, null);
         PartitionManager partitionManager = Mockito.mock(PartitionManager.class);
         PartitionHandle handle = new PartitionHandle(0, null, router, null, false);
         when(partitionManager.snapshot()).thenReturn(List.of(handle));

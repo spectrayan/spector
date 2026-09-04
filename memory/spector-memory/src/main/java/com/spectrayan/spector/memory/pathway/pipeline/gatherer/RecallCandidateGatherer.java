@@ -20,6 +20,8 @@ import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
+import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -122,21 +124,41 @@ public class RecallCandidateGatherer {
                 if (partitionRegistry != null) {
                     CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
                     if (router != null) {
-                        MemorySegment segment = router.segmentFor(type);
-                        if (segment != null) {
-                            EngramLayout layout = router.layoutFor(type);
-                            byte cFlags = layout.readConsolidationFlags(segment, loc.offset());
-                            if (!options.includeContradictions() && EncodingHeaderFields.isContradicted(cFlags)) continue;
+                        if (type == MemoryType.EPISODIC) {
+                            EpisodicMemory episodic = router.episodic();
+                            if (episodic != null) {
+                                MemorySegment segment = episodic.segment();
+                                if (segment != null) {
+                                    if (EpisodicHeaderAccessor.isTombstoned(segment, loc.offset())) continue;
+                                    var header = EpisodicHeaderAccessor.readHeader(segment, loc.offset());
+                                    importance = header.importance();
+                                    valence = header.valence();
+                                    recallCount = (short) header.agentRecallCount();
+                                    ts = header.timestampMs();
+                                    if (options.minTimestamp() != null && ts < options.minTimestamp()) continue;
+                                    if (options.maxTimestamp() != null && ts > options.maxTimestamp()) continue;
+                                    if (ts > 0) {
+                                        ageDays = (float) ((nowMs - ts) / (double) (24 * 60 * 60 * 1000));
+                                    }
+                                }
+                            }
+                        } else {
+                            MemorySegment segment = router.segmentFor(type);
+                            if (segment != null) {
+                                EngramLayout layout = router.layoutFor(type);
+                                byte cFlags = layout.readConsolidationFlags(segment, loc.offset());
+                                if (!options.includeContradictions() && EncodingHeaderFields.isContradicted(cFlags)) continue;
 
-                            var header = layout.readHeader(segment, loc.offset());
-                            importance = header.importance();
-                            valence = header.valence();
-                            recallCount = (short) header.agentRecallCount();
-                            ts = header.timestampMs();
-                            if (options.minTimestamp() != null && ts < options.minTimestamp()) continue;
-                            if (options.maxTimestamp() != null && ts > options.maxTimestamp()) continue;
-                            if (ts > 0) {
-                                ageDays = (float) ((nowMs - ts) / (double) (24 * 60 * 60 * 1000));
+                                var header = layout.readHeader(segment, loc.offset());
+                                importance = header.importance();
+                                valence = header.valence();
+                                recallCount = (short) header.agentRecallCount();
+                                ts = header.timestampMs();
+                                if (options.minTimestamp() != null && ts < options.minTimestamp()) continue;
+                                if (options.maxTimestamp() != null && ts > options.maxTimestamp()) continue;
+                                if (ts > 0) {
+                                    ageDays = (float) ((nowMs - ts) / (double) (24 * 60 * 60 * 1000));
+                                }
                             }
                         }
                     }

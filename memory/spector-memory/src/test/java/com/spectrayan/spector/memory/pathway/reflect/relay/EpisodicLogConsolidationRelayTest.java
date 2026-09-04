@@ -15,8 +15,10 @@ package com.spectrayan.spector.memory.pathway.reflect.relay;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
+import com.spectrayan.spector.memory.cortex.ProceduralMemory;
+import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.SourceModality;
@@ -40,19 +42,25 @@ import static org.mockito.Mockito.when;
 @DisplayName("EpisodicLogConsolidationRelay: Multi-Topic Log Consolidation Tests")
 class EpisodicLogConsolidationRelayTest {
 
-    private EpisodicLogMemory logMemory;
+    private EpisodicMemory logMemory;
     private WorkingMemory workingMemory;
+    private SemanticMemory semanticMemory;
+    private ProceduralMemory proceduralMemory;
 
     @BeforeEach
     void setUp() {
-        logMemory = new EpisodicLogMemory(1024 * 1024);
+        logMemory = new EpisodicMemory(1024 * 1024);
         workingMemory = new WorkingMemory(16, 100);
+        semanticMemory = new SemanticMemory(16, 100);
+        proceduralMemory = new ProceduralMemory(16, 100);
     }
 
     @AfterEach
     void tearDown() {
         if (logMemory != null) logMemory.close();
         if (workingMemory != null) workingMemory.close();
+        if (semanticMemory != null) semanticMemory.close();
+        if (proceduralMemory != null) proceduralMemory.close();
     }
 
     @Test
@@ -65,7 +73,7 @@ class EpisodicLogConsolidationRelayTest {
         logMemory.appendTurn(ConversationRole.USER, 1, 1000L, sessionId, turn1, (short) 1, 0, 0, 0, 0L, (short) 1, SourceModality.TEXT);
         logMemory.appendTurn(ConversationRole.USER, 2, 2000L, sessionId, turn2, (short) 1, 0, 0, 0, 0L, (short) 1, SourceModality.TEXT);
 
-        CognitiveMemoryRouter router = new CognitiveMemoryRouter(workingMemory, null, null, null, logMemory);
+        CognitiveMemoryRouter router = new CognitiveMemoryRouter(workingMemory, semanticMemory, proceduralMemory, logMemory);
         PartitionManager partitionManager = Mockito.mock(PartitionManager.class);
         PartitionHandle handle = new PartitionHandle(0, null, router, null, false);
         when(partitionManager.snapshot()).thenReturn(List.of(handle));

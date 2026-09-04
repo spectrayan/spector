@@ -31,4 +31,7 @@ public interface ScanEmitter {
 
     /** Emits the semantic HNSW fast-path recall across all partitions (ADR-0009). */
     void emitSemanticHnsw();
+
+    /** Emits an episodic log scan of the given store. */
+    void emitEpisodicScan(com.spectrayan.spector.memory.cortex.EpisodicMemory episodic, int partitionSeq);
 }

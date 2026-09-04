@@ -31,12 +31,12 @@ import org.junit.jupiter.api.Test;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
+import com.spectrayan.spector.memory.model.EpisodeRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -59,7 +59,7 @@ class ProceduralCrystallizationRelayTest {
         PartitionManager partitionManager = mock(PartitionManager.class);
         PartitionHandle handle = mock(PartitionHandle.class);
         CognitiveMemoryRouter router = mock(CognitiveMemoryRouter.class);
-        EpisodicLogMemory logStore = mock(EpisodicLogMemory.class);
+        EpisodicMemory logStore = mock(EpisodicMemory.class);
         RememberPathway rememberPathway = mock(RememberPathway.class);
         EmbeddingProvider embeddingProvider = mock(EmbeddingProvider.class);
         HyperEntityGraphMemory hyperEntityGraph = mock(HyperEntityGraphMemory.class);
@@ -67,16 +67,15 @@ class ProceduralCrystallizationRelayTest {
 
         when(partitionManager.snapshot()).thenReturn(List.of(handle));
         when(handle.router()).thenReturn(router);
-        when(router.isEpisodicLogMode()).thenReturn(true);
-        when(router.episodicLog()).thenReturn(logStore);
+        when(router.episodic()).thenReturn(logStore);
 
         when(logStore.unconsolidatedTurnOffsets()).thenReturn(List.of(100L, 200L));
 
-        EpisodicFieldAccessor.EpisodicRecord rec1 = mock(EpisodicFieldAccessor.EpisodicRecord.class);
+        EpisodeRecord rec1 = mock(EpisodeRecord.class);
         when(rec1.sessionId()).thenReturn(42L);
         when(rec1.body()).thenReturn("User reported NPE on login endpoint".getBytes(StandardCharsets.UTF_8));
 
-        EpisodicFieldAccessor.EpisodicRecord rec2 = mock(EpisodicFieldAccessor.EpisodicRecord.class);
+        EpisodeRecord rec2 = mock(EpisodeRecord.class);
         when(rec2.sessionId()).thenReturn(42L);
         when(rec2.body()).thenReturn("Added null check to auth context validator".getBytes(StandardCharsets.UTF_8));
 
@@ -125,7 +124,7 @@ class ProceduralCrystallizationRelayTest {
         PartitionManager partitionManager = mock(PartitionManager.class);
         PartitionHandle handle = mock(PartitionHandle.class);
         CognitiveMemoryRouter router = mock(CognitiveMemoryRouter.class);
-        EpisodicLogMemory logStore = mock(EpisodicLogMemory.class);
+        EpisodicMemory logStore = mock(EpisodicMemory.class);
         RememberPathway rememberPathway =
                 mock(RememberPathway.class);
         when(rememberPathway.currentSoulVersion()).thenReturn((short) 4);
@@ -133,15 +132,14 @@ class ProceduralCrystallizationRelayTest {
 
         when(partitionManager.snapshot()).thenReturn(List.of(handle));
         when(handle.router()).thenReturn(router);
-        when(router.isEpisodicLogMode()).thenReturn(true);
-        when(router.episodicLog()).thenReturn(logStore);
+        when(router.episodic()).thenReturn(logStore);
 
         when(logStore.unconsolidatedTurnOffsets()).thenReturn(List.of(100L, 200L));
 
-        EpisodicFieldAccessor.EpisodicRecord rec1 = mock(EpisodicFieldAccessor.EpisodicRecord.class);
+        EpisodeRecord rec1 = mock(EpisodeRecord.class);
         when(rec1.sessionId()).thenReturn(42L);
         when(rec1.body()).thenReturn("Turn 1".getBytes(StandardCharsets.UTF_8));
-        EpisodicFieldAccessor.EpisodicRecord rec2 = mock(EpisodicFieldAccessor.EpisodicRecord.class);
+        EpisodeRecord rec2 = mock(EpisodeRecord.class);
         when(rec2.sessionId()).thenReturn(42L);
         when(rec2.body()).thenReturn("Turn 2".getBytes(StandardCharsets.UTF_8));
 

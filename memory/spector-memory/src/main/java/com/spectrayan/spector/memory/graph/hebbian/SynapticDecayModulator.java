@@ -19,8 +19,10 @@ import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
 
 import java.lang.foreign.MemorySegment;
+import java.util.List;
 
 /**
  * Arousal-modulated decay modulator backed by synaptic header data across all partitions.
@@ -109,29 +111,34 @@ public final class SynapticDecayModulator implements DecayModulator {
         var episodic = cognitiveRouter.episodic();
         if (episodic == null) return;
 
-        EngramLayout layout = episodic.cognitiveLayout();
         MemorySegment segment = episodic.segment();
-        int count = Math.min(episodic.totalRecords(), capacity);
+        long base = episodic.dataOffset();
+        List<Long> offsets = episodic.unconsolidatedTurnOffsets();
+        int count = Math.min(offsets.size(), capacity);
 
         for (int i = 0; i < count; i++) {
             try {
-                long offset = episodic.recordOffset(i);
-                byte flags = layout.readFlags(segment, offset);
-                if (EncodingHeaderFields.isTombstoned(flags)) continue;
+                long offset = base + offsets.get(i);
+                if (EpisodicHeaderAccessor.isOptionBRecord(segment, offset)) {
+                    byte flags = EpisodicHeaderAccessor.readFlags(segment, offset);
+                    if (EncodingHeaderFields.isTombstoned(flags)) continue;
 
-                float importance = layout.readImportance(segment, offset);
-                byte arousal = layout.readArousal(segment, offset);
-                byte valence = layout.readValence(segment, offset);
+                    float importance = EpisodicHeaderAccessor.readImportance(segment, offset);
+                    byte arousal = EpisodicHeaderAccessor.readArousal(segment, offset);
+                    byte valence = EpisodicHeaderAccessor.readValence(segment, offset);
 
-                float normArousal = (arousal & 0xFF) / 255.0f;
-                float normValence = Math.abs(valence) / 127.0f;
+                    float normArousal = (arousal & 0xFF) / 255.0f;
+                    float normValence = Math.abs(valence) / 127.0f;
 
-                float modifier = 1.0f
-                        + 0.3f * importance
-                        + 0.2f * normArousal
-                        + 0.1f * normValence;
+                    float modifier = 1.0f
+                            + 0.3f * importance
+                            + 0.2f * normArousal
+                            + 0.1f * normValence;
 
-                modifiers[i] = modifier;
+                    modifiers[i] = modifier;
+                } else {
+                    modifiers[i] = 1.0f;
+                }
             } catch (RuntimeException e) {
                 modifiers[i] = 1.0f;
             }

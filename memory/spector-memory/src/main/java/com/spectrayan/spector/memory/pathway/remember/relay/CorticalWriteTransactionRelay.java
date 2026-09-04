@@ -12,16 +12,20 @@
  */
 package com.spectrayan.spector.memory.pathway.remember.relay;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
 import com.spectrayan.spector.memory.error.SpectorPartitionFrozenException;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
+import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.SalienceProfile;
@@ -32,6 +36,7 @@ import com.spectrayan.spector.memory.pathway.pipeline.PostIngestSync;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Objects;
 
@@ -192,20 +197,74 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
 
         // 3. Off-Heap Slab Write (with partition roll support)
         long offset;
-        try {
-            try {
-                offset = cognitiveRouter.write(type, header, quantized);
-            } catch (final SpectorPartitionFrozenException e) {
-                offset = cognitiveRouter.write(type, header, quantized);
+        if (type == MemoryType.EPISODIC) {
+            EpisodicMemory episodic = cognitiveRouter.episodic();
+            if (episodic == null) {
+                throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "type", "No episodic store available");
             }
-        } catch (final SpectorMemoryTierFullException e) {
-            if (partitionRollCallback != null) {
-                log.info("Tier {} full ({} records)  --  rolling to new partition",
-                        type, e.getCapacity());
-                partitionRollCallback.run();
-                offset = cognitiveRouter.write(type, header, quantized);
-            } else {
-                throw e;
+            byte[] body = signal.text() != null ? signal.text().getBytes(StandardCharsets.UTF_8) : new byte[0];
+            SourceModality modality = (context != null && context.sourceModality() != null)
+                    ? context.sourceModality() : SourceModality.TEXT;
+            try {
+                offset = episodic.appendTurn(
+                        ConversationRole.USER,
+                        0,
+                        header.timestampMs(),
+                        0L,
+                        body,
+                        (short) 0,
+                        0, 0, 0, 0L,
+                        header.soulVersion(),
+                        modality,
+                        header.importance(),
+                        header.valence(),
+                        header.arousal(),
+                        header.source()
+                );
+            } catch (final SpectorMemoryTierFullException e) {
+                if (partitionRollCallback != null) {
+                    log.info("Tier {} full ({} records)  --  rolling to new partition",
+                            type, e.getCapacity());
+                    partitionRollCallback.run();
+                    EpisodicMemory rolledEpisodic = cognitiveRouter.episodic();
+                    if (rolledEpisodic == null) {
+                        throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "type", "No episodic store available after roll");
+                    }
+                    offset = rolledEpisodic.appendTurn(
+                            ConversationRole.USER,
+                            0,
+                            header.timestampMs(),
+                            0L,
+                            body,
+                            (short) 0,
+                            0, 0, 0, 0L,
+                            header.soulVersion(),
+                            modality,
+                            header.importance(),
+                            header.valence(),
+                            header.arousal(),
+                            header.source()
+                    );
+                } else {
+                    throw e;
+                }
+            }
+        } else {
+            try {
+                try {
+                    offset = cognitiveRouter.write(type, header, quantized);
+                } catch (final SpectorPartitionFrozenException e) {
+                    offset = cognitiveRouter.write(type, header, quantized);
+                }
+            } catch (final SpectorMemoryTierFullException e) {
+                if (partitionRollCallback != null) {
+                    log.info("Tier {} full ({} records)  --  rolling to new partition",
+                            type, e.getCapacity());
+                    partitionRollCallback.run();
+                    offset = cognitiveRouter.write(type, header, quantized);
+                } else {
+                    throw e;
+                }
             }
         }
         signal.offset(offset);

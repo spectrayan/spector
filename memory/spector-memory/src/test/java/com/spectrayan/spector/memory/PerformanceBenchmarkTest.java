@@ -213,7 +213,7 @@ class PerformanceBenchmarkTest {
     void p12_totalCountDirectSum() {
         int quantizedVecBytes = 32;
         var working = new WorkingMemory(quantizedVecBytes, 10);
-        var episodicLog = com.spectrayan.spector.memory.cortex.EpisodicLogMemory.heap(100 * 256L);
+        var episodicLog = com.spectrayan.spector.memory.cortex.EpisodicMemory.heap(100 * 256L);
         var semantic = new com.spectrayan.spector.memory.cortex.SemanticMemory(quantizedVecBytes, 10);
         var procedural = new com.spectrayan.spector.memory.cortex.ProceduralMemory(quantizedVecBytes, 10);
         var router = new CognitiveMemoryRouter(working, semantic, procedural, episodicLog);
