@@ -96,8 +96,13 @@ class KernelNamingRulesTest {
     private static final Set<String> SIZE_SUFFIX_ALLOWLIST = Set.of("XxHash64");
 
     private static final Set<String> LAYOUT_ALLOWLIST = Set.of(
-            // Design §2.3: EncodingHeaderLayout is the engram header field codec, not a RegionLayout
-            "EncodingHeaderLayout"
+            // ADR-0030: EncodingHeaderLayout and its per-tier subclasses are engram header codecs, not RegionLayouts
+            "EncodingHeaderLayout",
+            "SemanticProceduralHeaderLayout",
+            "SemanticHeaderLayout",
+            "ProceduralHeaderLayout",
+            "EpisodicHeaderLayout",
+            "WorkingHeaderLayout"
     );
 
     private static final Pattern SIZE_OR_VERSION_SUFFIX = Pattern.compile(".*(64|128|V\\d+)$");
