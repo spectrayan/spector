@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
+import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
@@ -35,14 +35,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 class EarlyGraphPriorFusionTest {
 
     private static final int DIMS = 8;
-    private SemanticRecordMemory store;
+    private SemanticMemory store;
     private CognitiveRecordLayout layout;
     private float[] queryVector;
     private long nowMs;
 
     @BeforeEach
     void setUp() {
-        store = new SemanticRecordMemory(DIMS, 10);
+        store = new SemanticMemory(DIMS, 10);
         layout = new CognitiveRecordLayout(DIMS);
         nowMs = System.currentTimeMillis();
         queryVector = new float[]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};

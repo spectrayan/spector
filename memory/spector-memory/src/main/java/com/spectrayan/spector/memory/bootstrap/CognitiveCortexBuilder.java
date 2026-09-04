@@ -19,10 +19,10 @@ import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
-import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
+import com.spectrayan.spector.memory.cortex.ProceduralMemory;
+import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
-import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
+import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
 import com.spectrayan.spector.memory.kernel.layout.InsularLayout;
 import com.spectrayan.spector.memory.kernel.Memory;
@@ -52,32 +52,9 @@ import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 
-import com.spectrayan.spector.memory.persist.PartitionManager;
-
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
-import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
-import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
-import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
-import com.spectrayan.spector.memory.kernel.bundle.RegionId;
-import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
-import com.spectrayan.spector.memory.kernel.bundle.BundleLayoutCalculator;
-import com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec;
-import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.ContinuityLayout;
-import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
-import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
-import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -122,7 +99,7 @@ public final class CognitiveCortexBuilder {
             List<Path> frozenPartitionDirs,
             int initialPartitionSeq,
             CognitiveMemoryRouter cognitiveRouter,
-            WorkingRecordMemory workingStore,
+            WorkingMemory workingStore,
             PartitionBundle partitionBundle,
             TextAppendMemory textStore,
             RuntimeBundle runtimeBundle,
@@ -203,7 +180,7 @@ public final class CognitiveCortexBuilder {
         //  Cognitive Memory stores 
         boolean useBundleMode = isDisk && basePath != null;
         CognitiveMemoryRouter cognitiveRouter;
-        WorkingRecordMemory workingStore = new WorkingRecordMemory(quantizedVecBytes, builder.workingCapacity());
+        WorkingMemory workingStore = new WorkingMemory(quantizedVecBytes, builder.workingCapacity());
         PartitionBundle partitionBundle = null;
         TextAppendMemory textStore = null;
         RuntimeBundle runtimeBundle = null;
@@ -254,7 +231,7 @@ public final class CognitiveCortexBuilder {
 
             MemorySegment workingSlice = runtimeBundle.regionSegment(RegionId.WORKING);
             boolean isWorkingNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(workingSlice, 0L);
-            workingStore = WorkingRecordMemory.fromBundle(runtimeBundle.arena(), workingSlice,
+            workingStore = WorkingMemory.fromBundle(runtimeBundle.arena(), workingSlice,
                     quantizedVecBytes, builder.workingCapacity(),
                     runtimeBundleFile, isWorkingNew);
 
@@ -305,7 +282,7 @@ public final class CognitiveCortexBuilder {
             MemorySegment procSlice = partitionBundle.regionSegment(RegionId.PROCEDURAL);
             MemorySegment textSlice = partitionBundle.regionSegment(RegionId.TEXT);
 
-            SemanticRecordMemory semanticStore = SemanticRecordMemory.fromBundle(
+            SemanticMemory semanticStore = SemanticMemory.fromBundle(
                     partitionBundle.arena(), semSlice,
                     builder.semanticCapacity(), quantizedVecBytes, bundleFile, isNew);
             EpisodicRecordMemory episodicStore = EpisodicRecordMemory.fromBundle(
@@ -313,7 +290,7 @@ public final class CognitiveCortexBuilder {
                     builder.episodicPartitionCapacity(), quantizedVecBytes, bundleFile, isNew);
             EpisodicLogMemory episodicLogStore = EpisodicLogMemory.fromBundle(
                     partitionBundle.arena(), epiSlice, bundleFile, isNew);
-            ProceduralRecordMemory proceduralStore = ProceduralRecordMemory.fromBundle(
+            ProceduralMemory proceduralStore = ProceduralMemory.fromBundle(
                     partitionBundle.arena(), procSlice,
                     builder.proceduralCapacity(), quantizedVecBytes, bundleFile, isNew);
             textStore = TextAppendMemory.fromBundle(
@@ -334,9 +311,9 @@ public final class CognitiveCortexBuilder {
                     quantizedVecBytes, builder.episodicPartitionCapacity());
             EpisodicLogMemory episodicLogStore = new EpisodicLogMemory(
                     (long) builder.episodicPartitionCapacity() * 256L); // ~256B avg per turn
-            ProceduralRecordMemory proceduralStore = new ProceduralRecordMemory(
+            ProceduralMemory proceduralStore = new ProceduralMemory(
                     quantizedVecBytes, builder.proceduralCapacity());
-            SemanticRecordMemory semanticStore = new SemanticRecordMemory(
+            SemanticMemory semanticStore = new SemanticMemory(
                     quantizedVecBytes, builder.semanticCapacity());
 
             StrengthMemory strengthStore = StrengthMemory.heap(

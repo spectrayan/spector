@@ -18,9 +18,9 @@ import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
-import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
-import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
+import com.spectrayan.spector.memory.cortex.ProceduralMemory;
+import com.spectrayan.spector.memory.cortex.SemanticMemory;
+import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
@@ -109,10 +109,10 @@ class PartitionManagerTest {
 
     /** Builds a real router with fresh tier stores rooted in the given partition dir. */
     private CognitiveMemoryRouter newRouter(Path partitionDir) {
-        WorkingRecordMemory working = new WorkingRecordMemory(VEC_BYTES, 64);
-        SemanticRecordMemory semantic = new SemanticRecordMemory(
+        WorkingMemory working = new WorkingMemory(VEC_BYTES, 64);
+        SemanticMemory semantic = new SemanticMemory(
                 VEC_BYTES, SEMANTIC_CAP, StorageLayout.semanticMem(partitionDir));
-        ProceduralRecordMemory procedural = new ProceduralRecordMemory(
+        ProceduralMemory procedural = new ProceduralMemory(
                 VEC_BYTES, PROCEDURAL_CAP, StorageLayout.proceduralMem(partitionDir));
         EpisodicLogMemory episodicLog = EpisodicLogMemory.heap();
         CognitiveMemoryRouter router = new CognitiveMemoryRouter(working, semantic, procedural, episodicLog);
@@ -178,7 +178,7 @@ class PartitionManagerTest {
         PartitionManager pm = newManager(router0, p0);
 
         // Fill the active semantic store to capacity.
-        SemanticRecordMemory semantic0 = router0.semantic();
+        SemanticMemory semantic0 = router0.semantic();
         for (int i = 0; i < SEMANTIC_CAP; i++) {
             semantic0.append(semanticHeader(1_000L + i), vec());
         }
@@ -220,7 +220,7 @@ class PartitionManagerTest {
         CognitiveMemoryRouter router0 = newRouter(p0);
         PartitionManager pm = newManager(router0, p0);
 
-        SemanticRecordMemory semantic0 = router0.semantic();
+        SemanticMemory semantic0 = router0.semantic();
         for (int i = 0; i < SEMANTIC_CAP; i++) {
             semantic0.append(semanticHeader(1_000L + i), vec());
         }
@@ -305,7 +305,7 @@ class PartitionManagerTest {
         PartitionManager pm = newManager(router0, p0);
 
         // Seed the initial (soon-to-be-frozen) partition with readable records.
-        SemanticRecordMemory semantic0 = router0.semantic();
+        SemanticMemory semantic0 = router0.semantic();
         for (int i = 0; i < SEMANTIC_CAP; i++) {
             semantic0.append(semanticHeader(1_000L + i), vec());
         }

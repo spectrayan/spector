@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.aisme.relay;
 
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
+import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
@@ -33,7 +33,7 @@ class ConstructivePersistenceDurabilityTest {
     @DisplayName("MR-01: Persisted synthetic simulation retains FLAG_SIMULATED, arousal, and soulVersion across store operations")
     void testSyntheticMemoryDurabilityInSemanticStore() {
         CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
-        SemanticRecordMemory semanticStore = new SemanticRecordMemory(DIMS, 100);
+        SemanticMemory semanticStore = new SemanticMemory(DIMS, 100);
 
         long timestamp = System.currentTimeMillis();
         byte procFlags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());

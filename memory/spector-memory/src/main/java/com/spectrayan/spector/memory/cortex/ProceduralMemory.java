@@ -48,9 +48,9 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *   <li>Flat scan with {@code CognitiveScorer}</li>
  * </ul>
  */
-public final class ProceduralRecordMemory extends AbstractCognitiveRecordMemory {
+public final class ProceduralMemory extends AbstractCognitiveRecordMemory {
 
-    private static final Logger log = LoggerFactory.getLogger(ProceduralRecordMemory.class);
+    private static final Logger log = LoggerFactory.getLogger(ProceduralMemory.class);
 
     /**
      * Creates a volatile Procedural Memory store (in-memory only).
@@ -58,11 +58,11 @@ public final class ProceduralRecordMemory extends AbstractCognitiveRecordMemory 
      * @param quantizedVecBytes bytes per quantized vector
      * @param capacity          maximum number of procedural memories (default: 1000)
      */
-    public ProceduralRecordMemory(int quantizedVecBytes, int capacity) {
+    public ProceduralMemory(int quantizedVecBytes, int capacity) {
         super(MemoryType.PROCEDURAL, quantizedVecBytes, capacity,
                 (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
 
-        log.info("ProceduralRecordMemory initialized: capacity={}, stride={}B, persistent=false",
+        log.info("ProceduralMemory initialized: capacity={}, stride={}B, persistent=false",
                 capacity, layout.stride());
     }
 
@@ -73,19 +73,19 @@ public final class ProceduralRecordMemory extends AbstractCognitiveRecordMemory 
      * @param capacity          maximum number of procedural memories
      * @param filePath          path to the backing mmap file
      */
-    public ProceduralRecordMemory(int quantizedVecBytes, int capacity, Path filePath) {
+    public ProceduralMemory(int quantizedVecBytes, int capacity, Path filePath) {
         super(MemoryType.PROCEDURAL, quantizedVecBytes, capacity,
                 (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
 
-        log.info("ProceduralRecordMemory initialized: capacity={}, stride={}B, persistent=true, count={}",
+        log.info("ProceduralMemory initialized: capacity={}, stride={}B, persistent=true, count={}",
                 capacity(), layout.stride(), getCount());
     }
 
     /**
      * Creates a volatile Procedural Memory store with default capacity (1000).
      */
-    public ProceduralRecordMemory(int quantizedVecBytes) {
+    public ProceduralMemory(int quantizedVecBytes) {
         this(quantizedVecBytes, 1000);
     }
 
@@ -98,16 +98,16 @@ public final class ProceduralRecordMemory extends AbstractCognitiveRecordMemory 
      * @param quantizedVecBytes bytes per quantized vector
      * @param bundlePath   the path to the bundle file (for diagnostics)
      * @param isNew        true if the region was just created
-     * @return a new bundle-backed ProceduralRecordMemory
+     * @return a new bundle-backed ProceduralMemory
      */
-    public static ProceduralRecordMemory fromBundle(Arena arena, MemorySegment regionSlice,
-                                                     int capacity, int quantizedVecBytes,
-                                                     Path bundlePath, boolean isNew) {
-        return new ProceduralRecordMemory(arena, regionSlice, capacity, quantizedVecBytes, bundlePath, isNew);
+    public static ProceduralMemory fromBundle(Arena arena, MemorySegment regionSlice,
+                                             int capacity, int quantizedVecBytes,
+                                             Path bundlePath, boolean isNew) {
+        return new ProceduralMemory(arena, regionSlice, capacity, quantizedVecBytes, bundlePath, isNew);
     }
 
-    private ProceduralRecordMemory(Arena arena, MemorySegment regionSlice, int capacity,
-                                    int quantizedVecBytes, Path bundlePath, boolean isNew) {
+    private ProceduralMemory(Arena arena, MemorySegment regionSlice, int capacity,
+                             int quantizedVecBytes, Path bundlePath, boolean isNew) {
         super(MemoryType.PROCEDURAL,
               new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes),
               capacity, arena, regionSlice, bundlePath, isNew);

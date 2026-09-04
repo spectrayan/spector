@@ -18,10 +18,10 @@ import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
-import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
+import com.spectrayan.spector.memory.cortex.ProceduralMemory;
+import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
-import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
+import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
@@ -31,25 +31,6 @@ import com.spectrayan.spector.memory.kernel.bundle.BundleMigrationCli;
 import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
 import com.spectrayan.spector.memory.kernel.bundle.RegionId;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
-import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
-
-import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
-import com.spectrayan.spector.memory.cortex.PartitionHandle;
-import com.spectrayan.spector.memory.cortex.PartitionRegistry;
-import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
-import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
-import com.spectrayan.spector.memory.kernel.bundle.RegionId;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
@@ -281,7 +262,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
      * @return a frozen partition handle wrapping the opened stores
      */
     public static PartitionHandle openFrozenPartition(Path dir, int seq,
-                                               WorkingRecordMemory workingStore,
+                                               WorkingMemory workingStore,
                                                int quantizedVecBytes,
                                                int semanticCapacity,
                                                int episodicPartitionCapacity,
@@ -308,8 +289,8 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
         CognitiveMemoryRouter router = new CognitiveMemoryRouter(
                 workingStore,
                 new EpisodicRecordMemory(quantizedVecBytes, episodicPartitionCapacity),
-                new SemanticRecordMemory(quantizedVecBytes, semanticCapacity),
-                new ProceduralRecordMemory(quantizedVecBytes, proceduralCapacity),
+                new SemanticMemory(quantizedVecBytes, semanticCapacity),
+                new ProceduralMemory(quantizedVecBytes, proceduralCapacity),
                 episodicLog);
         log.info("Opened empty fallback frozen partition seq={} ({})", seq, dir.getFileName());
         return new PartitionHandle(seq, dir, router, null, false);
@@ -319,7 +300,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
      * Opens a frozen partition from a V4 bundle file.
      */
     private static PartitionHandle openFrozenBundlePartition(Path dir, int seq,
-                                                              WorkingRecordMemory workingStore,
+                                                              WorkingMemory workingStore,
                                                               Path bundleFile,
                                                               int quantizedVecBytes,
                                                               int semanticCapacity,
@@ -333,13 +314,13 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
         MemorySegment procSlice = bundle.regionSegment(RegionId.PROCEDURAL);
         MemorySegment textSlice = bundle.regionSegment(RegionId.TEXT);
 
-        SemanticRecordMemory semantic = SemanticRecordMemory.fromBundle(
+        SemanticMemory semantic = SemanticMemory.fromBundle(
                 bundle.arena(), semSlice, semanticCapacity, quantizedVecBytes, bundleFile, false);
         EpisodicRecordMemory episodic = EpisodicRecordMemory.fromBundle(
                 bundle.arena(), epiSlice, episodicPartitionCapacity, quantizedVecBytes, bundleFile, false);
         EpisodicLogMemory episodicLog = EpisodicLogMemory.fromBundle(
                 bundle.arena(), epiSlice, bundleFile, false);
-        ProceduralRecordMemory procedural = ProceduralRecordMemory.fromBundle(
+        ProceduralMemory procedural = ProceduralMemory.fromBundle(
                 bundle.arena(), procSlice, proceduralCapacity, quantizedVecBytes, bundleFile, false);
         TextAppendMemory text = TextAppendMemory.fromBundle(
                 bundle.arena(), textSlice, bundleFile, false, encryptor);
@@ -393,7 +374,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                 Files.createDirectories(newPartition);
 
                 // Preserve working memory (global, not partitioned)
-                WorkingRecordMemory workingStore = activeRouter().working();
+                WorkingMemory workingStore = activeRouter().working();
 
                 CognitiveMemoryRouter newRouter;
                 TextAppendMemory newText;
@@ -416,7 +397,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                         cogLayout.layoutId(), cogLayout.schemaVersion(),
                         textLayout.layoutId(), textLayout.schemaVersion());
 
-                SemanticRecordMemory newSemantic = SemanticRecordMemory.fromBundle(
+                SemanticMemory newSemantic = SemanticMemory.fromBundle(
                         newBundle.arena(), newBundle.regionSegment(RegionId.SEMANTIC),
                         semanticCapacity, quantizedVecBytes, bundleFile, true);
                 EpisodicRecordMemory newEpisodic = EpisodicRecordMemory.fromBundle(
@@ -425,7 +406,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                 EpisodicLogMemory newEpisodicLog = EpisodicLogMemory.fromBundle(
                         newBundle.arena(), newBundle.regionSegment(RegionId.EPISODIC),
                         bundleFile, true);
-                ProceduralRecordMemory newProcedural = ProceduralRecordMemory.fromBundle(
+                ProceduralMemory newProcedural = ProceduralMemory.fromBundle(
                         newBundle.arena(), newBundle.regionSegment(RegionId.PROCEDURAL),
                         proceduralCapacity, quantizedVecBytes, bundleFile, true);
                 newText = TextAppendMemory.fromBundle(

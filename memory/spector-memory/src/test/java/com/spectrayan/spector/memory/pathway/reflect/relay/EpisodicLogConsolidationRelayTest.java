@@ -17,7 +17,7 @@ import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
-import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
+import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
@@ -41,12 +41,12 @@ import static org.mockito.Mockito.when;
 class EpisodicLogConsolidationRelayTest {
 
     private EpisodicLogMemory logMemory;
-    private WorkingRecordMemory workingMemory;
+    private WorkingMemory workingMemory;
 
     @BeforeEach
     void setUp() {
         logMemory = new EpisodicLogMemory(1024 * 1024);
-        workingMemory = new WorkingRecordMemory(16, 100);
+        workingMemory = new WorkingMemory(16, 100);
     }
 
     @AfterEach

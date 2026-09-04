@@ -49,9 +49,9 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *   <li>Flat scan with {@code CognitiveScorer} for distance computation</li>
  * </ul>
  */
-public final class SemanticRecordMemory extends AbstractCognitiveRecordMemory {
+public final class SemanticMemory extends AbstractCognitiveRecordMemory {
 
-    private static final Logger log = LoggerFactory.getLogger(SemanticRecordMemory.class);
+    private static final Logger log = LoggerFactory.getLogger(SemanticMemory.class);
 
     /**
      * Creates a volatile Semantic Memory store (in-memory only).
@@ -62,11 +62,11 @@ public final class SemanticRecordMemory extends AbstractCognitiveRecordMemory {
      * @param quantizedVecBytes bytes per quantized vector (for layout calculation)
      * @param capacity          maximum number of semantic memories (default: 100_000)
      */
-    public SemanticRecordMemory(int quantizedVecBytes, int capacity) {
+    public SemanticMemory(int quantizedVecBytes, int capacity) {
         super(MemoryType.SEMANTIC, quantizedVecBytes, capacity,
                 (long) new CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
 
-        log.info("SemanticRecordMemory initialized: capacity={}, stride={}B, persistent=false, headerVersion=V{}",
+        log.info("SemanticMemory initialized: capacity={}, stride={}B, persistent=false, headerVersion=V{}",
                 capacity, layout.stride(), layout.headerLayout().version());
     }
 
@@ -77,12 +77,12 @@ public final class SemanticRecordMemory extends AbstractCognitiveRecordMemory {
      * @param capacity          maximum number of semantic memories
      * @param filePath          path to the backing mmap file
      */
-    public SemanticRecordMemory(int quantizedVecBytes, int capacity, Path filePath) {
+    public SemanticMemory(int quantizedVecBytes, int capacity, Path filePath) {
         super(MemoryType.SEMANTIC, quantizedVecBytes, capacity,
                 (long) new CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
 
-        log.info("SemanticRecordMemory initialized: capacity={}, stride={}B, persistent=true, count={}, headerVersion=V{}",
+        log.info("SemanticMemory initialized: capacity={}, stride={}B, persistent=true, count={}, headerVersion=V{}",
                 capacity, layout.stride(), getCount(), layout.headerLayout().version());
     }
 
@@ -98,16 +98,16 @@ public final class SemanticRecordMemory extends AbstractCognitiveRecordMemory {
      * @param quantizedVecBytes bytes per quantized vector (for layout calculation)
      * @param bundlePath   the path to the bundle file (for diagnostics)
      * @param isNew        true if the region was just created
-     * @return a new bundle-backed SemanticRecordMemory
+     * @return a new bundle-backed SemanticMemory
      */
-    public static SemanticRecordMemory fromBundle(Arena arena, MemorySegment regionSlice,
-                                                   int capacity, int quantizedVecBytes,
-                                                   Path bundlePath, boolean isNew) {
-        return new SemanticRecordMemory(arena, regionSlice, capacity, quantizedVecBytes, bundlePath, isNew);
+    public static SemanticMemory fromBundle(Arena arena, MemorySegment regionSlice,
+                                            int capacity, int quantizedVecBytes,
+                                            Path bundlePath, boolean isNew) {
+        return new SemanticMemory(arena, regionSlice, capacity, quantizedVecBytes, bundlePath, isNew);
     }
 
-    private SemanticRecordMemory(Arena arena, MemorySegment regionSlice, int capacity,
-                                  int quantizedVecBytes, Path bundlePath, boolean isNew) {
+    private SemanticMemory(Arena arena, MemorySegment regionSlice, int capacity,
+                           int quantizedVecBytes, Path bundlePath, boolean isNew) {
         super(MemoryType.SEMANTIC, new CognitiveRecordLayout(quantizedVecBytes),
               capacity, arena, regionSlice, bundlePath, isNew);
     }

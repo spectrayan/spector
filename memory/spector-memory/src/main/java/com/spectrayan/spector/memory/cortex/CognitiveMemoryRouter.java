@@ -46,19 +46,19 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     private final EnumMap<MemoryType, CognitiveRecordMemory> stores = new EnumMap<>(MemoryType.class);
 
     // ── Typed accessors for store-specific operations ──
-    private final WorkingRecordMemory workingStore;
+    private final WorkingMemory workingStore;
     private final EpisodicRecordMemory episodicStore;
-    private final SemanticRecordMemory semanticStore;
-    private final ProceduralRecordMemory proceduralStore;
+    private final SemanticMemory semanticStore;
+    private final ProceduralMemory proceduralStore;
     private final EpisodicLogMemory episodicLogStore;
     private final StrengthMemory strengthStore;
 
     /**
      * Creates a CognitiveMemoryRouter with the modern log-structured episodic store.
      */
-    public CognitiveMemoryRouter(WorkingRecordMemory workingStore,
-                                 SemanticRecordMemory semanticStore,
-                                 ProceduralRecordMemory proceduralStore,
+    public CognitiveMemoryRouter(WorkingMemory workingStore,
+                                 SemanticMemory semanticStore,
+                                 ProceduralMemory proceduralStore,
                                  EpisodicLogMemory episodicLogStore) {
         this(workingStore, null, semanticStore, proceduralStore, episodicLogStore, null);
     }
@@ -66,10 +66,10 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     /**
      * Creates a CognitiveMemoryRouter with all four cognitive memory stores.
      */
-    public CognitiveMemoryRouter(WorkingRecordMemory workingStore,
+    public CognitiveMemoryRouter(WorkingMemory workingStore,
                                  EpisodicRecordMemory episodicStore,
-                                 SemanticRecordMemory semanticStore,
-                                 ProceduralRecordMemory proceduralStore) {
+                                 SemanticMemory semanticStore,
+                                 ProceduralMemory proceduralStore) {
         this(workingStore, episodicStore, semanticStore, proceduralStore, null, null);
     }
 
@@ -80,10 +80,10 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      * log-structured store and the legacy fixed-stride episodic store is not
      * registered in the EnumMap.</p>
      */
-    public CognitiveMemoryRouter(WorkingRecordMemory workingStore,
+    public CognitiveMemoryRouter(WorkingMemory workingStore,
                                  EpisodicRecordMemory episodicStore,
-                                 SemanticRecordMemory semanticStore,
-                                 ProceduralRecordMemory proceduralStore,
+                                 SemanticMemory semanticStore,
+                                 ProceduralMemory proceduralStore,
                                  EpisodicLogMemory episodicLogStore) {
         this(workingStore, episodicStore, semanticStore, proceduralStore, episodicLogStore, null);
     }
@@ -91,10 +91,10 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     /**
      * Creates a CognitiveMemoryRouter with all stores and the unified Recall Strength store.
      */
-    public CognitiveMemoryRouter(WorkingRecordMemory workingStore,
+    public CognitiveMemoryRouter(WorkingMemory workingStore,
                                  EpisodicRecordMemory episodicStore,
-                                 SemanticRecordMemory semanticStore,
-                                 ProceduralRecordMemory proceduralStore,
+                                 SemanticMemory semanticStore,
+                                 ProceduralMemory proceduralStore,
                                  EpisodicLogMemory episodicLogStore,
                                  StrengthMemory strengthStore) {
         this.workingStore = workingStore;
@@ -303,7 +303,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     // ══════════════════════════════════════════════════════════════
 
     /** Returns the Working Memory store (for circular buffer scan). */
-    public WorkingRecordMemory working() { return workingStore; }
+    public WorkingMemory working() { return workingStore; }
 
     /** Returns the Episodic Memory store (for partition iteration). Null when log mode active. */
     public EpisodicRecordMemory episodic() { return episodicStore; }
@@ -315,10 +315,10 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     public boolean isEpisodicLogMode() { return episodicLogStore != null; }
 
     /** Returns the Semantic Memory store (for header slab access). */
-    public SemanticRecordMemory semantic() { return semanticStore; }
+    public SemanticMemory semantic() { return semanticStore; }
 
     /** Returns the Procedural Memory store (for flat scan). */
-    public ProceduralRecordMemory procedural() { return proceduralStore; }
+    public ProceduralMemory procedural() { return proceduralStore; }
 
     /** Returns the unified Strength memory store. Null if not configured. */
     public StrengthMemory strength() { return strengthStore; }

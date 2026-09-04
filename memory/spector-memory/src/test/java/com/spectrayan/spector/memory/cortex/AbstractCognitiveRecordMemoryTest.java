@@ -35,7 +35,7 @@ class AbstractCognitiveRecordMemoryTest {
     @Test
     @DisplayName("Volatile store is not persistent")
     void volatileStoreNotPersistent() {
-        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100)) {
+        try (SemanticMemory store = new SemanticMemory(128, 100)) {
             assertThat(store.isPersistent()).isFalse();
         }
     }
@@ -44,7 +44,7 @@ class AbstractCognitiveRecordMemoryTest {
     @DisplayName("Persistent store creates mmap file")
     void persistentStoreCreatesMmapFile(@TempDir Path tempDir) {
         Path file = tempDir.resolve("test.mem");
-        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100, file)) {
+        try (SemanticMemory store = new SemanticMemory(128, 100, file)) {
             assertThat(store.isPersistent()).isTrue();
             assertThat(store.filePath()).isEqualTo(file);
             assertThat(file).exists();
@@ -55,13 +55,13 @@ class AbstractCognitiveRecordMemoryTest {
     @DisplayName("Persistent store restores count on reopen")
     void persistentStoreRestoresCountOnReopen(@TempDir Path tempDir) {
         Path file = tempDir.resolve("test.mem");
-        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100, file)) {
+        try (SemanticMemory store = new SemanticMemory(128, 100, file)) {
             store.write(createHeader(), new byte[128]);
             store.write(createHeader(), new byte[128]);
             store.force();
         }
         
-        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100, file)) {
+        try (SemanticMemory store = new SemanticMemory(128, 100, file)) {
             assertThat(store.size()).isEqualTo(2);
         }
     }
@@ -70,7 +70,7 @@ class AbstractCognitiveRecordMemoryTest {
     @DisplayName("Metadata header contains magic and version")
     void metadataHeaderContainsMagicAndVersion(@TempDir Path tempDir) {
         Path file = tempDir.resolve("test.mem");
-        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100, file)) {
+        try (SemanticMemory store = new SemanticMemory(128, 100, file)) {
             // SMKM magic is 0x534D4B4D
             int magic = store.segment().get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
             assertThat(magic).isEqualTo(com.spectrayan.spector.memory.kernel.RegionPreamble.MAGIC);
@@ -83,7 +83,7 @@ class AbstractCognitiveRecordMemoryTest {
     @DisplayName("tombstoneCount scans correctly")
     void tombstoneCountScansCorrectly(@TempDir Path tempDir) {
         Path file = tempDir.resolve("test.mem");
-        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100, file)) {
+        try (SemanticMemory store = new SemanticMemory(128, 100, file)) {
             long offset1 = store.write(createHeader(), new byte[128]);
             long offset2 = store.write(createHeader(), new byte[128]);
             
@@ -97,7 +97,7 @@ class AbstractCognitiveRecordMemoryTest {
     @Test
     @DisplayName("tombstoneRatio is zero when empty")
     void tombstoneRatioZeroWhenEmpty() {
-        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100)) {
+        try (SemanticMemory store = new SemanticMemory(128, 100)) {
             assertThat(store.tombstoneRatio()).isZero();
         }
     }
@@ -105,7 +105,7 @@ class AbstractCognitiveRecordMemoryTest {
     @Test
     @DisplayName("force is a no-op for volatile store")
     void forceIsNoOpForVolatile() {
-        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100)) {
+        try (SemanticMemory store = new SemanticMemory(128, 100)) {
             store.force(); // Should not throw exception
         }
     }
@@ -113,7 +113,7 @@ class AbstractCognitiveRecordMemoryTest {
     @Test
     @DisplayName("visibleCount follows publish")
     void visibleCountFollowsPublish() {
-        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100)) {
+        try (SemanticMemory store = new SemanticMemory(128, 100)) {
             assertThat(store.visibleCount()).isZero();
             store.write(createHeader(), new byte[128]);
             assertThat(store.visibleCount()).isEqualTo(1);
@@ -123,7 +123,7 @@ class AbstractCognitiveRecordMemoryTest {
     @Test
     @DisplayName("close releases arena")
     void closeReleasesArena() {
-        SemanticRecordMemory store = new SemanticRecordMemory(128, 100);
+        SemanticMemory store = new SemanticMemory(128, 100);
         store.close();
         // After close, writing to the store should throw because the arena is closed
         CognitiveHeader header = createHeader();

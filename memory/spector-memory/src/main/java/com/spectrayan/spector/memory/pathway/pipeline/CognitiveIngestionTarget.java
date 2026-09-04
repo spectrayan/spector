@@ -30,9 +30,7 @@ import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
-import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
+import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.neuromod.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
@@ -108,7 +106,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     private volatile CognitiveMemoryRouter cognitiveRouter;  // volatile: swapped on partition roll
     private final MemoryIndex index;
     private final MemoryWal wal;
-    private final WorkingRecordMemory workingStore;  // nullable
+    private final WorkingMemory workingStore;  // nullable
     private final IcnuWeights icnuWeights;
     private final ImportanceProvider importanceProvider;
     private final VectorIndex semanticIndex;  // nullable  --  HNSW for semantic recall
@@ -161,7 +159,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      CognitiveMemoryRouter cognitiveRouter,
                                      MemoryIndex index,
                                      MemoryWal wal,
-                                     WorkingRecordMemory workingStore,
+                                     WorkingMemory workingStore,
                                      IcnuWeights icnuWeights,
                                      VectorIndex semanticIndex,
                                      TagExtractor tagExtractor,
@@ -195,7 +193,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      CognitiveMemoryRouter cognitiveRouter,
                                      MemoryIndex index,
                                      MemoryWal wal,
-                                     WorkingRecordMemory workingStore,
+                                     WorkingMemory workingStore,
                                      IcnuWeights icnuWeights,
                                      VectorIndex semanticIndex,
                                      TagExtractor tagExtractor,
@@ -233,7 +231,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      CognitiveMemoryRouter cognitiveRouter,
                                      MemoryIndex index,
                                      MemoryWal wal,
-                                     WorkingRecordMemory workingStore,
+                                     WorkingMemory workingStore,
                                      IcnuWeights icnuWeights,
                                      VectorIndex semanticIndex,
                                      TagExtractor tagExtractor,
@@ -388,7 +386,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      CognitiveMemoryRouter cognitiveRouter,
                                      MemoryIndex index,
                                      MemoryWal wal,
-                                     WorkingRecordMemory workingStore,
+                                     WorkingMemory workingStore,
                                      IcnuWeights icnuWeights,
                                      VectorIndex semanticIndex,
                                      TagExtractor tagExtractor,

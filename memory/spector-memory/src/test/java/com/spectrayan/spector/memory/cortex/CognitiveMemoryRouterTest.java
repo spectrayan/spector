@@ -24,10 +24,10 @@ class CognitiveMemoryRouterTest {
     @DisplayName("get() returns correct store for each MemoryType")
     void getReturnsCorrectStoreForEachType() {
         // CognitiveMemoryRouter.close() cascades to child stores, so only close the router
-        WorkingRecordMemory working = new WorkingRecordMemory(128, 100);
+        WorkingMemory working = new WorkingMemory(128, 100);
         EpisodicRecordMemory episodic = new EpisodicRecordMemory(128, 100);
-        SemanticRecordMemory semantic = new SemanticRecordMemory(128, 100);
-        ProceduralRecordMemory procedural = new ProceduralRecordMemory(128, 100);
+        SemanticMemory semantic = new SemanticMemory(128, 100);
+        ProceduralMemory procedural = new ProceduralMemory(128, 100);
 
         try (CognitiveMemoryRouter router = new CognitiveMemoryRouter(working, episodic, semantic, procedural)) {
             assertThat(router.get(MemoryType.WORKING)).isSameAs(working);
@@ -40,10 +40,10 @@ class CognitiveMemoryRouterTest {
     @Test
     @DisplayName("Typed accessors return correct instances")
     void typedAccessorsReturnCorrectInstances() {
-        WorkingRecordMemory working = new WorkingRecordMemory(128, 100);
+        WorkingMemory working = new WorkingMemory(128, 100);
         EpisodicRecordMemory episodic = new EpisodicRecordMemory(128, 100);
-        SemanticRecordMemory semantic = new SemanticRecordMemory(128, 100);
-        ProceduralRecordMemory procedural = new ProceduralRecordMemory(128, 100);
+        SemanticMemory semantic = new SemanticMemory(128, 100);
+        ProceduralMemory procedural = new ProceduralMemory(128, 100);
 
         try (CognitiveMemoryRouter router = new CognitiveMemoryRouter(working, episodic, semantic, procedural)) {
             assertThat(router.working()).isSameAs(working);
@@ -56,10 +56,10 @@ class CognitiveMemoryRouterTest {
     @Test
     @DisplayName("totalCount sums all stores")
     void totalCountSumsAllStores() {
-        WorkingRecordMemory working = new WorkingRecordMemory(128, 100);
+        WorkingMemory working = new WorkingMemory(128, 100);
         EpisodicRecordMemory episodic = new EpisodicRecordMemory(128, 100);
-        SemanticRecordMemory semantic = new SemanticRecordMemory(128, 100);
-        ProceduralRecordMemory procedural = new ProceduralRecordMemory(128, 100);
+        SemanticMemory semantic = new SemanticMemory(128, 100);
+        ProceduralMemory procedural = new ProceduralMemory(128, 100);
 
         try (CognitiveMemoryRouter router = new CognitiveMemoryRouter(working, episodic, semantic, procedural)) {
             assertThat(router.totalCount()).isZero();
@@ -92,10 +92,10 @@ class CognitiveMemoryRouterTest {
     @Test
     @DisplayName("close() closes all stores without throwing")
     void closeClosesAllStores() {
-        WorkingRecordMemory working = new WorkingRecordMemory(128, 100);
+        WorkingMemory working = new WorkingMemory(128, 100);
         EpisodicRecordMemory episodic = new EpisodicRecordMemory(128, 100);
-        SemanticRecordMemory semantic = new SemanticRecordMemory(128, 100);
-        ProceduralRecordMemory procedural = new ProceduralRecordMemory(128, 100);
+        SemanticMemory semantic = new SemanticMemory(128, 100);
+        ProceduralMemory procedural = new ProceduralMemory(128, 100);
         
         CognitiveMemoryRouter router = new CognitiveMemoryRouter(working, episodic, semantic, procedural);
         router.close();

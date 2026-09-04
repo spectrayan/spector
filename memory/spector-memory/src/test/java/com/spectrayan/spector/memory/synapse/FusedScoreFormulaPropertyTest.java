@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
+import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
@@ -54,7 +54,7 @@ class FusedScoreFormulaPropertyTest {
     @Test
     @DisplayName("MR-02: MULTIPLICATIVE mode preserves backwards compatible score formula")
     void multiplicativeModeFormula() {
-        SemanticRecordMemory store = new SemanticRecordMemory(DIMS, 10);
+        SemanticMemory store = new SemanticMemory(DIMS, 10);
         CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
         byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
 
@@ -96,7 +96,7 @@ class FusedScoreFormulaPropertyTest {
     @Test
     @DisplayName("MR-02: ADDITIVE mode correctly balances vector similarity and semantic tag overlap with live alpha")
     void additiveModeFormulaRespectsAlpha() {
-        SemanticRecordMemory store = new SemanticRecordMemory(DIMS, 10);
+        SemanticMemory store = new SemanticMemory(DIMS, 10);
         CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
         byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
 

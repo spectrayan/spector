@@ -16,7 +16,7 @@ import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
-import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
+import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
@@ -39,7 +39,7 @@ class SynapticPruningRelayTest {
     void testDeepSleepPruning() {
         CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
         EpisodicRecordMemory episodicMemory = new EpisodicRecordMemory(DIMS, 100);
-        WorkingRecordMemory workingMemory = new WorkingRecordMemory(DIMS, 100);
+        WorkingMemory workingMemory = new WorkingMemory(DIMS, 100);
 
         CognitiveHeader weakHeader = new CognitiveHeader(
                 System.currentTimeMillis() - 100_000_000L, // old timestamp

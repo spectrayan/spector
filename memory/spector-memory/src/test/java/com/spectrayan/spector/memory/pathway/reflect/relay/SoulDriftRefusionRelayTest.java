@@ -17,8 +17,8 @@ import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
-import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
+import com.spectrayan.spector.memory.cortex.SemanticMemory;
+import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import org.junit.jupiter.api.DisplayName;
@@ -40,8 +40,8 @@ class SoulDriftRefusionRelayTest {
     void testSoulDriftDetectionAndRefusion() {
         ScalarQuantizer quantizer = Mockito.mock(ScalarQuantizer.class);
         CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
-        SemanticRecordMemory semanticMemory = new SemanticRecordMemory(DIMS, 100);
-        WorkingRecordMemory workingMemory = new WorkingRecordMemory(DIMS, 100);
+        SemanticMemory semanticMemory = new SemanticMemory(DIMS, 100);
+        WorkingMemory workingMemory = new WorkingMemory(DIMS, 100);
 
         CognitiveMemoryRouter router = new CognitiveMemoryRouter(workingMemory, null, semanticMemory, null);
         PartitionManager partitionManager = Mockito.mock(PartitionManager.class);
@@ -107,7 +107,7 @@ class SoulDriftRefusionRelayTest {
         when(quantizer.decode(Mockito.any(byte[].class))).thenReturn(memoryVec);
 
         CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
-        SemanticRecordMemory semanticMemory = new SemanticRecordMemory(DIMS, 100);
+        SemanticMemory semanticMemory = new SemanticMemory(DIMS, 100);
         CognitiveMemoryRouter router = new CognitiveMemoryRouter(null, null, semanticMemory, null);
         PartitionManager partitionManager = Mockito.mock(PartitionManager.class);
         PartitionHandle handle = new PartitionHandle(0, null, router, null, false);

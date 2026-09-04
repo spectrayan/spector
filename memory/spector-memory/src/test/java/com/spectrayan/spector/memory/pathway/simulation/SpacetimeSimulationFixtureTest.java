@@ -18,7 +18,7 @@ import com.spectrayan.spector.core.spacetime.Time2VecProjector;
 import com.spectrayan.spector.memory.pathway.express.ExpressPathway;
 import com.spectrayan.spector.memory.aisme.homeostasis.InteroceptiveState;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
+import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
 import com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
@@ -168,7 +168,7 @@ class SpacetimeSimulationFixtureTest {
         @Test
         @DisplayName("Fixture D: Dream memory with future timestamp (t_s > now) is dropped by default recall, admitted when allowFuture=true")
         void syntheticDreamRowDroppedByDefaultRecall() {
-            final SemanticRecordMemory store = new SemanticRecordMemory(DIMS, 10);
+            final SemanticMemory store = new SemanticMemory(DIMS, 10);
             final CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
             final long now = System.currentTimeMillis();
 

@@ -16,7 +16,7 @@ import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
-import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
+import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.model.ImportanceContext;
 import com.spectrayan.spector.memory.model.ImportanceResult;
@@ -31,13 +31,13 @@ public final class DopaminergicSurpriseRelay implements SynapticRelay<RememberSi
 
     private final SurpriseDetector surpriseDetector;
     private final ImportanceProvider importanceProvider;
-    private final WorkingRecordMemory workingStore;
+    private final WorkingMemory workingStore;
     private final ScalarQuantizer quantizer;
 
     public DopaminergicSurpriseRelay(
             final SurpriseDetector surpriseDetector,
             final ImportanceProvider importanceProvider,
-            final WorkingRecordMemory workingStore,
+            final WorkingMemory workingStore,
             final ScalarQuantizer quantizer) {
         this.surpriseDetector = Objects.requireNonNull(surpriseDetector, "surpriseDetector cannot be null");
         this.importanceProvider = importanceProvider != null ? importanceProvider : ImportanceProvider.baseline();

@@ -52,9 +52,9 @@ import java.util.concurrent.locks.ReentrantLock;
  * <p>Uses a shared Arena. Write access is guarded by {@link java.util.concurrent.locks.ReentrantLock}; reads are lock-free
  * (scan over immutable segments).</p>
  */
-public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
+public final class WorkingMemory extends AbstractCognitiveRecordMemory {
 
-    private static final Logger log = LoggerFactory.getLogger(WorkingRecordMemory.class);
+    private static final Logger log = LoggerFactory.getLogger(WorkingMemory.class);
 
     private int writeIndex = 0;  // circular buffer index
 
@@ -64,11 +64,11 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
      * @param quantizedVecBytes bytes per quantized vector
      * @param capacity          maximum number of records (default: 100)
      */
-    public WorkingRecordMemory(int quantizedVecBytes, int capacity) {
+    public WorkingMemory(int quantizedVecBytes, int capacity) {
         super(MemoryType.WORKING, quantizedVecBytes, capacity,
                 (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
 
-        log.info("WorkingRecordMemory initialized: capacity={}, stride={}B, total={}KB, persistent=false",
+        log.info("WorkingMemory initialized: capacity={}, stride={}B, total={}KB, persistent=false",
                 capacity, layout.stride(), (long) layout.stride() * capacity / 1024);
     }
 
@@ -83,7 +83,7 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
      * @param capacity          maximum number of records
      * @param filePath          path to the backing mmap file
      */
-    public WorkingRecordMemory(int quantizedVecBytes, int capacity, Path filePath) {
+    public WorkingMemory(int quantizedVecBytes, int capacity, Path filePath) {
         super(MemoryType.WORKING, quantizedVecBytes, capacity,
                 (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
@@ -91,24 +91,24 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
         // Restore writeIndex from metadata header extra1 field
         if (isPersistent() && getCount() > 0) {
             this.writeIndex = segment().get(ValueLayout.JAVA_INT, META_EXTRA1);
-            log.info("WorkingRecordMemory restored: writeIndex={}, count={}", writeIndex, getCount());
+            log.info("WorkingMemory restored: writeIndex={}, count={}", writeIndex, getCount());
         }
 
-        log.info("WorkingRecordMemory initialized: capacity={}, stride={}B, persistent=true",
+        log.info("WorkingMemory initialized: capacity={}, stride={}B, persistent=true",
                 capacity(), layout.stride());
     }
 
     /**
      * Creates a bundle-backed Working Memory store from a pre-sliced region segment.
      */
-    public static WorkingRecordMemory fromBundle(Arena arena, MemorySegment regionSlice,
-                                                 int capacity, int quantizedVecBytes,
-                                                 Path bundlePath, boolean isNew) {
-        return new WorkingRecordMemory(arena, regionSlice, capacity, quantizedVecBytes, bundlePath, isNew);
+    public static WorkingMemory fromBundle(Arena arena, MemorySegment regionSlice,
+                                           int capacity, int quantizedVecBytes,
+                                           Path bundlePath, boolean isNew) {
+        return new WorkingMemory(arena, regionSlice, capacity, quantizedVecBytes, bundlePath, isNew);
     }
 
-    private WorkingRecordMemory(Arena arena, MemorySegment regionSlice, int capacity,
-                                 int quantizedVecBytes, Path bundlePath, boolean isNew) {
+    private WorkingMemory(Arena arena, MemorySegment regionSlice, int capacity,
+                          int quantizedVecBytes, Path bundlePath, boolean isNew) {
         super(MemoryType.WORKING, new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes),
               capacity, arena, regionSlice, bundlePath, isNew);
         
@@ -116,14 +116,14 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
         if (getCount() > 0) {
             this.writeIndex = segment().get(ValueLayout.JAVA_INT, META_EXTRA1);
         }
-        log.info("WorkingRecordMemory initialized (bundle): capacity={}, stride={}B, persistent=true, count={}, writeIndex={}",
+        log.info("WorkingMemory initialized (bundle): capacity={}, stride={}B, persistent=true, count={}, writeIndex={}",
                 capacity(), layout.stride(), getCount(), writeIndex);
     }
 
     /**
      * Creates a volatile Working Memory store with default capacity (100).
      */
-    public WorkingRecordMemory(int quantizedVecBytes) {
+    public WorkingMemory(int quantizedVecBytes) {
         this(quantizedVecBytes, 100);
     }
 

@@ -13,8 +13,8 @@
 package com.spectrayan.spector.memory.kernel.bundle;
 
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
-import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
+import com.spectrayan.spector.memory.cortex.ProceduralMemory;
+import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
@@ -269,11 +269,11 @@ class BundleMigrationCliTest {
      */
     private void createV3StoreFiles(Path partDir, int recordCount) throws IOException {
         // Create cognitive stores using the real store constructors
-        SemanticRecordMemory semantic = new SemanticRecordMemory(
+        SemanticMemory semantic = new SemanticMemory(
                 VEC_BYTES, CAPACITY, StorageLayout.semanticMem(partDir));
         EpisodicRecordMemory episodic = new EpisodicRecordMemory(
                 StorageLayout.episodicMem(partDir), VEC_BYTES, CAPACITY);
-        ProceduralRecordMemory procedural = new ProceduralRecordMemory(
+        ProceduralMemory procedural = new ProceduralMemory(
                 VEC_BYTES, CAPACITY, StorageLayout.proceduralMem(partDir));
 
         // Write some records using the store API

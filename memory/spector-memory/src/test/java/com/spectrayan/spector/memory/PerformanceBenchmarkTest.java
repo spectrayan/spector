@@ -21,7 +21,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
-import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
+import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
@@ -212,10 +212,10 @@ class PerformanceBenchmarkTest {
     @DisplayName("P12: CognitiveMemoryRouter.totalCount  --  100K calls under 250ms (no Stream)")
     void p12_totalCountDirectSum() {
         int quantizedVecBytes = 32;
-        var working = new WorkingRecordMemory(quantizedVecBytes, 10);
+        var working = new WorkingMemory(quantizedVecBytes, 10);
         var episodicLog = com.spectrayan.spector.memory.cortex.EpisodicLogMemory.heap(100 * 256L);
-        var semantic = new com.spectrayan.spector.memory.cortex.SemanticRecordMemory(quantizedVecBytes, 10);
-        var procedural = new com.spectrayan.spector.memory.cortex.ProceduralRecordMemory(quantizedVecBytes, 10);
+        var semantic = new com.spectrayan.spector.memory.cortex.SemanticMemory(quantizedVecBytes, 10);
+        var procedural = new com.spectrayan.spector.memory.cortex.ProceduralMemory(quantizedVecBytes, 10);
         var router = new CognitiveMemoryRouter(working, semantic, procedural, episodicLog);
 
         try {

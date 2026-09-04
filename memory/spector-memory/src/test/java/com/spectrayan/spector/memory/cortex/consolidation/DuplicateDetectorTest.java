@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.cortex.consolidation;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
+import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
@@ -32,13 +32,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class DuplicateDetectorTest {
 
-    private SemanticRecordMemory store;
+    private SemanticMemory store;
     private MemoryIndex index;
     private ScalarQuantizer quantizer;
 
     @BeforeEach
     void setUp() {
-        store = new SemanticRecordMemory(8, 100);
+        store = new SemanticMemory(8, 100);
         index = new MemoryIndex();
         float[] mins = {0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f};
         float[] maxs = {1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f};

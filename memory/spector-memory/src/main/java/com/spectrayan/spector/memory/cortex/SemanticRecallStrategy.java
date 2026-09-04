@@ -128,7 +128,7 @@ public final class SemanticRecallStrategy {
             if (partitionRegistry == null) continue;
             PartitionHandle handle = partitionRegistry.handleFor(partitionSeq);
             if (handle == null || handle.router() == null) continue;
-            SemanticRecordMemory store = handle.router().semantic();
+            SemanticMemory store = handle.router().semantic();
 
             if (store == null) continue;
 

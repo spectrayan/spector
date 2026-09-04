@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.synapse;
 
 import com.spectrayan.spector.core.spacetime.Time2VecProjector;
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
+import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
@@ -50,7 +50,7 @@ class SpacetimeScoringFixtureTest {
         @Test
         @DisplayName("Fixture E: Future memory (t_i > t_q) is hard-dropped when allowFuture=false")
         void futureMemoryDroppedByDefault() {
-            final SemanticRecordMemory store = new SemanticRecordMemory(DIMS, 10);
+            final SemanticMemory store = new SemanticMemory(DIMS, 10);
             final CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
             final long now = System.currentTimeMillis();
 
@@ -83,7 +83,7 @@ class SpacetimeScoringFixtureTest {
         @Test
         @DisplayName("Fixture E: Future memory (t_i > t_q) is admitted when allowFuture=true (DMN mode)")
         void futureMemoryAdmittedInDmnMode() {
-            final SemanticRecordMemory store = new SemanticRecordMemory(DIMS, 10);
+            final SemanticMemory store = new SemanticMemory(DIMS, 10);
             final CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
             final long now = System.currentTimeMillis();
 
@@ -115,7 +115,7 @@ class SpacetimeScoringFixtureTest {
         @Test
         @DisplayName("Fixture A: High-mass memory with I < 1.0 is exempted from stale pruning via M >= 0.30")
         void highMassExemptsLowImportanceStaleMemory() {
-            final SemanticRecordMemory store = new SemanticRecordMemory(DIMS, 10);
+            final SemanticMemory store = new SemanticMemory(DIMS, 10);
             final CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
             final long now = System.currentTimeMillis();
 
