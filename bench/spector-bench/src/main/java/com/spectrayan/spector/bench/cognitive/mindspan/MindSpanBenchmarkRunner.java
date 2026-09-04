@@ -335,45 +335,34 @@ public final class MindSpanBenchmarkRunner {
                     String text = record.text();
                     long ts = record.timestampMs() > 0 ? record.timestampMs() : System.currentTimeMillis();
 
-                    if (record.memoryType() == MemoryType.EPISODIC) {
-                        int seqId = sessionSeqMap.merge(sessionLongId, 1, Integer::sum);
-                        ConversationRole role = (text != null && (text.toLowerCase().startsWith("assistant:") || text.toLowerCase().startsWith("jarvis:")))
-                                ? ConversationRole.ASSISTANT
-                                : ConversationRole.USER;
-                        byte[] body = (text != null) ? text.getBytes(StandardCharsets.UTF_8) : new byte[0];
-
-                        memory.rememberEpisodic(role, seqId, ts, sessionLongId, body, (short) 1, 0, 0, 0, 1L, (short) 1, SourceModality.TEXT);
-                    } else {
-                        MemorySource source = MemorySource.OBSERVED;
-                        if (text != null) {
-                            if (text.startsWith("user:") || text.startsWith("User:")) {
-                                source = MemorySource.USER_STATED;
-                            } else if (text.startsWith("assistant:") || text.startsWith("Jarvis:")) {
-                                source = MemorySource.INFERRED;
-                            }
+                    MemorySource source = MemorySource.OBSERVED;
+                    if (text != null) {
+                        if (text.startsWith("user:") || text.startsWith("User:")) {
+                            source = MemorySource.USER_STATED;
+                        } else if (text.startsWith("assistant:") || text.startsWith("Jarvis:")) {
+                            source = MemorySource.INFERRED;
                         }
-
-                        byte valence = (byte) Math.max(-128, Math.min(127, record.valence()));
-                        IngestionHints hints = new IngestionHints(
-                                record.interest(), record.challenge(), record.urgency(),
-                                record.valence(),
-                                (byte) record.arousal()
-                        );
-                        IngestionContext ctx = IngestionContext.builder()
-                                .hints(hints)
-                                .overrideTimestampMs(ts)
-                                .build();
-                        List<String> tags = record.synapticTags() != null ? record.synapticTags() : List.of();
-
-                        memory.remember(
-                                record.id(),
-                                record.text(),
-                                MemoryType.SEMANTIC,
-                                source,
-                                ctx,
-                                tags.toArray(String[]::new)
-                        );
                     }
+
+                    IngestionHints hints = new IngestionHints(
+                            record.interest(), record.challenge(), record.urgency(),
+                            record.valence(),
+                            (byte) record.arousal()
+                    );
+                    IngestionContext ctx = IngestionContext.builder()
+                            .hints(hints)
+                            .overrideTimestampMs(ts)
+                            .build();
+                    List<String> tags = record.synapticTags() != null ? record.synapticTags() : List.of();
+
+                    memory.remember(
+                            record.id(),
+                            record.text(),
+                            record.memoryType() != null ? record.memoryType() : MemoryType.SEMANTIC,
+                            source,
+                            ctx,
+                            tags.toArray(String[]::new)
+                    );
                     totalIngestedThisRun++;
                 }
             }
@@ -481,12 +470,11 @@ public final class MindSpanBenchmarkRunner {
         var router = admin != null ? admin.cognitiveRouter() : null;
 
         long workingCount = (router != null && router.working() != null) ? router.working().size() : 0;
-        long episodicRecordCount = (router != null && router.episodic() != null) ? router.episodic().size() : 0;
         long semanticCount = (router != null && router.semantic() != null) ? router.semantic().size() : 0;
         long proceduralCount = (router != null && router.procedural() != null) ? router.procedural().size() : 0;
-
-        long logBytes = (router != null && router.episodicLog() != null) ? router.episodicLog().size() : 0;
-        int unconsolidatedTurns = (router != null && router.episodicLog() != null) ? router.episodicLog().unconsolidatedTurnOffsets().size() : 0;
+        long episodicTurnCount = (router != null && router.episodic() != null) ? router.episodic().visibleCount() : 0;
+        long episodicBytes = (router != null && router.episodic() != null) ? router.episodic().size() : 0;
+        int unconsolidatedTurns = (router != null && router.episodic() != null) ? router.episodic().unconsolidatedTurnOffsets().size() : 0;
         int totalTurns = 0;
         int totalSessions = 0;
         if (memory instanceof DefaultSpectorMemory dsm && dsm.episodicSessionIndex() != null) {
@@ -506,9 +494,8 @@ public final class MindSpanBenchmarkRunner {
         log.info("📊 SPECTOR COGNITIVE MEMORY & GRAPH AUDIT REPORT:");
         log.info("   [Memory Tiers]");
         log.info("   • Working Memory:              {} records", workingCount);
-        log.info("   • Episodic Record Memory:      {} records (Deprecated - MUST BE 0)", episodicRecordCount);
-        log.info("   • Episodic Log Memory:         {} bytes (Total turns: {}, Active sessions: {}, Unconsolidated: {})",
-                logBytes, totalTurns, totalSessions, unconsolidatedTurns);
+        log.info("   • Episodic Memory:             {} turns, {} bytes (Unconsolidated: {}, Active sessions: {})",
+                episodicTurnCount, episodicBytes, unconsolidatedTurns, totalSessions);
         log.info("   • Semantic Record Memory:      {} records (Distilled facts)", semanticCount);
         log.info("   • Procedural Memory:           {} records", proceduralCount);
         log.info("   [Graph Subsystems]");

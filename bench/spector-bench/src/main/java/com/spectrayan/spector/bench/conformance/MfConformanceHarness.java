@@ -640,42 +640,88 @@ public final class MfConformanceHarness {
             if (loc != null) {
                 var router = memory.admin().cognitiveRouter();
                 if (router != null) {
-                    var segment = router.segmentFor(loc.type());
-                    var layout = router.layoutFor(loc.type());
-                    if (segment != null && layout != null) {
-                        EncodingHeader existing = layout.readHeader(segment, loc.offset());
-                        byte flags = existing.flags();
-                        if (record.memoryType() != null) {
-                            flags = EncodingHeaderFields.withMemoryType(flags, record.memoryType().ordinal());
+                    if (loc.type() == MemoryType.EPISODIC) {
+                        var episodic = router.episodic();
+                        if (episodic != null) {
+                            EncodingHeader existing = episodic.readHeader(loc.offset());
+                            if (existing != null) {
+                                byte flags = existing.flags();
+                                if (record.resolved()) {
+                                    flags = (byte) (flags | EncodingHeaderFields.FLAG_RESOLVED);
+                                } else {
+                                    flags = (byte) (flags & ~EncodingHeaderFields.FLAG_RESOLVED);
+                                }
+                                byte cFlags = existing.consolidationFlags();
+                                com.spectrayan.spector.memory.model.EngramSource engSource = existing.source();
+                                if ("simulated".equalsIgnoreCase(record.source())) {
+                                    cFlags = EncodingHeaderFields.withSimulated(cFlags, true);
+                                    engSource = com.spectrayan.spector.memory.model.EngramSource.SIMULATED;
+                                }
+                                EncodingHeader updated = new EncodingHeader(
+                                        record.timestampMs(),
+                                        existing.synapticTags(),
+                                        existing.exactNorm(),
+                                        record.importance(),
+                                        existing.agentRecallCount(),
+                                        existing.centroidId(),
+                                        record.valence(),
+                                        flags,
+                                        (byte) record.arousal(),
+                                        existing.storageStrength(),
+                                        existing.encodingProfile(),
+                                        existing.encodingAlpha(),
+                                        existing.encodingBeta(),
+                                        existing.soulVersion(),
+                                        existing.encodingSurprise(),
+                                        cFlags,
+                                        engSource
+                                );
+                                com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout.INSTANCE.writeHeaderRecord(
+                                        episodic.primarySegment(), episodic.dataOffset() + loc.offset(), updated
+                                );
+                            }
                         }
-                        if (record.resolved()) {
-                            flags = (byte) (flags | EncodingHeaderFields.FLAG_RESOLVED);
-                        } else {
-                            flags = (byte) (flags & ~EncodingHeaderFields.FLAG_RESOLVED);
+                    } else {
+                        var segment = router.segmentFor(loc.type());
+                        var layout = router.layoutFor(loc.type());
+                        if (segment != null && layout != null) {
+                            EncodingHeader existing = layout.readHeader(segment, loc.offset());
+                            byte flags = existing.flags();
+                            if (record.memoryType() != null) {
+                                flags = EncodingHeaderFields.withMemoryType(flags, record.memoryType().ordinal());
+                            }
+                            if (record.resolved()) {
+                                flags = (byte) (flags | EncodingHeaderFields.FLAG_RESOLVED);
+                            } else {
+                                flags = (byte) (flags & ~EncodingHeaderFields.FLAG_RESOLVED);
+                            }
+                            byte cFlags = existing.consolidationFlags();
+                            com.spectrayan.spector.memory.model.EngramSource engSource = existing.source();
+                            if ("simulated".equalsIgnoreCase(record.source())) {
+                                cFlags = EncodingHeaderFields.withSimulated(cFlags, true);
+                                engSource = com.spectrayan.spector.memory.model.EngramSource.SIMULATED;
+                            }
+                            EncodingHeader updated = new EncodingHeader(
+                                    record.timestampMs(),
+                                    existing.synapticTags(),
+                                    existing.exactNorm(),
+                                    record.importance(),
+                                    existing.agentRecallCount(),
+                                    existing.centroidId(),
+                                    record.valence(),
+                                    flags,
+                                    (byte) record.arousal(),
+                                    existing.storageStrength(),
+                                    existing.encodingProfile(),
+                                    existing.encodingAlpha(),
+                                    existing.encodingBeta(),
+                                    existing.soulVersion(),
+                                    existing.encodingSurprise(),
+                                    cFlags,
+                                    engSource
+                            );
+                            layout.writeHeader(segment, loc.offset(), updated);
                         }
-                        byte cFlags = existing.consolidationFlags();
-                        if ("simulated".equalsIgnoreCase(record.source())) {
-                            cFlags = EncodingHeaderFields.withSimulated(cFlags, true);
-                        }
-                        EncodingHeader updated = new EncodingHeader(
-                                record.timestampMs(),
-                                existing.synapticTags(),
-                                existing.exactNorm(),
-                                record.importance(),
-                                existing.agentRecallCount(),
-                                existing.centroidId(),
-                                record.valence(),
-                                flags,
-                                (byte) record.arousal(),
-                                existing.storageStrength(),
-                                existing.encodingProfile(),
-                                existing.encodingAlpha(),
-                                existing.encodingBeta(),
-                                existing.soulVersion(),
-                                existing.encodingSurprise(),
-                                cFlags
-                        );
-                        layout.writeHeader(segment, loc.offset(), updated);
                     }
                 }
             }
