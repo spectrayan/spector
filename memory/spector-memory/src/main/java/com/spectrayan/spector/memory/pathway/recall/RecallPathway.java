@@ -617,8 +617,11 @@ public final class RecallPathway {
             try {
                 final var loc = index.locate(result.id());
                 if (loc == null) continue;
+                if (loc.type() == MemoryType.EPISODIC) {
+                    continue;
+                }
                 var router = partitionRegistry.routerFor(loc.colocatedPartition());
-                if (router.strength() != null) {
+                if (router.strength() != null && router.layoutFor(loc.type()) != null) {
                     int slotIndex = (int) (loc.offset() / router.layoutFor(loc.type()).stride());
                     long strengthOff = router.strength().strengthOffset(loc.type(), slotIndex);
                     StrengthLayout.INSTANCE.writeLastRecallProfile(router.strength().segment(), strengthOff, profileOrdinal);

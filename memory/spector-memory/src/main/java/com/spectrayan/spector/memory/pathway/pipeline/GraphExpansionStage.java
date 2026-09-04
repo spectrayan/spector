@@ -784,6 +784,7 @@ public final class GraphExpansionStage {
             if (seg == null) return 0f;
 
             FixedEngramLayout layout = router.layoutFor(loc.type());
+            if (layout == null) return 0f;
             float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
                     queryVector, seg, layout.vectorOffset(loc.offset()),
                     calibrationMins, calibrationScales, layout.quantizedVecBytes());

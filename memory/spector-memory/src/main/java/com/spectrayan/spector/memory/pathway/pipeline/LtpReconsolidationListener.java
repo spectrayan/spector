@@ -73,7 +73,7 @@ public final class LtpReconsolidationListener implements RecallListener {
                 if (segment != null) {
                     FixedEngramLayout layout = router.layoutFor(loc.type());
 
-                    if (router.strength() != null) {
+                    if (router.strength() != null && layout != null) {
                         int slotIndex = (int) (loc.offset() / layout.stride());
                         long creationMs = layout.readTimestamp(segment, loc.offset());
                         router.strength().recordRecall(loc.type(), slotIndex, creationMs, nowMs, (byte) 0, 0);
