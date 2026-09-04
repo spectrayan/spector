@@ -32,13 +32,14 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.memory.cortex.StrengthMemory;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.HeaderLayout;
-import com.spectrayan.spector.memory.kernel.layout.HeaderLayout64;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.compat.LegacyEncodingHeaderReader;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
@@ -100,16 +101,16 @@ public final class HeaderMigrator {
      * fields are discarded.</p>
      *
      * @param storePath path to the persistent store file
-     * @param source    current layout (detected from file metadata)
-     * @param target    desired layout version
+     * @param source    current layout (legacy V1 reader)
+     * @param target    desired layout version (EncodingHeaderLayout)
      * @param vectorBytes bytes per quantized vector (needed for stride calculation)
      * @param isHeaderOnly true for header-only stores (e.g., SemanticMemoryStore)
      * @return migration report with statistics
      * @throws SpectorValidationException if source and target are the same version
      * @throws SpectorStorageException if file I/O fails
      */
-    public static MigrationReport migrate(Path storePath, HeaderLayout source,
-                                          HeaderLayout target, int vectorBytes,
+    public static MigrationReport migrate(Path storePath, LegacyEncodingHeaderReader source,
+                                          EncodingHeaderLayout target, int vectorBytes,
                                           boolean isHeaderOnly) {
         return migrate(storePath, source, target, vectorBytes, isHeaderOnly, null, null);
     }
@@ -119,8 +120,8 @@ public final class HeaderMigrator {
      * populating the strength region from V1 header fields.
      *
      * @param storePath     path to the persistent store file
-     * @param source        current layout (detected from file metadata)
-     * @param target        desired layout version
+     * @param source        current layout (legacy V1 reader)
+     * @param target        desired layout version (EncodingHeaderLayout)
      * @param vectorBytes   bytes per quantized vector (needed for stride calculation)
      * @param isHeaderOnly  true for header-only stores (e.g., SemanticMemoryStore)
      * @param strengthStore optional StrengthMemory store to populate with V1 counters
@@ -129,13 +130,13 @@ public final class HeaderMigrator {
      * @throws SpectorValidationException if source and target are the same version
      * @throws SpectorStorageException if file I/O fails
      */
-    public static MigrationReport migrate(Path storePath, HeaderLayout source,
-                                          HeaderLayout target, int vectorBytes,
+    public static MigrationReport migrate(Path storePath, LegacyEncodingHeaderReader source,
+                                          EncodingHeaderLayout target, int vectorBytes,
                                           boolean isHeaderOnly, StrengthMemory strengthStore,
                                           MemoryType tier) {
-        if (source.getClass() == target.getClass() && source.version() == target.version()) {
+        if (source.version() == target.version()) {
             throw new SpectorValidationException(
-                    ErrorCode.ARGUMENT_INVALID, "targetVersion", "same as source: " + source.getClass().getSimpleName());
+                    ErrorCode.ARGUMENT_INVALID, "targetVersion", "same as source: " + source.version());
         }
 
         boolean isDowngrade = target.version() < source.version();
@@ -303,7 +304,7 @@ public final class HeaderMigrator {
      * @return estimated target file size in bytes
      */
     public static long estimateTargetSize(long currentFileSize, int recordCount,
-                                           HeaderLayout source, HeaderLayout target,
+                                           LegacyEncodingHeaderReader source, EncodingHeaderLayout target,
                                            int vectorBytes, boolean isHeaderOnly) {
         int targetRecordStride = isHeaderOnly ? target.headerBytes()
                 : target.headerBytes() + vectorBytes;
@@ -401,13 +402,13 @@ public final class HeaderMigrator {
      * @param storePath   path to the store file
      * @param vectorBytes bytes per quantized vector
      * @param isHeaderOnly true for header-only stores
-     * @return detected header layout
+     * @return detected header layout version
      */
-    public static HeaderLayout detectVersion(Path storePath, int vectorBytes,
-                                              boolean isHeaderOnly) {
+    public static int detectVersion(Path storePath, int vectorBytes,
+                                    boolean isHeaderOnly) {
         try (FileChannel ch = FileChannel.open(storePath, StandardOpenOption.READ)) {
             if (ch.size() < METADATA_PREAMBLE_BYTES) {
-                return HeaderLayout64.INSTANCE; // assume current layout
+                return SpectorPropertyConstants.DEFAULT_MEMORY_HEADER_VERSION; // assume current layout
             }
 
             ByteBuffer buf = ByteBuffer.allocate(METADATA_PREAMBLE_BYTES);
@@ -417,7 +418,7 @@ public final class HeaderMigrator {
             int magic = buf.getInt(META_MAGIC);
             if (magic != TIER_MAGIC && magic != RegionPreamble.MAGIC) {
                 log.warn("Invalid magic in {}, assuming current layout", storePath);
-                return HeaderLayout64.INSTANCE;
+                return SpectorPropertyConstants.DEFAULT_MEMORY_HEADER_VERSION;
             }
 
             int stride;
@@ -433,10 +434,10 @@ public final class HeaderMigrator {
                         headerBytes, storePath, SynapticHeaderConstants.HEADER_BYTES);
             }
 
-            return HeaderLayout64.INSTANCE;
+            return SpectorPropertyConstants.DEFAULT_MEMORY_HEADER_VERSION;
         } catch (IOException e) {
             log.warn("Cannot detect header version from {}: {}", storePath, e.getMessage());
-            return HeaderLayout64.INSTANCE;
+            return SpectorPropertyConstants.DEFAULT_MEMORY_HEADER_VERSION;
         }
     }
 

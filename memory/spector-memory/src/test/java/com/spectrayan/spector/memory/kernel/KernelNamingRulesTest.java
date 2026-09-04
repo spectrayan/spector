@@ -99,6 +99,11 @@ class KernelNamingRulesTest {
      */
     private static final Set<String> SIZE_SUFFIX_ALLOWLIST = Set.of("XxHash64");
 
+    private static final Set<String> LAYOUT_ALLOWLIST = Set.of(
+            // Design §2.3: EncodingHeaderLayout is the engram header field codec, not a RegionLayout
+            "EncodingHeaderLayout"
+    );
+
     private static final Pattern SIZE_OR_VERSION_SUFFIX = Pattern.compile(".*(64|128|V\\d+)$");
 
     /**
@@ -181,7 +186,6 @@ class KernelNamingRulesTest {
      * visible at the import site.</p>
      */
     @Test
-    @Disabled("Enabled by spec task 3.4 — fails until HeaderLayout64/V2 collapse into EncodingHeaderLayout")
     @DisplayName("Rule 1: no size or version token in kernel type names")
     void noSizeOrVersionInKernelTypeNames() {
         List<String> violations = ALL_TYPES.stream()
@@ -275,6 +279,7 @@ class KernelNamingRulesTest {
         List<String> violations = ALL_TYPES.stream()
                 .filter(fqn -> packageOf(fqn).equals(LAYOUT_PKG))
                 .filter(fqn -> simpleName(fqn).endsWith("Layout"))
+                .filter(fqn -> !LAYOUT_ALLOWLIST.contains(simpleName(fqn)))
                 .filter(fqn -> {
                     Class<?> type = load(fqn);
                     // A type that cannot be loaded is reported rather than silently passed.
@@ -324,7 +329,7 @@ class KernelNamingRulesTest {
         assertThat(ALL_TYPES)
                 .as("known types must be visible to the rules")
                 .contains(KERNEL_PKG + ".RegionLayout",
-                        LAYOUT_PKG + ".HeaderLayout64",
+                        LAYOUT_PKG + ".EncodingHeaderLayout",
                         LAYOUT_PKG + ".StrengthLayout",
                         LAYOUT_PKG + ".AdjacencyListFields");
     }
@@ -359,7 +364,7 @@ class KernelNamingRulesTest {
                 .filter(f -> SHAPE_TOKEN_SUFFIX.matcher(simpleName(f)).matches())
                 .count();
 
-        assertThat(sizeOrVersion).as("expected HeaderLayout64 and HeaderLayout64V2").isGreaterThanOrEqualTo(2);
+        assertThat(sizeOrVersion).as("expected no size or version tokens in kernel types").isEqualTo(0);
         assertThat(panamaShadow).as("expected no kernel types shadowing Panama").isEqualTo(0);
         assertThat(shapeTokens).as("expected no remaining non-allowlisted stores with shape tokens")
                 .isEqualTo(0);

@@ -62,7 +62,7 @@ class CognitiveRecordLayoutTest {
             assertThat(readBack.exactNorm()).isEqualTo(1.5f);
             assertThat(readBack.importance()).isEqualTo(0.8f);
             assertThat(readBack.centroidId()).isEqualTo((short) 42);
-            assertThat(readBack.agentRecallCount()).isEqualTo(7);
+            assertThat(readBack.agentRecallCount()).isZero(); // Relocated to StrengthMemory
             assertThat(readBack.valence()).isEqualTo((byte) -50);
             assertThat(readBack.flags()).isEqualTo((byte) 0x12);
         }
@@ -90,7 +90,7 @@ class CognitiveRecordLayoutTest {
     }
 
     @Test
-    void incrementAgentRecallCountIsAtomic() {
+    void agentRecallCountRelocatedToStrengthMemory() {
         try (var arena = Arena.ofConfined()) {
             MemorySegment segment = arena.allocate(layout.stride());
 
@@ -99,18 +99,10 @@ class CognitiveRecordLayoutTest {
             );
             layout.writeHeader(segment, 0, header);
 
-            // Initial recall count = 0
+            // Under EncodingHeaderLayout (pure encoding header), recall counters live in StrengthMemory
             assertThat(layout.readAgentRecallCount(segment, 0)).isZero();
-
-            // Increment and check return value (old value)
-            int old1 = layout.incrementAgentRecallCount(segment, 0);
-            assertThat(old1).isZero();
-            assertThat(layout.readAgentRecallCount(segment, 0)).isEqualTo(1);
-
-            // Increment again
-            int old2 = layout.incrementAgentRecallCount(segment, 0);
-            assertThat(old2).isEqualTo(1);
-            assertThat(layout.readAgentRecallCount(segment, 0)).isEqualTo(2);
+            assertThat(layout.incrementAgentRecallCount(segment, 0)).isZero();
+            assertThat(layout.readAgentRecallCount(segment, 0)).isZero();
         }
     }
 

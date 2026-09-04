@@ -749,9 +749,10 @@ public final class GraphExpansionStage {
                         ? partitionRegistry.routerFor(loc.colocatedPartition()) : null;
                 if (router != null) {
                     MemorySegment seg = router.segmentFor(loc.type());
-                    if (seg != null) {
-                        ts = seg.get(LAYOUT_TIMESTAMP, loc.offset() + OFFSET_TIMESTAMP);
-                        valence = seg.get(LAYOUT_VALENCE, loc.offset() + OFFSET_VALENCE);
+                    CognitiveRecordLayout layout = router.layoutFor(loc.type());
+                    if (seg != null && layout != null) {
+                        ts = layout.readTimestamp(seg, loc.offset());
+                        valence = layout.readValence(seg, loc.offset());
                     }
                 }
             }
@@ -828,25 +829,27 @@ public final class GraphExpansionStage {
         if (router == null) return false;
         MemorySegment seg = router.segmentFor(loc.type());
         if (seg == null) return false;
+        CognitiveRecordLayout layout = router.layoutFor(loc.type());
+        if (layout == null) return false;
 
-        byte flags = seg.get(LAYOUT_FLAGS, loc.offset() + OFFSET_FLAGS);
+        byte flags = layout.readFlags(seg, loc.offset());
         if ((flags & FLAG_TOMBSTONE) != 0) {
             return false;
         }
 
         if (!options.includeContradictions()) {
-            byte cFlags = seg.get(LAYOUT_CONSOLIDATION_FLAGS, loc.offset() + OFFSET_CONSOLIDATION_FLAGS);
+            byte cFlags = layout.readConsolidationFlags(seg, loc.offset());
             if ((cFlags & FLAG_CONTRADICTED) != 0) {
                 return false;
             }
         }
 
-        byte valence = seg.get(LAYOUT_VALENCE, loc.offset() + OFFSET_VALENCE);
+        byte valence = layout.readValence(seg, loc.offset());
         if (valence < options.minValence() || valence > options.maxValence()) {
             return false;
         }
 
-        float importance = seg.get(LAYOUT_IMPORTANCE, loc.offset() + OFFSET_IMPORTANCE);
+        float importance = layout.readImportance(seg, loc.offset());
         if (importance < options.minImportance()) {
             return false;
         }

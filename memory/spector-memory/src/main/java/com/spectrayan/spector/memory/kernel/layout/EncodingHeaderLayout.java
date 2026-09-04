@@ -12,8 +12,11 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.memory.kernel.FloatUnaryOperator;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -22,7 +25,10 @@ import java.lang.invoke.VarHandle;
 import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.*;
 
 /**
- * Pure 64-byte cache-line-aligned synaptic header layout (V2, ADR-0028).
+ * Pure 64-byte cache-line-aligned encoding header layout (V2, ADR-0028).
+ *
+ * <p>This is the sole live engram encoding header layout in Spector, realizing the
+ * pure-encoding identity rule from MF-001 / ADR-0028.</p>
  *
  * <h3>Design Principles</h3>
  * <ul>
@@ -61,198 +67,215 @@ import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstant
  *   ── 64B total cache line ───────────────────────────────────────────────────────────────
  * </pre>
  *
- * @see HeaderLayout
- * @see HeaderLayout64
  * @see StrengthLayout
  * @see SynapticHeaderConstants
  */
-public record HeaderLayout64V2() implements HeaderLayout {
+public record EncodingHeaderLayout() {
 
-    /** Singleton instance of V2 header layout. */
-    public static final HeaderLayout64V2 INSTANCE = new HeaderLayout64V2();
+    /** Singleton instance of the encoding header layout. */
+    public static final EncodingHeaderLayout INSTANCE = new EncodingHeaderLayout();
 
     public static final VarHandle VAR_HANDLE_SYNAPTIC_TAGS_LO = LAYOUT_SYNAPTIC_TAGS.varHandle();
     public static final VarHandle VAR_HANDLE_SYNAPTIC_TAGS_HI = LAYOUT_SYNAPTIC_TAGS.varHandle();
     public static final VarHandle VAR_HANDLE_IMPORTANCE_V2    = LAYOUT_IMPORTANCE.varHandle();
 
-    @Override public int headerBytes() { return HEADER_BYTES; }
-    @Override public int version() { return HEADER_VERSION_V2; }
+    /** Header size in bytes (64 bytes, 1 CPU cache line). */
+    public static final int HEADER_BYTES = SynapticHeaderConstants.HEADER_BYTES;
+
+    /** Default layout for all new stores (V2, 64 bytes). */
+    public static EncodingHeaderLayout defaultLayout() {
+        return INSTANCE;
+    }
+
+    /**
+     * Returns the layout for the given version number.
+     *
+     * @param version layout version (supported: 2)
+     * @return the corresponding layout instance
+     * @throws SpectorValidationException if version is not 2
+     */
+    public static EncodingHeaderLayout forVersion(int version) {
+        if (version != HEADER_VERSION_V2) {
+            throw new SpectorValidationException(
+                    ErrorCode.ARGUMENT_INVALID, "header layout version", version + " (supported: " + HEADER_VERSION_V2 + ")");
+        }
+        return INSTANCE;
+    }
+
+    public int headerBytes() { return HEADER_BYTES; }
+    public int version() { return HEADER_VERSION_V2; }
 
     // ── Field reads ──
 
-    @Override public long readTimestamp(MemorySegment seg, long off) {
+    public long readTimestamp(MemorySegment seg, long off) {
         return seg.get(LAYOUT_TIMESTAMP, off + OFFSET_TIMESTAMP);
     }
 
-    @Override public long readSynapticTags(MemorySegment seg, long off) {
+    public long readSynapticTags(MemorySegment seg, long off) {
         return seg.get(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_V2_SYNAPTIC_TAGS_LO);
     }
 
-    @Override public long readSynapticTagsLo(MemorySegment seg, long off) {
+    public long readSynapticTagsLo(MemorySegment seg, long off) {
         return seg.get(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_V2_SYNAPTIC_TAGS_LO);
     }
 
-    @Override public long readSynapticTagsHi(MemorySegment seg, long off) {
+    public long readSynapticTagsHi(MemorySegment seg, long off) {
         return seg.get(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_V2_SYNAPTIC_TAGS_HI);
     }
 
-    @Override public float readExactNorm(MemorySegment seg, long off) {
+    public float readExactNorm(MemorySegment seg, long off) {
         return seg.get(LAYOUT_EXACT_NORM, off + OFFSET_V2_EXACT_NORM);
     }
 
-    @Override public float readImportance(MemorySegment seg, long off) {
+    public float readImportance(MemorySegment seg, long off) {
         return seg.get(LAYOUT_IMPORTANCE, off + OFFSET_IMPORTANCE);
     }
 
-    @Override public int readAgentRecallCount(MemorySegment seg, long off) {
-        // Pure V2 header does not store recall counters; returns 0 for compatibility
-        return 0;
+    public int readAgentRecallCount(MemorySegment seg, long off) {
+        return 0; // Pure V2 header does not store recall counters; lives in StrengthLayout
     }
 
-    @Override public short readCentroidId(MemorySegment seg, long off) {
+    public short readCentroidId(MemorySegment seg, long off) {
         return seg.get(LAYOUT_CENTROID_ID, off + OFFSET_V2_CENTROID_ID);
     }
 
-    @Override public byte readValence(MemorySegment seg, long off) {
+    public byte readValence(MemorySegment seg, long off) {
         return seg.get(LAYOUT_VALENCE, off + OFFSET_VALENCE);
     }
 
-    @Override public byte readFlags(MemorySegment seg, long off) {
+    public byte readFlags(MemorySegment seg, long off) {
         return seg.get(LAYOUT_FLAGS, off + OFFSET_FLAGS);
     }
 
-    @Override public byte readArousal(MemorySegment seg, long off) {
+    public byte readArousal(MemorySegment seg, long off) {
         return seg.get(LAYOUT_AROUSAL, off + OFFSET_AROUSAL);
     }
 
-    @Override public float readStorageStrength(MemorySegment seg, long off) {
-        // Storage strength lives in StrengthLayout for V2; returns default 1.0f
-        return 1.0f;
+    public float readStorageStrength(MemorySegment seg, long off) {
+        return SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_INITIAL_STORAGE_STRENGTH;
     }
 
-    @Override public byte readEncodingProfile(MemorySegment seg, long off) {
+    public byte readEncodingProfile(MemorySegment seg, long off) {
         return seg.get(LAYOUT_ENCODING_PROFILE, off + OFFSET_V2_ENCODING_PROFILE);
     }
 
-    @Override public byte readEncodingAlpha(MemorySegment seg, long off) {
+    public byte readEncodingAlpha(MemorySegment seg, long off) {
         return seg.get(LAYOUT_ENCODING_ALPHA, off + OFFSET_V2_ENCODING_ALPHA);
     }
 
-    @Override public byte readEncodingBeta(MemorySegment seg, long off) {
+    public byte readEncodingBeta(MemorySegment seg, long off) {
         return seg.get(LAYOUT_ENCODING_BETA, off + OFFSET_V2_ENCODING_BETA);
     }
 
-    @Override public short readSoulVersion(MemorySegment seg, long off) {
+    public short readSoulVersion(MemorySegment seg, long off) {
         return seg.get(LAYOUT_SOUL_VERSION, off + OFFSET_V2_SOUL_VERSION);
     }
 
-    @Override public float readEncodingSurprise(MemorySegment seg, long off) {
+    public float readEncodingSurprise(MemorySegment seg, long off) {
         return seg.get(LAYOUT_ENCODING_SURPRISE, off + OFFSET_V2_ENCODING_SURPRISE);
     }
 
-    @Override public byte readConsolidationFlags(MemorySegment seg, long off) {
+    public byte readConsolidationFlags(MemorySegment seg, long off) {
         return seg.get(LAYOUT_CONSOLIDATION_FLAGS, off + OFFSET_V2_CONSOLIDATION_FLAGS);
     }
 
     // ── Field writes ──
 
-    @Override public void writeArousal(MemorySegment seg, long off, byte arousal) {
+    public void writeArousal(MemorySegment seg, long off, byte arousal) {
         seg.set(LAYOUT_AROUSAL, off + OFFSET_AROUSAL, arousal);
     }
 
-    @Override public void writeStorageStrength(MemorySegment seg, long off, float strength) {
-        // No-op on V2 header — storage strength written to StrengthLayout
+    public void writeStorageStrength(MemorySegment seg, long off, float strength) {
+        // No-op on EncodingHeaderLayout — storage strength written to StrengthLayout
     }
 
-    @Override public void writeEncodingProfile(MemorySegment seg, long off, byte profile) {
+    public void writeEncodingProfile(MemorySegment seg, long off, byte profile) {
         seg.set(LAYOUT_ENCODING_PROFILE, off + OFFSET_V2_ENCODING_PROFILE, profile);
     }
 
-    @Override public void writeEncodingAlpha(MemorySegment seg, long off, byte alpha) {
+    public void writeEncodingAlpha(MemorySegment seg, long off, byte alpha) {
         seg.set(LAYOUT_ENCODING_ALPHA, off + OFFSET_V2_ENCODING_ALPHA, alpha);
     }
 
-    @Override public void writeEncodingBeta(MemorySegment seg, long off, byte beta) {
+    public void writeEncodingBeta(MemorySegment seg, long off, byte beta) {
         seg.set(LAYOUT_ENCODING_BETA, off + OFFSET_V2_ENCODING_BETA, beta);
     }
 
-    @Override public void writeSoulVersion(MemorySegment seg, long off, short version) {
+    public void writeSoulVersion(MemorySegment seg, long off, short version) {
         seg.set(LAYOUT_SOUL_VERSION, off + OFFSET_V2_SOUL_VERSION, version);
     }
 
-    @Override public void writeEncodingSurprise(MemorySegment seg, long off, float surprise) {
+    public void writeEncodingSurprise(MemorySegment seg, long off, float surprise) {
         seg.set(LAYOUT_ENCODING_SURPRISE, off + OFFSET_V2_ENCODING_SURPRISE, surprise);
     }
 
-    @Override public void writeConsolidationFlags(MemorySegment seg, long off, byte consolidationFlags) {
+    public void writeConsolidationFlags(MemorySegment seg, long off, byte consolidationFlags) {
         seg.set(LAYOUT_CONSOLIDATION_FLAGS, off + OFFSET_V2_CONSOLIDATION_FLAGS, consolidationFlags);
     }
 
-    @Override public void writeImportance(MemorySegment seg, long off, float importance) {
+    public void writeImportance(MemorySegment seg, long off, float importance) {
         seg.set(LAYOUT_IMPORTANCE, off + OFFSET_IMPORTANCE, importance);
     }
 
-    @Override public void writeTimestamp(MemorySegment seg, long off, long timestampMs) {
+    public void writeTimestamp(MemorySegment seg, long off, long timestampMs) {
         seg.set(LAYOUT_TIMESTAMP, off + OFFSET_TIMESTAMP, timestampMs);
     }
 
-    @Override public void writeSynapticTags(MemorySegment seg, long off, long tagsLo, long tagsHi) {
+    public void writeSynapticTags(MemorySegment seg, long off, long tagsLo, long tagsHi) {
         seg.set(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_V2_SYNAPTIC_TAGS_LO, tagsLo);
         seg.set(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_V2_SYNAPTIC_TAGS_HI, tagsHi);
     }
 
-    @Override public void mergeSynapticTags(MemorySegment seg, long off, long additionalTags) {
+    public void mergeSynapticTags(MemorySegment seg, long off, long additionalTags) {
         VAR_HANDLE_SYNAPTIC_TAGS_LO.getAndBitwiseOr(seg, off + OFFSET_V2_SYNAPTIC_TAGS_LO, additionalTags);
     }
 
-    @Override public void mergeSynapticTags128(MemorySegment seg, long off, long additionalLo, long additionalHi) {
+    public void mergeSynapticTags128(MemorySegment seg, long off, long additionalLo, long additionalHi) {
         VAR_HANDLE_SYNAPTIC_TAGS_LO.getAndBitwiseOr(seg, off + OFFSET_V2_SYNAPTIC_TAGS_LO, additionalLo);
         if (additionalHi != 0L) {
             VAR_HANDLE_SYNAPTIC_TAGS_HI.getAndBitwiseOr(seg, off + OFFSET_V2_SYNAPTIC_TAGS_HI, additionalHi);
         }
     }
 
-    @Override public void markTombstoned(MemorySegment seg, long off) {
+    public void markTombstoned(MemorySegment seg, long off) {
         byte flags = readFlags(seg, off);
         seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags | FLAG_TOMBSTONE));
     }
 
-    @Override public void markConsolidated(MemorySegment seg, long off) {
+    public void markConsolidated(MemorySegment seg, long off) {
         byte flags = readFlags(seg, off);
         seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags | FLAG_CONSOLIDATED));
     }
 
-    @Override public void markPinned(MemorySegment seg, long off) {
+    public void markPinned(MemorySegment seg, long off) {
         byte flags = readFlags(seg, off);
         seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags | FLAG_PINNED));
     }
 
-    @Override public void markResolved(MemorySegment seg, long off) {
+    public void markResolved(MemorySegment seg, long off) {
         byte flags = readFlags(seg, off);
         seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags | FLAG_RESOLVED));
     }
 
-    @Override public void markUnresolved(MemorySegment seg, long off) {
+    public void markUnresolved(MemorySegment seg, long off) {
         byte flags = readFlags(seg, off);
         seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags & ~FLAG_RESOLVED));
     }
 
-    @Override public void markContradicted(MemorySegment seg, long off) {
+    public void markContradicted(MemorySegment seg, long off) {
         byte cFlags = readConsolidationFlags(seg, off);
         writeConsolidationFlags(seg, off, (byte) (cFlags | FLAG_CONTRADICTED));
     }
 
-    @Override public int incrementAgentRecallCount(MemorySegment seg, long off) {
-        // Routed to StrengthLayout in dual-region architecture
-        return 0;
+    public int incrementAgentRecallCount(MemorySegment seg, long off) {
+        return 0; // Routed to StrengthLayout in dual-region architecture
     }
 
-    @Override public float casStorageStrength(MemorySegment seg, long off, FloatUnaryOperator updateFn) {
-        // Routed to StrengthLayout in dual-region architecture
-        return 1.0f;
+    public float casStorageStrength(MemorySegment seg, long off, FloatUnaryOperator updateFn) {
+        return 1.0f; // Routed to StrengthLayout in dual-region architecture
     }
 
-    @Override public float casImportance(MemorySegment seg, long off, FloatUnaryOperator updateFn) {
+    public float casImportance(MemorySegment seg, long off, FloatUnaryOperator updateFn) {
         long addr = off + OFFSET_IMPORTANCE;
         float prev, next;
         do {
@@ -262,40 +285,39 @@ public record HeaderLayout64V2() implements HeaderLayout {
         return next;
     }
 
-    @Override public void writeValenceRelease(MemorySegment seg, long off, byte valence) {
+    public void writeValenceRelease(MemorySegment seg, long off, byte valence) {
         seg.set(LAYOUT_VALENCE, off + OFFSET_VALENCE, valence);
     }
 
-    @Override public int readSpectorRecallCount(MemorySegment seg, long off) {
+    public int readSpectorRecallCount(MemorySegment seg, long off) {
         return 0;
     }
 
-    @Override public int incrementSpectorRecallCount(MemorySegment seg, long off) {
+    public int incrementSpectorRecallCount(MemorySegment seg, long off) {
         return 0;
     }
 
-    @Override public long readLastAutoLtp(MemorySegment seg, long off) {
+    public long readLastAutoLtp(MemorySegment seg, long off) {
         return 0L;
     }
 
-    @Override public void writeLastAutoLtp(MemorySegment seg, long off, long timestampMs) {
+    public void writeLastAutoLtp(MemorySegment seg, long off, long timestampMs) {
     }
 
     // ── Full header read/write ──
 
-    @Override
-    public CognitiveRecordLayout.CognitiveHeader readHeader(MemorySegment seg, long off) {
-        return new CognitiveRecordLayout.CognitiveHeader(
+    public CognitiveHeader readHeader(MemorySegment seg, long off) {
+        return new CognitiveHeader(
                 readTimestamp(seg, off),
                 readSynapticTags(seg, off),
                 readExactNorm(seg, off),
                 readImportance(seg, off),
-                0, // agentRecallCount lives in audit region
+                0, // agentRecallCount lives in strength region
                 readCentroidId(seg, off),
                 readValence(seg, off),
                 readFlags(seg, off),
                 readArousal(seg, off),
-                SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_INITIAL_STORAGE_STRENGTH, // storageStrength lives in audit region
+                SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_INITIAL_STORAGE_STRENGTH, // storageStrength lives in strength region
                 readEncodingProfile(seg, off),
                 readEncodingAlpha(seg, off),
                 readEncodingBeta(seg, off),
@@ -305,8 +327,7 @@ public record HeaderLayout64V2() implements HeaderLayout {
         );
     }
 
-    @Override
-    public void writeHeader(MemorySegment seg, long off, CognitiveRecordLayout.CognitiveHeader header) {
+    public void writeHeader(MemorySegment seg, long off, CognitiveHeader header) {
         seg.set(LAYOUT_HEADER_VERSION, off + OFFSET_HEADER_VERSION, (byte) HEADER_VERSION_V2);
         seg.set(LAYOUT_FLAGS,         off + OFFSET_FLAGS,          header.flags());
         seg.set(LAYOUT_VALENCE,       off + OFFSET_VALENCE,        header.valence());

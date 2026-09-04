@@ -177,14 +177,14 @@ public final class CognitiveScorer {
             }
 
             // Phase 1: Tombstone check (~1 cycle)
-            final byte flags = segment.get(LAYOUT_FLAGS, offset + OFFSET_FLAGS);
+            final byte flags = layout.readFlags(segment, offset);
             if (isTombstoned(flags)) {
                 continue;
             }
 
             // Phase 1c: Contradiction & simulation gating (NF7: default recall hard-gates simulated records)
             if (!options.includeContradictions() || !options.allowSimulated()) {
-                final byte cFlags = segment.get(LAYOUT_CONSOLIDATION_FLAGS, offset + OFFSET_CONSOLIDATION_FLAGS);
+                final byte cFlags = layout.readConsolidationFlags(segment, offset);
                 if (!options.includeContradictions() && isContradicted(cFlags)) {
                     continue;
                 }
@@ -194,7 +194,7 @@ public final class CognitiveScorer {
             }
 
             // Phase 1b: Temporal gating & Future causal horizon gate
-            final long timestamp = segment.get(LAYOUT_TIMESTAMP, offset + OFFSET_TIMESTAMP);
+            final long timestamp = layout.readTimestamp(segment, offset);
             if (RecordGates.isTemporalGated(timestamp, minTimestamp, maxTimestamp, nowMs, allowFuture)) {
                 continue;
             }
@@ -202,20 +202,20 @@ public final class CognitiveScorer {
             // Phase 2: Synaptic tag gating
             long recordTags = 0;
             if (hyperfocusMask != 0 || queryTagMask != 0) {
-                recordTags = segment.get(LAYOUT_SYNAPTIC_TAGS, offset + OFFSET_SYNAPTIC_TAGS);
+                recordTags = layout.readSynapticTags(segment, offset);
                 if (RecordGates.isTagGated(recordTags, queryTagMask, hyperfocusMask)) {
                     continue;
                 }
             }
 
             // Phase 3: Valence filter
-            final byte valence = segment.get(LAYOUT_VALENCE, offset + OFFSET_VALENCE);
+            final byte valence = layout.readValence(segment, offset);
             if (RecordGates.isValenceGated(valence, minValence, maxValence)) {
                 continue;
             }
 
             // Phase 4: Temporal / importance pre-screen with reconsolidation & high-mass exemption
-            final float rawImportance = segment.get(LAYOUT_IMPORTANCE, offset + OFFSET_IMPORTANCE);
+            final float rawImportance = layout.readImportance(segment, offset);
             final float importance;
             if (useStrength) {
                 float eff = strengthStore.readEffectiveImportance(tier, i);
@@ -229,27 +229,27 @@ public final class CognitiveScorer {
 
             final int agentRecallCount = useStrength
                     ? strengthStore.readAgentRecallCount(tier, i)
-                    : segment.get(LAYOUT_AGENT_RECALL_COUNT, offset + OFFSET_AGENT_RECALL_COUNT);
+                    : layout.readAgentRecallCount(segment, offset);
             final int rawBucket = DecayStrategy.ageToBucket(timestamp, nowMs);
             int adjustedBucket = DecayStrategy.adjustForReconsolidation(rawBucket, agentRecallCount);
 
             if (hasStorageStrength || useStrength) {
                 final int spectorRecallCount = useStrength
                         ? strengthStore.readSpectorRecallCount(tier, i)
-                        : segment.get(LAYOUT_SPECTOR_RECALL_COUNT, offset + OFFSET_SPECTOR_RECALL_COUNT);
+                        : layout.readSpectorRecallCount(segment, offset);
                 adjustedBucket = DecayStrategy.adjustForAutoRecall(adjustedBucket, spectorRecallCount);
             }
 
             final boolean focusMatch = hyperfocusMask != 0 && (recordTags & hyperfocusMask) == hyperfocusMask;
             final boolean zeroTimeDecay = focusMatch || (!isResolved(flags) && !isPinned(flags));
 
-            final byte arousal = hasArousal ? segment.get(LAYOUT_AROUSAL, offset + OFFSET_AROUSAL) : (byte) 0;
+            final byte arousal = hasArousal ? layout.readArousal(segment, offset) : (byte) 0;
             final float storageStrength;
             if (useStrength) {
                 float s = strengthStore.readStorageStrength(tier, i);
                 storageStrength = s > 0.0f ? s : 1.0f;
             } else if (hasStorageStrength) {
-                storageStrength = layout.headerLayout().readStorageStrength(segment, offset);
+                storageStrength = layout.readStorageStrength(segment, offset);
             } else {
                 storageStrength = 1.0f;
             }
@@ -268,7 +268,7 @@ public final class CognitiveScorer {
             final float tagOverlap = SynapticTagEncoder.overlapRatio(recordTags, queryTagMask);
 
             if (lateralMode && l2dist > lateralDistanceThreshold && tagOverlap >= lateralMinTagOverlap) {
-                scoreLateral(lateralHeap, lateralMaxResults, segment, offset,
+                scoreLateral(lateralHeap, lateralMaxResults, segment, offset, layout,
                         l2dist, tagOverlap, importance, adjustedBucket, arousal,
                         timestamp, recordTags, valence, flags, agentRecallCount, i, storageStrength);
                 continue;
@@ -285,8 +285,8 @@ public final class CognitiveScorer {
             // Top-K insertion
             if (heap.shouldInsert(finalScore)) {
                 final long synapticTags = queryTagMask != 0 || hyperfocusMask != 0 ? recordTags : 0;
-                final float exactNorm = segment.get(LAYOUT_EXACT_NORM, offset + OFFSET_EXACT_NORM);
-                final short centroidId = segment.get(LAYOUT_CENTROID_ID, offset + OFFSET_CENTROID_ID);
+                final float exactNorm = layout.readExactNorm(segment, offset);
+                final short centroidId = layout.readCentroidId(segment, offset);
                 heap.insert(finalScore, offset, i, timestamp, synapticTags,
                         exactNorm, importance, agentRecallCount, centroidId, valence, flags);
             }
@@ -302,7 +302,7 @@ public final class CognitiveScorer {
 
     private static void scoreLateral(
             final PriorityQueue<ScoredRecord> lateralHeap, final int lateralMaxResults,
-            final MemorySegment segment, final long offset,
+            final MemorySegment segment, final long offset, final CognitiveRecordLayout layout,
             final float l2dist, final float tagOverlap, final float importance,
             final int adjustedBucket, final byte arousal,
             final long timestamp, final long recordTags, final byte valence, final byte flags,
@@ -316,8 +316,8 @@ public final class CognitiveScorer {
         final float importanceNorm = importance / 10.0f;
         final float lateralScore = lateralSimilarity * tagOverlap * (1.0f + importanceNorm * decay);
 
-        final float exactNorm = segment.get(LAYOUT_EXACT_NORM, offset + OFFSET_EXACT_NORM);
-        final short centroidId = segment.get(LAYOUT_CENTROID_ID, offset + OFFSET_CENTROID_ID);
+        final float exactNorm = layout.readExactNorm(segment, offset);
+        final short centroidId = layout.readCentroidId(segment, offset);
         final CognitiveHeader header = new CognitiveHeader(
                 timestamp, recordTags, exactNorm, importance,
                 agentRecallCount, centroidId, valence, flags,

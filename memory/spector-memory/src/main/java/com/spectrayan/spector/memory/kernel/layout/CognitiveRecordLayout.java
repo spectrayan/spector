@@ -35,18 +35,17 @@ import com.spectrayan.spector.memory.kernel.RegionLayout;
  * filtering, and scoring without touching the heavy vector payload.</p>
  *
  * <h3>Header Layout</h3>
- * <p>The {@link HeaderLayout} sealed interface provides version-aware access
- * to header fields. The current layout is 64 bytes (full cache line), with
+ * <p>The {@link EncodingHeaderLayout} provides access
+ * to header fields. The layout is 64 bytes (full cache line), with
  * header_version at byte 0 and synaptic_tags at the end of the core (offset 24)
- * for future 128-bit growth.</p>
+ * for 128-bit growth.</p>
  *
  * @param quantizedVecBytes number of bytes for the quantized vector payload
- * @param headerLayout      the versioned header layout to use for read/write
+ * @param headerLayout      the encoding header layout to use for read/write
  *
- * @see HeaderLayout
- * @see HeaderLayout64
+ * @see EncodingHeaderLayout
  */
-public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLayout) implements RegionLayout {
+public record CognitiveRecordLayout(int quantizedVecBytes, EncodingHeaderLayout headerLayout) implements RegionLayout {
 
     public static final int LAYOUT_ID = 0x434F4700; // 'COG\0'
 
@@ -56,7 +55,7 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
      * @param quantizedVecBytes bytes per quantized vector payload
      */
     public CognitiveRecordLayout(int quantizedVecBytes) {
-        this(quantizedVecBytes, HeaderLayout.defaultLayout());
+        this(quantizedVecBytes, EncodingHeaderLayout.defaultLayout());
     }
 
     @Override
@@ -185,6 +184,16 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
     /** Reads the storage strength. Returns 1.0f on V1 layouts. */
     public float readStorageStrength(MemorySegment segment, long offset) {
         return headerLayout.readStorageStrength(segment, offset);
+    }
+
+    /** Reads the exact norm at the given record offset. */
+    public float readExactNorm(MemorySegment segment, long offset) {
+        return headerLayout.readExactNorm(segment, offset);
+    }
+
+    /** Reads the centroid ID at the given record offset. */
+    public short readCentroidId(MemorySegment segment, long offset) {
+        return headerLayout.readCentroidId(segment, offset);
     }
 
     /**

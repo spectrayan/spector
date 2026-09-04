@@ -66,8 +66,7 @@ class ArousalOrderingPropertyTest {
         float[] mins = IdentityCalibration.mins(DIMS);
         float[] scales = IdentityCalibration.scales(DIMS);
         // Use the default layout (64B, supports arousal)
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS,
-                com.spectrayan.spector.memory.kernel.layout.HeaderLayout.defaultLayout());
+        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
 
         try (Arena arena = Arena.ofConfined()) {
             int corpusSize = 2;

@@ -16,11 +16,11 @@ import com.spectrayan.spector.memory.cortex.StrengthMemory;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.HeaderLayout64;
-import com.spectrayan.spector.memory.kernel.layout.HeaderLayout64V2;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout.StrengthState;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.compat.LegacyEncodingHeaderReader;
 import com.spectrayan.spector.memory.model.MemoryType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -147,7 +147,7 @@ class HeaderMigratorTest {
 
         StrengthMemory store = StrengthMemory.heap(10, 10, 10);
         HeaderMigrator.MigrationReport report = HeaderMigrator.migrate(
-                storePath, HeaderLayout64.INSTANCE, HeaderLayout64V2.INSTANCE,
+                storePath, LegacyEncodingHeaderReader.INSTANCE, EncodingHeaderLayout.INSTANCE,
                 vectorBytes, false, store, MemoryType.SEMANTIC);
 
         assertThat(report.recordsMigrated()).isEqualTo(recordCount);

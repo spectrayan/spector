@@ -13,7 +13,6 @@
 package com.spectrayan.spector.memory.synapse;
 
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
-import com.spectrayan.spector.memory.kernel.layout.HeaderLayout64;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 
 import java.lang.foreign.MemorySegment;
@@ -46,7 +45,7 @@ import java.lang.foreign.ValueLayout;
  * @see DecayStrategy
  * @see DecayConfig
  * @see StrengthLayout
- * @see HeaderLayout64
+ * @see com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout
  */
 public final class ActRActivation {
 

@@ -21,16 +21,18 @@ import java.lang.foreign.MemorySegment;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
-@DisplayName("HeaderLayout64V2 Unit Tests")
-class HeaderLayout64V2Test {
+@DisplayName("EncodingHeaderLayout Unit Tests")
+class EncodingHeaderLayoutTest {
 
-    private final HeaderLayout64V2 layout = HeaderLayout64V2.INSTANCE;
+    private final EncodingHeaderLayout layout = EncodingHeaderLayout.INSTANCE;
 
     @Test
-    @DisplayName("Verify HeaderLayout64V2 metadata, version (2), and 64-byte cache line alignment")
+    @DisplayName("Verify EncodingHeaderLayout metadata, version (2), and 64-byte cache line alignment")
     void testMetadataAndDimensions() {
         assertThat(layout.version()).isEqualTo(2);
         assertThat(layout.headerBytes()).isEqualTo(64);
+        assertThat(EncodingHeaderLayout.defaultLayout()).isSameAs(layout);
+        assertThat(EncodingHeaderLayout.forVersion(2)).isSameAs(layout);
     }
 
     @Test

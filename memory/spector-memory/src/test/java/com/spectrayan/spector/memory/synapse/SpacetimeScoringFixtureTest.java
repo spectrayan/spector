@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.synapse;
 
 import com.spectrayan.spector.core.spacetime.Time2VecProjector;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
+import com.spectrayan.spector.memory.cortex.StrengthMemory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
@@ -139,6 +140,10 @@ class SpacetimeScoringFixtureTest {
                     now - FIVE_YEARS_MS, 0L, 1.0f, 0.5f, 0, (short) 0, (byte) 0, flagsResolved, (byte) 0, 1.0f);
             store.append(lowMassHeader, new byte[layout.quantizedVecBytes()]);
 
+            final StrengthMemory strengthStore = StrengthMemory.heap(10, 10, 10);
+            strengthStore.initializeDefault(MemoryType.SEMANTIC, 0, 0.8f, 4.0f, 0);
+            strengthStore.initializeDefault(MemoryType.SEMANTIC, 1, 0.5f, 1.0f, 0);
+
             final float[] queryVec = new float[DIMS];
             final RecallOptions opts = RecallOptions.builder()
                     .topK(5)
@@ -146,7 +151,7 @@ class SpacetimeScoringFixtureTest {
                     .build();
 
             final List<ScoredRecord> results = CognitiveScorer.score(
-                    store.segment(), 2, layout, queryVec, opts, now, 0L, null, null);
+                    store.segment(), 2, layout, queryVec, opts, now, 0L, null, null, null, null, strengthStore, MemoryType.SEMANTIC);
 
             // Only the high-mass memory survives Phase 4 screening despite I < 1.0
             assertThat(results).hasSize(1);
