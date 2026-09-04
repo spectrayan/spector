@@ -132,7 +132,7 @@ public final class ReinforcementHandler {
         if (segment != null) {
             CognitiveRecordLayout layout = cognitiveRouter.layoutFor(loc.type());
 
-            if (cognitiveRouter.audit() != null) {
+            if (cognitiveRouter.strength() != null) {
                 int slotIndex = (int) (loc.offset() / layout.stride());
                 long creationTs = layout.readTimestamp(segment, loc.offset());
                 long nowMs = System.currentTimeMillis();
@@ -140,17 +140,17 @@ public final class ReinforcementHandler {
                 // Step 1: Valence tracking
                 valenceTracker.reinforce(segment, loc.offset(), layout, valence);
 
-                // Step 2: LTP — increment agent recall count in audit region
-                cognitiveRouter.audit().incrementAgentRecallCount(loc.type(), slotIndex);
+                // Step 2: LTP — increment agent recall count in strength region
+                cognitiveRouter.strength().incrementAgentRecallCount(loc.type(), slotIndex);
 
                 // Step 3: ACT-R — record recall timestamp in 8-slot ring buffer
-                cognitiveRouter.audit().recordRecall(loc.type(), slotIndex, creationTs, nowMs, (byte) 0, 0);
+                cognitiveRouter.strength().recordRecall(loc.type(), slotIndex, creationTs, nowMs, (byte) 0, 0);
 
-                // Step 4: Two-Factor Memory — update storage strength S(t) in audit region
+                // Step 4: Two-Factor Memory — update storage strength S(t) in strength region
                 int rawBucket = DecayStrategy.ageToBucket(creationTs, nowMs);
                 float currentR = DecayStrategy.decay(rawBucket);
                 float deltaS = twoFactorConfig.sGain() * (1.0f - currentR);
-                cognitiveRouter.audit().casStorageStrength(loc.type(), slotIndex,
+                cognitiveRouter.strength().casStorageStrength(loc.type(), slotIndex,
                         currentS -> Math.min(twoFactorConfig.sMax(),
                                 Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MIN, currentS + deltaS)));
             } else {
@@ -198,9 +198,9 @@ public final class ReinforcementHandler {
         if (profileAdaptor != null && segment != null) {
             try {
                 byte profileOrdinal;
-                if (cognitiveRouter.audit() != null) {
+                if (cognitiveRouter.strength() != null) {
                     int slotIndex = (int) (loc.offset() / cognitiveRouter.layoutFor(loc.type()).stride());
-                    profileOrdinal = cognitiveRouter.audit().readStrengthState(loc.type(), slotIndex).lastRecallProfile();
+                    profileOrdinal = cognitiveRouter.strength().readStrengthState(loc.type(), slotIndex).lastRecallProfile();
                 } else {
                     profileOrdinal = segment.get(
                             java.lang.foreign.ValueLayout.JAVA_BYTE,

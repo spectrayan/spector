@@ -323,7 +323,10 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     /** Returns the unified Strength memory store. Null if not configured. */
     public StrengthMemory strength() { return strengthStore; }
 
-    /** Returns the unified Strength memory store. Null if not configured. */
+    /**
+     * @deprecated Use {@link #strength()} instead.
+     */
+    @Deprecated
     public StrengthMemory audit() { return strengthStore; }
 
     /**

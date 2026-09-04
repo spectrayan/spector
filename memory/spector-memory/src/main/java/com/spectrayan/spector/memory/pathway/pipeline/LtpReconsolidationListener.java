@@ -75,19 +75,19 @@ public final class LtpReconsolidationListener implements RecallListener {
                 if (segment != null) {
                     CognitiveRecordLayout layout = router.layoutFor(loc.type());
 
-                    if (router.audit() != null) {
+                    if (router.strength() != null) {
                         int slotIndex = (int) (loc.offset() / layout.stride());
                         long creationMs = layout.readTimestamp(segment, loc.offset());
-                        router.audit().recordRecall(loc.type(), slotIndex, creationMs, nowMs, (byte) 0, 0);
+                        router.strength().recordRecall(loc.type(), slotIndex, creationMs, nowMs, (byte) 0, 0);
 
-                        long lastAutoLtp = router.audit().readStrengthState(loc.type(), slotIndex).lastAutoLtp();
+                        long lastAutoLtp = router.strength().readStrengthState(loc.type(), slotIndex).lastAutoLtp();
                         if (nowMs - lastAutoLtp >= AUTO_LTP_COOLDOWN_MS) {
-                            router.audit().incrementSpectorRecallCount(loc.type(), slotIndex);
-                            router.audit().casStorageStrength(loc.type(), slotIndex,
+                            router.strength().incrementSpectorRecallCount(loc.type(), slotIndex);
+                            router.strength().casStorageStrength(loc.type(), slotIndex,
                                     s -> Math.min(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MAX,
                                             s + SpectorPropertyConstants.DEFAULT_MEMORY_AUTO_LTP_STORAGE_INCREMENT));
-                            long strengthOff = router.audit().strengthOffset(loc.type(), slotIndex);
-                            com.spectrayan.spector.memory.kernel.layout.StrengthLayout.INSTANCE.writeLastAutoLtp(router.audit().segment(), strengthOff, nowMs);
+                            long strengthOff = router.strength().strengthOffset(loc.type(), slotIndex);
+                            com.spectrayan.spector.memory.kernel.layout.StrengthLayout.INSTANCE.writeLastAutoLtp(router.strength().segment(), strengthOff, nowMs);
                         }
                     } else if (layout.headerLayout().version() >= 3) {
                         long creationMs = layout.readTimestamp(segment, loc.offset());

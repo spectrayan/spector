@@ -1102,10 +1102,10 @@ public final class RecallPipeline {
         int recallCount = header.agentRecallCount();
         if (partitionRegistry != null) {
             var router = partitionRegistry.routerFor(partitionSeq);
-            if (router != null && router.audit() != null) {
-                int auditCount = router.audit().readAgentRecallCount(type, sr.index());
-                if (auditCount > 0 || header.agentRecallCount() == 0) {
-                    recallCount = auditCount;
+            if (router != null && router.strength() != null) {
+                int strengthCount = router.strength().readAgentRecallCount(type, sr.index());
+                if (strengthCount > 0 || header.agentRecallCount() == 0) {
+                    recallCount = strengthCount;
                 }
             }
         }
@@ -1312,10 +1312,10 @@ public final class RecallPipeline {
                 var loc = index.locate(result.id());
                 if (loc == null) continue;
                 var router = partitionRegistry.routerFor(loc.colocatedPartition());
-                if (router.audit() != null) {
+                if (router.strength() != null) {
                     int slotIndex = (int) (loc.offset() / router.layoutFor(loc.type()).stride());
-                    long strengthOff = router.audit().strengthOffset(loc.type(), slotIndex);
-                    StrengthLayout.INSTANCE.writeLastRecallProfile(router.audit().segment(), strengthOff, profileOrdinal);
+                    long strengthOff = router.strength().strengthOffset(loc.type(), slotIndex);
+                    StrengthLayout.INSTANCE.writeLastRecallProfile(router.strength().segment(), strengthOff, profileOrdinal);
                 } else {
                     MemorySegment segment = router.segmentFor(loc.type());
                     if (segment != null) {
