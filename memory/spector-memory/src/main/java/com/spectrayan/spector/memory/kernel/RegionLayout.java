@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.kernel;
 /**
  * Describes the physical schema and characteristics of a memory's records.
  */
-public interface MemoryLayout {
+public interface RegionLayout {
     
     /** 
      * Unique stable identifier for this layout type. Used in file headers. 

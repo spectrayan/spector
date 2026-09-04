@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.model.SourceModality;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
  * Read/write operations for cognitive memory records.
@@ -46,7 +46,7 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
  * @see HeaderLayout
  * @see HeaderLayout64
  */
-public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLayout) implements MemoryLayout {
+public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLayout) implements RegionLayout {
 
     public static final int LAYOUT_ID = 0x434F4700; // 'COG\0'
 

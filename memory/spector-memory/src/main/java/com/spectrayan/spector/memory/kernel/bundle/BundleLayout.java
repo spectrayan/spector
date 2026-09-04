@@ -12,12 +12,12 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
  * Memory layout for the V4 Bundle infrastructure.
  */
-public final class BundleLayout implements MemoryLayout {
+public final class BundleLayout implements RegionLayout {
     
     public static final BundleLayout SINGLETON = new BundleLayout();
     

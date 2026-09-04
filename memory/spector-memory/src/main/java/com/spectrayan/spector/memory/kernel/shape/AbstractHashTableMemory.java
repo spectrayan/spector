@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.kernel.shape;
 
 import com.spectrayan.spector.memory.kernel.AbstractMemory;
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 
 import java.lang.foreign.Arena;
@@ -44,7 +44,7 @@ import java.nio.file.Path;
  * @param <L> the type of memory layout used by this memory
  * @see MemoryShape#HASHTABLE
  */
-public abstract class AbstractHashTableMemory<L extends MemoryLayout> extends AbstractMemory<L> {
+public abstract class AbstractHashTableMemory<L extends RegionLayout> extends AbstractMemory<L> {
 
     protected AbstractHashTableMemory(MemoryId id, L layout, int capacity, long segmentBytes) {
         super(id, layout, capacity, segmentBytes);

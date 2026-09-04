@@ -39,7 +39,7 @@ import java.nio.file.StandardOpenOption;
  *
  * @param <L> the type of memory layout used by this memory
  */
-public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L> {
+public abstract class AbstractMemory<L extends RegionLayout> implements Memory<L> {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractMemory.class);
 

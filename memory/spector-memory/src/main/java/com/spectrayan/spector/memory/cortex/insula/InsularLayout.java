@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.cortex.insula;
 
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
  * On-disk layout for the {@link InsularCortex} self-model region.
@@ -34,7 +34,7 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
  * @since 1.2.0
  * @see InsularCortex
  */
-public final class InsularLayout implements MemoryLayout {
+public final class InsularLayout implements RegionLayout {
 
     /** Singleton instance — stateless, safe to share. */
     public static final InsularLayout SINGLETON = new InsularLayout();

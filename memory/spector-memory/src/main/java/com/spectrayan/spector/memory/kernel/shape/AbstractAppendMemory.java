@@ -23,13 +23,13 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import com.spectrayan.spector.memory.kernel.AbstractMemory;
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 
 /**
  * Abstract base class for append-only log structures.
  */
-public abstract class AbstractAppendMemory<L extends MemoryLayout>
+public abstract class AbstractAppendMemory<L extends RegionLayout>
         extends AbstractMemory<L> implements AppendMemory<L> {
 
     private final ReentrantLock appendLock = new ReentrantLock();

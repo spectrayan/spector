@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.kernel.shape;
 
 import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
  * Shape interface for sequential linked prev/next structures.
@@ -21,7 +21,7 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
  *
  * @param <L> the memory layout type
  */
-public interface ChainMemory<L extends MemoryLayout> extends Memory<L> {
+public interface ChainMemory<L extends RegionLayout> extends Memory<L> {
     /**
      * Links a node to a successor in the chain.
      * @param nodeId the node to link from

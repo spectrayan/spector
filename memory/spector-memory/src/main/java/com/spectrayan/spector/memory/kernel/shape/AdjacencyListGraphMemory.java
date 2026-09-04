@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.kernel.shape;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorInternalException;
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 import com.spectrayan.spector.memory.kernel.layout.AdjacencyListLayout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,10 +64,10 @@ import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListLayout.VE
  * (short) read lock. {@link #neighbours(int)} returns a lazy iterator that walks the linked list
  * without allocating a snapshot array.
  *
- * @param <L> the graph memory layout type; {@link MemoryLayout#recordStride()} is the per-edge
+ * @param <L> the graph memory layout type; {@link RegionLayout#recordStride()} is the per-edge
  *            stride and must be {@code >= }{@value AdjacencyListLayout#EDGE_HEADER_BYTES}
  */
-public abstract class AdjacencyListGraphMemory<L extends MemoryLayout>
+public abstract class AdjacencyListGraphMemory<L extends RegionLayout>
         extends AbstractGraphMemory<L> {
 
     private static final Logger log = LoggerFactory.getLogger(AdjacencyListGraphMemory.class);

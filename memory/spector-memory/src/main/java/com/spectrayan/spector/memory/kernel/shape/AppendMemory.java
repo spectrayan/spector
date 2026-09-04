@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.kernel.shape;
 
 import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 import java.lang.foreign.MemorySegment;
 
 /**
@@ -22,7 +22,7 @@ import java.lang.foreign.MemorySegment;
  *
  * @param <L> the memory layout type
  */
-public interface AppendMemory<L extends MemoryLayout> extends Memory<L> {
+public interface AppendMemory<L extends RegionLayout> extends Memory<L> {
     /**
      * Appends bytes to the end of this memory.
      * @param bytes the data to append

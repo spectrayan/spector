@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.kernel.shape;
 
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RecordMemoryContractTest {
 
-    static final class TestLayout implements MemoryLayout {
+    static final class TestLayout implements RegionLayout {
         static final int STRIDE = 32;
         @Override public int layoutId() { return 0x54455354; }
         @Override public int schemaVersion() { return 1; }

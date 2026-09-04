@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.kernel.layout;
 
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -45,7 +45,7 @@ import java.lang.foreign.ValueLayout;
  *
  * @since 1.2.0
  */
-public final class ContinuityLayout implements MemoryLayout {
+public final class ContinuityLayout implements RegionLayout {
 
     /** Singleton instance — stateless and safe to share. */
     public static final ContinuityLayout SINGLETON = new ContinuityLayout();

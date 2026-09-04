@@ -19,8 +19,8 @@ public record RegionSizeSpec(
     RegionId regionId,
     long dataBytes,      // total data bytes (excluding region's own SMKM header)
     int capacity,        // max records
-    int stride,          // record stride (from store's MemoryLayout)
-    int layoutId,        // store's MemoryLayout.layoutId()
-    int schemaVersion,   // store's MemoryLayout.schemaVersion()
+    int stride,          // record stride (from store's RegionLayout)
+    int layoutId,        // store's RegionLayout.layoutId()
+    int schemaVersion,   // store's RegionLayout.schemaVersion()
     boolean growable     // whether region can grow via relocate-to-tail
 ) {}

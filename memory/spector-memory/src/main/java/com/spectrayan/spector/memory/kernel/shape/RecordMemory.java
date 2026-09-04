@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.kernel.shape;
 
 import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 import java.lang.foreign.MemorySegment;
 
 /**
@@ -22,7 +22,7 @@ import java.lang.foreign.MemorySegment;
  *
  * @param <L> the memory layout type
  */
-public interface RecordMemory<L extends MemoryLayout> extends Memory<L> {
+public interface RecordMemory<L extends RegionLayout> extends Memory<L> {
     /**
      * Writes a record at the given slot index.
      * @param recordId slot index (0-based)

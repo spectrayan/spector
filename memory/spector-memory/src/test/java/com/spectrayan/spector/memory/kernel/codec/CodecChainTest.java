@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.kernel.codec;
 
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class CodecChainTest {
 
-    static final class TestLayout implements MemoryLayout {
+    static final class TestLayout implements RegionLayout {
         @Override public int layoutId() { return 0x434F4443; }
         @Override public int schemaVersion() { return 2; }
         @Override public int recordStride() { return 16; }

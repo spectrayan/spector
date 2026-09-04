@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.kernel.layout;
 
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
  * Memory layout for nodes/relations in the legacy Entity Graph.
@@ -40,7 +40,7 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
  * {@code EntityDirectoryLayout}. Removed in P4 (#458).
  */
 @Deprecated(since = "1.2.0", forRemoval = true)
-public final class EntityLayout implements MemoryLayout {
+public final class EntityLayout implements RegionLayout {
 
     private static final int LAYOUT_ID = 0x45474D4D; // 'EGMM'
     private static final int VERSION = 2;

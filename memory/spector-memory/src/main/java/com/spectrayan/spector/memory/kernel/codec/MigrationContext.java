@@ -16,7 +16,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 import java.nio.file.Path;
 import java.util.Map;
@@ -27,7 +27,7 @@ import java.util.Map;
 public record MigrationContext(
         Path sourcePath,
         MemoryId memoryId,
-        MemoryLayout layout,
+        RegionLayout layout,
         DataEncryptor encryptor,
         Map<String, Path> sidecars,
         boolean keepBackup,

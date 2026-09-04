@@ -64,7 +64,7 @@ public enum MemoryShape {
     /**
      * Backs a multi-region container that hosts multiple heterogeneous memories in a single
      * mmap file. Each region within the bundle carries its own {@link RegionPreamble} and
-     * independently-typed {@link MemoryLayout}. The bundle header and region directory are
+     * independently-typed {@link RegionLayout}. The bundle header and region directory are
      * managed by the {@code kernel.bundle} infrastructure.
      *
      * <p>Introduced as part of ADR-0004 (V4 mmap FD scaling) to consolidate

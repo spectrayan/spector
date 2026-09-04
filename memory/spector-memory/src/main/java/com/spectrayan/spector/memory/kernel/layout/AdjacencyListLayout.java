@@ -17,13 +17,13 @@ package com.spectrayan.spector.memory.kernel.layout;
  * {@code AdjacencyListGraphMemory} subclass (#435, TD-14).
  *
  * <p>Unlike {@link HebbianLayout}/{@link EntityLayout}/{@link HyperEntityLayout}, this is
- * <b>not</b> a pluggable per-record {@link com.spectrayan.spector.memory.kernel.MemoryLayout}:
- * the per-edge record stride and payload are defined by the subclass's own {@code MemoryLayout}
+ * <b>not</b> a pluggable per-record {@link com.spectrayan.spector.memory.kernel.RegionLayout}:
+ * the per-edge record stride and payload are defined by the subclass's own {@code RegionLayout}
  * ({@code recordStride()}), while these constants describe the <em>fixed structural wiring</em>
  * that threads a per-vertex singly linked adjacency list through the shared edge slab — the
  * vertex record and the universal base prefix of every edge record. Because that wiring is fixed
  * (never pluggable), a small {@code final} constants class is the right model rather than a
- * {@code MemoryLayout} implementation.</p>
+ * {@code RegionLayout} implementation.</p>
  *
  * <pre>
  *   Vertex record ({@value #VERTEX_STRIDE} bytes):

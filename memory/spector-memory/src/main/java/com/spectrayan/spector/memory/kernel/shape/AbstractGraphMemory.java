@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.kernel.shape;
 
 import com.spectrayan.spector.memory.kernel.AbstractMemory;
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 
 import java.lang.foreign.Arena;
@@ -61,7 +61,7 @@ import java.util.concurrent.locks.StampedLock;
  *
  * @param <L> the graph memory layout type
  */
-public abstract class AbstractGraphMemory<L extends MemoryLayout>
+public abstract class AbstractGraphMemory<L extends RegionLayout>
         extends AbstractMemory<L> implements GraphMemory<L> {
 
     /** SWMR guard shared by the substrate and its subclasses. Never use {@code synchronized}. */

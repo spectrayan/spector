@@ -211,7 +211,6 @@ class KernelNamingRulesTest {
      * would require a fully-qualified name.</p>
      */
     @Test
-    @Disabled("Enabled by spec task 1.2 — fails until kernel.MemoryLayout becomes kernel.RegionLayout")
     @DisplayName("Rule 2: no kernel type shadows a java.lang.foreign type")
     void noKernelTypeShadowsPanama() {
         List<String> violations = ALL_TYPES.stream()
@@ -282,7 +281,7 @@ class KernelNamingRulesTest {
                 .filter(fqn -> {
                     Class<?> type = load(fqn);
                     // A type that cannot be loaded is reported rather than silently passed.
-                    return type == null || (!type.isInterface() && !MemoryLayout.class.isAssignableFrom(type));
+                    return type == null || (!type.isInterface() && !RegionLayout.class.isAssignableFrom(type));
                 })
                 .toList();
 
@@ -324,10 +323,10 @@ class KernelNamingRulesTest {
                 .as("kernel.layout must be discovered — rule 6 depends on it").isGreaterThan(10);
 
         // Sentinels: known types that must be visible, so a future package move cannot quietly empty
-        // the rule set. These are the exact types the rules above target.
+        // the rule set.
         assertThat(ALL_TYPES)
-                .as("known violating types must be visible to the rules")
-                .contains(KERNEL_PKG + ".MemoryLayout",
+                .as("known types must be visible to the rules")
+                .contains(KERNEL_PKG + ".RegionLayout",
                         LAYOUT_PKG + ".HeaderLayout64",
                         LAYOUT_PKG + ".AuditRecordLayout",
                         LAYOUT_PKG + ".AdjacencyListLayout");
@@ -364,7 +363,7 @@ class KernelNamingRulesTest {
                 .count();
 
         assertThat(sizeOrVersion).as("expected HeaderLayout64 and HeaderLayout64V2").isGreaterThanOrEqualTo(2);
-        assertThat(panamaShadow).as("expected kernel.MemoryLayout").isGreaterThanOrEqualTo(1);
+        assertThat(panamaShadow).as("expected no kernel types shadowing Panama").isEqualTo(0);
         assertThat(shapeTokens).as("expected AuditRecordLayout, SemanticRecordMemory and 12 peers")
                 .isGreaterThanOrEqualTo(14);
     }

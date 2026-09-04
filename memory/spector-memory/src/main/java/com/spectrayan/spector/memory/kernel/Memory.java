@@ -17,9 +17,9 @@ import java.lang.foreign.*;
 /**
  * The base interface for all persistent structures in the Spector Memory Kernel.
  *
- * @param <L> The MemoryLayout type describing the schema of this memory's records.
+ * @param <L> The RegionLayout type describing the schema of this memory's records.
  */
-public interface Memory<L extends MemoryLayout> extends AutoCloseable {
+public interface Memory<L extends RegionLayout> extends AutoCloseable {
     
     /** 
      * Stable identity for logs, metrics, WAL redo target. 

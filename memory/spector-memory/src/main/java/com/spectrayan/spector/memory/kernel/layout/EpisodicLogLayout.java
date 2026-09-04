@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
  * Memory layout for the log-structured episodic conversation store.
@@ -28,7 +28,7 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
  * @since 1.3.0
  * @see EpisodicFieldAccessor
  */
-public final class EpisodicLogLayout implements MemoryLayout {
+public final class EpisodicLogLayout implements RegionLayout {
 
     /** Layout ID: 'EPIL' (Episodic Log). */
     private static final int LAYOUT_ID = 0x4550494C;

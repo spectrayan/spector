@@ -13,13 +13,13 @@
 package com.spectrayan.spector.memory.kernel.layout;
 
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
  * Memory layout for edges in the Hebbian Graph CSR — the single source of truth for the CSR
  * edge stride and field offsets as well as the SMKM container sub-header framing (#435).
  */
-public final class HebbianLayout implements MemoryLayout {
+public final class HebbianLayout implements RegionLayout {
 
     /** Layout id / interim HCSR container magic ('HCSR'). */
     public static final int LAYOUT_ID = 0x48435352;

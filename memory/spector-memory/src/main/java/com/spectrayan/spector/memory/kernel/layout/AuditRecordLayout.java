@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.kernel.layout;
 
 import com.spectrayan.spector.config.SpectorPropertyConstants;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 
@@ -52,9 +52,9 @@ import java.lang.invoke.VarHandle;
  * </pre>
  *
  * @see HeaderLayout64
- * @see MemoryLayout
+ * @see RegionLayout
  */
-public final class AuditRecordLayout implements MemoryLayout {
+public final class AuditRecordLayout implements RegionLayout {
 
     /** Layout identification code: ASCII 'AUDT' (0x41554454). */
     public static final int LAYOUT_ID = 0x41554454;

@@ -13,14 +13,14 @@
 package com.spectrayan.spector.memory.kernel.layout;
 
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
  * Memory layout for nodes/relations in the Hyper Entity Graph — the single source of truth for
  * the hyperedge/vertex record strides and field offsets as well as the SMKM v2 container
  * sub-header framing (#435).
  */
-public final class HyperEntityLayout implements MemoryLayout {
+public final class HyperEntityLayout implements RegionLayout {
 
     private static final int STRIDE = 32;
     private static final int LAYOUT_ID = 0x48594547; // 'HYEG'

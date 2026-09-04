@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class FileChannelReleaseTest {
 
-    static class TestLayout implements MemoryLayout {
+    static class TestLayout implements RegionLayout {
         @Override
         public int schemaVersion() { return 1; }
         @Override
