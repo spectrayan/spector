@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.kernel.RegionLayout;
  * Memory layout for Write-Ahead Log (WAL) append records.
  * Layout ID: 0x57414C47 ('WALG')
  */
-public final class WalRecordLayout implements RegionLayout {
+public final class WalLayout implements RegionLayout {
 
     public static final int LAYOUT_ID = 0x57414C47;
     public static final int SCHEMA_VERSION = 1;
@@ -45,6 +45,6 @@ public final class WalRecordLayout implements RegionLayout {
 
     @Override
     public String name() {
-        return "WalRecordLayout";
+        return "WalLayout";
     }
 }

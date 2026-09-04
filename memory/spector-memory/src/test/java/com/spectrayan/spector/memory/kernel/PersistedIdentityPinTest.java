@@ -30,7 +30,7 @@ import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
 import com.spectrayan.spector.memory.kernel.layout.TemporalFactLayout;
 import com.spectrayan.spector.memory.kernel.layout.TemporalLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
-import com.spectrayan.spector.memory.kernel.layout.WalRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.WalLayout;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -192,7 +192,7 @@ class PersistedIdentityPinTest {
             actual.put("TemporalLayout", hex(new TemporalLayout().layoutId()));
             actual.put("TemporalFactLayout", hex(new TemporalFactLayout().layoutId()));
             actual.put("RegistryLayout", hex(new RegistryLayout().layoutId()));
-            actual.put("WalRecordLayout", hex(new WalRecordLayout().layoutId()));
+            actual.put("WalLayout", hex(new WalLayout().layoutId()));
 
             Map<String, String> expected = new LinkedHashMap<>();
             expected.put("CognitiveRecordLayout", "0x434F4700 'COG\\0'");
@@ -212,7 +212,7 @@ class PersistedIdentityPinTest {
             expected.put("TemporalLayout", "0x54504348 'TPCH'");
             expected.put("TemporalFactLayout", "0x54464354 'TFCT'");
             expected.put("RegistryLayout", "0x52454700 'REG\\0'");
-            expected.put("WalRecordLayout", "0x57414C47 'WALG'");
+            expected.put("WalLayout", "0x57414C47 'WALG'");
 
             assertThat(actual)
                     .as("a layoutId changed — this is a storage-format break, not a stale test. "
