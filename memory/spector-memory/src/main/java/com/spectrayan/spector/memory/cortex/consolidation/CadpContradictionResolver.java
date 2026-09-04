@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.cortex.consolidation;
 
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
@@ -94,7 +94,7 @@ public final class CadpContradictionResolver {
             CognitiveRecord recordA,
             CognitiveRecord recordB,
             com.spectrayan.spector.memory.persist.PartitionManager partitionManager,
-            CognitiveRecordMemory store,
+            EngramMemory store,
             HyperEntityGraphMemory hyperEntityGraph,
             EntityDirectory entityDirectory,
             TemporalKnowledgeGraph temporalKnowledgeGraph) {
@@ -191,7 +191,7 @@ public final class CadpContradictionResolver {
     public static ResolutionResult resolve(
             CognitiveRecord recordA,
             CognitiveRecord recordB,
-            CognitiveRecordMemory store,
+            EngramMemory store,
             HyperEntityGraphMemory hyperEntityGraph,
             EntityDirectory entityDirectory,
             TemporalKnowledgeGraph temporalKnowledgeGraph) {
@@ -201,8 +201,8 @@ public final class CadpContradictionResolver {
     /**
      * Computes the 0-based memory slot index for a cognitive record in the given store.
      */
-    public static int memorySlot(CognitiveRecord record, CognitiveRecordMemory store, CognitiveRecordLayout layout) {
-        long headerOffset = store.isPersistent() ? CognitiveRecordMemory.METADATA_PREAMBLE_BYTES : 0L;
+    public static int memorySlot(CognitiveRecord record, EngramMemory store, CognitiveRecordLayout layout) {
+        long headerOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0L;
         return (int) ((record.byteOffset() - headerOffset) / layout.stride());
     }
 

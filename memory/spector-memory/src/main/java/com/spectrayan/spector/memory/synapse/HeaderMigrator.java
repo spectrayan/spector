@@ -70,10 +70,10 @@ public final class HeaderMigrator {
 
     private static final Logger log = LoggerFactory.getLogger(HeaderMigrator.class);
 
-    /** Region preamble size in bytes (same as AbstractCognitiveRecordMemory.METADATA_PREAMBLE_BYTES). */
+    /** Region preamble size in bytes (same as AbstractEngramMemory.METADATA_PREAMBLE_BYTES). */
     private static final int METADATA_PREAMBLE_BYTES = 64;
 
-    /** Metadata field offsets (mirrors AbstractCognitiveRecordMemory). */
+    /** Metadata field offsets (mirrors AbstractEngramMemory). */
     private static final int META_MAGIC    = 0;
     private static final int META_VERSION  = 4;
     private static final int META_COUNT    = 8;

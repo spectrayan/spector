@@ -21,13 +21,13 @@ import com.spectrayan.spector.memory.kernel.shape.RecordMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
- * Standardized interface for cognitive record memory stores in Spector Memory.
+ * Standardized interface for engram memory stores in Spector Memory.
  *
  * <p>Extends {@link RecordMemory} to provide full type safety and contracts
- * for cognitive memory record operations, SWMR visibility, and persistence,
+ * for engram record operations, SWMR visibility, and persistence,
  * eliminating downcasting anti-patterns.</p>
  */
-public interface CognitiveRecordMemory extends RecordMemory<CognitiveRecordLayout>, AutoCloseable {
+public interface EngramMemory extends RecordMemory<CognitiveRecordLayout>, AutoCloseable {
 
     /** Size of the {@link RegionPreamble} region prologue in bytes. */
     int METADATA_PREAMBLE_BYTES = RegionPreamble.PREAMBLE_BYTES;

@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.pathway.dream.relay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.spi.AcceleratorRegistry;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
@@ -110,7 +110,7 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
     }
 
     private void collectCandidates(
-            CognitiveRecordMemory store,
+            EngramMemory store,
             List<SeedCandidate> candidates,
             int limit,
             String prefix,

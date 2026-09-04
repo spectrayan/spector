@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
@@ -48,14 +48,14 @@ public final class DuplicateDetector {
     /**
      * Associates a partition sequence number with a tier memory store.
      */
-    public record PartitionStore(int partitionSeq, CognitiveRecordMemory store) {}
+    public record PartitionStore(int partitionSeq, EngramMemory store) {}
 
     private record ScannedEntry(int partitionSeq, int recordIndex, String id, float[] decodedVector) {}
 
     /**
      * Scans the given store for duplicate pairs.
      */
-    public List<DuplicatePair> findDuplicates(CognitiveRecordMemory store, MemoryIndex index, ScalarQuantizer quantizer) {
+    public List<DuplicatePair> findDuplicates(EngramMemory store, MemoryIndex index, ScalarQuantizer quantizer) {
         if (store == null) return List.of();
         int partitionSeq = index != null ? index.activePartitionSeq() : 0;
         return findDuplicatesAcrossPartitions(List.of(new PartitionStore(partitionSeq, store)), index, quantizer);
@@ -76,14 +76,14 @@ public final class DuplicateDetector {
         List<ScannedEntry> entries = new ArrayList<>();
 
         for (PartitionStore ps : partitionStores) {
-            CognitiveRecordMemory store = ps.store();
+            EngramMemory store = ps.store();
             if (store == null) continue;
             int recordCount = store.visibleCount();
             if (recordCount == 0) continue;
 
             MemorySegment segment = store.segment();
             CognitiveRecordLayout layout = store.cognitiveLayout();
-            long baseOffset = store.isPersistent() ? CognitiveRecordMemory.METADATA_PREAMBLE_BYTES : 0L;
+            long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0L;
             int stride = layout.stride();
             int qVecBytes = layout.quantizedVecBytes();
             byte[] quantizedBuf = new byte[qVecBytes];

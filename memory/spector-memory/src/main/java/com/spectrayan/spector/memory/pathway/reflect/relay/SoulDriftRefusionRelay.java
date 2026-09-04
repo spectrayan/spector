@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.pathway.reflect.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
@@ -39,7 +39,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
     private static final Logger log = LoggerFactory.getLogger(SoulDriftRefusionRelay.class);
 
     private record DriftCandidate(
-            CognitiveRecordMemory store,
+            EngramMemory store,
             long offset,
             float encodingSurprise,
             float oldImportance,
@@ -117,13 +117,13 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         var handles = signal.partitionManager().snapshot();
         for (var handle : handles) {
             if (handle.router() == null) continue;
-            CognitiveRecordMemory[] stores = new CognitiveRecordMemory[]{
+            EngramMemory[] stores = new EngramMemory[]{
                     handle.router().semantic(),
                     handle.router().working(),
                     !handle.router().isEpisodicLogMode() ? handle.router().episodic() : null
             };
 
-            for (CognitiveRecordMemory store : stores) {
+            for (EngramMemory store : stores) {
                 if (store != null && store.segment() != null) {
                     CognitiveRecordLayout layout = store.cognitiveLayout();
                     MemorySegment segment = store.segment();
@@ -159,7 +159,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         return accumulator;
     }
 
-    private void scanStore(CognitiveRecordMemory store, short currentSoulVersion,
+    private void scanStore(EngramMemory store, short currentSoulVersion,
                            PriorityQueue<DriftCandidate> heap, ReflectSignal signal) {
         if (store == null || store.segment() == null) return;
 
@@ -184,7 +184,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
     }
 
     private void refuseMemory(DriftCandidate candidate, short targetVersion, ReflectSignal signal) {
-        CognitiveRecordMemory store = candidate.store();
+        EngramMemory store = candidate.store();
         CognitiveRecordLayout layout = store.cognitiveLayout();
         MemorySegment segment = store.segment();
         long offset = candidate.offset();

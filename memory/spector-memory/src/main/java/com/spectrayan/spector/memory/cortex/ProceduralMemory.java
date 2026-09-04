@@ -41,14 +41,14 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *
  * <h3>Design</h3>
  * <ul>
- *   <li>Extends {@link AbstractCognitiveRecordMemory} for common Arena/layout/segment lifecycle</li>
+ *   <li>Extends {@link AbstractEngramMemory} for common Arena/layout/segment lifecycle</li>
  *   <li>Small store (typically &lt;1000 records)</li>
  *   <li>High importance, low TTL — designed for microsecond lookups</li>
  *   <li>Linear append (no eviction — throws when full)</li>
  *   <li>Flat scan with {@code CognitiveScorer}</li>
  * </ul>
  */
-public final class ProceduralMemory extends AbstractCognitiveRecordMemory {
+public final class ProceduralMemory extends AbstractEngramMemory {
 
     private static final Logger log = LoggerFactory.getLogger(ProceduralMemory.class);
 

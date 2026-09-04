@@ -28,7 +28,7 @@ import com.spectrayan.spector.commons.concurrent.TaskQueueConfig;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
@@ -134,7 +134,7 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
 
     private void processTask(ScopedTask<EagerConsolidationPayload> task) {
         EagerConsolidationPayload payload = task.payload();
-        CognitiveRecordMemory store;
+        EngramMemory store;
         try {
             store = cognitiveRouter.get(payload.type());
         } catch (RuntimeException e) {
@@ -151,7 +151,7 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
 
         MemorySegment segment = store.segment();
         CognitiveRecordLayout layout = store.cognitiveLayout();
-        long baseOffset = store.isPersistent() ? CognitiveRecordMemory.METADATA_PREAMBLE_BYTES : 0L;
+        long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0L;
         int stride = layout.stride();
         int vecBytes = layout.quantizedVecBytes();
         float[] mins = quantizer.mins();

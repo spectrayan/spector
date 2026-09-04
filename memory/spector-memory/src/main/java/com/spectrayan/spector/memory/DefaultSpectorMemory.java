@@ -25,7 +25,7 @@ import com.spectrayan.spector.memory.cortex.consolidation.BatchConsolidator;
 import com.spectrayan.spector.memory.cortex.consolidation.EagerConsolidator;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
@@ -1740,7 +1740,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public CompactionResult vacuum(MemoryType tier) {
         CognitiveMemoryRouter router = partitionManager.cognitiveRouter();
-        com.spectrayan.spector.memory.cortex.CognitiveRecordMemory store = router.get(tier);
+        EngramMemory store = router.get(tier);
         if (store == null) {
             log.warn("Vacuum: tier {} is not compactable", tier);
             return null;
@@ -1758,7 +1758,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         CognitiveMemoryRouter router = partitionManager.cognitiveRouter();
         java.util.Map<MemoryType, Float> ratios = new java.util.EnumMap<>(MemoryType.class);
         for (MemoryType type : MemoryType.values()) {
-            com.spectrayan.spector.memory.cortex.CognitiveRecordMemory store = router.get(type);
+            EngramMemory store = router.get(type);
             if (store != null) {
                 ratios.put(type, store.tombstoneRatio());
             }

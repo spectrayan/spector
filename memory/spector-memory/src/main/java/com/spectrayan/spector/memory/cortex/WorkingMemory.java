@@ -42,7 +42,7 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * <h3>Design</h3>
  * <ul>
- *   <li>Extends {@link AbstractCognitiveRecordMemory} for common Arena/layout/segment lifecycle</li>
+ *   <li>Extends {@link AbstractEngramMemory} for common Arena/layout/segment lifecycle</li>
  *   <li>Fixed capacity (default: 100 records)</li>
  *   <li>FIFO eviction when full — oldest items are overwritten (circular buffer)</li>
  *   <li>Flat Panama scan — no index needed (working set is small)</li>
@@ -52,7 +52,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * <p>Uses a shared Arena. Write access is guarded by {@link java.util.concurrent.locks.ReentrantLock}; reads are lock-free
  * (scan over immutable segments).</p>
  */
-public final class WorkingMemory extends AbstractCognitiveRecordMemory {
+public final class WorkingMemory extends AbstractEngramMemory {
 
     private static final Logger log = LoggerFactory.getLogger(WorkingMemory.class);
 

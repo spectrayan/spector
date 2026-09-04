@@ -29,21 +29,21 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * Cognitive record memory store registry and polymorphic routing — zero switch statements.
  *
  * <h3>Design Pattern: Strategy + Registry</h3>
- * <p>Holds a {@code EnumMap<MemoryType, CognitiveRecordMemory>} and dispatches all operations
- * polymorphically via the {@link CognitiveRecordMemory} interface. Adding a new memory store
- * requires: (1) implement {@link CognitiveRecordMemory}, (2) register here.
+ * <p>Holds a {@code EnumMap<MemoryType, EngramMemory>} and dispatches all operations
+ * polymorphically via the {@link EngramMemory} interface. Adding a new memory store
+ * requires: (1) implement {@link EngramMemory}, (2) register here.
  * Zero changes to SpectorMemory, RecallPipeline, or IngestionPipeline.</p>
  *
  * <h3>SOLID Compliance</h3>
  * <ul>
  *   <li><b>OCP</b>: Open for extension (new memory stores), closed for modification</li>
- *   <li><b>DIP</b>: Depends on {@link CognitiveRecordMemory} abstraction, not concrete stores</li>
+ *   <li><b>DIP</b>: Depends on {@link EngramMemory} abstraction, not concrete stores</li>
  *   <li><b>LSP</b>: All stores are substitutable via the common interface</li>
  * </ul>
  */
 public final class CognitiveMemoryRouter implements AutoCloseable {
 
-    private final EnumMap<MemoryType, CognitiveRecordMemory> stores = new EnumMap<>(MemoryType.class);
+    private final EnumMap<MemoryType, EngramMemory> stores = new EnumMap<>(MemoryType.class);
 
     // ── Typed accessors for store-specific operations ──
     private final WorkingMemory workingStore;
@@ -118,12 +118,12 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     // ══════════════════════════════════════════════════════════════
 
     /**
-     * Returns the {@link CognitiveRecordMemory} for a given memory type.
+     * Returns the {@link EngramMemory} for a given memory type.
      *
      * @throws SpectorValidationException if no store is registered for the type
      */
-    public CognitiveRecordMemory get(MemoryType type) {
-        CognitiveRecordMemory store = stores.get(type);
+    public EngramMemory get(MemoryType type) {
+        EngramMemory store = stores.get(type);
         if (store == null) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "storeType", type);
         }
@@ -166,7 +166,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      */
     public int countFor(MemoryType type) {
         int count = 0;
-        CognitiveRecordMemory store = stores.get(type);
+        EngramMemory store = stores.get(type);
         if (store != null) {
             count += store.size();
         }
@@ -181,7 +181,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      */
     public int totalCount() {
         int total = 0;
-        for (CognitiveRecordMemory store : stores.values()) {
+        for (EngramMemory store : stores.values()) {
             if (store != null) {
                 total += store.size();
             }
@@ -334,7 +334,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      * Used by {@code CheckpointDaemon} before recording a WAL checkpoint.
      */
     public void forceAll() {
-        for (CognitiveRecordMemory store : stores.values()) {
+        for (EngramMemory store : stores.values()) {
             if (store.isPersistent() && !store.isFrozen()) {
                 store.force();
             }

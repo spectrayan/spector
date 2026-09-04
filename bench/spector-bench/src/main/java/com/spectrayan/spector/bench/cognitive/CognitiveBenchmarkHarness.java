@@ -45,7 +45,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 
 /**
@@ -660,7 +660,7 @@ public final class CognitiveBenchmarkHarness {
 
         for (MemoryType type : MemoryType.values()) {
             try {
-                CognitiveRecordMemory store = cognitiveRouter.get(type);
+                EngramMemory store = cognitiveRouter.get(type);
                 if (store != null && store.size() > 0) {
                     MemorySegment segment = store.primarySegment();
                     CognitiveRecordLayout layout = store.cognitiveLayout();

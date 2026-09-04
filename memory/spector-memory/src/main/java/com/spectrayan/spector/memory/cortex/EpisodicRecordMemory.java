@@ -39,7 +39,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
  * sub-partitioning within a partition.</p>
  *
  * <ul>
- *   <li>Extends {@link AbstractCognitiveRecordMemory} for common Arena/layout/segment lifecycle</li>
+ *   <li>Extends {@link AbstractEngramMemory} for common Arena/layout/segment lifecycle</li>
  *   <li>Full cognitive records — header + quantized vector in one slab</li>
  *   <li>Flat SIMD scan via the scorer</li>
  *   <li>Persistent across JVM restarts via {@code FileChannel.map()}</li>
@@ -49,7 +49,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
  *             conversation store) and scheduled for removal in a future major release.
  */
 @Deprecated(since = "1.3.0", forRemoval = true)
-public class EpisodicRecordMemory extends AbstractCognitiveRecordMemory {
+public class EpisodicRecordMemory extends AbstractEngramMemory {
 
     private static final Logger log = LoggerFactory.getLogger(EpisodicRecordMemory.class);
 
@@ -191,8 +191,8 @@ public class EpisodicRecordMemory extends AbstractCognitiveRecordMemory {
      */
     public static final class EpisodicPartition {
 
-        /** Size of the metadata header in bytes (matches AbstractCognitiveRecordMemory). */
-        public static final int METADATA_PREAMBLE_BYTES = AbstractCognitiveRecordMemory.METADATA_PREAMBLE_BYTES;
+        /** Size of the metadata header in bytes (matches AbstractEngramMemory). */
+        public static final int METADATA_PREAMBLE_BYTES = AbstractEngramMemory.METADATA_PREAMBLE_BYTES;
 
         private final EpisodicRecordMemory store;
         private int tombstoneCount = 0;

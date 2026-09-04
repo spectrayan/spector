@@ -38,19 +38,19 @@ import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
- * Base implementation for all cognitive record memory stores in Spector Memory,
- * extending {@link AbstractRecordMemory} directly and implementing {@link CognitiveRecordMemory}.
+ * Base implementation for all engram memory stores in Spector Memory,
+ * extending {@link AbstractRecordMemory} directly and implementing {@link EngramMemory}.
  *
  * <p>Standardizes on Kernel 64-byte {@link RegionPreamble} for header management and
  * implements full type-safe contracts for SWMR visibility and off-heap memory management.</p>
  *
- * @see CognitiveRecordMemory for the common interface
+ * @see EngramMemory for the common interface
  */
-public abstract class AbstractCognitiveRecordMemory 
+public abstract class AbstractEngramMemory 
         extends AbstractRecordMemory<CognitiveRecordLayout> 
-        implements CognitiveRecordMemory {
+        implements EngramMemory {
 
-    private static final Logger log = LoggerFactory.getLogger(AbstractCognitiveRecordMemory.class);
+    private static final Logger log = LoggerFactory.getLogger(AbstractEngramMemory.class);
 
     /** Legacy metadata header magic: "TIER" in ASCII (0x54494552). */
     public static final int TIER_MAGIC = 0x54494552;
@@ -111,11 +111,11 @@ public abstract class AbstractCognitiveRecordMemory
      * @param type the cognitive tier this store represents; used to derive the stable
      *             {@link MemoryId} up-front so identity is final and lock-free.
      */
-    protected AbstractCognitiveRecordMemory(MemoryType type, int quantizedVecBytes, int capacity, long segmentBytes) {
+    protected AbstractEngramMemory(MemoryType type, int quantizedVecBytes, int capacity, long segmentBytes) {
         this(type, quantizedVecBytes, capacity, segmentBytes, Arena.ofShared());
     }
 
-    private AbstractCognitiveRecordMemory(MemoryType type, int quantizedVecBytes, int capacity, long segmentBytes, Arena sharedArena) {
+    private AbstractEngramMemory(MemoryType type, int quantizedVecBytes, int capacity, long segmentBytes, Arena sharedArena) {
         this(type, new CognitiveRecordLayout(quantizedVecBytes),
              capacity, sharedArena,
              sharedArena.allocate(segmentBytes, SynapticHeaderConstants.HEADER_BYTES),
@@ -128,13 +128,13 @@ public abstract class AbstractCognitiveRecordMemory
      * @param type the cognitive tier this store represents; used to derive the stable
      *             {@link MemoryId} up-front so identity is final and lock-free.
      */
-    protected AbstractCognitiveRecordMemory(MemoryType type, int quantizedVecBytes, int capacity, long segmentBytes, Path filePath) {
+    protected AbstractEngramMemory(MemoryType type, int quantizedVecBytes, int capacity, long segmentBytes, Path filePath) {
         this(type, new CognitiveRecordLayout(quantizedVecBytes),
              capacity, segmentBytes, filePath, mmapFile(filePath, segmentBytes));
     }
 
-    private AbstractCognitiveRecordMemory(MemoryType type, CognitiveRecordLayout cogLayout,
-                                          int capacity, long segmentBytes, Path filePath, MmapResult res) {
+    private AbstractEngramMemory(MemoryType type, CognitiveRecordLayout cogLayout,
+                                  int capacity, long segmentBytes, Path filePath, MmapResult res) {
         super(tierId(type), cogLayout, capacity,
               res.arena, res.segment, 0, true, filePath, res.fileChannel);
         if (res.isNew) {
@@ -150,9 +150,9 @@ public abstract class AbstractCognitiveRecordMemory
         }
     }
 
-    private AbstractCognitiveRecordMemory(MemoryType type, CognitiveRecordLayout cogLayout,
-                                          int capacity, Arena arena, MemorySegment segment, int count,
-                                          boolean persistent, Path filePath, FileChannel fileChannel) {
+    private AbstractEngramMemory(MemoryType type, CognitiveRecordLayout cogLayout,
+                                  int capacity, Arena arena, MemorySegment segment, int count,
+                                  boolean persistent, Path filePath, FileChannel fileChannel) {
         super(tierId(type), cogLayout, capacity,
               arena, segment, count, persistent, filePath, fileChannel);
         setCount(count);
@@ -173,9 +173,9 @@ public abstract class AbstractCognitiveRecordMemory
      * @param bundlePath   the path to the bundle file (for diagnostics)
      * @param isNew        true if the region was just created and needs header initialization
      */
-    protected AbstractCognitiveRecordMemory(MemoryType type, CognitiveRecordLayout cogLayout,
-                                            int capacity, Arena arena, MemorySegment regionSlice,
-                                            Path bundlePath, boolean isNew) {
+    protected AbstractEngramMemory(MemoryType type, CognitiveRecordLayout cogLayout,
+                                    int capacity, Arena arena, MemorySegment regionSlice,
+                                    Path bundlePath, boolean isNew) {
         super(tierId(type), cogLayout, capacity,
               arena, regionSlice,
               isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0),

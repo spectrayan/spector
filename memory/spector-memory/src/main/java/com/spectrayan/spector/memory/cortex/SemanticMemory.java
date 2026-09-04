@@ -43,13 +43,13 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *
  * <h3>Design</h3>
  * <ul>
- *   <li>Extends {@link AbstractCognitiveRecordMemory} for common Arena/layout/segment lifecycle</li>
+ *   <li>Extends {@link AbstractEngramMemory} for common Arena/layout/segment lifecycle</li>
  *   <li>Full cognitive records — header + quantized vector in one slab</li>
  *   <li>Directory-level partitioning: each partition dir has its own {@code semantic.mem}</li>
  *   <li>Flat scan with {@code CognitiveScorer} for distance computation</li>
  * </ul>
  */
-public final class SemanticMemory extends AbstractCognitiveRecordMemory {
+public final class SemanticMemory extends AbstractEngramMemory {
 
     private static final Logger log = LoggerFactory.getLogger(SemanticMemory.class);
 

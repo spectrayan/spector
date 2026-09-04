@@ -21,7 +21,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
@@ -75,13 +75,13 @@ public final class VacuumCompactor {
      * @param index   the memory index (for offset remapping)
      * @return the compaction result (null if no compaction needed)
      */
-    public static CompactionResult compact(CognitiveRecordMemory store, MemoryType type,
+    public static CompactionResult compact(EngramMemory store, MemoryType type,
                                             MemoryIndex index) {
         long startMs = System.currentTimeMillis();
 
         CognitiveRecordLayout layout = store.cognitiveLayout();
         int totalRecords = store.size();
-        long baseOffset = store.isPersistent() ? CognitiveRecordMemory.METADATA_PREAMBLE_BYTES : 0;
+        long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0;
         int stride = layout.stride();
 
         // Phase 1: Count live and tombstoned records
@@ -165,7 +165,7 @@ public final class VacuumCompactor {
      * @param threshold the tombstone ratio threshold (e.g., 0.20 for 20%)
      * @return true if compaction is recommended
      */
-    public static boolean shouldCompact(CognitiveRecordMemory store, float threshold) {
+    public static boolean shouldCompact(EngramMemory store, float threshold) {
         if (store.size() == 0) return false;
         return store.tombstoneRatio() >= threshold;
     }

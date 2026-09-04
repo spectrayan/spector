@@ -364,6 +364,6 @@ class KernelNamingRulesTest {
         assertThat(sizeOrVersion).as("expected HeaderLayout64 and HeaderLayout64V2").isGreaterThanOrEqualTo(2);
         assertThat(panamaShadow).as("expected no kernel types shadowing Panama").isEqualTo(0);
         assertThat(shapeTokens).as("expected remaining stores with shape tokens")
-                .isGreaterThanOrEqualTo(9);
+                .isGreaterThanOrEqualTo(7);
     }
 }

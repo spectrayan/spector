@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.pathway.wander.relay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
@@ -79,7 +79,7 @@ public final class AutobiographicalSamplingRelay implements SynapticRelay<Wander
         return true;
     }
 
-    private int sampleFromStore(CognitiveRecordMemory store, ScalarQuantizer quantizer, WanderSignal signal, int limit, String prefix) {
+    private int sampleFromStore(EngramMemory store, ScalarQuantizer quantizer, WanderSignal signal, int limit, String prefix) {
         if (store == null || store.segment() == null) {
             return 0;
         }
