@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="docs/docs/assets/spector-logo-full.png" alt="Spector" width="600" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/docs/assets/spector-logo-full-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/docs/assets/spector-logo-full-light.png">
+    <img src="docs/docs/assets/spector-logo-full-dark.png" alt="Spector" width="600" />
+  </picture>
 </p>
 
 <p align="center">
