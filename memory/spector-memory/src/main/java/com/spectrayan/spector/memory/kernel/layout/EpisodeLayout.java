@@ -88,4 +88,11 @@ public final class EpisodeLayout implements RegionLayout {
     public String name() {
         return "EpisodeLayout";
     }
+
+    /**
+     * Dedicated episodic encoding header layout.
+     */
+    public EpisodicHeaderLayout headerLayout() {
+        return EpisodicHeaderLayout.defaultLayout();
+    }
 }

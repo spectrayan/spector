@@ -125,4 +125,45 @@ class PerTierHeaderLayoutTest {
         assertThat(working.headerBytes()).isEqualTo(64);
         assertThat(working.version()).isEqualTo(2);
     }
+
+    @Test
+    @DisplayName("Verify per-tier RegionLayout classes have uniform layoutId and correct metadata")
+    void testPerTierRegionLayouts() {
+        int vecBytes = 128;
+        SemanticLayout semantic = new SemanticLayout(vecBytes);
+        ProceduralLayout procedural = new ProceduralLayout(vecBytes);
+        WorkingLayout working = new WorkingLayout(vecBytes);
+        EpisodicLayout episodic = EpisodicLayout.defaultLayout();
+
+        // Fixed-stride tiers share layout ID 0x434F4700
+        assertThat(semantic.layoutId()).isEqualTo(FixedEngramLayout.LAYOUT_ID);
+        assertThat(procedural.layoutId()).isEqualTo(FixedEngramLayout.LAYOUT_ID);
+        assertThat(working.layoutId()).isEqualTo(FixedEngramLayout.LAYOUT_ID);
+
+        // Stride is 64 + vecBytes
+        assertThat(semantic.stride()).isEqualTo(64 + vecBytes);
+        assertThat(procedural.stride()).isEqualTo(64 + vecBytes);
+        assertThat(working.stride()).isEqualTo(64 + vecBytes);
+        assertThat(semantic.recordStride()).isEqualTo(64 + vecBytes);
+
+        // Vector offset is 64
+        assertThat(semantic.vectorOffset(0)).isEqualTo(64);
+        assertThat(semantic.vectorOffset(100)).isEqualTo(164);
+
+        // Specific header layout types
+        assertThat(semantic.headerLayout()).isInstanceOf(SemanticHeaderLayout.class);
+        assertThat(procedural.headerLayout()).isInstanceOf(ProceduralHeaderLayout.class);
+        assertThat(working.headerLayout()).isInstanceOf(WorkingHeaderLayout.class);
+
+        // Episodic layout
+        assertThat(episodic.layoutId()).isEqualTo(EpisodeLayout.LAYOUT_ID);
+        assertThat(episodic.recordStride()).isEqualTo(0);
+        assertThat(episodic.crcEnabled()).isTrue();
+        assertThat(episodic.headerLayout()).isInstanceOf(EpisodicHeaderLayout.class);
+
+        // EngramLayout implements FixedEngramLayout
+        EngramLayout legacy = new EngramLayout(vecBytes);
+        assertThat(legacy).isInstanceOf(FixedEngramLayout.class);
+        assertThat(legacy.layoutId()).isEqualTo(FixedEngramLayout.LAYOUT_ID);
+    }
 }

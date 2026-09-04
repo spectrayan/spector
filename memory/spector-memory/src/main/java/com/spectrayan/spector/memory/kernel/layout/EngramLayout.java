@@ -47,7 +47,7 @@ import com.spectrayan.spector.memory.kernel.RegionLayout;
  * @see EncodingHeaderLayout
  * @see EncodingHeader
  */
-public record EngramLayout(int quantizedVecBytes, EncodingHeaderLayout headerLayout) implements RegionLayout {
+public record EngramLayout(int quantizedVecBytes, EncodingHeaderLayout headerLayout) implements FixedEngramLayout {
 
     public static final int LAYOUT_ID = 0x434F4700; // 'COG\0'
 
