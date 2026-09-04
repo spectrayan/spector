@@ -70,10 +70,12 @@ import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.*
  * @see StrengthLayout
  * @see EncodingHeaderFields
  */
-public record EncodingHeaderLayout() {
+public class EncodingHeaderLayout {
 
     /** Singleton instance of the encoding header layout. */
     public static final EncodingHeaderLayout INSTANCE = new EncodingHeaderLayout();
+
+    public EncodingHeaderLayout() {}
 
     public static final VarHandle VAR_HANDLE_SYNAPTIC_TAGS_LO = LAYOUT_SYNAPTIC_TAGS.varHandle();
     public static final VarHandle VAR_HANDLE_SYNAPTIC_TAGS_HI = LAYOUT_SYNAPTIC_TAGS.varHandle();
@@ -385,5 +387,20 @@ public record EncodingHeaderLayout() {
      */
     public static void write(MemorySegment seg, long off, EncodingHeader header) {
         INSTANCE.writeHeader(seg, off, header);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return obj instanceof EncodingHeaderLayout;
+    }
+
+    @Override
+    public int hashCode() {
+        return EncodingHeaderLayout.class.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return "EncodingHeaderLayout[]";
     }
 }
