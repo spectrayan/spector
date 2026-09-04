@@ -365,7 +365,10 @@ public class EpisodicHeaderLayout extends EncodingHeaderLayout {
         seg.set(ValueLayout.JAVA_LONG_UNALIGNED,  headerOff + OFFSET_SESSION_ID, sessionId);
         seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, headerOff + OFFSET_MODEL_ID,   modelId);
         seg.set(ValueLayout.JAVA_BYTE,            headerOff + OFFSET_ROLE,       role);
-        seg.set(LAYOUT_CONSOLIDATION_FLAGS,       headerOff + EpisodicHeaderFields.OFFSET_CONSOLIDATION_FLAGS, (byte) 0);
+        byte cFlags = (source == EngramSource.SIMULATED)
+                ? EncodingHeaderFields.withSimulated((byte) 0, true)
+                : (byte) 0;
+        seg.set(LAYOUT_CONSOLIDATION_FLAGS,       headerOff + EpisodicHeaderFields.OFFSET_CONSOLIDATION_FLAGS, cFlags);
         seg.set(LAYOUT_ENCODING_PROFILE,          headerOff + EpisodicHeaderFields.OFFSET_ENCODING_PROFILE,    (byte) 0);
         seg.set(LAYOUT_ENCODING_ALPHA,            headerOff + EpisodicHeaderFields.OFFSET_ENCODING_ALPHA,      (byte) 0);
         seg.set(LAYOUT_ENCODING_BETA,             headerOff + EpisodicHeaderFields.OFFSET_ENCODING_BETA,       (byte) 0);
@@ -374,7 +377,9 @@ public class EpisodicHeaderLayout extends EncodingHeaderLayout {
         seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, headerOff + OFFSET_RESERVED_GEO, (short) 0);
         seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, headerOff + EpisodicHeaderFields.OFFSET_ENCODING_SURPRISE, 0.0f);
         seg.set(ValueLayout.JAVA_INT_UNALIGNED,   headerOff + OFFSET_RESERVED0, 0);
-        seg.set(ValueLayout.JAVA_INT_UNALIGNED,   headerOff + OFFSET_RESERVED1, 0);
+        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, headerOff + OFFSET_RESERVED1, (short) 0);
+        writeSource(seg, headerOff, source != null ? source : EngramSource.EXPERIENCED);
+        seg.set(ValueLayout.JAVA_BYTE,            headerOff + OFFSET_V2_PAD_SOURCE, (byte) 0);
         seg.set(ValueLayout.JAVA_LONG_UNALIGNED,  headerOff + OFFSET_EPISODIC_TAGS_LO, episodicTagsLo);
         seg.set(ValueLayout.JAVA_LONG_UNALIGNED,  headerOff + OFFSET_EPISODIC_TAGS_HI, episodicTagsHi);
     }
@@ -410,7 +415,9 @@ public class EpisodicHeaderLayout extends EncodingHeaderLayout {
         seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_RESERVED_GEO, (short) 0);
         seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, off + EpisodicHeaderFields.OFFSET_ENCODING_SURPRISE, header.encodingSurprise());
         seg.set(ValueLayout.JAVA_INT_UNALIGNED,   off + OFFSET_RESERVED0, 0);
-        seg.set(ValueLayout.JAVA_INT_UNALIGNED,   off + OFFSET_RESERVED1, 0);
+        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_RESERVED1, (short) 0);
+        writeSource(seg, off, header.source() != null ? header.source() : EngramSource.EXPERIENCED);
+        seg.set(ValueLayout.JAVA_BYTE,            off + OFFSET_V2_PAD_SOURCE, (byte) 0);
         seg.set(ValueLayout.JAVA_LONG_UNALIGNED,  off + OFFSET_EPISODIC_TAGS_LO, 0L);
         seg.set(ValueLayout.JAVA_LONG_UNALIGNED,  off + OFFSET_EPISODIC_TAGS_HI, 0L);
     }
