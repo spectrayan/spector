@@ -51,7 +51,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     private final SemanticRecordMemory semanticStore;
     private final ProceduralRecordMemory proceduralStore;
     private final EpisodicLogMemory episodicLogStore;
-    private final AuditRecordMemory auditStore;
+    private final StrengthMemory strengthStore;
 
     /**
      * Creates a CognitiveMemoryRouter with the modern log-structured episodic store.
@@ -89,20 +89,20 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     }
 
     /**
-     * Creates a CognitiveMemoryRouter with all stores and the unified Recall Audit store.
+     * Creates a CognitiveMemoryRouter with all stores and the unified Recall Strength store.
      */
     public CognitiveMemoryRouter(WorkingRecordMemory workingStore,
                                  EpisodicRecordMemory episodicStore,
                                  SemanticRecordMemory semanticStore,
                                  ProceduralRecordMemory proceduralStore,
                                  EpisodicLogMemory episodicLogStore,
-                                 AuditRecordMemory auditStore) {
+                                 StrengthMemory strengthStore) {
         this.workingStore = workingStore;
         this.episodicStore = episodicStore;
         this.semanticStore = semanticStore;
         this.proceduralStore = proceduralStore;
         this.episodicLogStore = episodicLogStore;
-        this.auditStore = auditStore;
+        this.strengthStore = strengthStore;
 
         // Register in EnumMap for polymorphic dispatch
         stores.put(MemoryType.WORKING, workingStore);
@@ -140,9 +140,9 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      */
     public long write(MemoryType type, CognitiveHeader header, byte[] quantized) {
         long offset = get(type).write(header, quantized);
-        if (auditStore != null && type != MemoryType.WORKING) {
+        if (strengthStore != null && type != MemoryType.WORKING) {
             int slotIndex = (int) ((offset - get(type).dataOffset()) / layoutFor(type).stride());
-            auditStore.initializeDefault(type, slotIndex, header.importance());
+            strengthStore.initializeDefault(type, slotIndex, header.importance());
         }
         return offset;
     }
@@ -320,8 +320,11 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     /** Returns the Procedural Memory store (for flat scan). */
     public ProceduralRecordMemory procedural() { return proceduralStore; }
 
-    /** Returns the unified Audit Record memory store. Null if not configured. */
-    public AuditRecordMemory audit() { return auditStore; }
+    /** Returns the unified Strength memory store. Null if not configured. */
+    public StrengthMemory strength() { return strengthStore; }
+
+    /** Returns the unified Strength memory store. Null if not configured. */
+    public StrengthMemory audit() { return strengthStore; }
 
     /**
      * Forces all persistent, non-frozen memory store segments to be written to disk.

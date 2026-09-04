@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.persist;
 
-import com.spectrayan.spector.memory.cortex.AuditRecordMemory;
+import com.spectrayan.spector.memory.cortex.StrengthMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
@@ -36,7 +36,6 @@ import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 
-import com.spectrayan.spector.memory.cortex.AuditRecordMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
@@ -345,8 +344,8 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
         TextAppendMemory text = TextAppendMemory.fromBundle(
                 bundle.arena(), textSlice, bundleFile, false, encryptor);
 
-        AuditRecordMemory audit = bundle.hasRegion(RegionId.STRENGTH)
-                ? AuditRecordMemory.fromBundle(bundle.arena(), bundle.regionSegment(RegionId.STRENGTH),
+        StrengthMemory audit = bundle.hasRegion(RegionId.STRENGTH)
+                ? StrengthMemory.fromBundle(bundle.arena(), bundle.regionSegment(RegionId.STRENGTH),
                         semanticCapacity, episodicPartitionCapacity, proceduralCapacity, bundleFile, "partition-" + seq + "-audit")
                 : null;
 
@@ -433,8 +432,8 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                         newBundle.arena(), newBundle.regionSegment(RegionId.TEXT),
                         bundleFile, true, encryptor);
 
-                AuditRecordMemory newAudit = newBundle.hasRegion(RegionId.STRENGTH)
-                        ? AuditRecordMemory.fromBundle(newBundle.arena(), newBundle.regionSegment(RegionId.STRENGTH),
+                StrengthMemory newAudit = newBundle.hasRegion(RegionId.STRENGTH)
+                        ? StrengthMemory.fromBundle(newBundle.arena(), newBundle.regionSegment(RegionId.STRENGTH),
                                 semanticCapacity, episodicPartitionCapacity, proceduralCapacity, bundleFile, "partition-" + nextSeq + "-audit")
                         : null;
 

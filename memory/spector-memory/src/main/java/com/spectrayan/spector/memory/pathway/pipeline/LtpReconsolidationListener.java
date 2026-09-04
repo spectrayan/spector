@@ -86,8 +86,8 @@ public final class LtpReconsolidationListener implements RecallListener {
                             router.audit().casStorageStrength(loc.type(), slotIndex,
                                     s -> Math.min(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MAX,
                                             s + SpectorPropertyConstants.DEFAULT_MEMORY_AUTO_LTP_STORAGE_INCREMENT));
-                            long auditOff = router.audit().auditOffset(loc.type(), slotIndex);
-                            com.spectrayan.spector.memory.kernel.layout.StrengthLayout.INSTANCE.writeLastAutoLtp(router.audit().segment(), auditOff, nowMs);
+                            long strengthOff = router.audit().strengthOffset(loc.type(), slotIndex);
+                            com.spectrayan.spector.memory.kernel.layout.StrengthLayout.INSTANCE.writeLastAutoLtp(router.audit().segment(), strengthOff, nowMs);
                         }
                     } else if (layout.headerLayout().version() >= 3) {
                         long creationMs = layout.readTimestamp(segment, loc.offset());

@@ -1314,8 +1314,8 @@ public final class RecallPipeline {
                 var router = partitionRegistry.routerFor(loc.colocatedPartition());
                 if (router.audit() != null) {
                     int slotIndex = (int) (loc.offset() / router.layoutFor(loc.type()).stride());
-                    long auditOff = router.audit().auditOffset(loc.type(), slotIndex);
-                    StrengthLayout.INSTANCE.writeLastRecallProfile(router.audit().segment(), auditOff, profileOrdinal);
+                    long strengthOff = router.audit().strengthOffset(loc.type(), slotIndex);
+                    StrengthLayout.INSTANCE.writeLastRecallProfile(router.audit().segment(), strengthOff, profileOrdinal);
                 } else {
                     MemorySegment segment = router.segmentFor(loc.type());
                     if (segment != null) {

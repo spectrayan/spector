@@ -40,17 +40,17 @@ import java.nio.file.Path;
  * @see StrengthLayout
  * @see AbstractRecordMemory
  */
-public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout> {
+public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
 
     private final int semanticCapacity;
     private final int episodicCapacity;
     private final int proceduralCapacity;
 
-    public AuditRecordMemory(MemoryId id, StrengthLayout layout,
-                             int semanticCapacity, int episodicCapacity, int proceduralCapacity,
-                             Arena arena, MemorySegment segment, int count,
-                             boolean persistent, Path filePath,
-                             FileChannel fileChannel, boolean bundleManaged) {
+    public StrengthMemory(MemoryId id, StrengthLayout layout,
+                          int semanticCapacity, int episodicCapacity, int proceduralCapacity,
+                          Arena arena, MemorySegment segment, int count,
+                          boolean persistent, Path filePath,
+                          FileChannel fileChannel, boolean bundleManaged) {
         super(id, layout, semanticCapacity + episodicCapacity + proceduralCapacity,
                 arena, segment, count, persistent, filePath, fileChannel, bundleManaged);
         this.semanticCapacity = semanticCapacity;
@@ -59,15 +59,15 @@ public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout
     }
 
     /**
-     * Creates an in-memory heap-backed AuditRecordMemory for testing or transient runtime.
+     * Creates an in-memory heap-backed StrengthMemory for testing or transient runtime.
      */
-    public static AuditRecordMemory heap(int semanticCapacity, int episodicCapacity, int proceduralCapacity) {
+    public static StrengthMemory heap(int semanticCapacity, int episodicCapacity, int proceduralCapacity) {
         Arena arena = Arena.ofShared();
         int totalCapacity = semanticCapacity + episodicCapacity + proceduralCapacity;
         long bytes = (long) totalCapacity * StrengthLayout.INSTANCE.recordStride();
         MemorySegment segment = arena.allocate(bytes, 32);
-        return new AuditRecordMemory(
-                MemoryId.of("default", "heap-audit"),
+        return new StrengthMemory(
+                MemoryId.of("default", "heap-strength"),
                 StrengthLayout.INSTANCE,
                 semanticCapacity,
                 episodicCapacity,
@@ -82,13 +82,13 @@ public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout
     }
 
     /**
-     * Creates a bundle-backed AuditRecordMemory from a pre-sliced region segment.
+     * Creates a bundle-backed StrengthMemory from a pre-sliced region segment.
      */
-    public static AuditRecordMemory fromBundle(Arena arena, MemorySegment segment,
-                                               int semanticCapacity, int episodicCapacity, int proceduralCapacity,
-                                               Path bundlePath, String memoryName) {
-        String name = (memoryName != null && !memoryName.isBlank()) ? memoryName : "bundle-audit";
-        return new AuditRecordMemory(
+    public static StrengthMemory fromBundle(Arena arena, MemorySegment segment,
+                                            int semanticCapacity, int episodicCapacity, int proceduralCapacity,
+                                            Path bundlePath, String memoryName) {
+        String name = (memoryName != null && !memoryName.isBlank()) ? memoryName : "bundle-strength";
+        return new StrengthMemory(
                 MemoryId.of("default", name),
                 StrengthLayout.INSTANCE,
                 semanticCapacity,
@@ -104,12 +104,12 @@ public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout
     }
 
     /**
-     * Creates a bundle-backed AuditRecordMemory from a pre-sliced region segment with default memory name.
+     * Creates a bundle-backed StrengthMemory from a pre-sliced region segment with default memory name.
      */
-    public static AuditRecordMemory fromBundle(Arena arena, MemorySegment segment,
-                                               int semanticCapacity, int episodicCapacity, int proceduralCapacity,
-                                               Path bundlePath) {
-        return fromBundle(arena, segment, semanticCapacity, episodicCapacity, proceduralCapacity, bundlePath, "bundle-audit");
+    public static StrengthMemory fromBundle(Arena arena, MemorySegment segment,
+                                            int semanticCapacity, int episodicCapacity, int proceduralCapacity,
+                                            Path bundlePath) {
+        return fromBundle(arena, segment, semanticCapacity, episodicCapacity, proceduralCapacity, bundlePath, "bundle-strength");
     }
 
     public int semanticCapacity() {
@@ -147,7 +147,7 @@ public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout
     /**
      * Computes the off-heap byte offset for a (tier, slotIndex) audit record.
      */
-    public long auditOffset(MemoryType tier, int slotIndex) {
+    public long strengthOffset(MemoryType tier, int slotIndex) {
         return recordOffset(globalSlotIndex(tier, slotIndex));
     }
 
@@ -157,7 +157,7 @@ public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout
      * Initializes default audit fields for a new memory at (tier, slotIndex).
      */
     public void initializeDefault(MemoryType tier, int slotIndex, float baseImportance) {
-        long offset = auditOffset(tier, slotIndex);
+        long offset = strengthOffset(tier, slotIndex);
         layout.initializeDefaultRecord(segment, offset, tier, baseImportance);
     }
 
@@ -165,7 +165,7 @@ public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout
      * Reads the immutable {@link AuditRecord} snapshot for (tier, slotIndex).
      */
     public AuditRecord readAuditRecord(MemoryType tier, int slotIndex) {
-        long offset = auditOffset(tier, slotIndex);
+        long offset = strengthOffset(tier, slotIndex);
         return layout.readRecord(segment, offset);
     }
 
@@ -173,7 +173,7 @@ public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout
      * Writes the {@link AuditRecord} snapshot to (tier, slotIndex).
      */
     public void writeAuditRecord(MemoryType tier, int slotIndex, AuditRecord record) {
-        long offset = auditOffset(tier, slotIndex);
+        long offset = strengthOffset(tier, slotIndex);
         layout.writeRecord(segment, offset, record);
     }
 
@@ -181,7 +181,7 @@ public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout
      * Reads the explicit agent recall count for (tier, slotIndex).
      */
     public int readAgentRecallCount(MemoryType tier, int slotIndex) {
-        long offset = auditOffset(tier, slotIndex);
+        long offset = strengthOffset(tier, slotIndex);
         return layout.readAgentRecallCount(segment, offset);
     }
 
@@ -189,7 +189,7 @@ public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout
      * Reads the passive spector recall count for (tier, slotIndex).
      */
     public int readSpectorRecallCount(MemoryType tier, int slotIndex) {
-        long offset = auditOffset(tier, slotIndex);
+        long offset = strengthOffset(tier, slotIndex);
         return layout.readSpectorRecallCount(segment, offset);
     }
 
@@ -197,7 +197,7 @@ public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout
      * Reads the Two-Factor storage strength for (tier, slotIndex).
      */
     public float readStorageStrength(MemoryType tier, int slotIndex) {
-        long offset = auditOffset(tier, slotIndex);
+        long offset = strengthOffset(tier, slotIndex);
         return layout.readStorageStrength(segment, offset);
     }
 
@@ -205,7 +205,7 @@ public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout
      * Atomically increments the explicit agent recall count for (tier, slotIndex).
      */
     public int incrementAgentRecallCount(MemoryType tier, int slotIndex) {
-        long offset = auditOffset(tier, slotIndex);
+        long offset = strengthOffset(tier, slotIndex);
         return layout.incrementAgentRecallCount(segment, offset);
     }
 
@@ -213,7 +213,7 @@ public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout
      * Atomically increments the passive spector recall count for (tier, slotIndex).
      */
     public int incrementSpectorRecallCount(MemoryType tier, int slotIndex) {
-        long offset = auditOffset(tier, slotIndex);
+        long offset = strengthOffset(tier, slotIndex);
         return layout.incrementSpectorRecallCount(segment, offset);
     }
 
@@ -221,7 +221,7 @@ public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout
      * Atomically updates the effective importance for (tier, slotIndex).
      */
     public float casEffectiveImportance(MemoryType tier, int slotIndex, FloatUnaryOperator updateFn) {
-        long offset = auditOffset(tier, slotIndex);
+        long offset = strengthOffset(tier, slotIndex);
         return layout.casEffectiveImportance(segment, offset, updateFn);
     }
 
@@ -229,7 +229,7 @@ public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout
      * Atomically updates the Two-Factor storage strength for (tier, slotIndex).
      */
     public float casStorageStrength(MemoryType tier, int slotIndex, FloatUnaryOperator updateFn) {
-        long offset = auditOffset(tier, slotIndex);
+        long offset = strengthOffset(tier, slotIndex);
         return layout.casStorageStrength(segment, offset, updateFn);
     }
 
@@ -237,7 +237,7 @@ public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout
      * Records a recall event (ACT-R timestamp ring buffer, last recall timestamp, and profile).
      */
     public void recordRecall(MemoryType tier, int slotIndex, long creationMs, long nowMs, byte profileOrdinal, int agentHash) {
-        long offset = auditOffset(tier, slotIndex);
+        long offset = strengthOffset(tier, slotIndex);
         layout.writeLastRecallTimestamp(segment, offset, nowMs);
         layout.writeLastRecallProfile(segment, offset, profileOrdinal);
         if (agentHash != 0) {
@@ -250,7 +250,7 @@ public final class AuditRecordMemory extends AbstractRecordMemory<StrengthLayout
      * Computes the ACT-R activation for (tier, slotIndex).
      */
     public float computeActRActivation(MemoryType tier, int slotIndex, long creationMs, long nowMs) {
-        long offset = auditOffset(tier, slotIndex);
+        long offset = strengthOffset(tier, slotIndex);
         return layout.computeActRActivation(segment, offset, creationMs, nowMs);
     }
 }

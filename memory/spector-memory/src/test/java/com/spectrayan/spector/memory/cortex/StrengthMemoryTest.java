@@ -24,8 +24,8 @@ import java.lang.foreign.MemorySegment;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
-@DisplayName("AuditRecordMemory Unit Tests")
-class AuditRecordMemoryTest {
+@DisplayName("StrengthMemory Unit Tests")
+class StrengthMemoryTest {
 
     @Test
     @DisplayName("Verify cumulative slot offset indexing and tier capacity bounds")
@@ -39,8 +39,8 @@ class AuditRecordMemoryTest {
             long totalBytes = (long) totalCap * StrengthLayout.INSTANCE.recordStride();
             MemorySegment segment = arena.allocate(totalBytes, 32);
 
-            AuditRecordMemory store = new AuditRecordMemory(
-                    MemoryId.of("default", "test-audit"),
+            StrengthMemory store = new StrengthMemory(
+                    MemoryId.of("default", "test-strength"),
                     StrengthLayout.INSTANCE,
                     semCap, epiCap, procCap,
                     arena, segment, 0,
@@ -52,12 +52,12 @@ class AuditRecordMemoryTest {
             assertThat(store.capacity()).isEqualTo(350);
 
             // Verify offsets
-            assertThat(store.auditOffset(MemoryType.SEMANTIC, 0)).isEqualTo(0);
-            assertThat(store.auditOffset(MemoryType.SEMANTIC, 99)).isEqualTo(99 * 96);
-            assertThat(store.auditOffset(MemoryType.EPISODIC, 0)).isEqualTo(100 * 96);
-            assertThat(store.auditOffset(MemoryType.EPISODIC, 199)).isEqualTo(299 * 96);
-            assertThat(store.auditOffset(MemoryType.PROCEDURAL, 0)).isEqualTo(300 * 96);
-            assertThat(store.auditOffset(MemoryType.PROCEDURAL, 49)).isEqualTo(349 * 96);
+            assertThat(store.strengthOffset(MemoryType.SEMANTIC, 0)).isEqualTo(0);
+            assertThat(store.strengthOffset(MemoryType.SEMANTIC, 99)).isEqualTo(99 * 96);
+            assertThat(store.strengthOffset(MemoryType.EPISODIC, 0)).isEqualTo(100 * 96);
+            assertThat(store.strengthOffset(MemoryType.EPISODIC, 199)).isEqualTo(299 * 96);
+            assertThat(store.strengthOffset(MemoryType.PROCEDURAL, 0)).isEqualTo(300 * 96);
+            assertThat(store.strengthOffset(MemoryType.PROCEDURAL, 49)).isEqualTo(349 * 96);
         }
     }
 
@@ -73,8 +73,8 @@ class AuditRecordMemoryTest {
             long totalBytes = (long) totalCap * StrengthLayout.INSTANCE.recordStride();
             MemorySegment segment = arena.allocate(totalBytes, 32);
 
-            AuditRecordMemory store = new AuditRecordMemory(
-                    MemoryId.of("default", "test-audit"),
+            StrengthMemory store = new StrengthMemory(
+                    MemoryId.of("default", "test-strength"),
                     StrengthLayout.INSTANCE,
                     semCap, epiCap, procCap,
                     arena, segment, 0,

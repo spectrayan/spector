@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.bootstrap;
 
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
-import com.spectrayan.spector.memory.cortex.AuditRecordMemory;
+import com.spectrayan.spector.memory.cortex.StrengthMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
@@ -57,7 +57,6 @@ import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.cortex.AuditRecordMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
@@ -321,12 +320,12 @@ public final class CognitiveCortexBuilder {
                     partitionBundle.arena(), textSlice, bundleFile, isNew,
                     builder.dataEncryptor());
 
-            AuditRecordMemory auditStore = partitionBundle.hasRegion(RegionId.STRENGTH)
-                    ? AuditRecordMemory.fromBundle(partitionBundle.arena(), partitionBundle.regionSegment(RegionId.STRENGTH),
+            StrengthMemory strengthStore = partitionBundle.hasRegion(RegionId.STRENGTH)
+                    ? StrengthMemory.fromBundle(partitionBundle.arena(), partitionBundle.regionSegment(RegionId.STRENGTH),
                             builder.semanticCapacity(), builder.episodicPartitionCapacity(), builder.proceduralCapacity(), bundleFile)
                     : null;
 
-            cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore, episodicLogStore, auditStore);
+            cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore, episodicLogStore, strengthStore);
             log.info("V4 bundle mode: {} ({}, {} stores, episodic=log-structured)",
                     bundleFile.getFileName(), isNew ? "created" : "opened", 4);
 
@@ -340,10 +339,10 @@ public final class CognitiveCortexBuilder {
             SemanticRecordMemory semanticStore = new SemanticRecordMemory(
                     quantizedVecBytes, builder.semanticCapacity());
 
-            AuditRecordMemory auditStore = AuditRecordMemory.heap(
+            StrengthMemory strengthStore = StrengthMemory.heap(
                     builder.semanticCapacity(), builder.episodicPartitionCapacity(), builder.proceduralCapacity());
 
-            cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore, episodicLogStore, auditStore);
+            cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore, episodicLogStore, strengthStore);
         }
 
         if (insularCortex == null) {
