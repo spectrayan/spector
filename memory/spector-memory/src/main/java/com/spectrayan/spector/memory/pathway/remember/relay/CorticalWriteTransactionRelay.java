@@ -109,6 +109,21 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
         final EncodingHeader header;
         if (preserved != null) {
             long synapticTags = signal.synapticTags() != 0 ? signal.synapticTags() : preserved.synapticTags();
+            final com.spectrayan.spector.memory.model.EngramSource engramSource;
+            if (signal.source() == com.spectrayan.spector.memory.cortex.MemorySource.DREAMED
+                    || signal.source() == com.spectrayan.spector.memory.cortex.MemorySource.THOUGHT_EXPERIMENT
+                    || signal.source() == com.spectrayan.spector.memory.cortex.MemorySource.LANGEVIN_DISCOVERY
+                    || preserved.source() == com.spectrayan.spector.memory.model.EngramSource.SIMULATED) {
+                // R6.2: dream/simulate may write at most simulated
+                engramSource = com.spectrayan.spector.memory.model.EngramSource.SIMULATED;
+            } else if (signal.source() != null) {
+                engramSource = signal.source().toEngramSource();
+            } else if (preserved.source() != null) {
+                engramSource = preserved.source();
+            } else {
+                engramSource = com.spectrayan.spector.memory.model.EngramSource.EXPERIENCED;
+            }
+
             header = new EncodingHeader(
                     preserved.timestampMs(),
                     synapticTags,
@@ -125,7 +140,8 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
                     preserved.encodingBeta(),
                     preserved.soulVersion(),
                     preserved.encodingSurprise(),
-                    preserved.consolidationFlags()
+                    preserved.consolidationFlags(),
+                    engramSource
             );
         } else {
             byte flags = EncodingHeaderFields.withMemoryType((byte) 0, type.ordinal());
@@ -149,6 +165,9 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
             final byte encodingAlpha = computeEncodingAlpha(salienceProfile);
             final byte encodingBeta = computeEncodingBeta(salienceProfile);
 
+            final com.spectrayan.spector.memory.model.EngramSource engramSource =
+                    (signal.source() != null) ? signal.source().toEngramSource() : com.spectrayan.spector.memory.model.EngramSource.EXPERIENCED;
+
             header = new EncodingHeader(
                     signal.timestampMs(),
                     signal.synapticTags(),
@@ -165,7 +184,8 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
                     encodingBeta,
                     signal.soulVersion(),
                     surpriseZScore,
-                    (byte) 0
+                    (byte) 0,
+                    engramSource
             );
         }
         signal.header(header);

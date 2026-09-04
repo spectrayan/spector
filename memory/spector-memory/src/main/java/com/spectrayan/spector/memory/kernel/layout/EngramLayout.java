@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory.kernel.layout;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.memory.model.EngramSource;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.SourceModality;
 
@@ -155,6 +156,27 @@ public record EngramLayout(int quantizedVecBytes, EncodingHeaderLayout headerLay
     public SourceModality readSourceModality(MemorySegment segment, long offset) {
         byte flags = headerLayout.readFlags(segment, offset);
         return SourceModality.fromOrdinal(EncodingHeaderFields.sourceModalityOrdinal(flags));
+    }
+
+    /**
+     * Reads the 1-byte source code at the given record offset (zero-allocation hot path).
+     */
+    public byte readSourceCode(MemorySegment segment, long offset) {
+        return headerLayout.readSourceCode(segment, offset);
+    }
+
+    /**
+     * Reads the trace provenance source enum from offset 46 (NF7).
+     */
+    public EngramSource readSource(MemorySegment segment, long offset) {
+        return headerLayout.readSource(segment, offset);
+    }
+
+    /**
+     * Writes the trace provenance source enum to offset 46 (NF7).
+     */
+    public void writeSource(MemorySegment segment, long offset, EngramSource source) {
+        headerLayout.writeSource(segment, offset, source);
     }
 
     /** Reads the valence byte at the given record offset. */

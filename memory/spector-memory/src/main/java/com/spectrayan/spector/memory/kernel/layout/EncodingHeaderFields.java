@@ -43,7 +43,8 @@ import java.lang.foreign.ValueLayout;
  *   42      1B    encoding_alpha       uint8    Quantized alpha weight at ingestion (0-255)
  *   43      1B    encoding_beta        uint8    Quantized beta weight at ingestion (0-255)
  *   44      2B    soul_version         uint16   Monotonic soul configuration generation counter
- *   46      2B    _reserved_geo        bytes    Reserved for manifold geodesic coordinates
+ *   46      1B    source               uint8    Trace source: experienced(0), distilled(1), simulated(2), rehearsed(3) (NF7)
+ *   47      1B    _pad_source          bytes    Alignment padding
  *   48      4B    encoding_surprise    float32  Bayesian surprise z-score at ingestion
  *   52     12B    _reserved            bytes    Zero-padded reserved block for neural tensor invariants
  *   ── 64B total cache line ───────────────────────────────────────────────────────────────
@@ -157,7 +158,11 @@ public final class EncodingHeaderFields {
     public static final long OFFSET_V2_ENCODING_BETA       = 43L;
     /** V2: Offset of soul configuration version counter (bytes 44-45). */
     public static final long OFFSET_V2_SOUL_VERSION        = 44L;
-    /** V2: Reserved for manifold geodesic coordinates (bytes 46-47). */
+    /** V2: Offset of trace source classification (byte 46, NF7). */
+    public static final long OFFSET_V2_SOURCE              = 46L;
+    /** V2: Reserved alignment padding (byte 47). */
+    public static final long OFFSET_V2_PAD_SOURCE          = 47L;
+    /** V2: Reserved for manifold geodesic coordinates (bytes 46-47, legacy alias). */
     public static final long OFFSET_V2_RESERVED_GEO        = 46L;
     /** V2: Offset of surprise z-score (float32, bytes 48-51). */
     public static final long OFFSET_V2_ENCODING_SURPRISE   = 48L;
@@ -184,6 +189,7 @@ public final class EncodingHeaderFields {
     public static final ValueLayout.OfByte  LAYOUT_ENCODING_ALPHA    = ValueLayout.JAVA_BYTE;
     public static final ValueLayout.OfByte  LAYOUT_ENCODING_BETA     = ValueLayout.JAVA_BYTE;
     public static final ValueLayout.OfShort LAYOUT_SOUL_VERSION      = ValueLayout.JAVA_SHORT;
+    public static final ValueLayout.OfByte  LAYOUT_SOURCE            = ValueLayout.JAVA_BYTE;
     public static final ValueLayout.OfFloat LAYOUT_ENCODING_SURPRISE = ValueLayout.JAVA_FLOAT;
 
     // ── VarHandle views for atomic access ──
@@ -235,6 +241,17 @@ public final class EncodingHeaderFields {
     
     /** Memory was generated during a dream/thought experiment cycle. Byte 34, bit 7. */
     public static final byte FLAG_DREAMED = (byte) 0x80;
+
+    // ── NF7 Source Honesty constants (offset 46) ──
+
+    /** Source code 0: experienced trace (from physical world or user; NF7). */
+    public static final byte SOURCE_EXPERIENCED = 0;
+    /** Source code 1: distilled trace (reflection, crystallization, commit_simulation; NF7). */
+    public static final byte SOURCE_DISTILLED   = 1;
+    /** Source code 2: simulated trace (constructive simulation, dream, counterfactual; NF7). */
+    public static final byte SOURCE_SIMULATED   = 2;
+    /** Source code 3: rehearsed trace (cross-agent transfer, replay; NF7). */
+    public static final byte SOURCE_REHEARSED   = 3;
 
     // ── Encoding Profile bitmasks (offset 35) ──
 
@@ -465,5 +482,15 @@ public final class EncodingHeaderFields {
      */
     public static float dequantizeWeight(byte quantized) {
         return (quantized & 0xFF) / 255.0f;
+    }
+
+    /**
+     * Extracts the EngramSource enum value from a source code byte (NF7).
+     *
+     * @param code numeric source code
+     * @return corresponding EngramSource
+     */
+    public static com.spectrayan.spector.memory.model.EngramSource sourceOf(byte code) {
+        return com.spectrayan.spector.memory.model.EngramSource.fromCode(code);
     }
 }

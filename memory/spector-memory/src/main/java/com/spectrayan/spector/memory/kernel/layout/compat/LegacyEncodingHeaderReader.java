@@ -125,6 +125,15 @@ public final class LegacyEncodingHeaderReader {
         return seg.get(ValueLayout.JAVA_BYTE, off + OFFSET_LAST_RECALL_PROFILE);
     }
 
+    public byte readSourceCode(MemorySegment seg, long off) {
+        byte cFlags = readConsolidationFlags(seg, off);
+        return isSimulated(cFlags) ? EncodingHeaderFields.SOURCE_SIMULATED : EncodingHeaderFields.SOURCE_EXPERIENCED;
+    }
+
+    public com.spectrayan.spector.memory.model.EngramSource readSource(MemorySegment seg, long off) {
+        return com.spectrayan.spector.memory.model.EngramSource.fromCode(readSourceCode(seg, off));
+    }
+
     /**
      * Reads all V1 header fields into an immutable {@link EncodingHeader}.
      */

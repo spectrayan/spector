@@ -16,6 +16,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.memory.kernel.FloatUnaryOperator;
+import com.spectrayan.spector.memory.model.EngramSource;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -178,6 +179,20 @@ public record EncodingHeaderLayout() {
         return seg.get(LAYOUT_CONSOLIDATION_FLAGS, off + OFFSET_V2_CONSOLIDATION_FLAGS);
     }
 
+    /**
+     * Reads the raw 1-byte source code at offset 46 (zero-allocation hot-path check).
+     */
+    public byte readSourceCode(MemorySegment seg, long off) {
+        return seg.get(LAYOUT_SOURCE, off + OFFSET_V2_SOURCE);
+    }
+
+    /**
+     * Reads the trace provenance source enum from offset 46 (NF7).
+     */
+    public EngramSource readSource(MemorySegment seg, long off) {
+        return EngramSource.fromCode(readSourceCode(seg, off));
+    }
+
     // ── Field writes ──
 
     public void writeArousal(MemorySegment seg, long off, byte arousal) {
@@ -202,6 +217,10 @@ public record EncodingHeaderLayout() {
 
     public void writeSoulVersion(MemorySegment seg, long off, short version) {
         seg.set(LAYOUT_SOUL_VERSION, off + OFFSET_V2_SOUL_VERSION, version);
+    }
+
+    public void writeSource(MemorySegment seg, long off, EngramSource source) {
+        seg.set(LAYOUT_SOURCE, off + OFFSET_V2_SOURCE, source != null ? source.code() : SOURCE_EXPERIENCED);
     }
 
     public void writeEncodingSurprise(MemorySegment seg, long off, float surprise) {
@@ -322,7 +341,8 @@ public record EncodingHeaderLayout() {
                 readEncodingBeta(seg, off),
                 readSoulVersion(seg, off),
                 readEncodingSurprise(seg, off),
-                readConsolidationFlags(seg, off)
+                readConsolidationFlags(seg, off),
+                readSource(seg, off)
         );
     }
 
@@ -343,7 +363,9 @@ public record EncodingHeaderLayout() {
         seg.set(LAYOUT_ENCODING_ALPHA, off + OFFSET_V2_ENCODING_ALPHA, header.encodingAlpha());
         seg.set(LAYOUT_ENCODING_BETA, off + OFFSET_V2_ENCODING_BETA, header.encodingBeta());
         seg.set(LAYOUT_SOUL_VERSION, off + OFFSET_V2_SOUL_VERSION, header.soulVersion());
-        seg.set(ValueLayout.JAVA_SHORT, off + OFFSET_V2_RESERVED_GEO, (short) 0);
+        EngramSource src = header.source() != null ? header.source() : EngramSource.EXPERIENCED;
+        seg.set(LAYOUT_SOURCE, off + OFFSET_V2_SOURCE, src.code());
+        seg.set(ValueLayout.JAVA_BYTE, off + OFFSET_V2_PAD_SOURCE, (byte) 0);
         seg.set(LAYOUT_ENCODING_SURPRISE, off + OFFSET_V2_ENCODING_SURPRISE, header.encodingSurprise());
         // Zero reserved block (12 bytes at 4-byte aligned offset 52)
         seg.set(ValueLayout.JAVA_INT, off + OFFSET_V2_RESERVED, 0);

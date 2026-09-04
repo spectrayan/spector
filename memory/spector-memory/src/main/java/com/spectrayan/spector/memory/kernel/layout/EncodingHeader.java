@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
+import com.spectrayan.spector.memory.model.EngramSource;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.SourceModality;
 
@@ -50,6 +51,7 @@ import com.spectrayan.spector.memory.model.SourceModality;
  * @param soulVersion        monotonic soul configuration version counter
  * @param encodingSurprise   surprise z-score from SurpriseDetector at ingestion
  * @param consolidationFlags provenance &amp; consolidation flags (V3+, offset 34; e.g., FLAG_SIMULATED, FLAG_CRYSTALLIZED)
+ * @param source             trace provenance classification (NF7, offset 46; EXPERIENCED, DISTILLED, SIMULATED, REHEARSED)
  */
 public record EncodingHeader(
         long timestampMs,
@@ -70,8 +72,23 @@ public record EncodingHeader(
         short soulVersion,
         float encodingSurprise,
         // ── Provenance (V3+) ──
-        byte consolidationFlags
+        byte consolidationFlags,
+        // ── NF7 Source Honesty ──
+        EngramSource source
 ) {
+    /**
+     * Compact constructor — defaults null source per NF7.
+     */
+    public EncodingHeader {
+        if (source == null) {
+            source = EncodingHeaderFields.isSimulated(consolidationFlags)
+                    ? EngramSource.SIMULATED
+                    : (EncodingHeaderFields.isCrystallized(consolidationFlags)
+                            ? EngramSource.DISTILLED
+                            : EngramSource.EXPERIENCED);
+        }
+    }
+
     /**
      * V1-compatible constructor — defaults for extended fields.
      *
@@ -85,7 +102,7 @@ public record EncodingHeader(
                 agentRecallCount, centroidId, valence, flags,
                 (byte) 0, 1.0f,
                 (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
-                (byte) 0);
+                (byte) 0, EngramSource.EXPERIENCED);
     }
 
     /**
@@ -99,7 +116,30 @@ public record EncodingHeader(
                 agentRecallCount, centroidId, valence, flags,
                 arousal, storageStrength,
                 (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
-                (byte) 0);
+                (byte) 0, EngramSource.EXPERIENCED);
+    }
+
+    /**
+     * Backward-compatible 16-parameter constructor without explicit source.
+     */
+    public EncodingHeader(long timestampMs, long synapticTags, float exactNorm,
+                          float importance, int agentRecallCount, short centroidId,
+                          byte valence, byte flags,
+                          byte arousal, float storageStrength,
+                          byte encodingProfile, byte encodingAlpha, byte encodingBeta,
+                          short soulVersion, float encodingSurprise,
+                          byte consolidationFlags) {
+        this(timestampMs, synapticTags, exactNorm, importance,
+                agentRecallCount, centroidId, valence, flags,
+                arousal, storageStrength,
+                encodingProfile, encodingAlpha, encodingBeta,
+                soulVersion, encodingSurprise,
+                consolidationFlags,
+                EncodingHeaderFields.isSimulated(consolidationFlags)
+                        ? EngramSource.SIMULATED
+                        : (EncodingHeaderFields.isCrystallized(consolidationFlags)
+                                ? EngramSource.DISTILLED
+                                : EngramSource.EXPERIENCED));
     }
 
     /**
@@ -112,7 +152,21 @@ public record EncodingHeader(
                 0, centroidId, (byte) 0, flags,
                 (byte) 0, 1.0f,
                 (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
-                (byte) 0);
+                (byte) 0, EngramSource.EXPERIENCED);
+    }
+
+    /**
+     * Creates a new header with explicit source for initial ingestion.
+     */
+    public static EncodingHeader createWithSource(long timestampMs, long synapticTags, float exactNorm,
+                                                float importance, short centroidId, MemoryType memoryType,
+                                                EngramSource source) {
+        byte flags = EncodingHeaderFields.withMemoryType((byte) 0, memoryType.ordinal());
+        return new EncodingHeader(timestampMs, synapticTags, exactNorm, importance,
+                0, centroidId, (byte) 0, flags,
+                (byte) 0, 1.0f,
+                (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
+                (byte) 0, source);
     }
 
     /**
@@ -122,11 +176,23 @@ public record EncodingHeader(
                                                   float exactNorm, float importance,
                                                   short centroidId, MemoryType memoryType,
                                                   byte valence, byte arousal) {
+        return createWithArousal(timestampMs, synapticTags, exactNorm, importance,
+                centroidId, memoryType, valence, arousal, EngramSource.EXPERIENCED);
+    }
+
+    /**
+     * Creates a new header with arousal and source for V2+ ingestion.
+     */
+    public static EncodingHeader createWithArousal(long timestampMs, long synapticTags,
+                                                  float exactNorm, float importance,
+                                                  short centroidId, MemoryType memoryType,
+                                                  byte valence, byte arousal,
+                                                  EngramSource source) {
         byte flags = EncodingHeaderFields.withMemoryType((byte) 0, memoryType.ordinal());
         return new EncodingHeader(timestampMs, synapticTags, exactNorm, importance,
                 0, centroidId, valence, flags, arousal, 1.0f,
                 (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
-                (byte) 0);
+                (byte) 0, source);
     }
 
     /**
@@ -151,6 +217,19 @@ public record EncodingHeader(
                                                     short centroidId, MemoryType memoryType,
                                                     SourceModality modality,
                                                     byte valence, byte arousal) {
+        return createWithModality(timestampMs, synapticTags, exactNorm, importance,
+                centroidId, memoryType, modality, valence, arousal, EngramSource.EXPERIENCED);
+    }
+
+    /**
+     * Creates a new header with source modality and explicit source for multimodal ingestion.
+     */
+    public static EncodingHeader createWithModality(long timestampMs, long synapticTags,
+                                                    float exactNorm, float importance,
+                                                    short centroidId, MemoryType memoryType,
+                                                    SourceModality modality,
+                                                    byte valence, byte arousal,
+                                                    EngramSource source) {
         byte flags = EncodingHeaderFields.withMemoryType((byte) 0, memoryType.ordinal());
         if (modality != null && modality != SourceModality.TEXT) {
             flags = EncodingHeaderFields.withSourceModality(flags, modality.ordinal());
@@ -158,7 +237,7 @@ public record EncodingHeader(
         return new EncodingHeader(timestampMs, synapticTags, exactNorm, importance,
                 0, centroidId, valence, flags, arousal, 1.0f,
                 (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
-                (byte) 0);
+                (byte) 0, source);
     }
 
     /**
@@ -170,6 +249,22 @@ public record EncodingHeader(
             byte valence, byte arousal,
             byte encodingProfile, byte encodingAlpha, byte encodingBeta,
             short soulVersion, float encodingSurprise) {
+        return createWithEncodingState(timestampMs, synapticTags, exactNorm, importance,
+                centroidId, memoryType, modality, valence, arousal,
+                encodingProfile, encodingAlpha, encodingBeta, soulVersion, encodingSurprise,
+                EngramSource.EXPERIENCED);
+    }
+
+    /**
+     * Creates a new header with full encoding state and source for V3+ ingestion.
+     */
+    public static EncodingHeader createWithEncodingState(
+            long timestampMs, long synapticTags, float exactNorm, float importance,
+            short centroidId, MemoryType memoryType, SourceModality modality,
+            byte valence, byte arousal,
+            byte encodingProfile, byte encodingAlpha, byte encodingBeta,
+            short soulVersion, float encodingSurprise,
+            EngramSource source) {
         byte flags = EncodingHeaderFields.withMemoryType((byte) 0, memoryType.ordinal());
         if (modality != null && modality != SourceModality.TEXT) {
             flags = EncodingHeaderFields.withSourceModality(flags, modality.ordinal());
@@ -178,7 +273,7 @@ public record EncodingHeader(
                 0, centroidId, valence, flags, arousal, 1.0f,
                 encodingProfile, encodingAlpha, encodingBeta,
                 soulVersion, encodingSurprise,
-                (byte) 0);
+                (byte) 0, source);
     }
 
     /**
@@ -189,9 +284,24 @@ public record EncodingHeader(
             long timestampMs, long synapticTags, float exactNorm, float importance,
             byte valence, byte arousal, byte flags,
             byte consolidationFlags, short soulVersion, float encodingSurprise) {
+        EngramSource src = EncodingHeaderFields.isCrystallized(consolidationFlags)
+                ? EngramSource.DISTILLED
+                : EngramSource.SIMULATED;
+        return createSynthetic(timestampMs, synapticTags, exactNorm, importance,
+                valence, arousal, flags, consolidationFlags, soulVersion, encodingSurprise, src);
+    }
+
+    /**
+     * Creates a new header for synthetically generated memories with explicit source classification.
+     */
+    public static EncodingHeader createSynthetic(
+            long timestampMs, long synapticTags, float exactNorm, float importance,
+            byte valence, byte arousal, byte flags,
+            byte consolidationFlags, short soulVersion, float encodingSurprise,
+            EngramSource source) {
         return new EncodingHeader(timestampMs, synapticTags, exactNorm, importance,
                 0, (short) 0, valence, flags, arousal, 1.0f,
                 (byte) 0, (byte) 0, (byte) 0, soulVersion, encodingSurprise,
-                consolidationFlags);
+                consolidationFlags, source);
     }
 }

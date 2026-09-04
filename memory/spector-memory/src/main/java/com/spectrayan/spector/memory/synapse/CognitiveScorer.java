@@ -188,8 +188,13 @@ public final class CognitiveScorer {
                 if (!options.includeContradictions() && isContradicted(cFlags)) {
                     continue;
                 }
-                if (!options.allowSimulated() && com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isSimulated(cFlags)) {
-                    continue;
+                if (!options.allowSimulated()) {
+                    if (layout.readSourceCode(segment, offset) == com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.SOURCE_SIMULATED) {
+                        continue;
+                    }
+                    if (com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isSimulated(cFlags)) {
+                        continue;
+                    }
                 }
             }
 

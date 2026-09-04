@@ -87,4 +87,18 @@ public enum MemorySource {
     public float confidenceWeight() {
         return confidenceWeight;
     }
+
+    /**
+     * Maps this high-level provenance source to its canonical NF7 {@link com.spectrayan.spector.memory.model.EngramSource}.
+     *
+     * @return corresponding EngramSource
+     */
+    public com.spectrayan.spector.memory.model.EngramSource toEngramSource() {
+        return switch (this) {
+            case USER_STATED, OBSERVED -> com.spectrayan.spector.memory.model.EngramSource.EXPERIENCED;
+            case REFLECTED, PROCEDURAL -> com.spectrayan.spector.memory.model.EngramSource.DISTILLED;
+            case DREAMED, THOUGHT_EXPERIMENT, LANGEVIN_DISCOVERY, INFERRED -> com.spectrayan.spector.memory.model.EngramSource.SIMULATED;
+            case TRANSFERRED -> com.spectrayan.spector.memory.model.EngramSource.REHEARSED;
+        };
+    }
 }
