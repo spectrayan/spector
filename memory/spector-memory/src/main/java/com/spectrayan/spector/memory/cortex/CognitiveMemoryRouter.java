@@ -308,6 +308,15 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     /** Returns the log-structured Episodic Memory store. Never null in normal operation. */
     public EpisodicMemory episodic() { return episodicStore; }
 
+    /**
+     * Backward-compatible alias for {@link #episodic()}.
+     *
+     * @return the episodic memory store
+     * @deprecated Use {@link #episodic()} instead.
+     */
+    @Deprecated(since = "1.5.0", forRemoval = true)
+    public EpisodicMemory episodicLog() { return episodic(); }
+
     /** Returns the Semantic Memory store (for header slab access). */
     public SemanticMemory semantic() { return semanticStore; }
 

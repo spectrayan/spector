@@ -46,7 +46,7 @@ import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EngramMemory;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 
 /**
  * Main entry point for the cognitive memory benchmark.
@@ -662,8 +662,11 @@ public final class CognitiveBenchmarkHarness {
             try {
                 EngramMemory store = cognitiveRouter.get(type);
                 if (store != null && store.size() > 0) {
+                    FixedEngramLayout layout = store.cognitiveLayout();
+                    if (layout == null) {
+                        continue;
+                    }
                     MemorySegment segment = store.primarySegment();
-                    EngramLayout layout = store.cognitiveLayout();
                     int recordCount = store.size();
                     long dataOffset = store.dataOffset();
 

@@ -26,7 +26,7 @@ import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 /**
@@ -58,13 +58,13 @@ public final class BaselineRetriever {
      */
     public static final class TierDescriptor {
         public final MemorySegment segment;
-        public final EngramLayout layout;
+        public final FixedEngramLayout layout;
         public final int recordCount;
         public final long dataOffset;
         public final String[] memoryIds;
 
         public TierDescriptor(MemorySegment segment,
-                              EngramLayout layout,
+                              FixedEngramLayout layout,
                               int recordCount,
                               long dataOffset,
                               String[] memoryIds) {
@@ -102,7 +102,7 @@ public final class BaselineRetriever {
      * @param memoryIds        array mapping record index to memory ID string
      */
     public BaselineRetriever(MemorySegment corpusSegment,
-                             EngramLayout layout,
+                             FixedEngramLayout layout,
                              int recordCount,
                              float[] calibrationMins,
                              float[] calibrationScales,
@@ -122,7 +122,7 @@ public final class BaselineRetriever {
      * @param dataOffset       byte offset of the first record in the segment (skipping memory header)
      */
     public BaselineRetriever(MemorySegment corpusSegment,
-                             EngramLayout layout,
+                             FixedEngramLayout layout,
                              int recordCount,
                              float[] calibrationMins,
                              float[] calibrationScales,
