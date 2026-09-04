@@ -275,8 +275,8 @@ public final class BundleMigrationCli {
                             4096L,
                             1,
                             0,
-                            com.spectrayan.spector.memory.cortex.insula.InsularLayout.LAYOUT_ID,
-                            com.spectrayan.spector.memory.cortex.insula.InsularLayout.SCHEMA_VERSION,
+                            com.spectrayan.spector.memory.kernel.layout.InsularLayout.LAYOUT_ID,
+                            com.spectrayan.spector.memory.kernel.layout.InsularLayout.SCHEMA_VERSION,
                             false
                     ),
                     new RegionSizeSpec(

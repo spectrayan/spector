@@ -12,10 +12,10 @@
  */
 package com.spectrayan.spector.memory.kernel;
 
-import com.spectrayan.spector.memory.cortex.insula.InsularLayout;
 import com.spectrayan.spector.memory.kernel.bundle.BundleLayout;
 import com.spectrayan.spector.memory.kernel.bundle.RegionId;
 import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.InsularLayout;
 import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.ContinuityLayout;

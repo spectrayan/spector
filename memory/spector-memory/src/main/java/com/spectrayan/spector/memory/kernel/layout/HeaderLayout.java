@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.kernel.layout;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.memory.kernel.FloatUnaryOperator;
 
 import java.lang.foreign.MemorySegment;
 

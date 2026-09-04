@@ -10,7 +10,7 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory.kernel.layout;
+package com.spectrayan.spector.memory.kernel;
 
 /**
  * Represents an operation on a single {@code float}-valued operand that produces

@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory.kernel.layout;
 
 import com.spectrayan.spector.config.SpectorPropertyConstants;
+import com.spectrayan.spector.memory.kernel.FloatUnaryOperator;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;

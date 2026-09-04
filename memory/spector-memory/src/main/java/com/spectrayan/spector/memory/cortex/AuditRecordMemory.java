@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.cortex;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout.AuditRecord;
-import com.spectrayan.spector.memory.kernel.layout.FloatUnaryOperator;
+import com.spectrayan.spector.memory.kernel.FloatUnaryOperator;
 import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
 
