@@ -62,10 +62,11 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
         this.episodicStore = episodicStore;
         this.strengthStore = strengthStore;
 
-        // Registration for fixed-stride cognitive stores (R5.2)
+        // Registration for all cognitive engram stores (ADR-0030)
         if (workingStore != null) stores.put(MemoryType.WORKING, workingStore);
         if (semanticStore != null) stores.put(MemoryType.SEMANTIC, semanticStore);
         if (proceduralStore != null) stores.put(MemoryType.PROCEDURAL, proceduralStore);
+        if (episodicStore != null) stores.put(MemoryType.EPISODIC, episodicStore);
     }
 
     /**
@@ -85,13 +86,9 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     /**
      * Returns the {@link EngramMemory} for a given memory type.
      *
-     * @throws SpectorValidationException if no store is registered or if type is EPISODIC (layout mismatch)
+     * @throws SpectorValidationException if no store is registered for the type
      */
     public EngramMemory get(MemoryType type) {
-        if (type == MemoryType.EPISODIC) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "storeType",
-                    "MemoryType.EPISODIC is variable-length and cannot be accessed via fixed-stride EngramMemory; use router.episodic()");
-        }
         EngramMemory store = stores.get(type);
         if (store == null) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "storeType", type);
@@ -125,26 +122,22 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      * Returns the primary memory segment for a given memory type.
      */
     public MemorySegment segmentFor(MemoryType type) {
-        if (type == MemoryType.EPISODIC) {
-            return episodicStore.segment();
-        }
-        return get(type).primarySegment();
+        EngramMemory store = stores.get(type);
+        return store != null ? store.primarySegment() : null;
     }
 
     /**
      * Returns the layout for a given memory type.
      */
     public FixedEngramLayout layoutFor(MemoryType type) {
-        return get(type).cognitiveLayout();
+        EngramMemory store = stores.get(type);
+        return store != null ? store.cognitiveLayout() : null;
     }
 
     /**
      * Returns the record count for a given memory type.
      */
     public int countFor(MemoryType type) {
-        if (type == MemoryType.EPISODIC) {
-            return episodicStore != null ? episodicStore.size() : 0;
-        }
         EngramMemory store = stores.get(type);
         return store != null ? store.size() : 0;
     }
@@ -158,9 +151,6 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
             if (store != null) {
                 total += store.size();
             }
-        }
-        if (episodicStore != null) {
-            total += episodicStore.size();
         }
         return total;
     }
@@ -231,9 +221,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      */
     public boolean isTombstoned(MemoryLocation loc) {
         if (loc.type() == MemoryType.EPISODIC) {
-            if (episodicStore == null) return false;
-            EpisodeRecord rec = episodicStore.readTurn(loc.offset(), false);
-            return rec != null && rec.isTombstoned();
+            return episodicStore != null && episodicStore.isTombstoned(loc.offset());
         }
         FixedEngramLayout layout = layoutFor(loc.type());
         MemorySegment segment = segmentFor(loc.type());
@@ -251,14 +239,8 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     public CognitiveRecordBody readRecordBody(MemoryLocation loc, boolean includeVector) {
         if (loc.type() == MemoryType.EPISODIC) {
             if (episodicStore == null) return null;
-            EpisodeRecord ep = episodicStore.readTurn(loc.offset(), false);
-            if (ep == null) return null;
-            EncodingHeader h = new EncodingHeader(
-                    ep.timestampMs(), ep.sessionId(), 0.0f, ep.importance(),
-                    0, ep.modelId(), ep.valence(), ep.flags(), ep.arousal(),
-                    1.0f, (byte) 0, (byte) 0, (byte) 0, ep.soulVersion(),
-                    0.0f, (byte) 0, ep.source()
-            );
+            EncodingHeader h = episodicStore.readHeader(loc.offset());
+            if (h == null) return null;
             return new CognitiveRecordBody(h, null, 0, (byte) 0);
         }
         FixedEngramLayout layout = layoutFor(loc.type());
@@ -351,9 +333,6 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
                 store.force();
             }
         }
-        if (episodicStore != null && episodicStore.isPersistent()) {
-            episodicStore.force();
-        }
     }
 
     @Override
@@ -365,12 +344,5 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
                 // Log and continue closing remaining stores
             }
         });
-        if (episodicStore != null) {
-            try {
-                episodicStore.close();
-            } catch (Exception e) {
-                // Ignore
-            }
-        }
     }
 }

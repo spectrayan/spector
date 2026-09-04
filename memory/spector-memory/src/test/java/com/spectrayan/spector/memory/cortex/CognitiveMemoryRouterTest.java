@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class CognitiveMemoryRouterTest {
 
     @Test
-    @DisplayName("get() returns correct store for fixed-stride MemoryTypes and rejects EPISODIC")
+    @DisplayName("get() returns correct store for all MemoryTypes including EPISODIC")
     void getReturnsCorrectStoreForEachType() {
         // CognitiveMemoryRouter.close() cascades to child stores, so only close the router
         WorkingMemory working = new WorkingMemory(128, 100);
@@ -37,9 +37,7 @@ class CognitiveMemoryRouterTest {
             assertThat(router.get(MemoryType.WORKING)).isSameAs(working);
             assertThat(router.get(MemoryType.SEMANTIC)).isSameAs(semantic);
             assertThat(router.get(MemoryType.PROCEDURAL)).isSameAs(procedural);
-            assertThatThrownBy(() -> router.get(MemoryType.EPISODIC))
-                    .isInstanceOf(SpectorValidationException.class)
-                    .satisfies(ex -> assertThat(((SpectorValidationException) ex).errorCode()).isEqualTo(ErrorCode.ARGUMENT_INVALID));
+            assertThat(router.get(MemoryType.EPISODIC)).isSameAs(episodic);
         }
     }
 
