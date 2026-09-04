@@ -762,35 +762,39 @@ public final class MindSpanBenchmarkRunner {
                     isCorrect = judge.isCorrect();
                     reason = judge.reason();
                     totalTokens.addAndGet(judge.promptTokens() + judge.completionTokens());
+                } else {
+                    reason = "QA Judge skipped";
+                }
 
-                    int currentRerun = totalEvaluated.incrementAndGet();
+                int currentRerun = totalEvaluated.incrementAndGet();
 
-                    Map<String, Object> qaRecord = new LinkedHashMap<>();
-                    qaRecord.put("query_id", qid);
-                    qaRecord.put("track", track);
-                    qaRecord.put("question", query.text());
-                    qaRecord.put("gold_answer", query.goldAnswer());
-                    qaRecord.put("model_answer", modelAnswer);
-                    qaRecord.put("is_correct", isCorrect);
-                    qaRecord.put("reason", reason);
-                    qaRecord.put("ndcg_at_10", cogNdcg);
-                    qaRecord.put("mrr_at_10", cogMrr);
-                    qaRecord.put("recall_at_10", cogRecall);
+                Map<String, Object> qaRecord = new LinkedHashMap<>();
+                qaRecord.put("query_id", qid);
+                qaRecord.put("track", track);
+                qaRecord.put("question", query.text());
+                qaRecord.put("gold_answer", query.goldAnswer());
+                qaRecord.put("model_answer", modelAnswer);
+                qaRecord.put("is_correct", isCorrect);
+                qaRecord.put("reason", reason);
+                qaRecord.put("ndcg_at_10", cogNdcg);
+                qaRecord.put("sim_ndcg_at_10", simNdcg);
+                qaRecord.put("base_ndcg_at_10", baseNdcg);
+                qaRecord.put("mrr_at_10", cogMrr);
+                qaRecord.put("recall_at_10", cogRecall);
 
-                    existingQaRecords.put(qid, qaRecord);
+                existingQaRecords.put(qid, qaRecord);
 
-                    String top1 = !cogIds.isEmpty() ? cogIds.get(0) : "NONE";
-                    String csvLine = String.format("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",%.4f,%.4f,%.4f,%b,\"%s\"",
-                            qid, track, escapeCsv(query.text()), escapeCsv(query.goldAnswer()), top1,
-                            cogNdcg, cogMrr, cogRecall, isCorrect, escapeCsv(reason));
-                    existingDetailLines.put(qid, csvLine);
+                String top1 = !cogIds.isEmpty() ? cogIds.get(0) : "NONE";
+                String csvLine = String.format("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",%.4f,%.4f,%.4f,%b,\"%s\"",
+                        qid, track, escapeCsv(query.text()), escapeCsv(query.goldAnswer()), top1,
+                        cogNdcg, cogMrr, cogRecall, isCorrect, escapeCsv(reason));
+                existingDetailLines.put(qid, csvLine);
 
-                    if (currentRerun % 10 == 0 || currentRerun == queriesToEvaluate.size()) {
-                        long passedTotal = existingQaRecords.values().stream().filter(m -> Boolean.TRUE.equals(m.get("is_correct"))).count();
-                        double overallAcc = (passedTotal * 100.0) / queries.size();
-                        log.info("► [Rerun Progress: {} / {}] Overall Benchmark Accuracy: {}% ({} / {}) | Last QID: {}",
-                                currentRerun, queriesToEvaluate.size(), String.format("%.2f", overallAcc), passedTotal, queries.size(), qid);
-                    }
+                if (currentRerun % 10 == 0 || currentRerun == queriesToEvaluate.size()) {
+                    long passedTotal = existingQaRecords.values().stream().filter(m -> Boolean.TRUE.equals(m.get("is_correct"))).count();
+                    double overallAcc = (passedTotal * 100.0) / queries.size();
+                    log.info("► [Rerun Progress: {} / {}] Overall Benchmark Accuracy: {}% ({} / {}) | Last QID: {}",
+                            currentRerun, queriesToEvaluate.size(), String.format("%.2f", overallAcc), passedTotal, queries.size(), qid);
                 }
             }, executor);
             futures.add(future);
@@ -835,8 +839,16 @@ public final class MindSpanBenchmarkRunner {
             Map<String, Object> rec = existingQaRecords.get(q.id());
             if (rec != null) {
                 double ndcg = ((Number) rec.getOrDefault("ndcg_at_10", 0.0)).doubleValue();
+                double sim = ((Number) rec.getOrDefault("sim_ndcg_at_10", 0.0)).doubleValue();
+                double base = ((Number) rec.getOrDefault("base_ndcg_at_10", 0.0)).doubleValue();
                 boolean correct = Boolean.TRUE.equals(rec.get("is_correct"));
                 cognitiveNdcgs.add(ndcg);
+                similarityNdcgs.add(sim);
+                baselineNdcgs.add(base);
+                if (ndcg > base + 0.001) wins.incrementAndGet();
+                else if (Math.abs(ndcg - base) <= 0.001) ties.incrementAndGet();
+                else losses.incrementAndGet();
+
                 if (correct) totalCorrect.incrementAndGet();
                 totalEvaluated.incrementAndGet();
                 String trk = (String) rec.getOrDefault("track", "GENERAL");
