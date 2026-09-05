@@ -312,8 +312,10 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
 
     /**
      * Ingests a cognitive memory preserving the provided cognitive header.
+     *
+     * @return {@code true} if the memory was successfully ingested (not duplicate or failed)
      */
-    public void ingestCognitiveWithHeader(
+    public boolean ingestCognitiveWithHeader(
             final String id,
             final String text,
             final float[] vector,
@@ -325,6 +327,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
                 id, text, vector, type, tags, source, preservedHeader
         );
         pathway.conduct(signal);
+        return signal.isSuccessful() && !signal.isDuplicate();
     }
 
     @Override
