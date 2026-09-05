@@ -828,9 +828,6 @@ public final class MindSpanBenchmarkRunner {
                 List<Set<String>> packedShinglesList = new ArrayList<>();
                 Map<String, Integer> sessionTurnCounts = new HashMap<>();
                 for (CognitiveResult res : combinedForQa) {
-                    if ("mindspan-q-025".equals(qid)) {
-                        log.info("DEBUG q025 loop: cand={}, tokSoFar={}", res.id(), estimateTokens(ctx.toString()));
-                    }
                     // Session diversity gate (allow up to 6 turns for target date sessions)
                     String sessionKey = extractSessionKey(res.id());
                     BenchmarkCorpusRecord rec = corpusRecordMap.get(res.id());
@@ -878,9 +875,6 @@ public final class MindSpanBenchmarkRunner {
                     }
                     String line = String.format("[%d] %s%s\n", packedCount + 1, datePrefix, res.text());
                     if (estimateTokens(ctx.toString() + line) > MAX_RETRIEVAL_TOKENS) {
-                        if ("mindspan-q-025".equals(qid)) {
-                            log.info("DEBUG q025 BROKE at token limit on {}: tok={}", res.id(), estimateTokens(ctx.toString() + line));
-                        }
                         break;
                     }
                     ctx.append(line);
@@ -889,21 +883,6 @@ public final class MindSpanBenchmarkRunner {
                     packedCount++;
                 }
                 int retrievalTokens = estimateTokens(ctx.toString());
-
-                if ("mindspan-q-025".equals(qid)) {
-                    log.info("DEBUG q025 matchedSessionIds: {}", matchedSessionIds.size());
-                    log.info("DEBUG q025 scoredDateRecs: {}", scoredDateRecs.size());
-                    for (BenchmarkCorpusRecord r : expandedDateRecs) {
-                        if (r.id().contains("0175")) {
-                            log.info("DEBUG q025 expanded 0175: id={}, sid={}", r.id(), r.sessionId());
-                        }
-                    }
-                    for (CognitiveResult cr : finalPackedList) {
-                        if (cr.id().contains("0175")) {
-                            log.info("DEBUG q025 packed 0175: id={}", cr.id());
-                        }
-                    }
-                }
 
                 List<Map<String, Object>> cList = new ArrayList<>();
                 int rank = 1;
