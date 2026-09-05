@@ -18,6 +18,8 @@ import com.spectrayan.spector.memory.aisme.relay.ManifoldConsolidationRelay;
 import com.spectrayan.spector.memory.aisme.relay.SoftIdentityAnchorRelay;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
+import com.spectrayan.spector.memory.cortex.ProvenanceMemory;
+import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.TypeNormalizer;
@@ -106,6 +108,8 @@ public final class ReflectPathway implements AutoCloseable {
     private final CentroidRouter centroidRouter;
     private final TemplateEngine templateEngine;
     private final EpisodicSessionIndex episodicSessionIndex;
+    private final ProvenanceMemory provenanceMemory;
+    private final MemoryIdGenerator idGenerator;
 
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
@@ -138,6 +142,8 @@ public final class ReflectPathway implements AutoCloseable {
         this.centroidRouter = builder.centroidRouter;
         this.templateEngine = builder.templateEngine != null ? builder.templateEngine : TemplateEngine.getDefault();
         this.episodicSessionIndex = builder.episodicSessionIndex;
+        this.provenanceMemory = builder.provenanceMemory;
+        this.idGenerator = builder.idGenerator;
 
         this.hebbianGraph = builder.hebbianGraph;
         this.temporalChain = builder.temporalChain;
@@ -248,6 +254,8 @@ public final class ReflectPathway implements AutoCloseable {
                 .centroidRouter(centroidRouter)
                 .templateEngine(templateEngine)
                 .episodicSessionIndex(sessionIndex != null ? sessionIndex : this.episodicSessionIndex)
+                .provenanceMemory(this.provenanceMemory)
+                .idGenerator(this.idGenerator)
                 .hebbianGraph(hebbianGraph)
                 .temporalChain(temporalChain)
                 .entityDirectory(entityDirectory)
@@ -287,6 +295,8 @@ public final class ReflectPathway implements AutoCloseable {
         private CentroidRouter centroidRouter;
         private TemplateEngine templateEngine;
         private EpisodicSessionIndex episodicSessionIndex;
+        private ProvenanceMemory provenanceMemory;
+        private MemoryIdGenerator idGenerator;
 
         private HebbianGraphBase hebbianGraph;
         private TemporalChainMemory temporalChain;
@@ -324,6 +334,8 @@ public final class ReflectPathway implements AutoCloseable {
         public Builder centroidRouter(CentroidRouter cr) { this.centroidRouter = cr; return this; }
         public Builder templateEngine(TemplateEngine te) { this.templateEngine = te; return this; }
         public Builder episodicSessionIndex(EpisodicSessionIndex esi) { this.episodicSessionIndex = esi; return this; }
+        public Builder provenanceMemory(ProvenanceMemory pm) { this.provenanceMemory = pm; return this; }
+        public Builder idGenerator(MemoryIdGenerator gen) { this.idGenerator = gen; return this; }
 
         public Builder hebbianGraph(HebbianGraphBase hg) { this.hebbianGraph = hg; return this; }
         public Builder temporalChain(TemporalChainMemory tc) { this.temporalChain = tc; return this; }

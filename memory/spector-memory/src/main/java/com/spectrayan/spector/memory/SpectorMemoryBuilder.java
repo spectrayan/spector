@@ -213,6 +213,7 @@ public final class SpectorMemoryBuilder {
     private int typeRegistryCapacity = SpectorPropertyConstants.DEFAULT_MEMORY_TYPE_REGISTRY_CAPACITY;
     private long typeRegistrySize = SpectorPropertyConstants.DEFAULT_MEMORY_TYPE_REGISTRY_SIZE;
     private long insulaSize = SpectorPropertyConstants.DEFAULT_MEMORY_INSULA_SIZE;
+    private int provenanceCapacity = SpectorPropertyConstants.DEFAULT_MEMORY_PROVENANCE_CAPACITY;
 
     // Eager consolidation (#526)
     private int eagerConsolidationQueueCapacity = SpectorPropertyConstants.DEFAULT_MEMORY_EAGER_CONSOLIDATION_QUEUE_CAPACITY;
@@ -260,6 +261,7 @@ public final class SpectorMemoryBuilder {
     public SpectorMemoryBuilder typeRegistryCapacity(int c) { this.typeRegistryCapacity = c; return this; }
     public SpectorMemoryBuilder typeRegistrySize(long s) { this.typeRegistrySize = s; return this; }
     public SpectorMemoryBuilder insulaSize(long s) { this.insulaSize = s; return this; }
+    public SpectorMemoryBuilder provenanceCapacity(int c) { this.provenanceCapacity = c; return this; }
     public SpectorMemoryBuilder eagerConsolidationQueueCapacity(int c) { this.eagerConsolidationQueueCapacity = c; return this; }
     /**
      * Sets whether to use the Cognitive Pathway Engine.
@@ -825,6 +827,7 @@ public final class SpectorMemoryBuilder {
     public int typeRegistryCapacity() { return typeRegistryCapacity; }
     public long typeRegistrySize() { return typeRegistrySize; }
     public long insulaSize() { return insulaSize; }
+    public int provenanceCapacity() { return provenanceCapacity; }
     public int eagerConsolidationQueueCapacity() { return eagerConsolidationQueueCapacity; }
     public boolean usePathwayEngine() { return usePathwayEngine; }
     public com.spectrayan.spector.memory.aisme.config.AismeConfig aismeConfig() { return aismeConfig; }

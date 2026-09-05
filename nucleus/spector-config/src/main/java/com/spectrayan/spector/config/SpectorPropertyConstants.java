@@ -947,6 +947,9 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_INSULA_SIZE = "spector.memory.insula-size";
     public static final long DEFAULT_MEMORY_INSULA_SIZE = 1024L * 1024;
 
+    public static final String MEMORY_PROVENANCE_CAPACITY = "spector.memory.provenance-capacity";
+    public static final int DEFAULT_MEMORY_PROVENANCE_CAPACITY = 8_192;
+
     // Recall & Search Pipeline Flags (RecallOptions)
     public static final String RECALL_TEXT_SEARCH_ENABLED = "spector.recall.text-search.enabled";
     public static final boolean DEFAULT_RECALL_TEXT_SEARCH_ENABLED = true;

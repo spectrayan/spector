@@ -19,11 +19,13 @@ import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.ContinuityMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.ProceduralMemory;
+import com.spectrayan.spector.memory.cortex.ProvenanceMemory;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.TextBlobMemory;
 import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
 import com.spectrayan.spector.memory.kernel.layout.InsularLayout;
+import com.spectrayan.spector.memory.kernel.layout.ProvenanceLayout;
 import com.spectrayan.spector.memory.kernel.Memory;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryId;
@@ -104,7 +106,8 @@ public final class CognitiveCortexBuilder {
             RuntimeBundle runtimeBundle,
             InsularCortex insularCortex,
             ContinuityMemory continuityMemory,
-            EpisodicMemory episodicStore
+            EpisodicMemory episodicStore,
+            ProvenanceMemory provenanceMemory
     ) {}
 
     public static CortexFoundation build(SpectorMemoryBuilder builder) {
@@ -185,6 +188,7 @@ public final class CognitiveCortexBuilder {
         RuntimeBundle runtimeBundle = null;
         InsularCortex insularCortex = null;
         ContinuityMemory continuityMemory = null;
+        ProvenanceMemory provenanceMemory = null;
 
         if (isDisk && basePath != null && resolvedPartitionDir != null) {
             // ── V4 Runtime Bundle & Insular Cortex ──
@@ -240,6 +244,12 @@ public final class CognitiveCortexBuilder {
             MemorySegment continuitySlice = runtimeBundle.optionalRegionSegment(RegionId.CONTINUITY);
             if (continuitySlice != null) {
                 continuityMemory = ContinuityMemory.fromBundle(runtimeBundle.arena(), continuitySlice, isNewRuntime);
+            }
+
+            MemorySegment provenanceSlice = runtimeBundle.optionalRegionSegment(RegionId.PROVENANCE);
+            if (provenanceSlice != null) {
+                provenanceMemory = ProvenanceMemory.fromBundle(runtimeBundle.arena(), provenanceSlice,
+                        runtimeBundleFile);
             }
 
             // ── V4 Partition Bundle ──
@@ -325,13 +335,17 @@ public final class CognitiveCortexBuilder {
             continuityMemory = ContinuityMemory.heap(1000);
         }
 
+        if (provenanceMemory == null) {
+            provenanceMemory = ProvenanceMemory.heap(builder.provenanceCapacity());
+        }
+
         EpisodicMemory episodicStore = cognitiveRouter.episodic();
 
         return new CortexFoundation(
                 isDisk, useBundleMode, basePath, quantizer, namespaceManager, quantizedVecBytes,
                 resolvedPartitionDir, frozenPartitionDirs, initialPartitionSeq,
                 cognitiveRouter, workingStore, partitionBundle, textStore,
-                runtimeBundle, insularCortex, continuityMemory, episodicStore);
+                runtimeBundle, insularCortex, continuityMemory, episodicStore, provenanceMemory);
     }
 
     private static List<RegionSizeSpec> getRuntimeBundleSpecs(SpectorMemoryBuilder builder, int quantizedVecBytes) {
@@ -502,6 +516,15 @@ public final class CognitiveCortexBuilder {
                         0x42494458,  // "BIDX" magic
                         1,
                         true  // growable — term/posting lists grow dynamically
+                ),
+                new RegionSizeSpec(
+                        RegionId.PROVENANCE,
+                        64 + (long) builder.provenanceCapacity() * ProvenanceLayout.RECORD_STRIDE,
+                        builder.provenanceCapacity(),
+                        ProvenanceLayout.RECORD_STRIDE,
+                        ProvenanceLayout.LAYOUT_ID,
+                        ProvenanceLayout.SCHEMA_VERSION,
+                        false
                 )
         );
     }

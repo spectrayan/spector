@@ -377,6 +377,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final com.spectrayan.spector.memory.cortex.insula.InsularCortex insularCortex;
     private final WanderPathway wanderPathway;
     private final com.spectrayan.spector.memory.cortex.ContinuityMemory continuityMemory;
+    private final com.spectrayan.spector.memory.cortex.ProvenanceMemory provenanceMemory;
     private final DecidePathway decidePathway;
 
     private final com.spectrayan.spector.memory.session.SessionBufferManager sessionBufferManager = new com.spectrayan.spector.memory.session.SessionBufferManager();
@@ -469,6 +470,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.insularCortex = bundle.insularCortex();
         this.wanderPathway = bundle.wanderPathway();
         this.continuityMemory = bundle.continuityMemory();
+        this.provenanceMemory = bundle.provenanceMemory();
         this.decidePathway = bundle.decidePathway();
         this.dreamPathway = bundle.dreamPathway();
         this.hook = builder.hook() != null ? builder.hook() : MemoryObservationHook.NOOP;
