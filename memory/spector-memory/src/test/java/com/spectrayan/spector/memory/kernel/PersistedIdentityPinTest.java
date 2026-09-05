@@ -108,7 +108,7 @@ class PersistedIdentityPinTest {
             pinned.put(RegionId.CHECKPOINT, 23);
             pinned.put(RegionId.INSULA, 24);
             pinned.put(RegionId.CONTINUITY, 25);
-            pinned.put(RegionId.PROVENANCE_LOG, 26);
+            pinned.put(RegionId.PROVENANCE, 26);
 
             pinned.forEach((region, expectedId) ->
                     assertThat(region.id())
