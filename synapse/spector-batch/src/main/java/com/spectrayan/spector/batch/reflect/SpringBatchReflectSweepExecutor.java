@@ -24,6 +24,7 @@ import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepStatus;
 import com.spectrayan.spector.memory.pathway.reflect.spi.ReflectCheckpointStore;
 import com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor;
 import com.spectrayan.spector.memory.pathway.reflect.spi.local.FileReflectCheckpointStore;
+import com.spectrayan.spector.memory.pathway.reflect.spi.local.InMemoryReflectCheckpointStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.BatchStatus;
@@ -37,10 +38,18 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Component;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * High-priority {@link ReflectSweepExecutor} that orchestrates reflection sweeps via Spring Batch.
@@ -52,6 +61,7 @@ public class SpringBatchReflectSweepExecutor implements ReflectSweepExecutor, Ap
 
     private static final Logger log = LoggerFactory.getLogger(SpringBatchReflectSweepExecutor.class);
     private static volatile ApplicationContext context;
+    private static volatile Path defaultCheckpointDir;
 
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
@@ -62,8 +72,51 @@ public class SpringBatchReflectSweepExecutor implements ReflectSweepExecutor, Ap
         context = ctx;
     }
 
+    private static Path createSecureCheckpointDir() throws IOException {
+        if (FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
+            FileAttribute<Set<PosixFilePermission>> attrs =
+                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"));
+            return Files.createTempDirectory("spector-checkpoints-", attrs);
+        } else {
+            Path tempDir = Files.createTempDirectory("spector-checkpoints-");
+            File file = tempDir.toFile();
+            boolean readable = file.setReadable(true, true);
+            boolean writable = file.setWritable(true, true);
+            boolean executable = file.setExecutable(true, true);
+            if (!readable || !writable || !executable) {
+                log.warn("Could not set strict file permissions on temporary directory: {}", tempDir);
+            }
+            return tempDir;
+        }
+    }
+
     private static ReflectCheckpointStore defaultStore() {
-        return new FileReflectCheckpointStore(Path.of(System.getProperty("java.io.tmpdir"), "spector-checkpoints"));
+        if (defaultCheckpointDir == null) {
+            synchronized (SpringBatchReflectSweepExecutor.class) {
+                if (defaultCheckpointDir == null || !Files.exists(defaultCheckpointDir)) {
+                    try {
+                        defaultCheckpointDir = createSecureCheckpointDir();
+                    } catch (IOException e) {
+                        log.warn("Failed to create secure temporary directory for reflect checkpoints, falling back to in-memory store: {}", e.getMessage());
+                        return new InMemoryReflectCheckpointStore();
+                    }
+                }
+            }
+        }
+        return new FileReflectCheckpointStore(defaultCheckpointDir);
+    }
+
+    private ReflectCheckpointStore resolveCheckpointStore() {
+        if (context != null) {
+            try {
+                if (context.getBeanNamesForType(ReflectCheckpointStore.class).length > 0) {
+                    return context.getBean(ReflectCheckpointStore.class);
+                }
+            } catch (Exception e) {
+                log.debug("No ReflectCheckpointStore bean found in ApplicationContext, using default: {}", e.getMessage());
+            }
+        }
+        return defaultStore();
     }
 
     @Override
@@ -101,7 +154,7 @@ public class SpringBatchReflectSweepExecutor implements ReflectSweepExecutor, Ap
         JobLauncher jobLauncher = context.getBean(JobLauncher.class);
         Job reflectJob = context.getBean("reflectConsolidationJob", Job.class);
 
-        ReflectCheckpointStore checkpointStore = defaultStore();
+        ReflectCheckpointStore checkpointStore = resolveCheckpointStore();
         ReflectJobContext jobCtx = new ReflectJobContext(memory, spec, checkpointStore);
         ReflectJobRegistry.register(spec.sweepId(), jobCtx);
 
@@ -171,7 +224,7 @@ public class SpringBatchReflectSweepExecutor implements ReflectSweepExecutor, Ap
         }
 
         ReflectJobContext activeCtx = ReflectJobRegistry.get(sweepId);
-        ReflectCheckpointStore checkpointStore = defaultStore();
+        ReflectCheckpointStore checkpointStore = resolveCheckpointStore();
         ReflectCheckpoint checkpoint = checkpointStore.load(sweepId).orElse(null);
 
         if (checkpoint != null) {

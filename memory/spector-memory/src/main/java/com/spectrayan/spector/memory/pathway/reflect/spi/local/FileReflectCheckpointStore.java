@@ -62,7 +62,20 @@ public final class FileReflectCheckpointStore implements ReflectCheckpointStore 
             return Optional.empty();
         }
 
-        Path checkpointFile = checkpointPath(sweepId);
+        Path checkpointFile;
+        try {
+            checkpointFile = checkpointPath(sweepId);
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid checkpoint sweepId: {}", sweepId);
+            return Optional.ofNullable(memoryFallback.get(sweepId));
+        }
+
+        Path baseDir = storageDir.toAbsolutePath().normalize();
+        if (!checkpointFile.startsWith(baseDir)) {
+            log.warn("Path traversal check failed for sweepId: {}", sweepId);
+            return Optional.ofNullable(memoryFallback.get(sweepId));
+        }
+
         if (Files.exists(checkpointFile)) {
             try {
                 byte[] bytes = Files.readAllBytes(checkpointFile);
@@ -82,15 +95,32 @@ public final class FileReflectCheckpointStore implements ReflectCheckpointStore 
 
     @Override
     public void save(ReflectCheckpoint checkpoint) {
-        if (checkpoint == null || checkpoint.sweepId() == null) {
+        if (checkpoint == null || checkpoint.sweepId() == null || checkpoint.sweepId().isBlank()) {
             return;
         }
 
         String sweepId = checkpoint.sweepId();
         memoryFallback.put(sweepId, checkpoint);
 
-        Path targetFile = checkpointPath(sweepId);
-        Path tempFile = targetFile.resolveSibling(targetFile.getFileName() + ".tmp");
+        Path targetFile;
+        try {
+            targetFile = checkpointPath(sweepId);
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid sweepId for checkpoint save: {}", sweepId);
+            return;
+        }
+
+        Path baseDir = storageDir.toAbsolutePath().normalize();
+        if (!targetFile.startsWith(baseDir)) {
+            log.warn("Path traversal check failed for checkpoint save: {}", sweepId);
+            return;
+        }
+
+        Path tempFile = baseDir.resolve(targetFile.getFileName().toString() + ".tmp").normalize();
+        if (!tempFile.startsWith(baseDir)) {
+            log.warn("Path traversal check failed for checkpoint temp file: {}", sweepId);
+            return;
+        }
 
         try {
             ObjectNode root = MAPPER.createObjectNode();
@@ -124,10 +154,16 @@ public final class FileReflectCheckpointStore implements ReflectCheckpointStore 
 
     @Override
     public void delete(String sweepId) {
-        if (sweepId == null) return;
+        if (sweepId == null || sweepId.isBlank()) return;
         memoryFallback.remove(sweepId);
         try {
-            Files.deleteIfExists(checkpointPath(sweepId));
+            Path targetFile = checkpointPath(sweepId);
+            Path baseDir = storageDir.toAbsolutePath().normalize();
+            if (targetFile.startsWith(baseDir)) {
+                Files.deleteIfExists(targetFile);
+            }
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid sweepId for checkpoint deletion: {}", sweepId);
         } catch (IOException e) {
             log.warn("Failed to delete checkpoint file for sweep {}: {}", sweepId, e.getMessage());
         }
@@ -174,7 +210,15 @@ public final class FileReflectCheckpointStore implements ReflectCheckpointStore 
     }
 
     private Path checkpointPath(String sweepId) {
-        String safeName = sweepId.replaceAll("[^a-zA-Z0-9._-]", "_") + ".checkpoint.json";
-        return storageDir.resolve(safeName);
+        if (sweepId == null || sweepId.isBlank()) {
+            throw new IllegalArgumentException("sweepId cannot be null or blank");
+        }
+        String safeName = sweepId.replaceAll("[^a-zA-Z0-9_-]", "_") + ".checkpoint.json";
+        Path baseDir = storageDir.toAbsolutePath().normalize();
+        Path resolved = baseDir.resolve(safeName).normalize();
+        if (!resolved.startsWith(baseDir) || !baseDir.equals(resolved.getParent())) {
+            throw new IllegalArgumentException("Invalid sweepId path: " + sweepId);
+        }
+        return resolved;
     }
 }

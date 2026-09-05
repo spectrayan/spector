@@ -128,4 +128,44 @@ class ReflectCheckpointTest {
         store.delete("sweep-disk");
         assertThat(reloadedStore.load("sweep-disk")).isEmpty();
     }
+
+    @Test
+    @DisplayName("FileReflectCheckpointStore guards against path traversal in sweepId")
+    void testFileStorePathTraversal(@TempDir Path tempDir) {
+        FileReflectCheckpointStore store = new FileReflectCheckpointStore(tempDir);
+
+        String maliciousSweepId = "../../../etc/passwd";
+        ReflectCheckpoint cp = new ReflectCheckpoint(
+                maliciousSweepId,
+                0,
+                100L,
+                200L,
+                1,
+                2,
+                3,
+                4,
+                Instant.now(),
+                ReflectSweepStatus.COMPLETE
+        );
+
+        // Save sanitizes and persists strictly within tempDir
+        store.save(cp);
+
+        // Verify no file was created outside tempDir
+        assertThat(tempDir.resolve("../passwd")).doesNotExist();
+
+        // Load works safely through sanitized path
+        Optional<ReflectCheckpoint> loaded = store.load(maliciousSweepId);
+        assertThat(loaded).isPresent();
+        assertThat(loaded.get().lastCompletedSessionId()).isEqualTo(100L);
+
+        // Delete cleans up safely
+        store.delete(maliciousSweepId);
+        assertThat(store.load(maliciousSweepId)).isEmpty();
+
+        // Blank/null sweepId handled gracefully
+        assertThat(store.load(null)).isEmpty();
+        assertThat(store.load("")).isEmpty();
+        assertThat(store.load("   ")).isEmpty();
+    }
 }
