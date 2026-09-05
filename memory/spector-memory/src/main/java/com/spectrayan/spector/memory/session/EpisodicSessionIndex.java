@@ -254,7 +254,7 @@ public final class EpisodicSessionIndex {
             }
 
             if (!EncodingHeaderFields.isTombstoned(flags)) {
-                appendTurn(sessionId, cursor);
+                appendTurn(sessionId, cursor - dataOffset);
                 liveCount++;
             } else {
                 tombstoneCount++;

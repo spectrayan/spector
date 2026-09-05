@@ -182,7 +182,8 @@ public final class SpectorMemoryFactory {
             com.spectrayan.spector.memory.cortex.ContinuityMemory continuityMemory,
             DecidePathway decidePathway,
             DreamPathway dreamPathway,
-            com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle
+            com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle,
+            com.spectrayan.spector.memory.cortex.ProvenanceMemory provenanceMemory
     ) {}
 
     private SpectorMemoryFactory() {}
@@ -370,6 +371,11 @@ public final class SpectorMemoryFactory {
             RecallPipelineBuilder.rebuildHnswIfNeeded(builder, partitionManager, index, cortex.quantizer());
         }
 
+        //  ID Generator (moved up so ReflectPathway can use it)
+        MemoryIdGenerator idGenerator = builder.idGenerator() != null
+                ? builder.idGenerator()
+                : builder.idStrategy().createGenerator();
+
         //  Reflect Pathway (#503 / ADR-0007)
         ReflectPathway reflectPathway = ReflectPathway.builder()
                 .embeddingProvider(embeddingProvider)
@@ -395,6 +401,8 @@ public final class SpectorMemoryFactory {
                 .cognitiveManifold(aismeBundle != null ? aismeBundle.cognitiveManifold() : null)
                 .manifoldConsolidationRelay(aismeBundle != null ? aismeBundle.manifoldConsolidationRelay() : null)
                 .mentalStateTracker(aismeBundle != null ? aismeBundle.mentalStateTracker() : null)
+                .provenanceMemory(cortex.provenanceMemory())
+                .idGenerator(idGenerator)
                 .build();
 
         // Express Pathway (#602)
@@ -410,11 +418,6 @@ public final class SpectorMemoryFactory {
         ReinforcementHandler reinforcementHandler = new ReinforcementHandler(
                 bio.valenceTracker(), graphs.hebbianGraph(), bio.lateralEvaluator(), recallPathway,
                 wal, builder.twoFactorConfig(), profileAdaptor);
-
-        //  ID Generator 
-        MemoryIdGenerator idGenerator = builder.idGenerator() != null
-                ? builder.idGenerator()
-                : builder.idStrategy().createGenerator();
 
         //  Wander Pathway (#609 / AISME Phase 10 — DMN & Longitudinal Continuity)
         WanderPathway wanderPathway = WanderPathway.builder()
@@ -507,7 +510,8 @@ public final class SpectorMemoryFactory {
                 daemons.checkpointDaemon(), daemons.graphEnrichmentDaemon(), daemons.daemonSupervisor(), retrieval.bm25Index(), attachmentProcessor,
                 parallelPipeline, embedConfig, cortex.resolvedPartitionDir(), cortex.basePath(),
                 cortex.namespaceManager(), profileAdaptor, cortex.runtimeBundle(), cortex.insularCortex(),
-                wanderPathway, cortex.continuityMemory(), decidePathway, dreamPathway, aismeBundle
+                wanderPathway, cortex.continuityMemory(), decidePathway, dreamPathway, aismeBundle,
+                cortex.provenanceMemory()
         );
     }
 }

@@ -204,7 +204,7 @@ public final class TsidGenerator implements MemoryIdGenerator {
      * @param value the 64-bit value to encode
      * @return 13-character Crockford Base32 string
      */
-    static String encodeCrockford(long value) {
+    public static String encodeCrockford(long value) {
         char[] buf = new char[TSID_STRING_LENGTH];
         for (int i = TSID_STRING_LENGTH - 1; i >= 0; i--) {
             buf[i] = CROCKFORD[(int) (value & 0x1F)];

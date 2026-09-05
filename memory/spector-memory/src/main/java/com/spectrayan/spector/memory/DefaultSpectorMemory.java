@@ -377,6 +377,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final com.spectrayan.spector.memory.cortex.insula.InsularCortex insularCortex;
     private final WanderPathway wanderPathway;
     private final com.spectrayan.spector.memory.cortex.ContinuityMemory continuityMemory;
+    private final com.spectrayan.spector.memory.cortex.ProvenanceMemory provenanceMemory;
     private final DecidePathway decidePathway;
 
     private final com.spectrayan.spector.memory.session.SessionBufferManager sessionBufferManager = new com.spectrayan.spector.memory.session.SessionBufferManager();
@@ -469,6 +470,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.insularCortex = bundle.insularCortex();
         this.wanderPathway = bundle.wanderPathway();
         this.continuityMemory = bundle.continuityMemory();
+        this.provenanceMemory = bundle.provenanceMemory();
         this.decidePathway = bundle.decidePathway();
         this.dreamPathway = bundle.dreamPathway();
         this.hook = builder.hook() != null ? builder.hook() : MemoryObservationHook.NOOP;
@@ -1209,6 +1211,41 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             return continuityMemory.calculateLongitudinalDrift();
         }
         return 0.0f;
+    }
+
+    @Override
+    public java.util.Optional<com.spectrayan.spector.memory.model.MemoryProvenance> explain(String memoryId) {
+        if (provenanceMemory == null || memoryId == null || memoryId.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        try {
+            long tsid = com.spectrayan.spector.memory.kernel.id.TsidGenerator.decodeCrockford(memoryId);
+            return provenanceMemory.findByTarget(tsid)
+                    .map(s -> new com.spectrayan.spector.memory.model.MemoryProvenance(
+                            memoryId, s.sessionId(), s.partitionSeq(),
+                            s.firstSeq(), s.lastSeq(), s.turnCount(),
+                            s.passNumber(), s.factIndex(), s.batchFactCount(),
+                            s.consolidatedAtMs()
+                    ));
+        } catch (Exception e) {
+            return java.util.Optional.empty();
+        }
+    }
+
+    @Override
+    public java.util.List<com.spectrayan.spector.memory.model.MemoryProvenance> sessionProvenance(long sessionId) {
+        if (provenanceMemory == null) {
+            return java.util.List.of();
+        }
+        return provenanceMemory.findBySession(sessionId).stream()
+                .map(s -> new com.spectrayan.spector.memory.model.MemoryProvenance(
+                        com.spectrayan.spector.memory.kernel.id.TsidGenerator.encodeCrockford(s.targetTsid()),
+                        s.sessionId(), s.partitionSeq(),
+                        s.firstSeq(), s.lastSeq(), s.turnCount(),
+                        s.passNumber(), s.factIndex(), s.batchFactCount(),
+                        s.consolidatedAtMs()
+                ))
+                .toList();
     }
 
     @Override

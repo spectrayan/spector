@@ -40,7 +40,7 @@ public enum RegionId {
     CHECKPOINT(23),
     INSULA(24),
     CONTINUITY(25),
-    PROVENANCE_LOG(26);
+    PROVENANCE(26);
 
     private final int id;
     

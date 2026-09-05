@@ -14,6 +14,8 @@ package com.spectrayan.spector.memory.pathway.reflect.relay;
 
 import com.spectrayan.spector.commons.template.TemplateEngine;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
+import com.spectrayan.spector.memory.cortex.ProvenanceMemory;
+import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
@@ -57,6 +59,8 @@ public final class ReflectSignal {
     private final CentroidRouter centroidRouter;
     private final TemplateEngine templateEngine;
     private final EpisodicSessionIndex episodicSessionIndex;
+    private final ProvenanceMemory provenanceMemory;
+    private final MemoryIdGenerator idGenerator;
 
     // ── Graph Subsystems ───────────────────────────────────────────
     private final HebbianGraphBase hebbianGraph;
@@ -118,6 +122,8 @@ public final class ReflectSignal {
         this.centroidRouter = builder.centroidRouter;
         this.templateEngine = builder.templateEngine != null ? builder.templateEngine : TemplateEngine.getDefault();
         this.episodicSessionIndex = builder.episodicSessionIndex;
+        this.provenanceMemory = builder.provenanceMemory;
+        this.idGenerator = builder.idGenerator;
 
         this.hebbianGraph = builder.hebbianGraph;
         this.temporalChain = builder.temporalChain;
@@ -179,6 +185,8 @@ public final class ReflectSignal {
     public CentroidRouter centroidRouter() { return centroidRouter; }
     public TemplateEngine templateEngine() { return templateEngine; }
     public EpisodicSessionIndex episodicSessionIndex() { return episodicSessionIndex; }
+    public ProvenanceMemory provenanceMemory() { return provenanceMemory; }
+    public MemoryIdGenerator idGenerator() { return idGenerator; }
 
     public HebbianGraphBase hebbianGraph() { return hebbianGraph; }
     public TemporalChainMemory temporalChain() { return temporalChain; }
@@ -315,6 +323,8 @@ public final class ReflectSignal {
         private CentroidRouter centroidRouter;
         private TemplateEngine templateEngine;
         private EpisodicSessionIndex episodicSessionIndex;
+        private ProvenanceMemory provenanceMemory;
+        private MemoryIdGenerator idGenerator;
 
         private HebbianGraphBase hebbianGraph;
         private TemporalChainMemory temporalChain;
@@ -352,6 +362,8 @@ public final class ReflectSignal {
         public Builder centroidRouter(CentroidRouter cr) { this.centroidRouter = cr; return this; }
         public Builder templateEngine(TemplateEngine te) { this.templateEngine = te; return this; }
         public Builder episodicSessionIndex(EpisodicSessionIndex esi) { this.episodicSessionIndex = esi; return this; }
+        public Builder provenanceMemory(ProvenanceMemory pm) { this.provenanceMemory = pm; return this; }
+        public Builder idGenerator(MemoryIdGenerator gen) { this.idGenerator = gen; return this; }
 
         public Builder hebbianGraph(HebbianGraphBase hg) { this.hebbianGraph = hg; return this; }
         public Builder temporalChain(TemporalChainMemory tc) { this.temporalChain = tc; return this; }
