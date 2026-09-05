@@ -9,10 +9,12 @@ param(
     [int]$StartIndex = 0,
     [int]$Limit = 0,
     [int]$IngestLimit = 0,
+    [switch]$IngestAll,
     [int]$SessionBatchSize = 10,
     [switch]$SmokeTestOnly,
     [int]$SmokeTestLimit = 5,
     [string]$RunQaJudge = "true",
+    [string]$EntityExtractionMode = "NONE",
     [int]$Concurrency = 6
 )
 
@@ -65,9 +67,11 @@ mvn test -pl bench/spector-bench `
     "-DstartIndex=$StartIndex" `
     "-Dlimit=$Limit" `
     "-DingestLimit=$IngestLimit" `
+    "-DingestAll=$($IngestAll.IsPresent.ToString().ToLower())" `
     "-DsessionBatchSize=$SessionBatchSize" `
     "-DsmokeTestOnly=$($SmokeTestOnly.IsPresent.ToString().ToLower())" `
     "-DsmokeTestLimit=$SmokeTestLimit" `
+    "-DentityExtractionMode=$EntityExtractionMode" `
     "-DrunQaJudge=$RunQaJudge" `
     "-Dconcurrency=$Concurrency"
 

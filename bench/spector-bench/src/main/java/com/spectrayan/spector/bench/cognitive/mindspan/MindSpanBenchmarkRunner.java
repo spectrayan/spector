@@ -244,17 +244,25 @@ public final class MindSpanBenchmarkRunner {
         Path runtimeBundle = naturalMemoryDir.resolve("runtime").resolve("runtime.bundle");
         Path checkpointFile = naturalMemoryDir.resolve("ingestion_checkpoint.json");
 
+        String extModeStr = System.getProperty("entityExtractionMode", "NONE");
+        EntityExtractionMode extMode;
+        try {
+            extMode = EntityExtractionMode.valueOf(extModeStr.trim().toUpperCase());
+        } catch (Exception e) {
+            extMode = EntityExtractionMode.NONE;
+        }
+
         SpectorMemoryBuilder builder = SpectorMemoryBuilder.create()
                 .fromProperties(memoryProps)
                 .dimensions(embedder.dimensions())
                 .embeddingProvider(embedder)
                 .llmProvider(llm)
-                .entityExtractionMode(EntityExtractionMode.LLM)
+                .entityExtractionMode(extMode)
                 .persistence(naturalMemoryDir)
                 .persistenceMode(MemoryPersistenceMode.DISK)
                 .bundleMode(true)
-                .episodicPartitionCapacity(Math.max(30_000, corpus.size() + 100))
-                .semanticCapacity(20_000)
+                .episodicPartitionCapacity(Math.max(35_000, corpus.size() + 100))
+                .semanticCapacity(Math.max(30_000, corpus.size() + 100))
                 .entityExtractionParallelism(4)
                 .entityExtractionQueueCapacity(2000)
                 .circadianPolicy(CircadianPolicy.builder().volumeTrigger(Integer.MAX_VALUE).build());
@@ -311,7 +319,7 @@ public final class MindSpanBenchmarkRunner {
             }
         }
 
-        int batchSize = Integer.getInteger("sessionBatchSize", 5);
+        int batchSize = Integer.getInteger("sessionBatchSize", this.sessionBatchSize);
         int totalBatches = (int) Math.ceil((double) toIngest.size() / batchSize);
         log.info("Ingesting next {} sessions (~{} records, {} total pending) in {} batches (batchSize={}) slowly to prevent overwhelming reflection/extraction...",
                 toIngest.size(), plannedRecords, pending.size(), totalBatches, batchSize);
@@ -953,13 +961,6 @@ public final class MindSpanBenchmarkRunner {
             return new JudgeResult(false, "Model answer was null or blank", 0, 0);
         }
 
-        // Fast-path: normalized substring match (model answer must contain full gold answer)
-        String goldNorm = goldAnswer.trim().toLowerCase().replaceAll("[^a-z0-9\\s]", "");
-        String genNorm = modelAnswer.trim().toLowerCase().replaceAll("[^a-z0-9\\s]", "");
-        if (genNorm.contains(goldNorm)) {
-            return new JudgeResult(true, "Direct match with ground truth answer", 0, 0);
-        }
-
         String judgePrompt = String.format("""
                 You are an impartial and expert evaluator for a 20-year longitudinal autobiographical QA memory benchmark.
 
@@ -1171,6 +1172,8 @@ public final class MindSpanBenchmarkRunner {
     private List<MindSpanQuery> loadMindSpanQueries(Path path) throws IOException {
         if (!Files.exists(path)) return List.of();
         List<MindSpanQuery> list = new ArrayList<>();
+        Set<String> seenIds = new HashSet<>();
+        Set<String> seenTexts = new HashSet<>();
         try (BufferedReader reader = new BufferedReader(new FileReader(path.toFile(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -1183,6 +1186,21 @@ public final class MindSpanBenchmarkRunner {
                     String track = n.path("track").asText("GENERAL");
                     String expSub = n.path("expectedSubsystem").asText("BALANCED");
 
+                    if (id == null || id.isBlank()) {
+                        throw new IllegalStateException("Query ID cannot be null or blank in " + path);
+                    }
+                    if (text == null || text.isBlank()) {
+                        throw new IllegalStateException("Query text cannot be null or blank for ID " + id + " in " + path);
+                    }
+
+                    String normText = text.trim().toLowerCase().replaceAll("\\s+", " ");
+                    if (!seenIds.add(id)) {
+                        throw new IllegalStateException("Duplicate query ID detected in " + path + ": " + id);
+                    }
+                    if (!seenTexts.add(normText)) {
+                        throw new IllegalStateException("Duplicate query text detected in " + path + " for query ID " + id + ": \"" + text + "\"");
+                    }
+
                     List<String> tags = new ArrayList<>();
                     JsonNode tagsNode = n.path("synapticFilterTags");
                     if (tagsNode.isArray()) {
@@ -1193,6 +1211,7 @@ public final class MindSpanBenchmarkRunner {
                 }
             }
         }
+        log.info("Validated {} completely unique benchmark queries from {}", list.size(), path);
         return list;
     }
 
@@ -1281,18 +1300,6 @@ public final class MindSpanBenchmarkRunner {
                     if (occupation != null && !occupation.isBlank()) {
                         int occId = dir.intern(occupation, "ROLE");
                         tkg.assertFact(personId, "WORKS_AS", occId, -1L, (short) 0, baseTs, Long.MAX_VALUE, 0.9f, false);
-
-                        boolean skipHardcodedKinshipSeed = Boolean.parseBoolean(System.getProperty("skipHardcodedKinshipSeed", "true"));
-                        if (!skipHardcodedKinshipSeed) {
-                            if (occupation.contains("Alaska Airlines")) {
-                                int orgId = dir.intern("Alaska Airlines", "ORGANIZATION");
-                                tkg.assertFact(personId, "WORKS_FOR", orgId, -1L, (short) 0, baseTs, Long.MAX_VALUE, 1.0f, false);
-                            }
-                            if (occupation.contains("Boeing 737")) {
-                                int craftId = dir.intern("Boeing 737", "CONCEPT");
-                                tkg.assertFact(personId, "OPERATES", craftId, -1L, (short) 0, baseTs, Long.MAX_VALUE, 1.0f, false);
-                            }
-                        }
                     }
 
                     // Relationship
@@ -1301,56 +1308,13 @@ public final class MindSpanBenchmarkRunner {
                         int relId = dir.intern(rel, "RELATION");
                         tkg.assertFact(personId, "HAS_RELATION", relId, -1L, (short) 0, baseTs, Long.MAX_VALUE, 1.0f, false);
                     }
-
-                    // Key memories
-                    boolean skipHardcodedKinshipSeed = Boolean.parseBoolean(System.getProperty("skipHardcodedKinshipSeed", "true"));
-                    if (!skipHardcodedKinshipSeed) {
-                        @SuppressWarnings("unchecked")
-                        List<String> keyMemories = (List<String>) person.get("keyMemories");
-                        if (keyMemories != null) {
-                            for (String km : keyMemories) {
-                                if (km.contains("Bourgeois Pig")) {
-                                    int cafeId = dir.intern("Bourgeois Pig", "LOCATION");
-                                    int lpId = dir.intern("Lincoln Park", "LOCATION");
-                                    int chiId = dir.intern("Chicago", "LOCATION");
-                                    tkg.assertFact(personId, "FIRST_MET_AT", cafeId, -1L, (short) 0, 1318604400L, Long.MAX_VALUE, 1.0f, false);
-                                    tkg.assertFact(cafeId, "LOCATED_IN", lpId, -1L, (short) 0, 1318604400L, Long.MAX_VALUE, 1.0f, false);
-                                    tkg.assertFact(lpId, "LOCATED_IN", chiId, -1L, (short) 0, 1318604400L, Long.MAX_VALUE, 1.0f, false);
-                                }
-                            }
-                        }
-                    }
                 }
-            }
-
-            boolean skipHardcodedKinshipSeed = Boolean.parseBoolean(System.getProperty("skipHardcodedKinshipSeed", "true"));
-            if (!skipHardcodedKinshipSeed && idx != null) {
-                linkIfPresent(idx, dir, "Sarah Moretti", "bio-0007");
-                linkIfPresent(idx, dir, "Sarah Moretti", "bio-college-0703");
-                linkIfPresent(idx, dir, "Daniel Miller", "bio-maturity_transition-0919");
-                linkIfPresent(idx, dir, "Daniel Miller", "bio-maturity_transition-0973");
-                linkIfPresent(idx, dir, "Arthur Thompson", "bio-0001");
-                linkIfPresent(idx, dir, "Robert Miller", "bio-0013");
-                linkIfPresent(idx, dir, "Ethan Thompson", "bio-0015");
             }
 
             log.info("Ingested kinship knowledge: EntityDirectory={} entities, TKG={} facts",
                     dir.entityCount(), tkg.factCount());
         } catch (Exception e) {
             log.warn("Failed to ingest kinship tree into graph: {}", e.getMessage());
-        }
-    }
-
-    private void linkIfPresent(com.spectrayan.spector.memory.cortex.index.MemoryIndex idx,
-                               com.spectrayan.spector.memory.graph.EntityDirectory dir,
-                               String entityName, String memoryId) {
-        var loc = idx.locate(memoryId);
-        if (loc != null) {
-            int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
-            int eid = dir.intern(entityName, "PERSON");
-            if (eid >= 0) {
-                dir.linkEntityToMemory(eid, slot);
-            }
         }
     }
 
