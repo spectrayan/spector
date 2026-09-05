@@ -76,6 +76,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
@@ -667,6 +668,15 @@ public final class MindSpanBenchmarkRunner {
                         .build();
                 List<CognitiveResult> simResults = memory.recall(cleanQ, simOptions);
 
+                RecallOptions bm25Options = RecallOptions.builder()
+                        .topK(30)
+                        .recallMode(RecallMode.OBSERVE)
+                        .scoringMode(ScoringMode.SIMILARITY)
+                        .textSearchMode(TextSearchMode.BM25_ONLY)
+                        .autoProfile(false)
+                        .build();
+                List<CognitiveResult> bm25Results = memory.recall(cleanQ, bm25Options);
+
                 RecallOptions baseOptions = RecallOptions.builder()
                         .topK(10)
                         .recallMode(RecallMode.OBSERVE)
@@ -787,35 +797,69 @@ public final class MindSpanBenchmarkRunner {
                     }
                 }
 
-                // 3. Top episodic results from Spector's native hybrid recall (simResults)
+                // 3. Top lexical needle results from Spector's pure BM25 index (bm25Results)
+                int bmCount = 0;
+                for (CognitiveResult cr : bm25Results) {
+                    if (cr.id() != null && seenCandidateIds.add(cr.id())) {
+                        combinedForQa.add(cr);
+                        addSessionPartners(cr, combinedForQa, seenCandidateIds, corpusRecordMap, sessionRecordsMap);
+                        bmCount++;
+                        if (bmCount >= 10) break;
+                    }
+                }
+
+                // 4. Top results from Spector's native cognitive recall (cogResults)
+                int cogCount = 0;
+                for (CognitiveResult cr : cogResults) {
+                    if (cr.id() != null && seenCandidateIds.add(cr.id())) {
+                        combinedForQa.add(cr);
+                        addSessionPartners(cr, combinedForQa, seenCandidateIds, corpusRecordMap, sessionRecordsMap);
+                        cogCount++;
+                        if (cogCount >= 10) break;
+                    }
+                }
+
+                // 5. Remaining BM25 results
+                for (CognitiveResult cr : bm25Results) {
+                    if (cr.id() != null && seenCandidateIds.add(cr.id())) {
+                        combinedForQa.add(cr);
+                        addSessionPartners(cr, combinedForQa, seenCandidateIds, corpusRecordMap, sessionRecordsMap);
+                    }
+                }
+
+                // 6. Top cognitive/semantic results with graph expansion (qaResults)
                 int count = 0;
-                for (CognitiveResult cr : simResults) {
+                for (CognitiveResult cr : qaResults) {
                     if (cr.id() != null && seenCandidateIds.add(cr.id())) {
                         combinedForQa.add(cr);
+                        addSessionPartners(cr, combinedForQa, seenCandidateIds, corpusRecordMap, sessionRecordsMap);
                         count++;
-                        if (count >= 25) break;
+                        if (count >= 15) break;
                     }
                 }
 
-                // 4. Top cognitive/semantic results from Spector's native cognitive recall (qaResults)
+                // 7. Top episodic results from Spector's hybrid recall (simResults)
                 count = 0;
-                for (CognitiveResult cr : qaResults) {
-                    if (cr.id() != null && seenCandidateIds.add(cr.id())) {
-                        combinedForQa.add(cr);
-                        count++;
-                        if (count >= 10) break;
-                    }
-                }
-
-                // 5. Remaining results from Spector's simResults and qaResults
                 for (CognitiveResult cr : simResults) {
                     if (cr.id() != null && seenCandidateIds.add(cr.id())) {
                         combinedForQa.add(cr);
+                        addSessionPartners(cr, combinedForQa, seenCandidateIds, corpusRecordMap, sessionRecordsMap);
+                        count++;
+                        if (count >= 15) break;
                     }
                 }
+
+                // 8. Remaining results from Spector's qaResults and simResults
                 for (CognitiveResult cr : qaResults) {
                     if (cr.id() != null && seenCandidateIds.add(cr.id())) {
                         combinedForQa.add(cr);
+                        addSessionPartners(cr, combinedForQa, seenCandidateIds, corpusRecordMap, sessionRecordsMap);
+                    }
+                }
+                for (CognitiveResult cr : simResults) {
+                    if (cr.id() != null && seenCandidateIds.add(cr.id())) {
+                        combinedForQa.add(cr);
+                        addSessionPartners(cr, combinedForQa, seenCandidateIds, corpusRecordMap, sessionRecordsMap);
                     }
                 }
 
@@ -827,7 +871,11 @@ public final class MindSpanBenchmarkRunner {
                 List<CognitiveResult> finalPackedList = new ArrayList<>();
                 List<Set<String>> packedShinglesList = new ArrayList<>();
                 Map<String, Integer> sessionTurnCounts = new HashMap<>();
+                Set<String> packedIds = new HashSet<>();
                 for (CognitiveResult res : combinedForQa) {
+                    if (res == null || res.id() == null || !packedIds.add(res.id())) {
+                        continue;
+                    }
                     // Session diversity gate (allow up to 6 turns for target date sessions)
                     String sessionKey = extractSessionKey(res.id());
                     BenchmarkCorpusRecord rec = corpusRecordMap.get(res.id());
@@ -1421,6 +1469,38 @@ public final class MindSpanBenchmarkRunner {
                 (byte) 0,
                 r.timestampMs()
         );
+    }
+
+    private static void addSessionPartners(CognitiveResult cr,
+                                           List<CognitiveResult> combinedForQa,
+                                           Set<String> seenCandidateIds,
+                                           Map<String, BenchmarkCorpusRecord> corpusRecordMap,
+                                           Map<String, List<BenchmarkCorpusRecord>> sessionRecordsMap) {
+        if (cr == null || cr.id() == null) return;
+        BenchmarkCorpusRecord rec = corpusRecordMap.get(cr.id());
+        if (rec != null && rec.sessionId() != null && !rec.sessionId().isBlank() && !"default_session".equals(rec.sessionId())) {
+            List<BenchmarkCorpusRecord> sRecs = sessionRecordsMap.get(rec.sessionId());
+            if (sRecs != null && sRecs.size() <= 4) {
+                for (BenchmarkCorpusRecord partner : sRecs) {
+                    if (partner.id() != null && seenCandidateIds.add(partner.id())) {
+                        combinedForQa.add(toCognitiveResult(partner, cr.score() * 0.95f));
+                    }
+                }
+            }
+        }
+        String cid = cr.id();
+        if (cid.endsWith("-j")) {
+            String baseId = cid.substring(0, cid.length() - 2);
+            BenchmarkCorpusRecord partner = corpusRecordMap.get(baseId);
+            if (partner != null && seenCandidateIds.add(partner.id())) {
+                combinedForQa.add(toCognitiveResult(partner, cr.score() * 0.95f));
+            }
+        } else {
+            BenchmarkCorpusRecord partner = corpusRecordMap.get(cid + "-j");
+            if (partner != null && seenCandidateIds.add(partner.id())) {
+                combinedForQa.add(toCognitiveResult(partner, cr.score() * 0.95f));
+            }
+        }
     }
 
     private static JudgeResult evaluateWithJudge(LlmProvider llm, String question, String goldAnswer, String modelAnswer) {
