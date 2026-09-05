@@ -83,6 +83,7 @@ class EpisodicLogConsolidationRelayTest {
         when(partitionManager.snapshot()).thenReturn(List.of(handle));
 
         RememberPathway rememberPathway = Mockito.mock(RememberPathway.class);
+        when(rememberPathway.ingestCognitiveWithHeader(any(), any(), any(), any(), any(), any(), any())).thenReturn(true);
         LlmProvider llm = new LlmProvider() {
             @Override
             public LlmResponse generate(LlmRequest request, GenerationOptions options) {
@@ -102,6 +103,7 @@ class EpisodicLogConsolidationRelayTest {
                 .partitionManager(partitionManager)
                 .rememberPathway(rememberPathway)
                 .textGenerator(llm)
+                .idGenerator(() -> java.util.UUID.randomUUID().toString())
                 .build();
 
         EpisodicLogConsolidationRelay relay = new EpisodicLogConsolidationRelay();
@@ -133,6 +135,7 @@ class EpisodicLogConsolidationRelayTest {
         when(partitionManager.snapshot()).thenReturn(List.of(handle));
 
         RememberPathway rememberPathway = Mockito.mock(RememberPathway.class);
+        when(rememberPathway.ingestCognitiveWithHeader(any(), any(), any(), any(), any(), any(), any())).thenReturn(true);
         List<String> capturedPrompts = new ArrayList<>();
         LlmProvider llm = new LlmProvider() {
             @Override
@@ -156,6 +159,7 @@ class EpisodicLogConsolidationRelayTest {
                 .rememberPathway(rememberPathway)
                 .textGenerator(llm)
                 .episodicSessionIndex(sessionIndex)
+                .idGenerator(() -> java.util.UUID.randomUUID().toString())
                 .build();
 
         EpisodicLogConsolidationRelay relay = new EpisodicLogConsolidationRelay();
@@ -178,6 +182,7 @@ class EpisodicLogConsolidationRelayTest {
                 .rememberPathway(rememberPathway)
                 .textGenerator(llm)
                 .episodicSessionIndex(sessionIndex)
+                .idGenerator(() -> java.util.UUID.randomUUID().toString())
                 .build();
 
         boolean success2 = relay.transmit(signal2);
