@@ -332,4 +332,74 @@ class EpisodicMemoryTest {
         assertEquals(sessionId, hl.readSessionIdRecord(episodicMemory.segment(), punnedWriteOffset));
         assertEquals(modelId, hl.readModelIdRecord(episodicMemory.segment(), punnedWriteOffset));
     }
+
+    // ── Issue #751: Slab-scan fallback tests ──
+
+    @Test
+    @DisplayName("lastConsolidatedTurnOffsets should return empty list when memory is empty or maxTurns <= 0")
+    void lastConsolidatedTurnOffsets_emptyOrInvalidArgs() {
+        assertTrue(episodicMemory.lastConsolidatedTurnOffsets(123L, 5).isEmpty());
+        assertTrue(episodicMemory.lastConsolidatedTurnOffsets(123L, 0).isEmpty());
+        assertTrue(episodicMemory.lastConsolidatedTurnOffsets(123L, -1).isEmpty());
+    }
+
+    @Test
+    @DisplayName("lastConsolidatedTurnOffsets should return empty list when turns exist but none are consolidated")
+    void lastConsolidatedTurnOffsets_noConsolidatedTurns() {
+        long sessionId = 100L;
+        episodicMemory.appendTurn(ConversationRole.USER, 1, 1000L, sessionId, "Turn 1".getBytes(), (short) 1, 0, 0, 0, 1L, (short) 1, SourceModality.TEXT);
+        episodicMemory.appendTurn(ConversationRole.ASSISTANT, 2, 2000L, sessionId, "Turn 2".getBytes(), (short) 1, 0, 0, 0, 1L, (short) 1, SourceModality.TEXT);
+
+        List<Long> offsets = episodicMemory.lastConsolidatedTurnOffsets(sessionId, 5);
+        assertTrue(offsets.isEmpty(), "Unconsolidated turns must not be returned");
+    }
+
+    @Test
+    @DisplayName("lastConsolidatedTurnOffsets should return consolidated turns in chronological order capped to maxTurns")
+    void lastConsolidatedTurnOffsets_withConsolidatedTurnsAndLimit() {
+        long targetSession = 200L;
+        long otherSession = 300L;
+
+        // Turn 1 (target, consolidated)
+        long off1 = episodicMemory.appendTurn(ConversationRole.USER, 1, 1000L, targetSession, "Target 1".getBytes(), (short) 1, 0, 0, 0, 1L, (short) 1, SourceModality.TEXT);
+        episodicMemory.markConsolidated(off1);
+
+        // Turn 2 (other session, consolidated - should be ignored)
+        long offOther = episodicMemory.appendTurn(ConversationRole.USER, 2, 1500L, otherSession, "Other 1".getBytes(), (short) 1, 0, 0, 0, 1L, (short) 1, SourceModality.TEXT);
+        episodicMemory.markConsolidated(offOther);
+
+        // Turn 3 (target, consolidated)
+        long off3 = episodicMemory.appendTurn(ConversationRole.ASSISTANT, 3, 2000L, targetSession, "Target 2".getBytes(), (short) 1, 0, 0, 0, 1L, (short) 1, SourceModality.TEXT);
+        episodicMemory.markConsolidated(off3);
+
+        // Turn 4 (target, unconsolidated - should be ignored)
+        episodicMemory.appendTurn(ConversationRole.USER, 4, 3000L, targetSession, "Target 3".getBytes(), (short) 1, 0, 0, 0, 1L, (short) 1, SourceModality.TEXT);
+
+        // Turn 5 (target, consolidated)
+        long off5 = episodicMemory.appendTurn(ConversationRole.ASSISTANT, 5, 4000L, targetSession, "Target 4".getBytes(), (short) 1, 0, 0, 0, 1L, (short) 1, SourceModality.TEXT);
+        episodicMemory.markConsolidated(off5);
+
+        // Query all 3 consolidated turns
+        List<Long> allOffsets = episodicMemory.lastConsolidatedTurnOffsets(targetSession, 10);
+        assertEquals(List.of(off1, off3, off5), allOffsets, "Should return all 3 consolidated turns in chronological order");
+
+        // Query with maxTurns = 2 (should return the last 2: off3, off5)
+        List<Long> limitedOffsets = episodicMemory.lastConsolidatedTurnOffsets(targetSession, 2);
+        assertEquals(List.of(off3, off5), limitedOffsets, "Should return only the last 2 consolidated turns");
+    }
+
+    @Test
+    @DisplayName("lastConsolidatedTurnOffsets should ignore tombstoned records")
+    void lastConsolidatedTurnOffsets_ignoresTombstoned() {
+        long sessionId = 400L;
+        long off1 = episodicMemory.appendTurn(ConversationRole.USER, 1, 1000L, sessionId, "Turn 1".getBytes(), (short) 1, 0, 0, 0, 1L, (short) 1, SourceModality.TEXT);
+        episodicMemory.markConsolidated(off1);
+
+        long off2 = episodicMemory.appendTurn(ConversationRole.ASSISTANT, 2, 2000L, sessionId, "Turn 2".getBytes(), (short) 1, 0, 0, 0, 1L, (short) 1, SourceModality.TEXT);
+        episodicMemory.markConsolidated(off2);
+        episodicMemory.tombstone(off2);
+
+        List<Long> offsets = episodicMemory.lastConsolidatedTurnOffsets(sessionId, 5);
+        assertEquals(List.of(off1), offsets, "Tombstoned record must be excluded");
+    }
 }

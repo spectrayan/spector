@@ -419,6 +419,79 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
     }
 
     /**
+     * Directly scans the episodic log slab for consolidated turn offsets belonging to the given session.
+     *
+     * <p>Used as an offline/isolated fallback during REM sleep reflection when {@link EpisodicSessionIndex}
+     * is unavailable or un-rebuilt on the signal. Returns up to {@code maxTurns} relative offsets
+     * ({@code cursor - dataOffset()}) in chronological order.</p>
+     *
+     * @param sessionId the target episodic session ID
+     * @param maxTurns  maximum number of most recent consolidated turn offsets to return (must be > 0)
+     * @return chronological list of relative byte offsets for the session's consolidated turns (at most {@code maxTurns})
+     */
+    public List<Long> lastConsolidatedTurnOffsets(long sessionId, int maxTurns) {
+        if (maxTurns <= 0) {
+            return List.of();
+        }
+        List<Long> matching = new ArrayList<>();
+        long base = dataOffset();
+        long limit = base + this.count;
+        long current = base;
+
+        var headerLayout = layout().headerLayout();
+        while (current + EncodingHeaderFields.HEADER_BYTES <= limit) {
+            byte flags;
+            long recordSessionId;
+            long recordEnd;
+
+            if (headerLayout.isOptionBRecord(segment(), current)) {
+                int payloadBytes = headerLayout.readPayloadBytes(segment(), current);
+                if (payloadBytes < 0) {
+                    break;
+                }
+                recordEnd = current + EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
+                if (recordEnd > limit) {
+                    break;
+                }
+                flags = headerLayout.readFlagsRecord(segment(), current);
+                long headerSessionId = headerLayout.readSessionIdRecord(segment(), current);
+                if (headerSessionId != 0L) {
+                    recordSessionId = headerSessionId;
+                } else {
+                    long payloadOffset = current + EpisodicLayout.FIXED_OVERHEAD_BYTES;
+                    recordSessionId = (payloadBytes >= EpisodeCodec.PAYLOAD_METADATA_BYTES)
+                            ? segment().get(ValueLayout.JAVA_LONG_UNALIGNED, payloadOffset + EpisodeCodec.OFFSET_SESSION_ID)
+                            : 0L;
+                }
+            } else {
+                flags = LegacyEpisodeHeaderReader.readFlags(segment(), current);
+                int bodyLength = LegacyEpisodeHeaderReader.readBodyLength(segment(), current);
+                if (bodyLength < 0) {
+                    break;
+                }
+                recordEnd = current + EncodingHeaderFields.HEADER_BYTES + bodyLength;
+                if (recordEnd > limit) {
+                    break;
+                }
+                recordSessionId = LegacyEpisodeHeaderReader.readSessionId(segment(), current);
+            }
+
+            if (recordSessionId == sessionId
+                    && !EncodingHeaderFields.isTombstoned(flags)
+                    && EncodingHeaderFields.isConsolidated(flags)) {
+                matching.add(current - base);
+            }
+
+            current = recordEnd;
+        }
+
+        if (matching.size() > maxTurns) {
+            return matching.subList(matching.size() - maxTurns, matching.size());
+        }
+        return matching;
+    }
+
+    /**
      * Returns the total count of live (non-tombstoned) turns in this episodic store.
      */
     public int liveTurnCount() {

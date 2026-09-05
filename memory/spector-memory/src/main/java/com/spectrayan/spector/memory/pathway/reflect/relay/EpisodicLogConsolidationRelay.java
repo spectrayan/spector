@@ -152,26 +152,43 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                 }
 
                 List<String> priorContext = new ArrayList<>();
-                if (signal.episodicSessionIndex() != null && MAX_PRIOR_CONTEXT_TURNS > 0) {
-                    List<Long> allSessionOffsets = signal.episodicSessionIndex().getSessionTurns(sessionId);
-                    if (allSessionOffsets != null && !allSessionOffsets.isEmpty()) {
-                        List<Long> earlierOffsets = new ArrayList<>();
-                        for (Long off : allSessionOffsets) {
-                            if (!currentTurnOffsets.contains(off)) {
-                                earlierOffsets.add(off);
+                if (MAX_PRIOR_CONTEXT_TURNS > 0) {
+                    List<Long> windowOffsets = null;
+                    if (signal.episodicSessionIndex() != null) {
+                        List<Long> allSessionOffsets = signal.episodicSessionIndex().getSessionTurns(sessionId);
+                        if (allSessionOffsets != null && !allSessionOffsets.isEmpty()) {
+                            List<Long> earlierOffsets = new ArrayList<>();
+                            for (Long off : allSessionOffsets) {
+                                if (!currentTurnOffsets.contains(off)) {
+                                    earlierOffsets.add(off);
+                                }
+                            }
+                            if (!earlierOffsets.isEmpty()) {
+                                int start = Math.max(0, earlierOffsets.size() - MAX_PRIOR_CONTEXT_TURNS);
+                                windowOffsets = earlierOffsets.subList(start, earlierOffsets.size());
                             }
                         }
+                    } else if (logStore != null) {
+                        // Fallback: directly scan episodic slab when EpisodicSessionIndex is unavailable (#751)
+                        List<Long> candidateOffsets = logStore.lastConsolidatedTurnOffsets(sessionId, MAX_PRIOR_CONTEXT_TURNS);
+                        if (candidateOffsets != null && !candidateOffsets.isEmpty()) {
+                            List<Long> earlierOffsets = new ArrayList<>();
+                            for (Long off : candidateOffsets) {
+                                if (!currentTurnOffsets.contains(off)) {
+                                    earlierOffsets.add(off);
+                                }
+                            }
+                            windowOffsets = earlierOffsets;
+                        }
+                    }
 
-                        if (!earlierOffsets.isEmpty()) {
-                            int start = Math.max(0, earlierOffsets.size() - MAX_PRIOR_CONTEXT_TURNS);
-                            List<Long> windowOffsets = earlierOffsets.subList(start, earlierOffsets.size());
-                            List<EpisodeRecord> priorRecords = logStore.readTurns(windowOffsets, true);
-                            for (var priorRecord : priorRecords) {
-                                if (com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isConsolidated(priorRecord.flags())) {
-                                    String text = extractTurnText(priorRecord);
-                                    if (text != null && !text.isBlank()) {
-                                        priorContext.add(priorRecord.role() + ": " + text);
-                                    }
+                    if (windowOffsets != null && !windowOffsets.isEmpty()) {
+                        List<EpisodeRecord> priorRecords = logStore.readTurns(windowOffsets, true);
+                        for (var priorRecord : priorRecords) {
+                            if (com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isConsolidated(priorRecord.flags())) {
+                                String text = extractTurnText(priorRecord);
+                                if (text != null && !text.isBlank()) {
+                                    priorContext.add(priorRecord.role() + ": " + text);
                                 }
                             }
                         }
