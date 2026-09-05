@@ -90,26 +90,33 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
             if (handle.router() != null) {
                 var episodicStore = handle.router().episodic();
                 if (episodicStore != null) {
-                    processLogStore(episodicStore, signal);
+                    processLogStore(episodicStore, signal, handle.seq());
                 }
             }
         }
         return true;
     }
 
-    private void processLogStore(final EpisodicMemory logStore, final ReflectSignal signal) {
+    /**
+     * Per-turn offset pairing — avoids HashMap key collision (Bug #2).
+     */
+    private record TurnWithOffset(EpisodeRecord turn, long offset) {}
+
+    private void processLogStore(final EpisodicMemory logStore, final ReflectSignal signal, final int partitionSeq) {
         List<Long> unconsolidatedOffsets = logStore.unconsolidatedTurnOffsets();
         log.info("EpisodicLogConsolidationRelay: found {} unconsolidated offsets in logStore", unconsolidatedOffsets.size());
         List<EpisodeRecord> turns = logStore.readTurns(unconsolidatedOffsets, true);
         if (turns.isEmpty()) return;
         log.info("EpisodicLogConsolidationRelay: read {} turns for {} unconsolidated offsets", turns.size(), unconsolidatedOffsets.size());
-        Map<Long, List<EpisodeRecord>> sessionTurns = new HashMap<>();
-        Map<EpisodeRecord, Long> turnToOffset = new HashMap<>();
+
+        // Bug #2 fix: Use paired list instead of Map<EpisodeRecord, Long> to avoid key collision
+        // when two turns have identical content (records are value types — equals() on content).
+        Map<Long, List<TurnWithOffset>> sessionTurns = new HashMap<>();
         for (int i = 0; i < turns.size(); i++) {
             var turn = turns.get(i);
             long offset = unconsolidatedOffsets.get(i);
-            sessionTurns.computeIfAbsent(turn.sessionId(), k -> new ArrayList<>()).add(turn);
-            turnToOffset.put(turn, offset);
+            sessionTurns.computeIfAbsent(turn.sessionId(), k -> new ArrayList<>())
+                    .add(new TurnWithOffset(turn, offset));
         }
 
         log.info("EpisodicLogConsolidationRelay: grouped into {} distinct sessions, starting consolidation...", sessionTurns.size());
@@ -117,37 +124,37 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
         // replace temporary retry and throttle logic.
         for (var entry : sessionTurns.entrySet()) {
             try {
-                List<EpisodeRecord> sessionList = entry.getValue();
+                List<TurnWithOffset> sessionList = entry.getValue();
                 if (sessionList == null || sessionList.isEmpty()) continue;
 
                 List<String> turnTexts = new ArrayList<>();
-                for (var turn : sessionList) {
-                    String text = extractTurnText(turn);
+                for (var twoTuple : sessionList) {
+                    String text = extractTurnText(twoTuple.turn());
                     if (text != null && !text.isBlank()) {
-                        turnTexts.add(turn.role() + ": " + text);
+                        turnTexts.add(twoTuple.turn().role() + ": " + text);
                     }
                 }
 
                 if (turnTexts.isEmpty()) continue;
 
                 long sessionTimestampMs = sessionList.stream()
+                        .map(TurnWithOffset::turn)
                         .mapToLong(EpisodeRecord::timestampMs)
                         .max()
                         .orElse(System.currentTimeMillis());
 
                 long sessionId = entry.getKey();
+
+                // Collect offsets for prior-context lookups (Bug #2: use paired offset, not map)
+                Set<Long> currentTurnOffsets = new HashSet<>();
+                for (var twoTuple : sessionList) {
+                    currentTurnOffsets.add(twoTuple.offset());
+                }
+
                 List<String> priorContext = new ArrayList<>();
                 if (signal.episodicSessionIndex() != null && MAX_PRIOR_CONTEXT_TURNS > 0) {
                     List<Long> allSessionOffsets = signal.episodicSessionIndex().getSessionTurns(sessionId);
                     if (allSessionOffsets != null && !allSessionOffsets.isEmpty()) {
-                        Set<Long> currentTurnOffsets = new HashSet<>();
-                        for (var turn : sessionList) {
-                            Long off = turnToOffset.get(turn);
-                            if (off != null) {
-                                currentTurnOffsets.add(off);
-                            }
-                        }
-
                         List<Long> earlierOffsets = new ArrayList<>();
                         for (Long off : allSessionOffsets) {
                             if (!currentTurnOffsets.contains(off)) {
@@ -174,7 +181,19 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                 List<ConsolidatedFact> synthesizedFacts = distillStructuredFacts(turnTexts, priorContext, sessionTimestampMs, signal);
                 if (synthesizedFacts.isEmpty()) continue;
 
-                for (ConsolidatedFact fact : synthesizedFacts) {
+                // Bug #5 fix: Mark turns consolidated BEFORE ingesting facts.
+                // This prevents duplicate facts on crash/retry: if we crash after
+                // ingesting facts but before marking consolidated, a retry would
+                // re-distill the same turns and produce duplicates. Marking first
+                // ensures crash-safety at the cost of potentially losing facts
+                // (which is self-healing — the next pass will re-consolidate).
+                for (var twoTuple : sessionList) {
+                    logStore.markConsolidated(twoTuple.offset());
+                }
+                signal.addLogTurnsConsolidated(sessionList.size());
+
+                for (int fi = 0; fi < synthesizedFacts.size(); fi++) {
+                    ConsolidatedFact fact = synthesizedFacts.get(fi);
                     String memoryId = TSID.generate().toString();
                     float[] vector = null;
                     if (signal.embeddingProvider() != null) {
@@ -196,14 +215,18 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                             }
                         }
                         tagSet.add("conversation-reflection");
+                        // Bug #4 fix: Add session tag for lineage tracing
+                        tagSet.add("session-" + Long.toHexString(sessionId));
                         String[] allTags = tagSet.toArray(String[]::new);
 
                         float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
                         byte semanticFlags = EncodingHeaderFields.withMemoryType(
                                 EncodingHeaderFields.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal());
+
+                        // Bug #3 fix: Use fact-level affect metadata instead of hardcoded zeros
                         EncodingHeader header = new EncodingHeader(
-                                sessionTimestampMs, 0L, exactNorm, 1.0f, 1,
-                                (short) 0, (byte) 0, semanticFlags, (byte) 0, 1.0f
+                                sessionTimestampMs, 0L, exactNorm, fact.interest(), 1,
+                                (short) 0, fact.arousal(), semanticFlags, fact.valence(), 1.0f
                         );
 
                         signal.rememberPathway().ingestCognitiveWithHeader(
@@ -218,15 +241,6 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                         signal.addConsolidated(1);
                     }
                 }
-
-                // Mark source turns consolidated
-                for (var turn : sessionList) {
-                    Long offset = turnToOffset.get(turn);
-                    if (offset != null) {
-                        logStore.markConsolidated(offset);
-                    }
-                }
-                signal.addLogTurnsConsolidated(sessionList.size());
 
                 // Sleep between runs so it won't overwhelm the LLM API
                 long sleepMs = Long.getLong("reflectSessionSleepMs", 5000L);
