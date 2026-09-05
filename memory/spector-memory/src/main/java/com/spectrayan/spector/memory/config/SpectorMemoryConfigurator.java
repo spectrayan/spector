@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.config;
 
 import com.spectrayan.spector.config.SpectorConfigFactory;
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.config.properties.EmbeddingProperties;
 import com.spectrayan.spector.config.properties.GenerationProperties;
 import com.spectrayan.spector.config.properties.IngestionProperties;
@@ -61,7 +61,7 @@ public final class SpectorMemoryConfigurator {
      */
     public static SpectorMemory configure(Path configPath) {
         try {
-            SpectorProperties props = SpectorProperties.load(configPath);
+            SpectorConfigSource props = SpectorConfigSource.load(configPath);
             return configure(props);
         } catch (Exception e) {
             throw new IllegalArgumentException("Failed to load Spector configuration from " + configPath, e);
@@ -69,16 +69,16 @@ public final class SpectorMemoryConfigurator {
     }
 
     /**
-     * Configures and returns a {@link SpectorMemoryBuilder} populated from {@link SpectorProperties}.
+     * Configures and returns a {@link SpectorMemoryBuilder} populated from {@link SpectorConfigSource}.
      *
      * <p>Allows callers to customize or override settings before calling {@code build()}.</p>
      *
      * @param props configuration properties
      * @return pre-configured SpectorMemoryBuilder
      */
-    public static SpectorMemoryBuilder builder(SpectorProperties props) {
+    public static SpectorMemoryBuilder builder(SpectorConfigSource props) {
         if (props == null) {
-            props = SpectorProperties.builder().build();
+            props = SpectorConfigSource.builder().build();
         }
 
         MemoryProperties memoryProps = SpectorConfigFactory.memoryProperties(props);
@@ -131,12 +131,12 @@ public final class SpectorMemoryConfigurator {
     }
 
     /**
-     * Configures and constructs a {@link SpectorMemory} instance from {@link SpectorProperties}.
+     * Configures and constructs a {@link SpectorMemory} instance from {@link SpectorConfigSource}.
      *
      * @param props configuration properties
      * @return fully initialized SpectorMemory instance
      */
-    public static SpectorMemory configure(SpectorProperties props) {
+    public static SpectorMemory configure(SpectorConfigSource props) {
         return builder(props).build();
     }
 
@@ -212,3 +212,4 @@ public final class SpectorMemoryConfigurator {
         return resolveGenerationProvider(gen, null);
     }
 }
+

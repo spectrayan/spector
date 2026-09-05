@@ -17,7 +17,7 @@ package com.spectrayan.spector.config.properties;
 
 import static com.spectrayan.spector.config.SpectorPropertyConstants.*;
 
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 
 import java.io.Serializable;
 import java.nio.file.Path;
@@ -74,11 +74,11 @@ public class PersistenceFiles implements Serializable {
         return val;
     }
 
-    public static PersistenceFiles from(SpectorProperties props) {
+    public static PersistenceFiles from(SpectorConfigSource props) {
         return fromProperties(props);
     }
 
-    public static PersistenceFiles fromProperties(SpectorProperties props) {
+    public static PersistenceFiles fromProperties(SpectorConfigSource props) {
         if (props == null) return DEFAULTS;
         return new PersistenceFiles(
                 props.getString(PERSISTENCE_FILES_INDEX, DEFAULTS.indexFile),

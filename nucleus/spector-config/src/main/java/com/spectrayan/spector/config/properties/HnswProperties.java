@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.config.properties;
 
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 
 import java.io.Serializable;
@@ -59,7 +59,7 @@ public class HnswProperties implements Serializable {
         this.levelMultiplier = levelMultiplier > 0 ? levelMultiplier : 1.0 / Math.log(m);
     }
 
-    public static HnswProperties from(SpectorProperties props) {
+    public static HnswProperties from(SpectorConfigSource props) {
         if (props == null) return DEFAULTS;
         return new HnswProperties(
                 props.getInt(SpectorPropertyConstants.HNSW_M, DEFAULTS.m),

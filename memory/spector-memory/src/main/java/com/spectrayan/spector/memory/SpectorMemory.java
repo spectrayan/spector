@@ -848,12 +848,12 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
     }
 
     /**
-     * Configures a {@link SpectorMemory} instance from {@link com.spectrayan.spector.config.SpectorProperties}.
+     * Configures a {@link SpectorMemory} instance from {@link com.spectrayan.spector.config.SpectorConfigSource}.
      *
      * @param properties typed properties object
      * @return fully configured SpectorMemory instance
      */
-    static SpectorMemory fromProperties(com.spectrayan.spector.config.SpectorProperties properties) {
+    static SpectorMemory fromProperties(com.spectrayan.spector.config.SpectorConfigSource properties) {
         return com.spectrayan.spector.memory.config.SpectorMemoryConfigurator.configure(properties);
     }
 }

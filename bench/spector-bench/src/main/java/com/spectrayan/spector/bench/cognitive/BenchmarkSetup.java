@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import com.spectrayan.spector.config.SpectorConfigFactory;
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
@@ -200,10 +200,10 @@ public final class BenchmarkSetup implements AutoCloseable {
         };
 
         Path datasetConfig = datasetDir != null ? datasetDir.resolve("spector-bench.yml") : null;
-        SpectorProperties datasetProps = null;
+        SpectorConfigSource datasetProps = null;
         if (datasetConfig != null && Files.exists(datasetConfig)) {
             try {
-                datasetProps = SpectorProperties.load(datasetConfig);
+                datasetProps = SpectorConfigSource.load(datasetConfig);
                 log.info("Loaded dataset configuration from {}", datasetConfig);
             } catch (Exception e) {
                 log.warn("Failed to load dataset config from {}: {}", datasetConfig, e.getMessage());
@@ -351,7 +351,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                 Path configFile = Path.of("spector-bench.yml");
                 if (Files.exists(configFile)) {
                     try {
-                        var props = SpectorProperties.load(configFile);
+                        var props = SpectorConfigSource.load(configFile);
                         var defaults = SpectorConfigFactory.memoryDefaults(props);
                         persistencePath = defaults.persistencePath() != null ? Path.of(defaults.persistencePath()) : null;
                     } catch (Exception e) {

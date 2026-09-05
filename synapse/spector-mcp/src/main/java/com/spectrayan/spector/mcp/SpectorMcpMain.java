@@ -18,7 +18,7 @@ package com.spectrayan.spector.mcp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.config.SpectorConfigFactory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
@@ -77,7 +77,7 @@ public class SpectorMcpMain {
         }
 
         //  Load hierarchical configuration 
-        SpectorProperties.Builder propsBuilder = SpectorProperties.builder();
+        SpectorConfigSource.Builder propsBuilder = SpectorConfigSource.builder();
 
         // Explicit config file
         String configFile = getStringArg(args, "--config", null);
@@ -161,7 +161,7 @@ public class SpectorMcpMain {
             log.info("[Spector MCP] Odysseus mode: memory enabled, disk persistence, SEMANTIC default tier");
         }
 
-        SpectorProperties props = propsBuilder.build();
+        SpectorConfigSource props = propsBuilder.build();
 
         // ── Create embedding provider ──
         var embedDefaults = SpectorConfigFactory.embeddingDefaults(props);

@@ -64,7 +64,7 @@ public final class CognitiveRetriever {
     /** null = per-query profiles, "NONE" = no profile, else a CognitiveProfile name. */
     private final String profileOverride;
     private final java.nio.file.Path datasetDir;
-    private final com.spectrayan.spector.config.SpectorProperties datasetProps;
+    private final com.spectrayan.spector.config.SpectorConfigSource datasetProps;
 
     /**
      * Creates a new CognitiveRetriever backed by the given SpectorMemory instance.
@@ -96,12 +96,12 @@ public final class CognitiveRetriever {
         this.memory = memory;
         this.profileOverride = profileOverride;
         this.datasetDir = datasetDir;
-        com.spectrayan.spector.config.SpectorProperties props = null;
+        com.spectrayan.spector.config.SpectorConfigSource props = null;
         if (datasetDir != null) {
             java.nio.file.Path yml = datasetDir.resolve("spector-bench.yml");
             if (java.nio.file.Files.exists(yml)) {
                 try {
-                    props = com.spectrayan.spector.config.SpectorProperties.load(yml);
+                    props = com.spectrayan.spector.config.SpectorConfigSource.load(yml);
                 } catch (Exception ignored) {}
             }
         }

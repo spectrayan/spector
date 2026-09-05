@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.config.properties;
 
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 
 import java.io.Serializable;
@@ -48,7 +48,7 @@ public class IvfProperties implements Serializable {
         this.pqSubspaces = pqSubspaces;
     }
 
-    public static IvfProperties from(SpectorProperties props) {
+    public static IvfProperties from(SpectorConfigSource props) {
         if (props == null) return DEFAULTS;
         return new IvfProperties(
                 props.getInt(SpectorPropertyConstants.IVF_NLIST, DEFAULTS.nlist),

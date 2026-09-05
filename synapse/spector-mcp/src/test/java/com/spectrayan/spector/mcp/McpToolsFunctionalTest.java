@@ -18,7 +18,7 @@ package com.spectrayan.spector.mcp;
 import static org.assertj.core.api.Assertions.*;
 
 import com.spectrayan.spector.config.SpectorConfigFactory;
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.memory.*;
 import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.memory.cortex.MemorySource;
@@ -89,7 +89,7 @@ class McpToolsFunctionalTest {
         Assumptions.assumeTrue(Files.exists(configFile),
                 "spector-local.yml not found");
 
-        var props = SpectorProperties.builder()
+        var props = SpectorConfigSource.builder()
                 .configFile(configFile)
                 .build();
 

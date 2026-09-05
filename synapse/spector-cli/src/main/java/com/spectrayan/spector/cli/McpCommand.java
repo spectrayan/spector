@@ -24,7 +24,7 @@ import com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager;
 import com.spectrayan.spector.commons.chunker.ChunkConfig;
 import com.spectrayan.spector.commons.chunker.MarkdownChunker;
 import com.spectrayan.spector.config.SpectorConfigFactory;
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.mcp.SpectorMcpServer;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
@@ -81,7 +81,7 @@ public class McpCommand implements Runnable {
 
     @Override
     public void run() {
-        SpectorProperties.Builder propsBuilder = SpectorProperties.builder();
+        SpectorConfigSource.Builder propsBuilder = SpectorConfigSource.builder();
 
         if (configFile != null) {
             propsBuilder.configFile(Path.of(configFile));
@@ -131,7 +131,7 @@ public class McpCommand implements Runnable {
             propsBuilder.override("spector.memory.default-ingestion-tier", "SEMANTIC");
         }
 
-        SpectorProperties props = propsBuilder.build();
+        SpectorConfigSource props = propsBuilder.build();
 
         var embedDefaults = SpectorConfigFactory.embeddingDefaults(props);
         var config = com.spectrayan.spector.provider.ProviderConfig.local("ollama", "ollama", embedDefaults.model(), embedDefaults.baseUrl());

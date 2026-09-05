@@ -29,7 +29,7 @@ import com.spectrayan.spector.cli.client.SpectorConnectionException;
 import com.spectrayan.spector.commons.chunker.ChunkConfig;
 import com.spectrayan.spector.commons.chunker.MarkdownChunker;
 import com.spectrayan.spector.config.SpectorConfigFactory;
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.ingestion.FileDiscoveryService;
 import com.spectrayan.spector.ingestion.IngestionPipeline;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
@@ -100,7 +100,7 @@ class IngestCommand extends BaseCommand {
         if (rootDir != null) {
             runLocalBatch();
         } else if (configFile != null) {
-            var props = SpectorProperties.builder().configFile(configFile).build();
+            var props = SpectorConfigSource.builder().configFile(configFile).build();
             var ingestionConfig = SpectorConfigFactory.ingestionProperties(props);
             if (ingestionConfig.rootDirectory() != null) {
                 rootDir = ingestionConfig.rootDirectory();
@@ -119,7 +119,7 @@ class IngestCommand extends BaseCommand {
     // Local Batch Mode
 
     private void runLocalBatch() {
-        SpectorProperties.Builder propsBuilder = SpectorProperties.builder();
+        SpectorConfigSource.Builder propsBuilder = SpectorConfigSource.builder();
 
         if (configFile != null) propsBuilder.configFile(configFile);
         if (pattern != null)
@@ -130,7 +130,7 @@ class IngestCommand extends BaseCommand {
         if (rootDir != null)
             propsBuilder.override("spector.ingestion.root-directory", rootDir.toString());
 
-        SpectorProperties props = propsBuilder.build();
+        SpectorConfigSource props = propsBuilder.build();
 
         var ingestionConfig = SpectorConfigFactory.ingestionProperties(props);
         var embedConfig = SpectorConfigFactory.embeddingProperties(props);

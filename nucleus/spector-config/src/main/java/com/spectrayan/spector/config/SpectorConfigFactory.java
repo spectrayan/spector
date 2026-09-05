@@ -23,7 +23,7 @@ import com.spectrayan.spector.config.properties.*;
 import java.time.Duration;
 
 /**
- * Central factory for building typed configuration objects from {@link SpectorProperties}.
+ * Central factory for building typed configuration objects from {@link SpectorConfigSource}.
  *
  * <p>This is the bridge between the hierarchical property file system and the
  * strongly-typed configuration POJOs used by each Spector module.</p>
@@ -32,12 +32,37 @@ public final class SpectorConfigFactory {
 
     private SpectorConfigFactory() {}
 
+    // ─────────────── Aggregate Root ───────────────
+
+    /**
+     * Builds the aggregate {@link SpectorProperties} root POJO from a raw
+     * {@link SpectorConfigSource}.
+     *
+     * <p>This is the canonical construction path for the aggregate configuration
+     * object. It hydrates all typed sub-domain POJOs by delegating to the
+     * individual factory methods.</p>
+     *
+     * @param source the raw configuration source
+     * @return fully hydrated SpectorProperties aggregate
+     */
+    public static SpectorProperties spectorProperties(SpectorConfigSource source) {
+        return new SpectorProperties(
+                memoryProperties(source),
+                providerProperties(source),
+                ingestionProperties(source),
+                hnswProperties(source),
+                ivfProperties(source),
+                spectrumProperties(source),
+                source
+        );
+    }
+
     // ─────────────── HNSW Properties ───────────────
 
     /**
      * Loads HNSW properties from configuration.
      */
-    public static HnswProperties hnswProperties(SpectorProperties props) {
+    public static HnswProperties hnswProperties(SpectorConfigSource props) {
         return new HnswProperties(
                 props.getInt(HNSW_M, DEFAULT_HNSW_M),
                 props.getInt(HNSW_EF_CONSTRUCTION, DEFAULT_HNSW_EF_CONSTRUCTION),
@@ -50,7 +75,7 @@ public final class SpectorConfigFactory {
     /**
      * Loads IVF properties from configuration.
      */
-    public static IvfProperties ivfProperties(SpectorProperties props) {
+    public static IvfProperties ivfProperties(SpectorConfigSource props) {
         return new IvfProperties(
                 props.getInt(IVF_NLIST, DEFAULT_IVF_NLIST),
                 props.getInt(IVF_NPROBE, DEFAULT_IVF_NPROBE),
@@ -63,7 +88,7 @@ public final class SpectorConfigFactory {
     /**
      * Loads Spectrum properties from configuration.
      */
-    public static SpectrumProperties spectrumProperties(SpectorProperties props) {
+    public static SpectrumProperties spectrumProperties(SpectorConfigSource props) {
         return new SpectrumProperties(
                 props.getInt(SPECTRUM_N_CENTROIDS, DEFAULT_SPECTRUM_N_CENTROIDS),
                 props.getInt(SPECTRUM_N_PROBE, DEFAULT_SPECTRUM_N_PROBE),
@@ -78,7 +103,7 @@ public final class SpectorConfigFactory {
     /**
      * Loads embedding provider properties from configuration.
      */
-    public static EmbeddingProperties embeddingProperties(SpectorProperties props) {
+    public static EmbeddingProperties embeddingProperties(SpectorConfigSource props) {
         EmbeddingProperties properties = new EmbeddingProperties();
 
         String type = props.getString(PROVIDER_EMBEDDING_TYPE, DEFAULT_PROVIDER_EMBEDDING_TYPE);
@@ -117,7 +142,7 @@ public final class SpectorConfigFactory {
     /**
      * Loads memory properties POJO from configuration.
      */
-    public static MemoryProperties memoryProperties(SpectorProperties props) {
+    public static MemoryProperties memoryProperties(SpectorConfigSource props) {
         MemoryProperties properties = new MemoryProperties();
         properties.setEnabled(props.getBoolean(MEMORY_ENABLED, DEFAULT_MEMORY_ENABLED));
         properties.setPersistenceMode(props.getEnum(MEMORY_PERSISTENCE_MODE, PersistenceMode.class, DEFAULT_MEMORY_PERSISTENCE_MODE));
@@ -214,7 +239,7 @@ public final class SpectorConfigFactory {
     /**
      * Loads Active Inference Self-Model Engine (AISME) properties from configuration.
      */
-    public static AismeProperties aismeProperties(SpectorProperties props) {
+    public static AismeProperties aismeProperties(SpectorConfigSource props) {
         AismeProperties properties = new AismeProperties();
         properties.setEnabled(props.getBoolean(MEMORY_AISME_ENABLED, DEFAULT_MEMORY_AISME_ENABLED));
         properties.setEnableHomeostasis(props.getBoolean(MEMORY_AISME_HOMEOSTASIS_ENABLED, DEFAULT_MEMORY_AISME_HOMEOSTASIS_ENABLED));
@@ -273,7 +298,7 @@ public final class SpectorConfigFactory {
     /**
      * Resolves the global operating mode: {@link SpectorMode#MEMORY}.
      */
-    public static SpectorMode mode(SpectorProperties props) {
+    public static SpectorMode mode(SpectorConfigSource props) {
         return SpectorMode.MEMORY;
     }
 
@@ -282,7 +307,7 @@ public final class SpectorConfigFactory {
     /**
      * Loads ingestion properties POJO from configuration.
      */
-    public static IngestionProperties ingestionProperties(SpectorProperties props) {
+    public static IngestionProperties ingestionProperties(SpectorConfigSource props) {
         IngestionProperties properties = new IngestionProperties();
         properties.setRootDirectory(props.getPath(INGESTION_ROOT_DIRECTORY, DEFAULT_INGESTION_ROOT_DIRECTORY));
         properties.setFilePattern(props.getString(INGESTION_FILE_PATTERN, DEFAULT_INGESTION_FILE_PATTERN));
@@ -300,7 +325,7 @@ public final class SpectorConfigFactory {
     /**
      * Loads provider properties POJO from configuration.
      */
-    public static ProviderProperties providerProperties(SpectorProperties props) {
+    public static ProviderProperties providerProperties(SpectorConfigSource props) {
         ProviderProperties providerProperties = new ProviderProperties();
 
         EmbeddingProperties emb = embeddingProperties(props);
@@ -323,37 +348,37 @@ public final class SpectorConfigFactory {
     // ─────────────── Deprecated Bridge Accessors ───────────────
 
     @Deprecated(since = "0.1.0", forRemoval = true)
-    public static EmbeddingProperties embeddingDefaults(SpectorProperties props) {
+    public static EmbeddingProperties embeddingDefaults(SpectorConfigSource props) {
         return embeddingProperties(props);
     }
 
     @Deprecated(since = "0.1.0", forRemoval = true)
-    public static MemoryProperties memoryDefaults(SpectorProperties props) {
+    public static MemoryProperties memoryDefaults(SpectorConfigSource props) {
         return memoryProperties(props);
     }
 
     @Deprecated(since = "0.1.0", forRemoval = true)
-    public static IngestionProperties ingestionDefaults(SpectorProperties props) {
+    public static IngestionProperties ingestionDefaults(SpectorConfigSource props) {
         return ingestionProperties(props);
     }
 
     @Deprecated(since = "0.1.0", forRemoval = true)
-    public static ProviderProperties providerDefaults(SpectorProperties props) {
+    public static ProviderProperties providerDefaults(SpectorConfigSource props) {
         return providerProperties(props);
     }
 
     @Deprecated(since = "0.1.0", forRemoval = true)
-    public static SpectrumProperties spectrumDefaults(SpectorProperties props) {
+    public static SpectrumProperties spectrumDefaults(SpectorConfigSource props) {
         return spectrumProperties(props);
     }
 
     @Deprecated(since = "0.1.0", forRemoval = true)
-    public static HnswProperties hnswDefaults(SpectorProperties props) {
+    public static HnswProperties hnswDefaults(SpectorConfigSource props) {
         return hnswProperties(props);
     }
 
     @Deprecated(since = "0.1.0", forRemoval = true)
-    public static IvfProperties ivfDefaults(SpectorProperties props) {
+    public static IvfProperties ivfDefaults(SpectorConfigSource props) {
         return ivfProperties(props);
     }
 }

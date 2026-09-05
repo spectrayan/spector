@@ -29,13 +29,13 @@ import java.nio.file.Path;
 import java.time.Duration;
 
 /**
- * Tests for {@link SpectorProperties} hierarchical configuration loading.
+ * Tests for {@link SpectorConfigSource} hierarchical configuration loading.
  */
 class SpectorPropertiesTest {
 
     @Test
     void loadDefaults_returnsClasspathValues() {
-        SpectorProperties props = SpectorProperties.load();
+        SpectorConfigSource props = SpectorConfigSource.load();
 
         // Verify values from spector-defaults.yml
         assertThat(props.getInt("spector.memory.dimensions", -1)).isEqualTo(384);
@@ -45,7 +45,7 @@ class SpectorPropertiesTest {
 
     @Test
     void loadDefaults_hnswParams() {
-        SpectorProperties props = SpectorProperties.load();
+        SpectorConfigSource props = SpectorConfigSource.load();
 
         assertThat(props.getInt("spector.hnsw.m", -1)).isEqualTo(16);
         assertThat(props.getInt("spector.hnsw.ef-construction", -1)).isEqualTo(200);
@@ -54,7 +54,7 @@ class SpectorPropertiesTest {
 
     @Test
     void loadDefaults_embeddingConfig() {
-        SpectorProperties props = SpectorProperties.load();
+        SpectorConfigSource props = SpectorConfigSource.load();
 
         assertThat(props.getString("spector.provider.embedding.model")).isEqualTo("nomic-embed-text");
         assertThat(props.getString("spector.provider.embedding.base-url")).isEqualTo("http://localhost:11434");
@@ -64,7 +64,7 @@ class SpectorPropertiesTest {
 
     @Test
     void loadDefaults_persistenceFiles() {
-        SpectorProperties props = SpectorProperties.load();
+        SpectorConfigSource props = SpectorConfigSource.load();
 
         assertThat(props.getString("spector.persistence.files.index")).isEqualTo("index.spct");
         assertThat(props.getString("spector.persistence.files.vectors")).isEqualTo("vectors.mmap");
@@ -74,7 +74,7 @@ class SpectorPropertiesTest {
 
     @Test
     void duration_humanReadable() {
-        SpectorProperties props = SpectorProperties.builder()
+        SpectorConfigSource props = SpectorConfigSource.builder()
                 .override("timeout.seconds", "30s")
                 .override("timeout.millis", "500ms")
                 .override("timeout.minutes", "5m")
@@ -89,7 +89,7 @@ class SpectorPropertiesTest {
 
     @Test
     void builderOverrides_takePrecedence() {
-        SpectorProperties props = SpectorProperties.builder()
+        SpectorConfigSource props = SpectorConfigSource.builder()
                 .override("spector.memory.dimensions", "1024")
                 .override("spector.provider.embedding.model", "custom-model")
                 .build();
@@ -104,7 +104,7 @@ class SpectorPropertiesTest {
         String key = "spector.test.sysprop.key";
         System.setProperty(key, "from-system");
         try {
-            SpectorProperties props = SpectorProperties.builder()
+            SpectorConfigSource props = SpectorConfigSource.builder()
                     .override(key, "from-override")
                     .build();
 
@@ -125,7 +125,7 @@ class SpectorPropertiesTest {
                     capacity: 500000
                 """);
 
-        SpectorProperties props = SpectorProperties.load(configFile);
+        SpectorConfigSource props = SpectorConfigSource.load(configFile);
 
         assertThat(props.getInt("spector.memory.dimensions", -1)).isEqualTo(1024);
         assertThat(props.getInt("spector.memory.capacity", -1)).isEqualTo(500_000);
@@ -141,7 +141,7 @@ class SpectorPropertiesTest {
                 spector.provider.embedding.model=mxbai-embed-large
                 """);
 
-        SpectorProperties props = SpectorProperties.builder()
+        SpectorConfigSource props = SpectorConfigSource.builder()
                 .configFile(configFile)
                 .build();
 
@@ -151,7 +151,7 @@ class SpectorPropertiesTest {
 
     @Test
     void missingKey_returnsDefault() {
-        SpectorProperties props = SpectorProperties.load();
+        SpectorConfigSource props = SpectorConfigSource.load();
 
         assertThat(props.getString("nonexistent.key")).isNull();
         assertThat(props.getString("nonexistent.key", "fallback")).isEqualTo("fallback");
@@ -161,7 +161,7 @@ class SpectorPropertiesTest {
 
     @Test
     void containsKey() {
-        SpectorProperties props = SpectorProperties.load();
+        SpectorConfigSource props = SpectorConfigSource.load();
 
         assertThat(props.containsKey("spector.memory.dimensions")).isTrue();
         assertThat(props.containsKey("nonexistent.key")).isFalse();
@@ -169,7 +169,7 @@ class SpectorPropertiesTest {
 
     @Test
     void path_resolution() {
-        SpectorProperties props = SpectorProperties.builder()
+        SpectorConfigSource props = SpectorConfigSource.builder()
                 .override("data.dir", "/tmp/spector")
                 .build();
 
@@ -179,7 +179,7 @@ class SpectorPropertiesTest {
 
     @Test
     void persistenceFiles_fromProperties() {
-        SpectorProperties props = SpectorProperties.builder()
+        SpectorConfigSource props = SpectorConfigSource.builder()
                 .override("spector.persistence.files.index", "custom-index.bin")
                 .override("spector.persistence.files.vectors", "custom-vectors.bin")
                 .build();
@@ -192,7 +192,7 @@ class SpectorPropertiesTest {
     void interpolation_environmentAndSystemProperties() {
         System.setProperty("test.sys.var", "sys-value");
         try {
-            SpectorProperties props = SpectorProperties.builder()
+            SpectorConfigSource props = SpectorConfigSource.builder()
                     .override("my.sys.prop", "${sys:test.sys.var}")
                     .override("my.env.path", "${env:PATH}")
                     .override("my.unprefixed.path", "${PATH}")
@@ -219,7 +219,7 @@ class SpectorPropertiesTest {
                           path: ${PATH}
                     """);
 
-            SpectorProperties props = SpectorProperties.load(configFile);
+            SpectorConfigSource props = SpectorConfigSource.load(configFile);
             assertThat(props.getString("spector.provider.generation.api-key")).isEqualTo("secret-test-key-123");
             assertThat(props.getString("spector.provider.generation.path")).isNotNull();
         } finally {
