@@ -509,17 +509,39 @@ public final class MemoryDto {
     ) {}
 
     /**
+     * Optional request parameters for triggering reflection sweep.
+     */
+    public record ReflectRequest(
+            @JsonProperty("sweepId") String sweepId,
+            @JsonProperty("sessionLimit") Integer sessionLimit,
+            @JsonProperty("sessionIdAfter") Long sessionIdAfter,
+            @JsonProperty("from") Long from,
+            @JsonProperty("to") Long to,
+            @JsonProperty("consolidationOnly") Boolean consolidationOnly
+    ) {}
+
+    /**
      * Reflect consolidation response.
      *
-     * @param tombstonedCount  memories tombstoned during consolidation
-     * @param durationMs       duration of the consolidation cycle in milliseconds
-     * @param message          human-readable summary
+     * @param tombstonedCount    memories tombstoned during consolidation
+     * @param durationMs         duration of the consolidation cycle in milliseconds
+     * @param message            human-readable summary
+     * @param sweepId            sweep ID associated with the execution
+     * @param consolidatedCount  count of episodic clusters or facts consolidated
+     * @param turnsConsolidated  count of episodic conversation turns consolidated
      */
     public record ReflectResponse(
             @JsonProperty("tombstonedCount") int tombstonedCount,
             @JsonProperty("durationMs") long durationMs,
-            @JsonProperty("message") String message
-    ) {}
+            @JsonProperty("message") String message,
+            @JsonProperty("sweepId") String sweepId,
+            @JsonProperty("consolidatedCount") int consolidatedCount,
+            @JsonProperty("turnsConsolidated") int turnsConsolidated
+    ) {
+        public ReflectResponse(int tombstonedCount, long durationMs, String message) {
+            this(tombstonedCount, durationMs, message, null, 0, 0);
+        }
+    }
 
     /**
      * Vacuum compaction result for a single tier.

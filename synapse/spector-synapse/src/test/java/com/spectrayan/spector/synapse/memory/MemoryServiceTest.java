@@ -37,6 +37,10 @@ import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepProgress;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepStatus;
+import java.time.Instant;
 import com.spectrayan.spector.synapse.memory.MemoryDto.*;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryGraphResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStatusResponse;
@@ -228,7 +232,7 @@ class MemoryServiceTest {
         when(mockReport.consolidatedCount()).thenReturn(2);
         when(mockReport.temporalPrunedCount()).thenReturn(1);
         when(mockReport.duration()).thenReturn(Duration.ofMillis(120L));
-        when(mao.reflect(any())).thenReturn(mockReport);
+        when(mao.reflect(any(), any(ReflectSweepSpec.class))).thenReturn(mockReport);
 
         var result = service.reflect();
 
@@ -292,5 +296,53 @@ class MemoryServiceTest {
 
         assertThat(result).isEqualTo(expected);
         verify(mao).getTopologyStats(any());
+    }
+
+    // ═══════════════════════════════════════════════════
+    // REFLECT API
+    // ═══════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("reflect() — parameterless triggers default full-cycle sweep")
+    void reflect_defaultFullCycle_delegatesToMao() {
+        var report = new ReflectReport(5, 2, 0, 1, Duration.ofMillis(120), null, 0, 0, 0.0f, 10);
+        when(mao.reflect(any(), any(ReflectSweepSpec.class))).thenReturn(report);
+
+        var response = service.reflect();
+
+        assertThat(response).isNotNull();
+        assertThat(response.tombstonedCount()).isEqualTo(2);
+        assertThat(response.consolidatedCount()).isEqualTo(5);
+        assertThat(response.turnsConsolidated()).isEqualTo(10);
+        assertThat(response.sweepId()).isEqualTo("full-cycle");
+        verify(mao).reflect(any(), any(ReflectSweepSpec.class));
+    }
+
+    @Test
+    @DisplayName("reflect(spec) — delegates to mao with supplied spec")
+    void reflect_withSpec_delegatesToMao() {
+        var spec = ReflectSweepSpec.consolidationOnly(10);
+        var report = new ReflectReport(3, 0, 0, 0, Duration.ofMillis(80), null, 0, 0, 0.0f, 6);
+        when(mao.reflect(any(), eq(spec))).thenReturn(report);
+
+        var response = service.reflect(spec);
+
+        assertThat(response).isNotNull();
+        assertThat(response.consolidatedCount()).isEqualTo(3);
+        assertThat(response.turnsConsolidated()).isEqualTo(6);
+        assertThat(response.sweepId()).isEqualTo("consolidation-tick");
+        verify(mao).reflect(any(), eq(spec));
+    }
+
+    @Test
+    @DisplayName("progress(sweepId) — delegates to mao")
+    void progress_delegatesToMao() {
+        var progress = new ReflectSweepProgress("sweep-test", 2, 5, 8, 1, ReflectSweepStatus.RUNNING, Instant.now(), Instant.now());
+        when(mao.progress(any(), eq("sweep-test"))).thenReturn(progress);
+
+        var result = service.progress("sweep-test");
+
+        assertThat(result).isEqualTo(progress);
+        verify(mao).progress(any(), eq("sweep-test"));
     }
 }

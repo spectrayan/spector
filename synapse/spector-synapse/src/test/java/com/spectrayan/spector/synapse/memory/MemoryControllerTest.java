@@ -13,6 +13,9 @@
 package com.spectrayan.spector.synapse.memory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepProgress;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepStatus;
 import com.spectrayan.spector.synapse.memory.MemoryDto.*;
 import org.junit.jupiter.api.*;
 import org.mockito.Mockito;
@@ -416,6 +419,98 @@ class MemoryControllerTest {
                 .andExpect(jsonPath("$.hits[0].result.id", is("mem-123")))
                 .andExpect(jsonPath("$.hits[0].namespaceId", is("01JXYZNS00001")))
                 .andExpect(jsonPath("$.summary.openedNamespaces[0]", is("default")));
+    }
+
+    // ═══════════════════════════════════════════════════
+    // REFLECT API
+    // ═══════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("POST /memory/reflect — default fullCycle triggers parameterless reflect")
+    void reflect_defaultFullCycle_returns200() throws Exception {
+        var resp = new ReflectResponse(2, 150L, "Consolidated 3 episodic clusters. Pruned 1 temporal chain nodes.", "full-cycle", 3, 5);
+        when(memoryService.reflect()).thenReturn(resp);
+
+        mvc.perform(post("/api/v1/memory/reflect"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tombstonedCount", is(2)))
+                .andExpect(jsonPath("$.durationMs", is(150)))
+                .andExpect(jsonPath("$.sweepId", is("full-cycle")))
+                .andExpect(jsonPath("$.consolidatedCount", is(3)))
+                .andExpect(jsonPath("$.turnsConsolidated", is(5)));
+
+        verify(memoryService).reflect();
+    }
+
+    @Test
+    @DisplayName("POST /memory/reflect — with query parameters constructs spec and triggers reflect")
+    void reflect_withQueryParams_returns200() throws Exception {
+        var resp = new ReflectResponse(0, 80L, "Consolidated 1 episodic clusters.", "custom-sweep-1", 1, 2);
+        when(memoryService.reflect(Mockito.any(ReflectSweepSpec.class))).thenReturn(resp);
+
+        mvc.perform(post("/api/v1/memory/reflect")
+                        .param("sweepId", "custom-sweep-1")
+                        .param("sessionLimit", "10")
+                        .param("sessionIdAfter", "100")
+                        .param("consolidationOnly", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sweepId", is("custom-sweep-1")))
+                .andExpect(jsonPath("$.consolidatedCount", is(1)));
+
+        verify(memoryService).reflect(argThat(spec ->
+                "custom-sweep-1".equals(spec.sweepId())
+                        && spec.sessionLimit() == 10
+                        && Long.valueOf(100L).equals(spec.filter().sessionIdAfter())
+                        && !spec.runCompanionRelays()
+        ));
+    }
+
+    @Test
+    @DisplayName("POST /memory/reflect — with request body constructs spec and triggers reflect")
+    void reflect_withRequestBody_returns200() throws Exception {
+        var resp = new ReflectResponse(1, 120L, "Consolidated 2 episodic clusters.", "body-sweep-1", 2, 4);
+        when(memoryService.reflect(Mockito.any(ReflectSweepSpec.class))).thenReturn(resp);
+
+        var body = new ReflectRequest("body-sweep-1", 5, 200L, 1000L, 2000L, false);
+
+        mvc.perform(post("/api/v1/memory/reflect")
+                        .contentType(APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sweepId", is("body-sweep-1")))
+                .andExpect(jsonPath("$.consolidatedCount", is(2)));
+
+        verify(memoryService).reflect(argThat(spec ->
+                "body-sweep-1".equals(spec.sweepId())
+                        && spec.sessionLimit() == 5
+                        && Long.valueOf(200L).equals(spec.filter().sessionIdAfter())
+                        && spec.runCompanionRelays()
+        ));
+    }
+
+    @Test
+    @DisplayName("GET /memory/reflect/progress/{sweepId} — returns 200 with progress when found")
+    void getReflectProgress_found_returns200() throws Exception {
+        var progress = new ReflectSweepProgress("sweep-xyz", 4, 12, 16, 2, ReflectSweepStatus.RUNNING, java.time.Instant.now(), java.time.Instant.now());
+        when(memoryService.progress("sweep-xyz")).thenReturn(progress);
+
+        mvc.perform(get("/api/v1/memory/reflect/progress/sweep-xyz"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sweepId", is("sweep-xyz")))
+                .andExpect(jsonPath("$.sessionsCompleted", is(4)))
+                .andExpect(jsonPath("$.factsIngested", is(12)))
+                .andExpect(jsonPath("$.turnsMarked", is(16)))
+                .andExpect(jsonPath("$.backlogRemaining", is(2)))
+                .andExpect(jsonPath("$.status", is("RUNNING")));
+    }
+
+    @Test
+    @DisplayName("GET /memory/reflect/progress/{sweepId} — returns 404 when not found")
+    void getReflectProgress_notFound_returns404() throws Exception {
+        when(memoryService.progress("unknown-sweep")).thenReturn(null);
+
+        mvc.perform(get("/api/v1/memory/reflect/progress/unknown-sweep"))
+                .andExpect(status().isNotFound());
     }
 }
 

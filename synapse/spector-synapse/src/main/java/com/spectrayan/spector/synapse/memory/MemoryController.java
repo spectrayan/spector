@@ -19,9 +19,14 @@ import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStatusResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallResult;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectFilter;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepProgress;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec;
 import com.spectrayan.spector.synapse.memory.MemoryDto.BrowseRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.BrowseResult;
+import com.spectrayan.spector.synapse.memory.MemoryDto.ReflectRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ReflectResponse;
+import java.time.Instant;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ReinforceByIdRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RememberRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ResolveRequest;
@@ -496,15 +501,79 @@ public class MemoryController {
     // ══════════════════════════════════════════════════════════════
 
     /**
-     * Trigger a sleep consolidation (reflect) cycle.
+     * Trigger a sleep consolidation (reflect) cycle or filtered sweep.
      *
      * <p>Maps to: {@code MemoryTableService.reflect()} in Angular.</p>
      *
      * <p>{@code POST /api/v1/memory/reflect}</p>
+     *
+     * @param sweepId           optional unique sweep ID (generated if omitted)
+     * @param sessionLimit      optional limit on sessions processed
+     * @param sessionIdAfter    optional cursor for watermark continuation
+     * @param from              optional turn timestamp lower bound (epoch millis)
+     * @param to                optional turn timestamp upper bound (epoch millis)
+     * @param consolidationOnly optional flag to skip companion relays (default false)
+     * @param request           optional request body with additional parameters
      */
     @PostMapping("/reflect")
-    public ResponseEntity<ReflectResponse> reflect() {
-        return ResponseEntity.ok(memoryService.reflect());
+    public ResponseEntity<ReflectResponse> reflect(
+            @RequestParam(required = false) String sweepId,
+            @RequestParam(required = false) Integer sessionLimit,
+            @RequestParam(required = false) Long sessionIdAfter,
+            @RequestParam(required = false) Long from,
+            @RequestParam(required = false) Long to,
+            @RequestParam(required = false) Boolean consolidationOnly,
+            @RequestBody(required = false) ReflectRequest request) {
+
+        String effectiveSweepId = sweepId != null ? sweepId : (request != null ? request.sweepId() : null);
+        Integer effectiveSessionLimit = sessionLimit != null ? sessionLimit : (request != null ? request.sessionLimit() : null);
+        Long effectiveSessionIdAfter = sessionIdAfter != null ? sessionIdAfter : (request != null ? request.sessionIdAfter() : null);
+        Long effectiveFrom = from != null ? from : (request != null ? request.from() : null);
+        Long effectiveTo = to != null ? to : (request != null ? request.to() : null);
+        Boolean effectiveConsolidationOnly = consolidationOnly != null ? consolidationOnly : (request != null ? request.consolidationOnly() : null);
+
+        if (effectiveSweepId == null && effectiveSessionLimit == null && effectiveSessionIdAfter == null
+                && effectiveFrom == null && effectiveTo == null && effectiveConsolidationOnly == null) {
+            return ResponseEntity.ok(memoryService.reflect());
+        }
+
+        ReflectFilter.Builder filterBuilder = ReflectFilter.builder();
+        if (effectiveSessionIdAfter != null) {
+            filterBuilder.sessionIdAfter(effectiveSessionIdAfter);
+        }
+        if (effectiveFrom != null) {
+            filterBuilder.from(Instant.ofEpochMilli(effectiveFrom));
+        }
+        if (effectiveTo != null) {
+            filterBuilder.to(Instant.ofEpochMilli(effectiveTo));
+        }
+
+        ReflectSweepSpec.Builder specBuilder = ReflectSweepSpec.builder()
+                .filter(filterBuilder.build())
+                .sessionLimit(effectiveSessionLimit != null ? effectiveSessionLimit : 0)
+                .runCompanionRelays(effectiveConsolidationOnly == null || !effectiveConsolidationOnly);
+
+        if (effectiveSweepId != null && !effectiveSweepId.isBlank()) {
+            specBuilder.sweepId(effectiveSweepId);
+        }
+
+        return ResponseEntity.ok(memoryService.reflect(specBuilder.build()));
+    }
+
+    /**
+     * Poll reflection sweep progress telemetry.
+     *
+     * <p>{@code GET /api/v1/memory/reflect/progress/{sweepId}}</p>
+     *
+     * @param sweepId unique sweep identifier
+     */
+    @GetMapping("/reflect/progress/{sweepId}")
+    public ResponseEntity<ReflectSweepProgress> getReflectProgress(@PathVariable String sweepId) {
+        ReflectSweepProgress progress = memoryService.progress(sweepId);
+        if (progress == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(progress);
     }
 
     /**

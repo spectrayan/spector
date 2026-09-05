@@ -48,6 +48,8 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ReflectReport;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepProgress;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec;
 import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 import com.spectrayan.spector.synapse.memory.MemoryDto.AcceptedResponse;
@@ -671,9 +673,18 @@ public class MemoryService {
      * Trigger a sleep consolidation (reflect) cycle.
      */
     public ReflectResponse reflect() {
-        log.info("[MemoryService] Triggering reflect (sleep consolidation)...");
+        return reflect(ReflectSweepSpec.fullCycle());
+    }
+
+    /**
+     * Trigger a sleep consolidation (reflect) sweep using the supplied specification.
+     */
+    public ReflectResponse reflect(ReflectSweepSpec spec) {
+        String sweepId = (spec != null) ? spec.sweepId() : "default";
+        log.info("[MemoryService] Triggering reflect (sleep consolidation) with sweepId={}...", sweepId);
         long start = System.currentTimeMillis();
-        ReflectReport report = mao.reflect(resolveMemory());
+        SpectorMemory memory = resolveMemory();
+        ReflectReport report = (spec != null) ? mao.reflect(memory, spec) : mao.reflect(memory);
         long durationMs = report != null ? report.duration().toMillis() : (System.currentTimeMillis() - start);
 
         if (report != null) {
@@ -692,11 +703,24 @@ public class MemoryService {
                     "tombstonesCompacted", report.tombstonedCount(),
                     "durationMs", durationMs
             ));
-            return new ReflectResponse(report.tombstonedCount(), durationMs,
+            return new ReflectResponse(
+                    report.tombstonedCount(),
+                    durationMs,
                     "Consolidated " + report.consolidatedCount() + " episodic clusters. " +
-                            "Pruned " + report.temporalPrunedCount() + " temporal chain nodes.");
+                            "Pruned " + report.temporalPrunedCount() + " temporal chain nodes.",
+                    sweepId,
+                    report.consolidatedCount(),
+                    report.logTurnsConsolidated()
+            );
         }
-        return new ReflectResponse(0, durationMs, "Reflect completed (stub mode — engine not available)");
+        return new ReflectResponse(0, durationMs, "Reflect completed (stub mode — engine not available)", sweepId, 0, 0);
+    }
+
+    /**
+     * Retrieves reflection sweep progress telemetry.
+     */
+    public ReflectSweepProgress progress(String sweepId) {
+        return mao.progress(resolveMemory(), sweepId);
     }
 
     /**
