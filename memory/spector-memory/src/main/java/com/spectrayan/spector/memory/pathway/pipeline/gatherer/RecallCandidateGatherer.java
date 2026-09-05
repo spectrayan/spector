@@ -30,6 +30,7 @@ import com.spectrayan.spector.memory.model.SourceModality;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.spectrayan.spector.config.model.TextSearchMode;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 
 import java.lang.foreign.MemorySegment;
@@ -98,6 +99,9 @@ public class RecallCandidateGatherer {
             }
         }
 
+        boolean isPureTextSearch = options.textSearchMode() == TextSearchMode.BM25_ONLY
+                || options.textSearchMode() == TextSearchMode.KEYWORD_ONLY;
+
         vectorResults.clear();
         for (Map.Entry<String, Float> entry : rrfScores.entrySet()) {
             String id = entry.getKey();
@@ -105,8 +109,10 @@ public class RecallCandidateGatherer {
             CognitiveResult existing = existingById.get(id);
 
             if (existing != null) {
-                float tierBoost = (existing.memoryType() == MemoryType.SEMANTIC || existing.memoryType() == MemoryType.PROCEDURAL) ? 2.0f : 1.0f;
-                float provenanceBoost = existing.source() != null ? (0.8f + 0.2f * existing.source().confidenceWeight()) : 1.0f;
+                float tierBoost = isPureTextSearch ? 1.0f
+                        : ((existing.memoryType() == MemoryType.SEMANTIC || existing.memoryType() == MemoryType.PROCEDURAL) ? 2.0f : 1.0f);
+                float provenanceBoost = isPureTextSearch ? 1.0f
+                        : (existing.source() != null ? (0.8f + 0.2f * existing.source().confidenceWeight()) : 1.0f);
                 vectorResults.add(existing.withScore(rrfScore * tierBoost * provenanceBoost));
             } else if (index != null) {
                 MemoryIndex.MemoryLocation loc = index.locate(id);
@@ -127,10 +133,9 @@ public class RecallCandidateGatherer {
                         if (type == MemoryType.EPISODIC) {
                             EpisodicMemory episodic = router.episodic();
                             if (episodic != null) {
-                                MemorySegment segment = episodic.segment();
-                                if (segment != null) {
-                                    if (EpisodicHeaderAccessor.isTombstoned(segment, loc.offset())) continue;
-                                    var header = EpisodicHeaderAccessor.readHeader(segment, loc.offset());
+                                if (episodic.isTombstoned(loc.offset())) continue;
+                                var header = episodic.readHeader(loc.offset());
+                                if (header != null) {
                                     importance = header.importance();
                                     valence = header.valence();
                                     recallCount = (short) header.agentRecallCount();
@@ -164,18 +169,22 @@ public class RecallCandidateGatherer {
                     }
                 }
 
-                // Check valence & importance filters
-                if (valence < options.minValence() || valence > options.maxValence()) continue;
-                if (options.minImportance() > 0 && importance < options.minImportance()) continue;
+                // Check valence & importance filters (bypass in pure text search)
+                if (!isPureTextSearch) {
+                    if (valence < options.minValence() || valence > options.maxValence()) continue;
+                    if (options.minImportance() > 0 && importance < options.minImportance()) continue;
+                }
 
-                // Check tag filters
+                // Check tag filters (bypass in pure text search)
                 String[] tags = index.tags(id);
-                if (options.hyperfocusMask() != 0L) {
-                    long recTags = SynapticTagEncoder.encode(tags);
-                    if ((recTags & options.hyperfocusMask()) != options.hyperfocusMask()) continue;
-                } else if (options.synapticTagMask() != 0L) {
-                    long recTags = SynapticTagEncoder.encode(tags);
-                    if ((recTags & options.synapticTagMask()) == 0L) continue;
+                if (!isPureTextSearch) {
+                    if (options.hyperfocusMask() != 0L) {
+                        long recTags = SynapticTagEncoder.encode(tags);
+                        if ((recTags & options.hyperfocusMask()) != options.hyperfocusMask()) continue;
+                    } else if (options.synapticTagMask() != 0L) {
+                        long recTags = SynapticTagEncoder.encode(tags);
+                        if ((recTags & options.synapticTagMask()) == 0L) continue;
+                    }
                 }
 
                 String text = index.text(id);
@@ -187,8 +196,10 @@ public class RecallCandidateGatherer {
                         ? SourceModality.fromName(bm25Meta.get(SourceModality.METADATA_KEY))
                         : SourceModality.TEXT;
 
-                float tierBoost = (type == MemoryType.SEMANTIC || type == MemoryType.PROCEDURAL) ? 2.0f : 1.0f;
-                float provenanceBoost = source != null ? (0.8f + 0.2f * source.confidenceWeight()) : 1.0f;
+                float tierBoost = isPureTextSearch ? 1.0f
+                        : ((type == MemoryType.SEMANTIC || type == MemoryType.PROCEDURAL) ? 2.0f : 1.0f);
+                float provenanceBoost = isPureTextSearch ? 1.0f
+                        : (source != null ? (0.8f + 0.2f * source.confidenceWeight()) : 1.0f);
                 vectorResults.add(new CognitiveResult(
                         id, text, rrfScore * tierBoost * provenanceBoost, importance, ageDays,
                         recallCount, valence, type, source,

@@ -676,8 +676,10 @@ public final class RecallPipeline {
 
         // Step 3: Parallel tier scanning via ConcurrentTasks.forkJoinAll (shared flow)
         MemoryType[] targetTypes = options.memoryTypes();
-        if (!runTierScan(allResults, queryVector, options, nowMs, targetTypes)) {
-            return allResults;
+        if (options.textSearchMode().usesVector()) {
+            if (!runTierScan(allResults, queryVector, options, nowMs, targetTypes)) {
+                return allResults;
+            }
         }
 
         //  Steps 5-5b: Cognitive post-processing (shared flow) 
