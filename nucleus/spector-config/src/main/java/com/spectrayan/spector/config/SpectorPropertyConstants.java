@@ -501,6 +501,9 @@ public final class SpectorPropertyConstants {
     public static final String CONSOLIDATION_REFLECTION_TOP_P = "spector.consolidation.reflection.top-p";
     public static final float DEFAULT_CONSOLIDATION_REFLECTION_TOP_P = 0.95f;
 
+    public static final String CONSOLIDATION_REFLECTION_MAX_PRIOR_CONTEXT_TURNS = "spector.consolidation.reflection.max-prior-context-turns";
+    public static final int DEFAULT_CONSOLIDATION_REFLECTION_MAX_PRIOR_CONTEXT_TURNS = 10;
+
     public static final String MEMORY_REFLECT_MIN_CLUSTER_SIZE = "spector.memory.reflect.min-cluster-size";
     public static final int DEFAULT_MEMORY_REFLECT_MIN_CLUSTER_SIZE = 5;
 

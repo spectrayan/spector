@@ -27,7 +27,7 @@ import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
+import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -56,6 +56,7 @@ public final class ReflectSignal {
     private final CircadianPolicy policy;
     private final CentroidRouter centroidRouter;
     private final TemplateEngine templateEngine;
+    private final EpisodicSessionIndex episodicSessionIndex;
 
     // ── Graph Subsystems ───────────────────────────────────────────
     private final HebbianGraphBase hebbianGraph;
@@ -116,6 +117,7 @@ public final class ReflectSignal {
         this.policy = builder.policy != null ? builder.policy : CircadianPolicy.DEFAULT;
         this.centroidRouter = builder.centroidRouter;
         this.templateEngine = builder.templateEngine != null ? builder.templateEngine : TemplateEngine.getDefault();
+        this.episodicSessionIndex = builder.episodicSessionIndex;
 
         this.hebbianGraph = builder.hebbianGraph;
         this.temporalChain = builder.temporalChain;
@@ -176,6 +178,7 @@ public final class ReflectSignal {
     public CircadianPolicy policy() { return policy; }
     public CentroidRouter centroidRouter() { return centroidRouter; }
     public TemplateEngine templateEngine() { return templateEngine; }
+    public EpisodicSessionIndex episodicSessionIndex() { return episodicSessionIndex; }
 
     public HebbianGraphBase hebbianGraph() { return hebbianGraph; }
     public TemporalChainMemory temporalChain() { return temporalChain; }
@@ -311,6 +314,7 @@ public final class ReflectSignal {
         private CircadianPolicy policy = CircadianPolicy.DEFAULT;
         private CentroidRouter centroidRouter;
         private TemplateEngine templateEngine;
+        private EpisodicSessionIndex episodicSessionIndex;
 
         private HebbianGraphBase hebbianGraph;
         private TemporalChainMemory temporalChain;
@@ -347,6 +351,7 @@ public final class ReflectSignal {
         public Builder policy(CircadianPolicy p) { this.policy = p; return this; }
         public Builder centroidRouter(CentroidRouter cr) { this.centroidRouter = cr; return this; }
         public Builder templateEngine(TemplateEngine te) { this.templateEngine = te; return this; }
+        public Builder episodicSessionIndex(EpisodicSessionIndex esi) { this.episodicSessionIndex = esi; return this; }
 
         public Builder hebbianGraph(HebbianGraphBase hg) { this.hebbianGraph = hg; return this; }
         public Builder temporalChain(TemporalChainMemory tc) { this.temporalChain = tc; return this; }

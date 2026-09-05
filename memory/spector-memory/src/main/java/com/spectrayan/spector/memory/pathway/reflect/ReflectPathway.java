@@ -46,6 +46,7 @@ import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 
 import com.spectrayan.spector.memory.api.ImportanceProvider;
+import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.template.TemplateEngine;
@@ -104,6 +105,7 @@ public final class ReflectPathway implements AutoCloseable {
     private final CircadianPolicy policy;
     private final CentroidRouter centroidRouter;
     private final TemplateEngine templateEngine;
+    private final EpisodicSessionIndex episodicSessionIndex;
 
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
@@ -135,6 +137,7 @@ public final class ReflectPathway implements AutoCloseable {
         this.policy = builder.policy != null ? builder.policy : CircadianPolicy.DEFAULT;
         this.centroidRouter = builder.centroidRouter;
         this.templateEngine = builder.templateEngine != null ? builder.templateEngine : TemplateEngine.getDefault();
+        this.episodicSessionIndex = builder.episodicSessionIndex;
 
         this.hebbianGraph = builder.hebbianGraph;
         this.temporalChain = builder.temporalChain;
@@ -221,6 +224,17 @@ public final class ReflectPathway implements AutoCloseable {
                                  final MemoryIndex index,
                                  final RememberPathway rememberPathway,
                                  final SalienceProfile salienceProfile) {
+        return reflect(partitionManager, index, rememberPathway, salienceProfile, this.episodicSessionIndex);
+    }
+
+    /**
+     * Executes a sleep reflection cycle with explicit session index for prior-turn context.
+     */
+    public ReflectReport reflect(final PartitionManager partitionManager,
+                                 final MemoryIndex index,
+                                 final RememberPathway rememberPathway,
+                                 final SalienceProfile salienceProfile,
+                                 final EpisodicSessionIndex sessionIndex) {
         ReflectSignal signal = ReflectSignal.builder()
                 .partitionManager(partitionManager)
                 .index(index)
@@ -233,6 +247,7 @@ public final class ReflectPathway implements AutoCloseable {
                 .policy(policy)
                 .centroidRouter(centroidRouter)
                 .templateEngine(templateEngine)
+                .episodicSessionIndex(sessionIndex != null ? sessionIndex : this.episodicSessionIndex)
                 .hebbianGraph(hebbianGraph)
                 .temporalChain(temporalChain)
                 .entityDirectory(entityDirectory)
@@ -271,6 +286,7 @@ public final class ReflectPathway implements AutoCloseable {
         private CircadianPolicy policy = CircadianPolicy.DEFAULT;
         private CentroidRouter centroidRouter;
         private TemplateEngine templateEngine;
+        private EpisodicSessionIndex episodicSessionIndex;
 
         private HebbianGraphBase hebbianGraph;
         private TemporalChainMemory temporalChain;
@@ -307,6 +323,7 @@ public final class ReflectPathway implements AutoCloseable {
         public Builder policy(CircadianPolicy p) { this.policy = p; return this; }
         public Builder centroidRouter(CentroidRouter cr) { this.centroidRouter = cr; return this; }
         public Builder templateEngine(TemplateEngine te) { this.templateEngine = te; return this; }
+        public Builder episodicSessionIndex(EpisodicSessionIndex esi) { this.episodicSessionIndex = esi; return this; }
 
         public Builder hebbianGraph(HebbianGraphBase hg) { this.hebbianGraph = hg; return this; }
         public Builder temporalChain(TemporalChainMemory tc) { this.temporalChain = tc; return this; }

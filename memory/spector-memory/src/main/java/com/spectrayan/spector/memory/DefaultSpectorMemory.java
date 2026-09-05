@@ -1128,7 +1128,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         acquireLease();
         try {
             if (reflectPathway != null) {
-                return reflectPathway.reflect(partitionManager, index, rememberPathway, salienceProfile());
+                return reflectPathway.reflect(partitionManager, index, rememberPathway, salienceProfile(), episodicSessionIndex);
             }
             return reflectionOrchestrator.reflect(partitionManager, index, rememberPathway);
         } finally {

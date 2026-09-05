@@ -45,8 +45,16 @@ Field definitions:
 - `interest`: Float 0.0 to 1.0. How novel or interesting this fact is.
 - `challenge`: Float 0.0 to 1.0. Cognitive complexity or problem-solving involved.
 - `urgency`: Float 0.0 to 1.0. Time sensitivity of this information.
-
 ### Conversation Turns:
+{{#if hasPriorContext}}
+#### Prior Context (Already Consolidated — DO NOT extract facts from these):
+These earlier turns from the same session provide background context to resolve pronouns, references, and ongoing topics in the new turns below.
+{{#each priorContext}}
+- {{this}}
+{{/each}}
+
+#### New Turns (Extract facts ONLY from these):
+{{/if}}
 {{#each memories}}
 - {{this}}
 {{/each}}
