@@ -100,4 +100,35 @@ public interface MemoryReflection {
                    boolean allowCoexisting);
 
     int retractFact(int factId);
+
+    // ── Provenance ──
+
+    /**
+     * Returns the provenance record explaining how a consolidated memory was created.
+     *
+     * <p>This is the forward lineage query: given a memory ID, find which episodic
+     * session(s) and turns contributed to its creation.</p>
+     *
+     * @param memoryId the string ID of the consolidated memory
+     * @return the provenance record, or empty if not tracked or not found
+     * @since 1.5.0
+     */
+    default java.util.Optional<com.spectrayan.spector.memory.model.MemoryProvenance> explain(String memoryId) {
+        return java.util.Optional.empty();
+    }
+
+    /**
+     * Returns all provenance records for a given episodic session, ordered by
+     * pass number then fact index.
+     *
+     * <p>This is the reverse lineage query: given a session, find all consolidated
+     * memories that were derived from its turns.</p>
+     *
+     * @param sessionId the episodic session ID
+     * @return ordered list of provenance records (empty if none found)
+     * @since 1.5.0
+     */
+    default java.util.List<com.spectrayan.spector.memory.model.MemoryProvenance> sessionProvenance(long sessionId) {
+        return java.util.List.of();
+    }
 }

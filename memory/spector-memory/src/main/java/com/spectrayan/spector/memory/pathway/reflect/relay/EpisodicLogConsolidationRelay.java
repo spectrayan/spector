@@ -16,6 +16,7 @@ import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.memory.cortex.ProvenanceEdge;
 import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
@@ -53,7 +54,6 @@ import java.util.Set;
 public final class EpisodicLogConsolidationRelay implements SynapticRelay<ReflectSignal> {
 
     private static final Logger log = LoggerFactory.getLogger(EpisodicLogConsolidationRelay.class);
-    private static final TsidGenerator TSID = new TsidGenerator();
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private static final int MAX_PRIOR_CONTEXT_TURNS = Integer.getInteger(
@@ -192,9 +192,26 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                 }
                 signal.addLogTurnsConsolidated(sessionList.size());
 
+                // Compute pass number for this session (supports multi-pass consolidation)
+                short passNumber = 1;
+                if (signal.provenanceMemory() != null) {
+                    passNumber = (short) signal.provenanceMemory().nextPassNumber(sessionId);
+                }
+
+                // Pre-compute turn range data for provenance edges
+                int firstSeq = Integer.MAX_VALUE, lastSeq = Integer.MIN_VALUE;
+                int firstOffsetHint = Integer.MAX_VALUE, lastOffsetHint = Integer.MIN_VALUE;
+                for (var twoTuple : sessionList) {
+                    int seq = twoTuple.turn().sequenceId();
+                    int off = (int) twoTuple.offset();
+                    if (seq < firstSeq) { firstSeq = seq; firstOffsetHint = off; }
+                    if (seq > lastSeq) { lastSeq = seq; lastOffsetHint = off; }
+                }
+                short turnCount = (short) sessionList.size();
+
                 for (int fi = 0; fi < synthesizedFacts.size(); fi++) {
                     ConsolidatedFact fact = synthesizedFacts.get(fi);
-                    String memoryId = TSID.generate().toString();
+                    String memoryId = signal.idGenerator().generate();
                     float[] vector = null;
                     if (signal.embeddingProvider() != null) {
                         try {
@@ -229,7 +246,7 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                                 (short) 0, fact.arousal(), semanticFlags, fact.valence(), 1.0f
                         );
 
-                        signal.rememberPathway().ingestCognitiveWithHeader(
+                        boolean ingested = signal.rememberPathway().ingestCognitiveWithHeader(
                                 memoryId,
                                 fact.text(),
                                 vector,
@@ -238,7 +255,31 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                                 MemorySource.REFLECTED,
                                 header
                         );
-                        signal.addConsolidated(1);
+
+                        if (ingested) {
+                            signal.addConsolidated(1);
+
+                            // Write provenance edge for episodic→semantic lineage
+                            if (signal.provenanceMemory() != null) {
+                                try {
+                                    long targetTsid = TsidGenerator.decodeCrockford(memoryId);
+                                    short contentHashHi = computeContentHashHi(fact.text());
+
+                                    ProvenanceEdge edge = new ProvenanceEdge(
+                                            sessionId, targetTsid, passNumber,
+                                            (byte) fi, (byte) synthesizedFacts.size(),
+                                            partitionSeq, firstSeq, lastSeq,
+                                            firstOffsetHint, lastOffsetHint,
+                                            turnCount, contentHashHi,
+                                            System.currentTimeMillis()
+                                    );
+                                    signal.provenanceMemory().append(edge);
+                                } catch (Exception e) {
+                                    log.warn("Failed to write provenance edge for memory {}: {}",
+                                            memoryId, e.getMessage());
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -408,5 +449,19 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
         } catch (Exception e) {
             return "";
         }
+    }
+
+    /**
+     * Computes the upper 16 bits of a CRC32C hash of the fact text.
+     *
+     * <p>Used as a compact deduplication aid in provenance records —
+     * two facts with different content will almost certainly have
+     * different {@code contentHashHi} values.</p>
+     */
+    private static short computeContentHashHi(String text) {
+        if (text == null || text.isEmpty()) return 0;
+        java.util.zip.CRC32C crc = new java.util.zip.CRC32C();
+        crc.update(text.getBytes(StandardCharsets.UTF_8));
+        return (short) ((crc.getValue() >>> 16) & 0xFFFF);
     }
 }
