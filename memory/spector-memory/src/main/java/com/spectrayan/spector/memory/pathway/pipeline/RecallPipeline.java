@@ -56,15 +56,16 @@ import com.spectrayan.spector.memory.cortex.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.ReplaySnapshot;
 import com.spectrayan.spector.memory.sync.WalReplayer;
-import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
@@ -157,7 +158,7 @@ public final class RecallPipeline {
     private final float[] calibrationMins;
     private final float[] calibrationScales;
     private final SemanticRecallStrategy semanticRecallStrategy; // nullable
-    private final CoActivationRecordMemory coActivationTracker; // nullable  --  for STDP causal boost
+    private final CoActivationMemory coActivationTracker; // nullable  --  for STDP causal boost
     private final GraphScoringPolicy graphScoringPolicy;
     private final GraphExpansionStage graphExpansionStage;
     private final com.spectrayan.spector.memory.pathway.pipeline.graph.TemporalFactWeavingStage temporalFactWeavingStage;
@@ -284,7 +285,7 @@ public final class RecallPipeline {
                            float[] calibrationMins,
                            float[] calibrationScales,
                            SemanticRecallStrategy semanticRecallStrategy,
-                           CoActivationRecordMemory coActivationTracker) {
+                           CoActivationMemory coActivationTracker) {
         this(embeddingProvider, partitionRegistry, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales,
                 semanticRecallStrategy, coActivationTracker,
@@ -305,7 +306,7 @@ public final class RecallPipeline {
                            float[] calibrationMins,
                            float[] calibrationScales,
                            SemanticRecallStrategy semanticRecallStrategy,
-                           CoActivationRecordMemory coActivationTracker,
+                           CoActivationMemory coActivationTracker,
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
                            EntityDirectory entityDirectory,
@@ -336,7 +337,7 @@ public final class RecallPipeline {
                            float[] calibrationMins,
                            float[] calibrationScales,
                            SemanticRecallStrategy semanticRecallStrategy,
-                           CoActivationRecordMemory coActivationTracker,
+                           CoActivationMemory coActivationTracker,
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
                            EntityDirectory entityDirectory,
@@ -369,7 +370,7 @@ public final class RecallPipeline {
                            float[] calibrationMins,
                            float[] calibrationScales,
                            SemanticRecallStrategy semanticRecallStrategy,
-                           CoActivationRecordMemory coActivationTracker,
+                           CoActivationMemory coActivationTracker,
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
                            EntityDirectory entityDirectory,
@@ -403,7 +404,7 @@ public final class RecallPipeline {
                            float[] calibrationMins,
                            float[] calibrationScales,
                            SemanticRecallStrategy semanticRecallStrategy,
-                           CoActivationRecordMemory coActivationTracker,
+                           CoActivationMemory coActivationTracker,
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
                            EntityDirectory entityDirectory,
@@ -1070,12 +1071,16 @@ public final class RecallPipeline {
     // ==============================================================
 
     private List<CognitiveResult> scoreStoreToList(MemorySegment segment, int recordCount,
-                                                     CognitiveRecordLayout layout, float[] queryVector,
+                                                     FixedEngramLayout layout, float[] queryVector,
                                                      RecallOptions options, long nowMs, MemoryType type,
                                                      long baseOffset, int partitionSeq) {
+        var router = partitionRegistry != null ? partitionRegistry.routerFor(partitionSeq) : null;
+        var strengthStore = router != null ? router.strength() : null;
+
         List<ScoredRecord> scored = CognitiveScorer.score(
                 segment, recordCount, layout, queryVector, options, nowMs, baseOffset,
-                calibrationMins, calibrationScales);
+                calibrationMins, calibrationScales, null, null,
+                strengthStore, type);
 
         List<CognitiveResult> results = new ArrayList<>(scored.size());
         for (ScoredRecord sr : scored) {
@@ -1088,7 +1093,7 @@ public final class RecallPipeline {
         return results;
     }
 
-    private CognitiveResult headerToResult(ScoredRecord sr, CognitiveHeader header, MemoryType type,
+    private CognitiveResult headerToResult(ScoredRecord sr, EncodingHeader header, MemoryType type,
                                             int partitionSeq) {
         // #443: resolve id via the partition being scanned (partition-aware reverse key).
         String id = index.findIdByOffset(partitionSeq, type, sr.offset());  // O(1) via reverse index
@@ -1102,11 +1107,8 @@ public final class RecallPipeline {
         int recallCount = header.agentRecallCount();
         if (partitionRegistry != null) {
             var router = partitionRegistry.routerFor(partitionSeq);
-            if (router != null && router.audit() != null) {
-                int auditCount = router.audit().readAgentRecallCount(type, sr.index());
-                if (auditCount > 0 || header.agentRecallCount() == 0) {
-                    recallCount = auditCount;
-                }
+            if (router != null && router.strength() != null) {
+                recallCount = router.strength().readAgentRecallCount(type, sr.index());
             }
         }
 
@@ -1146,7 +1148,7 @@ public final class RecallPipeline {
 
         // Read source modality from flags byte (bits 6-7)
         SourceModality modality = SourceModality.fromOrdinal(
-                SynapticHeaderConstants.sourceModalityOrdinal(header.flags()));
+                EncodingHeaderFields.sourceModalityOrdinal(header.flags()));
         java.util.Map<String, String> metadata = id != null ? index.metadata(id) : java.util.Map.of();
         
         String resultText = text;
@@ -1238,7 +1240,7 @@ public final class RecallPipeline {
             // Step 3: Linear scan of the reconstructed segment
             // Use the ephemeral index to find all live memory IDs and their locations
             List<CognitiveResult> results = new ArrayList<>();
-            CognitiveRecordLayout layout = new CognitiveRecordLayout(quantizedVecBytes);
+            EngramLayout layout = new EngramLayout(quantizedVecBytes);
 
             for (String memId : snapshot.index().allIds()) {
                 var loc = snapshot.index().locate(memId);
@@ -1311,16 +1313,19 @@ public final class RecallPipeline {
             try {
                 var loc = index.locate(result.id());
                 if (loc == null) continue;
+                if (loc.type() == MemoryType.EPISODIC) {
+                    continue;
+                }
                 var router = partitionRegistry.routerFor(loc.colocatedPartition());
-                if (router.audit() != null) {
+                if (router.strength() != null && router.layoutFor(loc.type()) != null) {
                     int slotIndex = (int) (loc.offset() / router.layoutFor(loc.type()).stride());
-                    long auditOff = router.audit().auditOffset(loc.type(), slotIndex);
-                    AuditRecordLayout.INSTANCE.writeLastRecallProfile(router.audit().segment(), auditOff, profileOrdinal);
+                    long strengthOff = router.strength().strengthOffset(loc.type(), slotIndex);
+                    StrengthLayout.INSTANCE.writeLastRecallProfile(router.strength().segment(), strengthOff, profileOrdinal);
                 } else {
                     MemorySegment segment = router.segmentFor(loc.type());
                     if (segment != null) {
                         segment.set(java.lang.foreign.ValueLayout.JAVA_BYTE,
-                                loc.offset() + SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE,
+                                loc.offset() + EncodingHeaderFields.OFFSET_LAST_RECALL_PROFILE,
                                 profileOrdinal);
                     }
                 }

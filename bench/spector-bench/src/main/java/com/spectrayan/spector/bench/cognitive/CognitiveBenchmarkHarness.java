@@ -45,8 +45,8 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.cortex.EngramMemory;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 
 /**
  * Main entry point for the cognitive memory benchmark.
@@ -337,7 +337,7 @@ public final class CognitiveBenchmarkHarness {
                     // Only analyze results in cognitive top-10 but NOT in baseline top-10
                     if (!baselineTop10Set.contains(cogId)) {
                         int relevance = queryQrels.getOrDefault(cogId, 0);
-                        if (relevance >= 2) {
+                        if (relevance >= 1) {
                             // This is a relevant result that the cognitive pipeline found
                             // but the baseline missed  --  detect which subsystem contributed
                             CognitiveResult cr = cognitiveResultMap.get(cogId);
@@ -660,10 +660,13 @@ public final class CognitiveBenchmarkHarness {
 
         for (MemoryType type : MemoryType.values()) {
             try {
-                CognitiveRecordMemory store = cognitiveRouter.get(type);
+                EngramMemory store = cognitiveRouter.get(type);
                 if (store != null && store.size() > 0) {
+                    FixedEngramLayout layout = store.cognitiveLayout();
+                    if (layout == null) {
+                        continue;
+                    }
                     MemorySegment segment = store.primarySegment();
-                    CognitiveRecordLayout layout = store.cognitiveLayout();
                     int recordCount = store.size();
                     long dataOffset = store.dataOffset();
 

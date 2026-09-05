@@ -14,12 +14,12 @@ package com.spectrayan.spector.memory.pathway.reflect.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.similarity.VectorOps;
-import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.model.EpisodeRecord;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
@@ -36,6 +36,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -45,7 +46,7 @@ import java.util.Set;
 /**
  * REM Sleep Conversation Turn Gist Extraction Relay (ADR-0006).
  *
- * <p>Consolidates variable-length conversation turns in {@link EpisodicLogMemory} into permanent
+ * <p>Consolidates variable-length conversation turns in {@link EpisodicMemory} into permanent
  * semantic facts via template-driven LLM synthesis or high-salience fallback, and ingests them
  * through {@link com.spectrayan.spector.memory.pathway.remember.RememberPathway}.</p>
  */
@@ -54,6 +55,11 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
     private static final Logger log = LoggerFactory.getLogger(EpisodicLogConsolidationRelay.class);
     private static final TsidGenerator TSID = new TsidGenerator();
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private static final int MAX_PRIOR_CONTEXT_TURNS = Integer.getInteger(
+            SpectorPropertyConstants.CONSOLIDATION_REFLECTION_MAX_PRIOR_CONTEXT_TURNS,
+            SpectorPropertyConstants.DEFAULT_CONSOLIDATION_REFLECTION_MAX_PRIOR_CONTEXT_TURNS
+    );
 
     private static final GenerationOptions REFLECTION_GENERATION_OPTIONS = GenerationOptions.builder()
             .temperature(SpectorPropertyConstants.DEFAULT_CONSOLIDATION_REFLECTION_TEMPERATURE)
@@ -81,26 +87,24 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
         var handles = signal.partitionManager().snapshot();
         log.info("EpisodicLogConsolidationRelay: snapshot has {} partition handles", handles.size());
         for (var handle : handles) {
-            boolean isLogMode = handle.router() != null && handle.router().isEpisodicLogMode();
-            log.info("Handle seq={} router isLogMode={}", handle.seq(), isLogMode);
-            if (isLogMode) {
-                var logStore = handle.router().episodicLog();
-                if (logStore != null) {
-                    processLogStore(logStore, signal);
+            if (handle.router() != null) {
+                var episodicStore = handle.router().episodic();
+                if (episodicStore != null) {
+                    processLogStore(episodicStore, signal);
                 }
             }
         }
         return true;
     }
 
-    private void processLogStore(final EpisodicLogMemory logStore, final ReflectSignal signal) {
+    private void processLogStore(final EpisodicMemory logStore, final ReflectSignal signal) {
         List<Long> unconsolidatedOffsets = logStore.unconsolidatedTurnOffsets();
         log.info("EpisodicLogConsolidationRelay: found {} unconsolidated offsets in logStore", unconsolidatedOffsets.size());
-        List<EpisodicFieldAccessor.EpisodicRecord> turns = logStore.readTurns(unconsolidatedOffsets, true);
+        List<EpisodeRecord> turns = logStore.readTurns(unconsolidatedOffsets, true);
         if (turns.isEmpty()) return;
         log.info("EpisodicLogConsolidationRelay: read {} turns for {} unconsolidated offsets", turns.size(), unconsolidatedOffsets.size());
-        Map<Long, List<EpisodicFieldAccessor.EpisodicRecord>> sessionTurns = new HashMap<>();
-        Map<EpisodicFieldAccessor.EpisodicRecord, Long> turnToOffset = new HashMap<>();
+        Map<Long, List<EpisodeRecord>> sessionTurns = new HashMap<>();
+        Map<EpisodeRecord, Long> turnToOffset = new HashMap<>();
         for (int i = 0; i < turns.size(); i++) {
             var turn = turns.get(i);
             long offset = unconsolidatedOffsets.get(i);
@@ -113,7 +117,7 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
         // replace temporary retry and throttle logic.
         for (var entry : sessionTurns.entrySet()) {
             try {
-                List<EpisodicFieldAccessor.EpisodicRecord> sessionList = entry.getValue();
+                List<EpisodeRecord> sessionList = entry.getValue();
                 if (sessionList == null || sessionList.isEmpty()) continue;
 
                 List<String> turnTexts = new ArrayList<>();
@@ -126,8 +130,48 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
 
                 if (turnTexts.isEmpty()) continue;
 
-                long sessionTimestampMs = sessionList.get(0).timestampMs();
-                List<ConsolidatedFact> synthesizedFacts = distillStructuredFacts(turnTexts, sessionTimestampMs, signal);
+                long sessionTimestampMs = sessionList.stream()
+                        .mapToLong(EpisodeRecord::timestampMs)
+                        .max()
+                        .orElse(System.currentTimeMillis());
+
+                long sessionId = entry.getKey();
+                List<String> priorContext = new ArrayList<>();
+                if (signal.episodicSessionIndex() != null && MAX_PRIOR_CONTEXT_TURNS > 0) {
+                    List<Long> allSessionOffsets = signal.episodicSessionIndex().getSessionTurns(sessionId);
+                    if (allSessionOffsets != null && !allSessionOffsets.isEmpty()) {
+                        Set<Long> currentTurnOffsets = new HashSet<>();
+                        for (var turn : sessionList) {
+                            Long off = turnToOffset.get(turn);
+                            if (off != null) {
+                                currentTurnOffsets.add(off);
+                            }
+                        }
+
+                        List<Long> earlierOffsets = new ArrayList<>();
+                        for (Long off : allSessionOffsets) {
+                            if (!currentTurnOffsets.contains(off)) {
+                                earlierOffsets.add(off);
+                            }
+                        }
+
+                        if (!earlierOffsets.isEmpty()) {
+                            int start = Math.max(0, earlierOffsets.size() - MAX_PRIOR_CONTEXT_TURNS);
+                            List<Long> windowOffsets = earlierOffsets.subList(start, earlierOffsets.size());
+                            List<EpisodeRecord> priorRecords = logStore.readTurns(windowOffsets, true);
+                            for (var priorRecord : priorRecords) {
+                                if (com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isConsolidated(priorRecord.flags())) {
+                                    String text = extractTurnText(priorRecord);
+                                    if (text != null && !text.isBlank()) {
+                                        priorContext.add(priorRecord.role() + ": " + text);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                List<ConsolidatedFact> synthesizedFacts = distillStructuredFacts(turnTexts, priorContext, sessionTimestampMs, signal);
                 if (synthesizedFacts.isEmpty()) continue;
 
                 for (ConsolidatedFact fact : synthesizedFacts) {
@@ -155,9 +199,9 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                         String[] allTags = tagSet.toArray(String[]::new);
 
                         float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
-                        byte semanticFlags = SynapticHeaderConstants.withMemoryType(
-                                SynapticHeaderConstants.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal());
-                        CognitiveHeader header = new CognitiveHeader(
+                        byte semanticFlags = EncodingHeaderFields.withMemoryType(
+                                EncodingHeaderFields.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal());
+                        EncodingHeader header = new EncodingHeader(
                                 sessionTimestampMs, 0L, exactNorm, 1.0f, 1,
                                 (short) 0, (byte) 0, semanticFlags, (byte) 0, 1.0f
                         );
@@ -203,7 +247,7 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                 signal.totalConsolidated(), sessionTurns.size());
     }
 
-    private List<ConsolidatedFact> distillStructuredFacts(List<String> turnTexts, long sessionTimestampMs, ReflectSignal signal) {
+    private List<ConsolidatedFact> distillStructuredFacts(List<String> turnTexts, List<String> priorContext, long sessionTimestampMs, ReflectSignal signal) {
         String sessionDateStr;
         if (sessionTimestampMs > 0) {
             sessionDateStr = DateTimeFormatter.ofPattern("dd MMMM yyyy")
@@ -219,11 +263,15 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             if (signal.textGenerator() != null && signal.templateEngine() != null) {
                 try {
-                    Map<String, Object> model = Map.of(
-                            "memoryCount", turnTexts.size(),
-                            "sessionDate", sessionDateStr,
-                            "memories", turnTexts
-                    );
+                    Map<String, Object> model = new HashMap<>();
+                    model.put("memoryCount", turnTexts.size());
+                    model.put("sessionDate", sessionDateStr);
+                    model.put("memories", turnTexts);
+                    boolean hasPrior = priorContext != null && !priorContext.isEmpty();
+                    model.put("hasPriorContext", hasPrior);
+                    model.put("priorContext", hasPrior ? priorContext : List.of());
+                    model.put("priorContextCount", hasPrior ? priorContext.size() : 0);
+
                     String prompt = signal.templateEngine().render("prompts/reflection-synthesis", model);
                     String response = signal.textGenerator().generate(prompt, REFLECTION_GENERATION_OPTIONS);
 
@@ -339,7 +387,7 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
         return facts;
     }
 
-    private String extractTurnText(EpisodicFieldAccessor.EpisodicRecord turn) {
+    private String extractTurnText(EpisodeRecord turn) {
         if (turn.body() == null || turn.body().length == 0) return "";
         try {
             return new String(turn.body(), StandardCharsets.UTF_8);

@@ -12,11 +12,11 @@
  */
 package com.spectrayan.spector.memory.synapse.scan;
 
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 
-import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.isPinned;
-import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.isResolved;
+import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isPinned;
+import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isResolved;
 
 /**
  * High-speed candidate screening and gating predicates for off-heap segment scan (Phases 1-4).
@@ -39,10 +39,10 @@ public final class RecordGates {
      */
     public static boolean isDeletedOrContradicted(
             final byte flags, final byte consolidationFlags, final boolean includeContradictions) {
-        if (SynapticHeaderConstants.isTombstoned(flags)) {
+        if (EncodingHeaderFields.isTombstoned(flags)) {
             return true;
         }
-        return !includeContradictions && SynapticHeaderConstants.isContradicted(consolidationFlags);
+        return !includeContradictions && EncodingHeaderFields.isContradicted(consolidationFlags);
     }
 
     /**

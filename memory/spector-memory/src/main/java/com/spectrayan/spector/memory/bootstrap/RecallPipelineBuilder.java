@@ -16,7 +16,7 @@ import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pathway.recall.RecallPathway;
 import com.spectrayan.spector.memory.persist.MemoryWalRecovery;
@@ -133,7 +133,7 @@ public final class RecallPipelineBuilder {
             for (int i = 0; i < storeSize; i++) {
                 long recordOff = baseOffset + (long) i * stride;
                 byte flags = recLayout.readFlags(seg, recordOff);
-                if (com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.isTombstoned(flags)) {
+                if (com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isTombstoned(flags)) {
                     continue;
                 }
 

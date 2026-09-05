@@ -15,11 +15,12 @@ package com.spectrayan.spector.memory.pathway.wander.relay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.core.similarity.CosineSimilarity;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,9 +67,6 @@ public final class AutobiographicalSamplingRelay implements SynapticRelay<Wander
             }
 
             collected += sampleFromStore(handle.router().semantic(), quantizer, signal, maxSamples - collected, "sem-" + handle.seq());
-            if (collected < maxSamples && !handle.router().isEpisodicLogMode()) {
-                collected += sampleFromStore(handle.router().episodic(), quantizer, signal, maxSamples - collected, "epi-" + handle.seq());
-            }
         }
 
         if (log.isDebugEnabled()) {
@@ -79,12 +77,12 @@ public final class AutobiographicalSamplingRelay implements SynapticRelay<Wander
         return true;
     }
 
-    private int sampleFromStore(CognitiveRecordMemory store, ScalarQuantizer quantizer, WanderSignal signal, int limit, String prefix) {
+    private int sampleFromStore(EngramMemory store, ScalarQuantizer quantizer, WanderSignal signal, int limit, String prefix) {
         if (store == null || store.segment() == null) {
             return 0;
         }
 
-        CognitiveRecordLayout layout = store.cognitiveLayout();
+        FixedEngramLayout layout = store.cognitiveLayout();
         MemorySegment segment = store.segment();
         int size = store.size();
         if (size <= 0) {
@@ -99,7 +97,7 @@ public final class AutobiographicalSamplingRelay implements SynapticRelay<Wander
         for (int i = 0; i < size && count < limit; i += strideStep) {
             long offset = store.recordOffset(i);
             byte flags = layout.readFlags(segment, offset);
-            if (SynapticHeaderConstants.isTombstoned(flags)) {
+            if (EncodingHeaderFields.isTombstoned(flags)) {
                 continue;
             }
 

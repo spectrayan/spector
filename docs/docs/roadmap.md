@@ -116,7 +116,7 @@ explanation = mem.why_not("mem-42", "theme preference?")
 ### ✅ Documentation Split — User Guide vs Architecture Guide {#docs-split}
 
 !!! success "Completed"
-    Docs split into "Getting Started" tab (quickstart, SDK usage, MCP server, CLI) and "Architecture" tab (core concepts, deep dives, internals). Agent developers never see `SynapticHeaderConstants` in their onboarding path.
+    Docs split into "Getting Started" tab (quickstart, SDK usage, MCP server, CLI) and "Architecture" tab (core concepts, deep dives, internals). Agent developers never see `EncodingHeaderFields` in their onboarding path.
 
 Separate documentation into two tracks to prevent the "19 packages overwhelm developers" perception:
 
@@ -125,7 +125,7 @@ Separate documentation into two tracks to prevent the "19 packages overwhelm dev
 | **User Guide** | Agent developers, MCP users | 5-minute quickstart, MCP tool reference, Python/JS SDK, RecallOptions presets |
 | **Architecture Guide** | Spector contributors | Off-heap layouts, SIMD scoring, Bloom filter encoding, Panama internals |
 
-**Key principle:** A developer using `memory.recall("query")` should never see `SynapticHeaderConstants` or `CognitiveRecordLayout` in the getting-started docs.
+**Key principle:** A developer using `memory.recall("query")` should never see `EncodingHeaderFields` or `EngramLayout` in the getting-started docs.
 
 ---
 
@@ -205,7 +205,7 @@ Migrate hot-path intermediate records to `value class` (or `value record`). JDK 
 
 **Current preparation:**
 
-- **Javadoc TODOs** added to all 5 hot-path records: `CognitiveHeader`, `ScoredRecord`, `HebbianEdge`, `EntityEdge`, `TraversalResult`
+- **Javadoc TODOs** added to all 5 hot-path records: `EncodingHeader`, `ScoredRecord`, `HebbianEdge`, `EntityEdge`, `TraversalResult`
 - **Manual flat-array optimization** (`FlatMinHeap`) serves as the bridge pattern — will be replaceable with `PriorityQueue<value ScoredRecord>` once specialized generics land
 - **Performance optimizations** implemented as stop-gap: autoboxing elimination (`int[]` vs `List<Integer>`), `boolean[]` vs `HashSet<Integer>`, LUT-based `Math.pow` replacement
 
@@ -534,7 +534,7 @@ Full graph augmentation layer for `spector-memory` — three biologically-inspir
 ```
 RecallPipeline
   Step 5a: Habituation + Inhibition of Return
-  Step 5b: STDP causal boost (CoActivationRecordMemory)
+  Step 5b: STDP causal boost (CoActivationMemory)
   Step 5c: Hebbian spreading activation (HebbianGraph, depth=2)
   Step 5d: Temporal chain extension (TemporalChain, maxHops=3)
   Step 5e: Entity directory & hypergraph traversal (EntityDirectory & HyperEntityGraph, depth=2)

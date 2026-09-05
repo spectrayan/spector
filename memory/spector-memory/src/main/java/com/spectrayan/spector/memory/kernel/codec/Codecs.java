@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.cortex.TypeRegistryCodec;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphCodec;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordCodec;
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainCodec;
 
 import java.io.IOException;
@@ -55,7 +55,7 @@ public final class Codecs {
     }
 
     public static MigrationResult ensureCurrent(CodecRegistry registry, MemoryId id,
-                                                MemoryLayout layout, Path filePath,
+                                                RegionLayout layout, Path filePath,
                                                 DataEncryptor enc, Map<String, Path> sidecars)
             throws IOException {
         if (filePath == null) {

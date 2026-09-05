@@ -14,14 +14,16 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.memory.model.EpisodeRecord;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.EnumMap;
+import java.util.Objects;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 
@@ -29,88 +31,52 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * Cognitive record memory store registry and polymorphic routing — zero switch statements.
  *
  * <h3>Design Pattern: Strategy + Registry</h3>
- * <p>Holds a {@code EnumMap<MemoryType, CognitiveRecordMemory>} and dispatches all operations
- * polymorphically via the {@link CognitiveRecordMemory} interface. Adding a new memory store
- * requires: (1) implement {@link CognitiveRecordMemory}, (2) register here.
- * Zero changes to SpectorMemory, RecallPipeline, or IngestionPipeline.</p>
+ * <p>Holds an {@code EnumMap<MemoryType, EngramMemory>} for fixed-stride tiers and provides direct
+ * typed access to {@link EpisodicMemory} (variable-length append log). Realizes R5.1 (single wrapper per
+ * region slice), R5.2 (unconditional store registration), and R5.3 (layout-mismatch fence).</p>
  *
- * <h3>SOLID Compliance</h3>
- * <ul>
- *   <li><b>OCP</b>: Open for extension (new memory stores), closed for modification</li>
- *   <li><b>DIP</b>: Depends on {@link CognitiveRecordMemory} abstraction, not concrete stores</li>
- *   <li><b>LSP</b>: All stores are substitutable via the common interface</li>
- * </ul>
+ * @since 1.0.0
  */
 public final class CognitiveMemoryRouter implements AutoCloseable {
 
-    private final EnumMap<MemoryType, CognitiveRecordMemory> stores = new EnumMap<>(MemoryType.class);
+    private final EnumMap<MemoryType, EngramMemory> stores = new EnumMap<>(MemoryType.class);
 
     // ── Typed accessors for store-specific operations ──
-    private final WorkingRecordMemory workingStore;
-    private final EpisodicRecordMemory episodicStore;
-    private final SemanticRecordMemory semanticStore;
-    private final ProceduralRecordMemory proceduralStore;
-    private final EpisodicLogMemory episodicLogStore;
-    private final AuditRecordMemory auditStore;
+    private final WorkingMemory workingStore;
+    private final SemanticMemory semanticStore;
+    private final ProceduralMemory proceduralStore;
+    private final EpisodicMemory episodicStore;
+    private final StrengthMemory strengthStore;
 
     /**
-     * Creates a CognitiveMemoryRouter with the modern log-structured episodic store.
+     * Creates a CognitiveMemoryRouter with the four cognitive memory stores and unified Strength store.
      */
-    public CognitiveMemoryRouter(WorkingRecordMemory workingStore,
-                                 SemanticRecordMemory semanticStore,
-                                 ProceduralRecordMemory proceduralStore,
-                                 EpisodicLogMemory episodicLogStore) {
-        this(workingStore, null, semanticStore, proceduralStore, episodicLogStore, null);
-    }
-
-    /**
-     * Creates a CognitiveMemoryRouter with all four cognitive memory stores.
-     */
-    public CognitiveMemoryRouter(WorkingRecordMemory workingStore,
-                                 EpisodicRecordMemory episodicStore,
-                                 SemanticRecordMemory semanticStore,
-                                 ProceduralRecordMemory proceduralStore) {
-        this(workingStore, episodicStore, semanticStore, proceduralStore, null, null);
-    }
-
-    /**
-     * Creates a CognitiveMemoryRouter with the new log-structured episodic store.
-     *
-     * <p>When {@code episodicLogStore} is non-null, the EPISODIC slot uses the
-     * log-structured store and the legacy fixed-stride episodic store is not
-     * registered in the EnumMap.</p>
-     */
-    public CognitiveMemoryRouter(WorkingRecordMemory workingStore,
-                                 EpisodicRecordMemory episodicStore,
-                                 SemanticRecordMemory semanticStore,
-                                 ProceduralRecordMemory proceduralStore,
-                                 EpisodicLogMemory episodicLogStore) {
-        this(workingStore, episodicStore, semanticStore, proceduralStore, episodicLogStore, null);
-    }
-
-    /**
-     * Creates a CognitiveMemoryRouter with all stores and the unified Recall Audit store.
-     */
-    public CognitiveMemoryRouter(WorkingRecordMemory workingStore,
-                                 EpisodicRecordMemory episodicStore,
-                                 SemanticRecordMemory semanticStore,
-                                 ProceduralRecordMemory proceduralStore,
-                                 EpisodicLogMemory episodicLogStore,
-                                 AuditRecordMemory auditStore) {
+    public CognitiveMemoryRouter(WorkingMemory workingStore,
+                                 SemanticMemory semanticStore,
+                                 ProceduralMemory proceduralStore,
+                                 EpisodicMemory episodicStore,
+                                 StrengthMemory strengthStore) {
         this.workingStore = workingStore;
-        this.episodicStore = episodicStore;
         this.semanticStore = semanticStore;
         this.proceduralStore = proceduralStore;
-        this.episodicLogStore = episodicLogStore;
-        this.auditStore = auditStore;
+        this.episodicStore = episodicStore;
+        this.strengthStore = strengthStore;
 
-        // Register in EnumMap for polymorphic dispatch
-        stores.put(MemoryType.WORKING, workingStore);
-        if (episodicStore != null) {
-            stores.put(MemoryType.EPISODIC, episodicStore);
-        }
-        stores.put(MemoryType.SEMANTIC, semanticStore);
-        stores.put(MemoryType.PROCEDURAL, proceduralStore);
+        // Registration for all cognitive engram stores (ADR-0030)
+        if (workingStore != null) stores.put(MemoryType.WORKING, workingStore);
+        if (semanticStore != null) stores.put(MemoryType.SEMANTIC, semanticStore);
+        if (proceduralStore != null) stores.put(MemoryType.PROCEDURAL, proceduralStore);
+        if (episodicStore != null) stores.put(MemoryType.EPISODIC, episodicStore);
+    }
+
+    /**
+     * Creates a CognitiveMemoryRouter without a Strength store.
+     */
+    public CognitiveMemoryRouter(WorkingMemory workingStore,
+                                 SemanticMemory semanticStore,
+                                 ProceduralMemory proceduralStore,
+                                 EpisodicMemory episodicStore) {
+        this(workingStore, semanticStore, proceduralStore, episodicStore, null);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -118,12 +84,12 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     // ══════════════════════════════════════════════════════════════
 
     /**
-     * Returns the {@link CognitiveRecordMemory} for a given memory type.
+     * Returns the {@link EngramMemory} for a given memory type.
      *
      * @throws SpectorValidationException if no store is registered for the type
      */
-    public CognitiveRecordMemory get(MemoryType type) {
-        CognitiveRecordMemory store = stores.get(type);
+    public EngramMemory get(MemoryType type) {
+        EngramMemory store = stores.get(type);
         if (store == null) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "storeType", type);
         }
@@ -132,17 +98,22 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
 
     /**
      * Routes a memory write to the appropriate memory store.
+     * Rejects layout-mismatched writes to EPISODIC tier (R5.3 / P0.1 fence).
      *
      * @param type       target memory type
      * @param header     cognitive header
      * @param quantized  quantized vector bytes
      * @return byte offset where the record was written
      */
-    public long write(MemoryType type, CognitiveHeader header, byte[] quantized) {
+    public long write(MemoryType type, EncodingHeader header, byte[] quantized) {
+        if (type == MemoryType.EPISODIC) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "type",
+                    "Cannot route fixed-stride write to variable-length EPISODIC tier; use rememberEpisodic/EpisodicMemory.appendTurn");
+        }
         long offset = get(type).write(header, quantized);
-        if (auditStore != null && type != MemoryType.WORKING) {
+        if (strengthStore != null && type != MemoryType.WORKING) {
             int slotIndex = (int) ((offset - get(type).dataOffset()) / layoutFor(type).stride());
-            auditStore.initializeDefault(type, slotIndex, header.importance());
+            strengthStore.initializeDefault(type, slotIndex, header.importance(), header.storageStrength(), header.agentRecallCount());
         }
         return offset;
     }
@@ -151,29 +122,24 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      * Returns the primary memory segment for a given memory type.
      */
     public MemorySegment segmentFor(MemoryType type) {
-        return get(type).primarySegment();
+        EngramMemory store = stores.get(type);
+        return store != null ? store.primarySegment() : null;
     }
 
     /**
      * Returns the layout for a given memory type.
      */
-    public CognitiveRecordLayout layoutFor(MemoryType type) {
-        return get(type).cognitiveLayout();
+    public FixedEngramLayout layoutFor(MemoryType type) {
+        EngramMemory store = stores.get(type);
+        return store != null ? store.cognitiveLayout() : null;
     }
 
     /**
      * Returns the record count for a given memory type.
      */
     public int countFor(MemoryType type) {
-        int count = 0;
-        CognitiveRecordMemory store = stores.get(type);
-        if (store != null) {
-            count += store.size();
-        }
-        if (type == MemoryType.EPISODIC && episodicLogStore != null) {
-            count += episodicLogStore.unconsolidatedTurnOffsets().size();
-        }
-        return count;
+        EngramMemory store = stores.get(type);
+        return store != null ? store.size() : 0;
     }
 
     /**
@@ -181,13 +147,10 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      */
     public int totalCount() {
         int total = 0;
-        for (CognitiveRecordMemory store : stores.values()) {
+        for (EngramMemory store : stores.values()) {
             if (store != null) {
                 total += store.size();
             }
-        }
-        if (isEpisodicLogMode() && episodicLogStore != null) {
-            total += episodicLogStore.unconsolidatedTurnOffsets().size();
         }
         return total;
     }
@@ -209,13 +172,6 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
 
     // ══════════════════════════════════════════════════════════════
     // POINT-LOCATION DOMAIN OPERATIONS (issue #437, TD-12 / Law of Demeter)
-    //
-    // These intention-revealing methods encapsulate the low-level segment/offset/flag
-    // byte access that façade callers (e.g. DefaultSpectorMemory) used to hand-poke.
-    // A caller resolves the partition-correct router via
-    // {@code PartitionRegistry.routerFor(loc.colocatedPartition())} (issue #443) and then
-    // invokes these on that router, so point reads/writes stay on the partition the
-    // memory actually lives in.
     // ══════════════════════════════════════════════════════════════
 
     /**
@@ -223,19 +179,39 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      * No-op if the tier segment is unavailable.
      */
     public void tombstone(MemoryLocation loc) {
+        if (loc.type() == MemoryType.EPISODIC) {
+            episodicStore.tombstone(loc.offset());
+            return;
+        }
         MemorySegment segment = segmentFor(loc.type());
         if (segment != null) {
             layoutFor(loc.type()).tombstone(segment, loc.offset());
+        }
+        if (strengthStore != null && loc.type() != MemoryType.WORKING) {
+            int slotIndex = (int) ((loc.offset() - get(loc.type()).dataOffset()) / layoutFor(loc.type()).stride());
+            strengthStore.resetRecord(loc.type(), slotIndex);
         }
     }
 
     /** Sets the resolved flag (Zeigarnik Effect) for the record at the given location. */
     public void markResolved(MemoryLocation loc) {
+        if (loc.type() == MemoryType.EPISODIC) {
+            if (episodicStore != null) {
+                episodicStore.markResolved(loc.offset());
+            }
+            return;
+        }
         layoutFor(loc.type()).markResolved(segmentFor(loc.type()), loc.offset());
     }
 
     /** Clears the resolved flag (Zeigarnik Effect) for the record at the given location. */
     public void markUnresolved(MemoryLocation loc) {
+        if (loc.type() == MemoryType.EPISODIC) {
+            if (episodicStore != null) {
+                episodicStore.markUnresolved(loc.offset());
+            }
+            return;
+        }
         layoutFor(loc.type()).markUnresolved(segmentFor(loc.type()), loc.offset());
     }
 
@@ -244,31 +220,56 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      * Returns {@code false} when the tier segment/layout is unavailable.
      */
     public boolean isTombstoned(MemoryLocation loc) {
-        CognitiveRecordLayout layout = layoutFor(loc.type());
+        if (loc.type() == MemoryType.EPISODIC) {
+            return episodicStore != null && episodicStore.isTombstoned(loc.offset());
+        }
+        FixedEngramLayout layout = layoutFor(loc.type());
         MemorySegment segment = segmentFor(loc.type());
         if (layout == null || segment == null) return false;
-        byte flags = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS,
-                loc.offset() + SynapticHeaderConstants.OFFSET_FLAGS);
-        return SynapticHeaderConstants.isTombstoned(flags);
+        byte flags = segment.get(EncodingHeaderFields.LAYOUT_FLAGS,
+                loc.offset() + EncodingHeaderFields.OFFSET_FLAGS);
+        return EncodingHeaderFields.isTombstoned(flags);
     }
 
     /**
      * Reads the cognitive record body (header, extended fields, and optionally the
      * quantized vector) for the record at the given location from a single segment
      * snapshot. Returns {@code null} when the tier segment/layout is unavailable.
-     *
-     * @param loc           the record location (resolved to this router's partition)
-     * @param includeVector when {@code true}, also copies the quantized vector payload;
-     *                      when {@code false}, {@link CognitiveRecordBody#quantizedVector()}
-     *                      is {@code null} (avoids a per-record copy in scan-style callers)
      */
     public CognitiveRecordBody readRecordBody(MemoryLocation loc, boolean includeVector) {
-        CognitiveRecordLayout layout = layoutFor(loc.type());
+        if (loc.type() == MemoryType.EPISODIC) {
+            if (episodicStore == null) return null;
+            EncodingHeader h = episodicStore.readHeader(loc.offset());
+            if (h == null) return null;
+            return new CognitiveRecordBody(h, null, 0, (byte) 0);
+        }
+        FixedEngramLayout layout = layoutFor(loc.type());
         MemorySegment segment = segmentFor(loc.type());
         if (layout == null || segment == null) return null;
 
         long offset = loc.offset();
-        CognitiveHeader header = layout.readHeader(segment, offset);
+        EncodingHeader header = layout.readHeader(segment, offset);
+        if (strengthStore != null && loc.type() != MemoryType.WORKING) {
+            int slotIndex = (int) ((offset - get(loc.type()).dataOffset()) / layout.stride());
+            header = new EncodingHeader(
+                    header.timestampMs(),
+                    header.synapticTags(),
+                    header.exactNorm(),
+                    strengthStore.readEffectiveImportance(loc.type(), slotIndex),
+                    strengthStore.readAgentRecallCount(loc.type(), slotIndex),
+                    header.centroidId(),
+                    header.valence(),
+                    header.flags(),
+                    header.arousal(),
+                    strengthStore.readStorageStrength(loc.type(), slotIndex),
+                    header.encodingProfile(),
+                    header.encodingAlpha(),
+                    header.encodingBeta(),
+                    header.soulVersion(),
+                    header.encodingSurprise(),
+                    header.consolidationFlags()
+            );
+        }
 
         byte[] quantizedVec = null;
         if (includeVector) {
@@ -281,18 +282,17 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
                     ValueLayout.JAVA_BYTE, 0, vecBytes);
         }
 
-        int spectorRecallCount = layout.readSpectorRecallCount(segment, offset);
+        int spectorRecallCount = (strengthStore != null && loc.type() != MemoryType.WORKING)
+                ? strengthStore.readSpectorRecallCount(loc.type(), (int) ((offset - get(loc.type()).dataOffset()) / layout.stride()))
+                : layout.readSpectorRecallCount(segment, offset);
         byte consolidationFlags = layout.readConsolidationFlags(segment, offset);
         return new CognitiveRecordBody(header, quantizedVec, spectorRecallCount, consolidationFlags);
     }
 
     /**
-     * Immutable value carrying the decoded body of a cognitive record read from a single
-     * segment snapshot: the base {@link CognitiveHeader}, the optional quantized vector
-     * payload ({@code null} when the caller requested header-only), and the extended fields
-     * ({@code spectorRecallCount}, {@code consolidationFlags}) that live outside the base header.
+     * Immutable value carrying the decoded body of a cognitive record read from a single segment snapshot.
      */
-    public record CognitiveRecordBody(CognitiveHeader header,
+    public record CognitiveRecordBody(EncodingHeader header,
                                       byte[] quantizedVector,
                                       int spectorRecallCount,
                                       byte consolidationFlags) {
@@ -303,32 +303,41 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     // ══════════════════════════════════════════════════════════════
 
     /** Returns the Working Memory store (for circular buffer scan). */
-    public WorkingRecordMemory working() { return workingStore; }
+    public WorkingMemory working() { return workingStore; }
 
-    /** Returns the Episodic Memory store (for partition iteration). Null when log mode active. */
-    public EpisodicRecordMemory episodic() { return episodicStore; }
+    /** Returns the log-structured Episodic Memory store. Never null in normal operation. */
+    public EpisodicMemory episodic() { return episodicStore; }
 
-    /** Returns the log-structured Episodic store. Null in legacy mode. */
-    public EpisodicLogMemory episodicLog() { return episodicLogStore; }
-
-    /** Returns true when the new log-structured episodic store is active. */
-    public boolean isEpisodicLogMode() { return episodicLogStore != null; }
+    /**
+     * Backward-compatible alias for {@link #episodic()}.
+     *
+     * @return the episodic memory store
+     * @deprecated Use {@link #episodic()} instead.
+     */
+    @Deprecated(since = "1.5.0", forRemoval = true)
+    public EpisodicMemory episodicLog() { return episodic(); }
 
     /** Returns the Semantic Memory store (for header slab access). */
-    public SemanticRecordMemory semantic() { return semanticStore; }
+    public SemanticMemory semantic() { return semanticStore; }
 
     /** Returns the Procedural Memory store (for flat scan). */
-    public ProceduralRecordMemory procedural() { return proceduralStore; }
+    public ProceduralMemory procedural() { return proceduralStore; }
 
-    /** Returns the unified Audit Record memory store. Null if not configured. */
-    public AuditRecordMemory audit() { return auditStore; }
+    /** Returns the unified Strength memory store. Null if not configured. */
+    public StrengthMemory strength() { return strengthStore; }
+
+    /**
+     * @deprecated Use {@link #strength()} instead.
+     */
+    @Deprecated
+    public StrengthMemory audit() { return strengthStore; }
 
     /**
      * Forces all persistent, non-frozen memory store segments to be written to disk.
      * Used by {@code CheckpointDaemon} before recording a WAL checkpoint.
      */
     public void forceAll() {
-        for (CognitiveRecordMemory store : stores.values()) {
+        for (EngramMemory store : stores.values()) {
             if (store.isPersistent() && !store.isFrozen()) {
                 store.force();
             }

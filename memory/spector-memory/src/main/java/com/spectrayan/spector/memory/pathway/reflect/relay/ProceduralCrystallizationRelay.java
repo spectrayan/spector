@@ -23,13 +23,13 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.similarity.VectorOps;
-import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.model.EpisodeRecord;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
@@ -54,31 +54,31 @@ public final class ProceduralCrystallizationRelay implements SynapticRelay<Refle
 
         var handles = signal.partitionManager().snapshot();
         for (var handle : handles) {
-            if (handle.router() != null && handle.router().isEpisodicLogMode()) {
-                var logStore = handle.router().episodicLog();
-                if (logStore != null) {
-                    processLogStoreForSkills(logStore, signal);
+            if (handle.router() != null) {
+                var episodicStore = handle.router().episodic();
+                if (episodicStore != null) {
+                    processLogStoreForSkills(episodicStore, signal);
                 }
             }
         }
         return true;
     }
 
-    private void processLogStoreForSkills(final EpisodicLogMemory logStore, final ReflectSignal signal) {
+    private void processLogStoreForSkills(final EpisodicMemory logStore, final ReflectSignal signal) {
         List<Long> unconsolidatedOffsets = logStore.unconsolidatedTurnOffsets();
         if (unconsolidatedOffsets.isEmpty()) return;
 
-        List<EpisodicFieldAccessor.EpisodicRecord> turns = logStore.readTurns(unconsolidatedOffsets, true);
+        List<EpisodeRecord> turns = logStore.readTurns(unconsolidatedOffsets, true);
         if (turns.size() < 2) return;
 
         // Group turns by session
-        Map<Long, List<EpisodicFieldAccessor.EpisodicRecord>> sessionTurns = new HashMap<>();
+        Map<Long, List<EpisodeRecord>> sessionTurns = new HashMap<>();
         for (var turn : turns) {
             sessionTurns.computeIfAbsent(turn.sessionId(), k -> new ArrayList<>()).add(turn);
         }
 
-        for (Map.Entry<Long, List<EpisodicFieldAccessor.EpisodicRecord>> entry : sessionTurns.entrySet()) {
-            List<EpisodicFieldAccessor.EpisodicRecord> sessionList = entry.getValue();
+        for (Map.Entry<Long, List<EpisodeRecord>> entry : sessionTurns.entrySet()) {
+            List<EpisodeRecord> sessionList = entry.getValue();
             if (sessionList.size() < 2) continue;
 
             List<String> turnTexts = new ArrayList<>();
@@ -106,13 +106,13 @@ public final class ProceduralCrystallizationRelay implements SynapticRelay<Refle
                 String[] tags = new String[]{"procedural", "crystallized", "skill"};
                 if (signal.rememberPathway() != null) {
                     float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
-                    byte procFlags = SynapticHeaderConstants.withMemoryType(
+                    byte procFlags = EncodingHeaderFields.withMemoryType(
                             (byte) 0, MemoryType.PROCEDURAL.ordinal());
                     short soulVer = signal.rememberPathway().currentSoulVersion();
-                    CognitiveHeader header = CognitiveHeader.createSynthetic(
+                    EncodingHeader header = EncodingHeader.createSynthetic(
                             System.currentTimeMillis(), 0L, exactNorm, 1.0f,
                             (byte) 0, (byte) 0, procFlags,
-                            SynapticHeaderConstants.FLAG_CRYSTALLIZED,
+                            EncodingHeaderFields.FLAG_CRYSTALLIZED,
                             soulVer, 0.0f
                     );
                     signal.rememberPathway().ingestCognitiveWithHeader(
@@ -162,7 +162,7 @@ public final class ProceduralCrystallizationRelay implements SynapticRelay<Refle
         return List.of("Procedural Skill Pattern: " + turnTexts.get(0).substring(0, Math.min(100, turnTexts.get(0).length())));
     }
 
-    private String extractTurnText(EpisodicFieldAccessor.EpisodicRecord turn) {
+    private String extractTurnText(EpisodeRecord turn) {
         if (turn.body() == null || turn.body().length == 0) return "";
         try {
             return new String(turn.body(), StandardCharsets.UTF_8);

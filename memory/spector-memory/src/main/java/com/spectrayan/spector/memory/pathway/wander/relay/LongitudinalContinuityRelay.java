@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
  * <h3>Biological Analog: Multi-Epoch Self-Model Metacognitive Auditing</h3>
  * <p>Periodically records Integrated Information Theory cohesion (\(\Phi_{CC}\)), personal Riemannian
  * manifold volume (\(\text{Trace}(G)\)), epistemic generative prior drift (\(\|\boldsymbol{\mu}_t - \boldsymbol{\mu}_0\|\)),
- * and homeostatic emotional levels into the zero-copy off-heap {@link com.spectrayan.spector.memory.cortex.ContinuityRecordMemory}.</p>
+ * and homeostatic emotional levels into the zero-copy off-heap {@link com.spectrayan.spector.memory.cortex.ContinuityMemory}.</p>
  *
  * @since 1.2.0
  */

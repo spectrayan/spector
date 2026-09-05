@@ -16,9 +16,9 @@ import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.SemanticLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -48,7 +48,7 @@ import java.util.Map;
  * <ol>
  *   <li>Queries HNSW for {@code topK * semanticCandidateMultiplier} candidates</li>
  *   <li>Resolves each candidate ID to its physical partition and offset via {@link MemoryIndex#location(String)}</li>
- *   <li>Reads the 64-byte {@link CognitiveHeader} from the partition's off-heap slab segment</li>
+ *   <li>Reads the 64-byte {@link EncodingHeader} from the partition's off-heap slab segment</li>
  *   <li>Applies tombstones, contradiction gating, temporal bounds, synaptic tags / hyperfocus, valence, and importance filtering</li>
  *   <li>Computes the fused cognitive score (similarity + decay * importance * tag boost)</li>
  *   <li>Sorts and returns the top-K cognitive results</li>
@@ -128,11 +128,11 @@ public final class SemanticRecallStrategy {
             if (partitionRegistry == null) continue;
             PartitionHandle handle = partitionRegistry.handleFor(partitionSeq);
             if (handle == null || handle.router() == null) continue;
-            SemanticRecordMemory store = handle.router().semantic();
+            SemanticMemory store = handle.router().semantic();
 
             if (store == null) continue;
 
-            CognitiveRecordLayout layout = store.cognitiveLayout();
+            SemanticLayout layout = store.layout();
             MemorySegment headerSlab = store.primarySegment();
 
             // Bounds check: ensure we're within the slab
@@ -140,15 +140,15 @@ public final class SemanticRecallStrategy {
                 continue;
             }
 
-            CognitiveHeader header = layout.readHeader(headerSlab, headerOffset);
+            EncodingHeader header = layout.readHeader(headerSlab, headerOffset);
 
             // Phase 1: Tombstone check (always applied)
-            if (SynapticHeaderConstants.isTombstoned(header.flags())) continue;
+            if (EncodingHeaderFields.isTombstoned(header.flags())) continue;
 
             // Phase 1c: Contradiction Gating
             if (!options.includeContradictions()) {
                 byte cFlags = layout.readConsolidationFlags(headerSlab, headerOffset);
-                if (SynapticHeaderConstants.isContradicted(cFlags)) continue;
+                if (EncodingHeaderFields.isContradicted(cFlags)) continue;
             }
 
             // Phase 1b: Temporal gating & Future causal horizon gate
@@ -170,12 +170,24 @@ public final class SemanticRecallStrategy {
             byte valence = header.valence();
             if (valence < minValence || valence > maxValence) continue;
 
+            StrengthMemory strengthStore = handle.router().strength();
+            int slotIndex = (int) ((headerOffset - store.dataOffset()) / layout.stride());
+
             // Phase 4: Importance threshold
-            float importance = header.importance();
+            float rawImportance = header.importance();
+            float importance;
+            if (strengthStore != null) {
+                float eff = strengthStore.readEffectiveImportance(MemoryType.SEMANTIC, slotIndex);
+                importance = eff != 0.0f ? eff : rawImportance;
+            } else {
+                importance = rawImportance;
+            }
             if (importance < minImportance) continue;
 
             float finalScore;
-            int agentRecallCount = header.agentRecallCount();
+            int agentRecallCount = (strengthStore != null)
+                    ? strengthStore.readAgentRecallCount(MemoryType.SEMANTIC, slotIndex)
+                    : header.agentRecallCount();
             float decay;
             float rawDecay;
 
@@ -192,9 +204,15 @@ public final class SemanticRecallStrategy {
                 rawDecay = 1.0f;
             } else {
                 final byte arousal = layout.headerLayout().version() >= 2 ? header.arousal() : (byte) 0;
-                final float storage = layout.headerLayout().version() >= 2
-                        ? layout.headerLayout().readStorageStrength(headerSlab, headerOffset)
-                        : 1.0f;
+                final float storage;
+                if (strengthStore != null) {
+                    float s = strengthStore.readStorageStrength(MemoryType.SEMANTIC, slotIndex);
+                    storage = s > 0.0f ? s : 1.0f;
+                } else if (layout.headerLayout().version() >= 2) {
+                    storage = layout.headerLayout().readStorageStrength(headerSlab, headerOffset);
+                } else {
+                    storage = 1.0f;
+                }
                 final float cognitiveMass = CognitiveScoreFusion.computeCognitiveMass(importance, arousal, storage);
 
                 decay = CognitiveScoreFusion.computeMassDilatedDecay(timestamp, nowMs, cognitiveMass, arousal, agentRecallCount, false);

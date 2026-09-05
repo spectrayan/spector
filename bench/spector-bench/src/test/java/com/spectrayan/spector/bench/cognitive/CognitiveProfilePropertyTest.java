@@ -21,11 +21,11 @@ import java.util.List;
 
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
@@ -62,7 +62,7 @@ class CognitiveProfilePropertyTest {
 
         float[] mins = IdentityCalibration.mins(DIMS);
         float[] scales = IdentityCalibration.scales(DIMS);
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        EngramLayout layout = new EngramLayout(DIMS);
 
         try (Arena arena = Arena.ofConfined()) {
             long totalBytes = (long) corpusSize * layout.stride();
@@ -126,7 +126,7 @@ class CognitiveProfilePropertyTest {
 
         float[] mins = IdentityCalibration.mins(DIMS);
         float[] scales = IdentityCalibration.scales(DIMS);
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        EngramLayout layout = new EngramLayout(DIMS);
 
         try (Arena arena = Arena.ofConfined()) {
             int corpusSize = 2;
@@ -170,13 +170,13 @@ class CognitiveProfilePropertyTest {
     // Helpers
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-    private void writeRecord(MemorySegment segment, CognitiveRecordLayout layout,
+    private void writeRecord(MemorySegment segment, EngramLayout layout,
                              int index, float[] vector, byte valence, long timestamp,
                              float[] mins, float[] scales) {
         long offset = (long) index * layout.stride();
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 timestamp, 0L, 1.0f, 5.0f, 0, (short) 0, valence,
-                SynapticHeaderConstants.FLAG_RESOLVED);
+                EncodingHeaderFields.FLAG_RESOLVED);
         layout.writeHeader(segment, offset, header);
 
         byte[] quantized = new byte[DIMS];
@@ -188,13 +188,13 @@ class CognitiveProfilePropertyTest {
         layout.writeQuantizedVector(segment, offset, quantized);
     }
 
-    private void writeRecordWithImportance(MemorySegment segment, CognitiveRecordLayout layout,
+    private void writeRecordWithImportance(MemorySegment segment, EngramLayout layout,
                                            int index, float[] vector, float importance,
                                            long timestamp, float[] mins, float[] scales) {
         long offset = (long) index * layout.stride();
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 timestamp, 0L, 1.0f, importance, 0, (short) 0, (byte) 0,
-                SynapticHeaderConstants.FLAG_RESOLVED);
+                EncodingHeaderFields.FLAG_RESOLVED);
         layout.writeHeader(segment, offset, header);
 
         byte[] quantized = new byte[DIMS];

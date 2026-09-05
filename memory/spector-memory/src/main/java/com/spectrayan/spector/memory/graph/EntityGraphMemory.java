@@ -32,7 +32,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
@@ -149,7 +149,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
     // ── SMKM container framing: single source of truth is EntityLayout (#435, TD-14). ──
     // GRAPH_SUBHEADER_BYTES / SUB_OFF_* field offsets / DATA_START are static-imported from
     // EntityLayout; this class only references them. Container shape (current):
-    // [64B MemoryHeader][16B Entity sub-header][entity slab][edge slab][adj slab].
+    // [64B RegionPreamble][16B Entity sub-header][entity slab][edge slab][adj slab].
 
     // ── Legacy on-disk container magics (migrated in-class, #435) ──
     /** Legacy mmap container magic ('EGMM', 32-byte header), migrated to SMKM. */
@@ -250,7 +250,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
      *
      * <p>The on-disk container is the kernel SMKM format:
      * <pre>
-     *   [64B MemoryHeader (SMKM)][16B Entity sub-header][entity slab][edge slab][adjacency slab]
+     *   [64B RegionPreamble (SMKM)][16B Entity sub-header][entity slab][edge slab][adjacency slab]
      * </pre>
      * Legacy EGMM (32-byte header) and EGPH (heap-serialized) files are migrated to SMKM in
      * place — with a {@code .bak} of the original — before mapping (#435).</p>
@@ -357,7 +357,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
                 if (exists) {
                     int beMagic = peekMagicBE(filePath);
                     int leMagic = Integer.reverseBytes(beMagic);
-                    if (leMagic != MemoryHeader.MAGIC) {
+                    if (leMagic != RegionPreamble.MAGIC) {
                         // Legacy container — migrate in place to SMKM before mapping (#435). This
                         // is the fallback for a direct public-ctor call; load() migrates up front
                         // with the caller's encryptor.
@@ -404,17 +404,17 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
                         while (hb.hasRemaining() && ch.read(hb) >= 0) {
                             // fill header
                         }
-                        if (!MemoryHeader.isValid(head, 0L)
-                                || MemoryHeader.readShape(head, 0L) != MemoryShape.GRAPH
-                                || MemoryHeader.readLayoutId(head, 0L) != LAYOUT.layoutId()) {
+                        if (!RegionPreamble.isValid(head, 0L)
+                                || RegionPreamble.readShape(head, 0L) != MemoryShape.GRAPH
+                                || RegionPreamble.readLayoutId(head, 0L) != LAYOUT.layoutId()) {
                             throw new IOException("invalid SMKM entity-graph header: " + filePath);
                         }
-                        entityCap = (int) MemoryHeader.readCapacity(head, 0L);
-                        entityCount = (int) MemoryHeader.readCount(head, 0L);
-                        edgeCap = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_EDGE_CAPACITY);
-                        edgeCount = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_EDGE_COUNT);
-                        adjCap = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_CAPACITY);
-                        adjHwm = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_HWM);
+                        entityCap = (int) RegionPreamble.readCapacity(head, 0L);
+                        entityCount = (int) RegionPreamble.readCount(head, 0L);
+                        edgeCap = head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_EDGE_CAPACITY);
+                        edgeCount = head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_EDGE_COUNT);
+                        adjCap = head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_CAPACITY);
+                        adjHwm = head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_HWM);
                     }
                 }
 
@@ -1731,7 +1731,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
             }
             int beMagic = peekMagicBE(filePath);
             int leMagic = Integer.reverseBytes(beMagic);
-            if (leMagic == MemoryHeader.MAGIC) {
+            if (leMagic == RegionPreamble.MAGIC) {
                 return openSmkm(filePath, defaultEntityCap, defaultEdgeCap, encryptor);
             }
             if (beMagic == LEGACY_EGMM_MAGIC || beMagic == LEGACY_EGPH_MAGIC) {
@@ -1742,7 +1742,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
             }
             throw new IOException("Unrecognized EntityGraph file magic: 0x"
                     + Integer.toHexString(beMagic) + " (expected SMKM 0x"
-                    + Integer.toHexString(MemoryHeader.MAGIC) + ", EGMM 0x"
+                    + Integer.toHexString(RegionPreamble.MAGIC) + ", EGMM 0x"
                     + Integer.toHexString(LEGACY_EGMM_MAGIC) + " or EGPH 0x"
                     + Integer.toHexString(LEGACY_EGPH_MAGIC) + "): " + filePath);
         } catch (SpectorGraphPersistenceException e) {
@@ -1788,12 +1788,12 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
         try (Arena confined = Arena.ofConfined()) {
             MemorySegment head = confined.allocate(DATA_START);
             long now = System.currentTimeMillis();
-            MemoryHeader.write(head, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
+            RegionPreamble.write(head, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
                     entityCap, entityCount, ENTITY_NODE_BYTES, LAYOUT.layoutId(), now, now);
-            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_EDGE_CAPACITY, edgeCap);
-            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_EDGE_COUNT, edgeCount);
-            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_CAPACITY, adjCap);
-            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_HWM, adjHwm);
+            head.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_EDGE_CAPACITY, edgeCap);
+            head.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_EDGE_COUNT, edgeCount);
+            head.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_CAPACITY, adjCap);
+            head.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_HWM, adjHwm);
             ByteBuffer buf = head.asByteBuffer();
             ch.position(0);
             while (buf.hasRemaining()) {
@@ -1806,12 +1806,12 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
     private static void writeSmkmHeaderToSegment(MemorySegment header, int entityCap, int edgeCap,
                                                  int entityCount, int edgeCount, int adjCap, int adjHwm) {
         long now = System.currentTimeMillis();
-        MemoryHeader.write(header, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
+        RegionPreamble.write(header, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
                 entityCap, entityCount, ENTITY_NODE_BYTES, LAYOUT.layoutId(), now, now);
-        header.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_EDGE_CAPACITY, edgeCap);
-        header.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_EDGE_COUNT, edgeCount);
-        header.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_CAPACITY, adjCap);
-        header.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_HWM, adjHwm);
+        header.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_EDGE_CAPACITY, edgeCap);
+        header.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_EDGE_COUNT, edgeCount);
+        header.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_CAPACITY, adjCap);
+        header.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_HWM, adjHwm);
     }
 
     private static void writeSegmentFully(FileChannel ch, MemorySegment seg, long bytes)

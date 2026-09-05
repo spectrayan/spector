@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +34,7 @@ public final class BundleLayoutCalculator {
         long cursor = dataStart;
         List<RegionEntry> entries = new ArrayList<>();
         for (RegionSizeSpec spec : specs) {
-            long regionTotal = alignToPage(MemoryHeader.HEADER_BYTES + spec.dataBytes());
+            long regionTotal = alignToPage(RegionPreamble.PREAMBLE_BYTES + spec.dataBytes());
             short flags = (short) (RegionEntry.FLAG_LIVE | (spec.growable() ? RegionEntry.FLAG_GROWABLE : 0));
             entries.add(new RegionEntry(spec.regionId(), flags, cursor, regionTotal,
                     0, spec.capacity(), spec.stride(), spec.layoutId(), spec.schemaVersion()));

@@ -19,7 +19,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
@@ -172,7 +172,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
                             int entityCapacity, TypeRegistryMemory entityTypeRegistry,
                             Path bundlePath, boolean isNew) {
         super(MEMORY_ID, LAYOUT, entityCapacity, arena, entityRegionSlice,
-              isNew ? 0 : (int) MemoryHeader.readCount(entityRegionSlice, 0L),
+              isNew ? 0 : (int) RegionPreamble.readCount(entityRegionSlice, 0L),
               true, bundlePath, null, true); // bundleManaged=true
         this.bundleManaged = true;
         this.rawAdjacencyRegion = adjacencyRegionSlice;
@@ -184,7 +184,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         this.memoryId = MEMORY_ID;
         this.entityTypeRegistryMemory = entityTypeRegistry;
 
-        long headerStart = MemoryHeader.HEADER_BYTES;
+        long headerStart = RegionPreamble.PREAMBLE_BYTES;
         int initialAdjCap = adjacencyRegionSlice.get(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_CAPACITY);
         int adjHwm = adjacencyRegionSlice.get(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_HWM);
 
@@ -204,7 +204,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
             this.adjacencySegment = adjacencyRegionSlice.asSlice(DATA_START, (long) ADJ_ENTRY_BYTES * adjCap);
             this.adjacencySegment.fill((byte) 0);
         } else {
-            this.entityCount = (int) MemoryHeader.readCount(entityRegionSlice, 0L);
+            this.entityCount = (int) RegionPreamble.readCount(entityRegionSlice, 0L);
             this.adjSegmentCapacity = initialAdjCap;
             this.adjHighWaterMark = adjHwm;
             this.adjacencySegment = adjacencyRegionSlice.asSlice(DATA_START, (long) ADJ_ENTRY_BYTES * this.adjSegmentCapacity);
@@ -347,15 +347,15 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
                         while (hb.hasRemaining() && ch.read(hb) >= 0) {
                             // fill header
                         }
-                        if (!MemoryHeader.isValid(head, 0L)
-                                || MemoryHeader.readShape(head, 0L) != MemoryShape.GRAPH
-                                || MemoryHeader.readLayoutId(head, 0L) != LAYOUT.layoutId()) {
+                        if (!RegionPreamble.isValid(head, 0L)
+                                || RegionPreamble.readShape(head, 0L) != MemoryShape.GRAPH
+                                || RegionPreamble.readLayoutId(head, 0L) != LAYOUT.layoutId()) {
                             throw new IOException("invalid SMKM entity-directory header: " + filePath);
                         }
-                        entityCap = (int) MemoryHeader.readCapacity(head, 0L);
-                        entityCount = (int) MemoryHeader.readCount(head, 0L);
-                        adjCap = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_CAPACITY);
-                        adjHwm = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_HWM);
+                        entityCap = (int) RegionPreamble.readCapacity(head, 0L);
+                        entityCount = (int) RegionPreamble.readCount(head, 0L);
+                        adjCap = head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_CAPACITY);
+                        adjHwm = head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_HWM);
                     }
                 }
 
@@ -1422,10 +1422,10 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
             }
             int beMagic = peekMagicBE(filePath);
             int leMagic = Integer.reverseBytes(beMagic);
-            if (leMagic != MemoryHeader.MAGIC) {
+            if (leMagic != RegionPreamble.MAGIC) {
                 throw new IOException("Unrecognized EntityDirectory file magic: 0x"
                         + Integer.toHexString(beMagic) + " (expected SMKM 0x"
-                        + Integer.toHexString(MemoryHeader.MAGIC) + "): " + filePath);
+                        + Integer.toHexString(RegionPreamble.MAGIC) + "): " + filePath);
             }
             EntityDirectory dir = new EntityDirectory(filePath, defaultEntityCap, entityTypeRegistry);
             ConcurrentHashMap<String, Integer> names =
@@ -1461,10 +1461,10 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         try (Arena confined = Arena.ofConfined()) {
             MemorySegment head = confined.allocate(DATA_START);
             long now = System.currentTimeMillis();
-            MemoryHeader.write(head, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
+            RegionPreamble.write(head, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
                     entityCap, entityCount, ENTITY_NODE_BYTES, LAYOUT.layoutId(), now, now);
-            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_CAPACITY, adjCap);
-            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_HWM, adjHwm);
+            head.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_CAPACITY, adjCap);
+            head.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_HWM, adjHwm);
             ByteBuffer buf = head.asByteBuffer();
             ch.position(0);
             while (buf.hasRemaining()) {
@@ -1477,10 +1477,10 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     private static void writeSmkmHeaderToSegment(MemorySegment header, int entityCap, int entityCount,
                                                  int adjCap, int adjHwm) {
         long now = System.currentTimeMillis();
-        MemoryHeader.write(header, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
+        RegionPreamble.write(header, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
                 entityCap, entityCount, ENTITY_NODE_BYTES, LAYOUT.layoutId(), now, now);
-        header.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_CAPACITY, adjCap);
-        header.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_HWM, adjHwm);
+        header.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_CAPACITY, adjCap);
+        header.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_HWM, adjHwm);
     }
 
     private static void writeSegmentFully(FileChannel ch, MemorySegment seg, long bytes)

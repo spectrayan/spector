@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.kernel.shape;
 
 import com.spectrayan.spector.memory.kernel.AbstractMemory;
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 
 import java.lang.foreign.Arena;
@@ -38,13 +38,13 @@ import java.nio.file.Path;
  * association strength and temporal prediction in the same synaptic complex.</p>
  *
  * <p>Introduced as part of ADR-0009 (Cross-Capture Graph &amp; CoActivation Kernel
- * Integration) to replace the {@code stride=1} hack in {@code CoActivationRecordMemory}
+ * Integration) to replace the {@code stride=1} hack in {@code CoActivationMemory}
  * with an honest kernel shape.</p>
  *
  * @param <L> the type of memory layout used by this memory
  * @see MemoryShape#HASHTABLE
  */
-public abstract class AbstractHashTableMemory<L extends MemoryLayout> extends AbstractMemory<L> {
+public abstract class AbstractHashTableMemory<L extends RegionLayout> extends AbstractMemory<L> {
 
     protected AbstractHashTableMemory(MemoryId id, L layout, int capacity, long segmentBytes) {
         super(id, layout, capacity, segmentBytes);

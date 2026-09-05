@@ -20,11 +20,11 @@ import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 
 import net.jqwik.api.Arbitraries;
@@ -61,7 +61,7 @@ class FusedScoreFormulaPropertyTest {
 
         float[] mins = IdentityCalibration.mins(DIMS);
         float[] scales = IdentityCalibration.scales(DIMS);
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        EngramLayout layout = new EngramLayout(DIMS);
 
         try (Arena arena = Arena.ofConfined()) {
             int corpusSize = 1;
@@ -79,9 +79,9 @@ class FusedScoreFormulaPropertyTest {
             }
 
             long synapticTags = SynapticTagEncoder.encode("test-tag");
-            byte flags = SynapticHeaderConstants.FLAG_RESOLVED;
+            byte flags = EncodingHeaderFields.FLAG_RESOLVED;
 
-            CognitiveHeader header = new CognitiveHeader(
+            EncodingHeader header = new EncodingHeader(
                     timestamp,
                     synapticTags,
                     1.0f,

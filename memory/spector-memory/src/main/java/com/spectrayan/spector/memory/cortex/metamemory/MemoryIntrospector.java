@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.cortex.metamemory;
 
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +40,7 @@ import java.util.Set;
  * </ul>
  *
  * <h3>Gap Detection</h3>
- * <p>Uses {@link com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory} to find topics that frequently co-occur with
+ * <p>Uses {@link com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory} to find topics that frequently co-occur with
  * the queried tags but have zero memories in the current result set. These are
  * "knowledge holes" — related domains where the agent lacks information.</p>
  *
@@ -58,14 +58,14 @@ public final class MemoryIntrospector {
     /** Maximum number of co-activated tags to consider per result tag. */
     private static final int CO_ACTIVATION_DEPTH = 5;
 
-    private final CoActivationRecordMemory coActivationTracker;
+    private final CoActivationMemory coActivationTracker;
 
     /**
      * Creates a memory introspector with Hebbian co-activation support for gap detection.
      *
      * @param coActivationTracker the tracker recording tag co-occurrence data
      */
-    public MemoryIntrospector(CoActivationRecordMemory coActivationTracker) {
+    public MemoryIntrospector(CoActivationMemory coActivationTracker) {
         this.coActivationTracker = coActivationTracker;
     }
 

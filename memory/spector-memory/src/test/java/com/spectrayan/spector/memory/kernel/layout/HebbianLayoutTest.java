@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -35,10 +35,10 @@ class HebbianLayoutTest {
         assertThat(layout.name()).isEqualTo("HebbianGraphCsr");
         assertThat(layout.crcEnabled()).isFalse();
 
-        // 64B MemoryHeader + 16B Graph subheader = 80B DATA_START
+        // 64B RegionPreamble + 16B Graph subheader = 80B DATA_START
         assertThat(HebbianLayout.GRAPH_SUBHEADER_BYTES).isEqualTo(16);
         assertThat(HebbianLayout.DATA_START).isEqualTo(80L);
-        assertThat(HebbianLayout.DATA_START).isEqualTo(MemoryHeader.HEADER_BYTES + HebbianLayout.GRAPH_SUBHEADER_BYTES);
+        assertThat(HebbianLayout.DATA_START).isEqualTo(RegionPreamble.PREAMBLE_BYTES + HebbianLayout.GRAPH_SUBHEADER_BYTES);
 
         // Subheader offsets
         assertThat(HebbianLayout.SUB_OFF_EDGE_CAPACITY).isEqualTo(0);
@@ -69,7 +69,7 @@ class HebbianLayoutTest {
             segment.fill((byte) 0);
 
             // 1. Write Sub-header
-            long subHeaderOffset = MemoryHeader.HEADER_BYTES;
+            long subHeaderOffset = RegionPreamble.PREAMBLE_BYTES;
             segment.set(ValueLayout.JAVA_INT, subHeaderOffset + HebbianLayout.SUB_OFF_EDGE_CAPACITY, 50000);
             segment.set(ValueLayout.JAVA_INT, subHeaderOffset + HebbianLayout.SUB_OFF_CURRENT_CYCLE, 12);
 

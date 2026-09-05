@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.inspect;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
 import com.spectrayan.spector.memory.kernel.bundle.RegionId;
@@ -67,11 +67,11 @@ class SpectorInspectCliTest {
                      StandardOpenOption.WRITE,
                      StandardOpenOption.READ)) {
 
-            fc.position(MemoryHeader.HEADER_BYTES - 1);
+            fc.position(RegionPreamble.PREAMBLE_BYTES - 1);
             fc.write(java.nio.ByteBuffer.wrap(new byte[]{0}));
 
-            MemorySegment segment = fc.map(FileChannel.MapMode.READ_WRITE, 0, MemoryHeader.HEADER_BYTES, arena);
-            MemoryHeader.write(segment, 0, 5, MemoryShape.RECORD, 1, 1000L, 500L, 32, 0x54585444, 1717171717000L, 1818181818000L);
+            MemorySegment segment = fc.map(FileChannel.MapMode.READ_WRITE, 0, RegionPreamble.PREAMBLE_BYTES, arena);
+            RegionPreamble.write(segment, 0, 5, MemoryShape.RECORD, 1, 1000L, 500L, 32, 0x54585444, 1717171717000L, 1818181818000L);
         }
 
         SpectorInspectCli.main(new String[]{"header", file.toAbsolutePath().toString()});
@@ -113,6 +113,8 @@ class SpectorInspectCliTest {
                 .contains("EPISODIC")
                 .contains("PROCEDURAL")
                 .contains("TEXT")
+                .contains("STRENGTH")
+                .doesNotContain("AUDIT")
                 .contains("Fragmentation & Compaction Metrics")
                 .contains("[Optimal] No fragmented or DEAD regions detected. Bundle is compact.");
     }

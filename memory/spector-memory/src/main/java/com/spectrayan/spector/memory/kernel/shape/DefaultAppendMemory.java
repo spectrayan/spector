@@ -17,12 +17,12 @@ import java.nio.file.Path;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
  * Concrete implementation of AppendMemory shape.
  */
-public final class DefaultAppendMemory<L extends MemoryLayout> extends AbstractAppendMemory<L> {
+public final class DefaultAppendMemory<L extends RegionLayout> extends AbstractAppendMemory<L> {
 
     public DefaultAppendMemory(MemoryId id, L layout, int capacity, long segmentBytes) {
         super(id, layout, capacity, segmentBytes);

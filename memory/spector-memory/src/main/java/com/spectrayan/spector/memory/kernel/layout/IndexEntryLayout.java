@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
  * Memory layout for the index entry slot table (48 bytes fixed size, v6).
@@ -34,10 +34,10 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
  * {@code [24:4]} and no colocated-partition dimension. v6 appends
  * {@code colocatedPartition} + {@code reserved} (stride 40 → 48, 8-byte aligned) so
  * restart-correct multi-partition recall can resolve each record to its partition.
- * The loader gates on {@link com.spectrayan.spector.memory.kernel.MemoryHeader#readSchemaVersion}:
+ * The loader gates on {@link com.spectrayan.spector.memory.kernel.RegionPreamble#readSchemaVersion}:
  * v6 reads the 48-byte slot, v5 reads the 40-byte slot with {@code colocatedPartition = 0}.</p>
  */
-public final class IndexEntryLayout implements MemoryLayout {
+public final class IndexEntryLayout implements RegionLayout {
 
     private static final int STRIDE = 48;
     private static final int LAYOUT_ID = 0x4D494458; // 'MIDX'

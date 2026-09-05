@@ -21,7 +21,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
 
@@ -45,7 +45,7 @@ class GovernedReleaseGateRelayTest {
 
         CognitiveResult retracted = mock(CognitiveResult.class);
         when(retracted.id()).thenReturn("retracted-1");
-        when(retracted.consolidationFlags()).thenReturn(SynapticHeaderConstants.FLAG_RETRACTED);
+        when(retracted.consolidationFlags()).thenReturn(EncodingHeaderFields.FLAG_RETRACTED);
 
         RecallOptions options = RecallOptions.builder().build();
         RecallSignal signal = RecallSignal.forTextQuery("test query", options);
@@ -64,7 +64,7 @@ class GovernedReleaseGateRelayTest {
 
         CognitiveResult restricted = mock(CognitiveResult.class);
         when(restricted.id()).thenReturn("restricted-1");
-        when(restricted.consolidationFlags()).thenReturn(SynapticHeaderConstants.FLAG_RESTRICTED);
+        when(restricted.consolidationFlags()).thenReturn(EncodingHeaderFields.FLAG_RESTRICTED);
 
         RecallOptions options = RecallOptions.builder().personaId("").build();
         RecallSignal signal = RecallSignal.forTextQuery("test query", options);
@@ -78,7 +78,7 @@ class GovernedReleaseGateRelayTest {
     void transmit_retainsRestrictedMemories_whenPersonaIdProvided() {
         CognitiveResult restricted = mock(CognitiveResult.class);
         when(restricted.id()).thenReturn("restricted-1");
-        when(restricted.consolidationFlags()).thenReturn(SynapticHeaderConstants.FLAG_RESTRICTED);
+        when(restricted.consolidationFlags()).thenReturn(EncodingHeaderFields.FLAG_RESTRICTED);
 
         RecallOptions options = RecallOptions.builder().personaId("persona-chief-officer").build();
         RecallSignal signal = RecallSignal.forTextQuery("test query", options);
@@ -92,13 +92,13 @@ class GovernedReleaseGateRelayTest {
     void transmit_dropsUnverifiedMemories_whenBelowMinTrustScore() {
         CognitiveResult unverifiedLow = mock(CognitiveResult.class);
         when(unverifiedLow.id()).thenReturn("unverified-low");
-        when(unverifiedLow.consolidationFlags()).thenReturn(SynapticHeaderConstants.FLAG_UNVERIFIED);
+        when(unverifiedLow.consolidationFlags()).thenReturn(EncodingHeaderFields.FLAG_UNVERIFIED);
         when(unverifiedLow.score()).thenReturn(0.40f);
         when(unverifiedLow.ltpAdjustedDecay()).thenReturn(0.40f);
 
         CognitiveResult unverifiedHigh = mock(CognitiveResult.class);
         when(unverifiedHigh.id()).thenReturn("unverified-high");
-        when(unverifiedHigh.consolidationFlags()).thenReturn(SynapticHeaderConstants.FLAG_UNVERIFIED);
+        when(unverifiedHigh.consolidationFlags()).thenReturn(EncodingHeaderFields.FLAG_UNVERIFIED);
         when(unverifiedHigh.score()).thenReturn(0.85f);
         when(unverifiedHigh.ltpAdjustedDecay()).thenReturn(0.85f);
 

@@ -12,19 +12,21 @@
  */
 package com.spectrayan.spector.memory.cortex.consolidation;
 
-import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
-import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import java.lang.foreign.MemorySegment;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.foreign.MemorySegment;
-import java.util.ArrayList;
-import java.util.List;
+import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
+import com.spectrayan.spector.memory.cortex.EngramMemory;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 
 /**
  * Detector for finding near-duplicate memory records within a specific memory store tier.
@@ -48,14 +50,14 @@ public final class DuplicateDetector {
     /**
      * Associates a partition sequence number with a tier memory store.
      */
-    public record PartitionStore(int partitionSeq, CognitiveRecordMemory store) {}
+    public record PartitionStore(int partitionSeq, EngramMemory store) {}
 
     private record ScannedEntry(int partitionSeq, int recordIndex, String id, float[] decodedVector) {}
 
     /**
      * Scans the given store for duplicate pairs.
      */
-    public List<DuplicatePair> findDuplicates(CognitiveRecordMemory store, MemoryIndex index, ScalarQuantizer quantizer) {
+    public List<DuplicatePair> findDuplicates(EngramMemory store, MemoryIndex index, ScalarQuantizer quantizer) {
         if (store == null) return List.of();
         int partitionSeq = index != null ? index.activePartitionSeq() : 0;
         return findDuplicatesAcrossPartitions(List.of(new PartitionStore(partitionSeq, store)), index, quantizer);
@@ -76,23 +78,23 @@ public final class DuplicateDetector {
         List<ScannedEntry> entries = new ArrayList<>();
 
         for (PartitionStore ps : partitionStores) {
-            CognitiveRecordMemory store = ps.store();
+            EngramMemory store = ps.store();
             if (store == null) continue;
             int recordCount = store.visibleCount();
             if (recordCount == 0) continue;
 
             MemorySegment segment = store.segment();
-            CognitiveRecordLayout layout = store.cognitiveLayout();
-            long baseOffset = store.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L;
+            FixedEngramLayout layout = store.cognitiveLayout();
+            long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0L;
             int stride = layout.stride();
             int qVecBytes = layout.quantizedVecBytes();
             byte[] quantizedBuf = new byte[qVecBytes];
 
             for (int i = 0; i < recordCount; i++) {
                 long offset = baseOffset + (long) i * stride;
-                byte flags = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS, offset + SynapticHeaderConstants.OFFSET_FLAGS);
+                byte flags = segment.get(EncodingHeaderFields.LAYOUT_FLAGS, offset + EncodingHeaderFields.OFFSET_FLAGS);
 
-                if (SynapticHeaderConstants.isTombstoned(flags)) {
+                if (EncodingHeaderFields.isTombstoned(flags)) {
                     continue;
                 }
 

@@ -12,12 +12,12 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
  * Memory layout for the variable-length text payload pool.
  */
-public final class TextBlobLayout implements MemoryLayout {
+public final class TextBlobLayout implements RegionLayout {
 
     private static final int STRIDE = 0; // Variable length
     private static final int LAYOUT_ID = 0x54585442; // 'TXTB'

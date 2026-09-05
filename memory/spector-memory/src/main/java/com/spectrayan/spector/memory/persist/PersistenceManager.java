@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.persist;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
@@ -28,7 +28,7 @@ import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
@@ -85,7 +85,7 @@ public final class PersistenceManager {
                               TemporalChainMemory temporalChain,
                               EntityDirectory entityDirectory,
                               com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
-                              CoActivationRecordMemory coActivationTracker,
+                              CoActivationMemory coActivationTracker,
                               com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                               CognitiveMemoryRouter cognitiveRouter,
                               MemoryWal wal) {

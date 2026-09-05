@@ -19,12 +19,13 @@ import com.spectrayan.spector.memory.bootstrap.CognitiveGraphBuilder;
 import com.spectrayan.spector.memory.bootstrap.RetrievalIndexBuilder;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
-import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
+import com.spectrayan.spector.memory.cortex.TextBlobMemory;
+import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.SalienceProfile;
@@ -48,36 +49,10 @@ import com.spectrayan.spector.memory.session.SessionRegistry;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 
 import com.spectrayan.spector.memory.api.ImportanceProvider;
-import com.spectrayan.spector.memory.persist.DataEncryptor;
 
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.index.VectorIndex;
-import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
-import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
-import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
-import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.model.IngestionContext;
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
-import com.spectrayan.spector.memory.pathway.pipeline.AsyncEntityExtractionQueue;
-import com.spectrayan.spector.memory.pathway.pipeline.ContentTagExtractor;
-import com.spectrayan.spector.memory.pathway.pipeline.PostIngestSync;
-import com.spectrayan.spector.memory.pathway.pipeline.TagExtractor;
-import com.spectrayan.spector.memory.pathway.remember.relay.CorticalWriteTransactionRelay;
-import com.spectrayan.spector.memory.pathway.remember.relay.DedupGuardRelay;
-import com.spectrayan.spector.memory.pathway.remember.relay.DopaminergicSurpriseRelay;
-import com.spectrayan.spector.memory.pathway.remember.relay.KnowledgeGraphEnrichmentRelay;
-import com.spectrayan.spector.memory.pathway.remember.relay.RememberPathwayFactory;
-import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;
-import com.spectrayan.spector.memory.pathway.remember.relay.SynapticGraphLinkingRelay;
-import com.spectrayan.spector.memory.pathway.remember.relay.SynapticTagTransductionRelay;
-import com.spectrayan.spector.memory.session.SessionRegistry;
-import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.ingestion.IngestionTarget;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
 import org.slf4j.Logger;
@@ -112,7 +87,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
         final ImportanceProvider importanceProvider = builder.importanceProvider != null
                 ? builder.importanceProvider
                 : ImportanceProvider.baseline();
-        final WorkingRecordMemory workingStore = builder.cortex.workingStore();
+        final WorkingMemory workingStore = builder.cortex.workingStore();
         final TagExtractor extractor = builder.tagExtractor != null
                 ? builder.tagExtractor
                 : new ContentTagExtractor();
@@ -281,7 +256,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
     /**
      * Updates the partition-scoped {@code text.dat} store after a roll.
      */
-    public void updateTextDataStore(final TextAppendMemory newText) {
+    public void updateTextDataStore(final TextBlobMemory newText) {
         this.corticalWriteRelay.postIngestSync().updateTextDataStore(newText);
     }
 
@@ -345,7 +320,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
             final MemoryType type,
             final String[] tags,
             final MemorySource source,
-            final com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader preservedHeader) {
+            final com.spectrayan.spector.memory.kernel.layout.EncodingHeader preservedHeader) {
         final RememberSignal signal = RememberSignal.forCognitiveWithHeader(
                 id, text, vector, type, tags, source, preservedHeader
         );

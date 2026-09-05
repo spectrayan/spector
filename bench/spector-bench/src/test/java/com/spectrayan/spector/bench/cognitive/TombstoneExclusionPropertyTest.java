@@ -22,10 +22,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -67,7 +67,7 @@ class TombstoneExclusionPropertyTest {
 
         float[] mins = IdentityCalibration.mins(DIMS);
         float[] scales = IdentityCalibration.scales(DIMS);
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        EngramLayout layout = new EngramLayout(DIMS);
 
         try (Arena arena = Arena.ofConfined()) {
             long totalBytes = (long) corpusSize * layout.stride();
@@ -85,12 +85,12 @@ class TombstoneExclusionPropertyTest {
                 if (i < actualTombstones) {
                     // Tombstoned â€” use the query vector itself for max similarity
                     vec = queryVector.clone();
-                    flags = SynapticHeaderConstants.FLAG_TOMBSTONE;
+                    flags = EncodingHeaderFields.FLAG_TOMBSTONE;
                     tombstonedIds.add(ids[i]);
                 } else {
                     // Non-tombstoned â€” use a distant vector
                     vec = generateDeterministicVector(i, corpusSize);
-                    flags = SynapticHeaderConstants.FLAG_RESOLVED; // alive and resolved
+                    flags = EncodingHeaderFields.FLAG_RESOLVED; // alive and resolved
                 }
                 writeRecord(segment, layout, i, vec, flags, mins, scales);
             }
@@ -135,12 +135,12 @@ class TombstoneExclusionPropertyTest {
         return vec;
     }
 
-    private void writeRecord(MemorySegment segment, CognitiveRecordLayout layout,
+    private void writeRecord(MemorySegment segment, EngramLayout layout,
                              int index, float[] vector, byte flags,
                              float[] mins, float[] scales) {
         long offset = (long) index * layout.stride();
 
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 System.currentTimeMillis(),
                 0L,
                 1.0f,

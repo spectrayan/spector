@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -34,9 +34,9 @@ class TierStoreKernelIntegrationTest {
     // ── Working Memory ──
 
     @Test
-    @DisplayName("WorkingRecordMemory has kernel identity with WORKING type")
+    @DisplayName("WorkingMemory has kernel identity with WORKING type")
     void workingMemoryStoreHasKernelIdentity() {
-        try (var store = new WorkingRecordMemory(VEC_BYTES, CAPACITY)) {
+        try (var store = new WorkingMemory(VEC_BYTES, CAPACITY)) {
             MemoryId id = store.memoryId();
             assertThat(id.namespace()).isEqualTo("tier");
             assertThat(id.memoryName()).isEqualTo("working");
@@ -45,10 +45,10 @@ class TierStoreKernelIntegrationTest {
     }
 
     @Test
-    @DisplayName("WorkingRecordMemory exposes kernel layout directly")
+    @DisplayName("WorkingMemory exposes kernel layout directly")
     void workingMemoryStoreKernelLayout() {
-        try (var store = new WorkingRecordMemory(VEC_BYTES, CAPACITY)) {
-            CognitiveRecordLayout layout = store.layout();
+        try (var store = new WorkingMemory(VEC_BYTES, CAPACITY)) {
+            var layout = store.layout();
             assertThat(layout).isNotNull();
             assertThat(layout.recordStride()).isEqualTo(store.layout().stride());
             assertThat(layout.schemaVersion()).isGreaterThan(0);
@@ -56,9 +56,9 @@ class TierStoreKernelIntegrationTest {
     }
 
     @Test
-    @DisplayName("WorkingRecordMemory kernel shape is RECORD")
+    @DisplayName("WorkingMemory kernel shape is RECORD")
     void workingMemoryStoreKernelShape() {
-        try (var store = new WorkingRecordMemory(VEC_BYTES, CAPACITY)) {
+        try (var store = new WorkingMemory(VEC_BYTES, CAPACITY)) {
             assertThat(store.shape()).isEqualTo(MemoryShape.RECORD);
         }
     }
@@ -66,9 +66,9 @@ class TierStoreKernelIntegrationTest {
     // ── Semantic Memory ──
 
     @Test
-    @DisplayName("SemanticRecordMemory has kernel identity with SEMANTIC type")
+    @DisplayName("SemanticMemory has kernel identity with SEMANTIC type")
     void semanticMemoryStoreHasKernelIdentity() {
-        try (var store = new SemanticRecordMemory(VEC_BYTES, CAPACITY)) {
+        try (var store = new SemanticMemory(VEC_BYTES, CAPACITY)) {
             MemoryId id = store.memoryId();
             assertThat(id.namespace()).isEqualTo("tier");
             assertThat(id.memoryName()).isEqualTo("semantic");
@@ -76,10 +76,10 @@ class TierStoreKernelIntegrationTest {
     }
 
     @Test
-    @DisplayName("SemanticRecordMemory exposes kernel layout directly")
+    @DisplayName("SemanticMemory exposes kernel layout directly")
     void semanticMemoryStoreKernelLayout() {
-        try (var store = new SemanticRecordMemory(VEC_BYTES, CAPACITY)) {
-            CognitiveRecordLayout layout = store.layout();
+        try (var store = new SemanticMemory(VEC_BYTES, CAPACITY)) {
+            var layout = store.layout();
             assertThat(layout).isNotNull();
             assertThat(layout.recordStride()).isEqualTo(store.layout().stride());
         }
@@ -88,9 +88,9 @@ class TierStoreKernelIntegrationTest {
     // ── Procedural Memory ──
 
     @Test
-    @DisplayName("ProceduralRecordMemory has kernel identity with PROCEDURAL type")
+    @DisplayName("ProceduralMemory has kernel identity with PROCEDURAL type")
     void proceduralMemoryStoreHasKernelIdentity() {
-        try (var store = new ProceduralRecordMemory(VEC_BYTES, CAPACITY)) {
+        try (var store = new ProceduralMemory(VEC_BYTES, CAPACITY)) {
             MemoryId id = store.memoryId();
             assertThat(id.namespace()).isEqualTo("tier");
             assertThat(id.memoryName()).isEqualTo("procedural");
@@ -98,10 +98,10 @@ class TierStoreKernelIntegrationTest {
     }
 
     @Test
-    @DisplayName("ProceduralRecordMemory exposes kernel layout directly")
+    @DisplayName("ProceduralMemory exposes kernel layout directly")
     void proceduralMemoryStoreKernelLayout() {
-        try (var store = new ProceduralRecordMemory(VEC_BYTES, CAPACITY)) {
-            CognitiveRecordLayout layout = store.layout();
+        try (var store = new ProceduralMemory(VEC_BYTES, CAPACITY)) {
+            var layout = store.layout();
             assertThat(layout).isNotNull();
             assertThat(layout.recordStride()).isEqualTo(store.layout().stride());
         }
@@ -110,9 +110,9 @@ class TierStoreKernelIntegrationTest {
     // ── Episodic Memory ──
 
     @Test
-    @DisplayName("EpisodicLogMemory has kernel identity with EPISODIC type")
+    @DisplayName("EpisodicMemory has kernel identity with EPISODIC type")
     void episodicMemoryStoreHasKernelIdentity() {
-        try (var store = EpisodicLogMemory.heap(CAPACITY * 256L)) {
+        try (var store = EpisodicMemory.heap(CAPACITY * 256L)) {
             MemoryId id = store.id();
             assertThat(id.namespace()).isEqualTo("tier");
             assertThat(id.memoryName()).isEqualTo("episodic");
@@ -124,7 +124,7 @@ class TierStoreKernelIntegrationTest {
     @Test
     @DisplayName("memoryId is lazily initialized and thread-safe")
     void memoryIdIsLazyAndStable() {
-        try (var store = new WorkingRecordMemory(VEC_BYTES, CAPACITY)) {
+        try (var store = new WorkingMemory(VEC_BYTES, CAPACITY)) {
             MemoryId id1 = store.memoryId();
             MemoryId id2 = store.memoryId();
             assertThat(id1).isSameAs(id2); // same instance, not just equals
@@ -134,7 +134,7 @@ class TierStoreKernelIntegrationTest {
     @Test
     @DisplayName("memoryId toString follows kernel format")
     void memoryIdToStringFormat() {
-        try (var store = new SemanticRecordMemory(VEC_BYTES, CAPACITY)) {
+        try (var store = new SemanticMemory(VEC_BYTES, CAPACITY)) {
             assertThat(store.memoryId().toString()).isEqualTo("tier/semantic");
         }
     }
@@ -142,9 +142,9 @@ class TierStoreKernelIntegrationTest {
     @Test
     @DisplayName("kernel layout crcEnabled matches cognitive layout")
     void kernelLayoutCrcFlag() {
-        try (var store = new WorkingRecordMemory(VEC_BYTES, CAPACITY)) {
-            // CognitiveRecordLayout doesn't enable CRC by default
-            CognitiveRecordLayout layout = store.layout();
+        try (var store = new WorkingMemory(VEC_BYTES, CAPACITY)) {
+            // EngramLayout doesn't enable CRC by default
+            var layout = store.layout();
             assertThat(layout.crcEnabled()).isFalse();
         }
     }

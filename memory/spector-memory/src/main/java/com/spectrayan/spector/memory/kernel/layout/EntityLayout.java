@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
  * Memory layout for nodes/relations in the legacy Entity Graph.
@@ -40,15 +40,15 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
  * {@code EntityDirectoryLayout}. Removed in P4 (#458).
  */
 @Deprecated(since = "1.2.0", forRemoval = true)
-public final class EntityLayout implements MemoryLayout {
+public final class EntityLayout implements RegionLayout {
 
     private static final int LAYOUT_ID = 0x45474D4D; // 'EGMM'
     private static final int VERSION = 2;
 
-    // ── SMKM container: [64B MemoryHeader][16B Entity sub-header][entity slab][edge slab][adj slab] ──
-    /** Bytes of the Entity graph sub-header following the 64-byte kernel {@link MemoryHeader}. */
+    // ── SMKM container: [64B RegionPreamble][16B Entity sub-header][entity slab][edge slab][adj slab] ──
+    /** Bytes of the Entity graph sub-header following the 64-byte kernel {@link RegionPreamble}. */
     public static final int GRAPH_SUBHEADER_BYTES = 16;
-    /** Sub-header field (relative to {@link MemoryHeader#HEADER_BYTES}): edge-slab capacity (int). */
+    /** Sub-header field (relative to {@link RegionPreamble#PREAMBLE_BYTES}): edge-slab capacity (int). */
     public static final int SUB_OFF_EDGE_CAPACITY = 0;
     /** Sub-header field: current edge count (int). */
     public static final int SUB_OFF_EDGE_COUNT = 4;
@@ -57,7 +57,7 @@ public final class EntityLayout implements MemoryLayout {
     /** Sub-header field: adjacency-segment high-water mark in entries (int). */
     public static final int SUB_OFF_ADJ_HWM = 12;
     /** Byte offset where the entity node slab begins in an SMKM file (64 + 16). */
-    public static final long DATA_START = MemoryHeader.HEADER_BYTES + GRAPH_SUBHEADER_BYTES;
+    public static final long DATA_START = RegionPreamble.PREAMBLE_BYTES + GRAPH_SUBHEADER_BYTES;
 
     // ── Entity Node record (64 bytes, 8-byte aligned — V2) ──
     /** Bytes per entity-node record; also the substrate record stride. */

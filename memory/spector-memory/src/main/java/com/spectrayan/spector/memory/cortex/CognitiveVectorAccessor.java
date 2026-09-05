@@ -19,7 +19,8 @@ import java.util.function.Function;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
  * Encapsulates point vector retrieval and scalar dequantization from partitioned off-heap memory.
@@ -75,7 +76,7 @@ public final class CognitiveVectorAccessor implements Function<String, float[]> 
         }
 
         MemoryIndex.MemoryLocation loc = index.locate(memoryId);
-        if (loc == null) {
+        if (loc == null || loc.type() == MemoryType.EPISODIC) {
             return null;
         }
 
@@ -89,7 +90,7 @@ public final class CognitiveVectorAccessor implements Function<String, float[]> 
             return null;
         }
 
-        CognitiveRecordLayout layout = router.layoutFor(loc.type());
+        FixedEngramLayout layout = router.layoutFor(loc.type());
         if (layout == null) {
             return null;
         }

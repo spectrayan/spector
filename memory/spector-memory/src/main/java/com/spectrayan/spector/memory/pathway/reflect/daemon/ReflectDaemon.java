@@ -15,18 +15,15 @@ package com.spectrayan.spector.memory.pathway.reflect.daemon;
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
+import com.spectrayan.spector.memory.model.EpisodeRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
@@ -116,7 +113,6 @@ public final class ReflectDaemon {
     private static final int DEFAULT_MIN_CLUSTER_SIZE = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_REFLECT_MIN_CLUSTER_SIZE;
 
     private final CircadianPolicy policy;
-    private final TombstoneCompactor compactor;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     //  Optional providers (null = graceful fallback to basic behavior) 
@@ -143,7 +139,6 @@ public final class ReflectDaemon {
                           LlmProvider textGenerator, EmbeddingProvider embeddingProvider,
                           int minClusterSize, boolean pinSourceEpisodes, int pinnedQuota) {
         this.policy = policy;
-        this.compactor = new TombstoneCompactor(policy.tombstoneThreshold());
         this.centroidRouter = centroidRouter;
         this.textGenerator = textGenerator;
         this.embeddingProvider = embeddingProvider;
@@ -185,15 +180,41 @@ public final class ReflectDaemon {
     }
 
     /**
-     * Runs a single synchronous reflection cycle.
-     *
-     * <p>Backward-compatible overload  --  delegates with null
-     * text lookup (falls back to basic behavior).</p>
+     * Runs a single synchronous reflection cycle on a single episodic memory store.
      *
      * @param episodicStore the episodic memory store to scan
      * @param rememberPathway the cognitive ingestion target to promote into
+     * @param textLookup optional function to resolve text by offset
      * @return report summarizing what was done
      */
+    public ReflectReport runCycle(EpisodicMemory episodicStore,
+                                  RememberPathway rememberPathway,
+                                  java.util.function.Function<Long, String> textLookup) {
+        if (episodicStore == null) {
+            return ReflectReport.EMPTY;
+        }
+
+        if (!running.compareAndSet(false, true)) {
+            log.warn("Reflection cycle already in progress -- skipping");
+            return ReflectReport.EMPTY;
+        }
+
+        Instant start = Instant.now();
+        try {
+            int totalConsolidated = reflectEpisodic(episodicStore, rememberPathway);
+            Duration elapsed = Duration.between(start, Instant.now());
+            return new ReflectReport(totalConsolidated, 0, 0, 0, elapsed);
+        } finally {
+            running.set(false);
+        }
+    }
+
+    /**
+     * Backward-compatible overload for single episodic memory store without text lookup.
+     */
+    public ReflectReport runCycle(EpisodicMemory episodicStore, RememberPathway rememberPathway) {
+        return runCycle(episodicStore, rememberPathway, null);
+    }
     /**
      * Runs a single synchronous reflection cycle across all frozen and active partitions (#446).
      *
@@ -222,36 +243,14 @@ public final class ReflectDaemon {
         try {
             var handles = partitionManager.snapshot();
 
-            // 1. Reflect log-structured episodic conversation turns across all partitions (ADR-0006)
+            // 1. Reflect episodic conversation turns across all partitions
             for (var handle : handles) {
-                if (handle.router() != null && handle.router().isEpisodicLogMode()) {
-                    var logStore = handle.router().episodicLog();
-                    if (logStore != null) {
-                        int consolidatedTurns = reflectEpisodicLog(logStore, rememberPathway);
-                        totalConsolidated += consolidatedTurns;
-                    }
-                }
-            }
-
-            // 2. Reflect legacy fixed-stride episodic partitions across all partition handles if present
-            List<EpisodicPartition> allLegacyPartitions = new ArrayList<>();
-            for (var handle : handles) {
-                if (handle.router() != null && !handle.router().isEpisodicLogMode()) {
+                if (handle.router() != null) {
                     var episodicStore = handle.router().episodic();
                     if (episodicStore != null) {
-                        allLegacyPartitions.addAll(episodicStore.partitions());
+                        int consolidatedTurns = reflectEpisodic(episodicStore, rememberPathway);
+                        totalConsolidated += consolidatedTurns;
                     }
-                }
-            }
-
-            if (!allLegacyPartitions.isEmpty()) {
-                long nowMs = System.currentTimeMillis();
-                for (EpisodicPartition partition : allLegacyPartitions) {
-                    totalTombstoned += compactor.pruneDecayed(partition, policy.decayPruneThreshold(), nowMs);
-                    int promoted = centroidRouter != null
-                            ? clusterAndSynthesize(partition, rememberPathway, offset -> index != null ? index.findTextByOffset(MemoryType.EPISODIC, offset) : null)
-                            : promoteHighestImportance(partition, rememberPathway, offset -> index != null ? index.findTextByOffset(MemoryType.EPISODIC, offset) : null);
-                    totalConsolidated += promoted;
                 }
             }
 
@@ -265,17 +264,16 @@ public final class ReflectDaemon {
         }
     }
 
-    private int reflectEpisodicLog(EpisodicLogMemory logStore, RememberPathway rememberPathway) {
+    private int reflectEpisodic(EpisodicMemory logStore, RememberPathway rememberPathway) {
         if (logStore == null || rememberPathway == null) return 0;
         List<Long> unconsolidatedOffsets = logStore.unconsolidatedTurnOffsets();
         if (unconsolidatedOffsets.isEmpty()) return 0;
 
-        List<EpisodicFieldAccessor.EpisodicRecord> turns = logStore.readTurns(unconsolidatedOffsets, true);
+        List<EpisodeRecord> turns = logStore.readTurns(unconsolidatedOffsets, true);
         if (turns.isEmpty()) return 0;
 
-        // Group unconsolidated turns by sessionId
-        Map<Long, List<EpisodicFieldAccessor.EpisodicRecord>> sessionTurns = new HashMap<>();
-        Map<EpisodicFieldAccessor.EpisodicRecord, Long> turnToOffset = new HashMap<>();
+        Map<Long, List<EpisodeRecord>> sessionTurns = new HashMap<>();
+        Map<EpisodeRecord, Long> turnToOffset = new HashMap<>();
         for (int i = 0; i < turns.size(); i++) {
             var turn = turns.get(i);
             long offset = unconsolidatedOffsets.get(i);
@@ -284,8 +282,8 @@ public final class ReflectDaemon {
         }
 
         int totalPromoted = 0;
-        for (Map.Entry<Long, List<EpisodicFieldAccessor.EpisodicRecord>> entry : sessionTurns.entrySet()) {
-            List<EpisodicFieldAccessor.EpisodicRecord> sessionList = entry.getValue();
+        for (Map.Entry<Long, List<EpisodeRecord>> entry : sessionTurns.entrySet()) {
+            List<EpisodeRecord> sessionList = entry.getValue();
             if (sessionList.isEmpty()) continue;
 
             List<String> turnTexts = new ArrayList<>();
@@ -309,7 +307,7 @@ public final class ReflectDaemon {
                     joinedText = joinedText.substring(0, 500);
                 }
                 float[] vec = embeddingProvider != null ? embeddingProvider.embed(joinedText).vector() : new float[rememberPathway.quantizer().dimensions()];
-                CognitiveHeader header = new CognitiveHeader(
+                EncodingHeader header = new EncodingHeader(
                         System.currentTimeMillis(),
                         0L,
                         1.0f,
@@ -317,7 +315,7 @@ public final class ReflectDaemon {
                         1,
                         (short) 0,
                         (byte) 0,
-                        SynapticHeaderConstants.withMemoryType(SynapticHeaderConstants.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal()),
+                        EncodingHeaderFields.withMemoryType(EncodingHeaderFields.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal()),
                         (byte) 0,
                         1.0f
                 );
@@ -337,7 +335,6 @@ public final class ReflectDaemon {
                 );
                 totalPromoted++;
 
-                // Mark all source turns in this session consolidated
                 for (var turn : sessionList) {
                     Long off = turnToOffset.get(turn);
                     if (off != null) {
@@ -350,7 +347,7 @@ public final class ReflectDaemon {
         return totalPromoted;
     }
 
-    private String extractTurnText(EpisodicFieldAccessor.EpisodicRecord turn) {
+    private String extractTurnText(EpisodeRecord turn) {
         if (turn.body() == null || turn.body().length == 0) return "";
         try {
             return new String(turn.body(), java.nio.charset.StandardCharsets.UTF_8);
@@ -359,382 +356,7 @@ public final class ReflectDaemon {
         }
     }
 
-    public ReflectReport runCycle(EpisodicRecordMemory episodicStore,
-                                   RememberPathway rememberPathway) {
-        return runCycle(episodicStore, rememberPathway, null);
-    }
-
-    public ReflectReport runCycle(EpisodicRecordMemory episodicStore,
-                                   RememberPathway rememberPathway,
-                                   Function<Long, String> textLookup) {
-        if (!running.compareAndSet(false, true)) {
-            log.warn("Reflection cycle already in progress  --  skipping");
-            return ReflectReport.EMPTY;
-        }
-
-        Instant start = Instant.now();
-        int totalTombstoned = 0;
-        int totalCompacted = 0;
-        int totalConsolidated = 0;
-
-        try {
-            long nowMs = System.currentTimeMillis();
-
-            //  Phase 1: Deep Sleep (Synaptic Pruning)  --  parallel partitions 
-            List<EpisodicPartition> allPartitions = episodicStore.partitions();
-            log.info("Deep Sleep starting  --  scanning {} partitions", allPartitions.size());
-            
-            // Native POSIX Optimization: advise sequential access on all episodic segments before scan
-            for (EpisodicPartition partition : allPartitions) {
-                if (partition.segment() != null && partition.segment().isMapped()) {
-                    com.spectrayan.spector.commons.concurrent.NativeOsMemory.advise(partition.segment(), com.spectrayan.spector.commons.concurrent.NativeOsMemory.MADV_SEQUENTIAL);
-                }
-            }
-
-            try {
-                // Parallel prune: each partition scanned on its own Virtual Thread
-                List<Callable<Integer>> pruneTasks = new ArrayList<>(allPartitions.size());
-                for (EpisodicPartition partition : allPartitions) {
-                    pruneTasks.add(() -> compactor.pruneDecayed(partition,
-                            policy.decayPruneThreshold(), nowMs));
-                }
-                List<Integer> prunedCounts = ConcurrentTasks.forkJoinAll(pruneTasks);
-                for (int p : prunedCounts) totalTombstoned += p;
-            } catch (ConcurrentExecutionException | InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.warn("Parallel prune failed, falling back to sequential: {}", e.getMessage());
-                for (EpisodicPartition partition : allPartitions) {
-                    totalTombstoned += compactor.pruneDecayed(partition,
-                            policy.decayPruneThreshold(), nowMs);
-                }
-            }
-
-            // Compaction check (sequential  --  involves atomic partition swap)
-            for (EpisodicPartition partition : allPartitions) {
-                if (compactor.shouldCompact(partition)) {
-                    String key = episodicStore.keyForPartition(partition);
-                    log.info("Partition {} exceeds tombstone threshold ({}%)  --  compacting",
-                            partition.path(), String.format("%.0f", partition.tombstoneRatio() * 100));
-
-                    if (key != null) {
-                        EpisodicPartition compacted = compactor.compact(
-                                partition, episodicStore.partitions().getFirst().path().getParent(), key);
-                        if (compacted != null) {
-                            episodicStore.replacePartition(key, partition, compacted);
-                            totalCompacted++;
-
-                            // Native POSIX Optimization: Immediately release old partition segment page cache
-                            if (partition.segment() != null && partition.segment().isMapped()) {
-                                com.spectrayan.spector.commons.concurrent.NativeOsMemory.advise(partition.segment(), com.spectrayan.spector.commons.concurrent.NativeOsMemory.MADV_DONTNEED);
-                            }
-                        }
-                    }
-                }
-            }
-
-            //  Phase 2: REM Sleep (Dreaming/Synthesis)  --  parallel partitions 
-            log.info("REM Sleep starting  --  looking for dense episodic clusters");
-
-            try {
-                List<Callable<Integer>> remTasks = new ArrayList<>(allPartitions.size());
-                for (EpisodicPartition partition : episodicStore.partitions()) {
-                    remTasks.add(() -> {
-                        if (centroidRouter != null) {
-                            return clusterAndSynthesize(partition, rememberPathway, textLookup);
-                        } else {
-                            return promoteHighestImportance(partition, rememberPathway, textLookup);
-                        }
-                    });
-                }
-                List<Integer> consolidated = ConcurrentTasks.forkJoinAll(remTasks);
-                for (int c : consolidated) totalConsolidated += c;
-            } catch (ConcurrentExecutionException | InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.warn("Parallel REM failed, falling back to sequential: {}", e.getMessage());
-                for (EpisodicPartition partition : episodicStore.partitions()) {
-                    int promoted = centroidRouter != null
-                            ? clusterAndSynthesize(partition, rememberPathway, textLookup)
-                            : promoteHighestImportance(partition, rememberPathway, textLookup);
-                    totalConsolidated += promoted;
-                }
-            }
-
-            Duration elapsed = Duration.between(start, Instant.now());
-            log.info("Reflection complete: consolidated={}, tombstoned={}, compacted={}, duration={}ms",
-                    totalConsolidated, totalTombstoned, totalCompacted, elapsed.toMillis());
-
-            // Native POSIX Optimization: Release page-cache for all episodic segments once sleep consolidation is fully complete
-            for (EpisodicPartition partition : allPartitions) {
-                if (partition.segment() != null && partition.segment().isMapped()) {
-                    com.spectrayan.spector.commons.concurrent.NativeOsMemory.advise(partition.segment(), com.spectrayan.spector.commons.concurrent.NativeOsMemory.MADV_DONTNEED);
-                }
-            }
-
-            return new ReflectReport(totalConsolidated, totalTombstoned,
-                    totalCompacted, 0, elapsed);
-
-        } finally {
-            running.set(false);
-        }
-    }
-
-    //  V3: IVF Centroid-Based Clustering + LLM Synthesis 
-
-    /**
-     * Clusters non-consolidated records by centroid ID and promotes dense clusters.
-     *
-     * <p>Algorithm:</p>
-     * <ol>
-     *   <li>Group records by {@code centroid_id} (read from header at offset 24)</li>
-     *   <li>Filter: only process clusters  >=  {@code minClusterSize}</li>
-     *   <li>For each dense cluster:
-     *     <ul>
-     *       <li>Compute common synaptic tags via bitmap AND</li>
-     *       <li>If LlmProvider available: synthesize factual summary</li>
-     *       <li>If no LLM: select highest-importance record as representative</li>
-     *     </ul>
-     *   </li>
-     *   <li>Promote into Semantic tier with {@code MemorySource.REFLECTED}</li>
-     *   <li>Mark all cluster members as consolidated</li>
-     * </ol>
-     */
-    private record PromotedFact(String text, float[] vector, CognitiveHeader header) {}
-
-    private int clusterAndSynthesize(EpisodicPartition partition,
-                                      RememberPathway rememberPathway,
-                                      Function<Long, String> textLookup) {
-        if (rememberPathway == null || partition.count() == 0) return 0;
-
-        CognitiveRecordLayout layout = partition.layout();
-        var segment = partition.segment();
-        int count = partition.count();
-
-        // Step 1: Group non-consolidated records by centroid ID
-        Map<Integer, List<Integer>> centroidClusters = new HashMap<>();
-
-        for (int i = 0; i < count; i++) {
-            long offset = partition.recordOffset(i);
-            byte flags = layout.readFlags(segment, offset);
-
-            if (SynapticHeaderConstants.isTombstoned(flags)) continue;
-            if (SynapticHeaderConstants.isConsolidated(flags)) continue;
-
-            CognitiveHeader header = layout.readHeader(segment, offset);
-            int centroidId = header.centroidId();
-
-            centroidClusters.computeIfAbsent(centroidId, k -> new ArrayList<>()).add(i);
-        }
-
-        // Step 2: Process dense clusters
-        int totalPromoted = 0;
-
-        for (Map.Entry<Integer, List<Integer>> entry : centroidClusters.entrySet()) {
-            List<Integer> clusterIndices = entry.getValue();
-            if (clusterIndices.size() < minClusterSize) continue;
-
-            int centroidId = entry.getKey();
-            log.debug("REM: Processing cluster {} ({} records)", centroidId, clusterIndices.size());
-
-            // Step 2.5: Proactive Interference  --  decay near-duplicates within cluster
-            int degraded = applyProactiveInterference(partition, clusterIndices);
-            if (degraded > 0) {
-                log.debug("REM: Cluster {}  --  {} near-duplicates had importance decayed",
-                        centroidId, degraded);
-            }
-
-            // Step 3: Compute common synaptic tags (bitmap AND across cluster)
-            long commonTags = ~0L; // start with all bits set
-            float maxImportance = -1f;
-            int bestIndex = -1;
-            List<String> clusterTexts = new ArrayList<>();
-
-            for (int idx : clusterIndices) {
-                long offset = partition.recordOffset(idx);
-                CognitiveHeader header = layout.readHeader(segment, offset);
-
-                commonTags &= header.synapticTags();
-
-                if (header.importance() > maxImportance) {
-                    maxImportance = header.importance();
-                    bestIndex = idx;
-                }
-
-                // Collect text for LLM synthesis
-                if (textLookup != null) {
-                    String text = textLookup.apply(offset);
-                    if (text != null && !text.isEmpty()) {
-                        clusterTexts.add(text);
-                    }
-                }
-            }
-
-            if (bestIndex < 0) continue;
-
-            // Step 4: Synthesize or select representative
-            PromotedFact promotedFact = null;
-
-            if (textGenerator != null && !clusterTexts.isEmpty() && embeddingProvider != null) {
-                // V3: LLM-based synthesis
-                promotedFact = synthesizeWithLlm(clusterTexts, commonTags, maxImportance);
-            }
-            
-            if (promotedFact == null) {
-                // Fallback: promote highest-importance record (no LLM available)
-                long bestOffset = partition.recordOffset(bestIndex);
-                CognitiveHeader episodicHeader = layout.readHeader(segment, bestOffset);
-                CognitiveHeader promotedHeader = createSemanticHeader(episodicHeader, commonTags);
-                
-                String bestText = (textLookup != null) ? textLookup.apply(bestOffset) : "";
-                
-                int vecBytes = layout.quantizedVecBytes();
-                byte[] quantized = new byte[vecBytes];
-                java.lang.foreign.MemorySegment.copy(segment, layout.vectorOffset(bestOffset), java.lang.foreign.MemorySegment.ofArray(quantized), 0, vecBytes);
-                float[] decodedVector = rememberPathway.quantizer().decode(quantized);
-                
-                promotedFact = new PromotedFact(bestText, decodedVector, promotedHeader);
-            }
-
-            if (promotedFact != null && promotedFact.header() != null) {
-                String newId = "rem-" + new com.spectrayan.spector.memory.kernel.id.TsidGenerator().generate();
-                rememberPathway.ingestCognitiveWithHeader(
-                        newId,
-                        promotedFact.text(),
-                        promotedFact.vector(),
-                        MemoryType.SEMANTIC,
-                        new String[0], // Empty array, synapticTags preserved via ingested header
-                        MemorySource.REFLECTED,
-                        promotedFact.header()
-                );
-                totalPromoted++;
-
-                // Step 5: Mark all cluster members as consolidated
-                for (int idx : clusterIndices) {
-                    long offset = partition.recordOffset(idx);
-                    layout.markConsolidated(segment, offset);
-
-                    // Neurodivergent: Lossless consolidation  --  pin source episodes
-                    // to preserve encyclopedic detail alongside the semantic fact.
-                    if (pinSourceEpisodes && pinnedCount < pinnedQuota) {
-                        layout.pin(segment, offset);
-                        pinnedCount++;
-                    }
-                }
-
-                log.debug("REM: Cluster {} consolidated ({} records  ->  1 semantic fact, importance={})",
-                        centroidId, clusterIndices.size(), maxImportance);
-            }
-        }
-
-        return totalPromoted;
-    }
-
-    //  Proactive Interference 
-
-    /** Maximum records to compare per cluster (bounds O(N ²) cost). */
-    private static final int MAX_INTERFERENCE_CANDIDATES = 20;
-
-    /**
-     * Proactive Interference  --  competitive degradation of near-duplicate memories.
-     *
-     * <h3>Biological Analog</h3>
-     * <p>New memories overwrite old similar ones (retroactive interference). In the
-     * brain, similar memories compete for the same neural pathways. The newer,
-     * more recently encoded memory wins, and the older one fades.</p>
-     *
-     * <h3>Implementation</h3>
-     * <p>Within each centroid cluster, finds pairs of records within
-     * {@code interferenceThreshold} L2 distance. For each pair, the older
-     * record's importance is multiplied by {@code interferenceDecayFactor}
-     * (default: 0.7 = 30% reduction per cycle). This is less violent than
-     * halving agent_recall_count  --  the old memory fades naturally via importance
-     * decay rather than losing its entire recall history.</p>
-     *
-     * <h3>Performance</h3>
-     * <p>Caps comparisons at the top-{@value #MAX_INTERFERENCE_CANDIDATES}
-     * records by importance (descending) to bound the O(N ²/cluster) cost.
-     * For a cluster of 50 records, this reduces comparisons from 1,225 to 190.</p>
-     *
-     * @param partition       the episodic partition being processed
-     * @param clusterIndices  indices of records in this centroid cluster
-     * @return count of records whose importance was decayed
-     */
-    private int applyProactiveInterference(EpisodicPartition partition,
-                                            List<Integer> clusterIndices) {
-        if (clusterIndices.size() < 2) return 0;
-
-        CognitiveRecordLayout layout = partition.layout();
-        var segment = partition.segment();
-        float threshold = policy.interferenceThreshold();
-        float decayFactor = policy.interferenceDecayFactor();
-
-        // Select top candidates by importance (cap at MAX_INTERFERENCE_CANDIDATES)
-        List<Integer> candidates;
-        if (clusterIndices.size() <= MAX_INTERFERENCE_CANDIDATES) {
-            candidates = clusterIndices;
-        } else {
-            // Sort a copy by importance descending, take top N
-            candidates = new ArrayList<>(clusterIndices);
-            candidates.sort((a, b) -> {
-                float ia = layout.readImportance(segment, partition.recordOffset(a));
-                float ib = layout.readImportance(segment, partition.recordOffset(b));
-                return Float.compare(ib, ia); // descending
-            });
-            candidates = candidates.subList(0, MAX_INTERFERENCE_CANDIDATES);
-        }
-
-        int degradedCount = 0;
-
-        for (int i = 0; i < candidates.size(); i++) {
-            long offsetA = partition.recordOffset(candidates.get(i));
-            CognitiveHeader headerA = layout.readHeader(segment, offsetA);
-            if (SynapticHeaderConstants.isTombstoned(headerA.flags())) continue;
-
-            for (int j = i + 1; j < candidates.size(); j++) {
-                long offsetB = partition.recordOffset(candidates.get(j));
-                CognitiveHeader headerB = layout.readHeader(segment, offsetB);
-                if (SynapticHeaderConstants.isTombstoned(headerB.flags())) continue;
-
-                // Compute L2 distance between quantized vectors.
-                // Read A's quantized bytes  ->  dequantize to float[]  ->  compare against B.
-                // This allocates a float[] per pair, acceptable since this runs during sleep.
-                int vecBytes = layout.quantizedVecBytes();
-                float[] vecA = new float[vecBytes];
-                long vecOffsetA = layout.vectorOffset(offsetA);
-                for (int d = 0; d < vecBytes; d++) {
-                    vecA[d] = (segment.get(java.lang.foreign.ValueLayout.JAVA_BYTE, vecOffsetA + d) & 0xFF);
-                }
-                // Use identity calibration (both vectors quantized the same way)
-                float[] identityMins = com.spectrayan.spector.memory.synapse.IdentityCalibration.mins(vecBytes);
-                float[] identityScales = com.spectrayan.spector.memory.synapse.IdentityCalibration.scales(vecBytes);
-                float dist = com.spectrayan.spector.core.similarity.SimilarityFunction.EUCLIDEAN
-                        .computeQuantizedFromSegment(vecA, segment, layout.vectorOffset(offsetB),
-                                identityMins, identityScales, vecBytes);
-
-                if (dist <= threshold) {
-                    // Near-duplicate: decay the OLDER one's importance
-                    long tsA = headerA.timestampMs();
-                    long tsB = headerB.timestampMs();
-
-                    long olderOffset = tsA <= tsB ? offsetA : offsetB;
-                    float olderImportance = layout.readImportance(segment, olderOffset);
-                    float decayed = olderImportance * decayFactor;
-
-                    layout.writeImportance(segment, olderOffset, decayed);
-                    degradedCount++;
-
-                    log.trace("Proactive interference: decayed importance at offset {} " +
-                            "from {}  ->  {} (L2={}, threshold={})",
-                            olderOffset, olderImportance, decayed, dist, threshold);
-                }
-            }
-        }
-
-        return degradedCount;
-    }
-
-    /**
-     * Synthesizes a semantic fact from cluster texts using the LLM.
-     */
+    private record PromotedFact(String text, float[] vector, EncodingHeader header) {}
     private PromotedFact synthesizeWithLlm(List<String> clusterTexts, long commonTags,
                                                 float maxImportance) {
         try {
@@ -770,11 +392,11 @@ public final class ReflectDaemon {
                 }
             }
 
-            byte semanticFlags = SynapticHeaderConstants.withMemoryType(
-                    SynapticHeaderConstants.FLAG_CONSOLIDATED,
+            byte semanticFlags = EncodingHeaderFields.withMemoryType(
+                    EncodingHeaderFields.FLAG_CONSOLIDATED,
                     MemoryType.SEMANTIC.ordinal());
 
-            CognitiveHeader header = new CognitiveHeader(
+            EncodingHeader header = new EncodingHeader(
                     System.currentTimeMillis(), commonTags, exactNorm, maxImportance,
                     0, (short) 0, (byte) 0, semanticFlags);
             
@@ -784,101 +406,6 @@ public final class ReflectDaemon {
             log.warn("REM: LLM synthesis failed: {}  --  falling back to selection", e.getMessage());
             return null;
         }
-    }
-
-    /**
-     * Creates a SEMANTIC-type header from an episodic header, with consolidated flag.
-     */
-    private CognitiveHeader createSemanticHeader(CognitiveHeader episodicHeader, long commonTags) {
-        byte semanticFlags = SynapticHeaderConstants.withMemoryType(
-                (byte) (episodicHeader.flags() | SynapticHeaderConstants.FLAG_CONSOLIDATED),
-                MemoryType.SEMANTIC.ordinal());
-
-        return new CognitiveHeader(
-                episodicHeader.timestampMs(),
-                commonTags != 0 ? commonTags : episodicHeader.synapticTags(),
-                episodicHeader.exactNorm(),
-                episodicHeader.importance(),
-                episodicHeader.agentRecallCount(),
-                episodicHeader.centroidId(),
-                episodicHeader.valence(),
-                semanticFlags);
-    }
-
-    //  Simple Highest-Importance Promotion (fallback path) 
-
-    /**
-     * Promotes the highest-importance non-consolidated memory from a partition
-     * into the semantic store. Used as fallback when clustering is not configured.
-     */
-    private int promoteHighestImportance(EpisodicPartition partition,
-                                          RememberPathway rememberPathway,
-                                          Function<Long, String> textLookup) {
-        if (rememberPathway == null || partition.count() == 0) return 0;
-
-        CognitiveRecordLayout layout = partition.layout();
-        var segment = partition.segment();
-        int count = partition.count();
-
-        float maxImportance = -1f;
-        int bestIndex = -1;
-
-        for (int i = 0; i < count; i++) {
-            long offset = partition.recordOffset(i);
-            byte flags = layout.readFlags(segment, offset);
-
-            // Skip tombstoned and already-consolidated
-            if (SynapticHeaderConstants.isTombstoned(flags)) continue;
-            if (SynapticHeaderConstants.isConsolidated(flags)) continue;
-
-            float importance = layout.readImportance(segment, offset);
-            if (importance > maxImportance) {
-                maxImportance = importance;
-                bestIndex = i;
-            }
-        }
-
-        if (bestIndex >= 0 && maxImportance >= 1.0f) {
-            long offset = partition.recordOffset(bestIndex);
-
-            // Read the header and re-create as SEMANTIC type
-            CognitiveHeader episodicHeader = layout.readHeader(segment, offset);
-            CognitiveHeader semanticHeader = createSemanticHeader(episodicHeader,
-                    episodicHeader.synapticTags());
-
-            String bestText = (textLookup != null) ? textLookup.apply(offset) : "";
-            
-            int vecBytes = layout.quantizedVecBytes();
-            byte[] quantized = new byte[vecBytes];
-            java.lang.foreign.MemorySegment.copy(segment, layout.vectorOffset(offset), java.lang.foreign.MemorySegment.ofArray(quantized), 0, vecBytes);
-            float[] decodedVector = rememberPathway.quantizer().decode(quantized);
-
-            String newId = "rem-" + new com.spectrayan.spector.memory.kernel.id.TsidGenerator().generate();
-            rememberPathway.ingestCognitiveWithHeader(
-                    newId,
-                    bestText,
-                    decodedVector,
-                    MemoryType.SEMANTIC,
-                    new String[0],
-                    MemorySource.REFLECTED,
-                    semanticHeader
-            );
-
-            // Mark the episodic original as consolidated
-            layout.markConsolidated(segment, offset);
-
-            // Neurodivergent: Lossless consolidation  --  pin promoted source
-            if (pinSourceEpisodes && pinnedCount < pinnedQuota) {
-                layout.pin(segment, offset);
-                pinnedCount++;
-            }
-
-            log.debug("REM: Promoted episodic record {} to semantic (importance={})",
-                    bestIndex, maxImportance);
-            return 1;
-        }
-
-        return 0;
     }
 
     /**

@@ -293,16 +293,24 @@ public record CognitiveResult(
     }
 
     /**
-     * Returns true if this result was generated via constructive simulation / thought experiment (ADR-0031).
+     * Returns the engram source provenance category (NF7).
+     */
+    public EngramSource engramSource() {
+        return source != null ? source.toEngramSource() : EngramSource.EXPERIENCED;
+    }
+
+    /**
+     * Returns true if this result was generated via constructive simulation / thought experiment (ADR-0031 / NF7).
      */
     public boolean isSimulated() {
-        return com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.isSimulated(consolidationFlags);
+        return (source != null && source.toEngramSource() == EngramSource.SIMULATED)
+                || com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isSimulated(consolidationFlags);
     }
 
     /**
      * Returns true if this result was ingested during a dream cycle (ADR-0031).
      */
     public boolean isDreamed() {
-        return com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.isDreamed(consolidationFlags);
+        return com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isDreamed(consolidationFlags);
     }
 }

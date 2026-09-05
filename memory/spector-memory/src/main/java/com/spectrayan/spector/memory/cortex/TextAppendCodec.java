@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Codec binding for TextAppendMemory format.
+ * Codec binding for TextBlobMemory format.
  */
 public final class TextAppendCodec implements Codec<TextBlobLayout> {
 

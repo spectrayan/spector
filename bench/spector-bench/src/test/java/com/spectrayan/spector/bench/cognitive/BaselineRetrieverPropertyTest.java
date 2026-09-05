@@ -20,8 +20,8 @@ import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
 
 import net.jqwik.api.Arbitraries;
@@ -63,7 +63,7 @@ class BaselineRetrieverPropertyTest {
 
         float[] mins = IdentityCalibration.mins(DIMS);
         float[] scales = IdentityCalibration.scales(DIMS);
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        EngramLayout layout = new EngramLayout(DIMS);
 
         try (Arena arena = Arena.ofConfined()) {
             long totalBytes = (long) corpusSize * layout.stride();
@@ -115,7 +115,7 @@ class BaselineRetrieverPropertyTest {
 
         float[] mins = IdentityCalibration.mins(DIMS);
         float[] scales = IdentityCalibration.scales(DIMS);
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        EngramLayout layout = new EngramLayout(DIMS);
 
         try (Arena arena = Arena.ofConfined()) {
             long totalBytes = (long) corpusSize * layout.stride();
@@ -153,7 +153,7 @@ class BaselineRetrieverPropertyTest {
 
         float[] mins = IdentityCalibration.mins(DIMS);
         float[] scales = IdentityCalibration.scales(DIMS);
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        EngramLayout layout = new EngramLayout(DIMS);
 
         try (Arena arena = Arena.ofConfined()) {
             long totalBytes = (long) corpusSize * layout.stride();
@@ -216,12 +216,12 @@ class BaselineRetrieverPropertyTest {
         return vec;
     }
 
-    private void writeRecord(MemorySegment segment, CognitiveRecordLayout layout,
+    private void writeRecord(MemorySegment segment, EngramLayout layout,
                              int index, float[] vector, byte flags,
                              float[] mins, float[] scales) {
         long offset = (long) index * layout.stride();
 
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 System.currentTimeMillis(),
                 0L,          // synaptic tags
                 1.0f,        // exact norm

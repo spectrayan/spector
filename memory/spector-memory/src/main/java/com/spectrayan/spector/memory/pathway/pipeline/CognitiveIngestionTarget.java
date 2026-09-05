@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pathway.pipeline;
 
 import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
+import com.spectrayan.spector.memory.cortex.TextBlobMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
 
@@ -28,11 +28,8 @@ import com.spectrayan.spector.ingestion.IngestionTarget;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
-import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
+import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.neuromod.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
@@ -42,8 +39,8 @@ import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -108,7 +105,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     private volatile CognitiveMemoryRouter cognitiveRouter;  // volatile: swapped on partition roll
     private final MemoryIndex index;
     private final MemoryWal wal;
-    private final WorkingRecordMemory workingStore;  // nullable
+    private final WorkingMemory workingStore;  // nullable
     private final IcnuWeights icnuWeights;
     private final ImportanceProvider importanceProvider;
     private final VectorIndex semanticIndex;  // nullable  --  HNSW for semantic recall
@@ -125,7 +122,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
     //  BM25 Text Search (nullable  --  graceful degradation) 
     private final MemoryBM25Index bm25Index;
-    private final TextAppendMemory textDataStore;
+    private final TextBlobMemory textDataStore;
     private final int activePartitionIndex;
 
     //  SPLADE Sparse Search (nullable  --  graceful degradation) 
@@ -161,7 +158,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      CognitiveMemoryRouter cognitiveRouter,
                                      MemoryIndex index,
                                      MemoryWal wal,
-                                     WorkingRecordMemory workingStore,
+                                     WorkingMemory workingStore,
                                      IcnuWeights icnuWeights,
                                      VectorIndex semanticIndex,
                                      TagExtractor tagExtractor,
@@ -173,7 +170,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      HyperEntityGraphMemory hyperEntityGraph,
                                      com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                                      MemoryBM25Index bm25Index,
-                                     TextAppendMemory textDataStore,
+                                     TextBlobMemory textDataStore,
                                      int activePartitionIndex,
                                      MemorySpladeIndex spladeIndex,
                                      SparseEmbeddingProvider spladeProvider,
@@ -195,7 +192,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      CognitiveMemoryRouter cognitiveRouter,
                                      MemoryIndex index,
                                      MemoryWal wal,
-                                     WorkingRecordMemory workingStore,
+                                     WorkingMemory workingStore,
                                      IcnuWeights icnuWeights,
                                      VectorIndex semanticIndex,
                                      TagExtractor tagExtractor,
@@ -207,7 +204,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      HyperEntityGraphMemory hyperEntityGraph,
                                      com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                                      MemoryBM25Index bm25Index,
-                                     TextAppendMemory textDataStore,
+                                     TextBlobMemory textDataStore,
                                      int activePartitionIndex,
                                      MemorySpladeIndex spladeIndex,
                                      SparseEmbeddingProvider spladeProvider,
@@ -233,7 +230,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      CognitiveMemoryRouter cognitiveRouter,
                                      MemoryIndex index,
                                      MemoryWal wal,
-                                     WorkingRecordMemory workingStore,
+                                     WorkingMemory workingStore,
                                      IcnuWeights icnuWeights,
                                      VectorIndex semanticIndex,
                                      TagExtractor tagExtractor,
@@ -245,7 +242,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      HyperEntityGraphMemory hyperEntityGraph,
                                      com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                                      MemoryBM25Index bm25Index,
-                                     TextAppendMemory textDataStore,
+                                     TextBlobMemory textDataStore,
                                      int activePartitionIndex,
                                      MemorySpladeIndex spladeIndex,
                                      SparseEmbeddingProvider spladeProvider,
@@ -303,7 +300,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
      * Updates the partition-scoped {@code text.dat} store after a roll (#443, D3b).
      * Called by {@code PartitionManager.rollPartition()} under the roll lock.
      */
-    public void updateTextDataStore(TextAppendMemory newText) {
+    public void updateTextDataStore(TextBlobMemory newText) {
         this.postIngestSync.updateTextDataStore(newText);
     }
 
@@ -388,7 +385,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      CognitiveMemoryRouter cognitiveRouter,
                                      MemoryIndex index,
                                      MemoryWal wal,
-                                     WorkingRecordMemory workingStore,
+                                     WorkingMemory workingStore,
                                      IcnuWeights icnuWeights,
                                      VectorIndex semanticIndex,
                                      TagExtractor tagExtractor,
@@ -498,9 +495,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         float importance = importanceResult.importance();
 
         // Step 4: Flashbulb check
-        byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, type.ordinal());
+        byte flags = EncodingHeaderFields.withMemoryType((byte) 0, type.ordinal());
         if (importanceResult.isFlashbulb()) {
-            flags = (byte) (flags | SynapticHeaderConstants.FLAG_PINNED);
+            flags = (byte) (flags | EncodingHeaderFields.FLAG_PINNED);
         }
 
         // Step 6: Build cognitive header (with emotional context and encoding state)
@@ -515,7 +512,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         byte encodingProfile = computeEncodingProfile(salienceProfile);
         byte encodingAlpha = computeEncodingAlpha(salienceProfile);
         byte encodingBeta = computeEncodingBeta(salienceProfile);
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 System.currentTimeMillis(), synapticTags, l2Norm, importance,
                 0, (short) 0, valence, flags, arousal, 1.0f,
                 encodingProfile, encodingAlpha, encodingBeta,
@@ -579,7 +576,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     // ===============================================================
 
     /**
-     * Migration-aware ingestion that preserves the original {@link CognitiveHeader}.
+     * Migration-aware ingestion that preserves the original {@link EncodingHeader}.
      *
      * <p>Used during dimension migration to re-ingest memories with new embeddings
      * while preserving all cognitive metadata (importance, recall count, valence,
@@ -604,7 +601,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     public void ingestCognitiveWithHeader(String id, String text, float[] vector,
                                            MemoryType type, String[] tags,
                                            MemorySource source,
-                                           CognitiveHeader preservedHeader) {
+                                           EncodingHeader preservedHeader) {
         // Dedup guard  --  same as normal ingestion
         if (index.locate(id) != null) {
             log.debug("Migration: skipping duplicate '{}'  --  already indexed", id);
@@ -624,7 +621,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
         // Step 6: Build header  --  preserve original fields, recompute vector-derived ones
         float l2Norm = computeL2Norm(vector);
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 preservedHeader.timestampMs(),       // [x] original timestamp
                 synapticTags,                        // 🔄 re-encoded (same tags)
                 l2Norm,                              // 🔄 from new vector
@@ -745,15 +742,15 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         float importance = importanceResult.importance();
 
         // Step 4: Flashbulb check
-        byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, type.ordinal());
+        byte flags = EncodingHeaderFields.withMemoryType((byte) 0, type.ordinal());
         if (importanceResult.isFlashbulb()) {
-            flags = (byte) (flags | SynapticHeaderConstants.FLAG_PINNED);
+            flags = (byte) (flags | EncodingHeaderFields.FLAG_PINNED);
         }
 
         // Step 4b: Encode source modality from metadata (if provided)
         SourceModality modality = context.sourceModality();
         if (modality != null && modality != SourceModality.TEXT) {
-            flags = SynapticHeaderConstants.withSourceModality(flags, modality.ordinal());
+            flags = EncodingHeaderFields.withSourceModality(flags, modality.ordinal());
         }
 
         // Step 6: Build cognitive header (use override timestamp if provided)
@@ -769,7 +766,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         byte encodingProfile = computeEncodingProfile(salienceProfile);
         byte encodingAlpha = computeEncodingAlpha(salienceProfile);
         byte encodingBeta = computeEncodingBeta(salienceProfile);
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 timestampMs, synapticTags, l2Norm, importance,
                 0, (short) 0, valence, flags, arousal, 1.0f,
                 encodingProfile, encodingAlpha, encodingBeta,
@@ -896,14 +893,14 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     private static byte computeEncodingProfile(SalienceProfile profile) {
         if (profile.alpha() != null || profile.beta() != null) {
             // Soul-derived: custom α/β from InsulaSelfModel
-            return SynapticHeaderConstants.soulDerivedEncodingProfile();
+            return EncodingHeaderFields.soulDerivedEncodingProfile();
         }
         // Preset profile
         com.spectrayan.spector.memory.model.CognitiveProfile cogProfile =
                 profile.defaultProfile() != null
                         ? profile.defaultProfile()
                         : com.spectrayan.spector.memory.model.CognitiveProfile.BALANCED;
-        return SynapticHeaderConstants.presetEncodingProfile(cogProfile.ordinal());
+        return EncodingHeaderFields.presetEncodingProfile(cogProfile.ordinal());
     }
 
     /**
@@ -921,7 +918,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                             : com.spectrayan.spector.memory.model.CognitiveProfile.BALANCED;
             alpha = cogProfile.alpha();
         }
-        return SynapticHeaderConstants.quantizeWeight(alpha);
+        return EncodingHeaderFields.quantizeWeight(alpha);
     }
 
     /**
@@ -939,7 +936,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                             : com.spectrayan.spector.memory.model.CognitiveProfile.BALANCED;
             beta = cogProfile.beta();
         }
-        return SynapticHeaderConstants.quantizeWeight(beta);
+        return EncodingHeaderFields.quantizeWeight(beta);
     }
 
     /**

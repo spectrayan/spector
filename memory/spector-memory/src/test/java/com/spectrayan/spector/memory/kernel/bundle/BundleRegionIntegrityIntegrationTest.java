@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout;
 import com.spectrayan.spector.memory.kernel.layout.HebbianLayout;
@@ -70,7 +70,7 @@ class BundleRegionIntegrityIntegrationTest {
                 ),
                 new RegionSizeSpec(
                         RegionId.TEMPORAL_CHAIN,
-                        MemoryHeader.HEADER_BYTES + ((long) temporalCap * new TemporalLayout().recordStride()),
+                        RegionPreamble.PREAMBLE_BYTES + ((long) temporalCap * new TemporalLayout().recordStride()),
                         temporalCap,
                         new TemporalLayout().recordStride(),
                         new TemporalLayout().layoutId(),
@@ -87,7 +87,7 @@ class BundleRegionIntegrityIntegrationTest {
 
             // Populate EntityDirectory region
             MemorySegment edirSlice = bundle.regionSegment(RegionId.ENTITY_DIRECTORY);
-            MemoryHeader.write(edirSlice, 0L, new EntityDirectoryLayout().schemaVersion(), MemoryShape.GRAPH, 0,
+            RegionPreamble.write(edirSlice, 0L, new EntityDirectoryLayout().schemaVersion(), MemoryShape.GRAPH, 0,
                     entityCap, 1, EntityDirectoryLayout.ENTITY_NODE_BYTES, new EntityDirectoryLayout().layoutId(),
                     now, now);
             edirSlice.set(ValueLayout.JAVA_INT, EntityDirectoryLayout.DATA_START + EntityDirectoryLayout.ENT_OFF_TYPE, 7);
@@ -95,7 +95,7 @@ class BundleRegionIntegrityIntegrationTest {
 
             // Populate Hebbian region
             MemorySegment hebbSlice = bundle.regionSegment(RegionId.HEBBIAN);
-            MemoryHeader.write(hebbSlice, 0L, new HebbianLayout().schemaVersion(), MemoryShape.GRAPH, 0,
+            RegionPreamble.write(hebbSlice, 0L, new HebbianLayout().schemaVersion(), MemoryShape.GRAPH, 0,
                     graphCap, 1, HebbianLayout.EDGE_BYTES, new HebbianLayout().layoutId(),
                     now, now);
             hebbSlice.set(ValueLayout.JAVA_INT, HebbianLayout.DATA_START + HebbianLayout.EDGE_OFF_NEIGHBOR, 42);
@@ -103,12 +103,12 @@ class BundleRegionIntegrityIntegrationTest {
 
             // Populate Temporal region
             MemorySegment tempSlice = bundle.regionSegment(RegionId.TEMPORAL_CHAIN);
-            MemoryHeader.write(tempSlice, 0L, new TemporalLayout().schemaVersion(), MemoryShape.CHAIN, 0,
+            RegionPreamble.write(tempSlice, 0L, new TemporalLayout().schemaVersion(), MemoryShape.CHAIN, 0,
                     temporalCap, 1, new TemporalLayout().recordStride(), new TemporalLayout().layoutId(),
                     now, now);
-            tempSlice.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES, -1);
-            tempSlice.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + 4, 1);
-            tempSlice.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + 8, 9001);
+            tempSlice.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES, -1);
+            tempSlice.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + 4, 1);
+            tempSlice.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + 8, 9001);
         }
 
         // 2. Reopen RuntimeBundle and verify 100% data fidelity
@@ -117,25 +117,25 @@ class BundleRegionIntegrityIntegrationTest {
 
             // Verify EntityDirectory
             MemorySegment edirSlice = bundle.regionSegment(RegionId.ENTITY_DIRECTORY);
-            assertThat(MemoryHeader.isValid(edirSlice, 0L)).isTrue();
-            assertThat(MemoryHeader.readLayoutId(edirSlice, 0L)).isEqualTo(new EntityDirectoryLayout().layoutId());
+            assertThat(RegionPreamble.isValid(edirSlice, 0L)).isTrue();
+            assertThat(RegionPreamble.readLayoutId(edirSlice, 0L)).isEqualTo(new EntityDirectoryLayout().layoutId());
             assertThat(edirSlice.get(ValueLayout.JAVA_INT, EntityDirectoryLayout.DATA_START + EntityDirectoryLayout.ENT_OFF_TYPE)).isEqualTo(7);
             assertThat(edirSlice.get(ValueLayout.JAVA_LONG, EntityDirectoryLayout.DATA_START + EntityDirectoryLayout.ENT_OFF_NAME_HASH)).isEqualTo(0xABCDEFFEDCBA0123L);
 
             // Verify Hebbian
             MemorySegment hebbSlice = bundle.regionSegment(RegionId.HEBBIAN);
-            assertThat(MemoryHeader.isValid(hebbSlice, 0L)).isTrue();
-            assertThat(MemoryHeader.readLayoutId(hebbSlice, 0L)).isEqualTo(new HebbianLayout().layoutId());
+            assertThat(RegionPreamble.isValid(hebbSlice, 0L)).isTrue();
+            assertThat(RegionPreamble.readLayoutId(hebbSlice, 0L)).isEqualTo(new HebbianLayout().layoutId());
             assertThat(hebbSlice.get(ValueLayout.JAVA_INT, HebbianLayout.DATA_START + HebbianLayout.EDGE_OFF_NEIGHBOR)).isEqualTo(42);
             assertThat(hebbSlice.get(ValueLayout.JAVA_FLOAT, HebbianLayout.DATA_START + HebbianLayout.EDGE_OFF_WEIGHT)).isEqualTo(0.99f);
 
             // Verify Temporal
             MemorySegment tempSlice = bundle.regionSegment(RegionId.TEMPORAL_CHAIN);
-            assertThat(MemoryHeader.isValid(tempSlice, 0L)).isTrue();
-            assertThat(MemoryHeader.readLayoutId(tempSlice, 0L)).isEqualTo(new TemporalLayout().layoutId());
-            assertThat(tempSlice.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES)).isEqualTo(-1);
-            assertThat(tempSlice.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + 4)).isEqualTo(1);
-            assertThat(tempSlice.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + 8)).isEqualTo(9001);
+            assertThat(RegionPreamble.isValid(tempSlice, 0L)).isTrue();
+            assertThat(RegionPreamble.readLayoutId(tempSlice, 0L)).isEqualTo(new TemporalLayout().layoutId());
+            assertThat(tempSlice.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES)).isEqualTo(-1);
+            assertThat(tempSlice.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + 4)).isEqualTo(1);
+            assertThat(tempSlice.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + 8)).isEqualTo(9001);
         }
     }
 

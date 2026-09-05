@@ -29,7 +29,7 @@ graph TB
 
     subgraph "Layer 1 — Hebbian Association"
         HG["HebbianGraphMemory<br/>CSR co-activation edges"]
-        CAT["CoActivationRecordMemory<br/>Tag-level STDP learning"]
+        CAT["CoActivationMemory<br/>Tag-level STDP learning"]
     end
 
     subgraph "Layer 2 — Temporal Causal"
@@ -42,7 +42,7 @@ graph TB
     end
 
     subgraph "Layer 4 — Cross-Capture Graph"
-        CCG["CoActivationRecordMemory<br/>Tag co-occurrence traversal<br/>+ inverted index"]
+        CCG["CoActivationMemory<br/>Tag co-occurrence traversal<br/>+ inverted index"]
     end
 
     S5c --> HG
@@ -127,7 +127,7 @@ In neuroscience, **Synaptic Tagging and Capture (STC)** theory shows that synapt
 
 ### How It Works
 
-The Cross-Capture Graph reuses the existing `CoActivationRecordMemory` tag co-occurrence data for graph traversal during recall. It adds a **tag → memory inverted index** that maps each synaptic tag to the set of memories carrying that tag.
+The Cross-Capture Graph reuses the existing `CoActivationMemory` tag co-occurrence data for graph traversal during recall. It adds a **tag → memory inverted index** that maps each synaptic tag to the set of memories carrying that tag.
 
 ```
 Query: "How do we handle database connection pooling?"
@@ -310,7 +310,7 @@ All graph components persist alongside memory data in DISK mode:
 | Component | File | Format |
 |---|---|---|
 | HebbianGraphMemory | `hebbian.graph` | CSR V3 ("HCSR" magic) — offset segment + edge segment. Auto-migrates legacy V2 files. |
-| CoActivationRecordMemory | `coactivation.dat` | Pair table + edge table + hash→tag map |
+| CoActivationMemory | `coactivation.dat` | Pair table + edge table + hash→tag map |
 | EntityDirectory | `entity-directory.graph` | Entity node segment + memory link adjacency segment + name index ("EDIR" magic) |
 | HyperEntityGraphMemory | `hyper-entity.graph` | Hyperedge segment + vertex segment + incidence index + incidence list ("HYEG" magic) |
 | TemporalChainMemory | `temporal.chain` | Raw linked-list segment ("TPCH" magic, V2) |

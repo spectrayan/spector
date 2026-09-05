@@ -14,12 +14,12 @@ package com.spectrayan.spector.memory.cortex.index;
 
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
+import com.spectrayan.spector.memory.cortex.TextBlobMemory;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.shape.DefaultRecordMemory;
 import com.spectrayan.spector.memory.kernel.shape.DefaultAppendMemory;
@@ -83,11 +83,11 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
     private final ConcurrentHashMap<Long, String> reverseIndex = new ConcurrentHashMap<>();
 
     // ── Off-heap text data store (active partition; back-compat / fallback) ──
-    private volatile TextAppendMemory textDataStore;
+    private volatile TextBlobMemory textDataStore;
 
     // ── Registry-backed per-partition text resolver (issue #443, D3b) ──
-    // Resolves a colocated-partition seq → that partition's TextAppendMemory.
-    private volatile java.util.function.IntFunction<TextAppendMemory> textResolver;
+    // Resolves a colocated-partition seq → that partition's TextBlobMemory.
+    private volatile java.util.function.IntFunction<TextBlobMemory> textResolver;
 
     // ── Active partition sequence (issue #443) — used by the legacy, partition-
     //    unaware findIdByOffset(type, offset) overload to resolve the reverse key. ──
@@ -182,7 +182,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
 
     @Override
     public long recordOffset(long index) {
-        return MemoryHeader.HEADER_BYTES + index * layout.recordStride();
+        return RegionPreamble.PREAMBLE_BYTES + index * layout.recordStride();
     }
 
     // Reverse-index key (issue #443): partition-aware IN MEMORY only.
@@ -293,7 +293,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         if (loc != null && loc.hasTextPosition()) {
             // issue #443 (D3b): resolve the text store by the memory's colocated
             // partition; fall back to the active store, then the on-heap map.
-            TextAppendMemory store = resolveTextStore(loc.colocatedPartition());
+            TextBlobMemory store = resolveTextStore(loc.colocatedPartition());
             if (store != null) {
                 String offHeapText = store.readTextDirect(loc.textOffset(), loc.textLength());
                 if (offHeapText != null) return offHeapText;
@@ -306,10 +306,10 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         return texts.getOrDefault(id, "");
     }
 
-    private TextAppendMemory resolveTextStore(int partition) {
+    private TextBlobMemory resolveTextStore(int partition) {
         var resolver = this.textResolver;
         if (resolver != null) {
-            TextAppendMemory store = resolver.apply(partition);
+            TextBlobMemory store = resolver.apply(partition);
             if (store != null) return store;
         }
         return textDataStore;
@@ -386,16 +386,16 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         return id != null ? text(id) : null;
     }
 
-    public void setTextDataStore(TextAppendMemory store) {
+    public void setTextDataStore(TextBlobMemory store) {
         this.textDataStore = store;
     }
 
-    public TextAppendMemory textDataStore() {
+    public TextBlobMemory textDataStore() {
         return this.textDataStore;
     }
 
     /** Injects the registry-backed per-partition text resolver (issue #443, D3b). */
-    public void setTextResolver(java.util.function.IntFunction<TextAppendMemory> resolver) {
+    public void setTextResolver(java.util.function.IntFunction<TextBlobMemory> resolver) {
         this.textResolver = resolver;
     }
 
@@ -620,11 +620,11 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
     }
 
     private void loadFromBundleSegments() {
-        if (!MemoryHeader.isValid(bundleMidxSlice, 0L)) {
+        if (!RegionPreamble.isValid(bundleMidxSlice, 0L)) {
             log.info("MemoryIndex in bundle is empty/invalid, starting fresh");
             return;
         }
-        int schemaVersion = MemoryHeader.readSchemaVersion(bundleMidxSlice, 0L);
+        int schemaVersion = RegionPreamble.readSchemaVersion(bundleMidxSlice, 0L);
         final int slotStride;
         final boolean readColocated;
         switch (schemaVersion) {
@@ -640,9 +640,9 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                     "MemoryIndex unsupported schema version v" + schemaVersion + " in bundle");
         }
 
-        int entryCount = (int) MemoryHeader.readCount(bundleMidxSlice, 0L);
-        long slotBase = MemoryHeader.HEADER_BYTES;
-        long poolBase = MemoryHeader.HEADER_BYTES;
+        int entryCount = (int) RegionPreamble.readCount(bundleMidxSlice, 0L);
+        long slotBase = RegionPreamble.PREAMBLE_BYTES;
+        long poolBase = RegionPreamble.PREAMBLE_BYTES;
 
         for (int i = 0; i < entryCount; i++) {
             long slotOffset = slotBase + (long) i * slotStride;
@@ -712,13 +712,13 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                 long totalSlotBytes = (long) entryCount * stride;
 
                 long now = System.currentTimeMillis();
-                MemoryHeader.write(bundleMidxSlice, 0L, INDEX_VERSION_V7, MemoryShape.RECORD, 0,
+                RegionPreamble.write(bundleMidxSlice, 0L, INDEX_VERSION_V7, MemoryShape.RECORD, 0,
                         100_000L, entryCount, stride, new IndexEntryLayout().layoutId(), now, now);
                 // Persist graphSlotHighWater in the reserved field (offset 60, outside CRC range)
                 long headerBaseOffset = 0L;
                 bundleMidxSlice.set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, headerBaseOffset + 60, graphSlotHighWater.get());
 
-                MemoryHeader.write(bundleIdplSlice, 0L, 1, MemoryShape.APPEND, 0,
+                RegionPreamble.write(bundleIdplSlice, 0L, 1, MemoryShape.APPEND, 0,
                         totalPoolBytes, entryCount, 0, new IdBlobLayout().layoutId(), now, now);
 
                 long poolOffset = 0;
@@ -729,7 +729,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                     if (loc == null) continue;
                     byte[] blobBytes = serializedBlobs.get(index);
 
-                    long poolPos = MemoryHeader.HEADER_BYTES + poolOffset;
+                    long poolPos = RegionPreamble.PREAMBLE_BYTES + poolOffset;
                     bundleIdplSlice.set(ValueLayout.JAVA_INT_UNALIGNED, poolPos, blobBytes.length);
                     MemorySegment.copy(MemorySegment.ofArray(blobBytes), 0L, bundleIdplSlice, poolPos + 4, blobBytes.length);
 
@@ -747,7 +747,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                     slotBuf.putInt(loc.colocatedPartition());
                     slotBuf.putInt(0);
 
-                    long slotPos = MemoryHeader.HEADER_BYTES + (long) index * stride;
+                    long slotPos = RegionPreamble.PREAMBLE_BYTES + (long) index * stride;
                     MemorySegment.copy(MemorySegment.ofArray(slotBytes), 0L, bundleMidxSlice, slotPos, stride);
 
                     poolOffset += 4 + blobBytes.length;
@@ -805,7 +805,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
             MemoryId poolId = SystemMemoryId.INDEX_IDPOOL.id();
             IdBlobLayout poolLayout = new IdBlobLayout();
             try (DefaultAppendMemory<IdBlobLayout> poolMemory = new DefaultAppendMemory<>(
-                    poolId, poolLayout, entryCount, MemoryHeader.HEADER_BYTES + totalPoolBytes, idPoolPath)) {
+                    poolId, poolLayout, entryCount, RegionPreamble.PREAMBLE_BYTES + totalPoolBytes, idPoolPath)) {
                 
                 MemoryId slotId = SystemMemoryId.INDEX_SLOT.id();
                 IndexEntryLayout slotLayout = new IndexEntryLayout();
@@ -814,7 +814,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                 final int stride = slotLayout.recordStride();
                 long totalSlotBytes = (long) entryCount * stride;
                 try (DefaultRecordMemory<IndexEntryLayout> slotMemory = new DefaultRecordMemory<>(
-                        slotId, slotLayout, entryCount, MemoryHeader.HEADER_BYTES + totalSlotBytes, filePath)) {
+                        slotId, slotLayout, entryCount, RegionPreamble.PREAMBLE_BYTES + totalSlotBytes, filePath)) {
                     
                     long headerBaseOffset = 0L;
                     // Persist graphSlotHighWater in the reserved field (offset 60, outside CRC range)
@@ -888,17 +888,17 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                 magic = mb.getInt();
             }
 
-            boolean isStandard = (magic == MemoryHeader.MAGIC || magic == 0x4D4B4D53);
+            boolean isStandard = (magic == RegionPreamble.MAGIC || magic == 0x4D4B4D53);
             boolean isLegacy = (magic == LEGACY_INDEX_MAGIC || magic == 0x5844494D);
 
             if (isStandard) {
-                // Standard SMKM format (v5+) carries the full 64-byte MemoryHeader. A file
+                // Standard SMKM format (v5+) carries the full 64-byte RegionPreamble. A file
                 // that claims the SMKM magic but is shorter than the header is corrupt/truncated
                 // — throw rather than silently returning an empty index (#443 Phase 2 discipline).
-                if (fileSize < MemoryHeader.HEADER_BYTES) {
+                if (fileSize < RegionPreamble.PREAMBLE_BYTES) {
                     throw new SpectorStorageException(ErrorCode.FILE_FORMAT_INVALID,
                             "MemoryIndex truncated: " + filePath + " (" + fileSize + "B < "
-                                    + MemoryHeader.HEADER_BYTES + "B header)");
+                                    + RegionPreamble.PREAMBLE_BYTES + "B header)");
                 }
 
                 String fileName = filePath.getFileName().toString();
@@ -911,7 +911,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                         slotId, slotLayout, 0, 0, filePath)) {
 
                     // #443 Phase 2: version-gate on the persisted schemaVersion (throw-on-unreadable).
-                    int schemaVersion = MemoryHeader.readSchemaVersion(slotMemory.segment(), 0);
+                    int schemaVersion = RegionPreamble.readSchemaVersion(slotMemory.segment(), 0);
                     final int slotStride;
                     final boolean readColocated;
                     switch (schemaVersion) {

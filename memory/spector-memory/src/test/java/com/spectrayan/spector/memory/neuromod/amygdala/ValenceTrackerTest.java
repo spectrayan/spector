@@ -13,9 +13,9 @@
 package com.spectrayan.spector.memory.neuromod.amygdala;
 
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import org.junit.jupiter.api.Test;
 
 import java.lang.foreign.Arena;
@@ -25,13 +25,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ValenceTrackerTest {
 
-    private final CognitiveRecordLayout layout = new CognitiveRecordLayout(32);
+    private final EngramLayout layout = new EngramLayout(32);
 
     @Test
     void reinforceBlends() {
         try (var arena = Arena.ofConfined()) {
             MemorySegment seg = arena.allocate(layout.stride());
-            var header = CognitiveHeader.create(System.currentTimeMillis(), 0L, 1f, 1f, (short) 0, MemoryType.EPISODIC);
+            var header = EncodingHeader.create(System.currentTimeMillis(), 0L, 1f, 1f, (short) 0, MemoryType.EPISODIC);
             layout.writeHeader(seg, 0, header);
 
             var tracker = new ValenceTracker(0.5f);

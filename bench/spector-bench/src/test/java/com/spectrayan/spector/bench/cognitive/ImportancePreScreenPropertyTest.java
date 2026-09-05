@@ -20,11 +20,11 @@ import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
@@ -59,7 +59,7 @@ class ImportancePreScreenPropertyTest {
 
         float[] mins = IdentityCalibration.mins(DIMS);
         float[] scales = IdentityCalibration.scales(DIMS);
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        EngramLayout layout = new EngramLayout(DIMS);
 
         try (Arena arena = Arena.ofConfined()) {
             int corpusSize = 2;
@@ -71,11 +71,11 @@ class ImportancePreScreenPropertyTest {
             // Record 0: Should be excluded (low importance, very old, unpinned, resolved)
             long veryOldTimestamp = System.currentTimeMillis() - (6L * 365 * 24 * 60 * 60 * 1000); // 6 years ago
             writeRecord(segment, layout, 0, queryVec, lowImportance,
-                    veryOldTimestamp, 0, SynapticHeaderConstants.FLAG_RESOLVED, mins, scales);
+                    veryOldTimestamp, 0, EncodingHeaderFields.FLAG_RESOLVED, mins, scales);
 
             // Record 1: Should NOT be excluded (high importance)
             writeRecord(segment, layout, 1, queryVec, 5.0f,
-                    veryOldTimestamp, 0, SynapticHeaderConstants.FLAG_RESOLVED, mins, scales);
+                    veryOldTimestamp, 0, EncodingHeaderFields.FLAG_RESOLVED, mins, scales);
 
             RecallOptions options = RecallOptions.builder()
                     .topK(corpusSize)
@@ -110,7 +110,7 @@ class ImportancePreScreenPropertyTest {
 
         float[] mins = IdentityCalibration.mins(DIMS);
         float[] scales = IdentityCalibration.scales(DIMS);
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        EngramLayout layout = new EngramLayout(DIMS);
 
         try (Arena arena = Arena.ofConfined()) {
             int corpusSize = 1;
@@ -121,7 +121,7 @@ class ImportancePreScreenPropertyTest {
             long veryOldTimestamp = System.currentTimeMillis() - (6L * 365 * 24 * 60 * 60 * 1000);
 
             // Pinned + resolved + low importance + very old
-            byte flags = (byte) (SynapticHeaderConstants.FLAG_PINNED | SynapticHeaderConstants.FLAG_RESOLVED);
+            byte flags = (byte) (EncodingHeaderFields.FLAG_PINNED | EncodingHeaderFields.FLAG_RESOLVED);
             writeRecord(segment, layout, 0, queryVec, lowImportance,
                     veryOldTimestamp, 0, flags, mins, scales);
 
@@ -139,13 +139,13 @@ class ImportancePreScreenPropertyTest {
     // Helpers
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-    private void writeRecord(MemorySegment segment, CognitiveRecordLayout layout,
+    private void writeRecord(MemorySegment segment, EngramLayout layout,
                              int index, float[] vector, float importance,
                              long timestamp, int agentRecallCount, byte flags,
                              float[] mins, float[] scales) {
         long offset = (long) index * layout.stride();
 
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 timestamp,
                 0L,
                 1.0f,

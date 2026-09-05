@@ -12,12 +12,12 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
- * A simple MemoryLayout implementation for registries.
+ * A simple RegionLayout implementation for registries.
  */
-public final class RegistryLayout implements MemoryLayout {
+public final class RegistryLayout implements RegionLayout {
     /** Layout ID for registries ('REG\0'). */
     public static final int LAYOUT_ID = 0x52454700; // 'REG\0'
     

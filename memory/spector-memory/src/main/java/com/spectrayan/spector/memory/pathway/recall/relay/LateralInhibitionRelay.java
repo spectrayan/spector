@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pathway.recall.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
@@ -142,7 +142,7 @@ public final class LateralInhibitionRelay implements SynapticRelay<RecallSignal>
             boolean isContradictory = false;
             for (int idx : members) {
                 CognitiveResult r = candidates.get(idx);
-                if (SynapticHeaderConstants.isContradicted(r.consolidationFlags())) {
+                if (EncodingHeaderFields.isContradicted(r.consolidationFlags())) {
                     isContradictory = true;
                     break;
                 }

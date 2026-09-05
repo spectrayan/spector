@@ -12,8 +12,9 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -29,7 +30,7 @@ import java.util.Map;
  * <p>Combines data from three subsystems into a single record:</p>
  * <ul>
  *   <li><b>MemoryIndex</b>: id, text, source, tags, location</li>
- *   <li><b>CognitiveHeader</b> (64-byte off-heap): timestamp, synaptic tags bloom,
+ *   <li><b>EncodingHeader</b> (64-byte off-heap): timestamp, synaptic tags bloom,
  *       importance, recall counts, valence, arousal, storage strength, flags</li>
  *   <li><b>Vector payload</b>: quantized INT8 vector bytes</li>
  * </ul>
@@ -110,32 +111,32 @@ public record CognitiveRecord(
 
     /** Returns true if this memory has a conflicting near-duplicate in the tier. */
     public boolean isContradicted() {
-        return SynapticHeaderConstants.isContradicted(consolidationFlags);
+        return EncodingHeaderFields.isContradicted(consolidationFlags);
     }
 
     /** Returns true if this memory has been logically deleted. */
     public boolean isTombstoned() {
-        return SynapticHeaderConstants.isTombstoned(flags);
+        return EncodingHeaderFields.isTombstoned(flags);
     }
 
     /** Returns true if this memory has been consolidated (reflected into Semantic tier). */
     public boolean isConsolidated() {
-        return SynapticHeaderConstants.isConsolidated(flags);
+        return EncodingHeaderFields.isConsolidated(flags);
     }
 
     /** Returns true if this memory is pinned (exempt from decay and pruning). */
     public boolean isPinned() {
-        return SynapticHeaderConstants.isPinned(flags);
+        return EncodingHeaderFields.isPinned(flags);
     }
 
     /** Returns true if this memory is resolved (Zeigarnik Effect — task completed). */
     public boolean isResolved() {
-        return SynapticHeaderConstants.isResolved(flags);
+        return EncodingHeaderFields.isResolved(flags);
     }
 
     /** Returns the source modality (TEXT, IMAGE, AUDIO, VIDEO) decoded from the flags byte. */
     public SourceModality sourceModality() {
-        return SourceModality.fromOrdinal(SynapticHeaderConstants.sourceModalityOrdinal(flags));
+        return SourceModality.fromOrdinal(EncodingHeaderFields.sourceModalityOrdinal(flags));
     }
 
     /** Returns true if this memory is multimodal (non-text source). */

@@ -15,10 +15,11 @@ package com.spectrayan.spector.memory.cortex.insula;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorMemoryException;
 import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.memory.kernel.layout.InsularLayout;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -41,7 +42,7 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
     private final boolean bundleManaged;
     private final ReentrantLock writeLock = new ReentrantLock();
 
-    private static final long HEADER_START = MemoryHeader.HEADER_BYTES; // 64
+    private static final long HEADER_START = RegionPreamble.PREAMBLE_BYTES; // 64
     private static final long DATA_START = HEADER_START + InsularLayout.INSULAR_HEADER_BYTES; // 96
 
     private InsularCortex(MemoryId id, Arena arena, MemorySegment segment, boolean bundleManaged) {
@@ -58,10 +59,10 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
      */
     public static InsularCortex fromBundle(Arena arena, MemorySegment regionSlice, boolean isNew) {
         MemoryId memoryId = SystemMemoryId.INSULA.id();
-        boolean effectivelyNew = isNew || !MemoryHeader.isValid(regionSlice, 0L);
+        boolean effectivelyNew = isNew || !RegionPreamble.isValid(regionSlice, 0L);
         if (effectivelyNew) {
             long now = System.currentTimeMillis();
-            MemoryHeader.write(regionSlice, 0L, InsularLayout.SCHEMA_VERSION, MemoryShape.INSULAR, 1,
+            RegionPreamble.write(regionSlice, 0L, InsularLayout.SCHEMA_VERSION, MemoryShape.INSULAR, 1,
                     1, 0, 0, InsularLayout.LAYOUT_ID, now, now);
             
             regionSlice.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_VERSION, 0);
@@ -84,7 +85,7 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
         Arena arena = Arena.ofShared();
         MemorySegment heapSeg = arena.allocate(1024 * 1024, 4096);
         long now = System.currentTimeMillis();
-        MemoryHeader.write(heapSeg, 0L, InsularLayout.SCHEMA_VERSION, MemoryShape.INSULAR, 0,
+        RegionPreamble.write(heapSeg, 0L, InsularLayout.SCHEMA_VERSION, MemoryShape.INSULAR, 0,
                 1, 0, 0, InsularLayout.LAYOUT_ID, now, now);
         
         heapSeg.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_VERSION, 0);
@@ -98,13 +99,13 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
     }
 
     private static void validateHeader(MemorySegment slice) {
-        if (!MemoryHeader.isValid(slice, 0L)) {
-            throw new SpectorMemoryException(ErrorCode.GRAPH_PERSISTENCE_FAILED, "InsularCortex", "Invalid SMKM MemoryHeader");
+        if (!RegionPreamble.isValid(slice, 0L)) {
+            throw new SpectorMemoryException(ErrorCode.GRAPH_PERSISTENCE_FAILED, "InsularCortex", "Invalid SMKM RegionPreamble");
         }
-        if (MemoryHeader.readLayoutId(slice, 0L) != InsularLayout.LAYOUT_ID) {
+        if (RegionPreamble.readLayoutId(slice, 0L) != InsularLayout.LAYOUT_ID) {
             throw new SpectorMemoryException(ErrorCode.GRAPH_PERSISTENCE_FAILED, "InsularCortex",
                     "layout ID mismatch: expected 0x" + Integer.toHexString(InsularLayout.LAYOUT_ID)
-                    + " but found 0x" + Integer.toHexString(MemoryHeader.readLayoutId(slice, 0L)));
+                    + " but found 0x" + Integer.toHexString(RegionPreamble.readLayoutId(slice, 0L)));
         }
     }
 
@@ -146,10 +147,10 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
             segment.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_CHECKSUM, checksum);
             segment.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_FLAGS, InsularLayout.FLAG_PRESENT);
 
-            // Recompute master MemoryHeader CRC by rewriting it
-            long createdAt = MemoryHeader.readCreatedAt(segment, 0L);
-            int flags = MemoryHeader.readFlags(segment, 0L);
-            MemoryHeader.write(segment, 0L, InsularLayout.SCHEMA_VERSION, MemoryShape.INSULAR, flags,
+            // Recompute master RegionPreamble CRC by rewriting it
+            long createdAt = RegionPreamble.readCreatedAt(segment, 0L);
+            int flags = RegionPreamble.readFlags(segment, 0L);
+            RegionPreamble.write(segment, 0L, InsularLayout.SCHEMA_VERSION, MemoryShape.INSULAR, flags,
                     1L, 1L, 0, InsularLayout.LAYOUT_ID, createdAt, now);
 
             flush();
@@ -209,10 +210,10 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
             segment.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_CHECKSUM, 0);
             segment.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_FLAGS, InsularLayout.FLAG_EMPTY);
 
-            // Re-write MemoryHeader with count 0L
-            long createdAt = MemoryHeader.readCreatedAt(segment, 0L);
-            int headerFlags = MemoryHeader.readFlags(segment, 0L);
-            MemoryHeader.write(segment, 0L, InsularLayout.SCHEMA_VERSION, MemoryShape.INSULAR, headerFlags,
+            // Re-write RegionPreamble with count 0L
+            long createdAt = RegionPreamble.readCreatedAt(segment, 0L);
+            int headerFlags = RegionPreamble.readFlags(segment, 0L);
+            RegionPreamble.write(segment, 0L, InsularLayout.SCHEMA_VERSION, MemoryShape.INSULAR, headerFlags,
                     1L, 0L, 0, InsularLayout.LAYOUT_ID, createdAt, now);
 
             flush();

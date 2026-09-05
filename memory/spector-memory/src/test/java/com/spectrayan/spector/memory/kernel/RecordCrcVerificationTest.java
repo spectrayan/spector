@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RecordCrcVerificationTest {
 
-    static final class CrcLayout implements MemoryLayout {
+    static final class CrcLayout implements RegionLayout {
         @Override public int layoutId() { return 0x4352434C; }
         @Override public int schemaVersion() { return 1; }
         @Override public int recordStride() { return 16; } // 12B payload + 4B CRC

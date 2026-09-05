@@ -23,7 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.ConflictMode;
 import com.spectrayan.spector.memory.pathway.RelayNames;
@@ -58,7 +58,7 @@ public final class EvidenceFusionRelay implements SynapticRelay<RecallSignal> {
                 Iterator<CognitiveResult> it = candidates.iterator();
                 while (it.hasNext()) {
                     CognitiveResult r = it.next();
-                    if (SynapticHeaderConstants.isContradicted(r.consolidationFlags())) {
+                    if (EncodingHeaderFields.isContradicted(r.consolidationFlags())) {
                         log.debug("Fail-closed: dropping contradicted candidate {}", r.id());
                         it.remove();
                     }
@@ -68,7 +68,7 @@ public final class EvidenceFusionRelay implements SynapticRelay<RecallSignal> {
                 // If contradictions exist, favor the candidate with higher confidence/score
                 List<CognitiveResult> resolved = new ArrayList<>();
                 for (CognitiveResult r : candidates) {
-                    if (SynapticHeaderConstants.isContradicted(r.consolidationFlags())) {
+                    if (EncodingHeaderFields.isContradicted(r.consolidationFlags())) {
                         boolean superseded = false;
                         for (CognitiveResult existing : resolved) {
                             if ((existing.text().equalsIgnoreCase(r.text()) || existing.id().equals(r.id()))

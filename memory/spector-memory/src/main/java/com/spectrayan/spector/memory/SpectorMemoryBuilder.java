@@ -351,6 +351,16 @@ public final class SpectorMemoryBuilder {
         return this;
     }
 
+    /**
+     * Sets the chunking configuration for remember() auto-chunking.
+     *
+     * @param config the chunking configuration
+     */
+    public SpectorMemoryBuilder chunkConfig(com.spectrayan.spector.commons.chunker.ChunkConfig config) {
+        this.chunkConfig = config != null ? config : com.spectrayan.spector.commons.chunker.ChunkConfig.DEFAULT;
+        return this;
+    }
+
     /** Sets the embedding batch size for parallel chunk embedding (default: 32). */
     public SpectorMemoryBuilder embedBatchSize(int size) { this.embedBatchSize = size; return this; }
 

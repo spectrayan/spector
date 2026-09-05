@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.pathway.pipeline.scorer;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -91,7 +91,7 @@ public class SalienceAndHabituationScorer {
      */
     public void applyCognitiveScoring(List<CognitiveResult> allResults,
                                        RecallOptions options, long nowMs,
-                                       CoActivationRecordMemory coActivationTracker,
+                                       CoActivationMemory coActivationTracker,
                                        GraphScoringPolicy graphScoringPolicy) {
         if (options.scoringMode() == ScoringMode.SIMILARITY) return;
 

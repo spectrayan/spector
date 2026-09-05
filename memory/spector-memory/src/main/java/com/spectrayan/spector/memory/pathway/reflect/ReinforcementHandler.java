@@ -21,9 +21,12 @@ import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
+import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
@@ -45,7 +48,8 @@ import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
 import com.spectrayan.spector.memory.pathway.recall.RecallPathway;
 import com.spectrayan.spector.memory.synapse.ActRActivation;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -130,51 +134,57 @@ public final class ReinforcementHandler {
         CognitiveMemoryRouter cognitiveRouter = partitionRegistry.routerFor(loc.colocatedPartition());
         MemorySegment segment = cognitiveRouter.segmentFor(loc.type());
         if (segment != null) {
-            CognitiveRecordLayout layout = cognitiveRouter.layoutFor(loc.type());
-
-            if (cognitiveRouter.audit() != null) {
-                int slotIndex = (int) (loc.offset() / layout.stride());
-                long creationTs = layout.readTimestamp(segment, loc.offset());
-                long nowMs = System.currentTimeMillis();
-
-                // Step 1: Valence tracking
-                valenceTracker.reinforce(segment, loc.offset(), layout, valence);
-
-                // Step 2: LTP — increment agent recall count in audit region
-                cognitiveRouter.audit().incrementAgentRecallCount(loc.type(), slotIndex);
-
-                // Step 3: ACT-R — record recall timestamp in 8-slot ring buffer
-                cognitiveRouter.audit().recordRecall(loc.type(), slotIndex, creationTs, nowMs, (byte) 0, 0);
-
-                // Step 4: Two-Factor Memory — update storage strength S(t) in audit region
-                int rawBucket = DecayStrategy.ageToBucket(creationTs, nowMs);
-                float currentR = DecayStrategy.decay(rawBucket);
-                float deltaS = twoFactorConfig.sGain() * (1.0f - currentR);
-                cognitiveRouter.audit().casStorageStrength(loc.type(), slotIndex,
-                        currentS -> Math.min(twoFactorConfig.sMax(),
-                                Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MIN, currentS + deltaS)));
+            if (loc.type() == MemoryType.EPISODIC) {
+                byte currentValence = EpisodicHeaderAccessor.readValence(segment, loc.offset());
+                byte blended = Valence.blend(currentValence, valence, valenceTracker.learningRate());
+                EpisodicHeaderAccessor.writeValence(segment, loc.offset(), blended);
             } else {
-                // Step 1: Valence tracking
-                valenceTracker.reinforce(segment, loc.offset(), layout, valence);
+                FixedEngramLayout layout = cognitiveRouter.layoutFor(loc.type());
 
-                // Step 2: LTP — increment agent recall count
-                layout.incrementAgentRecallCount(segment, loc.offset());
-
-                // Step 3: ACT-R — record recall timestamp in ring buffer (V3 only)
-                if (layout.headerLayout().version() >= 3) {
+                if (cognitiveRouter.strength() != null) {
+                    int slotIndex = (int) (loc.offset() / layout.stride());
                     long creationTs = layout.readTimestamp(segment, loc.offset());
-                    ActRActivation.recordRecall(segment, loc.offset(), creationTs,
-                            System.currentTimeMillis());
-                }
+                    long nowMs = System.currentTimeMillis();
 
-                // Step 4: Two-Factor Memory — update storage strength S(t)
-                var headerLayout = layout.headerLayout();
-                if (headerLayout.headerBytes() > 32) { // V2+ has storage_strength
-                    long timestamp = layout.readTimestamp(segment, loc.offset());
-                    int rawBucket = DecayStrategy.ageToBucket(timestamp, System.currentTimeMillis());
+                    // Step 1: Valence tracking
+                    valenceTracker.reinforce(segment, loc.offset(), layout, valence);
+
+                    // Step 2: LTP — increment agent recall count in strength region
+                    cognitiveRouter.strength().incrementAgentRecallCount(loc.type(), slotIndex);
+
+                    // Step 3: ACT-R — record recall timestamp in 8-slot ring buffer
+                    cognitiveRouter.strength().recordRecall(loc.type(), slotIndex, creationTs, nowMs, (byte) 0, 0);
+
+                    // Step 4: Two-Factor Memory — update storage strength S(t) in strength region
+                    int rawBucket = DecayStrategy.ageToBucket(creationTs, nowMs);
                     float currentR = DecayStrategy.decay(rawBucket);
                     float deltaS = twoFactorConfig.sGain() * (1.0f - currentR);
-                    headerLayout.casStorageStrength(segment, loc.offset(), currentS -> Math.min(twoFactorConfig.sMax(), Math.max(0.01f, currentS + deltaS)));
+                    cognitiveRouter.strength().casStorageStrength(loc.type(), slotIndex,
+                            currentS -> Math.min(twoFactorConfig.sMax(),
+                                    Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MIN, currentS + deltaS)));
+                } else {
+                    // Step 1: Valence tracking
+                    valenceTracker.reinforce(segment, loc.offset(), layout, valence);
+
+                    // Step 2: LTP — increment agent recall count
+                    layout.incrementAgentRecallCount(segment, loc.offset());
+
+                    // Step 3: ACT-R — record recall timestamp in ring buffer (V3 only)
+                    if (layout.headerLayout().version() >= 3) {
+                        long creationTs = layout.readTimestamp(segment, loc.offset());
+                        ActRActivation.recordRecall(segment, loc.offset(), creationTs,
+                                System.currentTimeMillis());
+                    }
+
+                    // Step 4: Two-Factor Memory — update storage strength S(t)
+                    var headerLayout = layout.headerLayout();
+                    if (headerLayout.headerBytes() > 32) { // V2+ has storage_strength
+                        long timestamp = layout.readTimestamp(segment, loc.offset());
+                        int rawBucket = DecayStrategy.ageToBucket(timestamp, System.currentTimeMillis());
+                        float currentR = DecayStrategy.decay(rawBucket);
+                        float deltaS = twoFactorConfig.sGain() * (1.0f - currentR);
+                        headerLayout.casStorageStrength(segment, loc.offset(), currentS -> Math.min(twoFactorConfig.sMax(), Math.max(0.01f, currentS + deltaS)));
+                    }
                 }
             }
         }
@@ -195,16 +205,16 @@ public final class ReinforcementHandler {
         wal.appendReinforce(memoryId, valence);
 
         // Step 7: ProfileAdaptor — record reinforcement outcome for profile learning
-        if (profileAdaptor != null && segment != null) {
+        if (profileAdaptor != null && segment != null && loc.type() != MemoryType.EPISODIC) {
             try {
                 byte profileOrdinal;
-                if (cognitiveRouter.audit() != null) {
+                if (cognitiveRouter.strength() != null) {
                     int slotIndex = (int) (loc.offset() / cognitiveRouter.layoutFor(loc.type()).stride());
-                    profileOrdinal = cognitiveRouter.audit().readAuditRecord(loc.type(), slotIndex).lastRecallProfile();
+                    profileOrdinal = cognitiveRouter.strength().readLastRecallProfile(loc.type(), slotIndex);
                 } else {
                     profileOrdinal = segment.get(
                             java.lang.foreign.ValueLayout.JAVA_BYTE,
-                            loc.offset() + com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE);
+                            loc.offset() + com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.OFFSET_LAST_RECALL_PROFILE);
                 }
                 if (profileOrdinal >= 0 && profileOrdinal < com.spectrayan.spector.memory.model.CognitiveProfile.values().length) {
                     com.spectrayan.spector.memory.model.CognitiveProfile usedProfile =
@@ -250,7 +260,21 @@ public final class ReinforcementHandler {
         MemorySegment segment = cognitiveRouter.segmentFor(loc.type());
         if (segment == null) return;
 
-        CognitiveRecordLayout layout = cognitiveRouter.layoutFor(loc.type());
+        if (loc.type() == MemoryType.EPISODIC) {
+            float oldImportance = EpisodicHeaderAccessor.readImportance(segment, loc.offset());
+            float newImportance;
+            if (updatedHints != null && !updatedHints.isEmpty()) {
+                float noveltyApprox = Math.min(1.0f, oldImportance / 5.0f);
+                float refusedImportance = IcnuWeights.DEFAULT.fuse(updatedHints, noveltyApprox);
+                newImportance = 0.5f * oldImportance + 0.5f * refusedImportance;
+            } else {
+                newImportance = oldImportance;
+            }
+            EpisodicHeaderAccessor.writeImportance(segment, loc.offset(), newImportance);
+            return;
+        }
+
+        FixedEngramLayout layout = cognitiveRouter.layoutFor(loc.type());
         var headerLayout = layout.headerLayout();
 
         float oldImportance = layout.readImportance(segment, loc.offset());
@@ -281,6 +305,10 @@ public final class ReinforcementHandler {
         if (Math.abs(finalImportance - oldImportance) > 0.001f) {
             log.debug("Reinforce re-fusion: '{}' importance {} → {}",
                     memoryId, oldImportance, finalImportance);
+            if (cognitiveRouter.strength() != null && loc.type() != MemoryType.WORKING) {
+                int slotIndex = (int) (loc.offset() / layout.stride());
+                cognitiveRouter.strength().casEffectiveImportance(loc.type(), slotIndex, current -> finalImportance);
+            }
         }
     }
 }

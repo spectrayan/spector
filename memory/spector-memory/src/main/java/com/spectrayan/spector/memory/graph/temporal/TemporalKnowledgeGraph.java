@@ -80,7 +80,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
     private static final TemporalFactLayout LAYOUT = new TemporalFactLayout();
 
     // ── Storage ──
-    private final TemporalFactsAppendMemory factLog;
+    private final TemporalFactsMemory factLog;
 
     // ── In-memory indexes (rebuilt on open) ──
     private final SubjectIndex subjectIndex = new SubjectIndex();
@@ -122,7 +122,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
      */
     public TemporalKnowledgeGraph(TypeRegistryMemory predicateRegistry,
                                    ContradictionResolver resolver) {
-        this.factLog = new TemporalFactsAppendMemory(DEFAULT_INITIAL_SIZE);
+        this.factLog = new TemporalFactsMemory(DEFAULT_INITIAL_SIZE);
         this.predicateRegistry = predicateRegistry;
         this.resolver = resolver;
         this.nextFactId = 1;
@@ -152,7 +152,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
     public TemporalKnowledgeGraph(Path filePath, long initialSize,
                                    TypeRegistryMemory predicateRegistry,
                                    ContradictionResolver resolver) {
-        this.factLog = new TemporalFactsAppendMemory(filePath, initialSize);
+        this.factLog = new TemporalFactsMemory(filePath, initialSize);
         this.predicateRegistry = predicateRegistry;
         this.resolver = resolver;
         this.nextFactId = 1;
@@ -171,7 +171,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
     private TemporalKnowledgeGraph(TypeRegistryMemory predicateRegistry,
                                    Arena arena, MemorySegment regionSlice,
                                    Path bundlePath, boolean isNew) {
-        this.factLog = TemporalFactsAppendMemory.fromBundle(arena, regionSlice, bundlePath, isNew);
+        this.factLog = TemporalFactsMemory.fromBundle(arena, regionSlice, bundlePath, isNew);
         this.predicateRegistry = predicateRegistry;
         this.resolver = new LatestTxWinsResolver();
         this.nextFactId = 1;
@@ -181,7 +181,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
             if (java.nio.file.Files.exists(legacyPath)) {
                 log.info("Migrating legacy standalone temporal-facts.tfacts to bundle region...");
                 try {
-                    TemporalKnowledgeGraph legacy = new TemporalKnowledgeGraph(legacyPath, java.nio.file.Files.size(legacyPath) - com.spectrayan.spector.memory.kernel.MemoryHeader.HEADER_BYTES, predicateRegistry);
+                    TemporalKnowledgeGraph legacy = new TemporalKnowledgeGraph(legacyPath, java.nio.file.Files.size(legacyPath) - com.spectrayan.spector.memory.kernel.RegionPreamble.PREAMBLE_BYTES, predicateRegistry);
                     long factCount = legacy.factLog.size();
                     for (long i = 0; i < factCount; i++) {
                         MemorySegment factSeg = legacy.factLog.read(i * 64, 64);
@@ -565,7 +565,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
      *
      * @return the fact log memory
      */
-    public TemporalFactsAppendMemory backing() {
+    public TemporalFactsMemory backing() {
         return factLog;
     }
 

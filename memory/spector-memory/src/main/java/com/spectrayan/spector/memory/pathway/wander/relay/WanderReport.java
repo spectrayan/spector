@@ -21,7 +21,7 @@ import java.util.List;
  * @param memoriesSampled number of memories sampled from active stores
  * @param associationsFormed number of new or reinforced Hebbian synaptic edges
  * @param synapticWeightDelta total synaptic edge weight increment added to the Hebbian network
- * @param snapshotRecorded whether an identity trajectory snapshot was appended to {@link com.spectrayan.spector.memory.cortex.ContinuityRecordMemory}
+ * @param snapshotRecorded whether an identity trajectory snapshot was appended to {@link com.spectrayan.spector.memory.cortex.ContinuityMemory}
  * @param elapsed total elapsed duration of the wandering cycle
  * @param discoveredAssociations details of discovered synergistic memory associations
  */

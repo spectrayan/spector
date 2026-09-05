@@ -22,7 +22,7 @@ import com.spectrayan.spector.memory.model.FactHistory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;

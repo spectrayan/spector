@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.graph.hebbian;
 
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianEdge;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.codec.Codecs;
 import com.spectrayan.spector.memory.kernel.layout.HebbianLayout;
@@ -102,7 +102,7 @@ class HebbianGraphMemoryMigrationTest {
         // Full path: codec migration up front, then load.
         ensureCurrent(graphFile);
         // The codec rewrote the file in place to the SMKM container.
-        assertThat(readMagicLE(graphFile)).isEqualTo(MemoryHeader.MAGIC);
+        assertThat(readMagicLE(graphFile)).isEqualTo(RegionPreamble.MAGIC);
         // The original was preserved as a versioned backup.
         assertThat(Files.exists(graphFile.resolveSibling(graphFile.getFileName() + ".bak.v1"))).isTrue();
 
@@ -122,7 +122,7 @@ class HebbianGraphMemoryMigrationTest {
         assertThat(readMagicBE(graphFile)).isEqualTo(0x48435352);
 
         ensureCurrent(graphFile);
-        assertThat(readMagicLE(graphFile)).isEqualTo(MemoryHeader.MAGIC);
+        assertThat(readMagicLE(graphFile)).isEqualTo(RegionPreamble.MAGIC);
 
         HebbianGraphMemory csr = HebbianGraphMemory.load(graphFile, 100);
         try {
@@ -142,11 +142,11 @@ class HebbianGraphMemoryMigrationTest {
         } finally {
             src.close();
         }
-        assertThat(readMagicLE(graphFile)).isEqualTo(MemoryHeader.MAGIC);
+        assertThat(readMagicLE(graphFile)).isEqualTo(RegionPreamble.MAGIC);
 
         // ensureCurrent is a no-op for an already-current SMKM file.
         ensureCurrent(graphFile);
-        assertThat(readMagicLE(graphFile)).isEqualTo(MemoryHeader.MAGIC);
+        assertThat(readMagicLE(graphFile)).isEqualTo(RegionPreamble.MAGIC);
 
         HebbianGraphMemory csr = HebbianGraphMemory.load(graphFile, 100);
         try {
@@ -171,7 +171,7 @@ class HebbianGraphMemoryMigrationTest {
         Path truncated = tempDir.resolve("truncated.graph");
         // Valid SMKM magic (native order) but far too short to hold the header.
         ByteBuffer buf = ByteBuffer.allocate(8).order(ByteOrder.nativeOrder());
-        buf.putInt(MemoryHeader.MAGIC);
+        buf.putInt(RegionPreamble.MAGIC);
         buf.putInt(1);
         Files.write(truncated, buf.array());
 
@@ -196,8 +196,8 @@ class HebbianGraphMemoryMigrationTest {
         }
         byte[] all = Files.readAllBytes(smkm);
         ByteBuffer le = ByteBuffer.wrap(all).order(ByteOrder.nativeOrder());
-        int capacity = (int) le.getLong(16);   // MemoryHeader capacity (offset 16)
-        int totalEdges = (int) le.getLong(24);  // MemoryHeader count (offset 24)
+        int capacity = (int) le.getLong(16);   // RegionPreamble capacity (offset 16)
+        int totalEdges = (int) le.getLong(24);  // RegionPreamble count (offset 24)
         int edgeCap = le.getInt(64);             // sub-header edgeCapacity (offset 64)
         int cycle = le.getInt(68);               // sub-header currentCycle (offset 68)
         // DATA_START now lives solely on HebbianLayout — single source consumed by impl + test.

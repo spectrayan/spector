@@ -20,11 +20,11 @@ import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -60,7 +60,7 @@ class RecencyPropertyTest {
 
         float[] mins = IdentityCalibration.mins(DIMS);
         float[] scales = IdentityCalibration.scales(DIMS);
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        EngramLayout layout = new EngramLayout(DIMS);
 
         try (Arena arena = Arena.ofConfined()) {
             int corpusSize = 2;
@@ -129,14 +129,14 @@ class RecencyPropertyTest {
     // Helpers
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-    private void writeRecord(MemorySegment segment, CognitiveRecordLayout layout,
+    private void writeRecord(MemorySegment segment, EngramLayout layout,
                              int index, float[] vector, float importance,
                              long timestamp, int agentRecallCount,
                              float[] mins, float[] scales) {
         long offset = (long) index * layout.stride();
-        CognitiveHeader header = new CognitiveHeader(
+        EncodingHeader header = new EncodingHeader(
                 timestamp, 0L, 1.0f, importance, agentRecallCount, (short) 0, (byte) 0,
-                SynapticHeaderConstants.FLAG_RESOLVED);
+                EncodingHeaderFields.FLAG_RESOLVED);
         layout.writeHeader(segment, offset, header);
 
         byte[] quantized = new byte[DIMS];

@@ -29,16 +29,16 @@ import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.memory.model.SourceModality;
-import com.spectrayan.spector.memory.cortex.AbstractCognitiveRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
-import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.*;
+import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,7 +87,7 @@ public final class GraphExpansionStage {
     private final float[] calibrationMins;
     private final float[] calibrationScales;
     private final com.spectrayan.spector.memory.model.SalienceProfile salienceProfile;
-    private final com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory coActivationTracker;
+    private final com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory coActivationTracker;
 
     public GraphExpansionStage(HebbianGraphBase hebbianGraph,
                         TemporalChainMemory temporalChain,
@@ -100,7 +100,7 @@ public final class GraphExpansionStage {
                         float[] calibrationMins,
                         float[] calibrationScales,
                         com.spectrayan.spector.memory.model.SalienceProfile salienceProfile,
-                        com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory coActivationTracker) {
+                        com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory coActivationTracker) {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.entityDirectory = entityDirectory;
@@ -188,6 +188,8 @@ public final class GraphExpansionStage {
         if (options.graphExpansionThreshold() > 1.0f) {
             mode = GraphExpansionMode.ALWAYS;
         }
+        log.info("GraphExpansionStage.expand: cognitiveScoring={}, hasSubsystems={}, allResultsSize={}, mode={}, threshold={}, rawQuery='{}'",
+                cognitiveScoring, hasSubsystems, allResults.size(), mode, options.graphExpansionThreshold(), rawQuery);
         if (mode == GraphExpansionMode.ENTITY_ONLY && options.entityHints().isEmpty()) {
             log.debug("Graph expansion skipped: ENTITY_ONLY mode and no entity hints");
             return;
@@ -266,9 +268,11 @@ public final class GraphExpansionStage {
             for (String id : graphCandidates.keySet()) {
                 existingIds.add(id);
             }
-            log.debug("Graph expansion added {} candidates (from {} layers)",
+            log.info("Graph expansion added {} candidates (from {} layers)",
                     graphCandidates.size(),
                     (hebbianGraph != null ? 1 : 0) + (temporalChain != null ? 1 : 0) + (entityDirectory != null ? 1 : 0) + 1);
+        } else {
+            log.info("Graph expansion found 0 candidates");
         }
 
     }
@@ -327,8 +331,10 @@ public final class GraphExpansionStage {
                             }
                         }
 
-                        float graphScore = (neighborSim
-                                + seed.score() * saturatedWeight * effectiveHebbianBoost * entityMultiplier) * 2.0f;
+                        float boost = saturatedWeight * effectiveHebbianBoost * entityMultiplier;
+                        float graphScore = neighborSim > 0.0f
+                                ? (neighborSim + seed.score() * boost) * 0.5f
+                                : seed.score() * Math.min(0.85f, boost);
 
                         CognitiveResult candidate = buildGraphCandidate(
                                 neighborId, graphScore, seed, MemoryType.SEMANTIC, "HEBBIAN", neighborSim);
@@ -345,7 +351,7 @@ public final class GraphExpansionStage {
 
     /**
      * Layer 4: Synaptic Tagging & Capture (STC) Cross-Capture Graph.
-     * Traverses tag co-occurrence matrix and inverted index via {@link com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory}.
+     * Traverses tag co-occurrence matrix and inverted index via {@link com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory}.
      */
     private void expandCrossCaptureSTC(List<CognitiveResult> allResults,
                                        Set<String> existingIds,
@@ -387,7 +393,10 @@ public final class GraphExpansionStage {
                 if (neighborId != null && !existingIds.contains(neighborId) && matchesFilters(neighborId, options)) {
                     float neighborSim = computeNeighborSimilarity(neighborId, queryVector);
                     float saturatedScore = Math.min(cc.score() / 5.0f, 1.0f);
-                    float graphScore = (neighborSim + saturatedScore * 0.4f) * 1.5f;
+                    float topScore = !allResults.isEmpty() ? allResults.getFirst().score() : 0.04f;
+                    float graphScore = neighborSim > 0.0f
+                            ? (neighborSim + topScore * saturatedScore * 0.4f) * 0.5f
+                            : topScore * saturatedScore * 0.4f;
 
                     MemoryType resolvedType = MemoryType.SEMANTIC;
                     MemoryIndex.MemoryLocation loc = index.locate(neighborId);
@@ -415,20 +424,24 @@ public final class GraphExpansionStage {
                                  float[] queryVector,
                                  RecallOptions options) {
         try {
-            List<CognitiveResult> seeds = allResults.subList(0, Math.min(12, allResults.size()));
+            List<CognitiveResult> seeds = allResults.subList(0, Math.min(20, allResults.size()));
 
             for (CognitiveResult seed : seeds) {
                 MemoryIndex.MemoryLocation loc = index.locate(seed.id());
                 if (loc == null) continue;
 
                 int memIdx = loc.graphSlot();
-                for (int chainIdx : temporalChain.followForward(memIdx, graphScoringPolicy.temporalMaxHops())) {
-                    addChainResultCoFusion(chainIdx, seed, existingIds, graphCandidates,
-                            queryVector, graphScoringPolicy.temporalForwardFactor(), options);
+                int[] forward = temporalChain.followForward(memIdx, graphScoringPolicy.temporalMaxHops());
+                for (int i = 0; i < forward.length; i++) {
+                    float hopAtten = Math.max(0.60f, 1.0f - 0.03f * (i + 1));
+                    addChainResultCoFusion(forward[i], seed, existingIds, graphCandidates,
+                            queryVector, hopAtten, options);
                 }
-                for (int chainIdx : temporalChain.followBackward(memIdx, graphScoringPolicy.temporalMaxHops())) {
-                    addChainResultCoFusion(chainIdx, seed, existingIds, graphCandidates,
-                            queryVector, graphScoringPolicy.temporalBackwardFactor(), options);
+                int[] backward = temporalChain.followBackward(memIdx, graphScoringPolicy.temporalMaxHops());
+                for (int i = 0; i < backward.length; i++) {
+                    float hopAtten = Math.max(0.60f, 1.0f - 0.03f * (i + 1));
+                    addChainResultCoFusion(backward[i], seed, existingIds, graphCandidates,
+                            queryVector, hopAtten, options);
                 }
             }
         } catch (RuntimeException e) {
@@ -569,10 +582,10 @@ public final class GraphExpansionStage {
                         if (!existingIds.contains(memId) && matchesFilters(memId, options)) {
                             float neighborSim = computeNeighborSimilarity(memId, queryVector);
                             float fanAttenuation = entityDirectory.fanFactor(entityId);
-                            float entityScore = (neighborSim
-                                    + allResults.getFirst().score()
-                                      * graphScoringPolicy.entityHopAttenuation()
-                                      * fanAttenuation) * 2.0f;
+                            float entityAtten = graphScoringPolicy.entityHopAttenuation() * fanAttenuation;
+                            float entityScore = neighborSim > 0.0f
+                                    ? (neighborSim + allResults.getFirst().score() * entityAtten) * 0.5f
+                                    : allResults.getFirst().score() * Math.min(0.85f, entityAtten);
 
                             CognitiveResult candidate = buildGraphCandidate(
                                     memId, entityScore, null, MemoryType.SEMANTIC, "ENTITY", neighborSim);
@@ -599,9 +612,10 @@ public final class GraphExpansionStage {
                                                 String memId = ((com.spectrayan.spector.memory.cortex.index.IndexRecordMemory) index).idAt(sib.memoryIdx());
                                                 if (memId != null && !existingIds.contains(memId) && matchesFilters(memId, options)) {
                                                     float neighborSim = computeNeighborSimilarity(memId, queryVector);
-                                                    float entityScore = (neighborSim
-                                                            + allResults.getFirst().score()
-                                                              * graphScoringPolicy.entityHopAttenuation()) * 2.0f;
+                                                    float entityAtten = graphScoringPolicy.entityHopAttenuation();
+                                                    float entityScore = neighborSim > 0.0f
+                                                            ? (neighborSim + allResults.getFirst().score() * entityAtten) * 0.5f
+                                                            : allResults.getFirst().score() * Math.min(0.85f, entityAtten);
                                                     CognitiveResult candidate = buildGraphCandidate(
                                                             memId, entityScore, null, MemoryType.SEMANTIC, "PREDICATE_BRIDGE", neighborSim);
                                                     graphCandidates.merge(memId, candidate,
@@ -695,7 +709,9 @@ public final class GraphExpansionStage {
         if (chainId == null) return;
         if (!existingIds.contains(chainId) && matchesFilters(chainId, options)) {
             float neighborSim = computeNeighborSimilarity(chainId, queryVector);
-            float chainScore = (neighborSim + seed.score() * attenuation * 0.9f) * 2.0f;
+            float chainScore = neighborSim > 0.0f
+                    ? (neighborSim + seed.score() * attenuation) * 0.5f
+                    : seed.score() * attenuation;
 
             CognitiveResult candidate = buildGraphCandidate(chainId, chainScore, seed, seed.memoryType(), "TEMPORAL", neighborSim);
             graphCandidates.merge(chainId, candidate,
@@ -744,16 +760,28 @@ public final class GraphExpansionStage {
 
         long ts = 0L;
         byte valence = 0;
+        MemoryType resolvedType = type;
         try {
             MemoryIndex.MemoryLocation loc = index != null ? index.locate(memId) : null;
             if (loc != null) {
+                if (loc.type() != null) {
+                    resolvedType = loc.type();
+                }
                 CognitiveMemoryRouter router = partitionRegistry != null
                         ? partitionRegistry.routerFor(loc.colocatedPartition()) : null;
                 if (router != null) {
                     MemorySegment seg = router.segmentFor(loc.type());
                     if (seg != null) {
-                        ts = seg.get(LAYOUT_TIMESTAMP, loc.offset() + OFFSET_TIMESTAMP);
-                        valence = seg.get(LAYOUT_VALENCE, loc.offset() + OFFSET_VALENCE);
+                        if (loc.type() == MemoryType.EPISODIC) {
+                            ts = EpisodicHeaderAccessor.readTimestamp(seg, loc.offset());
+                            valence = EpisodicHeaderAccessor.readValence(seg, loc.offset());
+                        } else {
+                            FixedEngramLayout layout = router.layoutFor(loc.type());
+                            if (layout != null) {
+                                ts = layout.readTimestamp(seg, loc.offset());
+                                valence = layout.readValence(seg, loc.offset());
+                            }
+                        }
                     }
                 }
             }
@@ -761,7 +789,7 @@ public final class GraphExpansionStage {
 
         return new CognitiveResult(
                 memId, text, score, importance, 0f,
-                0, valence, type, source,
+                0, valence, resolvedType, source,
                 tags, 1.0f, 1.0f, RetrievalMode.STANDARD, breakdown, null,
                 modality, metadata, (byte) 0, ts);
     }
@@ -772,6 +800,7 @@ public final class GraphExpansionStage {
      * Computes actual cosine-derived similarity for a graph-expanded neighbor.
      */
     float computeNeighborSimilarity(String memoryId, float[] queryVector) {
+        if (queryVector == null) return 0f;
         try {
             MemoryIndex.MemoryLocation loc = index.locate(memoryId);
             if (loc == null) return 0f;
@@ -783,7 +812,12 @@ public final class GraphExpansionStage {
             MemorySegment seg = router.segmentFor(loc.type());
             if (seg == null) return 0f;
 
-            CognitiveRecordLayout layout = router.layoutFor(loc.type());
+            if (loc.type() == MemoryType.EPISODIC) {
+                return 0f;
+            }
+
+            FixedEngramLayout layout = router.layoutFor(loc.type());
+            if (layout == null) return 0f;
             float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
                     queryVector, seg, layout.vectorOffset(loc.offset()),
                     calibrationMins, calibrationScales, layout.quantizedVecBytes());
@@ -831,24 +865,42 @@ public final class GraphExpansionStage {
         MemorySegment seg = router.segmentFor(loc.type());
         if (seg == null) return false;
 
-        byte flags = seg.get(LAYOUT_FLAGS, loc.offset() + OFFSET_FLAGS);
+        if (loc.type() == MemoryType.EPISODIC) {
+            if (EpisodicHeaderAccessor.isTombstoned(seg, loc.offset())) {
+                return false;
+            }
+            byte valence = EpisodicHeaderAccessor.readValence(seg, loc.offset());
+            if (valence < options.minValence() || valence > options.maxValence()) {
+                return false;
+            }
+            float importance = EpisodicHeaderAccessor.readImportance(seg, loc.offset());
+            if (importance < options.minImportance()) {
+                return false;
+            }
+            return true;
+        }
+
+        FixedEngramLayout layout = router.layoutFor(loc.type());
+        if (layout == null) return false;
+
+        byte flags = layout.readFlags(seg, loc.offset());
         if ((flags & FLAG_TOMBSTONE) != 0) {
             return false;
         }
 
         if (!options.includeContradictions()) {
-            byte cFlags = seg.get(LAYOUT_CONSOLIDATION_FLAGS, loc.offset() + OFFSET_CONSOLIDATION_FLAGS);
+            byte cFlags = layout.readConsolidationFlags(seg, loc.offset());
             if ((cFlags & FLAG_CONTRADICTED) != 0) {
                 return false;
             }
         }
 
-        byte valence = seg.get(LAYOUT_VALENCE, loc.offset() + OFFSET_VALENCE);
+        byte valence = layout.readValence(seg, loc.offset());
         if (valence < options.minValence() || valence > options.maxValence()) {
             return false;
         }
 
-        float importance = seg.get(LAYOUT_IMPORTANCE, loc.offset() + OFFSET_IMPORTANCE);
+        float importance = layout.readImportance(seg, loc.offset());
         if (importance < options.minImportance()) {
             return false;
         }

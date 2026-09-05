@@ -44,6 +44,11 @@ public final class AssociativeGraphRelay implements SynapticRelay<RecallSignal> 
 
     @Override
     public boolean transmit(final RecallSignal signal) {
+        if (!signal.candidates().isEmpty()) {
+            signal.candidates().sort(java.util.Comparator.comparing(com.spectrayan.spector.memory.model.CognitiveResult::score).reversed()
+                    .thenComparing(com.spectrayan.spector.memory.model.CognitiveResult::id));
+        }
+        log.info("AssociativeGraphRelay: candidates before expand={}, query='{}'", signal.candidates().size(), signal.rawQuery());
         try {
             graphExpansionStage.expand(signal.candidates(), signal.queryVector(), signal.options(), signal.rawQuery());
         } catch (final RuntimeException e) {
@@ -51,6 +56,7 @@ public final class AssociativeGraphRelay implements SynapticRelay<RecallSignal> 
         } catch (final Exception e) {
             throw new RuntimeException(e);
         }
+        log.info("AssociativeGraphRelay: candidates after expand={}", signal.candidates().size());
 
         temporalFactWeavingStage.weave(signal.candidates(), signal.queryVector(), signal.options(), signal.rawQuery());
 

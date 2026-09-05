@@ -31,11 +31,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class CrossCaptureTraversalTest {
 
-    private CoActivationRecordMemory tracker;
+    private CoActivationMemory tracker;
 
     @BeforeEach
     void setUp() {
-        tracker = new CoActivationRecordMemory(1000, 1000);
+        tracker = new CoActivationMemory(1000, 1000);
     }
 
     // ── Shape Tests ──
@@ -50,7 +50,7 @@ class CrossCaptureTraversalTest {
     @Test
     void indexMemoryTagCreatesEntry() {
         tracker.indexMemoryTag("java", 42);
-        int[] memories = tracker.findMemoriesByTag(CoActivationRecordMemory.hashTag("java"), 10);
+        int[] memories = tracker.findMemoriesByTag(CoActivationMemory.hashTag("java"), 10);
         assertThat(memories).containsExactly(42);
     }
 
@@ -59,7 +59,7 @@ class CrossCaptureTraversalTest {
         tracker.indexMemoryTag("java", 1);
         tracker.indexMemoryTag("java", 2);
         tracker.indexMemoryTag("java", 3);
-        int[] memories = tracker.findMemoriesByTag(CoActivationRecordMemory.hashTag("java"), 10);
+        int[] memories = tracker.findMemoriesByTag(CoActivationMemory.hashTag("java"), 10);
         assertThat(memories).containsExactlyInAnyOrder(1, 2, 3);
     }
 
@@ -67,7 +67,7 @@ class CrossCaptureTraversalTest {
     void indexMemoryTagDeduplicates() {
         tracker.indexMemoryTag("java", 42);
         tracker.indexMemoryTag("java", 42); // duplicate
-        int[] memories = tracker.findMemoriesByTag(CoActivationRecordMemory.hashTag("java"), 10);
+        int[] memories = tracker.findMemoriesByTag(CoActivationMemory.hashTag("java"), 10);
         assertThat(memories).containsExactly(42);
     }
 
@@ -76,13 +76,13 @@ class CrossCaptureTraversalTest {
         for (int i = 0; i < 20; i++) {
             tracker.indexMemoryTag("java", i);
         }
-        int[] memories = tracker.findMemoriesByTag(CoActivationRecordMemory.hashTag("java"), 5);
+        int[] memories = tracker.findMemoriesByTag(CoActivationMemory.hashTag("java"), 5);
         assertThat(memories).hasSize(5);
     }
 
     @Test
     void findMemoriesByTagReturnsEmptyForUnknownTag() {
-        int[] memories = tracker.findMemoriesByTag(CoActivationRecordMemory.hashTag("unknown"), 10);
+        int[] memories = tracker.findMemoriesByTag(CoActivationMemory.hashTag("unknown"), 10);
         assertThat(memories).isEmpty();
     }
 
@@ -94,10 +94,10 @@ class CrossCaptureTraversalTest {
 
         tracker.deindexMemory(42);
 
-        int[] javaMemories = tracker.findMemoriesByTag(CoActivationRecordMemory.hashTag("java"), 10);
+        int[] javaMemories = tracker.findMemoriesByTag(CoActivationMemory.hashTag("java"), 10);
         assertThat(javaMemories).containsExactly(99);
 
-        int[] pythonMemories = tracker.findMemoriesByTag(CoActivationRecordMemory.hashTag("python"), 10);
+        int[] pythonMemories = tracker.findMemoriesByTag(CoActivationMemory.hashTag("python"), 10);
         assertThat(pythonMemories).isEmpty();
     }
 
@@ -212,13 +212,13 @@ class CrossCaptureTraversalTest {
         tracker.rebuildInvertedIndex(tagSets);
 
         // Old entries should be gone
-        assertThat(tracker.findMemoriesByTag(CoActivationRecordMemory.hashTag("java"), 10)).isEmpty();
-        assertThat(tracker.findMemoriesByTag(CoActivationRecordMemory.hashTag("python"), 10)).isEmpty();
+        assertThat(tracker.findMemoriesByTag(CoActivationMemory.hashTag("java"), 10)).isEmpty();
+        assertThat(tracker.findMemoriesByTag(CoActivationMemory.hashTag("python"), 10)).isEmpty();
 
         // New entries should exist
-        assertThat(tracker.findMemoriesByTag(CoActivationRecordMemory.hashTag("go"), 10))
+        assertThat(tracker.findMemoriesByTag(CoActivationMemory.hashTag("go"), 10))
                 .containsExactlyInAnyOrder(10, 20);
-        assertThat(tracker.findMemoriesByTag(CoActivationRecordMemory.hashTag("performance"), 10))
+        assertThat(tracker.findMemoriesByTag(CoActivationMemory.hashTag("performance"), 10))
                 .containsExactly(10);
     }
 
@@ -230,7 +230,7 @@ class CrossCaptureTraversalTest {
         for (int i = 0; i < 5; i++) tracker.recordCoActivation("java", "gc");
         for (int i = 0; i < 2; i++) tracker.recordCoActivation("java", "threads");
 
-        var neighbors = tracker.traverseRelatedTags(CoActivationRecordMemory.hashTag("java"), 3);
+        var neighbors = tracker.traverseRelatedTags(CoActivationMemory.hashTag("java"), 3);
 
         assertThat(neighbors).hasSize(3);
         assertThat(neighbors.get(0).tagName()).isEqualTo("performance");
@@ -245,7 +245,7 @@ class CrossCaptureTraversalTest {
             tracker.recordCoActivation("java", "tag-" + i);
         }
 
-        var neighbors = tracker.traverseRelatedTags(CoActivationRecordMemory.hashTag("java"), 3);
+        var neighbors = tracker.traverseRelatedTags(CoActivationMemory.hashTag("java"), 3);
         assertThat(neighbors).hasSize(3);
     }
 }

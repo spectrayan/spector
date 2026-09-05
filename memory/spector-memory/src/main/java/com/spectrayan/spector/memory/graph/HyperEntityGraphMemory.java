@@ -35,7 +35,7 @@ import java.util.Set;
 import java.util.PrimitiveIterator;
 
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout;
@@ -80,7 +80,7 @@ import static com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout.SUB_
  *
  * <h3>On-Disk Container (SMKM v2)</h3>
  * <pre>
- *   [64B kernel MemoryHeader (SMKM, shape=GRAPH, layoutId=HYEG, schemaVersion=2)]
+ *   [64B kernel RegionPreamble (SMKM, shape=GRAPH, layoutId=HYEG, schemaVersion=2)]
  *   [16B HyperEntity sub-header: entityCap, nextHyperedgeId, nextVertexOffset, totalHyperedges]
  *   [hedges: nextHyperedgeId × HEDGE_BYTES]
  *   [vertices: nextVertexOffset × VERTEX_BYTES]
@@ -190,7 +190,7 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
                                    int entityCapacity, int hyperedgeCapacity,
                                    Path bundlePath, boolean isNew) {
         super(MEMORY_ID, LAYOUT, hyperedgeCapacity, arena, regionSlice,
-              isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0L),
+              isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0L),
               true, bundlePath, null, true); // bundleManaged=true
         this.bundleManaged = true;
         this.entityCapacity = entityCapacity;
@@ -220,9 +220,9 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
             this.nextVertexOffset = 0;
             this.totalHyperedges = 0;
         } else {
-            this.nextHyperedgeId = regionSlice.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_NEXT_HYPEREDGE_ID);
-            this.nextVertexOffset = regionSlice.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_NEXT_VERTEX_OFFSET);
-            this.totalHyperedges = regionSlice.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_TOTAL_HYPEREDGES);
+            this.nextHyperedgeId = regionSlice.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_NEXT_HYPEREDGE_ID);
+            this.nextVertexOffset = regionSlice.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_NEXT_VERTEX_OFFSET);
+            this.totalHyperedges = regionSlice.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_TOTAL_HYPEREDGES);
         }
 
         this.incidenceHeap = new ArrayList<>(entityCapacity);
@@ -349,18 +349,18 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
                 while (hb.hasRemaining() && ch.read(hb) >= 0) {
                     // fill header
                 }
-                if (!MemoryHeader.isValid(head, 0L)
-                        || MemoryHeader.readShape(head, 0L) != MemoryShape.GRAPH
-                        || MemoryHeader.readLayoutId(head, 0L) != LAYOUT.layoutId()) {
+                if (!RegionPreamble.isValid(head, 0L)
+                        || RegionPreamble.readShape(head, 0L) != MemoryShape.GRAPH
+                        || RegionPreamble.readLayoutId(head, 0L) != LAYOUT.layoutId()) {
                     throw new IOException("invalid SMKM hyper-entity header: " + filePath);
                 }
 
-                int loadedHedgeCap = (int) MemoryHeader.readCapacity(head, 0L);
-                int loadedTotal = (int) MemoryHeader.readCount(head, 0L);
-                int loadedEntityCap = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ENTITY_CAP);
-                int nextId = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_NEXT_HYPEREDGE_ID);
-                int nextVertexOff = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_NEXT_VERTEX_OFFSET);
-                int totalHedges = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_TOTAL_HYPEREDGES);
+                int loadedHedgeCap = (int) RegionPreamble.readCapacity(head, 0L);
+                int loadedTotal = (int) RegionPreamble.readCount(head, 0L);
+                int loadedEntityCap = head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ENTITY_CAP);
+                int nextId = head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_NEXT_HYPEREDGE_ID);
+                int nextVertexOff = head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_NEXT_VERTEX_OFFSET);
+                int totalHedges = head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_TOTAL_HYPEREDGES);
 
                 if (loadedHedgeCap < 0 || loadedEntityCap < 0 || nextId < 0 || nextVertexOff < 0) {
                     throw new IOException("invalid SMKM hyper-entity sub-header: " + filePath);
@@ -882,14 +882,14 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
                 throw new IOException("file too small to contain a header: " + size + " bytes");
             }
             int firstInt = peekIntNative(filePath, 0);
-            if (firstInt == MemoryHeader.MAGIC) {
+            if (firstInt == RegionPreamble.MAGIC) {
                 int schemaVersion = peekIntNative(filePath, 4);
                 if (schemaVersion >= 2) {
                     return openSmkm(filePath, entityCapacity, hyperedgeCapacity);
                 }
                 // Interim hybrid: [64B SMKM header (schemaVersion==1)][32B HYEG custom header][data].
                 log.info("HyperEntityGraphMemory migrating legacy hybrid container -> SMKM v2: {}", filePath);
-                migrateLegacyToSmkm(filePath, MemoryHeader.HEADER_BYTES);
+                migrateLegacyToSmkm(filePath, RegionPreamble.PREAMBLE_BYTES);
                 return openSmkm(filePath, entityCapacity, hyperedgeCapacity);
             }
             if (firstInt == FILE_MAGIC) {
@@ -909,7 +909,7 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
             // graph would silently discard the user's data (#432/#433 TD-04).
             throw new IOException("unrecognized HyperEntityGraph file magic: 0x"
                     + Integer.toHexString(firstInt) + " (expected SMKM 0x"
-                    + Integer.toHexString(MemoryHeader.MAGIC) + " or HYEG 0x"
+                    + Integer.toHexString(RegionPreamble.MAGIC) + " or HYEG 0x"
                     + Integer.toHexString(FILE_MAGIC) + "): " + filePath);
         } catch (SpectorGraphPersistenceException e) {
             throw e;
@@ -1009,12 +1009,12 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
     private static void writeSmkmHeaderToSegment(MemorySegment head, int entityCap, int hedgeCap,
                                                  int nextId, int nextVertexOff, int totalHedges) {
         long now = System.currentTimeMillis();
-        MemoryHeader.write(head, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x00,
+        RegionPreamble.write(head, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x00,
                 hedgeCap, totalHedges, HyperEntityLayout.HEDGE_BYTES, LAYOUT.layoutId(), now, now);
-        head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ENTITY_CAP, entityCap);
-        head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_NEXT_HYPEREDGE_ID, nextId);
-        head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_NEXT_VERTEX_OFFSET, nextVertexOff);
-        head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_TOTAL_HYPEREDGES, totalHedges);
+        head.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ENTITY_CAP, entityCap);
+        head.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_NEXT_HYPEREDGE_ID, nextId);
+        head.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_NEXT_VERTEX_OFFSET, nextVertexOff);
+        head.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_TOTAL_HYPEREDGES, totalHedges);
     }
 
     /** Writes the 64-byte kernel header + 16-byte HyperEntity sub-header to the start of {@code ch}. */

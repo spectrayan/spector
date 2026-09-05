@@ -12,18 +12,6 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.HeaderLayout;
-import com.spectrayan.spector.memory.kernel.layout.HeaderLayout64;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
-
-import com.spectrayan.spector.commons.error.ErrorCode;
-import com.spectrayan.spector.commons.error.SpectorStorageException;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -36,6 +24,24 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.Instant;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorStorageException;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.memory.cortex.StrengthMemory;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
+import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.layout.compat.LegacyEncodingHeaderReader;
+import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
  * One-time migration tool for converting store files between header layout versions.
@@ -71,10 +77,10 @@ public final class HeaderMigrator {
 
     private static final Logger log = LoggerFactory.getLogger(HeaderMigrator.class);
 
-    /** Metadata header size in bytes (same as AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES). */
-    private static final int METADATA_HEADER_BYTES = 64;
+    /** Region preamble size in bytes (same as AbstractEngramMemory.METADATA_PREAMBLE_BYTES). */
+    private static final int METADATA_PREAMBLE_BYTES = 64;
 
-    /** Metadata field offsets (mirrors AbstractCognitiveRecordMemory). */
+    /** Metadata field offsets (mirrors AbstractEngramMemory). */
     private static final int META_MAGIC    = 0;
     private static final int META_VERSION  = 4;
     private static final int META_COUNT    = 8;
@@ -96,20 +102,42 @@ public final class HeaderMigrator {
      * fields are discarded.</p>
      *
      * @param storePath path to the persistent store file
-     * @param source    current layout (detected from file metadata)
-     * @param target    desired layout version
+     * @param source    current layout (legacy V1 reader)
+     * @param target    desired layout version (EncodingHeaderLayout)
      * @param vectorBytes bytes per quantized vector (needed for stride calculation)
      * @param isHeaderOnly true for header-only stores (e.g., SemanticMemoryStore)
      * @return migration report with statistics
      * @throws SpectorValidationException if source and target are the same version
      * @throws SpectorStorageException if file I/O fails
      */
-    public static MigrationReport migrate(Path storePath, HeaderLayout source,
-                                            HeaderLayout target, int vectorBytes,
-                                            boolean isHeaderOnly) {
+    public static MigrationReport migrate(Path storePath, LegacyEncodingHeaderReader source,
+                                          EncodingHeaderLayout target, int vectorBytes,
+                                          boolean isHeaderOnly) {
+        return migrate(storePath, source, target, vectorBytes, isHeaderOnly, null, null);
+    }
+
+    /**
+     * Migrates a persistent store file from one header layout to another, optionally
+     * populating the strength region from V1 header fields.
+     *
+     * @param storePath     path to the persistent store file
+     * @param source        current layout (legacy V1 reader)
+     * @param target        desired layout version (EncodingHeaderLayout)
+     * @param vectorBytes   bytes per quantized vector (needed for stride calculation)
+     * @param isHeaderOnly  true for header-only stores (e.g., SemanticMemoryStore)
+     * @param strengthStore optional StrengthMemory store to populate with V1 counters
+     * @param tier          optional MemoryType tier for strength records
+     * @return migration report with statistics
+     * @throws SpectorValidationException if source and target are the same version
+     * @throws SpectorStorageException if file I/O fails
+     */
+    public static MigrationReport migrate(Path storePath, LegacyEncodingHeaderReader source,
+                                          EncodingHeaderLayout target, int vectorBytes,
+                                          boolean isHeaderOnly, StrengthMemory strengthStore,
+                                          MemoryType tier) {
         if (source.version() == target.version()) {
             throw new SpectorValidationException(
-                    ErrorCode.ARGUMENT_INVALID, "targetVersion", "same as source: V" + source.version());
+                    ErrorCode.ARGUMENT_INVALID, "targetVersion", "same as source: " + source.version());
         }
 
         boolean isDowngrade = target.version() < source.version();
@@ -149,14 +177,19 @@ public final class HeaderMigrator {
 
             // Read metadata
             int magic = sourceSegment.get(ValueLayout.JAVA_INT, META_MAGIC);
-            if (magic != TIER_MAGIC) {
+            int capacity;
+            int tierOrd = 0;
+            if (magic == RegionPreamble.MAGIC) {
+                recordCount = (int) RegionPreamble.readCount(sourceSegment, 0);
+                capacity = (int) RegionPreamble.readCapacity(sourceSegment, 0);
+            } else if (magic == TIER_MAGIC) {
+                recordCount = sourceSegment.get(ValueLayout.JAVA_INT, META_COUNT);
+                capacity = sourceSegment.get(ValueLayout.JAVA_INT, META_CAPACITY);
+                tierOrd = sourceSegment.get(ValueLayout.JAVA_INT, META_TIER_ORD);
+            } else {
                 throw new SpectorStorageException(
                         ErrorCode.FILE_FORMAT_INVALID, "bad tier magic in " + storePath + ": 0x" + Integer.toHexString(magic));
             }
-
-            recordCount = sourceSegment.get(ValueLayout.JAVA_INT, META_COUNT);
-            int capacity = sourceSegment.get(ValueLayout.JAVA_INT, META_CAPACITY);
-            int tierOrd = sourceSegment.get(ValueLayout.JAVA_INT, META_TIER_ORD);
 
             int sourceRecordStride = isHeaderOnly ? source.headerBytes()
                     : source.headerBytes() + vectorBytes;
@@ -164,7 +197,7 @@ public final class HeaderMigrator {
                     : target.headerBytes() + vectorBytes;
 
             long targetDataSize = (long) targetRecordStride * capacity;
-            long targetTotalSize = METADATA_HEADER_BYTES + targetDataSize;
+            long targetTotalSize = METADATA_PREAMBLE_BYTES + targetDataSize;
 
             // ── Step 2: Create target temp file ──
             try (FileChannel targetCh = FileChannel.open(tempPath,
@@ -180,20 +213,27 @@ public final class HeaderMigrator {
                         0, targetTotalSize, targetArena);
 
                 // Write metadata header
-                targetSegment.set(ValueLayout.JAVA_INT, META_MAGIC, TIER_MAGIC);
-                targetSegment.set(ValueLayout.JAVA_INT, META_VERSION, target.version());
-                targetSegment.set(ValueLayout.JAVA_INT, META_COUNT, recordCount);
-                targetSegment.set(ValueLayout.JAVA_INT, META_CAPACITY, capacity);
-                targetSegment.set(ValueLayout.JAVA_INT, META_STRIDE, targetRecordStride);
-                targetSegment.set(ValueLayout.JAVA_INT, META_TIER_ORD, tierOrd);
+                if (magic == RegionPreamble.MAGIC) {
+                    long now = System.currentTimeMillis();
+                    RegionPreamble.write(targetSegment, 0, target.version(),
+                            MemoryShape.RECORD, 1, capacity, recordCount,
+                            targetRecordStride, 0x434F4700, now, now);
+                } else {
+                    targetSegment.set(ValueLayout.JAVA_INT, META_MAGIC, TIER_MAGIC);
+                    targetSegment.set(ValueLayout.JAVA_INT, META_VERSION, target.version());
+                    targetSegment.set(ValueLayout.JAVA_INT, META_COUNT, recordCount);
+                    targetSegment.set(ValueLayout.JAVA_INT, META_CAPACITY, capacity);
+                    targetSegment.set(ValueLayout.JAVA_INT, META_STRIDE, targetRecordStride);
+                    targetSegment.set(ValueLayout.JAVA_INT, META_TIER_ORD, tierOrd);
+                }
 
                 // ── Step 3: Migrate records ──
                 for (int i = 0; i < recordCount; i++) {
-                    long sourceOff = METADATA_HEADER_BYTES + (long) i * sourceRecordStride;
-                    long targetOff = METADATA_HEADER_BYTES + (long) i * targetRecordStride;
+                    long sourceOff = METADATA_PREAMBLE_BYTES + (long) i * sourceRecordStride;
+                    long targetOff = METADATA_PREAMBLE_BYTES + (long) i * targetRecordStride;
 
                     // Read header from source layout (extended fields get defaults)
-                    CognitiveRecordLayout.CognitiveHeader header =
+                    EncodingHeader header =
                             source.readHeader(sourceSegment, sourceOff);
 
                     // Write header with target layout
@@ -205,6 +245,11 @@ public final class HeaderMigrator {
                         long targetVecOff = targetOff + target.headerBytes();
                         MemorySegment.copy(sourceSegment, sourceVecOff,
                                 targetSegment, targetVecOff, vectorBytes);
+                    }
+
+                    // Copy V1 header offsets 16, 36, 40, 48, 60 into strength region if provided
+                    if (strengthStore != null && tier != null) {
+                        copyV1HeaderToStrength(sourceSegment, sourceOff, strengthStore, tier, i);
                     }
                 }
 
@@ -260,13 +305,93 @@ public final class HeaderMigrator {
      * @return estimated target file size in bytes
      */
     public static long estimateTargetSize(long currentFileSize, int recordCount,
-                                           HeaderLayout source, HeaderLayout target,
+                                           LegacyEncodingHeaderReader source, EncodingHeaderLayout target,
                                            int vectorBytes, boolean isHeaderOnly) {
         int targetRecordStride = isHeaderOnly ? target.headerBytes()
                 : target.headerBytes() + vectorBytes;
-        int capacity = (int) ((currentFileSize - METADATA_HEADER_BYTES)
+        int capacity = (int) ((currentFileSize - METADATA_PREAMBLE_BYTES)
                 / (isHeaderOnly ? source.headerBytes() : source.headerBytes() + vectorBytes));
-        return METADATA_HEADER_BYTES + (long) targetRecordStride * capacity;
+        return METADATA_PREAMBLE_BYTES + (long) targetRecordStride * capacity;
+    }
+
+    /**
+     * Copies V1 engram header ranking/strength counters (offsets 16, 36, 40, 48, 60, and base importance)
+     * from a V1 engram record into the strength region.
+     *
+     * @param engramSegment        segment containing the V1 engram record
+     * @param engramRecordOffset   byte offset of the engram record
+     * @param strengthSegment      target strength region segment
+     * @param strengthRecordOffset byte offset in the strength segment
+     * @param tier                 memory tier (SEMANTIC, EPISODIC, PROCEDURAL)
+     */
+    public static void copyV1HeaderToStrength(MemorySegment engramSegment, long engramRecordOffset,
+                                              MemorySegment strengthSegment, long strengthRecordOffset,
+                                              MemoryType tier) {
+        float importance = engramSegment.get(ValueLayout.JAVA_FLOAT, engramRecordOffset + EncodingHeaderFields.OFFSET_IMPORTANCE);
+        int agentRecallCount = engramSegment.get(ValueLayout.JAVA_INT, engramRecordOffset + EncodingHeaderFields.OFFSET_AGENT_RECALL_COUNT);
+        float storageStrength = engramSegment.get(ValueLayout.JAVA_FLOAT, engramRecordOffset + EncodingHeaderFields.OFFSET_STORAGE_STRENGTH);
+        int spectorRecallCount = engramSegment.get(ValueLayout.JAVA_INT, engramRecordOffset + EncodingHeaderFields.OFFSET_SPECTOR_RECALL_COUNT);
+        long lastAutoLtp = engramSegment.get(ValueLayout.JAVA_LONG, engramRecordOffset + EncodingHeaderFields.OFFSET_LAST_AUTO_LTP);
+        byte lastRecallProfile = engramSegment.get(ValueLayout.JAVA_BYTE, engramRecordOffset + EncodingHeaderFields.OFFSET_LAST_RECALL_PROFILE);
+
+        if (storageStrength <= 0.0f) {
+            storageStrength = 1.0f;
+        }
+
+        StrengthLayout layout = StrengthLayout.INSTANCE;
+        layout.initializeDefaultRecord(strengthSegment, strengthRecordOffset, tier, importance, storageStrength, agentRecallCount);
+        if (spectorRecallCount > 0) {
+            layout.writeSpectorRecallCount(strengthSegment, strengthRecordOffset, spectorRecallCount);
+        }
+        if (lastAutoLtp > 0L) {
+            layout.writeLastAutoLtp(strengthSegment, strengthRecordOffset, lastAutoLtp);
+        }
+        if (lastRecallProfile != 0) {
+            layout.writeLastRecallProfile(strengthSegment, strengthRecordOffset, lastRecallProfile);
+        }
+    }
+
+    /**
+     * Copies V1 engram header ranking/strength counters from a V1 engram record into StrengthMemory at (tier, slotIndex).
+     */
+    public static void copyV1HeaderToStrength(MemorySegment engramSegment, long engramRecordOffset,
+                                              StrengthMemory strengthStore, MemoryType tier,
+                                              int slotIndex) {
+        long strengthRecordOffset = strengthStore.strengthOffset(tier, slotIndex);
+        copyV1HeaderToStrength(engramSegment, engramRecordOffset, strengthStore.segment(), strengthRecordOffset, tier);
+    }
+
+    /**
+     * Iterates all records in a V1 engram segment and migrates their counters into StrengthMemory.
+     *
+     * @return count of migrated records
+     */
+    public static int migrateRecordsToStrength(MemorySegment engramSegment, long engramDataOffset,
+                                               int engramRecordStride, int recordCount,
+                                               StrengthMemory strengthStore, MemoryType tier) {
+        for (int i = 0; i < recordCount; i++) {
+            long engramRecordOffset = engramDataOffset + (long) i * engramRecordStride;
+            copyV1HeaderToStrength(engramSegment, engramRecordOffset, strengthStore, tier, i);
+        }
+        return recordCount;
+    }
+
+    /**
+     * Iterates all records in a V1 engram segment and migrates their counters into a raw strength segment.
+     *
+     * @return count of migrated records
+     */
+    public static int migrateRecordsToStrength(MemorySegment engramSegment, long engramDataOffset,
+                                               int engramRecordStride, int recordCount,
+                                               MemorySegment strengthSegment, long strengthDataOffset,
+                                               int strengthBaseSlot, MemoryType tier) {
+        int stride = StrengthLayout.STRIDE_BYTES;
+        for (int i = 0; i < recordCount; i++) {
+            long engramRecordOffset = engramDataOffset + (long) i * engramRecordStride;
+            long strengthRecordOffset = strengthDataOffset + (long) (strengthBaseSlot + i) * stride;
+            copyV1HeaderToStrength(engramSegment, engramRecordOffset, strengthSegment, strengthRecordOffset, tier);
+        }
+        return recordCount;
     }
 
     /**
@@ -278,37 +403,42 @@ public final class HeaderMigrator {
      * @param storePath   path to the store file
      * @param vectorBytes bytes per quantized vector
      * @param isHeaderOnly true for header-only stores
-     * @return detected header layout
+     * @return detected header layout version
      */
-    public static HeaderLayout detectVersion(Path storePath, int vectorBytes,
-                                              boolean isHeaderOnly) {
+    public static int detectVersion(Path storePath, int vectorBytes,
+                                    boolean isHeaderOnly) {
         try (FileChannel ch = FileChannel.open(storePath, StandardOpenOption.READ)) {
-            if (ch.size() < METADATA_HEADER_BYTES) {
-                return HeaderLayout64.INSTANCE; // assume current layout
+            if (ch.size() < METADATA_PREAMBLE_BYTES) {
+                return SpectorPropertyConstants.DEFAULT_MEMORY_HEADER_VERSION; // assume current layout
             }
 
-            ByteBuffer buf = ByteBuffer.allocate(METADATA_HEADER_BYTES);
+            ByteBuffer buf = ByteBuffer.allocate(METADATA_PREAMBLE_BYTES);
             ch.read(buf);
             buf.flip();
 
             int magic = buf.getInt(META_MAGIC);
-            if (magic != TIER_MAGIC) {
+            if (magic != TIER_MAGIC && magic != RegionPreamble.MAGIC) {
                 log.warn("Invalid magic in {}, assuming current layout", storePath);
-                return HeaderLayout64.INSTANCE;
+                return SpectorPropertyConstants.DEFAULT_MEMORY_HEADER_VERSION;
             }
 
-            int stride = buf.getInt(META_STRIDE);
+            int stride;
+            if (magic == RegionPreamble.MAGIC) {
+                stride = buf.getInt(32);
+            } else {
+                stride = buf.getInt(META_STRIDE);
+            }
             int headerBytes = isHeaderOnly ? stride : stride - vectorBytes;
 
-            if (headerBytes != SynapticHeaderConstants.HEADER_BYTES) {
+            if (headerBytes != EncodingHeaderFields.HEADER_BYTES) {
                 log.warn("Unexpected header size {} in {} (expected {}), assuming current layout",
-                        headerBytes, storePath, SynapticHeaderConstants.HEADER_BYTES);
+                        headerBytes, storePath, EncodingHeaderFields.HEADER_BYTES);
             }
 
-            return HeaderLayout64.INSTANCE;
+            return SpectorPropertyConstants.DEFAULT_MEMORY_HEADER_VERSION;
         } catch (IOException e) {
             log.warn("Cannot detect header version from {}: {}", storePath, e.getMessage());
-            return HeaderLayout64.INSTANCE;
+            return SpectorPropertyConstants.DEFAULT_MEMORY_HEADER_VERSION;
         }
     }
 

@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.cortex.consolidation;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
@@ -143,7 +143,7 @@ public final class BatchConsolidator extends AbstractConsolidator {
                             TemporalKnowledgeGraph temporalKnowledgeGraph,
                             RememberPathway rememberPathway,
                             MemoryWal wal, Function<String, CognitiveRecord> inspectFunction) {
-        CognitiveRecordMemory semanticStore = cognitiveRouter.semantic();
+        SemanticMemory semanticStore = cognitiveRouter.semantic();
         if (semanticStore == null || semanticStore.visibleCount() < 2) {
             log.debug("BatchConsolidator: semantic store too small to run consolidation (visibleCount={})",
                     semanticStore == null ? 0 : semanticStore.visibleCount());

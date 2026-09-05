@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.aisme.continuity.IdentityTrajectorySnapshot;
 import com.spectrayan.spector.memory.api.MemoryAdminView;
 import com.spectrayan.spector.memory.api.MemoryRecall;
@@ -27,13 +28,13 @@ import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
 import com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
+import com.spectrayan.spector.memory.model.EpisodeRecord;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
@@ -72,7 +73,7 @@ import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
@@ -100,7 +101,6 @@ import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
 import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.SourceModality;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
 import com.spectrayan.spector.memory.api.MemoryAdminView;
 import com.spectrayan.spector.memory.api.MemoryRemember;
 import com.spectrayan.spector.memory.api.MemoryRecall;
@@ -507,7 +507,7 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * <p>Combines data from three subsystems into a single {@link CognitiveRecord}:</p>
      * <ul>
      *   <li><b>MemoryIndex</b>: text, source, tags, physical location</li>
-     *   <li><b>CognitiveHeader</b> (64-byte off-heap): importance, valence, arousal,
+     *   <li><b>EncodingHeader</b> (64-byte off-heap): importance, valence, arousal,
      *       recall count, storage strength, synaptic tags, flags</li>
      *   <li><b>Vector payload</b>: quantized INT8 bytes</li>
      * </ul>
@@ -578,7 +578,7 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * @param limit     maximum number of turns
      * @return list of decoded episodic records
      */
-    default List<EpisodicFieldAccessor.EpisodicRecord> browseEpisodic(long sessionId, int offset, int limit) {
+    default List<EpisodeRecord> browseEpisodic(long sessionId, int offset, int limit) {
         return List.of();
     }
 
@@ -589,7 +589,7 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * @param count     number of recent turns
      * @return list of decoded episodic records
      */
-    default List<EpisodicFieldAccessor.EpisodicRecord> tailEpisodic(long sessionId, int count) {
+    default List<EpisodeRecord> tailEpisodic(long sessionId, int count) {
         return List.of();
     }
 

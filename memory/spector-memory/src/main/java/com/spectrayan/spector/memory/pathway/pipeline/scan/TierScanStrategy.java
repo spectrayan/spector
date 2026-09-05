@@ -12,10 +12,9 @@
  */
 package com.spectrayan.spector.memory.pathway.pipeline.scan;
 
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
@@ -34,7 +33,7 @@ public interface TierScanStrategy {
         @Override
         public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
             if (!CognitiveMemoryRouter.shouldScan(MemoryType.WORKING, ctx.targetTypes())) return;
-            CognitiveRecordMemory working = ctx.active().working();
+            EngramMemory working = ctx.active().working();
             if (working.visibleCount() <= 0) return;
             emitter.emitSlabScan(working::segment, working::visibleCount,
                     working.cognitiveLayout(), MemoryType.WORKING, 0L, ctx.activeSeq());
@@ -49,13 +48,9 @@ public interface TierScanStrategy {
         public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
             if (!CognitiveMemoryRouter.shouldScan(MemoryType.EPISODIC, ctx.targetTypes())) return;
             if (handle.router() == null || handle.router().episodic() == null) return;
-            for (EpisodicPartition partition : handle.router().episodic().partitions()) {
-                if (partition.visibleCount() > 0) {
-                    emitter.emitSlabScan(partition::segment, partition::visibleCount,
-                            partition.layout(), MemoryType.EPISODIC,
-                            partition.dataOffset(), handle.seq());
-                }
-            }
+            com.spectrayan.spector.memory.cortex.EpisodicMemory episodic = handle.router().episodic();
+            if (episodic.unconsolidatedTurnOffsets().isEmpty()) return;
+            emitter.emitEpisodicScan(episodic, handle.seq());
         }
     }
 
@@ -69,7 +64,7 @@ public interface TierScanStrategy {
             // When HNSW is available, global semantic recall is emitted once by RecallPipeline.
             // When unindexed (fallback), scan this partition's slab.
             if (!ctx.semanticHnswAvailable()) {
-                CognitiveRecordMemory semantic = handle.router().semantic();
+                EngramMemory semantic = handle.router().semantic();
                 if (semantic == null || semantic.visibleCount() <= 0) return;
                 emitter.emitSlabScan(semantic::segment, semantic::visibleCount,
                         semantic.cognitiveLayout(), MemoryType.SEMANTIC,
@@ -85,7 +80,7 @@ public interface TierScanStrategy {
         @Override
         public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
             if (!CognitiveMemoryRouter.shouldScan(MemoryType.PROCEDURAL, ctx.targetTypes())) return;
-            CognitiveRecordMemory procedural = handle.router().procedural();
+            EngramMemory procedural = handle.router().procedural();
             if (procedural.visibleCount() <= 0) return;
             emitter.emitSlabScan(procedural::segment, procedural::visibleCount,
                     procedural.cognitiveLayout(), MemoryType.PROCEDURAL,

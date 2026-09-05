@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
  * Memory layout for nodes in the temporal causal chain.
@@ -24,7 +24,7 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
  * - 4B epochSec (int)
  * </p>
  */
-public final class TemporalLayout implements MemoryLayout {
+public final class TemporalLayout implements RegionLayout {
 
     private static final int STRIDE = 16;
     private static final int LAYOUT_ID = 0x54504348; // 'TPCH'

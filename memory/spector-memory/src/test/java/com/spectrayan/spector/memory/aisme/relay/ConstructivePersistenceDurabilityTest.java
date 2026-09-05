@@ -12,10 +12,10 @@
  */
 package com.spectrayan.spector.memory.aisme.relay;
 
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.cortex.SemanticMemory;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,20 +32,20 @@ class ConstructivePersistenceDurabilityTest {
     @Test
     @DisplayName("MR-01: Persisted synthetic simulation retains FLAG_SIMULATED, arousal, and soulVersion across store operations")
     void testSyntheticMemoryDurabilityInSemanticStore() {
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
-        SemanticRecordMemory semanticStore = new SemanticRecordMemory(DIMS, 100);
+        EngramLayout layout = new EngramLayout(DIMS);
+        SemanticMemory semanticStore = new SemanticMemory(DIMS, 100);
 
         long timestamp = System.currentTimeMillis();
-        byte procFlags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
+        byte procFlags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
         short soulVersion = 3;
         byte arousal = (byte) 180;
         byte valence = (byte) 25;
         float importance = 8.2f;
 
-        CognitiveHeader syntheticHeader = CognitiveHeader.createSynthetic(
+        EncodingHeader syntheticHeader = EncodingHeader.createSynthetic(
                 timestamp, 0x55AAL, 1.0f, importance,
                 valence, arousal, procFlags,
-                SynapticHeaderConstants.FLAG_SIMULATED,
+                EncodingHeaderFields.FLAG_SIMULATED,
                 soulVersion, 0.45f
         );
 
@@ -55,11 +55,11 @@ class ConstructivePersistenceDurabilityTest {
 
         // 1. Direct segment read
         byte cFlags = layout.readConsolidationFlags(semanticStore.segment(), offset);
-        assertThat(SynapticHeaderConstants.isSimulated(cFlags)).isTrue();
+        assertThat(EncodingHeaderFields.isSimulated(cFlags)).isTrue();
 
-        // 2. Full CognitiveHeader read
-        CognitiveHeader readHeader = layout.readHeader(semanticStore.segment(), offset);
-        assertThat(SynapticHeaderConstants.isSimulated(readHeader.consolidationFlags())).isTrue();
+        // 2. Full EncodingHeader read
+        EncodingHeader readHeader = layout.readHeader(semanticStore.segment(), offset);
+        assertThat(EncodingHeaderFields.isSimulated(readHeader.consolidationFlags())).isTrue();
         assertThat(readHeader.arousal()).isEqualTo(arousal); // Must NOT be corrupted to FLAG_SIMULATED (32)
         assertThat(readHeader.valence()).isEqualTo(valence);
         assertThat(readHeader.soulVersion()).isEqualTo(soulVersion);

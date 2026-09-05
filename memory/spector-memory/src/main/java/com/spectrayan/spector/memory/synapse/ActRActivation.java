@@ -12,9 +12,8 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
-import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.HeaderLayout64;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -32,7 +31,7 @@ import java.lang.foreign.ValueLayout;
  * recalls spaced over time produce stronger activation than massed practice.</p>
  *
  * <h3>Storage: 8-Slot Ring Buffer in Audit Region</h3>
- * <p>Under ADR-0028 dual-region architecture, 32 bytes in {@link AuditRecordLayout}
+ * <p>Under ADR-0028 dual-region architecture, 32 bytes in {@link StrengthLayout}
  * are dedicated to an 8-slot circular ring buffer of relative-second timestamps.</p>
  *
  * <h3>Performance</h3>
@@ -45,15 +44,15 @@ import java.lang.foreign.ValueLayout;
  *
  * @see DecayStrategy
  * @see DecayConfig
- * @see AuditRecordLayout
- * @see HeaderLayout64
+ * @see StrengthLayout
+ * @see com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout
  */
 public final class ActRActivation {
 
     private ActRActivation() {}
 
     /** Number of recall timestamp slots in the ring buffer (8 slots). */
-    public static final int RING_BUFFER_SLOTS = AuditRecordLayout.ACT_R_RING_BUFFER_SLOTS;
+    public static final int RING_BUFFER_SLOTS = StrengthLayout.ACT_R_RING_BUFFER_SLOTS;
 
     /**
      * Records a recall timestamp into the audit record's 8-slot ring buffer.
@@ -65,7 +64,7 @@ public final class ActRActivation {
      */
     public static void recordRecall(MemorySegment auditSeg, long auditRecordOffset,
                                     long creationMs, long recallMs) {
-        AuditRecordLayout.INSTANCE.recordActRRecall(auditSeg, auditRecordOffset, creationMs, recallMs);
+        StrengthLayout.INSTANCE.recordActRRecall(auditSeg, auditRecordOffset, creationMs, recallMs);
     }
 
     /**
@@ -76,7 +75,7 @@ public final class ActRActivation {
      * @return array of 8 relative-second values (0 = empty slot)
      */
     public static int[] readRecallTimestamps(MemorySegment auditSeg, long auditRecordOffset) {
-        return AuditRecordLayout.INSTANCE.readActRTimestamps(auditSeg, auditRecordOffset);
+        return StrengthLayout.INSTANCE.readActRTimestamps(auditSeg, auditRecordOffset);
     }
 
     /**
@@ -99,7 +98,7 @@ public final class ActRActivation {
                                                     long creationMs, long nowMs,
                                                     float decayExponent) {
         if (auditSeg == null) return -1.0f;
-        return AuditRecordLayout.INSTANCE.computeActRActivation(auditSeg, auditRecordOffset, creationMs, nowMs);
+        return StrengthLayout.INSTANCE.computeActRActivation(auditSeg, auditRecordOffset, creationMs, nowMs);
     }
 
     /**

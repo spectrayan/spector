@@ -31,7 +31,7 @@ import java.util.function.Function;
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.AbstractMemory;
 import java.util.concurrent.locks.ReentrantLock;
@@ -110,7 +110,7 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
             TemporalLayout layout = new TemporalLayout();
             MemoryId id = SystemMemoryId.TEMPORAL_CHAIN.id();
             long dataBytes = (long) NODE_BYTES * capacity;
-            boolean isNew = !Files.exists(filePath) || Files.size(filePath) < MemoryHeader.HEADER_BYTES;
+            boolean isNew = !Files.exists(filePath) || Files.size(filePath) < RegionPreamble.PREAMBLE_BYTES;
 
             this.backing = new TemporalChainBacking(id, layout, capacity, dataBytes, filePath);
 
@@ -150,7 +150,7 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
 
         if (isNew) {
             long now = System.currentTimeMillis();
-            MemoryHeader.write(backing.segment(), 0L, layout.schemaVersion(), MemoryShape.CHAIN, 1,
+            RegionPreamble.write(backing.segment(), 0L, layout.schemaVersion(), MemoryShape.CHAIN, 1,
                     capacity, 0L, layout.recordStride(), layout.layoutId(), now, now);
             MemorySegment seg = backing.segment();
             long base = backing.dataOffset();
@@ -173,7 +173,7 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
                 MemorySegment.copy(legacy.backing.segment(), legacy.backing.dataOffset(),
                                    this.backing.segment(), this.backing.dataOffset(),
                                    dataBytes);
-                MemorySegment.copy(legacy.backing.segment(), 0L, this.backing.segment(), 0L, MemoryHeader.HEADER_BYTES);
+                MemorySegment.copy(legacy.backing.segment(), 0L, this.backing.segment(), 0L, RegionPreamble.PREAMBLE_BYTES);
                 this.backing.flush();
                 try {
                     legacy.close();
@@ -210,16 +210,16 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
                 ch.position(0);
 
                 try (Arena tempArena = Arena.ofConfined()) {
-                    long totalBytes = MemoryHeader.HEADER_BYTES + dataSize;
+                    long totalBytes = RegionPreamble.PREAMBLE_BYTES + dataSize;
                     ch.position(totalBytes - 1);
                     ch.write(ByteBuffer.wrap(new byte[]{0}));
                     MemorySegment tempSegment = ch.map(FileChannel.MapMode.READ_WRITE, 0, totalBytes, tempArena);
 
-                    MemoryHeader.write(tempSegment, 0, 2, MemoryShape.CHAIN, 1, 
+                    RegionPreamble.write(tempSegment, 0, 2, MemoryShape.CHAIN, 1, 
                             fileCapacity, count, 16, 0x54504348, 
                             System.currentTimeMillis(), System.currentTimeMillis());
 
-                    MemorySegment dataSlice = tempSegment.asSlice(MemoryHeader.HEADER_BYTES, dataSize);
+                    MemorySegment dataSlice = tempSegment.asSlice(RegionPreamble.PREAMBLE_BYTES, dataSize);
                     MemorySegment.copy(MemorySegment.ofBuffer(dataBuf), 0, dataSlice, 0, dataSize);
                     tempSegment.force();
                 }
@@ -278,7 +278,7 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
     @Override
     public void flush() {
         if (backing.isPersistent()) {
-            MemoryHeader.writeCount(backing.segment(), 0, chainLength());
+            RegionPreamble.writeCount(backing.segment(), 0, chainLength());
         }
         backing.flush();
     }

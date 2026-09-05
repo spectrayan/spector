@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -21,7 +21,7 @@ import java.lang.foreign.ValueLayout;
 /**
  * On-disk binary layout for longitudinal consciousness continuity (\(\Phi_{CC}\)) and identity trajectory.
  *
- * <p>The continuity header occupies 32 bytes immediately after the standard 64-byte {@link MemoryHeader},
+ * <p>The continuity header occupies 32 bytes immediately after the standard 64-byte {@link RegionPreamble},
  * followed by a fixed-stride array of 32-byte immutable snapshot records.</p>
  *
  * <h3>Continuity Sub-Header Layout (32 bytes at offset 64)</h3>
@@ -45,7 +45,7 @@ import java.lang.foreign.ValueLayout;
  *
  * @since 1.2.0
  */
-public final class ContinuityLayout implements MemoryLayout {
+public final class ContinuityLayout implements RegionLayout {
 
     /** Singleton instance — stateless and safe to share. */
     public static final ContinuityLayout SINGLETON = new ContinuityLayout();
@@ -63,13 +63,13 @@ public final class ContinuityLayout implements MemoryLayout {
     public static final int RECORD_STRIDE = 32;
 
     /** Base offset where the first snapshot record begins. */
-    public static final long DATA_START = (long) MemoryHeader.HEADER_BYTES + SUB_HEADER_BYTES; // 96
+    public static final long DATA_START = (long) RegionPreamble.PREAMBLE_BYTES + SUB_HEADER_BYTES; // 96
 
     // ── Sub-header offsets (relative to offset 64) ──
-    public static final long OFF_SUB_HEAD_INDEX = (long) MemoryHeader.HEADER_BYTES; // 64
-    public static final long OFF_SUB_TOTAL_SNAPSHOTS = (long) MemoryHeader.HEADER_BYTES + 4; // 68
-    public static final long OFF_SUB_LAST_SNAPSHOT_TIME = (long) MemoryHeader.HEADER_BYTES + 8; // 72
-    public static final long OFF_SUB_CAPACITY = (long) MemoryHeader.HEADER_BYTES + 16; // 80
+    public static final long OFF_SUB_HEAD_INDEX = (long) RegionPreamble.PREAMBLE_BYTES; // 64
+    public static final long OFF_SUB_TOTAL_SNAPSHOTS = (long) RegionPreamble.PREAMBLE_BYTES + 4; // 68
+    public static final long OFF_SUB_LAST_SNAPSHOT_TIME = (long) RegionPreamble.PREAMBLE_BYTES + 8; // 72
+    public static final long OFF_SUB_CAPACITY = (long) RegionPreamble.PREAMBLE_BYTES + 16; // 80
 
     // ── Record field offsets (relative to individual record start) ──
     public static final long OFF_REC_TIMESTAMP = 0;

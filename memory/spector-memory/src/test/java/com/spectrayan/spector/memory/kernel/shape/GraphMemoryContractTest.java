@@ -13,9 +13,9 @@
 package com.spectrayan.spector.memory.kernel.shape;
 
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.layout.AdjacencyListLayout;
+import com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -40,8 +40,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class GraphMemoryContractTest {
 
     /** Real edge layout: base 8-byte prefix (target + next) followed by a 4-byte weight. */
-    static final class TestGraphLayout implements MemoryLayout {
-        static final int EDGE_OFF_WEIGHT = AdjacencyListLayout.EDGE_HEADER_BYTES; // 8
+    static final class TestGraphLayout implements RegionLayout {
+        static final int EDGE_OFF_WEIGHT = AdjacencyListFields.EDGE_HEADER_BYTES; // 8
 
         @Override public int layoutId() { return 0x47525048; } // 'GRPH'
         @Override public int schemaVersion() { return 1; }

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.pathway.pipeline.scan;
 
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 import java.lang.foreign.MemorySegment;
@@ -26,9 +26,12 @@ import java.util.function.Supplier;
 public interface ScanEmitter {
     /** Emits a full-record slab scan of the given store slice. */
     void emitSlabScan(Supplier<MemorySegment> segment, IntSupplier visibleCount,
-                      CognitiveRecordLayout layout, MemoryType type,
+                      FixedEngramLayout layout, MemoryType type,
                       long baseOffset, int partitionSeq);
 
     /** Emits the semantic HNSW fast-path recall across all partitions (ADR-0009). */
     void emitSemanticHnsw();
+
+    /** Emits an episodic log scan of the given store. */
+    void emitEpisodicScan(com.spectrayan.spector.memory.cortex.EpisodicMemory episodic, int partitionSeq);
 }

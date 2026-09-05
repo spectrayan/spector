@@ -15,10 +15,12 @@ package com.spectrayan.spector.memory.pathway.dream.relay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.spi.AcceleratorRegistry;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.InterestDomain;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
@@ -85,9 +87,9 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
                 continue;
             }
 
-            collectCandidates(handle.router().episodic(), candidates, candidatePoolLimit, "epi-" + handle.seq(), soul, salience, config);
+            collectCandidates(handle.router().semantic(), candidates, candidatePoolLimit, "sem-" + handle.seq(), soul, salience, config);
             if (candidates.size() < candidatePoolLimit) {
-                collectCandidates(handle.router().semantic(), candidates, candidatePoolLimit, "sem-" + handle.seq(), soul, salience, config);
+                collectCandidates(handle.router().procedural(), candidates, candidatePoolLimit, "proc-" + handle.seq(), soul, salience, config);
             }
         }
 
@@ -110,7 +112,7 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
     }
 
     private void collectCandidates(
-            CognitiveRecordMemory store,
+            EngramMemory store,
             List<SeedCandidate> candidates,
             int limit,
             String prefix,
@@ -119,7 +121,7 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
             DreamConfig config) {
         if (store == null || store.segment() == null) return;
 
-        CognitiveRecordLayout layout = store.cognitiveLayout();
+        FixedEngramLayout layout = store.cognitiveLayout();
         MemorySegment segment = store.segment();
         int size = store.size();
         if (size <= 0) return;
@@ -147,7 +149,7 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
         for (int i = 0; i < size && candidates.size() < limit; i += stride) {
             long offset = store.recordOffset(i);
             byte flags = layout.readFlags(segment, offset);
-            if (SynapticHeaderConstants.isTombstoned(flags)) {
+            if (EncodingHeaderFields.isTombstoned(flags)) {
                 continue;
             }
 
@@ -161,8 +163,8 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
 
             // Read metadata for composite salience score
             long epochSecs = layout.readTimestamp(segment, offset);
-            boolean simulated = SynapticHeaderConstants.isSimulated(flags);
-            boolean dreamed = SynapticHeaderConstants.isDreamed(flags);
+            boolean simulated = EncodingHeaderFields.isSimulated(flags);
+            boolean dreamed = EncodingHeaderFields.isDreamed(flags);
 
             // 1. Recency
             float recencyScore = (float) Math.exp(-Math.max(0L, System.currentTimeMillis() / 1000L - epochSecs) / RECENCY_DECAY_PERIOD_SECONDS);

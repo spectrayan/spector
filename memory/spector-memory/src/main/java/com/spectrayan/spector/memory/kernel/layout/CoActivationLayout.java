@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -32,7 +32,7 @@ import java.lang.foreign.ValueLayout;
  * <p>Upgraded from v2 (generics-satisfying stub) to v3 (real descriptor with
  * sub-table offset computation) as part of ADR-0009.</p>
  */
-public final class CoActivationLayout implements MemoryLayout {
+public final class CoActivationLayout implements RegionLayout {
 
     /** Sub-header: 4B pairCapacity + 4B edgeCapacity. */
     public static final int SUB_HEADER_BYTES = 8;

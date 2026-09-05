@@ -33,7 +33,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorMemoryException;
 import com.spectrayan.spector.commons.error.SpectorServerException;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
@@ -106,7 +106,7 @@ public final class IdentityBundle implements AutoCloseable {
             );
             channel.close(); // MemorySegment retains the mapping
 
-            if (!exists || !MemoryHeader.isValid(segment, 0L)) {
+            if (!exists || !RegionPreamble.isValid(segment, 0L)) {
                 IdentityBundleHeader.initialize(segment);
                 segment.force();
             } else {
@@ -419,10 +419,10 @@ public final class IdentityBundle implements AutoCloseable {
             );
             putEntry(updated);
 
-            // Update MemoryHeader timestamp and CRC
-            long createdAt = MemoryHeader.readCreatedAt(masterSegment, 0L);
-            int flags = MemoryHeader.readFlags(masterSegment, 0L);
-            MemoryHeader.write(
+            // Update RegionPreamble timestamp and CRC
+            long createdAt = RegionPreamble.readCreatedAt(masterSegment, 0L);
+            int flags = RegionPreamble.readFlags(masterSegment, 0L);
+            RegionPreamble.write(
                     masterSegment,
                     0L,
                     IdentityBundleHeader.SCHEMA_VERSION,

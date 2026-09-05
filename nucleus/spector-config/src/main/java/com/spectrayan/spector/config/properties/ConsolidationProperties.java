@@ -27,12 +27,22 @@ public class ConsolidationProperties implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private long interval = DEFAULT_CONSOLIDATION_INTERVAL.toMillis();
+    private int maxPriorContextTurns = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_CONSOLIDATION_REFLECTION_MAX_PRIOR_CONTEXT_TURNS;
 
     public ConsolidationProperties() {}
 
     public ConsolidationProperties(long interval) {
         if (interval > 0) {
             this.interval = interval;
+        }
+    }
+
+    public ConsolidationProperties(long interval, int maxPriorContextTurns) {
+        if (interval > 0) {
+            this.interval = interval;
+        }
+        if (maxPriorContextTurns >= 0) {
+            this.maxPriorContextTurns = maxPriorContextTurns;
         }
     }
 
@@ -47,4 +57,16 @@ public class ConsolidationProperties implements Serializable {
     }
 
     public long interval() { return getInterval(); }
+
+    public int getMaxPriorContextTurns() {
+        return maxPriorContextTurns;
+    }
+
+    public void setMaxPriorContextTurns(int maxPriorContextTurns) {
+        if (maxPriorContextTurns >= 0) {
+            this.maxPriorContextTurns = maxPriorContextTurns;
+        }
+    }
+
+    public int maxPriorContextTurns() { return getMaxPriorContextTurns(); }
 }

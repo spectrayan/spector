@@ -19,17 +19,24 @@ import com.spectrayan.spector.memory.bootstrap.CognitiveCortexBuilder;
 import com.spectrayan.spector.memory.bootstrap.CognitiveGraphBuilder;
 import com.spectrayan.spector.memory.bootstrap.RetrievalIndexBuilder;
 import com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor;
+import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
+import com.spectrayan.spector.memory.model.EngramSource;
+import com.spectrayan.spector.memory.model.EpisodeRecord;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.graph.hebbian.CoActivationAssociativePriorProvider;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.memory.synapse.scan.RecordGates;
+import java.nio.charset.StandardCharsets;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -83,12 +90,10 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.sync.ReplaySnapshot;
 import com.spectrayan.spector.memory.sync.WalReplayer;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
@@ -159,7 +164,7 @@ public final class RecallPathway {
 
     private final EmbeddingProvider embeddingProvider;
     private final MemoryWal wal;
-    private final CoActivationRecordMemory coActivationTracker;
+    private final CoActivationMemory coActivationTracker;
     private final HabituationPenalty habituationPenalty;
     private final RecallHistory recallHistory;
     private final MemoryIndex index;
@@ -218,7 +223,7 @@ public final class RecallPathway {
 
         final CorticalTierScanRelay vectorSearchRelay = new CorticalTierScanRelay(
                 builder.partitionManager, PartitionPruner.defaultPruner(),
-                semanticStrategy, this::scoreStoreToList);
+                semanticStrategy, this::scoreStoreToList, this::scoreEpisodicToList);
 
         final NeuromodulatoryScoringRelay scoringRelay = new NeuromodulatoryScoringRelay(
                 salienceScorer, builder.bio.coActivationTracker(), gsp);
@@ -436,7 +441,7 @@ public final class RecallPathway {
             }
 
             final List<CognitiveResult> results = new ArrayList<>();
-            final CognitiveRecordLayout layout = new CognitiveRecordLayout(quantizedVecBytes);
+            final EngramLayout layout = new EngramLayout(quantizedVecBytes);
 
             for (final String memId : snapshot.index().allIds()) {
                 final var loc = snapshot.index().locate(memId);
@@ -612,16 +617,19 @@ public final class RecallPathway {
             try {
                 final var loc = index.locate(result.id());
                 if (loc == null) continue;
+                if (loc.type() == MemoryType.EPISODIC) {
+                    continue;
+                }
                 var router = partitionRegistry.routerFor(loc.colocatedPartition());
-                if (router.audit() != null) {
+                if (router.strength() != null && router.layoutFor(loc.type()) != null) {
                     int slotIndex = (int) (loc.offset() / router.layoutFor(loc.type()).stride());
-                    long auditOff = router.audit().auditOffset(loc.type(), slotIndex);
-                    AuditRecordLayout.INSTANCE.writeLastRecallProfile(router.audit().segment(), auditOff, profileOrdinal);
+                    long strengthOff = router.strength().strengthOffset(loc.type(), slotIndex);
+                    StrengthLayout.INSTANCE.writeLastRecallProfile(router.strength().segment(), strengthOff, profileOrdinal);
                 } else {
                     final MemorySegment segment = router.segmentFor(loc.type());
                     if (segment != null) {
                         segment.set(java.lang.foreign.ValueLayout.JAVA_BYTE,
-                                loc.offset() + SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE,
+                                loc.offset() + EncodingHeaderFields.OFFSET_LAST_RECALL_PROFILE,
                                 profileOrdinal);
                     }
                 }
@@ -643,7 +651,7 @@ public final class RecallPathway {
     }
 
     private List<CognitiveResult> scoreStoreToList(final MemorySegment segment, final int recordCount,
-                                                   final CognitiveRecordLayout layout, final float[] queryVector,
+                                                   final FixedEngramLayout layout, final float[] queryVector,
                                                    final RecallOptions options, final long nowMs, final MemoryType type,
                                                    final long baseOffset, final int partitionSeq) {
         com.spectrayan.spector.memory.synapse.QueryAssociativeContext priorContext = null;
@@ -651,9 +659,13 @@ public final class RecallPathway {
             priorContext = new com.spectrayan.spector.memory.synapse.QueryAssociativeContext(List.of(), List.of(), nowMs);
         }
 
+        var router = partitionRegistry != null ? partitionRegistry.routerFor(partitionSeq) : null;
+        var strengthStore = router != null ? router.strength() : null;
+
         final List<ScoredRecord> scored = CognitiveScorer.score(
                 segment, recordCount, layout, queryVector, options, nowMs, baseOffset,
-                calibrationMins, calibrationScales, associativePriorProvider, priorContext);
+                calibrationMins, calibrationScales, associativePriorProvider, priorContext,
+                strengthStore, type);
 
         final List<CognitiveResult> results = new ArrayList<>(scored.size());
         for (final ScoredRecord sr : scored) {
@@ -665,7 +677,171 @@ public final class RecallPathway {
         return results;
     }
 
-    private CognitiveResult headerToResult(final ScoredRecord sr, final CognitiveHeader header, final MemoryType type,
+    private List<CognitiveResult> scoreEpisodicToList(final EpisodicMemory episodic, final int partitionSeq,
+                                                      final float[] queryVector, final String rawQuery,
+                                                      final RecallOptions options, final long nowMs) {
+        final List<Long> offsets = episodic.unconsolidatedTurnOffsets();
+        if (offsets.isEmpty()) {
+            return List.of();
+        }
+
+        final long queryTagMask = options.synapticTagMask();
+        final long hyperfocusMask = options.hyperfocusMask();
+        final float minImportance = options.minImportance();
+        final byte minValence = options.minValence();
+        final byte maxValence = options.maxValence();
+        final Long minTimestamp = options.minTimestamp();
+        final Long maxTimestamp = options.maxTimestamp();
+        final boolean allowFuture = options.allowFuture();
+        final boolean allowSimulated = options.allowSimulated();
+
+        final List<CognitiveResult> results = new ArrayList<>();
+        final MemorySegment segment = episodic.segment();
+        final long base = episodic.dataOffset();
+
+        final List<String> queryTokens = new ArrayList<>();
+        if (rawQuery != null && !rawQuery.isBlank()) {
+            for (String t : rawQuery.toLowerCase().split("[^a-zA-Z0-9]+")) {
+                if (!t.isBlank()) queryTokens.add(t);
+            }
+        }
+
+        for (final long relOffset : offsets) {
+            final long absOffset = base + relOffset;
+
+            // Phase 1: Tombstone check
+            final byte flags = EpisodicHeaderAccessor.readFlags(segment, absOffset);
+            if (EncodingHeaderFields.isTombstoned(flags)) {
+                continue;
+            }
+
+            // Phase 1c: Simulation check
+            if (!allowSimulated && EpisodicHeaderAccessor.readSource(segment, absOffset) == EngramSource.SIMULATED) {
+                continue;
+            }
+
+            // Phase 1b: Temporal gating
+            final long timestamp = EpisodicHeaderAccessor.readTimestamp(segment, absOffset);
+            if (RecordGates.isTemporalGated(timestamp, minTimestamp, maxTimestamp, nowMs, allowFuture)) {
+                continue;
+            }
+
+            // Phase 2: Synaptic tag gating
+            final EncodingHeader header = EpisodicHeaderAccessor.readHeader(segment, absOffset);
+            final long recordTags = header != null ? header.synapticTags() : 0L;
+            if (hyperfocusMask != 0 || queryTagMask != 0) {
+                if (RecordGates.isTagGated(recordTags, queryTagMask, hyperfocusMask)) {
+                    continue;
+                }
+            }
+
+            // Phase 3: Valence filter
+            final byte valence = EpisodicHeaderAccessor.readValence(segment, absOffset);
+            if (RecordGates.isValenceGated(valence, minValence, maxValence)) {
+                continue;
+            }
+
+            // Phase 4: Importance filter
+            final float importance = EpisodicHeaderAccessor.readImportance(segment, absOffset);
+            if (importance < minImportance) {
+                continue;
+            }
+
+            // Phase 5: Resolve ID and text
+            final String id = index.findIdByOffset(partitionSeq, MemoryType.EPISODIC, relOffset);
+            if (id == null) {
+                continue;
+            }
+            String text = index.text(id);
+            if (text == null || text.isBlank()) {
+                final EpisodeRecord turn = episodic.readTurn(relOffset, true);
+                if (turn != null && turn.body() != null) {
+                    text = new String(turn.body(), StandardCharsets.UTF_8);
+                }
+            }
+            if (text == null || text.isBlank()) {
+                continue;
+            }
+
+            final String[] tags = index.tags(id) != null ? index.tags(id) : new String[0];
+
+            // Similarity computation:
+            float similarity = 0.5f;
+            if (rawQuery != null && !rawQuery.isBlank()) {
+                String textLower = text.toLowerCase();
+                if (textLower.contains(rawQuery.toLowerCase())) {
+                    similarity = 1.0f;
+                } else if (!queryTokens.isEmpty()) {
+                    int matches = 0;
+                    for (String qToken : queryTokens) {
+                        if (textLower.contains(qToken)) {
+                            matches++;
+                            continue;
+                        }
+                        for (String tag : tags) {
+                            String tagLower = tag.toLowerCase();
+                            if (tagLower.equals(qToken) || tagLower.startsWith(qToken) || qToken.startsWith(tagLower)) {
+                                matches++;
+                                break;
+                            }
+                        }
+                    }
+                    if (matches > 0) {
+                        similarity = 0.5f + 0.5f * ((float) matches / queryTokens.size());
+                    } else {
+                        similarity = 0.05f;
+                    }
+                }
+            }
+            if (queryTagMask != 0) {
+                float tagOverlap = SynapticTagEncoder.overlapRatio(recordTags, queryTagMask);
+                similarity = Math.max(similarity, tagOverlap);
+            }
+
+            final float ageDays = (nowMs - timestamp) / (1000f * 60f * 60f * 24f);
+            final int recallCount = header != null ? header.agentRecallCount() : 0;
+            final int rawBucket = DecayStrategy.ageToBucket(timestamp, nowMs);
+            final int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, recallCount);
+            final float rawDecay = DecayStrategy.decay(rawBucket);
+
+            final boolean focusMatch = hyperfocusMask != 0 && (recordTags & hyperfocusMask) == hyperfocusMask;
+            final boolean zeroTimeDecay = focusMatch || (!EncodingHeaderFields.isResolved(flags) && !EncodingHeaderFields.isPinned(flags));
+            final float ltpDecay = zeroTimeDecay ? 1.0f : DecayStrategy.decay(adjusted);
+
+            float score = similarity * (0.3f + 0.7f * Math.min(1.0f, importance / 5.0f)) * ltpDecay;
+            if (score <= 0f) {
+                score = 0.01f;
+            }
+
+            RetrievalMode mode;
+            if (lastRecallOptions != null && lastRecallOptions.hyperfocusMask() != 0) {
+                mode = RetrievalMode.HYPERFOCUS;
+            } else {
+                mode = RetrievalMode.STANDARD;
+            }
+
+            final ScoreBreakdown breakdown = new ScoreBreakdown(
+                    similarity,
+                    importance * ltpDecay,
+                    1.0f, 1.0f, 1.0f, 1.0f,
+                    score
+            );
+
+            final SourceModality modality = EpisodicHeaderAccessor.readModality(segment, absOffset);
+            final Map<String, String> metadata = index.metadata(id);
+            final MemorySource source = index.source(id) != null ? index.source(id) : MemorySource.OBSERVED;
+
+            results.add(new CognitiveResult(
+                    id, text, score, importance, ageDays,
+                    recallCount, valence, MemoryType.EPISODIC, source, tags,
+                    rawDecay, ltpDecay, mode, breakdown, null, modality, metadata,
+                    (byte) 0, timestamp));
+        }
+
+        return results;
+    }
+
+    private CognitiveResult headerToResult(final ScoredRecord sr, final EncodingHeader header, final MemoryType type,
                                            final int partitionSeq) {
         final String id = index.findIdByOffset(partitionSeq, type, sr.offset());
         final String text = id != null ? index.text(id) : "";
@@ -677,11 +853,8 @@ public final class RecallPathway {
         int recallCount = header.agentRecallCount();
         if (partitionRegistry != null) {
             var router = partitionRegistry.routerFor(partitionSeq);
-            if (router != null && router.audit() != null) {
-                int auditCount = router.audit().readAgentRecallCount(type, sr.index());
-                if (auditCount > 0 || header.agentRecallCount() == 0) {
-                    recallCount = auditCount;
-                }
+            if (router != null && router.strength() != null) {
+                recallCount = router.strength().readAgentRecallCount(type, sr.index());
             }
         }
 
@@ -711,7 +884,7 @@ public final class RecallPathway {
         );
 
         final SourceModality modality = SourceModality.fromOrdinal(
-                SynapticHeaderConstants.sourceModalityOrdinal(header.flags()));
+                EncodingHeaderFields.sourceModalityOrdinal(header.flags()));
         Map<String, String> metadata = id != null ? index.metadata(id) : Map.of();
 
         String resultText = text;

@@ -16,8 +16,8 @@ import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
@@ -77,7 +77,7 @@ public final class ConstructiveMemoryPersistenceRelay implements SynapticRelay<R
         int persisted = 0;
         for (CognitiveResult result : candidates) {
             // Only persist constructive simulations flagged with FLAG_SIMULATED
-            if (!SynapticHeaderConstants.isSimulated(result.consolidationFlags())) {
+            if (!EncodingHeaderFields.isSimulated(result.consolidationFlags())) {
                 continue;
             }
 
@@ -108,13 +108,13 @@ public final class ConstructiveMemoryPersistenceRelay implements SynapticRelay<R
                 }
 
                 String durableId = TSID.generate();
-                byte procFlags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal());
+                byte procFlags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal());
                 float norm = VectorOps.magnitude(vector);
                 short soulVer = rememberPathway.currentSoulVersion();
-                CognitiveHeader header = CognitiveHeader.createSynthetic(
+                EncodingHeader header = EncodingHeader.createSynthetic(
                         System.currentTimeMillis(), 0L, norm, result.importance(),
                         result.valence(), (byte) 128, procFlags,
-                        SynapticHeaderConstants.FLAG_SIMULATED,
+                        EncodingHeaderFields.FLAG_SIMULATED,
                         soulVer,
                         0.0f
                 );

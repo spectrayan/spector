@@ -12,16 +12,20 @@
  */
 package com.spectrayan.spector.memory.pathway.remember.relay;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
 import com.spectrayan.spector.memory.error.SpectorPartitionFrozenException;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
+import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.SalienceProfile;
@@ -32,6 +36,7 @@ import com.spectrayan.spector.memory.pathway.pipeline.PostIngestSync;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Objects;
 
@@ -42,7 +47,7 @@ import java.util.Objects;
  * <p>Per ADR Decision #2, the sequential write phase comprises tightly coupled, interdependent steps:
  * <ol>
  *   <li><b>L2 Normalization & INT8 Quantization</b>: Projects continuous embeddings into calibrated off-heap byte representations.</li>
- *   <li><b>Neuromodulatory Header Assembly</b>: Builds the 64-byte {@link CognitiveHeader} incorporating emotional valence/arousal,
+ *   <li><b>Neuromodulatory Header Assembly</b>: Builds the 64-byte {@link EncodingHeader} incorporating emotional valence/arousal,
  *       personality modulation, soul version stamp, and formation-time surprise z-scores.</li>
  *   <li><b>Off-Heap Slab Allocation & Segment Write</b>: Atomically persists the header and quantized payload to the target
  *       memory tier, automatically rolling active partitions when capacity limits are encountered.</li>
@@ -105,11 +110,26 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
         final SalienceProfile salienceProfile = signal.salienceProfile();
         final float l2Norm = (vector != null) ? VectorOps.magnitude(vector) : 0.0f;
 
-        final CognitiveHeader preserved = signal.header();
-        final CognitiveHeader header;
+        final EncodingHeader preserved = signal.header();
+        final EncodingHeader header;
         if (preserved != null) {
             long synapticTags = signal.synapticTags() != 0 ? signal.synapticTags() : preserved.synapticTags();
-            header = new CognitiveHeader(
+            final com.spectrayan.spector.memory.model.EngramSource engramSource;
+            if (signal.source() == com.spectrayan.spector.memory.cortex.MemorySource.DREAMED
+                    || signal.source() == com.spectrayan.spector.memory.cortex.MemorySource.THOUGHT_EXPERIMENT
+                    || signal.source() == com.spectrayan.spector.memory.cortex.MemorySource.LANGEVIN_DISCOVERY
+                    || preserved.source() == com.spectrayan.spector.memory.model.EngramSource.SIMULATED) {
+                // R6.2: dream/simulate may write at most simulated
+                engramSource = com.spectrayan.spector.memory.model.EngramSource.SIMULATED;
+            } else if (signal.source() != null) {
+                engramSource = signal.source().toEngramSource();
+            } else if (preserved.source() != null) {
+                engramSource = preserved.source();
+            } else {
+                engramSource = com.spectrayan.spector.memory.model.EngramSource.EXPERIENCED;
+            }
+
+            header = new EncodingHeader(
                     preserved.timestampMs(),
                     synapticTags,
                     l2Norm,
@@ -125,17 +145,18 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
                     preserved.encodingBeta(),
                     preserved.soulVersion(),
                     preserved.encodingSurprise(),
-                    preserved.consolidationFlags()
+                    preserved.consolidationFlags(),
+                    engramSource
             );
         } else {
-            byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, type.ordinal());
+            byte flags = EncodingHeaderFields.withMemoryType((byte) 0, type.ordinal());
             if (signal.isFlashbulb()) {
-                flags = (byte) (flags | SynapticHeaderConstants.FLAG_PINNED);
+                flags = (byte) (flags | EncodingHeaderFields.FLAG_PINNED);
             }
             if (context != null) {
                 final SourceModality modality = context.sourceModality();
                 if (modality != null && modality != SourceModality.TEXT) {
-                    flags = SynapticHeaderConstants.withSourceModality(flags, modality.ordinal());
+                    flags = EncodingHeaderFields.withSourceModality(flags, modality.ordinal());
                 }
             }
 
@@ -149,7 +170,10 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
             final byte encodingAlpha = computeEncodingAlpha(salienceProfile);
             final byte encodingBeta = computeEncodingBeta(salienceProfile);
 
-            header = new CognitiveHeader(
+            final com.spectrayan.spector.memory.model.EngramSource engramSource =
+                    (signal.source() != null) ? signal.source().toEngramSource() : com.spectrayan.spector.memory.model.EngramSource.EXPERIENCED;
+
+            header = new EncodingHeader(
                     signal.timestampMs(),
                     signal.synapticTags(),
                     l2Norm,
@@ -165,27 +189,82 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
                     encodingBeta,
                     signal.soulVersion(),
                     surpriseZScore,
-                    (byte) 0
+                    (byte) 0,
+                    engramSource
             );
         }
         signal.header(header);
 
         // 3. Off-Heap Slab Write (with partition roll support)
         long offset;
-        try {
-            try {
-                offset = cognitiveRouter.write(type, header, quantized);
-            } catch (final SpectorPartitionFrozenException e) {
-                offset = cognitiveRouter.write(type, header, quantized);
+        if (type == MemoryType.EPISODIC) {
+            EpisodicMemory episodic = cognitiveRouter.episodic();
+            if (episodic == null) {
+                throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "type", "No episodic store available");
             }
-        } catch (final SpectorMemoryTierFullException e) {
-            if (partitionRollCallback != null) {
-                log.info("Tier {} full ({} records)  --  rolling to new partition",
-                        type, e.getCapacity());
-                partitionRollCallback.run();
-                offset = cognitiveRouter.write(type, header, quantized);
-            } else {
-                throw e;
+            byte[] body = signal.text() != null ? signal.text().getBytes(StandardCharsets.UTF_8) : new byte[0];
+            SourceModality modality = (context != null && context.sourceModality() != null)
+                    ? context.sourceModality() : SourceModality.TEXT;
+            try {
+                offset = episodic.appendTurn(
+                        ConversationRole.USER,
+                        0,
+                        header.timestampMs(),
+                        0L,
+                        body,
+                        (short) 0,
+                        0, 0, 0, 0L,
+                        header.soulVersion(),
+                        modality,
+                        header.importance(),
+                        header.valence(),
+                        header.arousal(),
+                        header.source()
+                );
+            } catch (final SpectorMemoryTierFullException e) {
+                if (partitionRollCallback != null) {
+                    log.info("Tier {} full ({} records)  --  rolling to new partition",
+                            type, e.getCapacity());
+                    partitionRollCallback.run();
+                    EpisodicMemory rolledEpisodic = cognitiveRouter.episodic();
+                    if (rolledEpisodic == null) {
+                        throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "type", "No episodic store available after roll");
+                    }
+                    offset = rolledEpisodic.appendTurn(
+                            ConversationRole.USER,
+                            0,
+                            header.timestampMs(),
+                            0L,
+                            body,
+                            (short) 0,
+                            0, 0, 0, 0L,
+                            header.soulVersion(),
+                            modality,
+                            header.importance(),
+                            header.valence(),
+                            header.arousal(),
+                            header.source()
+                    );
+                } else {
+                    throw e;
+                }
+            }
+        } else {
+            try {
+                try {
+                    offset = cognitiveRouter.write(type, header, quantized);
+                } catch (final SpectorPartitionFrozenException e) {
+                    offset = cognitiveRouter.write(type, header, quantized);
+                }
+            } catch (final SpectorMemoryTierFullException e) {
+                if (partitionRollCallback != null) {
+                    log.info("Tier {} full ({} records)  --  rolling to new partition",
+                            type, e.getCapacity());
+                    partitionRollCallback.run();
+                    offset = cognitiveRouter.write(type, header, quantized);
+                } else {
+                    throw e;
+                }
             }
         }
         signal.offset(offset);
@@ -247,12 +326,12 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
 
     private static byte computeEncodingProfile(final SalienceProfile profile) {
         if (profile.alpha() != null || profile.beta() != null) {
-            return SynapticHeaderConstants.soulDerivedEncodingProfile();
+            return EncodingHeaderFields.soulDerivedEncodingProfile();
         }
         final CognitiveProfile cogProfile = profile.defaultProfile() != null
                 ? profile.defaultProfile()
                 : CognitiveProfile.BALANCED;
-        return SynapticHeaderConstants.presetEncodingProfile(cogProfile.ordinal());
+        return EncodingHeaderFields.presetEncodingProfile(cogProfile.ordinal());
     }
 
     private static byte computeEncodingAlpha(final SalienceProfile profile) {
@@ -265,7 +344,7 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
                     : CognitiveProfile.BALANCED;
             alpha = cogProfile.alpha();
         }
-        return SynapticHeaderConstants.quantizeWeight(alpha);
+        return EncodingHeaderFields.quantizeWeight(alpha);
     }
 
     private static byte computeEncodingBeta(final SalienceProfile profile) {
@@ -278,6 +357,6 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
                     : CognitiveProfile.BALANCED;
             beta = cogProfile.beta();
         }
-        return SynapticHeaderConstants.quantizeWeight(beta);
+        return EncodingHeaderFields.quantizeWeight(beta);
     }
 }

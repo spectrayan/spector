@@ -17,7 +17,7 @@ import com.spectrayan.spector.memory.synapse.AssociativePriorProvider;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 import com.spectrayan.spector.memory.synapse.QueryAssociativeContext;
 
-import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.memoryTypeOrdinal;
+import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.memoryTypeOrdinal;
 
 /**
  * Fused SIMD cognitive score composition, dynamic mass calculation, and mass-dilated log recency (Phase 6).

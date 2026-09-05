@@ -39,7 +39,7 @@ spector-memory/
 │
 ├── kernel/                         ← "Memory Kernel" — Memory<Layout> & Shapes
 │     ├── Memory.java                   (Base interface)
-│     ├── MemoryHeader.java             (On-disk header structures)
+│     ├── RegionPreamble.java           (On-disk SMKM region preamble)
 │     ├── layout/                       (Layout types for records, entities, graphs)
 │     └── shape/                        (RecordMemory, AppendMemory, GraphMemory, etc.)
 │
@@ -54,10 +54,10 @@ spector-memory/
 │     └── ProceduralMemoryStore.java    (Basal Ganglia — learned procedures)
 │
 ├── synapse/                        ← "Synaptic Machinery" — header layout + scoring
-│     ├── CognitiveRecordLayout.java    (64-byte cache-line-aligned synaptic header)
+│     ├── EngramLayout.java    (64-byte cache-line-aligned synaptic header)
 │     ├── CognitiveScorer.java          (6-phase fused scoring hot-loop)
 │     ├── SynapticTagEncoder.java       (64-bit inline Bloom filter)
-│     ├── SynapticHeaderConstants.java  (offsets, masks, field sizes)
+│     ├── EncodingHeaderFields.java     (offsets, masks, field sizes)
 │     ├── TemperatureSoftmax.java       (numerically stable retrieval temperature)
 │     └── DecayStrategy.java            (SIMD-friendly temporal decay)
 │
@@ -113,9 +113,9 @@ spector-memory/
 
 | Brain Region | Package | Java Classes | Function |
 |---|---|---|---|
-| 💾 Sub-cortical Core | `kernel/` | `Memory`, `MemoryHeader`, `MemoryShape` | Core Panama storage abstractions (RecordMemory, AppendMemory, etc.) |
+| 💾 Sub-cortical Core | `kernel/` | `Memory`, `RegionPreamble`, `MemoryShape` | Core Panama storage abstractions (RecordMemory, AppendMemory, etc.) |
 | 🧠 Cerebral Cortex | `cortex/` | `TierRouter`, `TierStore`, 4 stores | 4-tier memory storage (Working → Episodic → Semantic → Procedural) |
-| 🔗 Synapses | `synapse/` | `CognitiveScorer`, `SynapticTagEncoder`, `CognitiveRecordLayout` | 64-byte header, 6-phase scoring, Bloom filter gating |
+| 🔗 Synapses | `synapse/` | `CognitiveScorer`, `SynapticTagEncoder`, `EngramLayout` | 64-byte header, 6-phase scoring, Bloom filter gating |
 | ⚡ Dopamine System | `dopamine/` | `SurpriseDetector`, `FlashbulbPolicy` | Surprise detection, auto-importance, flashbulb pinning |
 | 😱 Amygdala | `amygdala/` | `ValenceTracker` | Emotional coloring (positive/negative/neutral) |
 | 🔄 Hebbian Learning | `hebbian/` | `CoActivationTracker`, `HebbianGraph` | "Neurons that fire together wire together" |

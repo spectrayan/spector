@@ -20,10 +20,11 @@ import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -66,8 +67,7 @@ class ArousalOrderingPropertyTest {
         float[] mins = IdentityCalibration.mins(DIMS);
         float[] scales = IdentityCalibration.scales(DIMS);
         // Use the default layout (64B, supports arousal)
-        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS,
-                com.spectrayan.spector.memory.kernel.layout.HeaderLayout.defaultLayout());
+        EngramLayout layout = new EngramLayout(DIMS);
 
         try (Arena arena = Arena.ofConfined()) {
             int corpusSize = 2;
@@ -146,20 +146,20 @@ class ArousalOrderingPropertyTest {
     // Helpers
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-    private void writeRecordV2(MemorySegment segment, CognitiveRecordLayout layout,
+    private void writeRecordV2(MemorySegment segment, EngramLayout layout,
                                int index, float[] vector, float importance, long timestamp,
                                byte arousal, float[] mins, float[] scales) {
         long offset = (long) index * layout.stride();
 
         // Write core header fields
-        var header = new CognitiveRecordLayout.CognitiveHeader(
+        var header = new EncodingHeader(
                 timestamp, 0L, 1.0f, importance, 0, (short) 0, (byte) 0,
-                SynapticHeaderConstants.FLAG_RESOLVED);
+                EncodingHeaderFields.FLAG_RESOLVED);
         layout.writeHeader(segment, offset, header);
 
         // Write V2 arousal field
         segment.set(java.lang.foreign.ValueLayout.JAVA_BYTE,
-                offset + SynapticHeaderConstants.OFFSET_AROUSAL, arousal);
+                offset + EncodingHeaderFields.OFFSET_AROUSAL, arousal);
 
         // Write vector
         byte[] quantized = new byte[DIMS];

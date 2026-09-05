@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.aisme.relay;
 
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -22,7 +23,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -50,7 +51,7 @@ class ConstructiveMemoryPersistenceRelayTest {
         ConstructiveMemoryPersistenceRelay relay = new ConstructiveMemoryPersistenceRelay(null, null, 0.70f);
         RecallSignal signal = RecallSignal.forTextQuery("test", RecallOptions.builder().build());
 
-        signal.candidates().add(createResult("0123456789ABC", 0.85f, SynapticHeaderConstants.FLAG_SIMULATED));
+        signal.candidates().add(createResult("0123456789ABC", 0.85f, EncodingHeaderFields.FLAG_SIMULATED));
         boolean ok = relay.transmit(signal);
 
         assertThat(ok).isTrue();
@@ -66,20 +67,20 @@ class ConstructiveMemoryPersistenceRelayTest {
         ConstructiveMemoryPersistenceRelay relay = new ConstructiveMemoryPersistenceRelay(target, vectors::get, 0.70f);
         RecallSignal signal = RecallSignal.forTextQuery("test", RecallOptions.builder().build());
 
-        signal.candidates().add(createResult("0123456789ABC", 0.85f, SynapticHeaderConstants.FLAG_SIMULATED));
-        signal.candidates().add(createResult("0123456789LOW", 0.50f, SynapticHeaderConstants.FLAG_SIMULATED));
+        signal.candidates().add(createResult("0123456789ABC", 0.85f, EncodingHeaderFields.FLAG_SIMULATED));
+        signal.candidates().add(createResult("0123456789LOW", 0.50f, EncodingHeaderFields.FLAG_SIMULATED));
         signal.candidates().add(createResult("0123456789NRM", 0.95f, (byte) 0)); // Not simulated
 
         boolean ok = relay.transmit(signal);
 
         assertThat(ok).isTrue();
-        org.mockito.ArgumentCaptor<com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader> headerCaptor =
-                org.mockito.ArgumentCaptor.forClass(com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader.class);
+        org.mockito.ArgumentCaptor<com.spectrayan.spector.memory.kernel.layout.EncodingHeader> headerCaptor =
+                org.mockito.ArgumentCaptor.forClass(com.spectrayan.spector.memory.kernel.layout.EncodingHeader.class);
         verify(target, times(1)).ingestCognitiveWithHeader(
                 anyString(), anyString(), any(float[].class), eq(MemoryType.EPISODIC), any(), eq(MemorySource.INFERRED), headerCaptor.capture());
 
         var capturedHeader = headerCaptor.getValue();
-        assertThat(SynapticHeaderConstants.isSimulated(capturedHeader.consolidationFlags())).isTrue();
+        assertThat(EncodingHeaderFields.isSimulated(capturedHeader.consolidationFlags())).isTrue();
         assertThat(capturedHeader.soulVersion()).isEqualTo((short) 5);
     }
 
@@ -92,7 +93,7 @@ class ConstructiveMemoryPersistenceRelayTest {
         ConstructiveMemoryPersistenceRelay relay = new ConstructiveMemoryPersistenceRelay(target, vectors::get, 0.70f);
         RecallSignal signal = RecallSignal.forTextQuery("test", RecallOptions.builder().build());
 
-        signal.candidates().add(createResult("0123456789ABC", 0.65f, SynapticHeaderConstants.FLAG_SIMULATED));
+        signal.candidates().add(createResult("0123456789ABC", 0.65f, EncodingHeaderFields.FLAG_SIMULATED));
 
         boolean ok = relay.transmit(signal);
 

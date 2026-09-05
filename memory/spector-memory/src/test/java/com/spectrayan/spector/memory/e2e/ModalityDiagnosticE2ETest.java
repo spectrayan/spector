@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.e2e;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.*;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
@@ -39,9 +39,9 @@ class ModalityDiagnosticE2ETest extends AbstractE2ETest {
     @DisplayName("1. Flag encoding: withSourceModality round-trip")
     void flagEncoding_roundTrip() {
         for (SourceModality m : SourceModality.values()) {
-            byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal());
-            flags = SynapticHeaderConstants.withSourceModality(flags, m.ordinal());
-            int extracted = SynapticHeaderConstants.sourceModalityOrdinal(flags);
+            byte flags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal());
+            flags = EncodingHeaderFields.withSourceModality(flags, m.ordinal());
+            int extracted = EncodingHeaderFields.sourceModalityOrdinal(flags);
             SourceModality decoded = SourceModality.fromOrdinal(extracted);
 
             log.info("  {} → flags=0x{} → ordinal={} → {}",
@@ -158,7 +158,7 @@ class ModalityDiagnosticE2ETest extends AbstractE2ETest {
         var segment = cognitiveRouter.segmentFor(loc.type());
         byte flags = layout.readFlags(segment, loc.offset());
 
-        int modalityOrdinal = SynapticHeaderConstants.sourceModalityOrdinal(flags);
+        int modalityOrdinal = EncodingHeaderFields.sourceModalityOrdinal(flags);
         SourceModality readModality = SourceModality.fromOrdinal(modalityOrdinal);
         log.info("Raw flags=0x{}, modality ordinal={}, decoded={}",
                 Integer.toHexString(flags & 0xFF), modalityOrdinal, readModality);

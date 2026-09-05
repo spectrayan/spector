@@ -14,10 +14,10 @@ package com.spectrayan.spector.memory.pathway.reflect.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.cortex.EngramMemory;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.ImportanceContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
@@ -39,7 +39,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
     private static final Logger log = LoggerFactory.getLogger(SoulDriftRefusionRelay.class);
 
     private record DriftCandidate(
-            CognitiveRecordMemory store,
+            EngramMemory store,
             long offset,
             float encodingSurprise,
             float oldImportance,
@@ -82,9 +82,6 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
                 if (handle.router() == null) continue;
                 scanStore(handle.router().semantic(), currentSoulVersion, heap, signal);
                 scanStore(handle.router().working(), currentSoulVersion, heap, signal);
-                if (!handle.router().isEpisodicLogMode()) {
-                    scanStore(handle.router().episodic(), currentSoulVersion, heap, signal);
-                }
             }
 
             int reFused = 0;
@@ -117,15 +114,14 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         var handles = signal.partitionManager().snapshot();
         for (var handle : handles) {
             if (handle.router() == null) continue;
-            CognitiveRecordMemory[] stores = new CognitiveRecordMemory[]{
+            EngramMemory[] stores = new EngramMemory[]{
                     handle.router().semantic(),
-                    handle.router().working(),
-                    !handle.router().isEpisodicLogMode() ? handle.router().episodic() : null
+                    handle.router().working()
             };
 
-            for (CognitiveRecordMemory store : stores) {
+            for (EngramMemory store : stores) {
                 if (store != null && store.segment() != null) {
-                    CognitiveRecordLayout layout = store.cognitiveLayout();
+                    FixedEngramLayout layout = store.cognitiveLayout();
                     MemorySegment segment = store.segment();
                     int size = store.size();
                     int vecBytes = layout.quantizedVecBytes();
@@ -134,7 +130,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
                     for (int i = 0; i < size && count < 2000; i++) {
                         long offset = store.recordOffset(i);
                         byte flags = layout.readFlags(segment, offset);
-                        if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+                        if (EncodingHeaderFields.isTombstoned(flags)) continue;
 
                         MemorySegment.copy(segment, layout.vectorOffset(offset), MemorySegment.ofArray(qBytes), 0, vecBytes);
                         float[] vec = quantizer.decode(qBytes);
@@ -159,18 +155,18 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         return accumulator;
     }
 
-    private void scanStore(CognitiveRecordMemory store, short currentSoulVersion,
+    private void scanStore(EngramMemory store, short currentSoulVersion,
                            PriorityQueue<DriftCandidate> heap, ReflectSignal signal) {
         if (store == null || store.segment() == null) return;
 
-        CognitiveRecordLayout layout = store.cognitiveLayout();
+        FixedEngramLayout layout = store.cognitiveLayout();
         MemorySegment segment = store.segment();
         int size = store.size();
 
         for (int i = 0; i < size; i++) {
             long offset = store.recordOffset(i);
             byte flags = layout.readFlags(segment, offset);
-            if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+            if (EncodingHeaderFields.isTombstoned(flags)) continue;
 
             short recordSoulVersion = layout.readSoulVersion(segment, offset);
             if (recordSoulVersion < currentSoulVersion) {
@@ -184,13 +180,13 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
     }
 
     private void refuseMemory(DriftCandidate candidate, short targetVersion, ReflectSignal signal) {
-        CognitiveRecordMemory store = candidate.store();
-        CognitiveRecordLayout layout = store.cognitiveLayout();
+        EngramMemory store = candidate.store();
+        FixedEngramLayout layout = store.cognitiveLayout();
         MemorySegment segment = store.segment();
         long offset = candidate.offset();
 
-        CognitiveHeader header = layout.readHeader(segment, offset);
-        if (SynapticHeaderConstants.isTombstoned(header.flags())) return;
+        EncodingHeader header = layout.readHeader(segment, offset);
+        if (EncodingHeaderFields.isTombstoned(header.flags())) return;
 
         int vecBytes = layout.quantizedVecBytes();
         byte[] quantized = new byte[vecBytes];
@@ -202,7 +198,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         }
         float[] vector = (quantizer != null) ? quantizer.decode(quantized) : new float[vecBytes];
 
-        MemoryType memoryType = SynapticHeaderConstants.memoryTypeOf(header.flags());
+        MemoryType memoryType = EncodingHeaderFields.memoryTypeOf(header.flags());
         IngestionHints hints = new IngestionHints(
                 Math.clamp(header.importance() / 10.0f, 0.0f, 1.0f),
                 0.5f,

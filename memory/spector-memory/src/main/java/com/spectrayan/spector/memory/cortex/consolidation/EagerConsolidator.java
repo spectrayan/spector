@@ -12,6 +12,14 @@
  */
 package com.spectrayan.spector.memory.cortex.consolidation;
 
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
+import java.util.Objects;
+import java.util.function.Function;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.commons.concurrent.ScopedTask;
 import com.spectrayan.spector.commons.concurrent.SpectorTaskQueue;
@@ -20,26 +28,21 @@ import com.spectrayan.spector.commons.concurrent.TaskQueueConfig;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.EngramMemory;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.sync.MemoryWal;
-import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
-import java.util.Objects;
-import java.util.function.Function;
 
 /**
  * Supervised asynchronous consolidator wrapping {@link SpectorTaskQueue} for immediate CADP
@@ -133,7 +136,7 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
 
     private void processTask(ScopedTask<EagerConsolidationPayload> task) {
         EagerConsolidationPayload payload = task.payload();
-        CognitiveRecordMemory store;
+        EngramMemory store;
         try {
             store = cognitiveRouter.get(payload.type());
         } catch (RuntimeException e) {
@@ -149,8 +152,8 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
         }
 
         MemorySegment segment = store.segment();
-        CognitiveRecordLayout layout = store.cognitiveLayout();
-        long baseOffset = store.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L;
+        FixedEngramLayout layout = store.cognitiveLayout();
+        long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0L;
         int stride = layout.stride();
         int vecBytes = layout.quantizedVecBytes();
         float[] mins = quantizer.mins();
@@ -172,8 +175,8 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
             }
 
             // Phase 1: Gated checks (tombstone, contradicted)
-            byte flagsJ = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS, offsetJ + SynapticHeaderConstants.OFFSET_FLAGS);
-            if (SynapticHeaderConstants.isTombstoned(flagsJ) || SynapticHeaderConstants.isContradicted(flagsJ)) {
+            byte flagsJ = segment.get(EncodingHeaderFields.LAYOUT_FLAGS, offsetJ + EncodingHeaderFields.OFFSET_FLAGS);
+            if (EncodingHeaderFields.isTombstoned(flagsJ) || EncodingHeaderFields.isContradicted(flagsJ)) {
                 continue;
             }
 

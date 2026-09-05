@@ -12,19 +12,19 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.zip.CRC32C;
 
 /**
- * 64-byte sub-header at offset {@link MemoryHeader#HEADER_BYTES} (64).
+ * 64-byte sub-header at offset {@link RegionPreamble#PREAMBLE_BYTES} (64).
  * Uses explicit segment reads and writes with FFM API ValueLayouts.
  */
 public final class BundleSubHeader {
 
-    public static final long OFFSET = MemoryHeader.HEADER_BYTES;
+    public static final long OFFSET = RegionPreamble.PREAMBLE_BYTES;
     public static final long SIZE = 64;
     
     public static final int MAGIC_RUNTIME = 0x53525442; // 'SRTB'

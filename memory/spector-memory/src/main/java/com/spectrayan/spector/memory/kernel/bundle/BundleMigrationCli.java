@@ -12,10 +12,13 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.cortex.StrengthMemory;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.synapse.HeaderMigrator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -152,7 +155,7 @@ public final class BundleMigrationCli {
             V3StoreInfo rtypes = readV3Store(readArena, rtypesFile, "relation-types");
             V3StoreInfo ckpt = readV3Store(readArena, ckptFile, "checkpoint");
 
-            CognitiveRecordLayout cogLayout = new CognitiveRecordLayout(dimensions);
+            EngramLayout cogLayout = new EngramLayout(dimensions);
             int workingCap = Math.max(working.count, 1000);
             int graphCap = Math.max(hebbian.count, 10000);
             int temporalCap = Math.max(temporal.count, 10000);
@@ -164,7 +167,7 @@ public final class BundleMigrationCli {
             List<RegionSizeSpec> specs = List.of(
                     new RegionSizeSpec(
                             RegionId.WORKING,
-                            MemoryHeader.HEADER_BYTES + (long) cogLayout.recordStride() * workingCap,
+                            RegionPreamble.PREAMBLE_BYTES + (long) cogLayout.recordStride() * workingCap,
                             workingCap,
                             cogLayout.recordStride(),
                             cogLayout.layoutId(),
@@ -275,8 +278,8 @@ public final class BundleMigrationCli {
                             4096L,
                             1,
                             0,
-                            com.spectrayan.spector.memory.cortex.insula.InsularLayout.LAYOUT_ID,
-                            com.spectrayan.spector.memory.cortex.insula.InsularLayout.SCHEMA_VERSION,
+                            com.spectrayan.spector.memory.kernel.layout.InsularLayout.LAYOUT_ID,
+                            com.spectrayan.spector.memory.kernel.layout.InsularLayout.SCHEMA_VERSION,
                             false
                     ),
                     new RegionSizeSpec(
@@ -470,20 +473,20 @@ public final class BundleMigrationCli {
             V3StoreInfo text = readV3Store(readArena, textFile, "text");
 
             // Compute capacities from V3 store metadata
-            CognitiveRecordLayout cogLayout = new CognitiveRecordLayout(dimensions);
+            EngramLayout cogLayout = new EngramLayout(dimensions);
             TextBlobLayout textLayout = new TextBlobLayout();
 
             // Compute capacities from V3 file sizes (not record count).
-            // V3 files are allocated as HEADER_BYTES + capacity * stride, so back-calculate.
+            // V3 files are allocated as PREAMBLE_BYTES + capacity * stride, so back-calculate.
             int cogStride = cogLayout.stride();
             int semanticCap = fileCapacity(semantic, cogStride);
             int episodicCap = fileCapacity(episodic, cogStride);
             long episodicBytes = episodic.segment != null
-                    ? Math.max(episodic.segment.byteSize() - MemoryHeader.HEADER_BYTES, (long) episodicCap * cogStride)
+                    ? Math.max(episodic.segment.byteSize() - RegionPreamble.PREAMBLE_BYTES, (long) episodicCap * cogStride)
                     : (long) episodicCap * cogStride;
             int proceduralCap = fileCapacity(procedural, cogStride);
             long textBytes = text.segment != null
-                    ? Math.max(text.segment.byteSize() - MemoryHeader.HEADER_BYTES, 1024)
+                    ? Math.max(text.segment.byteSize() - RegionPreamble.PREAMBLE_BYTES, 1024)
                     : 1024;
 
             // Create the V4 bundle
@@ -499,6 +502,41 @@ public final class BundleMigrationCli {
             copyRegionData(episodic, bundle, RegionId.EPISODIC, "episodic");
             copyRegionData(procedural, bundle, RegionId.PROCEDURAL, "procedural");
             copyRegionData(text, bundle, RegionId.TEXT, "text");
+
+            // Migrate V1 engram header counters into RegionId.STRENGTH
+            int totalStrengthCount = 0;
+            if (bundle.hasRegion(RegionId.STRENGTH)) {
+                MemorySegment strengthSlice = bundle.regionSegment(RegionId.STRENGTH);
+                StrengthMemory strengthStore = StrengthMemory.fromBundle(
+                        bundle.arena(), strengthSlice,
+                        semanticCap, episodicCap, proceduralCap,
+                        bundle.bundlePath());
+
+                if (semantic.exists() && semantic.count > 0) {
+                    HeaderMigrator.migrateRecordsToStrength(
+                            semantic.segment, RegionPreamble.PREAMBLE_BYTES,
+                            cogStride, semantic.count, strengthStore, MemoryType.SEMANTIC);
+                    totalStrengthCount += semantic.count;
+                }
+
+                boolean isFixedStrideEpisodic = episodic.exists() && episodic.count > 0
+                        && episodic.segment.byteSize() >= RegionPreamble.PREAMBLE_BYTES + (long) episodic.count * cogStride;
+                if (isFixedStrideEpisodic) {
+                    HeaderMigrator.migrateRecordsToStrength(
+                            episodic.segment, RegionPreamble.PREAMBLE_BYTES,
+                            cogStride, episodic.count, strengthStore, MemoryType.EPISODIC);
+                    totalStrengthCount += episodic.count;
+                }
+
+                if (procedural.exists() && procedural.count > 0) {
+                    HeaderMigrator.migrateRecordsToStrength(
+                            procedural.segment, RegionPreamble.PREAMBLE_BYTES,
+                            cogStride, procedural.count, strengthStore, MemoryType.PROCEDURAL);
+                    totalStrengthCount += procedural.count;
+                }
+
+                RegionPreamble.writeCount(strengthSlice, 0, totalStrengthCount);
+            }
 
             // Fidelity check
             assertFidelity(bundle, semantic, episodic, procedural, text, partitionDir);
@@ -550,11 +588,11 @@ public final class BundleMigrationCli {
 
     /**
      * Back-calculates the original capacity from a V3 store file's size.
-     * V3 files are allocated as {@code HEADER_BYTES + capacity * stride}.
+     * V3 files are allocated as {@code RegionPreamble.PREAMBLE_BYTES + capacity * stride}.
      */
     private static int fileCapacity(V3StoreInfo info, int stride) {
         if (!info.exists() || stride <= 0) return 1;
-        long dataBytes = info.segment.byteSize() - MemoryHeader.HEADER_BYTES;
+        long dataBytes = info.segment.byteSize() - RegionPreamble.PREAMBLE_BYTES;
         return Math.max((int) (dataBytes / stride), 1);
     }
 
@@ -570,7 +608,7 @@ public final class BundleMigrationCli {
 
         try {
             long fileSize = Files.size(file);
-            if (fileSize < MemoryHeader.HEADER_BYTES) {
+            if (fileSize < RegionPreamble.PREAMBLE_BYTES) {
                 log.warn("BundleMigration: V3 {} file too small ({}B) — treating as empty", name, fileSize);
                 return new V3StoreInfo(file, null, 0, 0);
             }
@@ -580,8 +618,8 @@ public final class BundleMigrationCli {
                 mapped = fc.map(FileChannel.MapMode.READ_ONLY, 0, fileSize, arena);
             }
 
-            int count = (int) MemoryHeader.readCount(mapped, 0);
-            long dataSize = fileSize - MemoryHeader.HEADER_BYTES;
+            int count = (int) RegionPreamble.readCount(mapped, 0);
+            long dataSize = fileSize - RegionPreamble.PREAMBLE_BYTES;
 
             log.info("BundleMigration: V3 {} — {} records, {}KB data",
                     name, count, dataSize / 1024);
@@ -658,6 +696,16 @@ public final class BundleMigrationCli {
         if (text.exists()) {
             assertRegionCount(bundle, RegionId.TEXT, text.count, "text", partitionDir);
         }
+        if (bundle.hasRegion(RegionId.STRENGTH)) {
+            MemorySegment strengthSlice = bundle.regionSegment(RegionId.STRENGTH);
+            int actualStrengthCount = (int) RegionPreamble.readCount(strengthSlice, 0);
+            int minExpectedStrength = semantic.count + procedural.count;
+            if (actualStrengthCount < minExpectedStrength) {
+                throw new MigrationException(String.format(
+                        "Strength record count mismatch in %s: expected at least %d, actual=%d",
+                        partitionDir.getFileName(), minExpectedStrength, actualStrengthCount));
+            }
+        }
 
         log.info("BundleMigration: fidelity check passed for {}", partitionDir.getFileName());
     }
@@ -665,7 +713,7 @@ public final class BundleMigrationCli {
     private static void assertRegionCount(PartitionBundle bundle, RegionId regionId,
                                            int expectedCount, String name, Path partitionDir) {
         MemorySegment slice = bundle.regionSegment(regionId);
-        int actual = (int) MemoryHeader.readCount(slice, 0);
+        int actual = (int) RegionPreamble.readCount(slice, 0);
         if (actual != expectedCount) {
             throw new MigrationException(String.format(
                     "Record count mismatch for %s in %s: expected=%d, actual=%d",

@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.kernel.bundle;
 
 import org.junit.jupiter.api.Test;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.List;
@@ -35,7 +35,7 @@ class BundleDirectoryTest {
             
             dir.write(segment);
             
-            assertThat(MemoryHeader.isValid(segment, 0)).isTrue();
+            assertThat(RegionPreamble.isValid(segment, 0)).isTrue();
             
             BundleDirectory readDir = BundleDirectory.read(segment);
             assertThat(readDir.bundleMagic()).isEqualTo(BundleSubHeader.MAGIC_PARTITION);

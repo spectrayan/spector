@@ -12,15 +12,16 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
-import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
+import com.spectrayan.spector.memory.cortex.ProceduralMemory;
+import com.spectrayan.spector.memory.cortex.SemanticMemory;
+import com.spectrayan.spector.memory.cortex.TextBlobMemory;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 import org.junit.jupiter.api.Test;
@@ -130,12 +131,21 @@ class BundleMigrationCliTest {
         // Verify bundle can be reopened and record counts match
         PartitionBundle bundle = PartitionBundle.Init.open(bundleFile);
         MemorySegment semSlice = bundle.regionSegment(RegionId.SEMANTIC);
-        int semCount = (int) MemoryHeader.readCount(semSlice, 0);
+        int semCount = (int) RegionPreamble.readCount(semSlice, 0);
         assertEquals(recordCount, semCount, "Semantic record count should match");
 
         MemorySegment epiSlice = bundle.regionSegment(RegionId.EPISODIC);
-        int epiCount = (int) MemoryHeader.readCount(epiSlice, 0);
+        int epiCount = (int) RegionPreamble.readCount(epiSlice, 0);
         assertEquals(recordCount, epiCount, "Episodic record count should match");
+
+        MemorySegment strengthSlice = bundle.regionSegment(RegionId.STRENGTH);
+        int strengthCount = (int) RegionPreamble.readCount(strengthSlice, 0);
+        assertEquals(recordCount * 3, strengthCount, "Strength record count should match total migrated engrams");
+
+        // Verify strength state was populated for semantic slot 0
+        StrengthLayout strengthLayout = StrengthLayout.INSTANCE;
+        float effImportance = strengthLayout.readEffectiveImportance(strengthSlice, RegionPreamble.PREAMBLE_BYTES);
+        assertEquals(0.5f, effImportance, 1e-4f, "Effective importance should match V1 header importance");
 
         bundle.close();
     }
@@ -183,11 +193,11 @@ class BundleMigrationCliTest {
         Path workingFile = StorageLayout.workingMem(tempDir);
         try (FileChannel fc = FileChannel.open(workingFile, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
             int stride = 128;
-            long fileSize = MemoryHeader.HEADER_BYTES + 100L * stride;
+            long fileSize = RegionPreamble.PREAMBLE_BYTES + 100L * stride;
             fc.write(java.nio.ByteBuffer.allocate(1), fileSize - 1);
             try (Arena arena = Arena.ofConfined()) {
                 MemorySegment seg = fc.map(FileChannel.MapMode.READ_WRITE, 0, fileSize, arena);
-                MemoryHeader.write(seg, 0, 1, MemoryShape.RECORD, 1, 100, 15, stride, 0x574F524B, 1000L, 2000L);
+                RegionPreamble.write(seg, 0, 1, MemoryShape.RECORD, 1, 100, 15, stride, 0x574F524B, 1000L, 2000L);
             }
         }
 
@@ -207,8 +217,8 @@ class BundleMigrationCliTest {
         // Verify runtime bundle can be opened and contains data
         try (RuntimeBundle bundle = RuntimeBundle.Init.open(runtimeBundleFile)) {
             MemorySegment workingSlice = bundle.regionSegment(RegionId.WORKING);
-            assertTrue(MemoryHeader.isValid(workingSlice, 0));
-            assertEquals(15, MemoryHeader.readCount(workingSlice, 0));
+            assertTrue(RegionPreamble.isValid(workingSlice, 0));
+            assertEquals(15, RegionPreamble.readCount(workingSlice, 0));
         }
     }
 
@@ -233,11 +243,11 @@ class BundleMigrationCliTest {
 
         Path workingFile = StorageLayout.workingMem(tempDir);
         try (FileChannel fc = FileChannel.open(workingFile, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
-            long fileSize = MemoryHeader.HEADER_BYTES + 64;
+            long fileSize = RegionPreamble.PREAMBLE_BYTES + 64;
             fc.write(java.nio.ByteBuffer.allocate(1), fileSize - 1);
             try (Arena arena = Arena.ofConfined()) {
                 MemorySegment seg = fc.map(FileChannel.MapMode.READ_WRITE, 0, fileSize, arena);
-                MemoryHeader.write(seg, 0, 1, MemoryShape.RECORD, 1, 1, 1, 64, 0x574F524B, 1000L, 2000L);
+                RegionPreamble.write(seg, 0, 1, MemoryShape.RECORD, 1, 1, 1, 64, 0x574F524B, 1000L, 2000L);
             }
         }
 
@@ -269,36 +279,48 @@ class BundleMigrationCliTest {
      */
     private void createV3StoreFiles(Path partDir, int recordCount) throws IOException {
         // Create cognitive stores using the real store constructors
-        SemanticRecordMemory semantic = new SemanticRecordMemory(
+        SemanticMemory semantic = new SemanticMemory(
                 VEC_BYTES, CAPACITY, StorageLayout.semanticMem(partDir));
-        EpisodicRecordMemory episodic = new EpisodicRecordMemory(
-                StorageLayout.episodicMem(partDir), VEC_BYTES, CAPACITY);
-        ProceduralRecordMemory procedural = new ProceduralRecordMemory(
+        ProceduralMemory procedural = new ProceduralMemory(
                 VEC_BYTES, CAPACITY, StorageLayout.proceduralMem(partDir));
 
         // Write some records using the store API
         byte[] vec = new byte[VEC_BYTES];
         for (int i = 0; i < recordCount; i++) {
             long ts = System.currentTimeMillis();
-            var header = CognitiveHeader.create(
+            var header = EncodingHeader.create(
                     ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.SEMANTIC);
             semantic.write(header, vec);
 
-            header = CognitiveHeader.create(
-                    ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.EPISODIC);
-            episodic.write(header, vec);
-
-            header = CognitiveHeader.create(
+            header = EncodingHeader.create(
                     ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.PROCEDURAL);
             procedural.write(header, vec);
         }
 
         semantic.close();
-        episodic.close();
         procedural.close();
 
+        // Create legacy V3 episodic.mem file directly
+        int cogStride = 64 + VEC_BYTES;
+        long totalBytes = RegionPreamble.PREAMBLE_BYTES + (long) CAPACITY * cogStride;
+        try (FileChannel ch = FileChannel.open(StorageLayout.episodicMem(partDir),
+                StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+            ch.truncate(totalBytes);
+            try (Arena arena = Arena.ofConfined()) {
+                MemorySegment seg = ch.map(FileChannel.MapMode.READ_WRITE, 0, totalBytes, arena);
+                RegionPreamble.write(seg, 0, 1, MemoryShape.RECORD, 1, CAPACITY, recordCount, cogStride,
+                        0x434F4700, System.currentTimeMillis(), System.currentTimeMillis());
+                for (int i = 0; i < recordCount; i++) {
+                    long ts = System.currentTimeMillis();
+                    var header = EncodingHeader.create(ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.EPISODIC);
+                    long recOffset = RegionPreamble.PREAMBLE_BYTES + (long) i * cogStride;
+                    EncodingHeaderLayout.write(seg, recOffset, header);
+                }
+            }
+        }
+
         // Create text.dat with a minimal SMKM header
-        TextAppendMemory text = new TextAppendMemory(
+        TextBlobMemory text = new TextBlobMemory(
                 StorageLayout.textDat(partDir), DataEncryptor.NOOP);
         text.close();
     }

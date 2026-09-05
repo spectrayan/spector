@@ -17,15 +17,15 @@ import java.lang.foreign.ValueLayout;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorServerException;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 
 /**
  * Constants and layout utilities for the {@link IdentityBundle} header and sub-header.
  *
  * <pre>
  * ┌──────────────────────────────────────────────────┐ offset 0
- * │ 64B MemoryHeader (SMKM, BUNDLE, layout=IDNT)     │
+ * │ 64B RegionPreamble (SMKM, BUNDLE, layout=IDNT)   │
  * ├──────────────────────────────────────────────────┤ offset 64
  * │ 64B IdentitySubHeader (SIDB, version, regions)   │
  * ├──────────────────────────────────────────────────┤ offset 128
@@ -46,7 +46,7 @@ public final class IdentityBundleHeader {
     public static final long TOTAL_INITIAL_SIZE = DATA_START_OFFSET + MAX_REGIONS * DEFAULT_REGION_ALLOCATION; // 1,052,672 B
 
     public static final long OFF_SMKM_HEADER = 0;
-    public static final long OFF_SUB_HEADER = MemoryHeader.HEADER_BYTES; // 64
+    public static final long OFF_SUB_HEADER = RegionPreamble.PREAMBLE_BYTES; // 64
     public static final long OFF_ENTRIES = OFF_SUB_HEADER + 64; // 128
 
     // Sub-header internal field offsets (from OFF_SUB_HEADER)
@@ -64,7 +64,7 @@ public final class IdentityBundleHeader {
      */
     public static void initialize(MemorySegment segment) {
         long now = System.currentTimeMillis();
-        MemoryHeader.write(
+        RegionPreamble.write(
                 segment,
                 OFF_SMKM_HEADER,
                 SCHEMA_VERSION,
@@ -107,10 +107,10 @@ public final class IdentityBundleHeader {
      * Validates that the mapped memory segment has valid headers for an IdentityBundle.
      */
     public static void validate(MemorySegment segment) {
-        if (!MemoryHeader.isValid(segment, OFF_SMKM_HEADER)) {
-            throw new SpectorServerException(ErrorCode.RECORD_CRC_CORRUPTED, "Invalid SMKM MemoryHeader on IdentityBundle");
+        if (!RegionPreamble.isValid(segment, OFF_SMKM_HEADER)) {
+            throw new SpectorServerException(ErrorCode.RECORD_CRC_CORRUPTED, "Invalid SMKM RegionPreamble on IdentityBundle");
         }
-        if (MemoryHeader.readLayoutId(segment, OFF_SMKM_HEADER) != LAYOUT_ID) {
+        if (RegionPreamble.readLayoutId(segment, OFF_SMKM_HEADER) != LAYOUT_ID) {
             throw new SpectorServerException(ErrorCode.ARGUMENT_INVALID, "IdentityBundle layoutId mismatch");
         }
         int subMagic = segment.get(ValueLayout.JAVA_INT_UNALIGNED, OFF_SUB_HEADER + OFF_SUB_MAGIC);

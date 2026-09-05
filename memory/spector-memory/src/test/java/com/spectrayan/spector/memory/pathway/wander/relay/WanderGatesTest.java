@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pathway.wander.relay;
 
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
-import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
+import com.spectrayan.spector.memory.cortex.ContinuityMemory;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,7 +60,7 @@ class WanderGatesTest {
                 .build();
         assertThat(WanderGates.CONTINUITY_ENABLED.isSatisfiedBy(noMemorySignal)).isFalse();
 
-        try (ContinuityRecordMemory memory = ContinuityRecordMemory.heap(10)) {
+        try (ContinuityMemory memory = ContinuityMemory.heap(10)) {
             WanderSignal memorySignal = WanderSignal.builder()
                     .aismeConfig(AismeConfig.defaultConfig())
                     .continuityMemory(memory)

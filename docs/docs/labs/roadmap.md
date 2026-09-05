@@ -489,7 +489,7 @@ The critical engineering challenge: re-quantizing vectors **without locking the 
 
 1. **Shadow copy:** Create a parallel SQ4 segment alongside the existing SQ8 segment
 2. **Background conversion:** A background Virtual Thread re-quantizes records in batches of 1,000
-3. **Atomic swap:** Once complete, atomically update the `CognitiveRecordLayout` stride to use SQ4 offsets
+3. **Atomic swap:** Once complete, atomically update the `EngramLayout` stride to use SQ4 offsets
 4. **Lazy cleanup:** The old SQ8 bytes become dead space, reclaimed at next compaction
 
 ```java
@@ -500,7 +500,7 @@ The critical engineering challenge: re-quantizing vectors **without locking the 
  * in the header flags to prevent double-conversion.
  */
 public int requantizeBatch(MemorySegment segment, int startRecord, 
-                            int batchSize, CognitiveRecordLayout layout) {
+                            int batchSize, EngramLayout layout) {
     int converted = 0;
     for (int i = startRecord; i < startRecord + batchSize; i++) {
         long offset = (long) i * layout.stride();

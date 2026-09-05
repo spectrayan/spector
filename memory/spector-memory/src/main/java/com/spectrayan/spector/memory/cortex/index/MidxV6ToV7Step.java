@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.cortex.index;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.codec.FormatId;
 import com.spectrayan.spector.memory.kernel.codec.InPlaceHeaderStep;
 import com.spectrayan.spector.memory.kernel.codec.MigrationContext;
@@ -60,7 +60,7 @@ public final class MidxV6ToV7Step extends InPlaceHeaderStep {
     @Override
     protected void rewriteHeader(MemorySegment mapped, MigrationContext ctx) {
         // Read existing entry count to compute initial high-water mark
-        long entryCount = MemoryHeader.readCount(mapped, 0L);
+        long entryCount = RegionPreamble.readCount(mapped, 0L);
         int highWater = (int) Math.max(0, entryCount);
 
         // Bump schema version from 6 → 7
@@ -70,7 +70,7 @@ public final class MidxV6ToV7Step extends InPlaceHeaderStep {
         mapped.set(ValueLayout.JAVA_INT_UNALIGNED, 60L, highWater);
 
         // Recompute header CRC (covers bytes [0..55])
-        MemoryHeader.writeCount(mapped, 0L, entryCount); // re-stamps CRC
+        RegionPreamble.writeCount(mapped, 0L, entryCount); // re-stamps CRC
 
         log.warn("MIDX v6→v7: graph slot high-water mark set to {} from {} entries. "
                 + "Graph state (Hebbian, Temporal, Entity, Hypergraph) must be rebuilt — "

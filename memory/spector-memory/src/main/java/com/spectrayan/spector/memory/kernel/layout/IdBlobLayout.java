@@ -12,13 +12,13 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
  * Memory layout for the variable-length ID/metadata payload pool.
  * Stride is 0 since records are variable length.
  */
-public final class IdBlobLayout implements MemoryLayout {
+public final class IdBlobLayout implements RegionLayout {
 
     private static final int STRIDE = 0; // Variable length
     private static final int LAYOUT_ID = 0x4944504C; // 'IDPL'

@@ -130,7 +130,7 @@ class PartitionRecallFanoutTest {
         CognitiveResult preRoll = results.stream()
                 .filter(r -> "sem-0".equals(r.id())).findFirst().orElse(null);
         assertThat(preRoll).as("pre-roll frozen-semantic record must be recalled").isNotNull();
-        // Frozen-semantic slab scan computes similarity (SemanticRecordMemory stores the
+        // Frozen-semantic slab scan computes similarity (SemanticMemory stores the
         // quantized vector), so the score is similarity-bearing, not importance-only.
         assertThat(preRoll.breakdown()).isNotNull();
         assertThat(preRoll.breakdown().similarity())

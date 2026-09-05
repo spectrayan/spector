@@ -39,7 +39,7 @@ import java.nio.file.StandardOpenOption;
  *
  * @param <L> the type of memory layout used by this memory
  */
-public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L> {
+public abstract class AbstractMemory<L extends RegionLayout> implements Memory<L> {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractMemory.class);
 
@@ -130,7 +130,7 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
     /**
      * Wrapping constructor — adopts a pre-made Arena and segment.
      *
-     * <p>Used for deep composition: the caller (e.g., {@code AbstractCognitiveRecordMemory})
+     * <p>Used for deep composition: the caller (e.g., {@code AbstractEngramMemory})
      * manages mmap lifecycle and header format, then wraps the result in a
      * kernel {@code Memory} for standardized identity, shape, and accessor methods.</p>
      *
@@ -206,8 +206,8 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
                 Files.createDirectories(parent);
             }
 
-            long totalBytes = MemoryHeader.HEADER_BYTES + segmentBytes;
-            boolean isNew = !Files.exists(filePath) || Files.size(filePath) < MemoryHeader.HEADER_BYTES;
+            long totalBytes = RegionPreamble.PREAMBLE_BYTES + segmentBytes;
+            boolean isNew = !Files.exists(filePath) || Files.size(filePath) < RegionPreamble.PREAMBLE_BYTES;
 
             fileChannel = FileChannel.open(filePath,
                     StandardOpenOption.CREATE,
@@ -227,13 +227,13 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
 
             if (isNew) {
                 this.count = 0;
-                MemoryHeader.write(segment, 0, layout.schemaVersion(), shape(),
+                RegionPreamble.write(segment, 0, layout.schemaVersion(), shape(),
                         0x01, // flags: persistent
                         capacity, 0, layout.recordStride(), layout.layoutId(),
                         System.currentTimeMillis(), System.currentTimeMillis());
                 log.info("Created new persistent memory: {} ({}KB)", filePath, totalBytes / 1024);
             } else {
-                this.count = (int) MemoryHeader.readCount(segment, 0);
+                this.count = (int) RegionPreamble.readCount(segment, 0);
                 publishVisible();
                 log.info("Loaded persistent memory: {} ({} records)", filePath, count);
             }
@@ -265,7 +265,7 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
      * @return the data offset
      */
     public long dataOffset() {
-        return persistent ? MemoryHeader.HEADER_BYTES : 0;
+        return persistent ? RegionPreamble.PREAMBLE_BYTES : 0;
     }
 
     /**
@@ -273,7 +273,7 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
      */
     protected void persistCount() {
         if (persistent) {
-            MemoryHeader.writeCount(segment, 0, count);
+            RegionPreamble.writeCount(segment, 0, count);
         }
     }
 
@@ -300,7 +300,7 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
     @Override
     public MemorySegment headerSegment() {
         if (persistent && segment != null) {
-            return segment.asSlice(0, MemoryHeader.HEADER_BYTES);
+            return segment.asSlice(0, RegionPreamble.PREAMBLE_BYTES);
         }
         return null;
     }

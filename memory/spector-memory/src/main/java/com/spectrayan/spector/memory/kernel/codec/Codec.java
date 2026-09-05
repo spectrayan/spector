@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.codec;
 
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 import java.io.IOException;
 import java.lang.foreign.MemorySegment;
@@ -20,10 +20,10 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Migration authority for a single MemoryLayout.
+ * Migration authority for a single RegionLayout.
  * Owns the ordered set of CodecSteps leading to current SMKM schema version.
  */
-public interface Codec<L extends MemoryLayout> {
+public interface Codec<L extends RegionLayout> {
 
     L layout();
 

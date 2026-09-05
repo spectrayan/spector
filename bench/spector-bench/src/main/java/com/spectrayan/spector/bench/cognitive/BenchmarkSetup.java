@@ -51,7 +51,7 @@ import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityType;
 import com.spectrayan.spector.memory.graph.RelationType;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationRecordMemory;
+import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
@@ -233,7 +233,11 @@ public final class BenchmarkSetup implements AutoCloseable {
                 .embeddingProvider(embedder)
                 .workingCapacity(Math.max(50, corpusSize / 10))
                 .episodicPartitionCapacity(corpusSize + 100)
-                .proceduralCapacity(Math.max(50, corpusSize / 5));
+                .proceduralCapacity(Math.max(50, corpusSize / 5))
+                .chunkConfig(com.spectrayan.spector.commons.chunker.ChunkConfig.plainText(100_000, 0))
+                .circadianPolicy(com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy.builder()
+                        .volumeTrigger(Integer.MAX_VALUE)
+                        .build());
 
         // Resolve Entity Extraction Mode from configuration
         EntityExtractionMode extractionMode = EntityExtractionMode.CUSTOM;
@@ -296,14 +300,16 @@ public final class BenchmarkSetup implements AutoCloseable {
 
         boolean aismeEnabled = memoryProperties.getAisme() != null && memoryProperties.getAisme().isEnabled();
         log.info("Instantiating GraphScoringPolicy with threshold={}, mode={}, aismeEnabled={}", threshold, expansionMode, aismeEnabled);
+        int temporalMaxHops = Integer.getInteger("spector.benchmark.temporalMaxHops",
+                Integer.getInteger("temporalMaxHops", 15));
         com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy scoringPolicy = new com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy(
                 0.3f,   // causalBoostWeight
                 0.45f,  // hebbianBoostFactor (tuned for cross-session associative recall)
-                0.85f,  // temporalForwardFactor
-                0.75f,  // temporalBackwardFactor
+                0.95f,  // temporalForwardFactor
+                0.95f,  // temporalBackwardFactor
                 0.25f,  // entityHopAttenuation
                 4,      // hebbianMaxDepth (tuned for deeper cross-session associations)
-                5,      // temporalMaxHops  (match resolveDefault — wider session coverage)
+                temporalMaxHops, // temporalMaxHops (traverse full 12-turn dialogue sessions)
                 2,      // entityMaxHops
                 threshold,
                 expansionMode
@@ -512,17 +518,35 @@ public final class BenchmarkSetup implements AutoCloseable {
             if (coact != null) {
                 loadCoActivationMemory(coact, dataset, idToSlot, memIdToEffectiveTags);
             } else {
-                log.warn("CoActivationRecordMemory is null  --  skipping co-activation ingestion");
+                log.warn("CoActivationMemory is null  --  skipping co-activation ingestion");
             }
             log.info("Benchmark memory setup complete: hebbian edges={}, temporal chains={}, entity relations={}",
                     dataset.hebbianEdges().size(), dataset.temporalChains().size(),
                     dataset.entityRelations().size());
         } else {
+            var graph = memory.admin().graph();
+            var tc = graph != null ? graph.rawTemporalChain() : null;
+            log.info("Disk loaded mode: graph={}, tc={}, tcLen={}, chainsDef={}, idToSlot={}",
+                    graph != null, tc != null, tc != null ? tc.chainLength() : -1,
+                    dataset.temporalChains() != null ? dataset.temporalChains().size() : -1,
+                    idToSlot.size());
+            if (tc != null && tc.chainLength() == 0 && dataset.temporalChains() != null && !dataset.temporalChains().isEmpty()) {
+                loadTemporalChains(tc, dataset.temporalChains(), idToSlot);
+            }
+            var hg = graph != null ? graph.rawHebbianGraph() : null;
+            if (hg != null && hg.totalEdges() == 0 && dataset.hebbianEdges() != null && !dataset.hebbianEdges().isEmpty()) {
+                loadHebbianEdges(hg, dataset.hebbianEdges(), idToSlot);
+            }
+            var hyper = graph != null ? graph.rawHyperEntityGraph() : null;
+            if (memory.admin().entityDirectory() != null && hyper != null && memory.admin().entityDirectory().entityCount() == 0
+                    && dataset.entityRelations() != null && !dataset.entityRelations().isEmpty()) {
+                loadEntityGraph(memory.admin().entityDirectory(), hyper, memory.admin().temporalKnowledgeGraph(), dataset.entityRelations(), idToSlot, dataset.corpus());
+            }
             var coact = memory.admin().coActivation();
             if (coact != null) {
                 loadCoActivationMemory(coact, dataset, idToSlot, memIdToEffectiveTags);
             }
-            log.info("Loaded pre-ingested graph structures from disk. Populated co-activation tables.");
+            log.info("Loaded pre-ingested graph structures from disk. Populated co-activation tables and synced missing graph links.");
         }
 
         // Wire salience profile from persona.json if present
@@ -767,13 +791,13 @@ public final class BenchmarkSetup implements AutoCloseable {
     }
 
     /**
-     * Populates CoActivationRecordMemory from dataset definitions:
+     * Populates CoActivationMemory from dataset definitions:
      * 1. Undirected tag co-occurrence pairs from Hebbian edges.
      * 2. Directed STDP causal transitions from Temporal chains.
      * 3. Reciprocal Neocortical semantic-to-episodic tag bridges.
      * 4. Rebuilds the Tag -> Memory Slot Inverted Index for Cross-Capture Graph traversal.
      */
-    void loadCoActivationMemory(CoActivationRecordMemory coact, DatasetLoader.LoadedDataset dataset,
+    void loadCoActivationMemory(CoActivationMemory coact, DatasetLoader.LoadedDataset dataset,
                                 Map<String, Integer> idToSlot,
                                 Map<String, Set<String>> memIdToTags) {
         if (coact == null) return;
@@ -885,7 +909,7 @@ public final class BenchmarkSetup implements AutoCloseable {
             coact.rebuildInvertedIndex(slotToTags);
         }
 
-        log.info("CoActivationRecordMemory loaded: pairs={}, STDP edges={}, inverted index tags={}, bridges={}",
+        log.info("CoActivationMemory loaded: pairs={}, STDP edges={}, inverted index tags={}, bridges={}",
                 coact.pairCount(), coact.edgeCount(), coact.invertedIndexTagCount(), bridges);
     }
 

@@ -12,21 +12,21 @@
  */
 package com.spectrayan.spector.memory.sync;
 
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
-import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.HashMap;
 import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.spectrayan.spector.memory.cortex.EngramMemory;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
  * Compacts a tier store by removing tombstoned records and reclaiming space.
@@ -75,13 +75,13 @@ public final class VacuumCompactor {
      * @param index   the memory index (for offset remapping)
      * @return the compaction result (null if no compaction needed)
      */
-    public static CompactionResult compact(CognitiveRecordMemory store, MemoryType type,
+    public static CompactionResult compact(EngramMemory store, MemoryType type,
                                             MemoryIndex index) {
         long startMs = System.currentTimeMillis();
 
-        CognitiveRecordLayout layout = store.cognitiveLayout();
+        FixedEngramLayout layout = store.cognitiveLayout();
         int totalRecords = store.size();
-        long baseOffset = store.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0;
+        long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0;
         int stride = layout.stride();
 
         // Phase 1: Count live and tombstoned records
@@ -89,8 +89,8 @@ public final class VacuumCompactor {
         int tombstoneCount = 0;
         for (int i = 0; i < totalRecords; i++) {
             long offset = baseOffset + (long) i * stride;
-            CognitiveHeader header = layout.readHeader(store.segment(), offset);
-            if (SynapticHeaderConstants.isTombstoned(header.flags())) {
+            EncodingHeader header = layout.readHeader(store.segment(), offset);
+            if (EncodingHeaderFields.isTombstoned(header.flags())) {
                 tombstoneCount++;
             } else {
                 liveCount++;
@@ -110,7 +110,7 @@ public final class VacuumCompactor {
         long newTotalBytes = baseOffset + newDataBytes;
         Arena newArena = Arena.ofShared();
         MemorySegment newSegment = newArena.allocate(newTotalBytes,
-                SynapticHeaderConstants.HEADER_BYTES);
+                EncodingHeaderFields.HEADER_BYTES);
 
         // Phase 3: Copy live records sequentially, building offset remap
         Map<String, Long> relocations = new HashMap<>();
@@ -118,9 +118,9 @@ public final class VacuumCompactor {
 
         for (int i = 0; i < totalRecords; i++) {
             long oldOffset = baseOffset + (long) i * stride;
-            CognitiveHeader header = layout.readHeader(store.segment(), oldOffset);
+            EncodingHeader header = layout.readHeader(store.segment(), oldOffset);
 
-            if (SynapticHeaderConstants.isTombstoned(header.flags())) {
+            if (EncodingHeaderFields.isTombstoned(header.flags())) {
                 continue; // skip tombstoned
             }
 
@@ -165,7 +165,7 @@ public final class VacuumCompactor {
      * @param threshold the tombstone ratio threshold (e.g., 0.20 for 20%)
      * @return true if compaction is recommended
      */
-    public static boolean shouldCompact(CognitiveRecordMemory store, float threshold) {
+    public static boolean shouldCompact(EngramMemory store, float threshold) {
         if (store.size() == 0) return false;
         return store.tombstoneRatio() >= threshold;
     }

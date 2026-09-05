@@ -18,7 +18,7 @@ import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
+import com.spectrayan.spector.memory.cortex.TextBlobMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorHebbianException;
@@ -82,7 +82,7 @@ public final class PostIngestSync {
     private final EntityExtractor entityExtractor;
     private final EntityDirectory entityDirectory;
     private final MemoryBM25Index bm25Index;
-    private volatile TextAppendMemory textDataStore;  // volatile: rolled with the partition (#443)
+    private volatile TextBlobMemory textDataStore;  // volatile: rolled with the partition (#443)
     private final int activePartitionIndex;           // BM25/SPLADE slot (always 0 — one partition slot)
     private volatile int activePartitionSeq;          // colocated-partition seq stamped on MemoryLocation (#443)
     private final MemorySpladeIndex spladeIndex;
@@ -95,7 +95,7 @@ public final class PostIngestSync {
                    VectorIndex semanticIndex,
                    HebbianGraphBase hebbianGraph, TemporalChainMemory temporalChain,
                    EntityExtractor entityExtractor, EntityDirectory entityDirectory,
-                   MemoryBM25Index bm25Index, TextAppendMemory textDataStore,
+                   MemoryBM25Index bm25Index, TextBlobMemory textDataStore,
                    int activePartitionIndex,
                    MemorySpladeIndex spladeIndex, SparseEmbeddingProvider spladeProvider,
                    DataEncryptor encryptor,
@@ -126,7 +126,7 @@ public final class PostIngestSync {
     }
 
     /** Called when the partition-scoped {@code text.dat} is rolled (#443, D3b). */
-    public void updateTextDataStore(TextAppendMemory newText) {
+    public void updateTextDataStore(TextBlobMemory newText) {
         this.textDataStore = newText;
     }
 
@@ -381,9 +381,9 @@ public final class PostIngestSync {
     // PRIVATE HELPERS
     // ==============================================================
 
-    private TextAppendMemory.TextPosition syncTextIndex(
+    private TextBlobMemory.TextPosition syncTextIndex(
             String id, String text, MemoryType type) {
-        TextAppendMemory.TextPosition pos = null;
+        TextBlobMemory.TextPosition pos = null;
         if (textDataStore != null) {
             try {
                 String textToStore = text;

@@ -12,13 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
-import com.spectrayan.spector.memory.kernel.layout.AuditRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicLogLayout;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.foreign.Arena;
@@ -30,6 +25,13 @@ import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
+import com.spectrayan.spector.memory.kernel.layout.EpisodeLayout;
+
 /**
  * A V4 partition bundle — packs 4 cognitive tier regions (Semantic, Episodic,
  * Procedural, Text) into a single mmap'd file with one shared {@link Arena}.
@@ -37,7 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <h3>On-Disk Format</h3>
  * <pre>
  * ┌─────────────────────────────────────┐  offset 0
- * │ 64B MemoryHeader (SMKM)            │  shape=BUNDLE, layoutId=BUND
+ * │ 64B RegionPreamble (SMKM)          │  shape=BUNDLE, layoutId=BUND
  * ├─────────────────────────────────────┤  offset 64
  * │ 64B BundleSubHeader (SPTB)         │  magic=SPTB, totalFileSize, etc.
  * ├─────────────────────────────────────┤  offset 128
@@ -102,8 +104,8 @@ public final class PartitionBundle implements AutoCloseable {
          * @param proceduralCapacity max records for procedural region
          * @param textBytes          allocated bytes for the text append region
          * @param quantizedVecBytes  bytes per quantized vector (for stride calculation)
-         * @param cognitiveLayoutId  the layoutId from CognitiveRecordLayout
-         * @param cognitiveSchemaVer the schemaVersion from CognitiveRecordLayout
+         * @param cognitiveLayoutId  the layoutId from EngramLayout
+         * @param cognitiveSchemaVer the schemaVersion from EngramLayout
          * @param textLayoutId       the layoutId from TextBlobLayout
          * @param textSchemaVer      the schemaVersion from TextBlobLayout
          * @return an open PartitionBundle ready for use
@@ -115,7 +117,7 @@ public final class PartitionBundle implements AutoCloseable {
                                             int cognitiveLayoutId, int cognitiveSchemaVer,
                                             int textLayoutId, int textSchemaVer) {
             int cogStride = computeCognitiveStride(quantizedVecBytes);
-            int auditStride = AuditRecordLayout.INSTANCE.recordStride();
+            int auditStride = StrengthLayout.INSTANCE.recordStride();
             int episodicCapEstimate = (int) (episodicBytes / Math.max(1, cogStride));
             if (episodicCapEstimate <= 0) episodicCapEstimate = 1_000;
             int totalAuditCapacity = semanticCapacity + episodicCapEstimate + proceduralCapacity;
@@ -123,26 +125,26 @@ public final class PartitionBundle implements AutoCloseable {
             List<RegionSizeSpec> specs = List.of(
                     new RegionSizeSpec(
                             RegionId.SEMANTIC,
-                            MemoryHeader.HEADER_BYTES + (long) semanticCapacity * cogStride,
+                            RegionPreamble.PREAMBLE_BYTES + (long) semanticCapacity * cogStride,
                             semanticCapacity, cogStride, cognitiveLayoutId, cognitiveSchemaVer, false),
                     new RegionSizeSpec(
                             RegionId.EPISODIC,
-                            MemoryHeader.HEADER_BYTES + episodicBytes,
-                            0, 0, EpisodicLogLayout.INSTANCE.layoutId(),
-                            EpisodicLogLayout.INSTANCE.schemaVersion(), false),
+                            RegionPreamble.PREAMBLE_BYTES + episodicBytes,
+                            0, 0, EpisodeLayout.INSTANCE.layoutId(),
+                            EpisodeLayout.INSTANCE.schemaVersion(), false),
                     new RegionSizeSpec(
                             RegionId.PROCEDURAL,
-                            MemoryHeader.HEADER_BYTES + (long) proceduralCapacity * cogStride,
+                            RegionPreamble.PREAMBLE_BYTES + (long) proceduralCapacity * cogStride,
                             proceduralCapacity, cogStride, cognitiveLayoutId, cognitiveSchemaVer, false),
                     new RegionSizeSpec(
                             RegionId.TEXT,
-                            MemoryHeader.HEADER_BYTES + textBytes,
+                            RegionPreamble.PREAMBLE_BYTES + textBytes,
                             0, 0, textLayoutId, textSchemaVer, false),
                     new RegionSizeSpec(
-                            RegionId.AUDIT,
-                            MemoryHeader.HEADER_BYTES + (long) totalAuditCapacity * auditStride,
-                            totalAuditCapacity, auditStride, AuditRecordLayout.INSTANCE.layoutId(),
-                            AuditRecordLayout.INSTANCE.schemaVersion(), false)
+                            RegionId.STRENGTH,
+                            RegionPreamble.PREAMBLE_BYTES + (long) totalAuditCapacity * auditStride,
+                            totalAuditCapacity, auditStride, StrengthLayout.INSTANCE.layoutId(),
+                            StrengthLayout.INSTANCE.schemaVersion(), false)
             );
 
             BundleLayoutCalculator.BundleComputedLayout computed =
@@ -205,8 +207,8 @@ public final class PartitionBundle implements AutoCloseable {
          * @param proceduralCapacity max records for procedural region
          * @param textBytes          allocated bytes for the text append region
          * @param quantizedVecBytes  bytes per quantized vector
-         * @param cognitiveLayoutId  the layoutId from CognitiveRecordLayout
-         * @param cognitiveSchemaVer the schemaVersion from CognitiveRecordLayout
+         * @param cognitiveLayoutId  the layoutId from EngramLayout
+         * @param cognitiveSchemaVer the schemaVersion from EngramLayout
          * @param textLayoutId       the layoutId from TextBlobLayout
          * @param textSchemaVer      the schemaVersion from TextBlobLayout
          * @return an in-memory PartitionBundle
@@ -217,7 +219,7 @@ public final class PartitionBundle implements AutoCloseable {
                                             int cognitiveLayoutId, int cognitiveSchemaVer,
                                             int textLayoutId, int textSchemaVer) {
             int cogStride = computeCognitiveStride(quantizedVecBytes);
-            int auditStride = AuditRecordLayout.INSTANCE.recordStride();
+            int auditStride = StrengthLayout.INSTANCE.recordStride();
             int episodicCapEstimate = (int) (episodicBytes / Math.max(1, cogStride));
             if (episodicCapEstimate <= 0) episodicCapEstimate = 1_000;
             int totalAuditCapacity = semanticCapacity + episodicCapEstimate + proceduralCapacity;
@@ -225,26 +227,26 @@ public final class PartitionBundle implements AutoCloseable {
             List<RegionSizeSpec> specs = List.of(
                     new RegionSizeSpec(
                             RegionId.SEMANTIC,
-                            MemoryHeader.HEADER_BYTES + (long) semanticCapacity * cogStride,
+                            RegionPreamble.PREAMBLE_BYTES + (long) semanticCapacity * cogStride,
                             semanticCapacity, cogStride, cognitiveLayoutId, cognitiveSchemaVer, false),
                     new RegionSizeSpec(
                             RegionId.EPISODIC,
-                            MemoryHeader.HEADER_BYTES + episodicBytes,
-                            0, 0, EpisodicLogLayout.INSTANCE.layoutId(),
-                            EpisodicLogLayout.INSTANCE.schemaVersion(), false),
+                            RegionPreamble.PREAMBLE_BYTES + episodicBytes,
+                            0, 0, EpisodeLayout.INSTANCE.layoutId(),
+                            EpisodeLayout.INSTANCE.schemaVersion(), false),
                     new RegionSizeSpec(
                             RegionId.PROCEDURAL,
-                            MemoryHeader.HEADER_BYTES + (long) proceduralCapacity * cogStride,
+                            RegionPreamble.PREAMBLE_BYTES + (long) proceduralCapacity * cogStride,
                             proceduralCapacity, cogStride, cognitiveLayoutId, cognitiveSchemaVer, false),
                     new RegionSizeSpec(
                             RegionId.TEXT,
-                            MemoryHeader.HEADER_BYTES + textBytes,
+                            RegionPreamble.PREAMBLE_BYTES + textBytes,
                             0, 0, textLayoutId, textSchemaVer, false),
                     new RegionSizeSpec(
-                            RegionId.AUDIT,
-                            MemoryHeader.HEADER_BYTES + (long) totalAuditCapacity * auditStride,
-                            totalAuditCapacity, auditStride, AuditRecordLayout.INSTANCE.layoutId(),
-                            AuditRecordLayout.INSTANCE.schemaVersion(), false)
+                            RegionId.STRENGTH,
+                            RegionPreamble.PREAMBLE_BYTES + (long) totalAuditCapacity * auditStride,
+                            totalAuditCapacity, auditStride, StrengthLayout.INSTANCE.layoutId(),
+                            StrengthLayout.INSTANCE.schemaVersion(), false)
             );
 
             BundleLayoutCalculator.BundleComputedLayout computed =
@@ -263,10 +265,10 @@ public final class PartitionBundle implements AutoCloseable {
 
         /**
          * Computes the cognitive record stride from the quantized vector bytes.
-         * This mirrors CognitiveRecordLayout.stride() = SynapticHeaderConstants.HEADER_BYTES + quantizedVecBytes
+         * This mirrors EngramLayout.stride() = EncodingHeaderFields.HEADER_BYTES + quantizedVecBytes
          */
         private static int computeCognitiveStride(int quantizedVecBytes) {
-            // SynapticHeaderConstants.HEADER_BYTES = 64
+            // EncodingHeaderFields.HEADER_BYTES = 64
             return 64 + quantizedVecBytes;
         }
     }
@@ -276,7 +278,7 @@ public final class PartitionBundle implements AutoCloseable {
     /**
      * Returns the region slice for the specified region.
      *
-     * <p>The returned segment starts with a 64-byte SMKM {@link MemoryHeader}
+     * <p>The returned segment starts with a 64-byte SMKM {@link RegionPreamble}
      * followed by the region's data area. Stores should use this segment
      * in their {@code fromBundle()} factories.</p>
      *

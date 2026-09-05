@@ -13,10 +13,10 @@
 package com.spectrayan.spector.memory.cortex.interference;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,7 +78,7 @@ public final class SemanticDeduplicator {
      * @return the index of the nearest duplicate (if within radius), or empty
      */
     public Optional<Integer> findDuplicate(float[] newVector, MemorySegment segment,
-                                            int recordCount, CognitiveRecordLayout layout) {
+                                            int recordCount, EngramLayout layout) {
         return findDuplicate(newVector, segment, recordCount, layout, 0L, null, null);
     }
 
@@ -94,7 +94,7 @@ public final class SemanticDeduplicator {
      * @return the index of the nearest duplicate (if within radius), or empty
      */
     public Optional<Integer> findDuplicate(float[] newVector, MemorySegment segment,
-                                            int recordCount, CognitiveRecordLayout layout,
+                                            int recordCount, EngramLayout layout,
                                             long baseOffset) {
         return findDuplicate(newVector, segment, recordCount, layout, baseOffset, null, null);
     }
@@ -118,7 +118,7 @@ public final class SemanticDeduplicator {
      * @return the index of the nearest duplicate (if within radius), or empty
      */
     public Optional<Integer> findDuplicate(float[] newVector, MemorySegment segment,
-                                            int recordCount, CognitiveRecordLayout layout,
+                                            int recordCount, EngramLayout layout,
                                             long baseOffset, float[] mins, float[] scales) {
         float minDistance = Float.MAX_VALUE;
         int minIndex = -1;
@@ -134,9 +134,9 @@ public final class SemanticDeduplicator {
             long offset = baseOffset + (long) i * stride;
 
             // Skip tombstoned records
-            byte flags = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS,
-                    offset + SynapticHeaderConstants.OFFSET_FLAGS);
-            if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+            byte flags = segment.get(EncodingHeaderFields.LAYOUT_FLAGS,
+                    offset + EncodingHeaderFields.OFFSET_FLAGS);
+            if (EncodingHeaderFields.isTombstoned(flags)) continue;
 
             // Compute calibrated L2 distance via SimilarityFunction
             float dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
@@ -163,8 +163,8 @@ public final class SemanticDeduplicator {
      *
      * <p>Updates: timestamp (refresh), importance (max), synaptic tags (OR).</p>
      */
-    public void merge(MemorySegment segment, long offset, CognitiveRecordLayout layout,
-                       CognitiveHeader newHeader) {
+    public void merge(MemorySegment segment, long offset, EngramLayout layout,
+                       EncodingHeader newHeader) {
         // Refresh timestamp to current time
         layout.writeTimestamp(segment, offset, newHeader.timestampMs());
 

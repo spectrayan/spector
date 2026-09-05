@@ -16,7 +16,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.memory.kernel.AbstractMemory;
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 
 import java.lang.foreign.Arena;
@@ -34,7 +34,7 @@ import java.util.zip.CRC32C;
  *
  * @param <L> the type of memory layout used by this memory
  */
-public abstract class AbstractRecordMemory<L extends MemoryLayout> extends AbstractMemory<L> implements RecordMemory<L> {
+public abstract class AbstractRecordMemory<L extends RegionLayout> extends AbstractMemory<L> implements RecordMemory<L> {
 
     protected AbstractRecordMemory(MemoryId id, L layout, int capacity, long segmentBytes) {
         super(id, layout, capacity, segmentBytes);

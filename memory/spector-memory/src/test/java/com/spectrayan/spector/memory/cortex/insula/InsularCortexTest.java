@@ -14,11 +14,12 @@ package com.spectrayan.spector.memory.cortex.insula;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorMemoryException;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec;
 import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.kernel.layout.InsularLayout;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -113,7 +114,7 @@ class InsularCortexTest {
             insula.put(TEST_JSON);
 
             // Manually corrupt one byte of the JSON payload in the segment
-            long dataStartOffset = MemoryHeader.HEADER_BYTES + InsularLayout.INSULAR_HEADER_BYTES;
+            long dataStartOffset = RegionPreamble.PREAMBLE_BYTES + InsularLayout.INSULAR_HEADER_BYTES;
             byte originalByte = insula.segment().get(ValueLayout.JAVA_BYTE, dataStartOffset);
             insula.segment().set(ValueLayout.JAVA_BYTE, dataStartOffset, (byte) (originalByte ^ 0xFF));
 

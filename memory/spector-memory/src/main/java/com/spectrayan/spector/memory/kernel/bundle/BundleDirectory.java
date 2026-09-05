@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.kernel.bundle;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorServerException;
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 
 import java.lang.foreign.MemorySegment;
@@ -26,7 +26,7 @@ import java.util.List;
  */
 public final class BundleDirectory {
     public static final long HEADER_OFFSET = 0;
-    public static final long SUB_HEADER_OFFSET = MemoryHeader.HEADER_BYTES;  // 64
+    public static final long SUB_HEADER_OFFSET = RegionPreamble.PREAMBLE_BYTES;  // 64
     public static final long ENTRIES_OFFSET = SUB_HEADER_OFFSET + BundleSubHeader.SIZE;  // 128
     
     private static final int PAGE_SIZE = 4096;
@@ -49,13 +49,13 @@ public final class BundleDirectory {
      * Validates the SMKM header, sub-header, and reads all region entries.
      */
     public static BundleDirectory read(MemorySegment masterSegment) {
-        if (!MemoryHeader.isValid(masterSegment, HEADER_OFFSET)) {
+        if (!RegionPreamble.isValid(masterSegment, HEADER_OFFSET)) {
             throw new SpectorServerException(ErrorCode.RECORD_CRC_CORRUPTED, "Invalid SMKM header");
         }
-        if (MemoryHeader.readShape(masterSegment, HEADER_OFFSET) != MemoryShape.BUNDLE) {
+        if (RegionPreamble.readShape(masterSegment, HEADER_OFFSET) != MemoryShape.BUNDLE) {
             throw new SpectorServerException(ErrorCode.ARGUMENT_INVALID, "MemoryShape is not BUNDLE");
         }
-        if (MemoryHeader.readLayoutId(masterSegment, HEADER_OFFSET) != BundleLayout.LAYOUT_ID) {
+        if (RegionPreamble.readLayoutId(masterSegment, HEADER_OFFSET) != BundleLayout.LAYOUT_ID) {
             throw new SpectorServerException(ErrorCode.ARGUMENT_INVALID, "LayoutId does not match BundleLayout");
         }
         if (!BundleSubHeader.isValid(masterSegment)) {
@@ -78,7 +78,7 @@ public final class BundleDirectory {
      */
     public void write(MemorySegment masterSegment) {
         long now = System.currentTimeMillis();
-        MemoryHeader.write(masterSegment, HEADER_OFFSET, BundleLayout.SCHEMA_VERSION, MemoryShape.BUNDLE, 
+        RegionPreamble.write(masterSegment, HEADER_OFFSET, BundleLayout.SCHEMA_VERSION, MemoryShape.BUNDLE, 
                            0, maxRegions, entries.size(), BundleLayout.REGION_ENTRY_STRIDE, BundleLayout.LAYOUT_ID, 
                            now, now);
         

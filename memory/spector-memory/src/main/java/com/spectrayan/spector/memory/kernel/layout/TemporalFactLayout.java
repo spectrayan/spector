@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**
  * Memory layout for 64-byte temporal fact records.
@@ -34,7 +34,7 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
  * - 4B crc32c (int)
  * </p>
  */
-public final class TemporalFactLayout implements MemoryLayout {
+public final class TemporalFactLayout implements RegionLayout {
 
     private static final int STRIDE = 64;
     private static final int LAYOUT_ID = 0x54464354; // 'TFCT'

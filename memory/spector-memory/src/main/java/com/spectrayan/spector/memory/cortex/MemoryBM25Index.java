@@ -52,7 +52,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * instances use internal {@code ReadWriteLock} for concurrent read/write safety.</p>
  *
  * @see BM25Index
- * @see TextAppendMemory
+ * @see TextBlobMemory
  */
 public final class MemoryBM25Index implements AutoCloseable {
 

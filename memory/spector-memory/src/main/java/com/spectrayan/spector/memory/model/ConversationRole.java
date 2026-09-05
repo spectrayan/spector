@@ -17,7 +17,7 @@ package com.spectrayan.spector.memory.model;
  *
  * <h3>Binary Encoding</h3>
  * <p>Stored in the {@code valence} byte (offset 2) of the
- * {@link com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants synaptic header}
+ * {@link com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields synaptic header}
  * when the record's {@link MemoryType} is {@code EPISODIC}. The same byte offset
  * is used for emotional valence in SEMANTIC/PROCEDURAL records — the
  * {@code MemoryType} bits in the flags byte (bits 1-2) determine interpretation.</p>
@@ -29,7 +29,7 @@ package com.spectrayan.spector.memory.model;
  *
  * @since 1.3.0
  * @see MemoryType#EPISODIC
- * @see com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor
+ * @see com.spectrayan.spector.memory.kernel.layout.EpisodeCodec
  */
 public enum ConversationRole {
 
