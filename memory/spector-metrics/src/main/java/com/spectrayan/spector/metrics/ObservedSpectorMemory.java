@@ -206,7 +206,19 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
     public ReflectReport reflect() {
         return withObservation(SpectorObservationDocumentation.MEMORY_REFLECT,
                 createTags(null, null, null),
-                delegate::reflect);
+                () -> delegate.reflect());
+    }
+
+    @Override
+    public ReflectReport reflect(com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec spec) {
+        return withObservation(SpectorObservationDocumentation.MEMORY_REFLECT,
+                createTags(null, null, null),
+                () -> delegate.reflect(spec));
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.pathway.reflect.ReflectSweepProgress progress(String sweepId) {
+        return delegate.progress(sweepId);
     }
 
     @Override

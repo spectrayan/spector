@@ -261,11 +261,16 @@ public class MeteredSpectorMemory implements SpectorMemory {
 
     @Override
     public ReflectReport reflect() {
+        return reflect(com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec.fullCycle());
+    }
+
+    @Override
+    public ReflectReport reflect(com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec spec) {
         // Capture pre-reflect snapshot
         String cycleId = java.util.UUID.randomUUID().toString();
         TelemetryScope.publish(captureMemorySnapshot("pre-reflect", cycleId));
 
-        ReflectReport report = reflectTimer.record(() -> delegate.reflect());
+        ReflectReport report = reflectTimer.record(() -> delegate.reflect(spec));
 
         // Capture post-reflect snapshot
         TelemetryScope.publish(captureMemorySnapshot("post-reflect", cycleId));
@@ -278,6 +283,11 @@ public class MeteredSpectorMemory implements SpectorMemory {
                 report.duration().toMillis()));
 
         return report;
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.pathway.reflect.ReflectSweepProgress progress(String sweepId) {
+        return delegate.progress(sweepId);
     }
 
     @Override
