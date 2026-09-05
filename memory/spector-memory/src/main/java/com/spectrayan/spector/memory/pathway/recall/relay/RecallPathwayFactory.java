@@ -262,6 +262,13 @@ public final class RecallPathwayFactory {
             builder.gated(RelayNames.CONSCIOUSNESS_CONTINUITY, RecallGates.CONSCIOUSNESS_CONTINUITY_ENABLED, consciousnessContinuityRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
         }
 
+        // ─── DIVERSITY FIRST, THEN TRUNCATION ───
+        // MMR must see the full candidate pool to enforce diversity.
+        // SortAndTruncate then limits output to topK.
+        if (mmrDiversityRelay != null) {
+            builder.gated(RelayNames.MMR_RERANK, RecallGates.MMR_ENABLED, mmrDiversityRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
+        }
+
         if (sortAndTruncateRelay != null) {
             builder.relay(RelayNames.SORT_TRUNCATE, sortAndTruncateRelay);
         }
@@ -271,10 +278,6 @@ public final class RecallPathwayFactory {
                     new com.spectrayan.spector.commons.pathway.GatedRelay<>(
                             RelayNames.COLBERT_RERANK, RecallGates.RERANK_CONFIGURED, cognitiveRerankRelay),
                     5, 30_000L, ErrorPolicy.DEGRADE_GRACEFULLY);
-        }
-
-        if (mmrDiversityRelay != null) {
-            builder.gated(RelayNames.MMR_RERANK, RecallGates.MMR_ENABLED, mmrDiversityRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
         }
 
         if (temperatureSoftmaxRelay != null) {
