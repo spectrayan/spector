@@ -204,4 +204,79 @@ class EpisodicLogConsolidationRelayTest {
         EncodingHeader latestHeader = headerCaptor.getAllValues().get(headerCaptor.getAllValues().size() - 1);
         assertThat(latestHeader.timestampMs()).isEqualTo(6000L);
     }
+
+    @Test
+    @DisplayName("Fallback: Re-consolidation extracts prior context via episodic slab-scan when EpisodicSessionIndex is null (#751)")
+    void testReconsolidationWithPriorContextWindow_FallbackWhenSessionIndexNull() {
+        long sessionId = 999L;
+
+        // Initial session: turns 1 and 2
+        logMemory.appendTurn(ConversationRole.USER, 1, 1000L, sessionId, "I want to design an event-driven architecture.".getBytes(), (short) 1, 0, 0, 0, 0L, (short) 1, SourceModality.TEXT);
+        logMemory.appendTurn(ConversationRole.ASSISTANT, 2, 2000L, sessionId, "You can use Kafka or RabbitMQ as the message broker.".getBytes(), (short) 1, 0, 0, 0, 0L, (short) 1, SourceModality.TEXT);
+
+        CognitiveMemoryRouter router = new CognitiveMemoryRouter(workingMemory, semanticMemory, proceduralMemory, logMemory);
+        PartitionManager partitionManager = Mockito.mock(PartitionManager.class);
+        PartitionHandle handle = new PartitionHandle(0, null, router, null, false);
+        when(partitionManager.snapshot()).thenReturn(List.of(handle));
+
+        RememberPathway rememberPathway = Mockito.mock(RememberPathway.class);
+        when(rememberPathway.ingestCognitiveWithHeader(any(), any(), any(), any(), any(), any(), any())).thenReturn(true);
+        List<String> capturedPrompts = new ArrayList<>();
+        LlmProvider llm = new LlmProvider() {
+            @Override
+            public LlmResponse generate(LlmRequest request, GenerationOptions options) {
+                return new LlmResponse("- User wants event-driven architecture", 10, 10, "mock-llm");
+            }
+
+            @Override
+            public String generate(String prompt, GenerationOptions options) {
+                capturedPrompts.add(prompt);
+                return "- User wants event-driven architecture";
+            }
+
+            @Override public boolean isAvailable() { return true; }
+            @Override public String modelName() { return "mock-llm"; }
+        };
+
+        // First consolidation: consolidates turns 1 and 2 (NO session index provided)
+        ReflectSignal signal1 = ReflectSignal.builder()
+                .partitionManager(partitionManager)
+                .rememberPathway(rememberPathway)
+                .textGenerator(llm)
+                .idGenerator(() -> java.util.UUID.randomUUID().toString())
+                .build();
+
+        EpisodicLogConsolidationRelay relay = new EpisodicLogConsolidationRelay();
+        boolean success1 = relay.transmit(signal1);
+
+        assertThat(success1).isTrue();
+        assertThat(signal1.logTurnsConsolidated()).isEqualTo(2);
+        assertThat(capturedPrompts).hasSize(1);
+        assertThat(capturedPrompts.get(0)).doesNotContain("Prior Context (Already Consolidated");
+
+        // Now add turns 3 and 4 to the SAME session
+        logMemory.appendTurn(ConversationRole.USER, 3, 5000L, sessionId, "Let's go with Kafka because of high throughput requirements.".getBytes(), (short) 1, 0, 0, 0, 0L, (short) 1, SourceModality.TEXT);
+        logMemory.appendTurn(ConversationRole.ASSISTANT, 4, 6000L, sessionId, "Understood, Kafka is chosen for high throughput.".getBytes(), (short) 1, 0, 0, 0, 0L, (short) 1, SourceModality.TEXT);
+
+        // Second consolidation: NO session index provided — MUST fallback to slab scan in EpisodicMemory!
+        ReflectSignal signal2 = ReflectSignal.builder()
+                .partitionManager(partitionManager)
+                .rememberPathway(rememberPathway)
+                .textGenerator(llm)
+                .idGenerator(() -> java.util.UUID.randomUUID().toString())
+                .build();
+
+        boolean success2 = relay.transmit(signal2);
+
+        assertThat(success2).isTrue();
+        assertThat(signal2.logTurnsConsolidated()).isEqualTo(2); // Only the 2 new turns consolidated!
+        assertThat(capturedPrompts).hasSize(2);
+
+        String secondPrompt = capturedPrompts.get(1);
+        assertThat(secondPrompt).contains("Prior Context (Already Consolidated — DO NOT extract facts from these):");
+        assertThat(secondPrompt).contains("I want to design an event-driven architecture.");
+        assertThat(secondPrompt).contains("You can use Kafka or RabbitMQ");
+        assertThat(secondPrompt).contains("New Turns (Extract facts ONLY from these):");
+        assertThat(secondPrompt).contains("Let's go with Kafka because of high throughput");
+    }
 }
