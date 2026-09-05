@@ -337,7 +337,7 @@ public final class CognitiveBenchmarkHarness {
                     // Only analyze results in cognitive top-10 but NOT in baseline top-10
                     if (!baselineTop10Set.contains(cogId)) {
                         int relevance = queryQrels.getOrDefault(cogId, 0);
-                        if (relevance >= 2) {
+                        if (relevance >= 1) {
                             // This is a relevant result that the cognitive pipeline found
                             // but the baseline missed  --  detect which subsystem contributed
                             CognitiveResult cr = cognitiveResultMap.get(cogId);

@@ -55,12 +55,17 @@ public final class ConsciousAccessRelay implements SynapticRelay<RecallSignal> {
             return true;
         }
 
-        List<CognitiveResult> broadcastList = workspace.filterForBroadcast(candidates);
+        int effectiveCapacity = (signal.options() != null && signal.options().enableAisme()
+                && signal.options().aismeConfig() != null && signal.options().aismeConfig().globalWorkspaceCapacity() > 0)
+                ? signal.options().aismeConfig().globalWorkspaceCapacity()
+                : workspace.capacity();
+
+        List<CognitiveResult> broadcastList = workspace.filterForBroadcast(candidates, effectiveCapacity);
         signal.setCandidates(broadcastList);
 
         if (log.isTraceEnabled()) {
             log.trace("ConsciousAccessRelay gated candidates from {} to {} (capacity={})",
-                    candidates.size(), broadcastList.size(), workspace.capacity());
+                    candidates.size(), broadcastList.size(), effectiveCapacity);
         }
 
         return true;

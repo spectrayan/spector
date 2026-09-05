@@ -97,6 +97,7 @@ public class MmrReranker {
         MemorySegment seg = router.segmentFor(loc.type());
         if (seg == null) return null;
         FixedEngramLayout layout = router.layoutFor(loc.type());
+        if (layout == null) return null;
         long offset = layout.vectorOffset(loc.offset());
         
         float[] vec = new float[length];
@@ -115,6 +116,7 @@ public class MmrReranker {
         MemorySegment seg = router.segmentFor(loc.type());
         if (seg == null) return 0f;
         FixedEngramLayout layout = router.layoutFor(loc.type());
+        if (layout == null) return 0f;
         long offset = layout.vectorOffset(loc.offset());
         
         float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(

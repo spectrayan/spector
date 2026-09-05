@@ -236,6 +236,8 @@ public final class RecallPathwayFactory {
         final var effectiveSpacetimeRelay = spacetimeScoringRelay != null ? spacetimeScoringRelay : new SpacetimeScoringRelay();
         builder.gated(RelayNames.SPACETIME_SCORING, RecallGates.SPACETIME_ENABLED, effectiveSpacetimeRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                .relay(RelayNames.SCORING, scoringRelay)
+               .gated(RelayNames.BM25_SEARCH, RecallGates.TEXT_SEARCH_ENABLED, bm25SearchRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
+               .gated(RelayNames.RRF_RESCORE, RecallGates.RRF_FUSED, rrfRescoreRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                .relay(RelayNames.GRAPH_EXPANSION, graphExpansionRelay);
 
         if (hopfieldAssociativeRelay != null) {
@@ -247,9 +249,6 @@ public final class RecallPathwayFactory {
         if (lateralInhibitionRelay != null) {
             builder.gated(RelayNames.LATERAL_INHIBITION, RecallGates.LATERAL_INHIBITION_ENABLED, lateralInhibitionRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
         }
-
-        builder.gated(RelayNames.BM25_SEARCH, RecallGates.TEXT_SEARCH_ENABLED, bm25SearchRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-               .gated(RelayNames.RRF_RESCORE, RecallGates.RRF_FUSED, rrfRescoreRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
 
         if (manifoldRerankRelay != null) {
             builder.gated(RelayNames.MANIFOLD_RERANK, RecallGates.MANIFOLD_ENABLED, manifoldRerankRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
