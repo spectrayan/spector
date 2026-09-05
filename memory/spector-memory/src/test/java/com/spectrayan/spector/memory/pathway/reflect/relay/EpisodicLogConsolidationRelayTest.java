@@ -28,6 +28,11 @@ import com.spectrayan.spector.provider.model.LlmRequest;
 import com.spectrayan.spector.provider.model.LlmResponse;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectCheckpoint;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectFilter;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec;
+import com.spectrayan.spector.memory.pathway.reflect.spi.ReflectCheckpointStore;
+import com.spectrayan.spector.memory.pathway.reflect.spi.local.InMemoryReflectCheckpointStore;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +40,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -279,4 +286,176 @@ class EpisodicLogConsolidationRelayTest {
         assertThat(secondPrompt).contains("New Turns (Extract facts ONLY from these):");
         assertThat(secondPrompt).contains("Let's go with Kafka because of high throughput");
     }
+
+    @Test
+    @DisplayName("Respects sessionLimit in ReflectFilter, consolidating at most N sessions")
+    void testSessionLimit() {
+        logMemory.appendTurn(ConversationRole.USER, 1, 1000L, 101L, "Session 101 turn".getBytes(), (short) 1, 0, 0, 0, 0L, (short) 1, SourceModality.TEXT);
+        logMemory.appendTurn(ConversationRole.USER, 1, 1000L, 102L, "Session 102 turn".getBytes(), (short) 1, 0, 0, 0, 0L, (short) 1, SourceModality.TEXT);
+        logMemory.appendTurn(ConversationRole.USER, 1, 1000L, 103L, "Session 103 turn".getBytes(), (short) 1, 0, 0, 0, 0L, (short) 1, SourceModality.TEXT);
+
+        CognitiveMemoryRouter router = new CognitiveMemoryRouter(workingMemory, semanticMemory, proceduralMemory, logMemory);
+        PartitionManager partitionManager = Mockito.mock(PartitionManager.class);
+        when(partitionManager.snapshot()).thenReturn(List.of(new PartitionHandle(0, null, router, null, false)));
+
+        RememberPathway rememberPathway = Mockito.mock(RememberPathway.class);
+        when(rememberPathway.ingestCognitiveWithHeader(any(), any(), any(), any(), any(), any(), any())).thenReturn(true);
+        LlmProvider llm = new LlmProvider() {
+            @Override public LlmResponse generate(LlmRequest req, GenerationOptions opt) { return new LlmResponse("- Fact", 1, 1, "m"); }
+            @Override public String generate(String prompt, GenerationOptions opt) { return "- Fact"; }
+            @Override public boolean isAvailable() { return true; }
+            @Override public String modelName() { return "m"; }
+        };
+
+        ReflectSweepSpec spec = ReflectSweepSpec.builder()
+                .sessionLimit(2)
+                .build();
+
+        ReflectSignal signal = ReflectSignal.builder()
+                .partitionManager(partitionManager)
+                .rememberPathway(rememberPathway)
+                .textGenerator(llm)
+                .sweepSpec(spec)
+                .idGenerator(() -> java.util.UUID.randomUUID().toString())
+                .build();
+
+        EpisodicLogConsolidationRelay relay = new EpisodicLogConsolidationRelay();
+        boolean success = relay.transmit(signal);
+
+        assertThat(success).isTrue();
+        assertThat(signal.logTurnsConsolidated()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Respects sessionIdAfter cursor, skipping sessions less than or equal to cursor")
+    void testSessionIdAfterCursor() {
+        logMemory.appendTurn(ConversationRole.USER, 1, 1000L, 100L, "Session 100 turn".getBytes(), (short) 1, 0, 0, 0, 0L, (short) 1, SourceModality.TEXT);
+        logMemory.appendTurn(ConversationRole.USER, 1, 1000L, 200L, "Session 200 turn".getBytes(), (short) 1, 0, 0, 0, 0L, (short) 1, SourceModality.TEXT);
+        logMemory.appendTurn(ConversationRole.USER, 1, 1000L, 300L, "Session 300 turn".getBytes(), (short) 1, 0, 0, 0, 0L, (short) 1, SourceModality.TEXT);
+
+        CognitiveMemoryRouter router = new CognitiveMemoryRouter(workingMemory, semanticMemory, proceduralMemory, logMemory);
+        PartitionManager partitionManager = Mockito.mock(PartitionManager.class);
+        when(partitionManager.snapshot()).thenReturn(List.of(new PartitionHandle(0, null, router, null, false)));
+
+        RememberPathway rememberPathway = Mockito.mock(RememberPathway.class);
+        when(rememberPathway.ingestCognitiveWithHeader(any(), any(), any(), any(), any(), any(), any())).thenReturn(true);
+        LlmProvider llm = new LlmProvider() {
+            @Override public LlmResponse generate(LlmRequest req, GenerationOptions opt) { return new LlmResponse("- Fact", 1, 1, "m"); }
+            @Override public String generate(String prompt, GenerationOptions opt) { return "- Fact"; }
+            @Override public boolean isAvailable() { return true; }
+            @Override public String modelName() { return "m"; }
+        };
+
+        ReflectSweepSpec spec = ReflectSweepSpec.builder()
+                .filter(ReflectFilter.builder().sessionIdAfter(150L).build())
+                .build();
+
+        ReflectSignal signal = ReflectSignal.builder()
+                .partitionManager(partitionManager)
+                .rememberPathway(rememberPathway)
+                .textGenerator(llm)
+                .sweepSpec(spec)
+                .idGenerator(() -> java.util.UUID.randomUUID().toString())
+                .build();
+
+        EpisodicLogConsolidationRelay relay = new EpisodicLogConsolidationRelay();
+        boolean success = relay.transmit(signal);
+
+        assertThat(success).isTrue();
+        // Only sessions 200 and 300 should be consolidated
+        assertThat(signal.logTurnsConsolidated()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Updates ReflectCheckpointStore after processing each session")
+    void testCheckpointUpdatedDuringConsolidation() {
+        logMemory.appendTurn(ConversationRole.USER, 1, 1000L, 101L, "Session 101 turn".getBytes(), (short) 1, 0, 0, 0, 0L, (short) 1, SourceModality.TEXT);
+        logMemory.appendTurn(ConversationRole.USER, 1, 1000L, 102L, "Session 102 turn".getBytes(), (short) 1, 0, 0, 0, 0L, (short) 1, SourceModality.TEXT);
+
+        CognitiveMemoryRouter router = new CognitiveMemoryRouter(workingMemory, semanticMemory, proceduralMemory, logMemory);
+        PartitionManager partitionManager = Mockito.mock(PartitionManager.class);
+        when(partitionManager.snapshot()).thenReturn(List.of(new PartitionHandle(0, null, router, null, false)));
+
+        RememberPathway rememberPathway = Mockito.mock(RememberPathway.class);
+        when(rememberPathway.ingestCognitiveWithHeader(any(), any(), any(), any(), any(), any(), any())).thenReturn(true);
+        LlmProvider llm = new LlmProvider() {
+            @Override public LlmResponse generate(LlmRequest req, GenerationOptions opt) { return new LlmResponse("- Fact", 1, 1, "m"); }
+            @Override public String generate(String prompt, GenerationOptions opt) { return "- Fact"; }
+            @Override public boolean isAvailable() { return true; }
+            @Override public String modelName() { return "m"; }
+        };
+
+        ReflectCheckpointStore checkpointStore = new InMemoryReflectCheckpointStore();
+        String sweepId = "sweep-ckpt-test";
+        ReflectSweepSpec spec = ReflectSweepSpec.builder()
+                .sweepId(sweepId)
+                .build();
+
+        ReflectSignal signal = ReflectSignal.builder()
+                .partitionManager(partitionManager)
+                .rememberPathway(rememberPathway)
+                .textGenerator(llm)
+                .sweepSpec(spec)
+                .checkpointStore(checkpointStore)
+                .checkpoint(ReflectCheckpoint.initial(sweepId))
+                .idGenerator(() -> java.util.UUID.randomUUID().toString())
+                .build();
+
+        EpisodicLogConsolidationRelay relay = new EpisodicLogConsolidationRelay();
+        boolean success = relay.transmit(signal);
+
+        assertThat(success).isTrue();
+        assertThat(signal.logTurnsConsolidated()).isEqualTo(2);
+
+        ReflectCheckpoint saved = checkpointStore.load(sweepId).orElse(null);
+        assertThat(saved).isNotNull();
+        assertThat(saved.sessionsCompleted()).isEqualTo(2);
+        assertThat(saved.turnsMarked()).isEqualTo(2);
+        assertThat(saved.lastCompletedSessionId()).isGreaterThan(0L);
+    }
+
+    @Test
+    @DisplayName("Halts consolidation when time budget expires")
+    void testTimeBudgetExpires() {
+        logMemory.appendTurn(ConversationRole.USER, 1, 1000L, 101L, "Session 101 turn".getBytes(), (short) 1, 0, 0, 0, 0L, (short) 1, SourceModality.TEXT);
+        logMemory.appendTurn(ConversationRole.USER, 1, 1000L, 102L, "Session 102 turn".getBytes(), (short) 1, 0, 0, 0, 0L, (short) 1, SourceModality.TEXT);
+
+        CognitiveMemoryRouter router = new CognitiveMemoryRouter(workingMemory, semanticMemory, proceduralMemory, logMemory);
+        PartitionManager partitionManager = Mockito.mock(PartitionManager.class);
+        when(partitionManager.snapshot()).thenReturn(List.of(new PartitionHandle(0, null, router, null, false)));
+
+        RememberPathway rememberPathway = Mockito.mock(RememberPathway.class);
+        LlmProvider llm = new LlmProvider() {
+            @Override public LlmResponse generate(LlmRequest req, GenerationOptions opt) {
+                try { Thread.sleep(50); } catch (InterruptedException ignored) {}
+                return new LlmResponse("- Fact", 1, 1, "m");
+            }
+            @Override public String generate(String prompt, GenerationOptions opt) {
+                try { Thread.sleep(50); } catch (InterruptedException ignored) {}
+                return "- Fact";
+            }
+            @Override public boolean isAvailable() { return true; }
+            @Override public String modelName() { return "m"; }
+        };
+
+        ReflectSweepSpec spec = ReflectSweepSpec.builder()
+                .timeBudget(Duration.ofMillis(10)) // very tight time budget
+                .build();
+
+        ReflectSignal signal = ReflectSignal.builder()
+                .partitionManager(partitionManager)
+                .rememberPathway(rememberPathway)
+                .textGenerator(llm)
+                .sweepSpec(spec)
+                .idGenerator(() -> java.util.UUID.randomUUID().toString())
+                .build();
+
+        EpisodicLogConsolidationRelay relay = new EpisodicLogConsolidationRelay();
+        boolean success = relay.transmit(signal);
+
+        assertThat(success).isTrue();
+        // Because of the 50ms delay in LLM and 10ms budget, only 1 session should be processed before budget expires
+        assertThat(signal.logTurnsConsolidated()).isLessThanOrEqualTo(1);
+    }
 }
+

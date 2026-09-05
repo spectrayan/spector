@@ -32,6 +32,9 @@ import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectCheckpoint;
+import com.spectrayan.spector.memory.pathway.reflect.spi.ReflectCheckpointStore;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 
@@ -86,6 +89,11 @@ public final class ReflectSignal {
     private final float identityAnchorEta;
     private final float identityLyapunovThreshold;
     private final com.spectrayan.spector.memory.aisme.lifespan.LifespanRetentionController lifespanController;
+
+    // ── Batch & Sweep Orchestration Context ────────────────────────
+    private final ReflectSweepSpec sweepSpec;
+    private final ReflectCheckpointStore checkpointStore;
+    private volatile ReflectCheckpoint checkpoint;
 
     // ── Runtime Execution Metrics ──────────────────────────────────
     private final Instant startTime;
@@ -148,6 +156,10 @@ public final class ReflectSignal {
         this.identityLyapunovThreshold = builder.identityLyapunovThreshold;
         this.lifespanController = builder.lifespanController;
 
+        this.sweepSpec = builder.sweepSpec != null ? builder.sweepSpec : ReflectSweepSpec.fullCycle();
+        this.checkpointStore = builder.checkpointStore;
+        this.checkpoint = builder.checkpoint;
+
         this.startTime = Instant.now();
         this.graphMetrics = builder.graphMetrics != null ? builder.graphMetrics : new GraphHealthMetrics();
     }
@@ -157,6 +169,11 @@ public final class ReflectSignal {
     }
 
     // ── Getters & Accessors ────────────────────────────────────────
+
+    public ReflectSweepSpec sweepSpec() { return sweepSpec; }
+    public ReflectCheckpointStore checkpointStore() { return checkpointStore; }
+    public ReflectCheckpoint checkpoint() { return checkpoint; }
+    public void setCheckpoint(ReflectCheckpoint checkpoint) { this.checkpoint = checkpoint; }
 
     public com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker mentalStateTracker() { return mentalStateTracker; }
     public com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold cognitiveManifold() { return cognitiveManifold; }
@@ -349,6 +366,13 @@ public final class ReflectSignal {
         private float identityAnchorEta = 0.0001f;
         private float identityLyapunovThreshold = 0.15f;
         private com.spectrayan.spector.memory.aisme.lifespan.LifespanRetentionController lifespanController;
+        private ReflectSweepSpec sweepSpec = ReflectSweepSpec.fullCycle();
+        private ReflectCheckpointStore checkpointStore;
+        private ReflectCheckpoint checkpoint;
+
+        public Builder sweepSpec(ReflectSweepSpec sweepSpec) { this.sweepSpec = sweepSpec; return this; }
+        public Builder checkpointStore(ReflectCheckpointStore checkpointStore) { this.checkpointStore = checkpointStore; return this; }
+        public Builder checkpoint(ReflectCheckpoint checkpoint) { this.checkpoint = checkpoint; return this; }
 
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
         public Builder index(MemoryIndex idx) { this.index = idx; return this; }

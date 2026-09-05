@@ -35,6 +35,8 @@ import com.spectrayan.spector.memory.model.GraphNeighborhood;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.TopologyStats;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepProgress;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 import com.spectrayan.spector.synapse.memory.MemoryDto.CompactionResult;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryGraphResponse;
@@ -316,6 +318,32 @@ public class MemoryAccessObject {
         } catch (Exception e) {
             log.error("[MemoryAccessObject] Reflect failed: {}", e.getMessage(), e);
             throw new IllegalStateException("Reflect consolidation failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Triggers a reflection sweep using the provided specification.
+     */
+    public ReflectReport reflect(SpectorMemory memory, ReflectSweepSpec spec) {
+        if (!isAvailable(memory)) return null;
+        try {
+            return memory.reflect(spec);
+        } catch (Exception e) {
+            log.error("[MemoryAccessObject] Reflect with spec failed: {}", e.getMessage(), e);
+            throw new IllegalStateException("Reflect consolidation failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Retrieves reflection sweep progress telemetry.
+     */
+    public ReflectSweepProgress progress(SpectorMemory memory, String sweepId) {
+        if (!isAvailable(memory)) return null;
+        try {
+            return memory.progress(sweepId);
+        } catch (Exception e) {
+            log.warn("[MemoryAccessObject] Progress lookup failed for sweepId {}: {}", sweepId, e.getMessage());
+            return null;
         }
     }
 

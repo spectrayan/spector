@@ -24,7 +24,16 @@ import org.springframework.context.annotation.Import;
  * Spring Boot auto-configuration for Spector Batch migration engine.
  */
 @AutoConfiguration
-@Import({SpectorExportJobConfig.class, SpectorImportJobConfig.class, SpectorBatchService.class})
+@Import({
+        SpectorExportJobConfig.class,
+        SpectorImportJobConfig.class,
+        SpectorBatchService.class,
+        com.spectrayan.spector.batch.reflect.ReflectConsolidationJobConfig.class,
+        com.spectrayan.spector.batch.reflect.SessionWorkItemReader.class,
+        com.spectrayan.spector.batch.reflect.SessionConsolidationProcessor.class,
+        com.spectrayan.spector.batch.reflect.SessionSweepResultWriter.class,
+        com.spectrayan.spector.batch.reflect.SpringBatchReflectSweepExecutor.class
+})
 public class SpectorBatchAutoConfiguration {
 
     @Bean

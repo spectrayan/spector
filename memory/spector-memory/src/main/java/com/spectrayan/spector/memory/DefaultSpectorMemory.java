@@ -1127,12 +1127,46 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public ReflectReport reflect() {
+        return reflect(com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec.fullCycle());
+    }
+
+    @Override
+    public ReflectReport reflect(com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec spec) {
+        acquireLease();
+        try {
+            com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor executor =
+                    com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutors.getPrimary();
+            return executor.execute(this, spec != null ? spec : com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec.fullCycle());
+        } finally {
+            releaseLease();
+        }
+    }
+
+    @Override
+    public ReflectReport reflectKernel(com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec spec) {
         acquireLease();
         try {
             if (reflectPathway != null) {
-                return reflectPathway.reflect(partitionManager, index, rememberPathway, salienceProfile(), episodicSessionIndex);
+                return reflectPathway.reflect(partitionManager, index, rememberPathway, salienceProfile(), episodicSessionIndex, spec, null);
             }
-            return reflectionOrchestrator.reflect(partitionManager, index, rememberPathway);
+            return reflectionOrchestrator != null ? reflectionOrchestrator.reflect(partitionManager, index, rememberPathway) : ReflectReport.empty();
+        } finally {
+            releaseLease();
+        }
+    }
+
+    @Override
+    public ReflectPathway reflectPathway() {
+        return this.reflectPathway;
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.pathway.reflect.ReflectSweepProgress progress(String sweepId) {
+        acquireLease();
+        try {
+            com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor executor =
+                    com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutors.getPrimary();
+            return executor.progress(sweepId);
         } finally {
             releaseLease();
         }

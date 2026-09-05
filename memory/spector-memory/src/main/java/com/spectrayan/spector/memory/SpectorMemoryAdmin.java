@@ -18,6 +18,9 @@ import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
+import com.spectrayan.spector.memory.model.ReflectReport;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectPathway;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec;
 import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
@@ -158,6 +161,23 @@ public interface SpectorMemoryAdmin {
     // ══════════════════════════════════════════════════════════════
     // OPERATIONAL
     // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Conducts a direct kernel reflection sweep using the supplied specification.
+     *
+     * @param spec sweep configuration and filter parameters
+     * @return resulting reflection report
+     */
+    default ReflectReport reflectKernel(ReflectSweepSpec spec) {
+        return ReflectReport.empty();
+    }
+
+    /**
+     * Returns the active reflection pathway kernel if configured.
+     */
+    default ReflectPathway reflectPathway() {
+        return null;
+    }
 
     /** Explicitly decays importance of old episodic memories. */
     int decay(Duration olderThan, float factor);

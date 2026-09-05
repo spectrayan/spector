@@ -89,33 +89,45 @@ public final class ReflectPathwayFactory {
         if (interceptor != null) {
             builder.withInterceptor(interceptor);
         }
-        builder.relay(RelayNames.SYNAPTIC_PRUNING, pruningRelay, ErrorPolicy.FAIL_FAST)
+        builder.relay(RelayNames.SYNAPTIC_PRUNING, companion(pruningRelay), ErrorPolicy.FAIL_FAST)
                 .relay(RelayNames.EPISODIC_CONSOLIDATION, logConsolidationRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-                .relay(RelayNames.SOUL_DRIFT_REFUSION, soulDriftRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-                .relay(RelayNames.PROCEDURAL_CRYSTALLIZATION, proceduralRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-                .relay(RelayNames.PROACTIVE_INTERFERENCE, interferenceRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-                .relay(RelayNames.HEBBIAN_HOMEOSTASIS, hebbianRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-                .relay(RelayNames.TEMPORAL_PRUNING, temporalRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-                .relay(RelayNames.CROSS_LAYER_PROMOTION, promotionRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-                .relay(RelayNames.ENTITY_MAINTENANCE, entityRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
+                .relay(RelayNames.SOUL_DRIFT_REFUSION, companion(soulDriftRelay), ErrorPolicy.DEGRADE_GRACEFULLY)
+                .relay(RelayNames.PROCEDURAL_CRYSTALLIZATION, companion(proceduralRelay), ErrorPolicy.DEGRADE_GRACEFULLY)
+                .relay(RelayNames.PROACTIVE_INTERFERENCE, companion(interferenceRelay), ErrorPolicy.DEGRADE_GRACEFULLY)
+                .relay(RelayNames.HEBBIAN_HOMEOSTASIS, companion(hebbianRelay), ErrorPolicy.DEGRADE_GRACEFULLY)
+                .relay(RelayNames.TEMPORAL_PRUNING, companion(temporalRelay), ErrorPolicy.DEGRADE_GRACEFULLY)
+                .relay(RelayNames.CROSS_LAYER_PROMOTION, companion(promotionRelay), ErrorPolicy.DEGRADE_GRACEFULLY)
+                .relay(RelayNames.ENTITY_MAINTENANCE, companion(entityRelay), ErrorPolicy.DEGRADE_GRACEFULLY);
 
         if (sparsificationRelay != null) {
-            builder.relay(RelayNames.SPECTRAL_SPARSIFICATION, sparsificationRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
+            builder.relay(RelayNames.SPECTRAL_SPARSIFICATION, companion(sparsificationRelay), ErrorPolicy.DEGRADE_GRACEFULLY);
         }
 
         if (manifoldConsolidationRelay != null) {
-            builder.relay(RelayNames.MANIFOLD_CONSOLIDATION, manifoldConsolidationRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
+            builder.relay(RelayNames.MANIFOLD_CONSOLIDATION, companion(manifoldConsolidationRelay), ErrorPolicy.DEGRADE_GRACEFULLY);
         }
 
         if (softIdentityAnchorRelay != null) {
-            builder.relay(RelayNames.SOFT_IDENTITY_ANCHOR, softIdentityAnchorRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
+            builder.relay(RelayNames.SOFT_IDENTITY_ANCHOR, companion(softIdentityAnchorRelay), ErrorPolicy.DEGRADE_GRACEFULLY);
         }
 
         if (idiolectRelay != null) {
-            builder.relay("idiolectLearning", idiolectRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
+            builder.relay("idiolectLearning", companion(idiolectRelay), ErrorPolicy.DEGRADE_GRACEFULLY);
         }
 
         builder.relay(RelayNames.WAL_JOURNAL, walRelay, ErrorPolicy.FAIL_FAST);
         return builder.build();
+    }
+
+    private static SynapticRelay<ReflectSignal> companion(final SynapticRelay<ReflectSignal> relay) {
+        if (relay == null) {
+            return null;
+        }
+        return signal -> {
+            if (signal.sweepSpec() != null && !signal.sweepSpec().runCompanionRelays()) {
+                return true;
+            }
+            return relay.transmit(signal);
+        };
     }
 }

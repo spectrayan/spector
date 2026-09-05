@@ -241,6 +241,25 @@ public final class ReflectPathway implements AutoCloseable {
                                  final RememberPathway rememberPathway,
                                  final SalienceProfile salienceProfile,
                                  final EpisodicSessionIndex sessionIndex) {
+        return reflect(partitionManager, index, rememberPathway, salienceProfile, sessionIndex, ReflectSweepSpec.fullCycle(), null);
+    }
+
+    /**
+     * Executes a reflection cycle with an explicit sweep specification and checkpoint store.
+     */
+    public ReflectReport reflect(final PartitionManager partitionManager,
+                                 final MemoryIndex index,
+                                 final RememberPathway rememberPathway,
+                                 final SalienceProfile salienceProfile,
+                                 final EpisodicSessionIndex sessionIndex,
+                                 final ReflectSweepSpec sweepSpec,
+                                 final com.spectrayan.spector.memory.pathway.reflect.spi.ReflectCheckpointStore checkpointStore) {
+        ReflectCheckpoint initialCheckpoint = null;
+        if (checkpointStore != null && sweepSpec != null && sweepSpec.sweepId() != null) {
+            initialCheckpoint = checkpointStore.load(sweepSpec.sweepId())
+                    .orElseGet(() -> ReflectCheckpoint.initial(sweepSpec.sweepId()));
+        }
+
         ReflectSignal signal = ReflectSignal.builder()
                 .partitionManager(partitionManager)
                 .index(index)
@@ -276,6 +295,9 @@ public final class ReflectPathway implements AutoCloseable {
                 .softIdentityAnchorEnabled(softIdentityAnchorEnabled)
                 .identityAnchorEta(identityAnchorEta)
                 .identityLyapunovThreshold(identityLyapunovThreshold)
+                .sweepSpec(sweepSpec != null ? sweepSpec : ReflectSweepSpec.fullCycle())
+                .checkpointStore(checkpointStore)
+                .checkpoint(initialCheckpoint)
                 .build();
 
         return conduct(signal);
