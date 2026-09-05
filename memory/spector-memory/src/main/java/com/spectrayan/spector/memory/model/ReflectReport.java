@@ -78,4 +78,8 @@ public record ReflectReport(
      * Empty report — no work done.
      */
     public static final ReflectReport EMPTY = new ReflectReport(0, 0, 0, 0, Duration.ZERO, null, 0, 0, 0.0f, 0);
+
+    public static ReflectReport empty() {
+        return EMPTY;
+    }
 }

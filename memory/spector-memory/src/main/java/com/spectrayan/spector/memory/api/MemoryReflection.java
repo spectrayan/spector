@@ -40,6 +40,14 @@ public interface MemoryReflection {
 
     ReflectReport reflect();
 
+    default ReflectReport reflect(com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec spec) {
+        return reflect();
+    }
+
+    default com.spectrayan.spector.memory.pathway.reflect.ReflectSweepProgress progress(String sweepId) {
+        return null;
+    }
+
     default ExpressReport express(ExpressSignal signal) {
         return ExpressReport.empty();
     }

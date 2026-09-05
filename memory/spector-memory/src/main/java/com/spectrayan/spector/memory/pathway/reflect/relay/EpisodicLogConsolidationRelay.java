@@ -32,10 +32,12 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -43,6 +45,16 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectCheckpoint;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectFilter;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec;
+import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepStatus;
+import com.spectrayan.spector.memory.pathway.reflect.SessionSweepResult;
+import com.spectrayan.spector.memory.pathway.reflect.SessionWorkItem;
+import com.spectrayan.spector.memory.pathway.reflect.spi.ReflectBackpressurePolicy;
+import com.spectrayan.spector.memory.pathway.reflect.spi.ReflectCheckpointStore;
+import com.spectrayan.spector.memory.pathway.reflect.spi.local.NoopBackpressurePolicy;
+import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 
 /**
  * REM Sleep Conversation Turn Gist Extraction Relay (ADR-0006).
@@ -77,40 +89,35 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
             float urgency
     ) {}
 
-    @Override
-    public boolean transmit(final ReflectSignal signal) {
-        if (signal.partitionManager() == null) {
-            log.info("EpisodicLogConsolidationRelay: partitionManager is null");
-            return true;
-        }
-
-        var handles = signal.partitionManager().snapshot();
-        log.info("EpisodicLogConsolidationRelay: snapshot has {} partition handles", handles.size());
-        for (var handle : handles) {
-            if (handle.router() != null) {
-                var episodicStore = handle.router().episodic();
-                if (episodicStore != null) {
-                    processLogStore(episodicStore, signal, handle.seq());
-                }
-            }
-        }
-        return true;
-    }
-
     /**
      * Per-turn offset pairing — avoids HashMap key collision (Bug #2).
      */
     private record TurnWithOffset(EpisodeRecord turn, long offset) {}
 
-    private void processLogStore(final EpisodicMemory logStore, final ReflectSignal signal, final int partitionSeq) {
-        List<Long> unconsolidatedOffsets = logStore.unconsolidatedTurnOffsets();
-        log.info("EpisodicLogConsolidationRelay: found {} unconsolidated offsets in logStore", unconsolidatedOffsets.size());
-        List<EpisodeRecord> turns = logStore.readTurns(unconsolidatedOffsets, true);
-        if (turns.isEmpty()) return;
-        log.info("EpisodicLogConsolidationRelay: read {} turns for {} unconsolidated offsets", turns.size(), unconsolidatedOffsets.size());
+    /**
+     * Identifies and returns all eligible unconsolidated sessions within a partition,
+     * ordered deterministically by timestamp then session ID.
+     */
+    public List<SessionWorkItem> listEligibleSessions(
+            final EpisodicMemory logStore,
+            final ReflectSweepSpec spec,
+            final ReflectCheckpoint checkpoint,
+            final EpisodicSessionIndex index,
+            final int partitionSeq) {
+        if (logStore == null) {
+            return List.of();
+        }
 
-        // Bug #2 fix: Use paired list instead of Map<EpisodeRecord, Long> to avoid key collision
-        // when two turns have identical content (records are value types — equals() on content).
+        List<Long> unconsolidatedOffsets = logStore.unconsolidatedTurnOffsets();
+        if (unconsolidatedOffsets.isEmpty()) {
+            return List.of();
+        }
+
+        List<EpisodeRecord> turns = logStore.readTurns(unconsolidatedOffsets, true);
+        if (turns.isEmpty()) {
+            return List.of();
+        }
+
         Map<Long, List<TurnWithOffset>> sessionTurns = new HashMap<>();
         for (int i = 0; i < turns.size(); i++) {
             var turn = turns.get(i);
@@ -119,113 +126,160 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                     .add(new TurnWithOffset(turn, offset));
         }
 
-        log.info("EpisodicLogConsolidationRelay: grouped into {} distinct sessions, starting consolidation...", sessionTurns.size());
-        // TODO: Redesigning ReflectPathway to support external batching/checkpointing via Synapse/Spring Batch (#730);
-        // replace temporary retry and throttle logic.
+        ReflectFilter filter = (spec != null && spec.filter() != null)
+                ? spec.filter()
+                : ReflectFilter.unconsolidated();
+
+        List<SessionWorkItem> workItems = new ArrayList<>();
         for (var entry : sessionTurns.entrySet()) {
-            try {
-                List<TurnWithOffset> sessionList = entry.getValue();
-                if (sessionList == null || sessionList.isEmpty()) continue;
+            long sessionId = entry.getKey();
+            List<TurnWithOffset> turnPairs = entry.getValue();
+            if (turnPairs == null || turnPairs.isEmpty()) {
+                continue;
+            }
 
-                List<String> turnTexts = new ArrayList<>();
-                for (var twoTuple : sessionList) {
-                    String text = extractTurnText(twoTuple.turn());
-                    if (text != null && !text.isBlank()) {
-                        turnTexts.add(twoTuple.turn().role() + ": " + text);
+            long sessionTimestampMs = turnPairs.stream()
+                    .map(TurnWithOffset::turn)
+                    .mapToLong(EpisodeRecord::timestampMs)
+                    .max()
+                    .orElse(0L);
+
+            if (filter != null && !filter.matches(sessionId, sessionTimestampMs, partitionSeq)) {
+                continue;
+            }
+
+            List<Long> offsets = new ArrayList<>(turnPairs.size());
+            for (TurnWithOffset pair : turnPairs) {
+                offsets.add(pair.offset());
+            }
+
+            workItems.add(new SessionWorkItem(partitionSeq, sessionId, offsets, sessionTimestampMs));
+        }
+
+        // Stable deterministic ordering by (timestampMs, sessionId)
+        workItems.sort(Comparator.comparingLong(SessionWorkItem::timestampMs)
+                .thenComparingLong(SessionWorkItem::sessionId));
+
+        return workItems;
+    }
+
+    /**
+     * Executes the unit-of-work for a single session: distillation, crash-safe marking,
+     * semantic fact ingestion with affect metadata, and provenance tracking.
+     */
+    public SessionSweepResult processSession(
+            final SessionWorkItem workItem,
+            final EpisodicMemory logStore,
+            final ReflectSignal signal) {
+        if (workItem == null || workItem.offsets().isEmpty() || logStore == null || signal == null) {
+            return SessionSweepResult.success(workItem != null ? workItem.sessionId() : 0L, 0, 0);
+        }
+
+        long sessionId = workItem.sessionId();
+        int partitionSeq = workItem.partitionSeq();
+        List<Long> offsets = workItem.offsets();
+
+        int maxTurns = (signal.sweepSpec() != null)
+                ? signal.sweepSpec().maxTurnsPerSession()
+                : ReflectSweepSpec.DEFAULT_MAX_TURNS_PER_SESSION;
+        if (maxTurns > 0 && offsets.size() > maxTurns) {
+            offsets = offsets.subList(offsets.size() - maxTurns, offsets.size());
+        }
+
+        try {
+            List<EpisodeRecord> turns = logStore.readTurns(offsets, true);
+            if (turns.isEmpty()) {
+                return SessionSweepResult.success(sessionId, 0, 0);
+            }
+
+            List<String> turnTexts = new ArrayList<>();
+            for (EpisodeRecord turn : turns) {
+                String text = extractTurnText(turn);
+                if (text != null && !text.isBlank()) {
+                    turnTexts.add(turn.role() + ": " + text);
+                }
+            }
+
+            if (turnTexts.isEmpty()) {
+                return SessionSweepResult.success(sessionId, 0, 0);
+            }
+
+            long sessionTimestampMs = workItem.timestampMs();
+            Set<Long> currentTurnOffsets = new HashSet<>(offsets);
+
+            List<String> priorContext = new ArrayList<>();
+            if (MAX_PRIOR_CONTEXT_TURNS > 0) {
+                List<Long> windowOffsets = null;
+                if (signal.episodicSessionIndex() != null) {
+                    List<Long> allSessionOffsets = signal.episodicSessionIndex().getSessionTurns(sessionId);
+                    if (allSessionOffsets != null && !allSessionOffsets.isEmpty()) {
+                        List<Long> earlierOffsets = new ArrayList<>();
+                        for (Long off : allSessionOffsets) {
+                            if (!currentTurnOffsets.contains(off)) {
+                                earlierOffsets.add(off);
+                            }
+                        }
+                        if (!earlierOffsets.isEmpty()) {
+                            int start = Math.max(0, earlierOffsets.size() - MAX_PRIOR_CONTEXT_TURNS);
+                            windowOffsets = earlierOffsets.subList(start, earlierOffsets.size());
+                        }
+                    }
+                } else if (logStore != null) {
+                    // Fallback: directly scan episodic slab when EpisodicSessionIndex is unavailable (#751)
+                    List<Long> candidateOffsets = logStore.lastConsolidatedTurnOffsets(sessionId, MAX_PRIOR_CONTEXT_TURNS);
+                    if (candidateOffsets != null && !candidateOffsets.isEmpty()) {
+                        List<Long> earlierOffsets = new ArrayList<>();
+                        for (Long off : candidateOffsets) {
+                            if (!currentTurnOffsets.contains(off)) {
+                                earlierOffsets.add(off);
+                            }
+                        }
+                        windowOffsets = earlierOffsets;
                     }
                 }
 
-                if (turnTexts.isEmpty()) continue;
-
-                long sessionTimestampMs = sessionList.stream()
-                        .map(TurnWithOffset::turn)
-                        .mapToLong(EpisodeRecord::timestampMs)
-                        .max()
-                        .orElse(System.currentTimeMillis());
-
-                long sessionId = entry.getKey();
-
-                // Collect offsets for prior-context lookups (Bug #2: use paired offset, not map)
-                Set<Long> currentTurnOffsets = new HashSet<>();
-                for (var twoTuple : sessionList) {
-                    currentTurnOffsets.add(twoTuple.offset());
-                }
-
-                List<String> priorContext = new ArrayList<>();
-                if (MAX_PRIOR_CONTEXT_TURNS > 0) {
-                    List<Long> windowOffsets = null;
-                    if (signal.episodicSessionIndex() != null) {
-                        List<Long> allSessionOffsets = signal.episodicSessionIndex().getSessionTurns(sessionId);
-                        if (allSessionOffsets != null && !allSessionOffsets.isEmpty()) {
-                            List<Long> earlierOffsets = new ArrayList<>();
-                            for (Long off : allSessionOffsets) {
-                                if (!currentTurnOffsets.contains(off)) {
-                                    earlierOffsets.add(off);
-                                }
-                            }
-                            if (!earlierOffsets.isEmpty()) {
-                                int start = Math.max(0, earlierOffsets.size() - MAX_PRIOR_CONTEXT_TURNS);
-                                windowOffsets = earlierOffsets.subList(start, earlierOffsets.size());
-                            }
-                        }
-                    } else if (logStore != null) {
-                        // Fallback: directly scan episodic slab when EpisodicSessionIndex is unavailable (#751)
-                        List<Long> candidateOffsets = logStore.lastConsolidatedTurnOffsets(sessionId, MAX_PRIOR_CONTEXT_TURNS);
-                        if (candidateOffsets != null && !candidateOffsets.isEmpty()) {
-                            List<Long> earlierOffsets = new ArrayList<>();
-                            for (Long off : candidateOffsets) {
-                                if (!currentTurnOffsets.contains(off)) {
-                                    earlierOffsets.add(off);
-                                }
-                            }
-                            windowOffsets = earlierOffsets;
-                        }
-                    }
-
-                    if (windowOffsets != null && !windowOffsets.isEmpty()) {
-                        List<EpisodeRecord> priorRecords = logStore.readTurns(windowOffsets, true);
-                        for (var priorRecord : priorRecords) {
-                            if (com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isConsolidated(priorRecord.flags())) {
-                                String text = extractTurnText(priorRecord);
-                                if (text != null && !text.isBlank()) {
-                                    priorContext.add(priorRecord.role() + ": " + text);
-                                }
+                if (windowOffsets != null && !windowOffsets.isEmpty()) {
+                    List<EpisodeRecord> priorRecords = logStore.readTurns(windowOffsets, true);
+                    for (var priorRecord : priorRecords) {
+                        if (EncodingHeaderFields.isConsolidated(priorRecord.flags())) {
+                            String text = extractTurnText(priorRecord);
+                            if (text != null && !text.isBlank()) {
+                                priorContext.add(priorRecord.role() + ": " + text);
                             }
                         }
                     }
                 }
+            }
 
-                List<ConsolidatedFact> synthesizedFacts = distillStructuredFacts(turnTexts, priorContext, sessionTimestampMs, signal);
-                if (synthesizedFacts.isEmpty()) continue;
+            List<ConsolidatedFact> synthesizedFacts = distillStructuredFacts(turnTexts, priorContext, sessionTimestampMs, signal);
+            if (synthesizedFacts.isEmpty()) {
+                return SessionSweepResult.success(sessionId, 0, 0);
+            }
 
-                // Bug #5 fix: Mark turns consolidated BEFORE ingesting facts.
-                // This prevents duplicate facts on crash/retry: if we crash after
-                // ingesting facts but before marking consolidated, a retry would
-                // re-distill the same turns and produce duplicates. Marking first
-                // ensures crash-safety at the cost of potentially losing facts
-                // (which is self-healing — the next pass will re-consolidate).
-                for (var twoTuple : sessionList) {
-                    logStore.markConsolidated(twoTuple.offset());
-                }
-                signal.addLogTurnsConsolidated(sessionList.size());
+            // Bug #5 fix: Mark turns consolidated BEFORE ingesting facts to prevent duplicate facts on crash/retry.
+            for (Long off : offsets) {
+                logStore.markConsolidated(off);
+            }
+            signal.addLogTurnsConsolidated(offsets.size());
 
-                // Compute pass number for this session (supports multi-pass consolidation)
-                short passNumber = 1;
-                if (signal.provenanceMemory() != null) {
-                    passNumber = (short) signal.provenanceMemory().nextPassNumber(sessionId);
-                }
+            // Compute pass number for this session (supports multi-pass consolidation)
+            short passNumber = 1;
+            if (signal.provenanceMemory() != null) {
+                passNumber = (short) signal.provenanceMemory().nextPassNumber(sessionId);
+            }
 
-                // Pre-compute turn range data for provenance edges
-                int firstSeq = Integer.MAX_VALUE, lastSeq = Integer.MIN_VALUE;
-                int firstOffsetHint = Integer.MAX_VALUE, lastOffsetHint = Integer.MIN_VALUE;
-                for (var twoTuple : sessionList) {
-                    int seq = twoTuple.turn().sequenceId();
-                    int off = (int) twoTuple.offset();
-                    if (seq < firstSeq) { firstSeq = seq; firstOffsetHint = off; }
-                    if (seq > lastSeq) { lastSeq = seq; lastOffsetHint = off; }
-                }
-                short turnCount = (short) sessionList.size();
+            int firstSeq = Integer.MAX_VALUE, lastSeq = Integer.MIN_VALUE;
+            int firstOffsetHint = Integer.MAX_VALUE, lastOffsetHint = Integer.MIN_VALUE;
+            for (int i = 0; i < turns.size(); i++) {
+                int seq = turns.get(i).sequenceId();
+                int off = (int) offsets.get(i).longValue();
+                if (seq < firstSeq) { firstSeq = seq; firstOffsetHint = off; }
+                if (seq > lastSeq) { lastSeq = seq; lastOffsetHint = off; }
+            }
+            short turnCount = (short) offsets.size();
 
+            int factsIngested = 0;
+            if (signal.rememberPathway() != null) {
                 for (int fi = 0; fi < synthesizedFacts.size(); fi++) {
                     ConsolidatedFact fact = synthesizedFacts.get(fi);
                     String memoryId = signal.idGenerator().generate();
@@ -238,85 +292,214 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                         }
                     }
 
-                    if (signal.rememberPathway() != null) {
-                        Set<String> tagSet = new LinkedHashSet<>();
-                        if (fact.synapticTags() != null) {
-                            for (String t : fact.synapticTags()) {
-                                String cleanT = t.replaceAll("[^a-zA-Z0-9_-]", "-").toLowerCase(Locale.ROOT);
-                                if (!cleanT.isBlank()) {
-                                    tagSet.add(cleanT);
-                                }
+                    Set<String> tagSet = new LinkedHashSet<>();
+                    if (fact.synapticTags() != null) {
+                        for (String t : fact.synapticTags()) {
+                            String cleanT = t.replaceAll("[^a-zA-Z0-9_-]", "-").toLowerCase(Locale.ROOT);
+                            if (!cleanT.isBlank()) {
+                                tagSet.add(cleanT);
                             }
                         }
-                        tagSet.add("conversation-reflection");
-                        // Bug #4 fix: Add session tag for lineage tracing
-                        tagSet.add("session-" + Long.toHexString(sessionId));
-                        String[] allTags = tagSet.toArray(String[]::new);
+                    }
+                    tagSet.add("conversation-reflection");
+                    tagSet.add("session-" + Long.toHexString(sessionId));
+                    String[] allTags = tagSet.toArray(String[]::new);
 
-                        float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
-                        byte semanticFlags = EncodingHeaderFields.withMemoryType(
-                                EncodingHeaderFields.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal());
+                    float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
+                    byte semanticFlags = EncodingHeaderFields.withMemoryType(
+                            EncodingHeaderFields.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal());
 
-                        // Bug #3 fix: Use fact-level affect metadata instead of hardcoded zeros
-                        EncodingHeader header = new EncodingHeader(
-                                sessionTimestampMs, 0L, exactNorm, fact.interest(), 1,
-                                (short) 0, fact.arousal(), semanticFlags, fact.valence(), 1.0f
-                        );
+                    EncodingHeader header = new EncodingHeader(
+                            sessionTimestampMs, 0L, exactNorm, fact.interest(), 1,
+                            (short) 0, fact.arousal(), semanticFlags, fact.valence(), 1.0f
+                    );
 
-                        boolean ingested = signal.rememberPathway().ingestCognitiveWithHeader(
-                                memoryId,
-                                fact.text(),
-                                vector,
-                                MemoryType.SEMANTIC,
-                                allTags,
-                                MemorySource.REFLECTED,
-                                header
-                        );
+                    boolean ingested = signal.rememberPathway().ingestCognitiveWithHeader(
+                            memoryId,
+                            fact.text(),
+                            vector,
+                            MemoryType.SEMANTIC,
+                            allTags,
+                            MemorySource.REFLECTED,
+                            header
+                    );
 
-                        if (ingested) {
-                            signal.addConsolidated(1);
+                    if (ingested) {
+                        signal.addConsolidated(1);
+                        factsIngested++;
 
-                            // Write provenance edge for episodic→semantic lineage
-                            if (signal.provenanceMemory() != null) {
-                                try {
-                                    long targetTsid = TsidGenerator.decodeCrockford(memoryId);
-                                    short contentHashHi = computeContentHashHi(fact.text());
+                        if (signal.provenanceMemory() != null) {
+                            try {
+                                long targetTsid = TsidGenerator.decodeCrockford(memoryId);
+                                short contentHashHi = computeContentHashHi(fact.text());
 
-                                    ProvenanceEdge edge = new ProvenanceEdge(
-                                            sessionId, targetTsid, passNumber,
-                                            (byte) fi, (byte) synthesizedFacts.size(),
-                                            partitionSeq, firstSeq, lastSeq,
-                                            firstOffsetHint, lastOffsetHint,
-                                            turnCount, contentHashHi,
-                                            System.currentTimeMillis()
-                                    );
-                                    signal.provenanceMemory().append(edge);
-                                } catch (Exception e) {
-                                    log.warn("Failed to write provenance edge for memory {}: {}",
-                                            memoryId, e.getMessage());
-                                }
+                                ProvenanceEdge edge = new ProvenanceEdge(
+                                        sessionId, targetTsid, passNumber,
+                                        (byte) fi, (byte) synthesizedFacts.size(),
+                                        partitionSeq, firstSeq, lastSeq,
+                                        firstOffsetHint, lastOffsetHint,
+                                        turnCount, contentHashHi,
+                                        System.currentTimeMillis()
+                                );
+                                signal.provenanceMemory().append(edge);
+                            } catch (Exception e) {
+                                log.warn("Failed to write provenance edge for memory {}: {}", memoryId, e.getMessage());
                             }
                         }
                     }
                 }
+            }
 
-                // Sleep between runs so it won't overwhelm the LLM API
-                long sleepMs = Long.getLong("reflectSessionSleepMs", 5000L);
-                if (sleepMs > 0) {
-                    try {
-                        Thread.sleep(sleepMs);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        log.warn("Reflection session loop interrupted");
-                        break;
+            return SessionSweepResult.success(sessionId, factsIngested, offsets.size());
+        } catch (Exception e) {
+            log.warn("Unexpected error consolidating session {}: {}", sessionId, e.getMessage());
+            if (signal.sweepSpec() != null && signal.sweepSpec().backpressure() != null) {
+                signal.sweepSpec().backpressure().onProviderFailure(e);
+            }
+            return SessionSweepResult.failure(sessionId, e);
+        }
+    }
+
+    @Override
+    public boolean transmit(final ReflectSignal signal) {
+        if (signal.partitionManager() == null) {
+            log.info("EpisodicLogConsolidationRelay: partitionManager is null");
+            return true;
+        }
+
+        ReflectSweepSpec spec = signal.sweepSpec() != null ? signal.sweepSpec() : ReflectSweepSpec.fullCycle();
+        ReflectCheckpointStore checkpointStore = signal.checkpointStore();
+        ReflectCheckpoint checkpoint = signal.checkpoint();
+
+        if (checkpoint == null && checkpointStore != null) {
+            checkpoint = checkpointStore.load(spec.sweepId()).orElse(ReflectCheckpoint.initial(spec.sweepId()));
+            signal.setCheckpoint(checkpoint);
+        }
+
+        ReflectBackpressurePolicy backpressure = spec.backpressure() != null
+                ? spec.backpressure()
+                : NoopBackpressurePolicy.INSTANCE;
+
+        int sessionLimit = spec.sessionLimit();
+        Duration timeBudget = spec.timeBudget();
+        long deadlineMs = (timeBudget != null) ? System.currentTimeMillis() + timeBudget.toMillis() : Long.MAX_VALUE;
+
+        var handles = signal.partitionManager().snapshot();
+        log.info("EpisodicLogConsolidationRelay: snapshot has {} partition handles (sweep='{}', limit={})",
+                handles.size(), spec.sweepId(), sessionLimit);
+
+        int totalSessionsProcessed = 0;
+        int totalFactsIngested = 0;
+        int totalTurnsMarked = 0;
+        boolean aborted = false;
+
+        for (var handle : handles) {
+            if (handle.router() == null || handle.router().episodic() == null) {
+                continue;
+            }
+
+            var episodicStore = handle.router().episodic();
+            List<SessionWorkItem> eligibleSessions = listEligibleSessions(
+                    episodicStore, spec, checkpoint, signal.episodicSessionIndex(), handle.seq());
+
+            log.info("EpisodicLogConsolidationRelay: partition #{} has {} eligible sessions",
+                    handle.seq(), eligibleSessions.size());
+
+            int remainingBacklog = eligibleSessions.size();
+
+            for (SessionWorkItem item : eligibleSessions) {
+                if (sessionLimit > 0 && totalSessionsProcessed >= sessionLimit) {
+                    log.info("EpisodicLogConsolidationRelay: reached sessionLimit ({}), pausing sweep", sessionLimit);
+                    break;
+                }
+
+                if (System.currentTimeMillis() >= deadlineMs) {
+                    log.info("EpisodicLogConsolidationRelay: reached timeBudget ({}), pausing sweep", timeBudget);
+                    aborted = true;
+                    break;
+                }
+
+                if (backpressure.shouldAbortSweep()) {
+                    log.warn("EpisodicLogConsolidationRelay: backpressure policy signaled abort");
+                    aborted = true;
+                    break;
+                }
+
+                try {
+                    backpressure.beforeSession(item);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    log.warn("EpisodicLogConsolidationRelay: interrupted during backpressure wait");
+                    aborted = true;
+                    break;
+                }
+
+                SessionSweepResult result = processSession(item, episodicStore, signal);
+                if (result.success()) {
+                    totalSessionsProcessed++;
+                    totalFactsIngested += result.factsConsolidated();
+                    totalTurnsMarked += result.turnsMarked();
+                    remainingBacklog--;
+
+                    long lastOffset = item.offsets().isEmpty() ? 0L : item.offsets().get(item.offsets().size() - 1);
+                    checkpoint = new ReflectCheckpoint(
+                            spec.sweepId(),
+                            handle.seq(),
+                            item.sessionId(),
+                            lastOffset,
+                            totalSessionsProcessed,
+                            totalFactsIngested,
+                            totalTurnsMarked,
+                            remainingBacklog,
+                            Instant.now(),
+                            ReflectSweepStatus.RUNNING
+                    );
+                    signal.setCheckpoint(checkpoint);
+
+                    if (checkpointStore != null) {
+                        try {
+                            checkpointStore.save(checkpoint);
+                        } catch (Exception e) {
+                            log.warn("Failed saving checkpoint for session {}: {}", item.sessionId(), e.getMessage());
+                        }
                     }
                 }
-            } catch (Exception e) {
-                log.warn("Unexpected error consolidating session {}: {}", entry.getKey(), e.getMessage());
+            }
+
+            if (aborted || (sessionLimit > 0 && totalSessionsProcessed >= sessionLimit)) {
+                break;
             }
         }
-        log.info("EpisodicLogConsolidationRelay: completed session distillation, consolidated {} facts across {} sessions",
-                signal.totalConsolidated(), sessionTurns.size());
+
+        ReflectSweepStatus finalStatus = aborted
+                ? ReflectSweepStatus.PAUSED
+                : ((sessionLimit > 0 && totalSessionsProcessed >= sessionLimit)
+                ? ReflectSweepStatus.PAUSED
+                : ReflectSweepStatus.COMPLETE);
+
+        if (checkpoint != null) {
+            checkpoint = new ReflectCheckpoint(
+                    checkpoint.sweepId(),
+                    checkpoint.partitionSeq(),
+                    checkpoint.lastCompletedSessionId(),
+                    checkpoint.lastCompletedTurnOffset(),
+                    checkpoint.sessionsCompleted(),
+                    checkpoint.factsIngested(),
+                    checkpoint.turnsMarked(),
+                    checkpoint.backlogRemaining(),
+                    Instant.now(),
+                    finalStatus
+            );
+            signal.setCheckpoint(checkpoint);
+            if (checkpointStore != null) {
+                checkpointStore.save(checkpoint);
+            }
+        }
+
+        log.info("EpisodicLogConsolidationRelay: sweep '{}' completed — status={}, sessions={}, facts={}, turns={}",
+                spec.sweepId(), finalStatus, totalSessionsProcessed, totalFactsIngested, totalTurnsMarked);
+
+        return true;
     }
 
     private List<ConsolidatedFact> distillStructuredFacts(List<String> turnTexts, List<String> priorContext, long sessionTimestampMs, ReflectSignal signal) {
@@ -329,44 +512,34 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
             sessionDateStr = "Unknown Date";
         }
 
-        // TODO: Redesigning ReflectPathway to support external batching/checkpointing via Synapse/Spring Batch (#730);
-        // replace temporary retry and throttle logic.
-        int maxRetries = 3;
-        for (int attempt = 1; attempt <= maxRetries; attempt++) {
-            if (signal.textGenerator() != null && signal.templateEngine() != null) {
-                try {
-                    Map<String, Object> model = new HashMap<>();
-                    model.put("memoryCount", turnTexts.size());
-                    model.put("sessionDate", sessionDateStr);
-                    model.put("memories", turnTexts);
-                    boolean hasPrior = priorContext != null && !priorContext.isEmpty();
-                    model.put("hasPriorContext", hasPrior);
-                    model.put("priorContext", hasPrior ? priorContext : List.of());
-                    model.put("priorContextCount", hasPrior ? priorContext.size() : 0);
+        if (signal.textGenerator() != null && signal.templateEngine() != null) {
+            try {
+                Map<String, Object> model = new HashMap<>();
+                model.put("memoryCount", turnTexts.size());
+                model.put("sessionDate", sessionDateStr);
+                model.put("memories", turnTexts);
+                boolean hasPrior = priorContext != null && !priorContext.isEmpty();
+                model.put("hasPriorContext", hasPrior);
+                model.put("priorContext", hasPrior ? priorContext : List.of());
+                model.put("priorContextCount", hasPrior ? priorContext.size() : 0);
 
-                    String prompt = signal.templateEngine().render("prompts/reflection-synthesis", model);
-                    String response = signal.textGenerator().generate(prompt, REFLECTION_GENERATION_OPTIONS);
+                String prompt = signal.templateEngine().render("prompts/reflection-synthesis", model);
+                String response = signal.textGenerator().generate(prompt, REFLECTION_GENERATION_OPTIONS);
 
-                    if (response != null && !response.isBlank()) {
-                        List<ConsolidatedFact> parsedFacts = parseJsonResponse(response);
-                        if (!parsedFacts.isEmpty()) {
-                            return parsedFacts;
-                        }
-                        List<ConsolidatedFact> lineFacts = parseLineResponse(response);
-                        if (!lineFacts.isEmpty()) {
-                            return lineFacts;
-                        }
+                if (response != null && !response.isBlank()) {
+                    List<ConsolidatedFact> parsedFacts = parseJsonResponse(response);
+                    if (!parsedFacts.isEmpty()) {
+                        return parsedFacts;
                     }
-                } catch (Exception e) {
-                    log.warn("Attempt {}/{} failed during reflection distillation: {}", attempt, maxRetries, e.getMessage());
-                    if (attempt < maxRetries) {
-                        try {
-                            Thread.sleep(1000L * attempt);
-                        } catch (InterruptedException ie) {
-                            Thread.currentThread().interrupt();
-                            break;
-                        }
+                    List<ConsolidatedFact> lineFacts = parseLineResponse(response);
+                    if (!lineFacts.isEmpty()) {
+                        return lineFacts;
                     }
+                }
+            } catch (Exception e) {
+                log.warn("Reflection distillation call failed: {}", e.getMessage());
+                if (signal.sweepSpec() != null && signal.sweepSpec().backpressure() != null) {
+                    signal.sweepSpec().backpressure().onProviderFailure(e);
                 }
             }
         }
