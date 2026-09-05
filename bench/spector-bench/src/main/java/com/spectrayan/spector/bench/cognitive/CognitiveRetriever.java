@@ -189,11 +189,13 @@ public final class CognitiveRetriever {
             enableMmr = datasetProps.getBoolean("spector.benchmark.retrieval.enable-mmr",
                         datasetProps.getBoolean("retrieval.enable-mmr",
                         datasetProps.getBoolean("retrieval.enable_mmr",
-                        datasetProps.getBoolean("enableMmr", true))));
+                        datasetProps.getBoolean("spector.memory.enable-mmr",
+                        datasetProps.getBoolean("enableMmr", true)))));
             mmrLambda = (float) datasetProps.getDouble("spector.benchmark.retrieval.mmr-lambda",
                         datasetProps.getDouble("retrieval.mmr-lambda",
                         datasetProps.getDouble("retrieval.mmr_lambda",
-                        datasetProps.getDouble("mmrLambda", 0.7))));
+                        datasetProps.getDouble("spector.memory.mmr-lambda",
+                        datasetProps.getDouble("mmrLambda", 0.7)))));
         }
         String sysMmr = System.getProperty("spector.benchmark.enableMmr", System.getProperty("enableMmr"));
         if (sysMmr != null && !sysMmr.isBlank()) {
