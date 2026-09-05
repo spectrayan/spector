@@ -970,7 +970,7 @@ public final class SpectorPropertyConstants {
     public static final int DEFAULT_RECALL_RERANKER_DEPTH = 50;
 
     public static final String RECALL_MMR_ENABLED = "spector.recall.mmr.enabled";
-    public static final boolean DEFAULT_RECALL_MMR_ENABLED = false;
+    public static final boolean DEFAULT_RECALL_MMR_ENABLED = true;
 
     public static final String RECALL_MMR_LAMBDA = "spector.recall.mmr.lambda";
     public static final float DEFAULT_RECALL_MMR_LAMBDA = 0.5f;

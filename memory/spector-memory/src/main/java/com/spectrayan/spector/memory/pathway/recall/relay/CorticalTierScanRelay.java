@@ -90,6 +90,10 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
 
     @Override
     public boolean transmit(final RecallSignal signal) {
+        if (!signal.options().textSearchMode().usesVector()) {
+            return true;
+        }
+
         final float[] queryVector = signal.queryVector();
         final String rawQuery = signal.rawQuery();
         final RecallOptions options = signal.options();
