@@ -8,10 +8,11 @@ param(
     [int]$TopK = 20,
     [int]$StartIndex = 0,
     [int]$Limit = 0,
+    [int]$IngestLimit = 0,
     [int]$SessionBatchSize = 10,
     [switch]$SmokeTestOnly,
     [int]$SmokeTestLimit = 5,
-    [bool]$RunQaJudge = $true,
+    [string]$RunQaJudge = "true",
     [int]$Concurrency = 6
 )
 
@@ -21,6 +22,9 @@ if (-not $DatasetDir) {
 if (-not $OutputDir) {
     $OutputDir = if ($env:MINDSPAN_OUTPUT_DIR) { $env:MINDSPAN_OUTPUT_DIR } else { Join-Path (Split-Path -Parent $PSScriptRoot) "..\spector-datasets\mindspan\results" }
 }
+
+$DatasetDir = [System.IO.Path]::GetFullPath($DatasetDir)
+$OutputDir = [System.IO.Path]::GetFullPath($OutputDir)
 
 $ErrorActionPreference = "Stop"
 
@@ -60,6 +64,7 @@ mvn test -pl bench/spector-bench `
     "-DtopK=$TopK" `
     "-DstartIndex=$StartIndex" `
     "-Dlimit=$Limit" `
+    "-DingestLimit=$IngestLimit" `
     "-DsessionBatchSize=$SessionBatchSize" `
     "-DsmokeTestOnly=$($SmokeTestOnly.IsPresent.ToString().ToLower())" `
     "-DsmokeTestLimit=$SmokeTestLimit" `
