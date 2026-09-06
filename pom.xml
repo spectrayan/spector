@@ -157,6 +157,10 @@
         <mockito.version>5.23.0</mockito.version>
         <awaitility.version>4.2.2</awaitility.version>
 
+        <!-- OpenAPI & SDK Generation -->
+        <springdoc.version>3.1.0</springdoc.version>
+        <openapi-generator-maven-plugin.version>7.25.0</openapi-generator-maven-plugin.version>
+
         <!-- Plugin versions -->
         <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>

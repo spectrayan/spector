@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.synapse.agent.chat.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.util.List;
 import java.util.Map;
 
@@ -43,8 +47,8 @@ public final class ChatDto {
             Boolean enableTextSearch,
             Boolean enableTrace,
             List<Map<String, Object>> messages,
-            List<Map<String, Object>> approvedToolCalls,
-            List<Map<String, Object>> approved_tool_calls
+            @JsonAlias("approved_tool_calls") List<Map<String, Object>> approvedToolCalls,
+            @Schema(hidden = true) @JsonProperty(access = JsonProperty.Access.WRITE_ONLY) List<Map<String, Object>> approved_tool_calls
     ) {
         /** Resolves sessionId from either field (backward compat). */
         public String resolvedSessionId() {

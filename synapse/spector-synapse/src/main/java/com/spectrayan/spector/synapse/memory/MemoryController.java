@@ -59,6 +59,8 @@ import org.springframework.web.multipart.MultipartFile;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableRow;
 import com.spectrayan.spector.synapse.memory.MemoryDto.UpdateMemoryRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryVectorResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
 import java.util.Map;
@@ -88,6 +90,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/v1/memory")
+@Tag(name = "Memory", description = "Cognitive Memory Operations (Remember, Recall, Search, Forget, Reinforce, Inspect)")
 public class MemoryController {
 
     private static final Logger log = LoggerFactory.getLogger(MemoryController.class);
@@ -122,6 +125,7 @@ public class MemoryController {
      * @param tombstoned     whether to include tombstoned records (default false)
      */
     @GetMapping("/table")
+    @Operation(operationId = "getMemoryTable", summary = "Paginated memory table view for UI and exploration")
     public ResponseEntity<MemoryTableResponse> getMemoryTable(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int pageSize,
@@ -141,6 +145,7 @@ public class MemoryController {
      * <p>{@code POST /api/v1/memory}</p>
      */
     @PostMapping
+    @Operation(operationId = "storeMemory", summary = "Store a cognitive memory synchronously")
     public ResponseEntity<StoreResponse> store(@RequestBody StoreRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(memoryService.store(request));
     }
@@ -154,6 +159,7 @@ public class MemoryController {
      * <p>{@code POST /api/v1/memory/remember}</p>
      */
     @PostMapping("/remember")
+    @Operation(operationId = "rememberMemory", summary = "Remember a memory asynchronously with cognitive scoring hints")
     public ResponseEntity<AcceptedResponse> remember(@RequestBody RememberRequest request) {
         return ResponseEntity.accepted().body(memoryService.remember(request));
     }
@@ -164,6 +170,7 @@ public class MemoryController {
      * <p>{@code POST /api/v1/memory/consolidate}</p>
      */
     @PostMapping("/consolidate")
+    @Operation(operationId = "consolidateMemories", summary = "Trigger manual memory consolidation")
     public ResponseEntity<Void> consolidate() {
         memoryService.consolidate();
         return ResponseEntity.ok().build();
@@ -180,6 +187,7 @@ public class MemoryController {
      * <p>{@code POST /api/v1/memory/search}</p>
      */
     @PostMapping("/search")
+    @Operation(operationId = "searchMemories", summary = "Semantic similarity search")
     public ResponseEntity<List<SearchResult>> search(@RequestBody SearchRequest request) {
         return ResponseEntity.ok(memoryService.search(request));
     }
@@ -190,6 +198,7 @@ public class MemoryController {
      * <p>{@code POST /api/v1/memory/recall}</p>
      */
     @PostMapping("/recall")
+    @Operation(operationId = "recallMemories", summary = "Cognitive recall with biological scoring")
     public ResponseEntity<List<RecallResult>> recall(@RequestBody RecallRequest request) {
         return ResponseEntity.ok(memoryService.recall(request));
     }
@@ -200,6 +209,7 @@ public class MemoryController {
      * <p>{@code POST /api/v1/memory/federated-recall}</p>
      */
     @PostMapping("/federated-recall")
+    @Operation(operationId = "federatedRecallMemories", summary = "Cross-rememberer federated recall")
     public ResponseEntity<FederatedRecallResponse> federatedRecall(@RequestBody FederatedRecallRequest request) {
         if (federatedRecallService == null) {
             return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_IMPLEMENTED).build();
@@ -217,6 +227,7 @@ public class MemoryController {
      * <p>{@code POST /api/v1/memory/browse}</p>
      */
     @PostMapping("/browse")
+    @Operation(operationId = "browseMemories", summary = "Tag-based memory browsing without vector search")
     public ResponseEntity<List<BrowseResult>> browse(@RequestBody BrowseRequest request) {
         return ResponseEntity.ok(memoryService.browse(request));
     }
@@ -238,6 +249,7 @@ public class MemoryController {
      * @param maxNodes max nodes to return (default 100, capped at 500)
      */
     @GetMapping("/graph/overview")
+    @Operation(operationId = "getGraphOverview", summary = "Sampled overview of associative memory graph")
     public ResponseEntity<MemoryGraphResponse> getGraphOverview(
             @RequestParam(defaultValue = "100") int maxNodes) {
         return ResponseEntity.ok(memoryService.getGraphOverview(maxNodes));
@@ -251,6 +263,7 @@ public class MemoryController {
      * <p>{@code GET /api/v1/memory/topology-stats}</p>
      */
     @GetMapping("/topology-stats")
+    @Operation(operationId = "getTopologyStats", summary = "Topology statistics of entities and relationships")
     public ResponseEntity<TopologyStatsResponse> getTopologyStats() {
         return ResponseEntity.ok(memoryService.getTopologyStats());
     }
@@ -261,6 +274,7 @@ public class MemoryController {
      * <p>{@code POST /api/v1/memory/enrich-graph?limit=50}</p>
      */
     @PostMapping("/enrich-graph")
+    @Operation(operationId = "enrichGraph", summary = "Trigger asynchronous offline graph enrichment in the background")
     public ResponseEntity<EnrichmentTriggerResponse> enrichGraph(
             @RequestParam(defaultValue = "50") int limit) {
         memoryService.enrichGraph(limit);
@@ -276,6 +290,7 @@ public class MemoryController {
      * <p>{@code POST /api/v1/memory/reextract-graph?limit=50}</p>
      */
     @PostMapping("/reextract-graph")
+    @Operation(operationId = "reextractGraph", summary = "Trigger full re-extraction of entities and relationships")
     public ResponseEntity<EnrichmentTriggerResponse> reextractGraph(
             @RequestParam(defaultValue = "50") int limit) {
         memoryService.reextractGraph(limit);
@@ -289,6 +304,7 @@ public class MemoryController {
      * <p>{@code GET /api/v1/memory/enrich-graph/status}</p>
      */
     @GetMapping("/enrich-graph/status")
+    @Operation(operationId = "getEnrichmentStatus", summary = "Real-time telemetry for offline graph enrichment daemon")
     public ResponseEntity<EnrichmentStatusResponse> getEnrichmentStatus() {
         return ResponseEntity.ok(memoryService.getEnrichmentStatus());
     }
@@ -299,6 +315,7 @@ public class MemoryController {
      * <p>{@code GET /api/v1/memory/stats}</p>
      */
     @GetMapping("/stats")
+    @Operation(operationId = "getMemoryStats", summary = "Memory health statistics")
     public ResponseEntity<MemoryStats> getStats() {
         return ResponseEntity.ok(memoryService.getStats());
     }
@@ -309,6 +326,7 @@ public class MemoryController {
      * <p>{@code GET /api/v1/memory/stats/scoring}</p>
      */
     @GetMapping("/stats/scoring")
+    @Operation(operationId = "getScoringStats", summary = "Memory scoring metrics averages")
     public ResponseEntity<ScoringStats> getScoringStats() {
         return ResponseEntity.ok(memoryService.getScoringStats());
     }
@@ -319,6 +337,7 @@ public class MemoryController {
      * <p>{@code GET /api/v1/memory/vector-space/projection}</p>
      */
     @GetMapping("/vector-space/projection")
+    @Operation(operationId = "getVectorSpaceProjection", summary = "3D PCA vector space embedding projection")
     public ResponseEntity<VectorSpaceProjectionService.ProjectionResult> getVectorSpaceProjection() {
         return ResponseEntity.ok(memoryService.getVectorSpaceProjection());
     }
@@ -329,6 +348,7 @@ public class MemoryController {
      * <p>{@code GET /api/v1/memory/diagnostics}</p>
      */
     @GetMapping("/diagnostics")
+    @Operation(operationId = "getMemoryDiagnostics", summary = "Diagnostics snapshot (tier counts, allocations)")
     public ResponseEntity<Map<String, Object>> getDiagnostics() {
         return ResponseEntity.ok(memoryService.getDiagnostics());
     }
@@ -339,6 +359,7 @@ public class MemoryController {
      * <p>{@code GET /api/v1/memory/diagnostics/decay}</p>
      */
     @GetMapping("/diagnostics/decay")
+    @Operation(operationId = "getDecayCurve", summary = "Ebbinghaus forgetting and LTP retention decay curve")
     public ResponseEntity<List<Map<String, Object>>> getDecayCurve() {
         return ResponseEntity.ok(memoryService.getDecayCurve());
     }
@@ -349,6 +370,7 @@ public class MemoryController {
      * <p>{@code GET /api/v1/memory/consolidation/diff}</p>
      */
     @GetMapping("/consolidation/diff")
+    @Operation(operationId = "getConsolidationDiff", summary = "Latest consolidation snapshot diff")
     public ResponseEntity<List<Map<String, Object>>> getConsolidationDiff() {
         return ResponseEntity.ok(memoryService.getConsolidationDiff());
     }
@@ -359,6 +381,7 @@ public class MemoryController {
      * <p>{@code GET /api/v1/memory/hardware}</p>
      */
     @GetMapping("/hardware")
+    @Operation(operationId = "getHardwareInfo", summary = "System SIMD Vector API and hardware capabilities")
     public ResponseEntity<Map<String, Object>> getHardware() {
         return ResponseEntity.ok(memoryService.getHardwareInfo());
     }
@@ -369,6 +392,7 @@ public class MemoryController {
      * <p>{@code GET /api/v1/memory/metrics/live}</p>
      */
     @GetMapping("/metrics/live")
+    @Operation(operationId = "getLiveMetrics", summary = "Recent live rolling ops/sec metrics history")
     public ResponseEntity<List<Map<String, Object>>> getLiveMetrics() {
         return ResponseEntity.ok(memoryService.getLiveMetricsHistory());
     }
@@ -383,6 +407,7 @@ public class MemoryController {
      * <p>{@code DELETE /api/v1/memory/{id}}</p>
      */
     @DeleteMapping("/{id}")
+    @Operation(operationId = "forgetMemory", summary = "Tombstone (forget) a memory by ID")
     public ResponseEntity<Map<String, String>> forget(@PathVariable String id) {
         memoryService.forget(id);
         return ResponseEntity.ok(Map.of("status", "forgotten", "id", id));
@@ -398,6 +423,7 @@ public class MemoryController {
      * <p>{@code GET /api/v1/memory/{id}}</p>
      */
     @GetMapping("/{id}")
+    @Operation(operationId = "getMemoryById", summary = "Retrieve a single memory by ID")
     public ResponseEntity<MemoryTableRow> getMemoryById(@PathVariable String id) {
         MemoryTableRow row = memoryService.getMemoryById(id);
         if (row == null) {
@@ -412,6 +438,7 @@ public class MemoryController {
      * <p>{@code PUT /api/v1/memory/{id}}</p>
      */
     @PutMapping("/{id}")
+    @Operation(operationId = "updateMemory", summary = "Update an existing memory by ID")
     public ResponseEntity<String> updateMemory(
             @PathVariable String id,
             @RequestBody UpdateMemoryRequest request) {
@@ -425,6 +452,7 @@ public class MemoryController {
      * <p>{@code GET /api/v1/memory/{id}/vector}</p>
      */
     @GetMapping("/{id}/vector")
+    @Operation(operationId = "getMemoryVector", summary = "Retrieve INT8 quantized embedding vector for a memory")
     public ResponseEntity<MemoryVectorResponse> getMemoryVector(@PathVariable String id) {
         return ResponseEntity.ok(memoryService.getMemoryVector(id));
     }
@@ -437,6 +465,7 @@ public class MemoryController {
      * <p>{@code POST /api/v1/memory/{id}/reinforce}</p>
      */
     @PostMapping("/{id}/reinforce")
+    @Operation(operationId = "reinforceMemory", summary = "Reinforce memory via Long-Term Potentiation (LTP)")
     public ResponseEntity<Map<String, Object>> reinforce(
             @PathVariable String id,
             @RequestBody(required = false) ReinforceByIdRequest request) {
@@ -453,6 +482,7 @@ public class MemoryController {
      * <p>{@code POST /api/v1/memory/{id}/suppress}</p>
      */
     @PostMapping("/{id}/suppress")
+    @Operation(operationId = "suppressMemory", summary = "Suppress or unsuppress a memory from recall")
     public ResponseEntity<Map<String, String>> suppress(
             @PathVariable String id,
             @RequestBody(required = false) SuppressRequest request) {
@@ -474,6 +504,7 @@ public class MemoryController {
      * @param depth BFS traversal depth (default 2, capped at 5 in service)
      */
     @GetMapping("/{id}/graph")
+    @Operation(operationId = "getMemoryGraph", summary = "Hebbian, Temporal, and Entity graph neighborhood for a memory")
     public ResponseEntity<MemoryGraphResponse> getMemoryGraph(
             @PathVariable String id,
             @RequestParam(defaultValue = "2") int depth) {
@@ -488,6 +519,7 @@ public class MemoryController {
      * <p>{@code POST /api/v1/memory/{id}/resolve}</p>
      */
     @PostMapping("/{id}/resolve")
+    @Operation(operationId = "resolveMemory", summary = "Resolve or unresolve a memory (Zeigarnik closure)")
     public ResponseEntity<Map<String, Object>> resolve(
             @PathVariable String id,
             @RequestBody(required = false) ResolveRequest request) {
@@ -516,6 +548,7 @@ public class MemoryController {
      * @param request           optional request body with additional parameters
      */
     @PostMapping("/reflect")
+    @Operation(operationId = "reflectMemories", summary = "Trigger sleep consolidation (reflect) sweep")
     public ResponseEntity<ReflectResponse> reflect(
             @RequestParam(required = false) String sweepId,
             @RequestParam(required = false) Integer sessionLimit,
@@ -568,6 +601,7 @@ public class MemoryController {
      * @param sweepId unique sweep identifier
      */
     @GetMapping("/reflect/progress/{sweepId}")
+    @Operation(operationId = "getReflectProgress", summary = "Poll reflection sweep progress telemetry")
     public ResponseEntity<ReflectSweepProgress> getReflectProgress(@PathVariable String sweepId) {
         ReflectSweepProgress progress = memoryService.progress(sweepId);
         if (progress == null) {
@@ -584,6 +618,7 @@ public class MemoryController {
      * <p>{@code POST /api/v1/memory/vacuum}</p>
      */
     @PostMapping("/vacuum")
+    @Operation(operationId = "vacuumMemories", summary = "Trigger vacuum compaction for a tier")
     public ResponseEntity<CompactionResult> vacuum(
             @RequestBody(required = false) VacuumRequest request) {
         return ResponseEntity.ok(memoryService.vacuum(request));
@@ -597,6 +632,7 @@ public class MemoryController {
      * <p>{@code GET /api/v1/memory/status}</p>
      */
     @GetMapping("/status")
+    @Operation(operationId = "getMemoryStatus", summary = "Cognitive memory status and tier counts")
     public ResponseEntity<MemoryStatusResponse> status() {
         return ResponseEntity.ok(memoryService.getStatus());
     }
@@ -618,6 +654,7 @@ public class MemoryController {
      * @param source provenance source (default: OBSERVED)
      */
     @PostMapping(value = "/ingest-file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(operationId = "ingestMemoryFile", summary = "Ingest a file into memory asynchronously")
     public ResponseEntity<AcceptedResponse> ingestFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam(defaultValue = "SEMANTIC") String tier,
@@ -637,6 +674,7 @@ public class MemoryController {
      * <p>{@code POST /api/v1/memory/bulk/forget}</p>
      */
     @PostMapping("/bulk/forget")
+    @Operation(operationId = "bulkForgetMemories", summary = "Bulk forget memories by ID list")
     public ResponseEntity<Map<String, Object>> bulkForget(@RequestBody List<String> ids) {
         if (ids == null || ids.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "No IDs provided"));
@@ -653,6 +691,7 @@ public class MemoryController {
      * <p>{@code POST /api/v1/memory/bulk/reinforce}</p>
      */
     @PostMapping("/bulk/reinforce")
+    @Operation(operationId = "bulkReinforceMemories", summary = "Bulk reinforce memories by ID list")
     public ResponseEntity<Map<String, Object>> bulkReinforce(
             @RequestBody List<String> ids,
             @RequestParam(defaultValue = "0") int valence) {
@@ -671,6 +710,7 @@ public class MemoryController {
      * <p>{@code POST /api/v1/memory/bulk/suppress}</p>
      */
     @PostMapping("/bulk/suppress")
+    @Operation(operationId = "bulkSuppressMemories", summary = "Bulk suppress or unsuppress memories by ID list")
     public ResponseEntity<Map<String, Object>> bulkSuppress(
             @RequestBody List<String> ids,
             @RequestParam(defaultValue = "SUPPRESS") String action) {
