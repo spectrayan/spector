@@ -97,6 +97,9 @@
         <!-- ── Bench: Benchmarks ── -->
         <module>bench/spector-bench</module>
 
+        <!-- ── SDKs ── -->
+        <module>sdks/java/spector-client</module>
+
         <!-- NOTE: cortex/spector-cortex is Angular 22 (no Maven POM) — built separately -->
     </modules>
 
@@ -156,6 +159,10 @@
         <assertj.version>3.27.7</assertj.version>
         <mockito.version>5.23.0</mockito.version>
         <awaitility.version>4.2.2</awaitility.version>
+
+        <!-- OpenAPI & SDK Generation -->
+        <springdoc.version>3.1.0</springdoc.version>
+        <openapi-generator-maven-plugin.version>7.25.0</openapi-generator-maven-plugin.version>
 
         <!-- Plugin versions -->
         <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>

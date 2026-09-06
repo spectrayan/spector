@@ -62,7 +62,7 @@ spector:
     lockout:
       max-attempts: ${SPECTOR_AUTH_LOCKOUT_MAX_ATTEMPTS:5}
       minutes: ${SPECTOR_AUTH_LOCKOUT_MINUTES:15}
-    public-paths: ${SPECTOR_AUTH_PUBLIC_PATHS:/actuator/health,/api/docs}
+    public-paths: ${SPECTOR_AUTH_PUBLIC_PATHS:/actuator/health,/api/docs,/swagger-ui.html,/swagger-ui/**,/v3/api-docs/**,/v3/api-docs}
 
   # ── Spector Spring Auto-Configuration ──
   # SpectorAutoConfiguration (spector-spring module) creates a Spring-managed
@@ -170,3 +170,17 @@ info:
     name: Spector Synapse
     description: The central nervous system for cognitive memory
     version: ${revision:0.1.0-alpha}
+
+# ── SpringDoc OpenAPI 3.1 & Swagger UI ──
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: alpha
+    tagsSorter: alpha
+    display-request-duration: true
+    try-it-out-enabled: true
+

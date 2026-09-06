@@ -238,12 +238,13 @@ public class SecurityConfig {
                     authz.requestMatchers(path).permitAll();
                     authz.requestMatchers(path + "/**").permitAll();
                 }
-                // Static assets and the SPA root remain public.
+                // Static assets, SPA root, and Swagger/OpenAPI documentation remain public.
                 authz
                         .requestMatchers("/").permitAll()
                         .requestMatchers("/index.html").permitAll()
                         .requestMatchers("/assets/**").permitAll()
                         .requestMatchers("/*.js", "/*.css", "/*.ico", "/*.png").permitAll()
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**").permitAll()
                         // Protected surfaces require a non-anonymous Authentication (Requirement 6.1).
                         .requestMatchers("/api/**").authenticated()
                         .requestMatchers("/mcp", "/mcp/**").authenticated()
