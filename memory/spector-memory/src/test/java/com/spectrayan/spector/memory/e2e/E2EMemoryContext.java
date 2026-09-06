@@ -152,8 +152,8 @@ public final class E2EMemoryContext {
         var sparseProvider = new DenseDerivedSparseProvider(embeddingProvider);
         var tokenProvider = new DenseDerivedTokenProvider(embeddingProvider);
 
-        boolean pathwayEnabled = Boolean.parseBoolean(System.getProperty("spector.pathway.enabled", System.getProperty("usePathwayEngine", "true")));
-        boolean aismeEnabled = Boolean.parseBoolean(System.getProperty("spector.memory.aisme.enabled", "true"));
+        boolean pathwayEnabled = true;
+        boolean aismeEnabled = true;
 
         // Build the memory system with all subsystems enabled
         var memBuilder = DefaultSpectorMemory.builder()

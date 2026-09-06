@@ -67,37 +67,35 @@ public final class ConcurrentTasks {
 
     private static final System.Logger log = System.getLogger(ConcurrentTasks.class.getName());
 
-    /**
-     * Feature flag: set to {@code false} to disable structured concurrency.
-     * Defaults to {@code true}.
-     */
-    private static final boolean STRUCTURED_ENABLED =
-            Boolean.parseBoolean(System.getProperty("spector.concurrency.structured", "true"));
+    private static volatile boolean structuredEnabled = true;
 
     /**
-     * Whether structured concurrency is actually available at runtime.
-     * Checks both the feature flag AND JDK support.
+     * Whether structured concurrency is supported by the underlying JDK.
      */
-    private static final boolean STRUCTURED_AVAILABLE;
+    private static final boolean JDK_STRUCTURED_AVAILABLE;
 
     static {
         boolean available = false;
-        if (STRUCTURED_ENABLED) {
-            try {
-                Class.forName("java.util.concurrent.StructuredTaskScope");
-                available = true;
-            } catch (ClassNotFoundException e) {
-                log.log(System.Logger.Level.INFO,
-                        "StructuredTaskScope not available, falling back to ExecutorService");
-            }
-        } else {
+        try {
+            Class.forName("java.util.concurrent.StructuredTaskScope");
+            available = true;
+        } catch (ClassNotFoundException e) {
             log.log(System.Logger.Level.INFO,
-                    "Structured concurrency disabled via spector.concurrency.structured=false");
+                    "StructuredTaskScope not available, falling back to ExecutorService");
         }
-        STRUCTURED_AVAILABLE = available;
+        JDK_STRUCTURED_AVAILABLE = available;
     }
 
     private ConcurrentTasks() {}
+
+    /**
+     * Enables or disables structured concurrency mode programmatically.
+     *
+     * @param enabled whether structured concurrency should be enabled
+     */
+    public static void setStructuredEnabled(boolean enabled) {
+        structuredEnabled = enabled;
+    }
 
     /**
      * Returns whether structured concurrency is active.
@@ -105,7 +103,7 @@ public final class ConcurrentTasks {
      * @return true if using {@link StructuredTaskScope}, false if using {@link ExecutorService}
      */
     public static boolean isStructuredConcurrencyEnabled() {
-        return STRUCTURED_AVAILABLE;
+        return structuredEnabled && JDK_STRUCTURED_AVAILABLE;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -274,7 +272,7 @@ public final class ConcurrentTasks {
             }
         }
 
-        return STRUCTURED_AVAILABLE
+        return isStructuredConcurrencyEnabled()
                 ? forkJoinAllStructured(tasks)
                 : forkJoinAllClassic(tasks);
     }
@@ -306,7 +304,7 @@ public final class ConcurrentTasks {
      */
     public static <A, B> Pair<A, B> forkJoin2(Callable<A> taskA, Callable<B> taskB)
             throws ConcurrentExecutionException, InterruptedException {
-        return STRUCTURED_AVAILABLE
+        return isStructuredConcurrencyEnabled()
                 ? forkJoin2Structured(taskA, taskB)
                 : forkJoin2Classic(taskA, taskB);
     }
@@ -335,7 +333,7 @@ public final class ConcurrentTasks {
             }
         }
 
-        if (STRUCTURED_AVAILABLE) {
+        if (isStructuredConcurrencyEnabled()) {
             forkRunAllStructured(tasks);
         } else {
             forkRunAllClassic(tasks);
@@ -511,7 +509,7 @@ public final class ConcurrentTasks {
             List<LabeledTask<T>> tasks, Duration timeout) throws InterruptedException {
         if (tasks.isEmpty()) return PartialResult.empty();
 
-        return STRUCTURED_AVAILABLE
+        return isStructuredConcurrencyEnabled()
                 ? forkJoinPartialStructured(tasks, timeout)
                 : forkJoinPartialClassic(tasks, timeout);
     }

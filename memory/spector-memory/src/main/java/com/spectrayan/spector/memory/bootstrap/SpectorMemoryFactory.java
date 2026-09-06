@@ -201,8 +201,12 @@ public final class SpectorMemoryFactory {
                 builder.embeddingProvider(),
                 cacheManager
         );
-        ParallelEmbeddingPipeline parallelPipeline = new ParallelEmbeddingPipeline(embeddingProvider);
-        EmbedConfig embedConfig = new EmbedConfig(builder.embedBatchSize(), 3);
+        boolean sequential = builder.spectorProperties() != null
+                && builder.spectorProperties().provider() != null
+                && builder.spectorProperties().provider().getEmbedding() != null
+                && builder.spectorProperties().provider().getEmbedding().isSequential();
+        ParallelEmbeddingPipeline parallelPipeline = new ParallelEmbeddingPipeline(embeddingProvider, sequential);
+        EmbedConfig embedConfig = new EmbedConfig(builder.embedBatchSize(), 3, sequential);
 
         //  Storage + cortex foundation (path, quantizer, namespace, partitions, tier stores) 
         CognitiveCortexBuilder.CortexFoundation cortex = CognitiveCortexBuilder.build(builder);

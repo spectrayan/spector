@@ -228,7 +228,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                 com.spectrayan.spector.memory.config.SpectorMemoryConfigurator.builder(datasetProps)
                 .fromProperties(memoryProperties)
                 .bundleMode(true)
-                .usePathwayEngine(Boolean.parseBoolean(System.getProperty("spector.pathway.enabled", System.getProperty("usePathwayEngine", "true"))))
+                .usePathwayEngine(true)
                 .dimensions(embedder.dimensions())
                 .embeddingProvider(embedder)
                 .workingCapacity(Math.max(50, corpusSize / 10))
@@ -266,9 +266,8 @@ public final class BenchmarkSetup implements AutoCloseable {
         }
 
         float threshold = memoryProperties.getGraphExpansionThreshold();
-        String thresholdStr = System.getProperty("spector.memory.graphExpansionThreshold",
-                System.getProperty("spector.benchmark.graphExpansionThreshold",
-                System.getProperty("graphExpansionThreshold")));
+        String thresholdStr = System.getProperty("spector.benchmark.graphExpansionThreshold",
+                System.getProperty("graphExpansionThreshold"));
         if (thresholdStr != null && !thresholdStr.isBlank()) {
             try {
                 threshold = Float.parseFloat(thresholdStr);
@@ -330,16 +329,16 @@ public final class BenchmarkSetup implements AutoCloseable {
         boolean useDisk = memoryProperties.getPersistenceMode() == com.spectrayan.spector.config.model.PersistenceMode.DISK
                 || Boolean.parseBoolean(System.getProperty("spector.benchmark.persistence", "true"));
         String persistenceModeStr = datasetProps != null ? datasetProps.getString("spector.memory.persistence-mode", null) : null;
-        if ("EPHEMERAL".equalsIgnoreCase(System.getProperty("spector.memory.persistence-mode", persistenceModeStr))) {
+        if ("EPHEMERAL".equalsIgnoreCase(persistenceModeStr)) {
             useDisk = false;
-        } else if ("DISK".equalsIgnoreCase(System.getProperty("spector.memory.persistence-mode", persistenceModeStr))) {
+        } else if ("DISK".equalsIgnoreCase(persistenceModeStr)) {
             useDisk = true;
         }
         Path persistencePath = null;
         if (useDisk) {
-            String sysPropPath = System.getProperty("spector.memory.persistence-path");
-            if (sysPropPath != null && !sysPropPath.isBlank()) {
-                persistencePath = Path.of(sysPropPath);
+            String configPath = memoryProperties.getPersistencePath();
+            if (configPath != null && !configPath.isBlank()) {
+                persistencePath = Path.of(configPath);
             }
             if (persistencePath == null && datasetDir != null) {
                 if (datasetConfig != null && Files.exists(datasetConfig)) {

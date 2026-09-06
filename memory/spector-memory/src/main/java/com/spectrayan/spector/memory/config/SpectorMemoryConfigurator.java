@@ -151,9 +151,6 @@ public final class SpectorMemoryConfigurator {
         }
 
         String apiKey = genProps.getApiKey();
-        if ((apiKey == null || apiKey.isBlank()) && ("google".equalsIgnoreCase(type) || "gemini".equalsIgnoreCase(type))) {
-            apiKey = System.getProperty("geminiApiKey", System.getenv("GEMINI_API_KEY"));
-        }
 
         float temperature = llmProps != null ? llmProps.getTemperature() : com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_LLM_TEMPERATURE;
         int maxTokens = llmProps != null ? llmProps.getMaxTokens() : com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_LLM_MAX_TOKENS;

@@ -122,21 +122,31 @@ public final class AcceleratorRegistry {
         return new RegistryState(List.copyOf(discovered), primary, fallback);
     }
 
+    private static volatile int batchThreshold = DEFAULT_BATCH_THRESHOLD;
+
     /**
      * Returns the configured or default batch threshold for accelerator offload.
      *
      * @return batch threshold
      */
     public static int getBatchThreshold() {
-        String prop = System.getProperty(GPU_BATCH_THRESHOLD_PROPERTY);
-        if (prop != null && !prop.isBlank()) {
-            try {
-                return Integer.parseInt(prop.trim());
-            } catch (NumberFormatException e) {
-                log.warn("Invalid {} property '{}', using default {}", GPU_BATCH_THRESHOLD_PROPERTY, prop, DEFAULT_BATCH_THRESHOLD);
-            }
-        }
-        return DEFAULT_BATCH_THRESHOLD;
+        return batchThreshold;
+    }
+
+    /**
+     * Sets the batch threshold for accelerator offload.
+     *
+     * @param threshold minimum batch size to offload to accelerator
+     */
+    public static void setBatchThreshold(int threshold) {
+        batchThreshold = threshold > 0 ? threshold : DEFAULT_BATCH_THRESHOLD;
+    }
+
+    /**
+     * Resets the batch threshold to {@link #DEFAULT_BATCH_THRESHOLD}.
+     */
+    public static void resetBatchThreshold() {
+        batchThreshold = DEFAULT_BATCH_THRESHOLD;
     }
 
     /**

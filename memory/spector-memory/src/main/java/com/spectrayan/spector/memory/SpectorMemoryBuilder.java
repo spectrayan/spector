@@ -724,6 +724,14 @@ public final class SpectorMemoryBuilder {
                 this.embedBatchSize = batchSize;
             }
         }
+        if (props.hardware() != null) {
+            com.spectrayan.spector.core.spi.AcceleratorRegistry.setBatchThreshold(
+                    props.hardware().getGpuBatchThreshold());
+        }
+        if (props.concurrency() != null) {
+            com.spectrayan.spector.commons.concurrent.ConcurrentTasks.setStructuredEnabled(
+                    props.concurrency().isStructured());
+        }
         return fromProperties(props.memory());
     }
 

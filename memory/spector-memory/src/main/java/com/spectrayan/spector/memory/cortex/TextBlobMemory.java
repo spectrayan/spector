@@ -139,7 +139,12 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
     }
 
     private static long calculateInitialSize(Path file, Map<String, TextEntry> legacyEntries) {
-        long size = Long.getLong("spector.memory.text-segment-size", 32 * 1024 * 1024L); // 32MB default
+        long size = 32 * 1024 * 1024L; // 32MB default
+        try {
+            long cfg = com.spectrayan.spector.config.SpectorProperties.load().memory().getTextSegmentSize();
+            if (cfg > 0) size = cfg;
+        } catch (Exception ignored) {
+        }
         if (legacyEntries != null && !legacyEntries.isEmpty()) {
             long totalBytes = 0;
             for (TextEntry entry : legacyEntries.values()) {

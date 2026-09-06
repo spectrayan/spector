@@ -101,7 +101,8 @@ public final class PartitionManagerBuilder {
                     cognitiveRouter, resolvedPartitionDir, textDataStore, initialPartitionSeq,
                     frozenHandles,
                     index, graphs.hebbianGraph(), graphs.temporalChain(), cognitiveTarget,
-                    builder.dataEncryptor(), useBundleMode, activeBundle);
+                    builder.dataEncryptor(), useBundleMode, activeBundle,
+                    builder.textSegmentSize(), builder.episodicSegmentSize());
             cognitiveTarget.setPartitionRollCallback(partitionManager::rollPartition);
         } else {
             partitionManager = new PartitionManager(
@@ -110,7 +111,8 @@ public final class PartitionManagerBuilder {
                     cognitiveRouter, null, textDataStore, initialPartitionSeq,
                     List.of(),
                     index, graphs.hebbianGraph(), graphs.temporalChain(), cognitiveTarget,
-                    builder.dataEncryptor(), false, null);
+                    builder.dataEncryptor(), false, null,
+                    builder.textSegmentSize(), builder.episodicSegmentSize());
         }
 
         // #443 (D3b): resolve MemoryIndex.text(id) via the memory's colocated partition,

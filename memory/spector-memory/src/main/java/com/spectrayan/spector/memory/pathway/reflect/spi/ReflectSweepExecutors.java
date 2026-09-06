@@ -63,12 +63,30 @@ public final class ReflectSweepExecutors {
         return getState().availableExecutors;
     }
 
+    private static volatile String orchestratorOverride;
+
+    /**
+     * Programmatically sets the orchestrator override and invalidates cached state.
+     *
+     * @param orchestrator name of the executor to select
+     */
+    public static void setOrchestrator(String orchestrator) {
+        INIT_LOCK.lock();
+        try {
+            orchestratorOverride = orchestrator;
+            state = null;
+        } finally {
+            INIT_LOCK.unlock();
+        }
+    }
+
     /**
      * Resets discovered state; forces next call to reload via ServiceLoader.
      */
     public static void reset() {
         INIT_LOCK.lock();
         try {
+            orchestratorOverride = null;
             state = null;
         } finally {
             INIT_LOCK.unlock();
@@ -95,7 +113,8 @@ public final class ReflectSweepExecutors {
 
     private static RegistryState initialize() {
         List<ReflectSweepExecutor> discovered = new ArrayList<>();
-        String explicitChoice = System.getProperty(ORCHESTRATOR_PROPERTY);
+        String explicitChoice = orchestratorOverride != null ? orchestratorOverride
+                : com.spectrayan.spector.config.SpectorProperties.load().memory().getCircadian().getOrchestrator();
 
         ServiceLoader<ReflectSweepExecutor> loader = ServiceLoader.load(ReflectSweepExecutor.class);
         for (ReflectSweepExecutor exec : loader) {
@@ -116,7 +135,7 @@ public final class ReflectSweepExecutors {
             for (ReflectSweepExecutor exec : discovered) {
                 if (exec.name().equalsIgnoreCase(explicitChoice.trim())) {
                     primary = exec;
-                    log.info("Selected ReflectSweepExecutor '{}' via system property override", exec.name());
+                    log.info("Selected ReflectSweepExecutor '{}' via configuration override", exec.name());
                     break;
                 }
             }

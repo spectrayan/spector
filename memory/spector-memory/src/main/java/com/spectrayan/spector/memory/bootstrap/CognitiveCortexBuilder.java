@@ -265,9 +265,9 @@ public final class CognitiveCortexBuilder {
 
             EngramLayout cogLayout = new EngramLayout(quantizedVecBytes);
             TextBlobLayout textLayout = new TextBlobLayout();
-            long textSize = Long.getLong("spector.memory.text-segment-size", 32 * 1024 * 1024L);
-            long episodicSize = Long.getLong("spector.memory.episodic-segment-size",
-                    (long) builder.episodicPartitionCapacity() * cogLayout.stride());
+            long textSize = builder.textSegmentSize() > 0 ? builder.textSegmentSize() : (32 * 1024 * 1024L);
+            long episodicSize = builder.episodicSegmentSize() > 0 ? builder.episodicSegmentSize() :
+                    ((long) builder.episodicPartitionCapacity() * cogLayout.stride());
 
             try {
                 if (isNew) {

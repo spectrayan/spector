@@ -77,15 +77,20 @@ class AcceleratorRegistryTest {
     }
 
     @Test
-    @DisplayName("reads configurable batch threshold property")
+    @DisplayName("configures batch threshold via setBatchThreshold and resetBatchThreshold")
     void testConfigurableThreshold() {
+        AcceleratorRegistry.resetBatchThreshold();
         assertThat(AcceleratorRegistry.getBatchThreshold())
                 .isEqualTo(AcceleratorRegistry.DEFAULT_BATCH_THRESHOLD);
 
-        System.setProperty(AcceleratorRegistry.GPU_BATCH_THRESHOLD_PROPERTY, "5000");
+        AcceleratorRegistry.setBatchThreshold(5000);
         assertThat(AcceleratorRegistry.getBatchThreshold()).isEqualTo(5000);
 
-        System.setProperty(AcceleratorRegistry.GPU_BATCH_THRESHOLD_PROPERTY, "invalid");
+        AcceleratorRegistry.setBatchThreshold(-1);
+        assertThat(AcceleratorRegistry.getBatchThreshold())
+                .isEqualTo(AcceleratorRegistry.DEFAULT_BATCH_THRESHOLD);
+
+        AcceleratorRegistry.resetBatchThreshold();
         assertThat(AcceleratorRegistry.getBatchThreshold())
                 .isEqualTo(AcceleratorRegistry.DEFAULT_BATCH_THRESHOLD);
     }

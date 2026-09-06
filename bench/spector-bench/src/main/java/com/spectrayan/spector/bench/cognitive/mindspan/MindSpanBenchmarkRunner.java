@@ -187,11 +187,10 @@ public final class MindSpanBenchmarkRunner {
 
         String resolvedApiKey = (geminiApiKey != null && !geminiApiKey.isBlank())
                 ? geminiApiKey
-                : System.getProperty("geminiApiKey", System.getenv("GEMINI_API_KEY"));
+                : (genProps != null && genProps.getApiKey() != null && !genProps.getApiKey().isBlank())
+                        ? genProps.getApiKey()
+                        : System.getProperty("geminiApiKey", System.getenv("GEMINI_API_KEY"));
 
-        if (resolvedApiKey == null || resolvedApiKey.isBlank()) {
-            resolvedApiKey = System.getProperty("spector.provider.google.api-key");
-        }
         if (resolvedApiKey == null || resolvedApiKey.isBlank()) {
             throw new IllegalStateException("Gemini API key is required. Pass -DgeminiApiKey=... or set the GEMINI_API_KEY environment variable.");
         }
