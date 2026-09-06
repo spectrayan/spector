@@ -352,6 +352,14 @@ public final class SpectorConfigFactory {
         lateral.setMinTagOverlap((float) props.getDouble("spector.memory.recall.lateral.min-tag-overlap",
                 props.getDouble("spector.recall.lateral.min-tag-overlap", 0.5)));
 
+        var autoProfile = recall.getAutoProfile();
+        autoProfile.setEnabled(props.getBoolean("spector.memory.recall.auto-profile.enabled",
+                props.getBoolean("spector.recall.auto-profile.enabled", false)));
+
+        var valenceAlignment = recall.getValenceAlignment();
+        valenceAlignment.setEnabled(props.getBoolean("spector.memory.recall.valence-alignment.enabled",
+                props.getBoolean("spector.recall.valence-alignment.enabled", false)));
+
         return recall;
     }
 
