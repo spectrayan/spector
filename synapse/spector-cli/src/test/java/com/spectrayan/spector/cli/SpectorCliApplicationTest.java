@@ -50,5 +50,6 @@ class SpectorCliApplicationTest {
         assertThat(context.containsBean("mcpCommand")).isTrue();
         assertThat(context.containsBean("rememberCommand")).isTrue();
         assertThat(context.containsBean("recallCommand")).isTrue();
+        assertThat(context.containsBean("memoryCommand")).isTrue();
     }
 }

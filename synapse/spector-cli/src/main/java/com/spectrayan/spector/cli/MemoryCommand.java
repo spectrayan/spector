@@ -25,12 +25,15 @@ import com.spectrayan.spector.cli.client.SpectorClientException;
 import com.spectrayan.spector.cli.client.SpectorConnectionException;
 import com.spectrayan.spector.cli.client.SpectorHttpClient;
 
+import org.springframework.stereotype.Component;
+
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
 /**
  * Picocli subcommand group for cognitive memory operations.
  */
+@Component
 @Command(
         name = "memory",
         description = "Manage and interact with Spector's cognitive memory subsystem.",

@@ -76,10 +76,6 @@ public class RememberCommand extends BaseCommand {
     private final ObjectProvider<SpectorMemory> memoryProvider;
     private final ObjectProvider<EmbeddingProvider> embedderProvider;
 
-    public RememberCommand() {
-        this(null, null);
-    }
-
     @Autowired
     public RememberCommand(@Lazy ObjectProvider<SpectorMemory> memoryProvider,
                            @Lazy ObjectProvider<EmbeddingProvider> embedderProvider) {
@@ -170,10 +166,8 @@ public class RememberCommand extends BaseCommand {
 
         EmbeddingProvider embedder = embedderProvider != null ? embedderProvider.getIfAvailable() : null;
         if (embedder == null) {
-            var config = new com.spectrayan.spector.provider.ProviderConfig(
-                    "ollama", embedConfig.type(), embedConfig.model(), embedConfig.apiKey(), embedConfig.baseUrl(), embedConfig.dimensions(), embedConfig.properties());
-            var registry = com.spectrayan.spector.provider.ProviderDiscovery.discover(java.util.List.of(config));
-            embedder = registry.activeEmbedding().orElseThrow();
+            throw new IllegalStateException("EmbeddingProvider bean is not available in the Spring context. " +
+                    "Ensure you are running under the 'cli-embedded' profile with an embedding provider configured.");
         }
         int dims = embedder.embed("probe").dimensions();
         out().printf("[Embedding] Dimensions: %d%n%n", dims);
@@ -189,16 +183,10 @@ public class RememberCommand extends BaseCommand {
                 false
         );
 
-        SpectorMemory injectedMemory = memoryProvider != null ? memoryProvider.getIfAvailable() : null;
-        boolean shouldCloseMemory = false;
-        SpectorMemory memory = injectedMemory;
+        SpectorMemory memory = memoryProvider != null ? memoryProvider.getIfAvailable() : null;
         if (memory == null) {
-            propsBuilder.override("spector.memory.dimensions", String.valueOf(dims));
-            propsBuilder.override("spector.provider.embedding.dimensions", String.valueOf(dims));
-            SpectorConfigSource configSource = propsBuilder.build();
-            com.spectrayan.spector.config.SpectorProperties finalProps = com.spectrayan.spector.config.SpectorProperties.from(configSource);
-            memory = com.spectrayan.spector.memory.config.SpectorMemoryConfigurator.builder(finalProps).build();
-            shouldCloseMemory = true;
+            throw new IllegalStateException("SpectorMemory bean is not available in the Spring context. " +
+                    "Ensure memory is enabled (active profile: cli-embedded, spector.memory.enabled=true).");
         }
 
         try {
@@ -268,13 +256,6 @@ public class RememberCommand extends BaseCommand {
             out().printf("========================================%n");
         } catch (Exception e) {
             err().println("Error during remember operation: " + e.getMessage());
-        } finally {
-            if (shouldCloseMemory && memory != null) {
-                try {
-                    memory.close();
-                } catch (Exception ignored) {
-                }
-            }
         }
     }
 

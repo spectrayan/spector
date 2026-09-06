@@ -55,10 +55,11 @@ public class SpectorCliApplication {
     /**
      * Inspects CLI arguments prior to context refresh to route to the optimal profile:
      * <ul>
-     *   <li>{@code cli-remote}: Default for remote calls, search, status, and help flags.
+     *   <li>{@code cli-remote}: Default for remote calls, search/recall, status, and help flags.
      *       Disables local cognitive memory beans for instant startup.</li>
      *   <li>{@code cli-embedded}: Activated when running local operations (e.g. {@code mcp},
-     *       {@code ingest --root}). Enables full Spector cognitive memory auto-configuration.</li>
+     *       {@code memory}, {@code remember --root}, {@code remember --config}, {@code --offline}).
+     *       Enables full Spector cognitive memory auto-configuration.</li>
      * </ul>
      *
      * @param args CLI command-line arguments
@@ -68,14 +69,53 @@ public class SpectorCliApplication {
         if (args == null || args.length == 0) {
             return "cli-remote";
         }
+        // Help and version flags always stay remote for sub-second execution
         for (String arg : args) {
             if (arg.equals("-h") || arg.equals("--help") || arg.equals("-V") || arg.equals("--version")) {
                 return "cli-remote";
             }
-            if (arg.equals("mcp") || arg.equals("--root")) {
+        }
+
+        boolean hasRemoteFlags = false;
+        boolean hasEmbeddedFlags = false;
+        boolean isRememberOrIngest = false;
+        boolean isMemory = false;
+
+        for (int i = 0; i < args.length; i++) {
+            String arg = args[i];
+            if (arg.equals("--profile=cli-embedded")
+                    || (arg.equals("--profile") && i + 1 < args.length && args[i + 1].equals("cli-embedded"))) {
                 return "cli-embedded";
             }
+            if (arg.equals("--profile=cli-remote")
+                    || (arg.equals("--profile") && i + 1 < args.length && args[i + 1].equals("cli-remote"))) {
+                return "cli-remote";
+            }
+            if (arg.equals("mcp") || arg.equals("--root") || arg.equals("--offline")
+                    || arg.equals("--local") || arg.equals("--embedded")) {
+                hasEmbeddedFlags = true;
+            }
+            if (arg.equals("memory")) {
+                isMemory = true;
+            }
+            if (arg.equals("remember") || arg.equals("ingest")) {
+                isRememberOrIngest = true;
+            }
+            if (arg.startsWith("--content") || arg.startsWith("--file")) {
+                hasRemoteFlags = true;
+            }
         }
+
+        if (hasEmbeddedFlags && !hasRemoteFlags) {
+            return "cli-embedded";
+        }
+        if (isMemory) {
+            return "cli-embedded";
+        }
+        if (isRememberOrIngest && !hasRemoteFlags) {
+            return "cli-embedded";
+        }
+
         return "cli-remote";
     }
 }

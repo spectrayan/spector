@@ -16,12 +16,14 @@
 package com.spectrayan.spector.cli;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import picocli.CommandLine;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 /**
  * Unit tests for SpectorCtl CLI commands.
@@ -30,8 +32,21 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class SpectorCtlTest {
 
+    @SuppressWarnings("unchecked")
     private CommandLine createCli() {
-        return new CommandLine(new SpectorCtl());
+        CommandLine.IFactory factory = new CommandLine.IFactory() {
+            @Override
+            public <K> K create(Class<K> cls) throws Exception {
+                if (cls == McpCommand.class) {
+                    return cls.cast(new McpCommand(mock(ObjectProvider.class)));
+                }
+                if (cls == RememberCommand.class) {
+                    return cls.cast(new RememberCommand(mock(ObjectProvider.class), mock(ObjectProvider.class)));
+                }
+                return CommandLine.defaultFactory().create(cls);
+            }
+        };
+        return new CommandLine(new SpectorCtl(), factory);
     }
 
     // ─────────────── Requirement 18.6: --help display ───────────────

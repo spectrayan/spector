@@ -52,8 +52,29 @@ class SpectorCliProfileRoutingTest {
     }
 
     @Test
+    void determineProfile_memorySubcommands_returnsEmbeddedProfile() {
+        assertThat(SpectorCliApplication.determineProfile(new String[]{"memory", "status"})).isEqualTo("cli-embedded");
+        assertThat(SpectorCliApplication.determineProfile(new String[]{"memory", "recall", "test"})).isEqualTo("cli-embedded");
+        assertThat(SpectorCliApplication.determineProfile(new String[]{"memory", "remember", "--id", "1", "--text", "fact"})).isEqualTo("cli-embedded");
+        assertThat(SpectorCliApplication.determineProfile(new String[]{"memory", "export", "--offline", "--output", "out.smb"})).isEqualTo("cli-embedded");
+        // But help on memory subcommand remains remote for instant response
+        assertThat(SpectorCliApplication.determineProfile(new String[]{"memory", "--help"})).isEqualTo("cli-remote");
+        assertThat(SpectorCliApplication.determineProfile(new String[]{"memory", "status", "-h"})).isEqualTo("cli-remote");
+    }
+
+    @Test
     void determineProfile_localBatchIngestAndRemember_returnsEmbeddedProfile() {
         assertThat(SpectorCliApplication.determineProfile(new String[]{"ingest", "--root", "/data/docs"})).isEqualTo("cli-embedded");
         assertThat(SpectorCliApplication.determineProfile(new String[]{"remember", "--root", "/data/docs"})).isEqualTo("cli-embedded");
+        // Config-driven local batch (no --content or --file)
+        assertThat(SpectorCliApplication.determineProfile(new String[]{"remember", "--config", "spector.yml"})).isEqualTo("cli-embedded");
+        assertThat(SpectorCliApplication.determineProfile(new String[]{"ingest", "--config", "spector.yml"})).isEqualTo("cli-embedded");
+    }
+
+    @Test
+    void determineProfile_explicitProfileFlags_respected() {
+        assertThat(SpectorCliApplication.determineProfile(new String[]{"status", "--profile=cli-embedded"})).isEqualTo("cli-embedded");
+        assertThat(SpectorCliApplication.determineProfile(new String[]{"status", "--profile", "cli-embedded"})).isEqualTo("cli-embedded");
+        assertThat(SpectorCliApplication.determineProfile(new String[]{"mcp", "--profile=cli-remote"})).isEqualTo("cli-remote");
     }
 }
