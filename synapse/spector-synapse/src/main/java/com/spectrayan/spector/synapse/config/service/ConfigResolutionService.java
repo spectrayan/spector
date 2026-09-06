@@ -132,7 +132,7 @@ public class ConfigResolutionService {
         return repository.delete(scope, category);
     }
 
-    // ── System Defaults (env vars + hardcoded) ──
+    // ── System Defaults (projected from SpectorProperties aggregate snapshot) ──
 
     private Map<String, Object> systemDefaults(ConfigCategory category) {
         return switch (category) {
@@ -143,38 +143,47 @@ public class ConfigResolutionService {
         };
     }
 
-    private Map<String, Object> llmDefaults() {
+    private static Map<String, Object> llmDefaults() {
+        var props = com.spectrayan.spector.config.SpectorProperties.load();
+        var gen = props.provider() != null ? props.provider().getGeneration() : null;
         var map = new LinkedHashMap<String, Object>();
-        map.put("provider", "ollama");
-        map.put("model", envOr("SPECTOR_OLLAMA_MODEL", "llama3.2"));
-        map.put("base-url", envOr("SPECTOR_OLLAMA_BASE_URL", "http://localhost:11434"));
-        map.put("temperature", 0.7);
-        map.put("api-key", "");
+        map.put("provider", gen != null && gen.getType() != null ? gen.getType() : "ollama");
+        map.put("model", gen != null && gen.getModel() != null ? gen.getModel() : "llama3.2");
+        map.put("base-url", gen != null && gen.getBaseUrl() != null ? gen.getBaseUrl() : "http://localhost:11434");
+        double temp = 0.7;
+        if (gen != null && gen.getProperties() != null && gen.getProperties().containsKey("temperature")) {
+            try {
+                temp = Double.parseDouble(gen.getProperties().get("temperature"));
+            } catch (NumberFormatException ignored) {}
+        }
+        map.put("temperature", temp);
+        map.put("api-key", gen != null && gen.getApiKey() != null ? gen.getApiKey() : "");
         return map;
     }
 
     private static Map<String, Object> ingestionDefaults() {
+        var props = com.spectrayan.spector.config.SpectorProperties.load();
+        var chunk = props.memory() != null && props.memory().getRemember() != null
+                ? props.memory().getRemember().getChunk() : null;
         var map = new LinkedHashMap<String, Object>();
-        map.put("chunk-size", 800);
-        map.put("chunk-overlap", 100);
+        map.put("chunk-size", chunk != null && chunk.getSize() > 0 ? chunk.getSize() : 2500);
+        map.put("chunk-overlap", chunk != null && chunk.getOverlap() >= 0 ? chunk.getOverlap() : 200);
         map.put("parent-child-linking", false);
         return map;
     }
 
     private static Map<String, Object> ragDefaults() {
+        var props = com.spectrayan.spector.config.SpectorProperties.load();
+        int topK = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_QUERY_DEFAULT_TOP_K;
+        float similarityThreshold = props.memory() != null ? props.memory().getGraphExpansionThreshold() : 0.7f;
         var map = new LinkedHashMap<String, Object>();
-        map.put("top-k", 5);
-        map.put("similarity-threshold", 0.7);
+        map.put("top-k", topK);
+        map.put("similarity-threshold", (double) similarityThreshold);
         return map;
     }
 
     private void mergeOverrides(Map<String, Object> effective, Map<String, Object> overrides) {
         overrides.forEach((key, value) -> { if (value != null) effective.put(key, value); });
-    }
-
-    private static String envOr(String key, String defaultValue) {
-        String val = System.getenv(key);
-        return (val != null && !val.isBlank()) ? val : defaultValue;
     }
 
     /** Configuration value with source annotation for UI override badges. */
