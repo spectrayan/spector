@@ -15,12 +15,7 @@
  */
 package com.spectrayan.spector.config;
 
-import com.spectrayan.spector.config.properties.HnswProperties;
-import com.spectrayan.spector.config.properties.IngestionProperties;
-import com.spectrayan.spector.config.properties.IvfProperties;
-import com.spectrayan.spector.config.properties.MemoryProperties;
-import com.spectrayan.spector.config.properties.ProviderProperties;
-import com.spectrayan.spector.config.properties.SpectrumProperties;
+import com.spectrayan.spector.config.properties.*;
 
 import java.io.Serializable;
 import java.nio.file.Path;
@@ -71,6 +66,11 @@ public final class SpectorProperties implements Serializable {
     private final HnswProperties hnsw;
     private final IvfProperties ivf;
     private final SpectrumProperties spectrum;
+    private final TelemetryProperties telemetry;
+    private final MultimodalProperties multimodal;
+    private final HardwareProperties hardware;
+    private final EventsProperties events;
+    private final ConcurrencyProperties concurrency;
     private final transient SpectorConfigSource source;
 
     /**
@@ -83,12 +83,34 @@ public final class SpectorProperties implements Serializable {
                       IvfProperties ivf,
                       SpectrumProperties spectrum,
                       SpectorConfigSource source) {
+        this(memory, provider, ingestion, hnsw, ivf, spectrum,
+                new TelemetryProperties(), new MultimodalProperties(), new HardwareProperties(),
+                new EventsProperties(), new ConcurrencyProperties(), source);
+    }
+
+    SpectorProperties(MemoryProperties memory,
+                      ProviderProperties provider,
+                      IngestionProperties ingestion,
+                      HnswProperties hnsw,
+                      IvfProperties ivf,
+                      SpectrumProperties spectrum,
+                      TelemetryProperties telemetry,
+                      MultimodalProperties multimodal,
+                      HardwareProperties hardware,
+                      EventsProperties events,
+                      ConcurrencyProperties concurrency,
+                      SpectorConfigSource source) {
         this.memory = memory != null ? memory : new MemoryProperties();
         this.provider = provider != null ? provider : new ProviderProperties();
         this.ingestion = ingestion != null ? ingestion : new IngestionProperties();
         this.hnsw = hnsw;
         this.ivf = ivf;
         this.spectrum = spectrum;
+        this.telemetry = telemetry != null ? telemetry : new TelemetryProperties();
+        this.multimodal = multimodal != null ? multimodal : new MultimodalProperties();
+        this.hardware = hardware != null ? hardware : new HardwareProperties();
+        this.events = events != null ? events : new EventsProperties();
+        this.concurrency = concurrency != null ? concurrency : new ConcurrencyProperties();
         this.source = source;
     }
 
@@ -191,6 +213,41 @@ public final class SpectorProperties implements Serializable {
      * Maps to {@code spector.spectrum.*} namespace.
      */
     public SpectrumProperties spectrum() { return spectrum; }
+
+    /**
+     * Returns the Telemetry configuration.
+     * Maps to {@code spector.telemetry.*} namespace.
+     */
+    public TelemetryProperties telemetry() { return telemetry; }
+    public TelemetryProperties getTelemetry() { return telemetry; }
+
+    /**
+     * Returns the Multimodal sensory media configuration.
+     * Maps to {@code spector.multimodal.*} namespace.
+     */
+    public MultimodalProperties multimodal() { return multimodal; }
+    public MultimodalProperties getMultimodal() { return multimodal; }
+
+    /**
+     * Returns the Hardware & GPU configuration.
+     * Maps to {@code spector.hardware.*} and {@code spector.gpu.*} namespaces.
+     */
+    public HardwareProperties hardware() { return hardware; }
+    public HardwareProperties getHardware() { return hardware; }
+
+    /**
+     * Returns the Event Bus configuration.
+     * Maps to {@code spector.events.*} namespace.
+     */
+    public EventsProperties events() { return events; }
+    public EventsProperties getEvents() { return events; }
+
+    /**
+     * Returns the Concurrency configuration.
+     * Maps to {@code spector.concurrency.*} namespace.
+     */
+    public ConcurrencyProperties concurrency() { return concurrency; }
+    public ConcurrencyProperties getConcurrency() { return concurrency; }
 
     /**
      * Returns the underlying raw configuration source.

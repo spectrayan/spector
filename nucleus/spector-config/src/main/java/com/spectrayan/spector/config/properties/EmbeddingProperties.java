@@ -41,6 +41,7 @@ public class EmbeddingProperties implements Serializable {
     private Duration timeout = DEFAULT_PROVIDER_EMBEDDING_TIMEOUT;
     private CacheProperties cache = new CacheProperties();
     private Map<String, String> properties = Map.of();
+    private boolean sequential = DEFAULT_EMBEDDING_SEQUENTIAL;
 
     public EmbeddingProperties() {}
 
@@ -154,6 +155,10 @@ public class EmbeddingProperties implements Serializable {
         public Duration getStatsLogInterval() { return statsLogInterval; }
         public void setStatsLogInterval(Duration statsLogInterval) { if (statsLogInterval != null) this.statsLogInterval = statsLogInterval; }
     }
+
+    public boolean isSequential() { return sequential; }
+    public void setSequential(boolean sequential) { this.sequential = sequential; }
+    public boolean sequential() { return isSequential(); }
 
     public String type() { return getType(); }
     public String model() { return getModel(); }

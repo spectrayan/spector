@@ -40,6 +40,22 @@ public class MemoryProperties implements Serializable {
     private int dimensions = DEFAULT_MEMORY_DIMENSIONS;
     private int capacity = DEFAULT_MEMORY_CAPACITY;
     private int nodesPerPartition = DEFAULT_MEMORY_NODES_PER_PARTITION;
+    private int workingCapacity = DEFAULT_MEMORY_WORKING_CAPACITY;
+    private int episodicPartitionCapacity = DEFAULT_MEMORY_EPISODIC_PARTITION_CAPACITY;
+    private int semanticCapacity = DEFAULT_MEMORY_SEMANTIC_CAPACITY;
+    private int proceduralCapacity = DEFAULT_MEMORY_PROCEDURAL_CAPACITY;
+    private int entityGraphCapacity = DEFAULT_MEMORY_ENTITY_GRAPH_CAPACITY;
+    private int pinnedQuota = DEFAULT_MEMORY_PINNED_QUOTA;
+    private int checkpointIntervalSeconds = DEFAULT_MEMORY_CHECKPOINT_INTERVAL_SECONDS;
+
+    private long textSegmentSize = DEFAULT_MEMORY_TEXT_SEGMENT_SIZE;
+    private long episodicSegmentSize = DEFAULT_MEMORY_EPISODIC_SEGMENT_SIZE;
+    private boolean persistWorkingMemory = DEFAULT_MEMORY_PERSIST_WORKING_MEMORY;
+    private boolean pinSourceEpisodes = DEFAULT_MEMORY_PIN_SOURCE_EPISODES;
+
+    private String idStrategy = DEFAULT_MEMORY_ID_STRATEGY;
+    private String edgeImportance = DEFAULT_MEMORY_EDGE_IMPORTANCE;
+    private String namespaceId = DEFAULT_MEMORY_NAMESPACE_ID;
 
     private RememberTier defaultIngestionTier = DEFAULT_MEMORY_DEFAULT_INGESTION_TIER;
     private HnswPrefilterMode hnswPrefilter = DEFAULT_MEMORY_HNSW_PREFILTER;
@@ -80,11 +96,16 @@ public class MemoryProperties implements Serializable {
     private int entityExtractionParallelism = DEFAULT_MEMORY_ENTITY_EXTRACTION_PARALLELISM;
     private int entityExtractionQueueCapacity = DEFAULT_MEMORY_ENTITY_EXTRACTION_QUEUE_CAPACITY;
 
-    // ─── Sub-Domain Children (Phase 2) ───
+    // ─── Sub-Domain Children ───
     private RecallProperties recall = new RecallProperties();
     private RememberProperties remember = new RememberProperties();
     private GraphProperties graph = new GraphProperties();
     private CircadianProperties circadian = new CircadianProperties();
+    private DreamProperties dream = new DreamProperties();
+    private TwoFactorProperties twofactor = new TwoFactorProperties();
+    private WalProperties wal = new WalProperties();
+    private VacuumProperties vacuum = new VacuumProperties();
+    private SessionProperties session = new SessionProperties();
     private int maxNamespaces = 100;
     private boolean pathwayEnabled = true;
 
@@ -395,4 +416,90 @@ public class MemoryProperties implements Serializable {
     public boolean isPathwayEnabled() { return pathwayEnabled; }
     public void setPathwayEnabled(boolean pathwayEnabled) { this.pathwayEnabled = pathwayEnabled; }
     public boolean pathwayEnabled() { return pathwayEnabled; }
+
+    public int getWorkingCapacity() { return workingCapacity; }
+    public void setWorkingCapacity(int workingCapacity) { this.workingCapacity = workingCapacity; }
+    public int workingCapacity() { return workingCapacity; }
+
+    public int getEpisodicPartitionCapacity() { return episodicPartitionCapacity; }
+    public void setEpisodicPartitionCapacity(int episodicPartitionCapacity) { this.episodicPartitionCapacity = episodicPartitionCapacity; }
+    public int episodicPartitionCapacity() { return episodicPartitionCapacity; }
+
+    public int getSemanticCapacity() { return semanticCapacity; }
+    public void setSemanticCapacity(int semanticCapacity) { this.semanticCapacity = semanticCapacity; }
+    public int semanticCapacity() { return semanticCapacity; }
+
+    public int getProceduralCapacity() { return proceduralCapacity; }
+    public void setProceduralCapacity(int proceduralCapacity) { this.proceduralCapacity = proceduralCapacity; }
+    public int proceduralCapacity() { return proceduralCapacity; }
+
+    public int getEntityGraphCapacity() { return entityGraphCapacity; }
+    public void setEntityGraphCapacity(int entityGraphCapacity) { this.entityGraphCapacity = entityGraphCapacity; }
+    public int entityGraphCapacity() { return entityGraphCapacity; }
+
+    public int getPinnedQuota() { return pinnedQuota; }
+    public void setPinnedQuota(int pinnedQuota) { this.pinnedQuota = pinnedQuota; }
+    public int pinnedQuota() { return pinnedQuota; }
+
+    public int getCheckpointIntervalSeconds() { return checkpointIntervalSeconds; }
+    public void setCheckpointIntervalSeconds(int checkpointIntervalSeconds) { this.checkpointIntervalSeconds = checkpointIntervalSeconds; }
+    public int checkpointIntervalSeconds() { return checkpointIntervalSeconds; }
+
+    public long getTextSegmentSize() { return textSegmentSize; }
+    public void setTextSegmentSize(long textSegmentSize) { this.textSegmentSize = textSegmentSize; }
+    public long textSegmentSize() { return textSegmentSize; }
+
+    public long getEpisodicSegmentSize() { return episodicSegmentSize; }
+    public void setEpisodicSegmentSize(long episodicSegmentSize) { this.episodicSegmentSize = episodicSegmentSize; }
+    public long episodicSegmentSize() { return episodicSegmentSize; }
+
+    public boolean isPersistWorkingMemory() { return persistWorkingMemory; }
+    public void setPersistWorkingMemory(boolean persistWorkingMemory) { this.persistWorkingMemory = persistWorkingMemory; }
+    public boolean persistWorkingMemory() { return persistWorkingMemory; }
+
+    public boolean isPinSourceEpisodes() { return pinSourceEpisodes; }
+    public void setPinSourceEpisodes(boolean pinSourceEpisodes) { this.pinSourceEpisodes = pinSourceEpisodes; }
+    public boolean pinSourceEpisodes() { return pinSourceEpisodes; }
+
+    public String getIdStrategy() { return idStrategy; }
+    public void setIdStrategy(String idStrategy) { this.idStrategy = idStrategy; }
+    public String idStrategy() { return idStrategy; }
+
+    public String getEdgeImportance() { return edgeImportance; }
+    public void setEdgeImportance(String edgeImportance) { this.edgeImportance = edgeImportance; }
+    public String edgeImportance() { return edgeImportance; }
+
+    public String getNamespaceId() { return namespaceId; }
+    public void setNamespaceId(String namespaceId) { this.namespaceId = namespaceId; }
+    public String namespaceId() { return namespaceId; }
+
+    public DreamProperties getDream() { return dream; }
+    public void setDream(DreamProperties dream) {
+        if (dream != null) this.dream = dream;
+    }
+    public DreamProperties dream() { return dream; }
+
+    public TwoFactorProperties getTwofactor() { return twofactor; }
+    public void setTwofactor(TwoFactorProperties twofactor) {
+        if (twofactor != null) this.twofactor = twofactor;
+    }
+    public TwoFactorProperties twofactor() { return twofactor; }
+
+    public WalProperties getWal() { return wal; }
+    public void setWal(WalProperties wal) {
+        if (wal != null) this.wal = wal;
+    }
+    public WalProperties wal() { return wal; }
+
+    public VacuumProperties getVacuum() { return vacuum; }
+    public void setVacuum(VacuumProperties vacuum) {
+        if (vacuum != null) this.vacuum = vacuum;
+    }
+    public VacuumProperties vacuum() { return vacuum; }
+
+    public SessionProperties getSession() { return session; }
+    public void setSession(SessionProperties session) {
+        if (session != null) this.session = session;
+    }
+    public SessionProperties session() { return session; }
 }

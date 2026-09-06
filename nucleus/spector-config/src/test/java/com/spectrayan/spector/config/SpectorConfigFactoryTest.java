@@ -178,4 +178,49 @@ class SpectorConfigFactoryTest {
         assertThat(memoryPathway.getRecall().getEngine()).isEqualTo("pathway");
         assertThat(memoryPathway.isPathwayEnabled()).isTrue();
     }
+
+    @Test
+    void spectorProperties_allDomainsAndSubDomainsPopulated() {
+        SpectorConfigSource source = SpectorConfigSource.builder()
+                .override("spector.memory.working-capacity", "200")
+                .override("spector.memory.text-segment-size", "2048")
+                .override("spector.memory.episodic-segment-size", "4096")
+                .override("spector.memory.dream.max-dreams-per-cycle", "5")
+                .override("spector.memory.twofactor.enabled", "false")
+                .override("spector.memory.twofactor.s-gain", "0.4")
+                .override("spector.memory.wal.max-chunk-bytes", "1048576")
+                .override("spector.memory.vacuum.threshold", "0.25")
+                .override("spector.memory.session.buffer-size", "100")
+                .override("spector.memory.session.buffer-ttl-ms", "120000")
+                .override("spector.telemetry.enabled", "true")
+                .override("spector.telemetry.interval-ms", "5000")
+                .override("spector.hardware.gpu-batch-threshold", "64")
+                .override("spector.events.async", "false")
+                .override("spector.concurrency.structured", "true")
+                .build();
+
+        SpectorProperties props = SpectorConfigFactory.spectorProperties(source);
+
+        // Memory capacities and segment sizes
+        assertThat(props.memory().getWorkingCapacity()).isEqualTo(200);
+        assertThat(props.memory().getTextSegmentSize()).isEqualTo(2048L);
+        assertThat(props.memory().getEpisodicSegmentSize()).isEqualTo(4096L);
+
+        // Sub-domains of memory
+        assertThat(props.memory().getDream().getMaxDreamsPerCycle()).isEqualTo(5);
+        assertThat(props.memory().getTwofactor().isEnabled()).isFalse();
+        assertThat(props.memory().getTwofactor().getSGain()).isEqualTo(0.4f);
+        assertThat(props.memory().getWal().getMaxChunkBytes()).isEqualTo(1048576);
+        assertThat(props.memory().getVacuum().getThreshold()).isEqualTo(0.25f);
+        assertThat(props.memory().getSession().getBufferSize()).isEqualTo(100);
+        assertThat(props.memory().getSession().getBufferTtlMs()).isEqualTo(120000L);
+
+        // Aggregate root domains
+        assertThat(props.telemetry().isEnabled()).isTrue();
+        assertThat(props.telemetry().getIntervalMs()).isEqualTo(5000L);
+        assertThat(props.multimodal()).isNotNull();
+        assertThat(props.hardware().getGpuBatchThreshold()).isEqualTo(64);
+        assertThat(props.events().isAsync()).isFalse();
+        assertThat(props.concurrency().isStructured()).isTrue();
+    }
 }

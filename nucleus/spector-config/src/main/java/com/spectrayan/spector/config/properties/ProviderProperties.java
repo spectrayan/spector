@@ -28,6 +28,7 @@ public class ProviderProperties implements Serializable {
 
     private EmbeddingProperties embedding = new EmbeddingProperties();
     private GenerationProperties generation = new GenerationProperties();
+    private boolean sslInsecure = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_PROVIDER_SSL_INSECURE;
 
     public ProviderProperties() {}
 
@@ -41,7 +42,11 @@ public class ProviderProperties implements Serializable {
         if (generation != null) this.generation = generation;
     }
 
+    public boolean isSslInsecure() { return sslInsecure; }
+    public void setSslInsecure(boolean sslInsecure) { this.sslInsecure = sslInsecure; }
+
     // Record-style accessors
     public EmbeddingProperties embedding() { return getEmbedding(); }
     public GenerationProperties generation() { return getGeneration(); }
+    public boolean sslInsecure() { return isSslInsecure(); }
 }

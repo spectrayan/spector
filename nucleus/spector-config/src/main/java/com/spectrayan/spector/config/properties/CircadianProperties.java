@@ -58,4 +58,10 @@ public class CircadianProperties implements Serializable {
     public float getInterferenceDecayFactor() { return interferenceDecayFactor; }
     public void setInterferenceDecayFactor(float interferenceDecayFactor) { this.interferenceDecayFactor = interferenceDecayFactor; }
     public float interferenceDecayFactor() { return interferenceDecayFactor; }
+
+    private String orchestrator = "";
+
+    public String getOrchestrator() { return orchestrator; }
+    public void setOrchestrator(String orchestrator) { this.orchestrator = orchestrator; }
+    public String orchestrator() { return orchestrator; }
 }
