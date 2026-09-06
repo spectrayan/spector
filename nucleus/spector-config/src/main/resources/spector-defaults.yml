@@ -153,9 +153,12 @@ spector:
     procedural-capacity: 1000
     entity-graph-capacity: 50000
     pinned-quota: 10000
+    provenance-capacity: 8192
     checkpoint-interval-seconds: 30
     decay-enabled: true
     consolidation-interval: 60s
+    consolidation:
+      eager-queue-capacity: 256
     default-ingestion-tier: SEMANTIC
     hnsw-prefilter: auto
     tag-extractor: content
@@ -198,6 +201,7 @@ spector:
       adj-decay-factor: 0.95
       adj-prune-threshold: 0.2
       merge-distance: 2
+      max-relations-per-memory: 20
     cross-capture:
       min-weight: 2.0
       scale-factor: 0.05

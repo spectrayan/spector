@@ -227,6 +227,9 @@ public final class SpectorMemoryBuilder {
     // Cognitive Pathway Engine (#561) — default engine (legacy pipeline deprecated)
     private boolean usePathwayEngine = true;
 
+    // Events async mode (from EventsProperties)
+    private boolean eventsAsync = false;
+
     // Active Inference Self-Model Engine (AISME) (#597)
     private com.spectrayan.spector.memory.aisme.config.AismeConfig aismeConfig = com.spectrayan.spector.memory.aisme.config.AismeConfig.disabled();
     private com.spectrayan.spector.memory.model.AgentSoul agentSoul;
@@ -242,7 +245,16 @@ public final class SpectorMemoryBuilder {
 
     /** Creates a new builder instance seeded with defaults from {@link com.spectrayan.spector.config.SpectorProperties#load()}. */
     public static SpectorMemoryBuilder create() {
-        return new SpectorMemoryBuilder().fromProperties(com.spectrayan.spector.config.SpectorProperties.load());
+        com.spectrayan.spector.config.SpectorProperties props = com.spectrayan.spector.config.SpectorProperties.load();
+        if (props.hardware() != null) {
+            com.spectrayan.spector.core.spi.AcceleratorRegistry.setBatchThreshold(
+                    props.hardware().getGpuBatchThreshold());
+        }
+        if (props.concurrency() != null) {
+            com.spectrayan.spector.commons.concurrent.ConcurrentTasks.setStructuredEnabled(
+                    props.concurrency().isStructured());
+        }
+        return new SpectorMemoryBuilder().fromProperties(props);
     }
 
     /** Creates a new unseeded builder instance without loading system defaults. */
@@ -252,6 +264,16 @@ public final class SpectorMemoryBuilder {
 
     /** Creates a new builder instance initialized from explicit {@link com.spectrayan.spector.config.SpectorProperties}. */
     public static SpectorMemoryBuilder create(com.spectrayan.spector.config.SpectorProperties props) {
+        if (props != null) {
+            if (props.hardware() != null) {
+                com.spectrayan.spector.core.spi.AcceleratorRegistry.setBatchThreshold(
+                        props.hardware().getGpuBatchThreshold());
+            }
+            if (props.concurrency() != null) {
+                com.spectrayan.spector.commons.concurrent.ConcurrentTasks.setStructuredEnabled(
+                        props.concurrency().isStructured());
+            }
+        }
         return new SpectorMemoryBuilder().fromProperties(props);
     }
 
@@ -290,6 +312,11 @@ public final class SpectorMemoryBuilder {
      */
     @Deprecated
     public SpectorMemoryBuilder usePathwayEngine(boolean enable) { this.usePathwayEngine = enable; return this; }
+
+    public SpectorMemoryBuilder eventsAsync(boolean eventsAsync) {
+        this.eventsAsync = eventsAsync;
+        return this;
+    }
 
     /** Sets the Active Inference Self-Model Engine (AISME) configuration (#597). */
     public SpectorMemoryBuilder aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig config) {
@@ -724,13 +751,8 @@ public final class SpectorMemoryBuilder {
                 this.embedBatchSize = batchSize;
             }
         }
-        if (props.hardware() != null) {
-            com.spectrayan.spector.core.spi.AcceleratorRegistry.setBatchThreshold(
-                    props.hardware().getGpuBatchThreshold());
-        }
-        if (props.concurrency() != null) {
-            com.spectrayan.spector.commons.concurrent.ConcurrentTasks.setStructuredEnabled(
-                    props.concurrency().isStructured());
+        if (props.events() != null) {
+            this.eventsAsync = props.events().isAsync();
         }
         return fromProperties(props.memory());
     }
@@ -789,6 +811,28 @@ public final class SpectorMemoryBuilder {
         }
         if (properties.getEntityExtractionQueueCapacity() > 0) {
             this.entityExtractionQueueCapacity = properties.getEntityExtractionQueueCapacity();
+        }
+        if (properties.getTemporalFactsInitialSize() > 0) {
+            this.temporalFactsInitialSize = properties.getTemporalFactsInitialSize();
+        }
+        if (properties.getIndexIdplSize() > 0) {
+            this.indexIdplSize = properties.getIndexIdplSize();
+        }
+        if (properties.getTypeRegistrySize() > 0) {
+            this.typeRegistrySize = properties.getTypeRegistrySize();
+        }
+        if (properties.getInsulaSize() > 0) {
+            this.insulaSize = properties.getInsulaSize();
+        }
+        if (properties.getEntityExtractionParallelism() > 0) {
+            this.entityExtractionParallelism = properties.getEntityExtractionParallelism();
+        }
+        if (properties.getProvenanceCapacity() > 0) {
+            this.provenanceCapacity = properties.getProvenanceCapacity();
+        }
+        var consolidation = properties.getConsolidation();
+        if (consolidation != null && consolidation.getEagerQueueCapacity() > 0) {
+            this.eagerConsolidationQueueCapacity = consolidation.getEagerQueueCapacity();
         }
         this.useBundleMode = properties.isBundleMode();
         if (properties.getPersistencePath() != null && !properties.getPersistencePath().isBlank()) {
@@ -876,6 +920,7 @@ public final class SpectorMemoryBuilder {
             if (entity != null) {
                 this.entityMaxDegree = entity.getMaxDegree();
                 this.maxEntitiesPerMemory = entity.getMaxPerMemory();
+                this.maxRelationsPerMemory = entity.getMaxRelationsPerMemory();
                 this.entityResolutionEnabled = entity.isResolutionEnabled();
                 this.entityShadowMode = entity.isShadowMode();
                 this.entityCosineThreshold = entity.getCosineThreshold();
@@ -1031,6 +1076,7 @@ public final class SpectorMemoryBuilder {
     public int provenanceCapacity() { return provenanceCapacity; }
     public int eagerConsolidationQueueCapacity() { return eagerConsolidationQueueCapacity; }
     public boolean usePathwayEngine() { return usePathwayEngine; }
+    public boolean eventsAsync() { return eventsAsync; }
     public com.spectrayan.spector.memory.aisme.config.AismeConfig aismeConfig() { return aismeConfig; }
     public com.spectrayan.spector.memory.model.AgentSoul agentSoul() { return agentSoul; }
     public com.spectrayan.spector.memory.model.SoulContext soul() { return soul; }

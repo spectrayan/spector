@@ -217,6 +217,8 @@ public final class SpectorConfigFactory {
         var consolidation = properties.getConsolidation();
         Duration interval = props.getDuration(MEMORY_CONSOLIDATION_INTERVAL, DEFAULT_MEMORY_CONSOLIDATION_INTERVAL);
         consolidation.setInterval(interval.toMillis());
+        consolidation.setEagerQueueCapacity(props.getInt(MEMORY_EAGER_CONSOLIDATION_QUEUE_CAPACITY,
+                DEFAULT_MEMORY_EAGER_CONSOLIDATION_QUEUE_CAPACITY));
 
         var aisme = aismeProperties(props);
         properties.setAisme(aisme);
@@ -261,6 +263,7 @@ public final class SpectorConfigFactory {
         properties.setNamespaceId(props.getString(MEMORY_NAMESPACE_ID, DEFAULT_MEMORY_NAMESPACE_ID));
 
         properties.setMaxNamespaces(props.getInt("spector.memory.max-namespaces", 100));
+        properties.setProvenanceCapacity(props.getInt(MEMORY_PROVENANCE_CAPACITY, DEFAULT_MEMORY_PROVENANCE_CAPACITY));
 
         // Pathway enabled — respect explicit boolean, or derive from recall.engine
         boolean pathwayDefault = true;
@@ -546,6 +549,7 @@ public final class SpectorConfigFactory {
         entity.setAdjDecayFactor((float) props.getDouble("spector.memory.entity.adj-decay-factor", 0.95));
         entity.setAdjPruneThreshold((float) props.getDouble("spector.memory.entity.adj-prune-threshold", 0.2));
         entity.setMergeDistance(props.getInt("spector.memory.entity.merge-distance", 2));
+        entity.setMaxRelationsPerMemory(props.getInt(MEMORY_RELATION_MAX_PER_MEM, DEFAULT_MEMORY_RELATION_MAX_PER_MEM));
 
         return graph;
     }

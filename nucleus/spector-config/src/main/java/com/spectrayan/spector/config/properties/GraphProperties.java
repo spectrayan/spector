@@ -175,6 +175,7 @@ public class GraphProperties implements Serializable {
         private float adjDecayFactor = 0.95f;
         private float adjPruneThreshold = 0.2f;
         private int mergeDistance = 2;
+        private int maxRelationsPerMemory = 20;
 
         public String getExtractionMode() { return extractionMode; }
         public void setExtractionMode(String extractionMode) { this.extractionMode = extractionMode; }
@@ -223,5 +224,9 @@ public class GraphProperties implements Serializable {
         public int getMergeDistance() { return mergeDistance; }
         public void setMergeDistance(int mergeDistance) { this.mergeDistance = mergeDistance; }
         public int mergeDistance() { return mergeDistance; }
+
+        public int getMaxRelationsPerMemory() { return maxRelationsPerMemory; }
+        public void setMaxRelationsPerMemory(int maxRelationsPerMemory) { if (maxRelationsPerMemory > 0) this.maxRelationsPerMemory = maxRelationsPerMemory; }
+        public int maxRelationsPerMemory() { return maxRelationsPerMemory; }
     }
 }

@@ -22,6 +22,7 @@ import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.codec.XxHash64;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractAppendMemory;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -150,7 +151,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
     }
 
     private static long calculateInitialSize(Path file, Map<String, TextEntry> legacyEntries, long configuredSegmentSize) {
-        long size = configuredSegmentSize > 0 ? configuredSegmentSize : 32 * 1024 * 1024L; // 32MB default
+        long size = configuredSegmentSize > 0 ? configuredSegmentSize : SpectorPropertyConstants.DEFAULT_MEMORY_TEXT_SEGMENT_SIZE;
         if (legacyEntries != null && !legacyEntries.isEmpty()) {
             long totalBytes = 0;
             for (TextEntry entry : legacyEntries.values()) {

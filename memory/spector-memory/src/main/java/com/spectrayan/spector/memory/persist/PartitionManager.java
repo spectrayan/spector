@@ -37,6 +37,7 @@ import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorServerException;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -409,7 +410,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                 Path bundleFile = StorageLayout.partitionBundleFile(newPartition);
                 EngramLayout cogLayout = new EngramLayout(quantizedVecBytes);
                 TextBlobLayout textLayout = new TextBlobLayout();
-                long textSize = textSegmentSize > 0 ? textSegmentSize : (32 * 1024 * 1024L);
+                long textSize = textSegmentSize > 0 ? textSegmentSize : SpectorPropertyConstants.DEFAULT_MEMORY_TEXT_SEGMENT_SIZE;
                 long episodicSize = episodicSegmentSize > 0 ? episodicSegmentSize :
                         ((long) episodicPartitionCapacity * cogLayout.stride());
 

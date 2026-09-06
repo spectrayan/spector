@@ -75,6 +75,7 @@ public class MemoryProperties implements Serializable {
     private int typeRegistryCapacity = DEFAULT_MEMORY_TYPE_REGISTRY_CAPACITY;
     private long typeRegistrySize = DEFAULT_MEMORY_TYPE_REGISTRY_SIZE;
     private long insulaSize = DEFAULT_MEMORY_INSULA_SIZE;
+    private int provenanceCapacity = DEFAULT_MEMORY_PROVENANCE_CAPACITY;
 
     private String graphExpansionMode = DEFAULT_MEMORY_GRAPH_EXPANSION_MODE;
     private float graphExpansionThreshold = DEFAULT_MEMORY_GRAPH_EXPANSION_THRESHOLD;
@@ -308,6 +309,10 @@ public class MemoryProperties implements Serializable {
     public long getInsulaSize() { return insulaSize; }
     public void setInsulaSize(long insulaSize) { this.insulaSize = insulaSize; }
     public long insulaSize() { return insulaSize; }
+
+    public int getProvenanceCapacity() { return provenanceCapacity; }
+    public void setProvenanceCapacity(int provenanceCapacity) { if (provenanceCapacity > 0) this.provenanceCapacity = provenanceCapacity; }
+    public int provenanceCapacity() { return provenanceCapacity; }
 
     public int getEntityExtractionParallelism() { return entityExtractionTaskQueue.getParallelism(); }
     public void setEntityExtractionParallelism(int entityExtractionParallelism) { this.entityExtractionTaskQueue.setParallelism(entityExtractionParallelism); }

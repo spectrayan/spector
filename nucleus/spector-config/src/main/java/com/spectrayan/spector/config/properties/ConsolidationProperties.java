@@ -28,6 +28,7 @@ public class ConsolidationProperties implements Serializable {
 
     private long interval = DEFAULT_CONSOLIDATION_INTERVAL.toMillis();
     private int maxPriorContextTurns = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_CONSOLIDATION_REFLECTION_MAX_PRIOR_CONTEXT_TURNS;
+    private int eagerQueueCapacity = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_EAGER_CONSOLIDATION_QUEUE_CAPACITY;
 
     public ConsolidationProperties() {}
 
@@ -69,4 +70,10 @@ public class ConsolidationProperties implements Serializable {
     }
 
     public int maxPriorContextTurns() { return getMaxPriorContextTurns(); }
+
+    public int getEagerQueueCapacity() { return eagerQueueCapacity; }
+    public void setEagerQueueCapacity(int eagerQueueCapacity) {
+        if (eagerQueueCapacity > 0) this.eagerQueueCapacity = eagerQueueCapacity;
+    }
+    public int eagerQueueCapacity() { return eagerQueueCapacity; }
 }

@@ -56,6 +56,7 @@ import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -265,7 +266,7 @@ public final class CognitiveCortexBuilder {
 
             EngramLayout cogLayout = new EngramLayout(quantizedVecBytes);
             TextBlobLayout textLayout = new TextBlobLayout();
-            long textSize = builder.textSegmentSize() > 0 ? builder.textSegmentSize() : (32 * 1024 * 1024L);
+            long textSize = builder.textSegmentSize() > 0 ? builder.textSegmentSize() : SpectorPropertyConstants.DEFAULT_MEMORY_TEXT_SEGMENT_SIZE;
             long episodicSize = builder.episodicSegmentSize() > 0 ? builder.episodicSegmentSize() :
                     ((long) builder.episodicPartitionCapacity() * cogLayout.stride());
 

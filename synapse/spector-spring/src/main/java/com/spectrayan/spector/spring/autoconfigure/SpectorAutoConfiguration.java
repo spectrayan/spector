@@ -34,6 +34,7 @@ import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.metrics.MeteredSpectorMemory;
 import com.spectrayan.spector.metrics.SpectorMetrics;
 
@@ -144,32 +145,10 @@ public class SpectorAutoConfiguration {
             throw new SpectorInternalException(ErrorCode.ARGUMENT_NULL, "EmbeddingProvider bean (configure provider or set spector.memory.enabled=false)");
         }
 
-        var builder = DefaultSpectorMemory.builder()
-                .dimensions(memoryProps.getDimensions())
+        var builder = SpectorMemoryBuilder.createEmpty()
+                .fromProperties(memoryProps)
                 .embeddingProvider(embedder)
-                .persistenceMode(MemoryPersistenceMode.valueOf(memoryProps.getPersistenceMode().name()))
-                .semanticCapacity(memoryProps.getCapacity())
-                .hebbianGraphCapacity(memoryProps.getCapacity())
-                .temporalChainCapacity(memoryProps.getCapacity())
-                .entityGraphCapacity(memoryProps.getCapacity())
-                .embedBatchSize(props.getProvider().getEmbedding().getBatchSize())
-                .bundleMode(memoryProps.isBundleMode())
-                .coactivationPairCapacity(memoryProps.coactivationPairCapacity())
-                .coactivationEdgeCapacity(memoryProps.coactivationEdgeCapacity())
-                .temporalFactsInitialSize(memoryProps.temporalFactsInitialSize())
-                .indexMidxCapacity(memoryProps.indexMidxCapacity())
-                .indexIdplSize(memoryProps.indexIdplSize())
-                .typeRegistryCapacity(memoryProps.typeRegistryCapacity())
-                .typeRegistrySize(memoryProps.typeRegistrySize())
-                .insulaSize(memoryProps.insulaSize());
-
-        if (memoryProps.getPersistencePath() != null) {
-            builder.persistence(Path.of(memoryProps.getPersistencePath()));
-        }
-
-        if (memoryProps.getAisme() != null) {
-            builder.aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(memoryProps.getAisme()));
-        }
+                .embedBatchSize(props.getProvider().getEmbedding().getBatchSize());
 
         //  Entity extraction (LLM if LlmProvider is present)
         LlmProvider textGen = textGenProvider.getIfAvailable();
