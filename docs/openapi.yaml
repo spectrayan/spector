@@ -1,0 +1,6108 @@
+openapi: 3.1.0
+info:
+  title: Spector Cognitive Memory & Search API
+  description: "Ultra-fast cognitive memory, vector search, and agent orchestration\
+    \ platform with biological memory tiers (Working, Episodic, Semantic, Procedural)."
+  contact:
+    name: Spectrayan Maintainers
+    url: https://github.com/spectrayan/spector
+    email: support@spectrayan.com
+  license:
+    name: "Apache License, Version 2.0"
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  version: 1.0.0
+servers:
+- url: /
+  description: Current Server Instance
+security:
+- ApiKeyAuth: []
+- BearerAuth: []
+tags:
+- name: Memory
+  description: "Cognitive Memory Operations (Remember, Recall, Search, Forget, Reinforce,\
+    \ Inspect)"
+paths:
+  /api/v1/salience/{scope}/{id}:
+    get:
+      tags:
+      - user-salience-controller
+      operationId: getProfile
+      parameters:
+      - name: scope
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UserProfileDto"
+    put:
+      tags:
+      - user-salience-controller
+      operationId: saveProfile
+      parameters:
+      - name: scope
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveProfileRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+    delete:
+      tags:
+      - user-salience-controller
+      operationId: deleteProfile
+      parameters:
+      - name: scope
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/namespaces/{slugOrId}:
+    get:
+      tags:
+      - namespace-controller
+      operationId: getNamespace
+      parameters:
+      - name: slugOrId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NamespaceResponse"
+    put:
+      tags:
+      - namespace-controller
+      operationId: updateNamespace
+      parameters:
+      - name: slugOrId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNamespaceRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NamespaceResponse"
+    delete:
+      tags:
+      - namespace-controller
+      operationId: deleteNamespace
+      parameters:
+      - name: slugOrId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+  /api/v1/memory/{id}:
+    get:
+      tags:
+      - Memory
+      summary: Retrieve a single memory by ID
+      operationId: getMemoryById
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MemoryTableRow"
+    put:
+      tags:
+      - Memory
+      summary: Update an existing memory by ID
+      operationId: updateMemory
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemoryRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: string
+    delete:
+      tags:
+      - Memory
+      summary: Tombstone (forget) a memory by ID
+      operationId: forgetMemory
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+  /api/v1/credentials/{name}:
+    get:
+      tags:
+      - credential-controller
+      operationId: getCredential
+      parameters:
+      - name: X-Tenant-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: default
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CredentialResponse"
+    put:
+      tags:
+      - credential-controller
+      operationId: updateCredential
+      parameters:
+      - name: X-Tenant-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: default
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCredentialRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CredentialResponse"
+    delete:
+      tags:
+      - credential-controller
+      operationId: deleteCredential
+      parameters:
+      - name: X-Tenant-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: default
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: No Content
+  /api/v1/config/{category}:
+    get:
+      tags:
+      - config-controller
+      operationId: getEffective
+      parameters:
+      - name: category
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+    put:
+      tags:
+      - config-controller
+      operationId: saveOverride
+      parameters:
+      - name: category
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+    delete:
+      tags:
+      - config-controller
+      operationId: deleteOverride
+      parameters:
+      - name: category
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: scope
+        in: query
+        required: false
+        schema:
+          type: string
+          default: tenant
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/config/salience/weights:
+    put:
+      tags:
+      - salience-controller
+      operationId: updateWeights
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WeightsRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/config/salience/rescore:
+    put:
+      tags:
+      - salience-controller
+      operationId: rescoreMemories
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/config/salience/persona:
+    put:
+      tags:
+      - salience-controller
+      operationId: updatePersona
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonaContext"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/config/salience/interests:
+    put:
+      tags:
+      - salience-controller
+      operationId: updateInterests
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterestsRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/auth/users/{id}:
+    put:
+      tags:
+      - auth-controller
+      operationId: updateUser
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/agent/{id}:
+    get:
+      tags:
+      - agent-controller
+      operationId: getAgent
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentSoul"
+    put:
+      tags:
+      - agent-controller
+      operationId: updateAgent
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentSoul"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentSoul"
+    delete:
+      tags:
+      - agent-controller
+      operationId: deleteAgent
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+  /api/v1/agents/{id}:
+    get:
+      tags:
+      - agent-controller
+      operationId: getAgent_1
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentSoul"
+    put:
+      tags:
+      - agent-controller
+      operationId: updateAgent_1
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentSoul"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentSoul"
+    delete:
+      tags:
+      - agent-controller
+      operationId: deleteAgent_1
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+  /api/v1/agent/soul:
+    get:
+      tags:
+      - agent-controller
+      operationId: getSoul
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentSoul"
+    put:
+      tags:
+      - agent-controller
+      operationId: updateSoul
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentSoul"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentSoul"
+    delete:
+      tags:
+      - agent-controller
+      operationId: resetSoul
+      responses:
+        "200":
+          description: OK
+    patch:
+      tags:
+      - agent-controller
+      operationId: patchSoul
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentSoul"
+  /api/v1/agents/soul:
+    get:
+      tags:
+      - agent-controller
+      operationId: getSoul_1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentSoul"
+    put:
+      tags:
+      - agent-controller
+      operationId: updateSoul_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentSoul"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentSoul"
+    delete:
+      tags:
+      - agent-controller
+      operationId: resetSoul_1
+      responses:
+        "200":
+          description: OK
+    patch:
+      tags:
+      - agent-controller
+      operationId: patchSoul_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentSoul"
+  /api/v1/account/default-namespace:
+    put:
+      tags:
+      - account-default-controller
+      operationId: setDefaultNamespace
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetDefaultNamespaceRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+  /api/v1/usage/reset:
+    post:
+      tags:
+      - token-usage-controller
+      operationId: reset
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+  /api/v1/tasks/{id}/trigger:
+    post:
+      tags:
+      - task-management-controller
+      operationId: triggerTask
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TaskActionResponse"
+  /api/v1/tasks/{id}/resume:
+    post:
+      tags:
+      - task-management-controller
+      operationId: resumeTask
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TaskActionResponse"
+  /api/v1/tasks/{id}/reschedule-interval:
+    post:
+      tags:
+      - task-management-controller
+      operationId: rescheduleInterval
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RescheduleIntervalRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TaskActionResponse"
+  /api/v1/tasks/{id}/reschedule-cron:
+    post:
+      tags:
+      - task-management-controller
+      operationId: rescheduleCron
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RescheduleCronRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TaskActionResponse"
+  /api/v1/tasks/{id}/pause:
+    post:
+      tags:
+      - task-management-controller
+      operationId: pauseTask
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TaskActionResponse"
+  /api/v1/salience/rescore:
+    post:
+      tags:
+      - user-salience-controller
+      operationId: rescoreMemories_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/providers/generation/{name}/activate:
+    post:
+      tags:
+      - provider-controller
+      operationId: activateGeneration
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+  /api/v1/providers/embedding/{name}/activate:
+    post:
+      tags:
+      - provider-controller
+      operationId: activateEmbedding
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+  /api/v1/observability/traced-recall:
+    post:
+      tags:
+      - observability-controller
+      operationId: tracedRecall
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TracedRecallRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/namespaces:
+    get:
+      tags:
+      - namespace-controller
+      operationId: listNamespaces
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NamespaceResponse"
+    post:
+      tags:
+      - namespace-controller
+      operationId: createNamespace
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNamespaceRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NamespaceResponse"
+  /api/v1/namespaces/{slugOrId}/reset:
+    post:
+      tags:
+      - namespace-controller
+      operationId: resetNamespace
+      parameters:
+      - name: slugOrId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+  /api/v1/namespaces/{slugOrId}/legal-hold:
+    post:
+      tags:
+      - namespace-controller
+      operationId: setLegalHold
+      parameters:
+      - name: slugOrId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LegalHoldRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NamespaceResponse"
+  /api/v1/namespaces/{slugOrId}/grants:
+    get:
+      tags:
+      - namespace-controller
+      operationId: listGrants
+      parameters:
+      - name: slugOrId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GrantResponse"
+    post:
+      tags:
+      - namespace-controller
+      operationId: createGrant
+      parameters:
+      - name: slugOrId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGrantRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrantResponse"
+  /api/v1/migration/import:
+    post:
+      tags:
+      - migration-controller
+      operationId: importMemory
+      parameters:
+      - name: bundlePath
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: targetNamespace
+        in: query
+        required: false
+        schema:
+          type: string
+          default: default
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/migration/export:
+    post:
+      tags:
+      - migration-controller
+      operationId: exportMemory
+      parameters:
+      - name: namespace
+        in: query
+        required: false
+        schema:
+          type: string
+          default: default
+      - name: outputPath
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/memory:
+    post:
+      tags:
+      - Memory
+      summary: Store a cognitive memory synchronously
+      operationId: storeMemory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/StoreResponse"
+  /api/v1/memory/{id}/suppress:
+    post:
+      tags:
+      - Memory
+      summary: Suppress or unsuppress a memory from recall
+      operationId: suppressMemory
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuppressRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+  /api/v1/memory/{id}/resolve:
+    post:
+      tags:
+      - Memory
+      summary: Resolve or unresolve a memory (Zeigarnik closure)
+      operationId: resolveMemory
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/memory/{id}/reinforce:
+    post:
+      tags:
+      - Memory
+      summary: Reinforce memory via Long-Term Potentiation (LTP)
+      operationId: reinforceMemory
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReinforceByIdRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/memory/vacuum:
+    post:
+      tags:
+      - Memory
+      summary: Trigger vacuum compaction for a tier
+      operationId: vacuumMemories
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VacuumRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CompactionResult"
+  /api/v1/memory/search:
+    post:
+      tags:
+      - Memory
+      summary: Semantic similarity search
+      operationId: searchMemories
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SearchResult"
+  /api/v1/memory/remember:
+    post:
+      tags:
+      - Memory
+      summary: Remember a memory asynchronously with cognitive scoring hints
+      operationId: rememberMemory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RememberRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AcceptedResponse"
+  /api/v1/memory/reflect:
+    post:
+      tags:
+      - Memory
+      summary: Trigger sleep consolidation (reflect) sweep
+      operationId: reflectMemories
+      parameters:
+      - name: sweepId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: sessionLimit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: sessionIdAfter
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: consolidationOnly
+        in: query
+        required: false
+        schema:
+          type: boolean
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReflectRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ReflectResponse"
+  /api/v1/memory/reextract-graph:
+    post:
+      tags:
+      - Memory
+      summary: Trigger full re-extraction of entities and relationships
+      operationId: reextractGraph
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/EnrichmentTriggerResponse"
+  /api/v1/memory/recall:
+    post:
+      tags:
+      - Memory
+      summary: Cognitive recall with biological scoring
+      operationId: recallMemories
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecallRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecallResult"
+  /api/v1/memory/ingest-file:
+    post:
+      tags:
+      - Memory
+      summary: Ingest a file into memory asynchronously
+      operationId: ingestMemoryFile
+      parameters:
+      - name: tier
+        in: query
+        required: false
+        schema:
+          type: string
+          default: SEMANTIC
+      - name: source
+        in: query
+        required: false
+        schema:
+          type: string
+          default: OBSERVED
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+              - file
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AcceptedResponse"
+  /api/v1/memory/federated-recall:
+    post:
+      tags:
+      - Memory
+      summary: Cross-rememberer federated recall
+      operationId: federatedRecallMemories
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FederatedRecallRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FederatedRecallResponse"
+  /api/v1/memory/enrich-graph:
+    post:
+      tags:
+      - Memory
+      summary: Trigger asynchronous offline graph enrichment in the background
+      operationId: enrichGraph
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/EnrichmentTriggerResponse"
+  /api/v1/memory/consolidate:
+    post:
+      tags:
+      - Memory
+      summary: Trigger manual memory consolidation
+      operationId: consolidateMemories
+      responses:
+        "200":
+          description: OK
+  /api/v1/memory/bulk/suppress:
+    post:
+      tags:
+      - Memory
+      summary: Bulk suppress or unsuppress memories by ID list
+      operationId: bulkSuppressMemories
+      parameters:
+      - name: action
+        in: query
+        required: false
+        schema:
+          type: string
+          default: SUPPRESS
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/memory/bulk/reinforce:
+    post:
+      tags:
+      - Memory
+      summary: Bulk reinforce memories by ID list
+      operationId: bulkReinforceMemories
+      parameters:
+      - name: valence
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/memory/bulk/forget:
+    post:
+      tags:
+      - Memory
+      summary: Bulk forget memories by ID list
+      operationId: bulkForgetMemories
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/memory/browse:
+    post:
+      tags:
+      - Memory
+      summary: Tag-based memory browsing without vector search
+      operationId: browseMemories
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrowseRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BrowseResult"
+  /api/v1/mcp/tools/{name}/call:
+    post:
+      tags:
+      - mcp-controller
+      operationId: callTool
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/credentials:
+    get:
+      tags:
+      - credential-controller
+      operationId: listCredentials
+      parameters:
+      - name: X-Tenant-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: default
+      - name: userId
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CredentialResponse"
+    post:
+      tags:
+      - credential-controller
+      operationId: createCredential
+      parameters:
+      - name: X-Tenant-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: default
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCredentialRequest"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CredentialResponse"
+  /api/v1/credentials/{name}/test:
+    post:
+      tags:
+      - credential-controller
+      operationId: testCredential
+      parameters:
+      - name: X-Tenant-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: default
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/connectors/test:
+    post:
+      tags:
+      - connector-controller
+      operationId: testConnectionConfig
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RouteConfig"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ConnectionTestResult"
+  /api/v1/connectors/routes:
+    get:
+      tags:
+      - connector-controller
+      operationId: listRoutes
+      parameters:
+      - name: tenantId
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RouteConfig"
+    post:
+      tags:
+      - connector-controller
+      operationId: createRoute
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RouteConfig"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RouteConfig"
+  /api/v1/connectors/routes/{id}/test:
+    post:
+      tags:
+      - connector-controller
+      operationId: testConnectionForRoute
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ConnectionTestResult"
+  /api/v1/connectors/routes/{id}/stop:
+    post:
+      tags:
+      - connector-controller
+      operationId: stopRoute
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RouteConfig"
+  /api/v1/connectors/routes/{id}/start:
+    post:
+      tags:
+      - connector-controller
+      operationId: startRoute
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RouteConfig"
+  /api/v1/chat:
+    post:
+      tags:
+      - chat-controller
+      operationId: chat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentChatRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentChatResponse"
+  /api/v1/chat/agent:
+    post:
+      tags:
+      - chat-controller
+      operationId: chat_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentChatRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentChatResponse"
+  /api/v1/auth/register:
+    post:
+      tags:
+      - auth-controller
+      operationId: register
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/auth/refresh:
+    post:
+      tags:
+      - auth-controller
+      operationId: refresh
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/auth/logout:
+    post:
+      tags:
+      - auth-controller
+      operationId: logout
+      responses:
+        "200":
+          description: OK
+  /api/v1/auth/login:
+    post:
+      tags:
+      - auth-controller
+      operationId: login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/auth/change-password:
+    post:
+      tags:
+      - auth-controller
+      operationId: changePassword
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/auth/api-keys:
+    post:
+      tags:
+      - auth-controller
+      operationId: createApiKey
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateApiKeyResponse"
+  /api/v1/agents/{id}/invoke:
+    post:
+      tags:
+      - agent-controller
+      operationId: invokeAgent
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+  /api/v1/agent/{id}/invoke:
+    post:
+      tags:
+      - agent-controller
+      operationId: invokeAgent_1
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+  /api/v1/agents:
+    get:
+      tags:
+      - agent-controller
+      operationId: listAgents
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentSoul"
+    post:
+      tags:
+      - agent-controller
+      operationId: createAgent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentSoul"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentSoul"
+  /api/v1/agent:
+    get:
+      tags:
+      - agent-controller
+      operationId: listAgents_1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentSoul"
+    post:
+      tags:
+      - agent-controller
+      operationId: createAgent_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentSoul"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentSoul"
+  /api/v1/agent/approvals/{id}/reject:
+    post:
+      tags:
+      - agent-approval-controller
+      operationId: reject
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalDecisionRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /api/v1/agent/approvals/{id}/modify:
+    post:
+      tags:
+      - agent-approval-controller
+      operationId: modify
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalDecisionRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /api/v1/agent/approvals/{id}/cancel:
+    post:
+      tags:
+      - agent-approval-controller
+      operationId: cancel
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalDecisionRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /api/v1/agent/approvals/{id}/approve:
+    post:
+      tags:
+      - agent-approval-controller
+      operationId: approve
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /api/v1/usage/users/{userId}:
+    get:
+      tags:
+      - token-usage-controller
+      operationId: getUserStats
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TokenUsageStats"
+  /api/v1/usage/summary:
+    get:
+      tags:
+      - token-usage-controller
+      operationId: getSummary
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/usage/sessions/{sessionId}:
+    get:
+      tags:
+      - token-usage-controller
+      operationId: getSessionStats
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TokenUsageStats"
+  /api/v1/usage/models/{modelName}:
+    get:
+      tags:
+      - token-usage-controller
+      operationId: getModelStats
+      parameters:
+      - name: modelName
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TokenUsageStats"
+  /api/v1/usage/categories/{category}:
+    get:
+      tags:
+      - token-usage-controller
+      operationId: getCategoryStats
+      parameters:
+      - name: category
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TokenUsageStats"
+  /api/v1/tasks:
+    get:
+      tags:
+      - task-management-controller
+      operationId: listTasks
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaskStatus"
+  /api/v1/tasks/{id}:
+    get:
+      tags:
+      - task-management-controller
+      operationId: getTask
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TaskStatus"
+  /api/v1/tasks/{id}/audit:
+    get:
+      tags:
+      - task-management-controller
+      operationId: getTaskAuditHistory
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaskRunAuditRecord"
+  /api/v1/tasks/audit:
+    get:
+      tags:
+      - task-management-controller
+      operationId: getRecentAuditHistory
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaskRunAuditRecord"
+  /api/v1/system/status:
+    get:
+      tags:
+      - system-controller
+      operationId: status
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/system/metrics:
+    get:
+      tags:
+      - health-controller
+      operationId: metrics
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/system/health:
+    get:
+      tags:
+      - health-controller
+      operationId: health
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/system/hardware:
+    get:
+      tags:
+      - health-controller
+      operationId: hardware
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/system/config:
+    get:
+      tags:
+      - system-controller
+      operationId: config
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/salience/rescore/status:
+    get:
+      tags:
+      - user-salience-controller
+      operationId: rescoreStatus
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/providers:
+    get:
+      tags:
+      - provider-controller
+      operationId: list
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/providers/health:
+    get:
+      tags:
+      - provider-controller
+      operationId: health_1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: "#/components/schemas/ProviderHealth"
+  /api/v1/providers/generation/{name}/health:
+    get:
+      tags:
+      - provider-controller
+      operationId: generationHealth
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProviderHealth"
+  /api/v1/providers/embedding/{name}/health:
+    get:
+      tags:
+      - provider-controller
+      operationId: embeddingHealth
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProviderHealth"
+  /api/v1/plugins:
+    get:
+      tags:
+      - plugin-manager
+      operationId: listPlugins
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PluginInfo"
+  /api/v1/observability/timeline:
+    get:
+      tags:
+      - observability-controller
+      operationId: timeline
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 100
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/observability/stats:
+    get:
+      tags:
+      - observability-controller
+      operationId: stats
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/observability/metrics/live:
+    get:
+      tags:
+      - observability-controller
+      operationId: liveMetrics
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: {}
+  /api/v1/observability/age-distribution:
+    get:
+      tags:
+      - observability-controller
+      operationId: ageDistribution
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/migration/jobs/{executionId}:
+    get:
+      tags:
+      - migration-controller
+      operationId: getJobStatus
+      parameters:
+      - name: executionId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/memory/{id}/vector:
+    get:
+      tags:
+      - Memory
+      summary: Retrieve INT8 quantized embedding vector for a memory
+      operationId: getMemoryVector
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MemoryVectorResponse"
+  /api/v1/memory/{id}/graph:
+    get:
+      tags:
+      - Memory
+      summary: "Hebbian, Temporal, and Entity graph neighborhood for a memory"
+      operationId: getMemoryGraph
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: depth
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 2
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MemoryGraphResponse"
+  /api/v1/memory/vector-space/projection:
+    get:
+      tags:
+      - Memory
+      summary: 3D PCA vector space embedding projection
+      operationId: getVectorSpaceProjection
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProjectionResult"
+  /api/v1/memory/topology-stats:
+    get:
+      tags:
+      - Memory
+      summary: Topology statistics of entities and relationships
+      operationId: getTopologyStats
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TopologyStatsResponse"
+  /api/v1/memory/table:
+    get:
+      tags:
+      - Memory
+      summary: Paginated memory table view for UI and exploration
+      operationId: getMemoryTable
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      - name: tier
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: tombstoned
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MemoryTableResponse"
+  /api/v1/memory/status:
+    get:
+      tags:
+      - Memory
+      summary: Cognitive memory status and tier counts
+      operationId: getMemoryStatus
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MemoryStatusResponse"
+  /api/v1/memory/stats:
+    get:
+      tags:
+      - Memory
+      summary: Memory health statistics
+      operationId: getMemoryStats
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MemoryStats"
+  /api/v1/memory/stats/scoring:
+    get:
+      tags:
+      - Memory
+      summary: Memory scoring metrics averages
+      operationId: getScoringStats
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ScoringStats"
+  /api/v1/memory/reflect/progress/{sweepId}:
+    get:
+      tags:
+      - Memory
+      summary: Poll reflection sweep progress telemetry
+      operationId: getReflectProgress
+      parameters:
+      - name: sweepId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ReflectSweepProgress"
+  /api/v1/memory/metrics/live:
+    get:
+      tags:
+      - Memory
+      summary: Recent live rolling ops/sec metrics history
+      operationId: getLiveMetrics
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: {}
+  /api/v1/memory/hardware:
+    get:
+      tags:
+      - Memory
+      summary: System SIMD Vector API and hardware capabilities
+      operationId: getHardwareInfo
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/memory/graph/overview:
+    get:
+      tags:
+      - Memory
+      summary: Sampled overview of associative memory graph
+      operationId: getGraphOverview
+      parameters:
+      - name: maxNodes
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 100
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MemoryGraphResponse"
+  /api/v1/memory/enrich-graph/status:
+    get:
+      tags:
+      - Memory
+      summary: Real-time telemetry for offline graph enrichment daemon
+      operationId: getEnrichmentStatus
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/EnrichmentStatusResponse"
+  /api/v1/memory/diagnostics:
+    get:
+      tags:
+      - Memory
+      summary: "Diagnostics snapshot (tier counts, allocations)"
+      operationId: getMemoryDiagnostics
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/memory/diagnostics/decay:
+    get:
+      tags:
+      - Memory
+      summary: Ebbinghaus forgetting and LTP retention decay curve
+      operationId: getDecayCurve
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: {}
+  /api/v1/memory/consolidation/diff:
+    get:
+      tags:
+      - Memory
+      summary: Latest consolidation snapshot diff
+      operationId: getConsolidationDiff
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: {}
+  /api/v1/mcp/tools:
+    get:
+      tags:
+      - mcp-controller
+      operationId: listTools
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: {}
+  /api/v1/mcp/info:
+    get:
+      tags:
+      - mcp-controller
+      operationId: info
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/features:
+    get:
+      tags:
+      - feature-flag-controller
+      operationId: getFeatures
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: boolean
+  /api/v1/features/manifest:
+    get:
+      tags:
+      - feature-flag-controller
+      operationId: getManifest
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: {}
+  /api/v1/events:
+    get:
+      tags:
+      - event-controller
+      operationId: events
+      parameters:
+      - name: filter
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ""
+      responses:
+        "200":
+          description: OK
+          content:
+            text/event-stream:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServerSentEventObject"
+  /api/v1/connectors/templates:
+    get:
+      tags:
+      - connector-controller
+      operationId: listTemplates
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TemplateDescriptor"
+  /api/v1/connectors/templates/{id}:
+    get:
+      tags:
+      - connector-controller
+      operationId: getTemplate
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TemplateDescriptor"
+  /api/v1/connectors/routes/{id}:
+    get:
+      tags:
+      - connector-controller
+      operationId: getRoute
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RouteConfig"
+    delete:
+      tags:
+      - connector-controller
+      operationId: deleteRoute
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+  /api/v1/connectors/routes/{id}/status:
+    get:
+      tags:
+      - connector-controller
+      operationId: getRouteStatus
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/connectors/routes/{id}/history:
+    get:
+      tags:
+      - connector-controller
+      operationId: getExecutionHistory
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExecutionRecord"
+  /api/v1/config/{category}/raw:
+    get:
+      tags:
+      - config-controller
+      operationId: getRaw
+      parameters:
+      - name: category
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/config/{category}/annotated:
+    get:
+      tags:
+      - config-controller
+      operationId: getAnnotated
+      parameters:
+      - name: category
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: "#/components/schemas/AnnotatedValue"
+  /api/v1/config/schema/{category}:
+    get:
+      tags:
+      - config-controller
+      operationId: schema
+      parameters:
+      - name: category
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/config/salience:
+    get:
+      tags:
+      - salience-controller
+      operationId: getSalienceConfig
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SalienceSnapshot"
+  /api/v1/config/providers/available:
+    get:
+      tags:
+      - config-controller
+      operationId: availableProviders
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/config/policy:
+    get:
+      tags:
+      - config-controller
+      operationId: policy
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/config/categories:
+    get:
+      tags:
+      - config-controller
+      operationId: listCategories
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/chat/tools:
+    get:
+      tags:
+      - chat-controller
+      operationId: listTools_1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ToolsResponse"
+  /api/v1/chat/sessions:
+    get:
+      tags:
+      - chat-controller
+      operationId: listSessions
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 10
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SessionsResponse"
+  /api/v1/chat/sessions/{sessionId}/messages:
+    get:
+      tags:
+      - chat-controller
+      operationId: loadSessionMessages
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SessionMessagesResponse"
+  /api/v1/chat/models:
+    get:
+      tags:
+      - chat-controller
+      operationId: listModels
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ModelsResponse"
+  /api/v1/chat/config:
+    get:
+      tags:
+      - chat-controller
+      operationId: chatConfig
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ChatConfig"
+  /api/v1/auth/users:
+    get:
+      tags:
+      - auth-controller
+      operationId: listUsers
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserSummary"
+  /api/v1/agents/{id}/card:
+    get:
+      tags:
+      - agent-controller
+      operationId: getAgentCard
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentCard"
+  /api/v1/agent/{id}/card:
+    get:
+      tags:
+      - agent-controller
+      operationId: getAgentCard_1
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentCard"
+  /api/v1/agent/tools:
+    get:
+      tags:
+      - agent-controller
+      operationId: listTools_2
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/agents/tools:
+    get:
+      tags:
+      - agent-controller
+      operationId: listTools_3
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/agent/soul/card:
+    get:
+      tags:
+      - agent-controller
+      operationId: getSoulCard
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentCard"
+  /api/v1/agents/soul/card:
+    get:
+      tags:
+      - agent-controller
+      operationId: getSoulCard_1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentCard"
+  /api/v1/agent/approvals:
+    get:
+      tags:
+      - agent-approval-controller
+      operationId: listApprovals
+      parameters:
+      - name: pendingOnly
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentActionApproval"
+  /api/v1/agent/approvals/{id}:
+    get:
+      tags:
+      - agent-approval-controller
+      operationId: getApproval
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentActionApproval"
+  /api/v1/admin/cache/{cacheName}/{key}:
+    get:
+      tags:
+      - cache-controller
+      operationId: getCacheEntry
+      parameters:
+      - name: cacheName
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: key
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+    delete:
+      tags:
+      - cache-controller
+      operationId: evictKey
+      parameters:
+      - name: cacheName
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: key
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/cache/{cacheName}/{key}:
+    get:
+      tags:
+      - cache-controller
+      operationId: getCacheEntry_1
+      parameters:
+      - name: cacheName
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: key
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+    delete:
+      tags:
+      - cache-controller
+      operationId: evictKey_1
+      parameters:
+      - name: cacheName
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: key
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/admin/cache/{cacheName}:
+    get:
+      tags:
+      - cache-controller
+      operationId: getCacheDetails
+      parameters:
+      - name: cacheName
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CacheDetailDto"
+    delete:
+      tags:
+      - cache-controller
+      operationId: clearCache
+      parameters:
+      - name: cacheName
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/cache/{cacheName}:
+    get:
+      tags:
+      - cache-controller
+      operationId: getCacheDetails_1
+      parameters:
+      - name: cacheName
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CacheDetailDto"
+    delete:
+      tags:
+      - cache-controller
+      operationId: clearCache_1
+      parameters:
+      - name: cacheName
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/admin/cache:
+    get:
+      tags:
+      - cache-controller
+      operationId: listCaches
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CacheSummaryDto"
+    delete:
+      tags:
+      - cache-controller
+      operationId: clearAllCaches
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/cache:
+    get:
+      tags:
+      - cache-controller
+      operationId: listCaches_1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CacheSummaryDto"
+    delete:
+      tags:
+      - cache-controller
+      operationId: clearAllCaches_1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /api/v1/account/introspect:
+    get:
+      tags:
+      - account-default-controller
+      operationId: introspect
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountIntrospectResponse"
+  /.well-known/agent.json:
+    get:
+      tags:
+      - well-known-controller
+      operationId: getWellKnownAgent
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AgentCard"
+  /api/v1/namespaces/{slugOrId}/grants/{grantId}:
+    delete:
+      tags:
+      - namespace-controller
+      operationId: revokeGrant
+      parameters:
+      - name: slugOrId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: grantId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+  /api/v1/auth/api-keys/{id}:
+    delete:
+      tags:
+      - auth-controller
+      operationId: revokeApiKey
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+components:
+  schemas:
+    AcousticModulationMap:
+      type: object
+      properties:
+        pitchArousalSensitivity:
+          type: number
+          format: float
+        pitchValenceSensitivity:
+          type: number
+          format: float
+        tempoArousalSensitivity:
+          type: number
+          format: float
+        tempoValenceSensitivity:
+          type: number
+          format: float
+        varianceArousalSensitivity:
+          type: number
+          format: float
+        breathinessDominanceSensitivity:
+          type: number
+          format: float
+        assertivenessDominanceSensitivity:
+          type: number
+          format: float
+    BigFiveTraits:
+      type: object
+      properties:
+        openness:
+          type: number
+          format: float
+        conscientiousness:
+          type: number
+          format: float
+        extraversion:
+          type: number
+          format: float
+        agreeableness:
+          type: number
+          format: float
+        neuroticism:
+          type: number
+          format: float
+        neutral:
+          type: boolean
+    CulturalIdentity:
+      type: object
+      properties:
+        ethnicity:
+          type: string
+        race:
+          type: string
+        religion:
+          type: string
+        culturalHeritage:
+          type: string
+        culturalValues:
+          type: array
+          items:
+            type: string
+        traditions:
+          type: array
+          items:
+            type: string
+        primaryCulture:
+          type: string
+        cultureEmbedding:
+          type: array
+          items:
+            type: number
+            format: float
+        present:
+          type: boolean
+    Education:
+      type: object
+      properties:
+        institution:
+          type: string
+        degree:
+          type: string
+        startYear:
+          type: integer
+          format: int32
+        endYear:
+          type: integer
+          format: int32
+        description:
+          type: string
+        ongoing:
+          type: boolean
+    EmbodiedKinesicsDNA:
+      type: object
+      properties:
+        smileAsymmetry:
+          type: number
+          format: float
+        browAsymmetry:
+          type: number
+          format: float
+        eyeContactBaseline:
+          type: number
+          format: float
+        noddingCadence:
+          type: number
+          format: float
+        gesturalExpressiveness:
+          type: number
+          format: float
+    EmotionalIntelligence:
+      type: object
+      properties:
+        selfAwareness:
+          type: integer
+          format: int32
+        selfRegulation:
+          type: integer
+          format: int32
+        motivation:
+          type: integer
+          format: int32
+        empathy:
+          type: integer
+          format: int32
+        socialSkills:
+          type: integer
+          format: int32
+        neutral:
+          type: boolean
+    IcnuDto:
+      type: object
+      properties:
+        interest:
+          type: number
+          format: float
+        challenge:
+          type: number
+          format: float
+        novelty:
+          type: number
+          format: float
+        urgency:
+          type: number
+          format: float
+    IdiolectProfile:
+      type: object
+      properties:
+        stylometrics:
+          $ref: "#/components/schemas/StylometricFeatures"
+        lexicon:
+          $ref: "#/components/schemas/IdiosyncraticLexicon"
+        rhetoric:
+          $ref: "#/components/schemas/RhetoricalPatterns"
+        primaryLanguage:
+          type: string
+        idiolectEmbedding:
+          type: array
+          items:
+            type: number
+            format: float
+        present:
+          type: boolean
+    IdiosyncraticLexicon:
+      type: object
+      properties:
+        catchphrases:
+          type: array
+          items:
+            type: string
+        greetings:
+          type: array
+          items:
+            type: string
+        favoriteMetaphors:
+          type: array
+          items:
+            type: string
+        colloquialisms:
+          type: array
+          items:
+            type: string
+        domainJargon:
+          type: array
+          items:
+            type: string
+        tabooWords:
+          type: array
+          items:
+            type: string
+        wordReplacements:
+          type: object
+          additionalProperties:
+            type: string
+    PersonaContext:
+      type: object
+      properties:
+        about:
+          type: string
+        occupation:
+          type: string
+        education:
+          type: array
+          items:
+            $ref: "#/components/schemas/Education"
+        nationality:
+          type: string
+        languages:
+          type: array
+          items:
+            type: string
+        culturalIdentity:
+          $ref: "#/components/schemas/CulturalIdentity"
+        bigFive:
+          $ref: "#/components/schemas/BigFiveTraits"
+        emotionalIntelligence:
+          $ref: "#/components/schemas/EmotionalIntelligence"
+        stressResponse:
+          type: string
+          enum:
+          - FIGHT
+          - FLIGHT
+          - FREEZE
+          - FAWN
+          - ADAPTIVE
+        values:
+          type: array
+          items:
+            type: string
+        fears:
+          type: array
+          items:
+            type: string
+        aspirations:
+          type: array
+          items:
+            type: string
+        communicationStyle:
+          type: string
+          enum:
+          - ASSERTIVE
+          - PASSIVE
+          - AGGRESSIVE
+          - PASSIVE_AGGRESSIVE
+          - ANALYTICAL
+          - INTUITIVE
+          - FUNCTIONAL
+        idiolect:
+          $ref: "#/components/schemas/IdiolectProfile"
+        vocalProsody:
+          $ref: "#/components/schemas/VocalProsodyDNA"
+        embodiedKinesics:
+          $ref: "#/components/schemas/EmbodiedKinesicsDNA"
+        modifiers:
+          $ref: "#/components/schemas/PersonalityModifiers"
+        aboutEmbedding:
+          type: array
+          items:
+            type: number
+            format: float
+        occupationEmbedding:
+          type: array
+          items:
+            type: number
+            format: float
+        educationEmbedding:
+          type: array
+          items:
+            type: number
+            format: float
+        valuesEmbedding:
+          type: array
+          items:
+            type: number
+            format: float
+        aspirationsEmbedding:
+          type: array
+          items:
+            type: number
+            format: float
+        present:
+          type: boolean
+    PersonalityModifiers:
+      type: object
+      properties:
+        valenceAmplification:
+          type: number
+          format: float
+        arousalCompression:
+          type: number
+          format: float
+        noveltyAffinity:
+          type: number
+          format: float
+        negativeValenceBuffer:
+          type: number
+          format: float
+        positiveReappraisal:
+          type: number
+          format: float
+        goalRelevanceBoost:
+          type: number
+          format: float
+        socialMemoryEnrichment:
+          type: number
+          format: float
+        stressEncodingQuality:
+          type: number
+          format: float
+        selfRelevanceWeight:
+          type: number
+          format: float
+        neutral:
+          type: boolean
+    RhetoricalPatterns:
+      type: object
+      properties:
+        directness:
+          type: string
+          enum:
+          - DIRECT
+          - SOCRATIC
+          - STORYTELLING_PREAMBLE
+          - DIPLOMATIC
+        humor:
+          type: string
+          enum:
+          - NONE
+          - DRY
+          - WARM_AFFECTIONATE
+          - IRONIC_WITTY
+          - SELF_DEPRECATING
+          - DIDACTIC
+        storytellingTendency:
+          type: number
+          format: float
+        socraticQuestioningRate:
+          type: number
+          format: float
+        fillerPhrases:
+          type: array
+          items:
+            type: string
+        codeSwitchingLanguages:
+          type: array
+          items:
+            type: string
+    SaveProfileRequest:
+      type: object
+      properties:
+        interests:
+          type: object
+          additionalProperties:
+            type: string
+        disinterests:
+          type: object
+          additionalProperties:
+            type: string
+        icnuWeights:
+          $ref: "#/components/schemas/IcnuDto"
+        alpha:
+          type: number
+          format: float
+        beta:
+          type: number
+          format: float
+        flashbulbThreshold:
+          type: number
+          format: float
+        persona:
+          $ref: "#/components/schemas/PersonaContext"
+    StylometricFeatures:
+      type: object
+      properties:
+        meanSentenceLength:
+          type: number
+          format: float
+        sentenceLengthVariance:
+          type: number
+          format: float
+        typeTokenRatio:
+          type: number
+          format: float
+        clauseComplexity:
+          type: number
+          format: float
+        commaRate:
+          type: number
+          format: float
+        dashRate:
+          type: number
+          format: float
+        ellipsisRate:
+          type: number
+          format: float
+        exclamationRate:
+          type: number
+          format: float
+        questionRate:
+          type: number
+          format: float
+        formalityScore:
+          type: number
+          format: float
+    VocalProsodyDNA:
+      type: object
+      properties:
+        baselineF0Hz:
+          type: number
+          format: float
+        f0Variance:
+          type: number
+          format: float
+        baselineWordsPerMinute:
+          type: integer
+          format: int32
+        vocalTension:
+          type: number
+          format: float
+        accent:
+          type: string
+        voiceId:
+          type: string
+        modulationMap:
+          $ref: "#/components/schemas/AcousticModulationMap"
+        present:
+          type: boolean
+    NamespaceBias:
+      type: object
+      properties:
+        domainFocus:
+          type: array
+          items:
+            type: string
+        tagWeights:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+    UpdateNamespaceRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum:
+          - DEFAULT
+          - PROJECT
+          - AGENT
+          - SHARED
+          - ARCHIVE
+        bias:
+          $ref: "#/components/schemas/NamespaceBias"
+    NamespaceResponse:
+      type: object
+      properties:
+        namespaceId:
+          type: string
+        slug:
+          type: string
+        ownerAccountId:
+          type: string
+        type:
+          type: string
+          enum:
+          - DEFAULT
+          - PROJECT
+          - AGENT
+          - SHARED
+          - ARCHIVE
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - TOMBSTONED
+          - ARCHIVED
+          - LEGAL_HOLD
+        displayName:
+          type: string
+        description:
+          type: string
+        bias:
+          $ref: "#/components/schemas/NamespaceBias"
+        createdAt:
+          type: string
+          format: date-time
+        lastAccessedAt:
+          type: string
+          format: date-time
+        legalHold:
+          type: boolean
+    UpdateMemoryRequest:
+      type: object
+      properties:
+        text:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+    UpdateCredentialRequest:
+      type: object
+      properties:
+        category:
+          type: string
+          enum:
+          - LLM
+          - CHANNEL
+          - DATABASE
+          - BROKER
+          - STORAGE
+          - APP
+          - VAULT
+        provider:
+          type: string
+        credentialType:
+          type: string
+          enum:
+          - API_KEY
+          - BEARER_TOKEN
+          - BASIC_AUTH
+          - CONNECTION_STRING
+          - OAUTH2
+          - SERVICE_ACCOUNT_JSON
+          - KEY_PAIR
+          - APP_ROLE
+        secret:
+          type: string
+        properties:
+          type: object
+          additionalProperties: {}
+        isDefault:
+          type: boolean
+        description:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+    CredentialResponse:
+      type: object
+      properties:
+        credentialId:
+          type: string
+        tenantId:
+          type: string
+        userId:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+          enum:
+          - LLM
+          - CHANNEL
+          - DATABASE
+          - BROKER
+          - STORAGE
+          - APP
+          - VAULT
+        provider:
+          type: string
+        credentialType:
+          type: string
+          enum:
+          - API_KEY
+          - BEARER_TOKEN
+          - BASIC_AUTH
+          - CONNECTION_STRING
+          - OAUTH2
+          - SERVICE_ACCOUNT_JSON
+          - KEY_PAIR
+          - APP_ROLE
+        maskedPreview:
+          type: string
+        properties:
+          type: object
+          additionalProperties: {}
+        isDefault:
+          type: boolean
+        description:
+          type: string
+        version:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+    WeightsRequest:
+      type: object
+      properties:
+        icnu:
+          $ref: "#/components/schemas/IcnuDto"
+        alpha:
+          type: number
+          format: float
+        beta:
+          type: number
+          format: float
+    InterestEntryDto:
+      type: object
+      properties:
+        topic:
+          type: string
+        level:
+          type: string
+          enum:
+          - CRITICAL
+          - HIGH
+          - MEDIUM
+          - LOW
+          - IGNORE
+    InterestsRequest:
+      type: object
+      properties:
+        interests:
+          type: array
+          items:
+            $ref: "#/components/schemas/InterestEntryDto"
+        disinterests:
+          type: array
+          items:
+            $ref: "#/components/schemas/InterestEntryDto"
+    UpdateUserRequest:
+      type: object
+      properties:
+        active:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        scopes:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        display_name:
+          type: string
+    AgentSoul:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        systemPrompt:
+          type: string
+        purpose:
+          type: string
+        personality:
+          type: string
+        expertiseDomains:
+          type: array
+          items:
+            type: string
+        coreValues:
+          type: array
+          items:
+            type: string
+        ethicalGuardrails:
+          type: array
+          items:
+            type: string
+        emotionalBaseline:
+          $ref: "#/components/schemas/EmotionalBaseline"
+        communicationStyle:
+          type: string
+        model:
+          type: string
+        tools:
+          type: array
+          items:
+            type: string
+        expertiseEmbedding:
+          type: array
+          items:
+            type: number
+            format: float
+        purposeEmbedding:
+          type: array
+          items:
+            type: number
+            format: float
+        soulVersion:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        present:
+          type: boolean
+    EmotionalBaseline:
+      type: object
+      properties:
+        defaultValence:
+          type: string
+          format: byte
+        defaultArousal:
+          type: string
+          format: byte
+    SetDefaultNamespaceRequest:
+      type: object
+      properties:
+        namespace:
+          type: string
+    TaskActionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        taskId:
+          type: string
+        message:
+          type: string
+    RescheduleIntervalRequest:
+      type: object
+      properties:
+        intervalSeconds:
+          type: integer
+          format: int64
+    RescheduleCronRequest:
+      type: object
+      properties:
+        cronExpression:
+          type: string
+    TracedRecallRequest:
+      type: object
+      properties:
+        query:
+          type: string
+        topK:
+          type: integer
+          format: int32
+    CreateNamespaceRequest:
+      type: object
+      properties:
+        slug:
+          type: string
+        type:
+          type: string
+          enum:
+          - DEFAULT
+          - PROJECT
+          - AGENT
+          - SHARED
+          - ARCHIVE
+        displayName:
+          type: string
+        description:
+          type: string
+        bias:
+          $ref: "#/components/schemas/NamespaceBias"
+    LegalHoldRequest:
+      type: object
+      properties:
+        legalHold:
+          type: boolean
+    CreateGrantRequest:
+      type: object
+      properties:
+        granteeAccountId:
+          type: string
+        role:
+          type: string
+          enum:
+          - OWNER
+          - ADMIN
+          - WRITER
+          - READER
+        expiresAt:
+          type: string
+          format: date-time
+        constraints:
+          $ref: "#/components/schemas/GrantConstraints"
+    GrantConstraints:
+      type: object
+      properties:
+        tierMask:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        tagPrefix:
+          type: string
+        operations:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        regionIds:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+    GrantResponse:
+      type: object
+      properties:
+        grantId:
+          type: string
+        granteeAccountId:
+          type: string
+        namespaceId:
+          type: string
+        role:
+          type: string
+          enum:
+          - OWNER
+          - ADMIN
+          - WRITER
+          - READER
+        grantedBy:
+          type: string
+        grantedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        constraints:
+          $ref: "#/components/schemas/GrantConstraints"
+    StoreRequest:
+      type: object
+      properties:
+        text:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        importance:
+          type: number
+          format: double
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    StoreResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        tier:
+          type: string
+        score:
+          type: number
+          format: double
+        message:
+          type: string
+    SuppressRequest:
+      type: object
+      properties:
+        action:
+          type: string
+        reason:
+          type: string
+        suppressing:
+          type: boolean
+    ResolveRequest:
+      type: object
+      properties:
+        resolved:
+          type: boolean
+        resolving:
+          type: boolean
+    ReinforceByIdRequest:
+      type: object
+      properties:
+        valence:
+          type: integer
+          format: int32
+    VacuumRequest:
+      type: object
+      properties:
+        tier:
+          type: string
+    CompactionResult:
+      type: object
+      properties:
+        tier:
+          type: string
+        beforeCount:
+          type: integer
+          format: int32
+        afterCount:
+          type: integer
+          format: int32
+        tombstonesRemoved:
+          type: integer
+          format: int32
+        bytesReclaimed:
+          type: integer
+          format: int64
+        durationMs:
+          type: integer
+          format: int64
+    SearchRequest:
+      type: object
+      properties:
+        query:
+          type: string
+        topK:
+          type: integer
+          format: int32
+        threshold:
+          type: number
+          format: double
+    SearchResult:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        tier:
+          type: string
+        score:
+          type: number
+          format: double
+        similarity:
+          type: number
+          format: double
+        tags:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+    RememberRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        tier:
+          type: string
+        source:
+          type: string
+        tags:
+          type: string
+        interest:
+          type: number
+          format: float
+        challenge:
+          type: number
+          format: float
+        urgency:
+          type: number
+          format: float
+        valence:
+          type: integer
+          format: int32
+        arousal:
+          type: integer
+          format: int32
+        timestampMs:
+          type: integer
+          format: int64
+    AcceptedResponse:
+      type: object
+      properties:
+        taskId:
+          type: string
+        id:
+          type: string
+        fileName:
+          type: string
+        documentId:
+          type: string
+        status:
+          type: string
+    ReflectRequest:
+      type: object
+      properties:
+        sweepId:
+          type: string
+        sessionLimit:
+          type: integer
+          format: int32
+        sessionIdAfter:
+          type: integer
+          format: int64
+        from:
+          type: integer
+          format: int64
+        to:
+          type: integer
+          format: int64
+        consolidationOnly:
+          type: boolean
+    ReflectResponse:
+      type: object
+      properties:
+        tombstonedCount:
+          type: integer
+          format: int32
+        durationMs:
+          type: integer
+          format: int64
+        message:
+          type: string
+        sweepId:
+          type: string
+        consolidatedCount:
+          type: integer
+          format: int32
+        turnsConsolidated:
+          type: integer
+          format: int32
+    EnrichmentTriggerResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        limit:
+          type: integer
+          format: int32
+    RecallRequest:
+      type: object
+      properties:
+        query:
+          type: string
+        topK:
+          type: integer
+          format: int32
+        depth:
+          type: integer
+          format: int32
+        tags:
+          type: array
+          items:
+            type: string
+        scoringMode:
+          type: string
+        recallMode:
+          type: string
+    RecallResult:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        tier:
+          type: string
+        cognitiveScore:
+          type: number
+          format: double
+        memoryType:
+          type: string
+        ageDescription:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+    FederatedRecallRequest:
+      type: object
+      properties:
+        queryText:
+          type: string
+        namespaces:
+          type: array
+          items:
+            type: string
+        topK:
+          type: integer
+          format: int32
+        perNamespaceTopK:
+          type: integer
+          format: int32
+        timeoutMs:
+          type: integer
+          format: int32
+        maxColdOpens:
+          type: integer
+          format: int32
+        profile:
+          type: string
+          enum:
+          - BALANCED
+          - EXPLORING
+          - DEBUGGING
+          - RECALLING
+          - CRITICAL
+          - HYPERFOCUS
+          - SYSTEMATIZER
+          - DIVERGENT
+          - PARANOID_SENTINEL
+          - THE_EXECUTOR
+          - HIGHLY_SENSITIVE
+          - DEFAULT_MODE_NETWORK
+          - EXECUTIVE_DYSFUNCTION
+          - SOUL_DERIVED
+        scoringMode:
+          type: string
+          enum:
+          - COGNITIVE
+          - SIMILARITY
+          - ASSOCIATIVE
+    CognitiveResult:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        score:
+          type: number
+          format: float
+        importance:
+          type: number
+          format: float
+        ageDays:
+          type: number
+          format: float
+        agentRecallCount:
+          type: integer
+          format: int32
+        valence:
+          type: string
+          format: byte
+        memoryType:
+          type: string
+          enum:
+          - WORKING
+          - EPISODIC
+          - SEMANTIC
+          - PROCEDURAL
+        source:
+          type: string
+          enum:
+          - OBSERVED
+          - USER_STATED
+          - REFLECTED
+          - INFERRED
+          - PROCEDURAL
+          - TRANSFERRED
+          - DREAMED
+          - THOUGHT_EXPERIMENT
+          - LANGEVIN_DISCOVERY
+        synapticTags:
+          type: array
+          items:
+            type: string
+        decayFactor:
+          type: number
+          format: float
+        ltpAdjustedDecay:
+          type: number
+          format: float
+        retrievalMode:
+          type: string
+          enum:
+          - STANDARD
+          - LATERAL
+          - HYPERFOCUS
+        breakdown:
+          $ref: "#/components/schemas/ScoreBreakdown"
+        trace:
+          $ref: "#/components/schemas/RecallTrace"
+        sourceModality:
+          type: string
+          enum:
+          - TEXT
+          - IMAGE
+          - AUDIO
+          - VIDEO
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        consolidationFlags:
+          type: string
+          format: byte
+        timestampMs:
+          type: integer
+          format: int64
+        multimodal:
+          type: boolean
+        negativeOutcome:
+          type: boolean
+        hyperfocused:
+          type: boolean
+        positivelyReinforced:
+          type: boolean
+        dreamed:
+          type: boolean
+        lateral:
+          type: boolean
+        simulated:
+          type: boolean
+    FederatedRecallHit:
+      type: object
+      properties:
+        namespaceId:
+          type: string
+        slug:
+          type: string
+        role:
+          type: string
+          enum:
+          - OWNER
+          - ADMIN
+          - WRITER
+          - READER
+        localRank:
+          type: integer
+          format: int32
+        heuristicGlobalRank:
+          type: integer
+          format: int32
+        result:
+          $ref: "#/components/schemas/CognitiveResult"
+    FederatedRecallResponse:
+      type: object
+      properties:
+        hits:
+          type: array
+          items:
+            $ref: "#/components/schemas/FederatedRecallHit"
+        summary:
+          $ref: "#/components/schemas/FederatedRecallSummary"
+    FederatedRecallSummary:
+      type: object
+      properties:
+        queriedCount:
+          type: integer
+          format: int32
+        openedNamespaces:
+          type: array
+          items:
+            type: string
+        skippedColdNamespaces:
+          type: array
+          items:
+            type: string
+        deniedNamespaces:
+          type: array
+          items:
+            type: string
+        failedNamespaces:
+          type: array
+          items:
+            type: string
+        executionDurationMs:
+          type: integer
+          format: int64
+    RecallTrace:
+      type: object
+      properties:
+        memoryId:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/TraceStep"
+    ScoreBreakdown:
+      type: object
+      properties:
+        similarity:
+          type: number
+          format: float
+        importanceDecay:
+          type: number
+          format: float
+        tagBoostFactor:
+          type: number
+          format: float
+        habituationPenalty:
+          type: number
+          format: float
+        graphBoost:
+          type: number
+          format: float
+        valenceAlignment:
+          type: number
+          format: float
+        finalScore:
+          type: number
+          format: float
+        epistemicWeight:
+          type: number
+          format: float
+        teleologicalWeight:
+          type: number
+          format: float
+        pragmaticWeight:
+          type: number
+          format: float
+        scoringRegime:
+          type: string
+          enum:
+          - GENERIC
+          - SOUL_CONDITIONED
+        inhibitionPenalty:
+          type: number
+          format: float
+        competitorIds:
+          type: array
+          items:
+            type: string
+    TraceStep:
+      type: object
+      properties:
+        phaseName:
+          type: string
+        scoreBefore:
+          type: number
+          format: float
+        scoreAfter:
+          type: number
+          format: float
+        candidatesBefore:
+          type: integer
+          format: int32
+        candidatesAfter:
+          type: integer
+          format: int32
+        detail:
+          type: string
+    BrowseRequest:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            type: string
+        limit:
+          type: integer
+          format: int32
+    BrowseResult:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        memoryType:
+          type: string
+        timestampMs:
+          type: integer
+          format: int64
+        tags:
+          type: array
+          items:
+            type: string
+    CreateCredentialRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 128
+          minLength: 0
+        category:
+          type: string
+          enum:
+          - LLM
+          - CHANNEL
+          - DATABASE
+          - BROKER
+          - STORAGE
+          - APP
+          - VAULT
+        provider:
+          type: string
+          maxLength: 64
+          minLength: 0
+        credentialType:
+          type: string
+          enum:
+          - API_KEY
+          - BEARER_TOKEN
+          - BASIC_AUTH
+          - CONNECTION_STRING
+          - OAUTH2
+          - SERVICE_ACCOUNT_JSON
+          - KEY_PAIR
+          - APP_ROLE
+        secret:
+          type: string
+          minLength: 1
+        properties:
+          type: object
+          additionalProperties: {}
+        isDefault:
+          type: boolean
+        description:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+      - category
+      - name
+      - provider
+      - secret
+    RouteConfig:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        templateId:
+          type: string
+        connectorType:
+          type: string
+        tenantId:
+          type: string
+        source:
+          type: string
+        schedule:
+          type: string
+        properties:
+          type: object
+          additionalProperties:
+            type: string
+        credentialRef:
+          type: string
+        routeYaml:
+          type: string
+        status:
+          type: string
+          enum:
+          - DRAFT
+          - ACTIVE
+          - DISABLED
+          - ERROR
+        enabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    ConnectionTestResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        latencyMs:
+          type: integer
+          format: int64
+    AgentChatRequest:
+      type: object
+      properties:
+        message:
+          type: string
+        sessionId:
+          type: string
+        conversationId:
+          type: string
+        model:
+          type: string
+        contextDepth:
+          type: integer
+          format: int32
+        enableGraph:
+          type: boolean
+        enableTextSearch:
+          type: boolean
+        enableTrace:
+          type: boolean
+        messages:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        approvedToolCalls:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+    AgentChatResponse:
+      type: object
+      properties:
+        response:
+          type: string
+        sessionId:
+          type: string
+        isNewSession:
+          type: boolean
+        model:
+          type: string
+        status:
+          type: string
+        latency:
+          type: integer
+          format: int64
+        durationMs:
+          type: integer
+          format: int64
+        primedMemories:
+          type: integer
+          format: int32
+        trace:
+          type: array
+          items:
+            $ref: "#/components/schemas/TraceEvent"
+        pendingToolCalls:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        sources:
+          type: array
+          items:
+            type: string
+        tokenUsage:
+          $ref: "#/components/schemas/TokenUsageDto"
+    TokenUsageDto:
+      type: object
+      properties:
+        inputTokens:
+          type: integer
+          format: int64
+        outputTokens:
+          type: integer
+          format: int64
+        totalTokens:
+          type: integer
+          format: int64
+    TraceEvent:
+      type: object
+      properties:
+        type:
+          type: string
+        data:
+          type: string
+    RegisterRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          maxLength: 64
+          minLength: 1
+        password:
+          type: string
+          maxLength: 128
+          minLength: 8
+        email:
+          type: string
+        display_name:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        scopes:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        must_change_password:
+          type: boolean
+      required:
+      - password
+      - username
+    RefreshRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+          minLength: 1
+      required:
+      - refresh_token
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          maxLength: 64
+          minLength: 1
+        password:
+          type: string
+          maxLength: 128
+          minLength: 1
+      required:
+      - password
+      - username
+    ChangePasswordRequest:
+      type: object
+      properties:
+        current_password:
+          type: string
+          minLength: 1
+        new_password:
+          type: string
+          maxLength: 128
+          minLength: 8
+      required:
+      - current_password
+      - new_password
+    CreateApiKeyRequest:
+      type: object
+      properties:
+        scopes:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        expires_at:
+          type: string
+          format: date-time
+    CreateApiKeyResponse:
+      type: object
+      properties:
+        key_id:
+          type: string
+        api_key:
+          type: string
+    ApprovalDecisionRequest:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum:
+          - APPROVE
+          - REJECT
+          - MODIFY
+          - CANCEL
+        modifiedArguments:
+          type: object
+          additionalProperties: {}
+        reason:
+          type: string
+    TokenUsageStats:
+      type: object
+      properties:
+        inputTokens:
+          type: integer
+          format: int64
+        outputTokens:
+          type: integer
+          format: int64
+        embeddingTokens:
+          type: integer
+          format: int64
+        totalTokens:
+          type: integer
+          format: int64
+        requestCount:
+          type: integer
+          format: int64
+        firstRecorded:
+          type: string
+          format: date-time
+        lastRecorded:
+          type: string
+          format: date-time
+    TaskStatus:
+      type: object
+      properties:
+        id:
+          type: string
+        namespaceId:
+          type: string
+        state:
+          type: string
+        previousFireTime:
+          type: string
+          format: date-time
+        nextFireTime:
+          type: string
+          format: date-time
+        description:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: {}
+    TaskRunAuditRecord:
+      type: object
+      properties:
+        runId:
+          type: string
+        taskId:
+          type: string
+        namespaceId:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        duration:
+          type: string
+        status:
+          type: string
+        result: {}
+        errorMessage:
+          type: string
+        success:
+          type: boolean
+    UserProfileDto:
+      type: object
+      properties:
+        interestsList:
+          type: array
+          items:
+            $ref: "#/components/schemas/InterestEntryDto"
+        disinterestsList:
+          type: array
+          items:
+            $ref: "#/components/schemas/InterestEntryDto"
+        icnuWeights:
+          $ref: "#/components/schemas/IcnuDto"
+        alpha:
+          type: number
+          format: float
+        beta:
+          type: number
+          format: float
+        flashbulbThreshold:
+          type: number
+          format: float
+        persona:
+          $ref: "#/components/schemas/PersonaContext"
+    ProviderHealth:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+          - HEALTHY
+          - UNHEALTHY
+          - UNKNOWN
+        latency:
+          type: string
+        message:
+          type: string
+        checkedAt:
+          type: string
+          format: date-time
+        healthy:
+          type: boolean
+    PluginInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        version:
+          type: string
+        healthy:
+          type: boolean
+        toolCount:
+          type: integer
+          format: int32
+        connectorCount:
+          type: integer
+          format: int32
+    MemoryTableRow:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        textPreview:
+          type: string
+        tier:
+          type: string
+        source:
+          type: string
+        importance:
+          type: number
+          format: float
+        valence:
+          type: integer
+          format: int32
+        arousal:
+          type: integer
+          format: int32
+        timestampMs:
+          type: integer
+          format: int64
+        agentRecallCount:
+          type: integer
+          format: int32
+        recallCount:
+          type: integer
+          format: int32
+        tombstoned:
+          type: boolean
+        suppressed:
+          type: boolean
+        pinned:
+          type: boolean
+        resolved:
+          type: boolean
+        consolidated:
+          type: boolean
+        tags:
+          type: array
+          items:
+            type: string
+        synapticTags:
+          type: integer
+          format: int64
+        l2Norm:
+          type: number
+          format: float
+        createdAt:
+          type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    MemoryVectorResponse:
+      type: object
+      properties:
+        memoryId:
+          type: string
+        dimension:
+          type: integer
+          format: int32
+        values:
+          type: array
+          items:
+            type: number
+            format: float
+    GraphEdgeDto:
+      type: object
+      properties:
+        fromId:
+          type: string
+        toId:
+          type: string
+        type:
+          type: string
+        relation:
+          type: string
+        weight:
+          type: number
+          format: double
+        fromEntityType:
+          type: string
+        toEntityType:
+          type: string
+    GraphNodeDto:
+      type: object
+      properties:
+        id:
+          type: string
+        tier:
+          type: string
+        textPreview:
+          type: string
+        importance:
+          type: number
+          format: double
+        valence:
+          type: integer
+          format: int32
+        timestampMs:
+          type: integer
+          format: int64
+        entityNames:
+          type: array
+          items:
+            type: string
+    MemoryGraphResponse:
+      type: object
+      properties:
+        memoryId:
+          type: string
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphNodeDto"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphEdgeDto"
+    ProjectedPoint:
+      type: object
+      properties:
+        id:
+          type: string
+        x:
+          type: number
+          format: float
+        "y":
+          type: number
+          format: float
+        z:
+          type: number
+          format: float
+        tier:
+          type: string
+        importance:
+          type: number
+          format: float
+        label:
+          type: string
+    ProjectionResult:
+      type: object
+      properties:
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectedPoint"
+        totalCount:
+          type: integer
+          format: int32
+        vectorDimension:
+          type: integer
+          format: int32
+        explainedVariance:
+          type: array
+          items:
+            type: number
+            format: float
+    EntityTypeStatsDto:
+      type: object
+      properties:
+        type:
+          type: string
+        nodes:
+          type: integer
+          format: int32
+        edges:
+          type: integer
+          format: int32
+        memories:
+          type: integer
+          format: int32
+    RelationTypeStatsDto:
+      type: object
+      properties:
+        type:
+          type: string
+        edges:
+          type: integer
+          format: int32
+        nodes:
+          type: integer
+          format: int32
+        memories:
+          type: integer
+          format: int32
+    TopologyStatsResponse:
+      type: object
+      properties:
+        entityTypes:
+          type: array
+          items:
+            $ref: "#/components/schemas/EntityTypeStatsDto"
+        relationTypes:
+          type: array
+          items:
+            $ref: "#/components/schemas/RelationTypeStatsDto"
+    MemoryTableResponse:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemoryTableRow"
+        totalCount:
+          type: integer
+          format: int32
+        page:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        tierCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+        tombstoneRatios:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+    MemoryStatusResponse:
+      type: object
+      properties:
+        totalMemories:
+          type: integer
+          format: int32
+        tierCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+        hebbianEdges:
+          type: integer
+          format: int32
+        temporalLinks:
+          type: integer
+          format: int32
+        entityNodes:
+          type: integer
+          format: int32
+        entityEdges:
+          type: integer
+          format: int32
+    ConsolidationStats:
+      type: object
+      properties:
+        lastRunTimestamp:
+          type: integer
+          format: int64
+        memoriesMerged:
+          type: integer
+          format: int32
+        duplicatesRemoved:
+          type: integer
+          format: int32
+        partitionsCompacted:
+          type: integer
+          format: int32
+    IndexStats:
+      type: object
+      properties:
+        totalEntries:
+          type: integer
+          format: int64
+        levels:
+          type: integer
+          format: int32
+        recallEstimate:
+          type: number
+          format: double
+    MemoryStats:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          format: int64
+        tierDistribution:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+        storageBytes:
+          type: integer
+          format: int64
+        indexStats:
+          $ref: "#/components/schemas/IndexStats"
+        consolidationStats:
+          $ref: "#/components/schemas/ConsolidationStats"
+        growthOverTime:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+        decayForecast:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+    ScoringStats:
+      type: object
+      properties:
+        avgSimilarity:
+          type: number
+          format: double
+        avgRecency:
+          type: number
+          format: double
+        avgFrequency:
+          type: number
+          format: double
+        avgImportance:
+          type: number
+          format: double
+        avgValence:
+          type: number
+          format: double
+    ReflectSweepProgress:
+      type: object
+      properties:
+        sweepId:
+          type: string
+        sessionsCompleted:
+          type: integer
+          format: int32
+        factsIngested:
+          type: integer
+          format: int32
+        turnsMarked:
+          type: integer
+          format: int32
+        backlogRemaining:
+          type: integer
+          format: int32
+        status:
+          type: string
+          enum:
+          - IDLE
+          - RUNNING
+          - PAUSED
+          - COMPLETE
+          - FAILED
+        startedAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    EnrichmentStatusResponse:
+      type: object
+      properties:
+        totalMemories:
+          type: integer
+          format: int32
+        enrichedMemories:
+          type: integer
+          format: int32
+        pendingMemories:
+          type: integer
+          format: int32
+        totalEntitiesAdded:
+          type: integer
+          format: int32
+        totalRelationsAdded:
+          type: integer
+          format: int32
+        inProgress:
+          type: boolean
+        lastRunDurationMs:
+          type: integer
+          format: int64
+        lastError:
+          type: string
+    ServerSentEventObject: {}
+    ParameterDefinition:
+      type: object
+      properties:
+        name:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        required:
+          type: boolean
+        defaultValue:
+          type: string
+        placeholder:
+          type: string
+    TemplateDescriptor:
+      type: object
+      properties:
+        templateId:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        category:
+          type: string
+        connectorType:
+          type: string
+        parameters:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParameterDefinition"
+        requiresCredential:
+          type: boolean
+        builtIn:
+          type: boolean
+        routeYaml:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    ExecutionRecord:
+      type: object
+      properties:
+        traceId:
+          type: string
+        routeId:
+          type: string
+        tenantId:
+          type: string
+        status:
+          type: string
+          enum:
+          - RUNNING
+          - COMPLETED
+          - FAILED
+          - CANCELLED
+        documentsProcessed:
+          type: integer
+          format: int32
+        errors:
+          type: integer
+          format: int32
+        duration:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        errorMessage:
+          type: string
+    AnnotatedValue:
+      type: object
+      properties:
+        value: {}
+        source:
+          type: string
+    IcnuWeights:
+      type: object
+      properties:
+        interest:
+          type: number
+          format: float
+        challenge:
+          type: number
+          format: float
+        novelty:
+          type: number
+          format: float
+        urgency:
+          type: number
+          format: float
+        threshold:
+          type: number
+          format: float
+        steepness:
+          type: number
+          format: float
+    InterestEntry:
+      type: object
+      properties:
+        topic:
+          type: string
+        level:
+          type: string
+          enum:
+          - CRITICAL
+          - HIGH
+          - MEDIUM
+          - LOW
+          - IGNORE
+    SalienceSnapshot:
+      type: object
+      properties:
+        interests:
+          type: array
+          items:
+            $ref: "#/components/schemas/InterestEntry"
+        disinterests:
+          type: array
+          items:
+            $ref: "#/components/schemas/InterestEntry"
+        icnuWeights:
+          $ref: "#/components/schemas/IcnuWeights"
+        alpha:
+          type: number
+          format: float
+        beta:
+          type: number
+          format: float
+        hasPersona:
+          type: boolean
+        isActive:
+          type: boolean
+    ToolsResponse:
+      type: object
+      properties:
+        tools:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+    SessionSummary:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        preview:
+          type: string
+        lastActivity:
+          type: string
+        messageCount:
+          type: integer
+          format: int32
+    SessionsResponse:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionSummary"
+        hasMore:
+          type: boolean
+    SessionMessagesResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        sessionId:
+          type: string
+    ModelsResponse:
+      type: object
+      properties:
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/OllamaModel"
+    OllamaModel:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        size:
+          type: integer
+          format: int64
+        modified_at:
+          type: string
+        active:
+          type: boolean
+    ChatConfig:
+      type: object
+      properties:
+        defaultModel:
+          type: string
+        maxContextDepth:
+          type: integer
+          format: int32
+        defaultContextDepth:
+          type: integer
+          format: int32
+        agentMode:
+          type: boolean
+        version:
+          type: string
+    UserSummary:
+      type: object
+      properties:
+        user_id:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+        display_name:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        scopes:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        must_change_password:
+          type: boolean
+        active:
+          type: boolean
+        failed_login_count:
+          type: integer
+          format: int32
+        locked_until:
+          type: string
+          format: date-time
+        last_login_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    AgentCard:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        version:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        tools:
+          type: array
+          items:
+            type: string
+        input_modes:
+          type: array
+          items:
+            type: string
+        output_modes:
+          type: array
+          items:
+            type: string
+        endpoint:
+          type: string
+    AgentActionApproval:
+      type: object
+      properties:
+        id:
+          type: string
+        toolName:
+          type: string
+        arguments:
+          type: object
+          additionalProperties: {}
+        category:
+          type: string
+        sessionId:
+          type: string
+        agentId:
+          type: string
+        status:
+          type: string
+          enum:
+          - PENDING
+          - APPROVED
+          - REJECTED
+          - MODIFIED
+          - CANCELLED
+          - TIMED_OUT
+        createdAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+        modifiedArguments:
+          type: object
+          additionalProperties: {}
+        reason:
+          type: string
+        pending:
+          type: boolean
+    CacheDetailDto:
+      type: object
+      properties:
+        name:
+          type: string
+        estimatedSize:
+          type: integer
+          format: int64
+        hitCount:
+          type: integer
+          format: int64
+        missCount:
+          type: integer
+          format: int64
+        hitRate:
+          type: number
+          format: double
+        evictionCount:
+          type: integer
+          format: int64
+        keys:
+          type: array
+          items: {}
+          uniqueItems: true
+    CacheSummaryDto:
+      type: object
+      properties:
+        name:
+          type: string
+        estimatedSize:
+          type: integer
+          format: int64
+        hitCount:
+          type: integer
+          format: int64
+        missCount:
+          type: integer
+          format: int64
+        hitRate:
+          type: number
+          format: double
+        evictionCount:
+          type: integer
+          format: int64
+    AccountFlags:
+      type: object
+      properties:
+        multiNamespace:
+          type: boolean
+        sharing:
+          type: boolean
+        federation:
+          type: boolean
+    AccountIntrospectResponse:
+      type: object
+      properties:
+        accountId:
+          type: string
+        displayName:
+          type: string
+        kind:
+          type: string
+        profile:
+          type: string
+        defaultNamespaceId:
+          type: string
+        quotas:
+          $ref: "#/components/schemas/AccountQuotas"
+        flags:
+          $ref: "#/components/schemas/AccountFlags"
+        tenantId:
+          type: string
+        legalHold:
+          type: boolean
+        slugMap:
+          type: object
+          additionalProperties:
+            type: string
+        namespaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/NamespaceResponse"
+        activeGrants:
+          type: array
+          items:
+            $ref: "#/components/schemas/GrantResponse"
+        soulVersion:
+          type: integer
+          format: int32
+    AccountQuotas:
+      type: object
+      properties:
+        maxNamespaces:
+          type: integer
+          format: int32
+        maxHotNamespaces:
+          type: integer
+          format: int32
+        maxTotalStorageBytes:
+          type: integer
+          format: int64
+        maxTotalMemories:
+          type: integer
+          format: int64
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      description: Spector API Key Authentication
+      name: X-API-Key
+      in: header
+    BearerAuth:
+      type: http
+      description: OAuth2 / OIDC JWT Bearer Token
+      scheme: bearer
+      bearerFormat: JWT
