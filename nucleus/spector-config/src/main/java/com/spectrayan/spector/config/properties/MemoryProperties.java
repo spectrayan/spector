@@ -629,4 +629,81 @@ public class MemoryProperties implements Serializable {
     public MemoryProperties wal(WalProperties w) { setWal(w); return this; }
     public MemoryProperties vacuum(VacuumProperties v) { setVacuum(v); return this; }
     public MemoryProperties session(SessionProperties s) { setSession(s); return this; }
+
+    /**
+     * Creates a full copy of this {@link MemoryProperties} instance.
+     */
+    public MemoryProperties copy() {
+        MemoryProperties cp = new MemoryProperties();
+        cp.enabled = this.enabled;
+        cp.maxMemories = this.maxMemories;
+        cp.persistenceMode = this.persistenceMode;
+        cp.persistencePath = this.persistencePath;
+        cp.dimensions = this.dimensions;
+        cp.capacity = this.capacity;
+        cp.nodesPerPartition = this.nodesPerPartition;
+        cp.workingCapacity = this.workingCapacity;
+        cp.episodicPartitionCapacity = this.episodicPartitionCapacity;
+        cp.semanticCapacity = this.semanticCapacity;
+        cp.proceduralCapacity = this.proceduralCapacity;
+        cp.entityGraphCapacity = this.entityGraphCapacity;
+        cp.pinnedQuota = this.pinnedQuota;
+        cp.checkpointIntervalSeconds = this.checkpointIntervalSeconds;
+        cp.textSegmentSize = this.textSegmentSize;
+        cp.episodicSegmentSize = this.episodicSegmentSize;
+        cp.persistWorkingMemory = this.persistWorkingMemory;
+        cp.pinSourceEpisodes = this.pinSourceEpisodes;
+        cp.idStrategy = this.idStrategy;
+        cp.edgeImportance = this.edgeImportance;
+        cp.namespaceId = this.namespaceId;
+        cp.defaultIngestionTier = this.defaultIngestionTier;
+        cp.hnswPrefilter = this.hnswPrefilter;
+        cp.tagExtractor = this.tagExtractor;
+        cp.tagExtractorModel = this.tagExtractorModel;
+        cp.textSearchMode = this.textSearchMode;
+        cp.spladeEnabled = this.spladeEnabled;
+        cp.colbertEnabled = this.colbertEnabled;
+        cp.bm25Enabled = this.bm25Enabled;
+        cp.bundleMode = this.bundleMode;
+        cp.coactivationPairCapacity = this.coactivationPairCapacity;
+        cp.coactivationEdgeCapacity = this.coactivationEdgeCapacity;
+        cp.temporalFactsInitialSize = this.temporalFactsInitialSize;
+        cp.indexMidxCapacity = this.indexMidxCapacity;
+        cp.indexIdplSize = this.indexIdplSize;
+        cp.typeRegistryCapacity = this.typeRegistryCapacity;
+        cp.typeRegistrySize = this.typeRegistrySize;
+        cp.insulaSize = this.insulaSize;
+        cp.provenanceCapacity = this.provenanceCapacity;
+        cp.hebbianGraphCapacity = this.hebbianGraphCapacity;
+        cp.temporalChainCapacity = this.temporalChainCapacity;
+        cp.graphExpansionMode = this.graphExpansionMode;
+        cp.graphExpansionThreshold = this.graphExpansionThreshold;
+        cp.enableMmr = this.enableMmr;
+        cp.mmrLambda = this.mmrLambda;
+        cp.schedulerEnabled = this.schedulerEnabled;
+        cp.wanderEnabled = this.wanderEnabled;
+        cp.dreamEnabled = this.dreamEnabled;
+        cp.maxNamespaces = this.maxNamespaces;
+        cp.pathwayEnabled = this.pathwayEnabled;
+        cp.entityExtractionParallelism = this.entityExtractionParallelism;
+        cp.entityExtractionQueueCapacity = this.entityExtractionQueueCapacity;
+
+        cp.decay = this.decay;
+        cp.consolidation = this.consolidation;
+        cp.llm = this.llm;
+        cp.aisme = this.aisme;
+        cp.taskQueue = this.taskQueue;
+        cp.entityExtractionTaskQueue = this.entityExtractionTaskQueue;
+        cp.consolidationTaskQueue = this.consolidationTaskQueue;
+        cp.recall = this.recall;
+        cp.remember = this.remember;
+        cp.graph = this.graph;
+        cp.circadian = this.circadian;
+        cp.dream = this.dream;
+        cp.twofactor = this.twofactor;
+        cp.wal = this.wal;
+        cp.vacuum = this.vacuum;
+        cp.session = this.session;
+        return cp;
+    }
 }

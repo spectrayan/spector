@@ -49,4 +49,15 @@ public class ProviderProperties implements Serializable {
     public EmbeddingProperties embedding() { return getEmbedding(); }
     public GenerationProperties generation() { return getGeneration(); }
     public boolean sslInsecure() { return isSslInsecure(); }
+
+    /**
+     * Creates a full deep copy of this {@link ProviderProperties} instance.
+     */
+    public ProviderProperties copy() {
+        ProviderProperties cp = new ProviderProperties();
+        cp.setEmbedding(this.embedding != null ? this.embedding.copy() : new EmbeddingProperties());
+        cp.setGeneration(this.generation);
+        cp.setSslInsecure(this.sslInsecure);
+        return cp;
+    }
 }

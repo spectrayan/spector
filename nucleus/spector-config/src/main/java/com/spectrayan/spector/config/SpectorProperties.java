@@ -241,6 +241,37 @@ public final class SpectorProperties implements Serializable {
         }
     }
 
+    /**
+     * Creates a full deep copy of this {@link SpectorProperties} aggregate root,
+     * deep-copying all mutable child properties.
+     */
+    public SpectorProperties copy() {
+        return new SpectorProperties(
+                this.memory != null ? this.memory.copy() : new MemoryProperties(),
+                this.provider != null ? this.provider.copy() : new ProviderProperties(),
+                this.ingestion,
+                this.hnsw,
+                this.ivf,
+                this.spectrum,
+                this.telemetry,
+                this.multimodal,
+                this.hardware,
+                this.events,
+                this.concurrency,
+                this.source
+        );
+    }
+
+    /**
+     * Creates a deep copy of this {@link SpectorProperties} with memory dimensions set to {@code dims}.
+     * The original instance is never mutated.
+     */
+    public SpectorProperties withDimensions(int dims) {
+        SpectorProperties cp = copy();
+        cp.memory().setDimensions(dims);
+        return cp;
+    }
+
     // ─────────────── Typed Accessors ───────────────
 
     /**
