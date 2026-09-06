@@ -16,12 +16,14 @@
 package com.spectrayan.spector.cli;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import picocli.CommandLine;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 /**
  * Unit tests for SpectorCtl CLI commands.
@@ -30,8 +32,21 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class SpectorCtlTest {
 
+    @SuppressWarnings("unchecked")
     private CommandLine createCli() {
-        return new CommandLine(new SpectorCtl());
+        CommandLine.IFactory factory = new CommandLine.IFactory() {
+            @Override
+            public <K> K create(Class<K> cls) throws Exception {
+                if (cls == McpCommand.class) {
+                    return cls.cast(new McpCommand(mock(ObjectProvider.class)));
+                }
+                if (cls == RememberCommand.class) {
+                    return cls.cast(new RememberCommand(mock(ObjectProvider.class), mock(ObjectProvider.class)));
+                }
+                return CommandLine.defaultFactory().create(cls);
+            }
+        };
+        return new CommandLine(new SpectorCtl(), factory);
     }
 
     // ─────────────── Requirement 18.6: --help display ───────────────
@@ -47,8 +62,8 @@ class SpectorCtlTest {
         String output = sw.toString();
         assertThat(output).contains("spectorctl");
         assertThat(output).contains("index");
-        assertThat(output).contains("ingest");
-        assertThat(output).contains("search");
+        assertThat(output).contains("remember");
+        assertThat(output).contains("recall");
         assertThat(output).contains("status");
         assertThat(output).contains("mcp");
     }
@@ -183,6 +198,35 @@ class SpectorCtlTest {
         assertThat(output).contains("--id");
         assertThat(output).contains("--content");
         assertThat(output).contains("--file");
+    }
+
+    @Test
+    void rememberHelp_showsOptions() {
+        var cli = createCli();
+        var sw = new StringWriter();
+        cli.setOut(new PrintWriter(sw));
+
+        int exitCode = cli.execute("remember", "--help");
+
+        assertThat(exitCode).isEqualTo(0);
+        String output = sw.toString();
+        assertThat(output).contains("--id");
+        assertThat(output).contains("--content");
+        assertThat(output).contains("--file");
+    }
+
+    @Test
+    void recallHelp_showsOptions() {
+        var cli = createCli();
+        var sw = new StringWriter();
+        cli.setOut(new PrintWriter(sw));
+
+        int exitCode = cli.execute("recall", "--help");
+
+        assertThat(exitCode).isEqualTo(0);
+        String output = sw.toString();
+        assertThat(output).contains("--top-k");
+        assertThat(output).contains("--mode");
     }
 
     @Test

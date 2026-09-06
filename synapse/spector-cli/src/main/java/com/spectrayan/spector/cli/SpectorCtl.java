@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.cli;
 
+import org.springframework.stereotype.Component;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -30,12 +31,15 @@ import picocli.CommandLine.Option;
  * spectorctl [--host HOST] [--port PORT] [--json] COMMAND
  *
  * Commands:
- *   index    Manage indexes (create, delete, list)
- *   ingest   Ingest a document
- *   search   Search for documents
- *   status   Show instance status
+ *   remember (ingest) Store or ingest documents/memories
+ *   recall (search)   Recall or search documents/memories
+ *   index             Manage indexes (create, delete, list)
+ *   status            Show instance status
+ *   memory            Manage cognitive memory subsystem
+ *   mcp               Start the Spector MCP server
  * </pre>
  */
+@Component
 @Command(
         name = "spectorctl",
         description = "Command-line tool for managing Spector instances.",
@@ -43,8 +47,8 @@ import picocli.CommandLine.Option;
         versionProvider = VersionProvider.class,
         subcommands = {
                 IndexCommand.class,
-                IngestCommand.class,
-                SearchCommand.class,
+                RememberCommand.class,
+                RecallCommand.class,
                 StatusCommand.class,
                 MemoryCommand.class,
                 McpCommand.class
@@ -74,17 +78,14 @@ public class SpectorCtl implements Runnable {
     }
 
     public static void main(String[] args) {
-        int exitCode = new CommandLine(new SpectorCtl())
-                .setExecutionExceptionHandler(new ExceptionHandler())
-                .execute(args);
-        System.exit(exitCode);
+        SpectorCliApplication.main(args);
     }
 
     /**
      * Handles execution exceptions to provide friendly error messages.
      * Satisfies Req 18.4 (connection errors) and 18.5 (invalid arguments).
      */
-    static class ExceptionHandler implements CommandLine.IExecutionExceptionHandler {
+    public static class ExceptionHandler implements CommandLine.IExecutionExceptionHandler {
         @Override
         public int handleExecutionException(Exception ex, CommandLine commandLine,
                                             CommandLine.ParseResult parseResult) {

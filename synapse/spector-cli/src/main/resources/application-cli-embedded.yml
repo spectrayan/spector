@@ -1,0 +1,10 @@
+spector:
+  memory:
+    enabled: true
+    persistence-mode: DISK
+    persistence-path: ${SPECTOR_DATA_DIR:~/.spector/data}/memory
+  provider:
+    embedding:
+      type: ${SPECTOR_EMBEDDING_PROVIDER:ollama}
+      base-url: ${SPECTOR_OLLAMA_BASE_URL:http://localhost:11434}
+      model: ${SPECTOR_OLLAMA_EMBED_MODEL:nomic-embed-text}

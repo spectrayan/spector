@@ -22,6 +22,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Component;
+
 import com.spectrayan.spector.cli.client.IngestRequest;
 import com.spectrayan.spector.cli.client.IngestResponse;
 import com.spectrayan.spector.cli.client.SpectorClientException;
@@ -32,42 +37,51 @@ import com.spectrayan.spector.config.SpectorConfigFactory;
 import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.ingestion.FileDiscoveryService;
 import com.spectrayan.spector.ingestion.IngestionPipeline;
-import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.graph.EntityExtractionMode;
-import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
-import com.spectrayan.spector.provider.generation.LlmProvider;
-import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
 /**
- * Ingest documents into Spector.
+ * Remember (ingest) documents and memories into Spector.
+ * Matches the {@code memory_remember} MCP tool.
  *
  * <p>Supports two modes, auto-detected from the flags provided:</p>
  * <ul>
  *   <li><strong>Remote</strong> -- {@code --content} or {@code --file}: sends a single
- *       document to a running Spector server via HTTP.</li>
- *   <li><strong>Local batch</strong> -- {@code --root}: discovers and ingests files
+ *       document/memory to a running Spector server via HTTP.</li>
+ *   <li><strong>Local batch</strong> -- {@code --root}: discovers and remembers files
  *       locally directly into {@link SpectorMemory}, honoring {@code spector.yml} config.</li>
  * </ul>
  *
  * <h3>Examples</h3>
  * <pre>
- *   spectorctl ingest --content "Hello world"             # remote
- *   spectorctl ingest --file README.md                    # remote
- *   spectorctl ingest --root /docs --pattern "**\/*.md"   # local batch
- *   spectorctl ingest --root . --config spector.yml       # local batch
+ *   spectorctl remember --content "Hello world"             # remote
+ *   spectorctl remember --file README.md                   # remote
+ *   spectorctl remember --root /docs --pattern "**\/*.md"  # local batch
+ *   spectorctl remember --root . --config spector.yml      # local batch
+ *   spectorctl ingest --file README.md                     # alias for remember
  * </pre>
  */
+@Component
 @Command(
-        name = "ingest",
-        description = "Ingest documents into Spector (remote or local batch).",
+        name = "remember",
+        aliases = {"ingest"},
+        description = "Remember and ingest documents or memories into Spector (remote or local batch).",
         mixinStandardHelpOptions = true
 )
-class IngestCommand extends BaseCommand {
+public class RememberCommand extends BaseCommand {
+
+    private final ObjectProvider<SpectorMemory> memoryProvider;
+    private final ObjectProvider<EmbeddingProvider> embedderProvider;
+
+    @Autowired
+    public RememberCommand(@Lazy ObjectProvider<SpectorMemory> memoryProvider,
+                           @Lazy ObjectProvider<EmbeddingProvider> embedderProvider) {
+        this.memoryProvider = memoryProvider;
+        this.embedderProvider = embedderProvider;
+    }
 
     // Remote mode options
     @CommandLine.Option(names = {"--id"}, description = "Document ID (auto-generated if not provided).")
@@ -116,17 +130,16 @@ class IngestCommand extends BaseCommand {
         }
     }
 
-    // Local Batch Mode
+    // ─────────────── Local Batch Mode ───────────────
 
     private void runLocalBatch() {
         SpectorConfigSource.Builder propsBuilder = SpectorConfigSource.builder();
-
-        if (configFile != null) propsBuilder.configFile(configFile);
-        if (pattern != null)
-            propsBuilder.override("spector.ingestion.file-pattern", pattern);
+        if (configFile != null)
+            propsBuilder.configFile(configFile);
         if (chunkSize != null)
             propsBuilder.override("spector.ingestion.chunk-size", chunkSize.toString());
-
+        if (pattern != null)
+            propsBuilder.override("spector.ingestion.file-pattern", pattern);
         if (rootDir != null)
             propsBuilder.override("spector.ingestion.root-directory", rootDir.toString());
 
@@ -139,7 +152,7 @@ class IngestCommand extends BaseCommand {
         Path root = ingestionConfig.rootDirectory().toAbsolutePath().normalize();
 
         out().printf("========================================%n");
-        out().printf("  Spector Ingestion (local batch)%n");
+        out().printf("  Spector Remember (local batch)%n");
         out().printf("  Mode:    %s%n", mode);
         out().printf("  Root:    %s%n", root);
         out().printf("  Pattern: %s%n", ingestionConfig.filePattern());
@@ -151,19 +164,13 @@ class IngestCommand extends BaseCommand {
                 ingestionConfig.retryDelayMs());
         out().printf("========================================%n%n");
 
-        var config = new com.spectrayan.spector.provider.ProviderConfig(
-                "ollama", embedConfig.type(), embedConfig.model(), embedConfig.apiKey(), embedConfig.baseUrl(), embedConfig.dimensions(), embedConfig.properties());
-        var registry = com.spectrayan.spector.provider.ProviderDiscovery.discover(java.util.List.of(config));
-        EmbeddingProvider embedder = registry.activeEmbedding().orElseThrow();
+        EmbeddingProvider embedder = embedderProvider != null ? embedderProvider.getIfAvailable() : null;
+        if (embedder == null) {
+            throw new IllegalStateException("EmbeddingProvider bean is not available in the Spring context. " +
+                    "Ensure you are running under the 'cli-embedded' profile with an embedding provider configured.");
+        }
         int dims = embedder.embed("probe").dimensions();
         out().printf("[Embedding] Dimensions: %d%n%n", dims);
-
-        propsBuilder.override("spector.memory.dimensions", String.valueOf(dims));
-        propsBuilder.override("spector.provider.embedding.dimensions", String.valueOf(dims));
-        props = propsBuilder.build();
-
-        SpectorConfigSource configSource = propsBuilder.build();
-        com.spectrayan.spector.config.SpectorProperties finalProps = com.spectrayan.spector.config.SpectorProperties.from(configSource);
 
         var chunker = new MarkdownChunker();
         var chunkConfig = new ChunkConfig(
@@ -176,7 +183,13 @@ class IngestCommand extends BaseCommand {
                 false
         );
 
-        try (SpectorMemory memory = com.spectrayan.spector.memory.config.SpectorMemoryConfigurator.builder(finalProps).build()) {
+        SpectorMemory memory = memoryProvider != null ? memoryProvider.getIfAvailable() : null;
+        if (memory == null) {
+            throw new IllegalStateException("SpectorMemory bean is not available in the Spring context. " +
+                    "Ensure memory is enabled (active profile: cli-embedded, spector.memory.enabled=true).");
+        }
+
+        try {
             long startMs = System.currentTimeMillis();
 
             IngestionPipeline pipeline = IngestionPipeline.builder()
@@ -233,7 +246,7 @@ class IngestCommand extends BaseCommand {
 
             long elapsed = System.currentTimeMillis() - startMs;
             out().printf("%n========================================%n");
-            out().printf("  Ingestion Complete%n");
+            out().printf("  Remember Complete%n");
             out().printf("  Mode:     MEMORY%n");
             out().printf("  Files:    %d%n", totalFiles);
             out().printf("  Chunks:   %d%n", totalChunks);
@@ -242,11 +255,11 @@ class IngestCommand extends BaseCommand {
             out().printf("  Time:     %dms%n", elapsed);
             out().printf("========================================%n");
         } catch (Exception e) {
-            err().println("Error during ingestion: " + e.getMessage());
+            err().println("Error during remember operation: " + e.getMessage());
         }
     }
 
-    // Remote Mode
+    // ─────────────── Remote Mode ───────────────
 
     private void runRemote() {
         String text = resolveContent();

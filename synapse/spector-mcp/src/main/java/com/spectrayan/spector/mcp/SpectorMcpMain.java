@@ -62,9 +62,12 @@ import com.spectrayan.spector.provider.embedding.CachingEmbeddingProvider;
  *   java --add-modules jdk.incubator.vector -jar spector.jar mcp --dims 768 --ollama-model qwen3-embedding
  *
  *   # Minimal (all defaults from spector-defaults.yml)
- *   java --add-modules jdk.incubator.vector -jar spector.jar mcp
- * </pre>
+ *
+ * @deprecated Standalone manual bootstrap entry point. Use {@code spectorctl mcp}
+ *             from the {@code spector-cli} module instead, which uses unified Spring Boot
+ *             auto-configuration.
  */
+@Deprecated(since = "0.1.0-alpha")
 public class SpectorMcpMain {
 
     private static final Logger log = LoggerFactory.getLogger(SpectorMcpMain.class);

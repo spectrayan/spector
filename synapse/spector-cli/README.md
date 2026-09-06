@@ -38,35 +38,36 @@ spectorctl mcp --dims 4096 --data-dir ~/.spector/data --ollama-model qwen3-embed
 
 ---
 
-## 📥 Ingestion
+## 📥 Remember (Ingestion)
 
-The `ingest` command auto-detects mode from the flags provided:
+The `remember` command (with backward-compatible alias `ingest`) auto-detects mode from the flags provided:
 
 ### Local Batch Mode (Direct Memory Ingestion)
 
-Discovers and ingests files directly into `SpectorMemory` — no server needed. Honors `spector.yml` config.
+Discovers and ingests files directly into `SpectorMemory` via Spring Boot auto-configuration — no server needed. Honors `spector.yml` config.
 
 ```bash
-# Ingest from config (root-directory from spector.yml)
-spectorctl ingest --config spector.yml
+# Remember from config (root-directory from spector.yml)
+spectorctl remember --config spector.yml
 
-# Ingest with explicit root directory
+# Remember with explicit root directory (or using 'ingest' alias)
+spectorctl remember --root /path/to/docs --pattern "**/*.md"
 spectorctl ingest --root /path/to/docs --pattern "**/*.md"
 
 # Override chunk size
-spectorctl ingest --config spector.yml --root . --chunk-size 1200
+spectorctl remember --config spector.yml --root . --chunk-size 1200
 ```
 
 ### Remote Mode (via HTTP)
 
-Sends a single document to a running Spector server.
+Sends a single document or memory to a running Spector server.
 
 ```bash
-# Ingest text content
-spectorctl ingest --content "Hello world" --id doc-1
+# Remember text content
+spectorctl remember --content "Hello world" --id doc-1
 
-# Ingest from a file
-spectorctl ingest --file README.md --title "Project README"
+# Remember from a file
+spectorctl remember --file README.md --title "Project README"
 ```
 
 ---
@@ -86,14 +87,19 @@ spectorctl memory status
 
 ---
 
-## 🔍 Search
+## 🔍 Recall (Search)
+
+The `recall` command (with backward-compatible alias `search`) queries Spector for documents or memories:
 
 ```bash
-# Search with default settings
+# Recall with default settings
+spectorctl recall "vector databases" --top-k 5
+
+# Recall using 'search' alias
 spectorctl search "vector databases" --top-k 5
 
 # Output as JSON (machine-parseable)
-spectorctl search "HNSW algorithm" --json
+spectorctl recall "HNSW algorithm" --json
 ```
 
 ---
