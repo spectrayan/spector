@@ -802,6 +802,10 @@ public final class SpectorMemoryBuilder {
         }
         if (properties.getCircadian() != null) {
             this.circadianPolicy = CircadianPolicy.from(properties.getCircadian());
+            String orchestrator = properties.getCircadian().getOrchestrator();
+            if (orchestrator != null && !orchestrator.isBlank()) {
+                com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutors.setOrchestrator(orchestrator);
+            }
         }
         if (properties.getDream() != null) {
             this.dreamConfig = DreamConfig.from(properties.getDream());

@@ -278,7 +278,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                         datasetProps.getDouble("graph_expansion_threshold", threshold)));
         }
 
-        com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode expansionMode = com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.resolve();
+        com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode expansionMode = com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.GATED;
         if (memoryProperties.getGraphExpansionMode() != null && !memoryProperties.getGraphExpansionMode().isBlank()) {
             try {
                 expansionMode = com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.valueOf(

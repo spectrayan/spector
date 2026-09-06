@@ -55,6 +55,18 @@ class PostBootstrapSyspropBanTest {
             "\"spector\\.(memory|provider|recall|concurrency|hardware|events|telemetry|circadian|dream|twofactor)\\."
     );
 
+    private static final Pattern LOAD_BAN_PATTERN = Pattern.compile(
+            "\\bSpectorProperties\\.load\\(\\)"
+    );
+
+    /** Files that are authorized to call SpectorProperties.load() as bootstrap entry points. */
+    private static final java.util.Set<String> LOAD_ALLOWED_FILES = java.util.Set.of(
+            "SpectorProperties.java",
+            "SpectorConfigFactory.java",
+            "SpectorMemoryBuilder.java",
+            "ConfigResolutionService.java"
+    );
+
     @Test
     @DisplayName("Production sources outside SpectorConfigSource must not query spector.* system properties or SPECTOR_* env vars")
     void testNoPostBootstrapSystemPropertyBypasses() throws IOException {
@@ -77,13 +89,15 @@ class PostBootstrapSyspropBanTest {
 
         for (Path file : productionFiles) {
             String normPath = file.toString().replace('\\', '/');
+            String fileName = file.getFileName().toString();
 
             // SpectorConfigSource is the sole authorized bootstrap reader
-            if (file.getFileName().toString().equals("SpectorConfigSource.java")) {
+            if (fileName.equals("SpectorConfigSource.java")) {
                 continue;
             }
 
             boolean isBench = normPath.contains("/bench/") || normPath.contains("/spector-bench/");
+            boolean isLoadAllowed = LOAD_ALLOWED_FILES.contains(fileName);
 
             List<String> lines = Files.readAllLines(file);
             for (int i = 0; i < lines.size(); i++) {
@@ -110,6 +124,15 @@ class PostBootstrapSyspropBanTest {
                     if (envMatcher.find()) {
                         violations.add(String.format("%s:%d [Env %s] -> %s",
                                 relPath(repoRoot, file), lineNum, envMatcher.group(1), line.trim()));
+                    }
+
+                    // Ban redundant SpectorProperties.load() calls outside authorized bootstrap files
+                    if (!isLoadAllowed) {
+                        Matcher loadMatcher = LOAD_BAN_PATTERN.matcher(line);
+                        if (loadMatcher.find()) {
+                            violations.add(String.format("%s:%d [Redundant load()] -> %s",
+                                    relPath(repoRoot, file), lineNum, line.trim()));
+                        }
                     }
                 }
             }

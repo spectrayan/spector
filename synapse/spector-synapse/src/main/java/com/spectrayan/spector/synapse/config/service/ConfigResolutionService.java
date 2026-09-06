@@ -35,10 +35,12 @@ public class ConfigResolutionService {
 
     private final ConfigRepository repository;
     private volatile ConfigOverridePolicy policy;
+    private final com.spectrayan.spector.config.SpectorProperties configSnapshot;
 
     public ConfigResolutionService(ConfigRepository repository) {
         this.repository = repository;
         this.policy = ConfigOverridePolicy.DEFAULT;
+        this.configSnapshot = com.spectrayan.spector.config.SpectorProperties.load();
         log.info("ConfigResolutionService initialized");
     }
 
@@ -143,9 +145,8 @@ public class ConfigResolutionService {
         };
     }
 
-    private static Map<String, Object> llmDefaults() {
-        var props = com.spectrayan.spector.config.SpectorProperties.load();
-        var gen = props.provider() != null ? props.provider().getGeneration() : null;
+    private Map<String, Object> llmDefaults() {
+        var gen = configSnapshot.provider() != null ? configSnapshot.provider().getGeneration() : null;
         var map = new LinkedHashMap<String, Object>();
         map.put("provider", gen != null && gen.getType() != null ? gen.getType() : "ollama");
         map.put("model", gen != null && gen.getModel() != null ? gen.getModel() : "llama3.2");
@@ -161,10 +162,9 @@ public class ConfigResolutionService {
         return map;
     }
 
-    private static Map<String, Object> ingestionDefaults() {
-        var props = com.spectrayan.spector.config.SpectorProperties.load();
-        var chunk = props.memory() != null && props.memory().getRemember() != null
-                ? props.memory().getRemember().getChunk() : null;
+    private Map<String, Object> ingestionDefaults() {
+        var chunk = configSnapshot.memory() != null && configSnapshot.memory().getRemember() != null
+                ? configSnapshot.memory().getRemember().getChunk() : null;
         var map = new LinkedHashMap<String, Object>();
         map.put("chunk-size", chunk != null && chunk.getSize() > 0 ? chunk.getSize() : 2500);
         map.put("chunk-overlap", chunk != null && chunk.getOverlap() >= 0 ? chunk.getOverlap() : 200);
@@ -172,10 +172,9 @@ public class ConfigResolutionService {
         return map;
     }
 
-    private static Map<String, Object> ragDefaults() {
-        var props = com.spectrayan.spector.config.SpectorProperties.load();
+    private Map<String, Object> ragDefaults() {
         int topK = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_QUERY_DEFAULT_TOP_K;
-        float similarityThreshold = props.memory() != null ? props.memory().getGraphExpansionThreshold() : 0.7f;
+        float similarityThreshold = configSnapshot.memory() != null ? configSnapshot.memory().getGraphExpansionThreshold() : 0.7f;
         var map = new LinkedHashMap<String, Object>();
         map.put("top-k", topK);
         map.put("similarity-threshold", (double) similarityThreshold);

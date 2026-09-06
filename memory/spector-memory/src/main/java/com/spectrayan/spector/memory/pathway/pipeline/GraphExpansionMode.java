@@ -47,25 +47,18 @@ public enum GraphExpansionMode {
      */
     ENTITY_ONLY;
 
-    /** System property key for configuring the graph expansion mode at runtime. */
-    @Deprecated(forRemoval = true)
-    public static final String SYSTEM_PROPERTY = "spector.memory.graphExpansionMode";
-
     /**
-     * Resolves the expansion mode from typed configuration, defaulting to {@link #GATED}.
+     * Parses a mode string into a {@code GraphExpansionMode}, defaulting to {@link #GATED}.
      *
-     * @return the configured or default expansion mode
-     * @deprecated Use {@code SpectorProperties.load().memory().getGraph().getExpansionMode()}
-     *             or configure directly via {@link com.spectrayan.spector.memory.SpectorMemoryBuilder}.
+     * @param modeStr the mode string (case-insensitive), may be {@code null}
+     * @return the parsed mode, or {@link #GATED} if {@code modeStr} is null, blank, or invalid
      */
-    @Deprecated(forRemoval = true)
-    public static GraphExpansionMode resolve() {
-        try {
-            String modeStr = com.spectrayan.spector.config.SpectorProperties.load().memory().getGraph().getExpansionMode();
-            if (modeStr != null && !modeStr.isBlank()) {
+    public static GraphExpansionMode fromString(String modeStr) {
+        if (modeStr != null && !modeStr.isBlank()) {
+            try {
                 return valueOf(modeStr.toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException ignored) {
             }
-        } catch (Exception ignored) {
         }
         return GATED;
     }

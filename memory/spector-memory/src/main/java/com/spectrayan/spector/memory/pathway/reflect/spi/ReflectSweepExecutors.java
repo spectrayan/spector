@@ -113,8 +113,7 @@ public final class ReflectSweepExecutors {
 
     private static RegistryState initialize() {
         List<ReflectSweepExecutor> discovered = new ArrayList<>();
-        String explicitChoice = orchestratorOverride != null ? orchestratorOverride
-                : com.spectrayan.spector.config.SpectorProperties.load().memory().getCircadian().getOrchestrator();
+        String explicitChoice = orchestratorOverride;
 
         ServiceLoader<ReflectSweepExecutor> loader = ServiceLoader.load(ReflectSweepExecutor.class);
         for (ReflectSweepExecutor exec : loader) {
