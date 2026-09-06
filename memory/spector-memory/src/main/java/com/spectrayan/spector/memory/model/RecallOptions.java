@@ -17,9 +17,11 @@ import com.spectrayan.spector.config.model.TextSearchMode;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 
+import com.spectrayan.spector.config.properties.RecallProperties;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -153,6 +155,21 @@ public record RecallOptions(
 
     /** Default options: top 10, no filters, balanced scoring. */
     public static final RecallOptions DEFAULT = builder().build();
+
+    private static final Logger log = LoggerFactory.getLogger(RecallOptions.class);
+
+    /**
+     * Creates a {@link RecallOptions} instance hydrated from {@link RecallProperties}.
+     *
+     * @param props the recall properties snapshot, or null for default options
+     * @return hydrated RecallOptions
+     */
+    public static RecallOptions from(RecallProperties props) {
+        if (props == null) {
+            return DEFAULT;
+        }
+        return builder().fromProperties(props).build();
+    }
 
     /**
      * Creates a new builder.
@@ -1026,6 +1043,78 @@ public record RecallOptions(
          */
         public Builder enableAisme(boolean enable) {
             this.aismeConfig = enable ? AismeConfig.defaultConfig() : AismeConfig.disabled();
+            return this;
+        }
+
+        /**
+         * Hydrates options from a {@link RecallProperties} configuration snapshot.
+         *
+         * @param props configuration properties snapshot
+         * @return this builder
+         */
+        public Builder fromProperties(RecallProperties props) {
+            if (props == null) {
+                return this;
+            }
+            if (props.getScoringMode() != null) {
+                String normalized = props.getScoringMode().trim().toUpperCase(Locale.ROOT);
+                if ("SIMILARITY_ONLY".equals(normalized) || "SIMILARITY-ONLY".equals(normalized)) {
+                    normalized = "SIMILARITY";
+                }
+                try {
+                    this.scoringMode = ScoringMode.valueOf(normalized);
+                } catch (IllegalArgumentException e) {
+                    log.warn("Invalid scoring mode '{}', keeping default {}", props.getScoringMode(), this.scoringMode);
+                }
+            }
+            if (props.getScoreFusionMode() != null) {
+                try {
+                    this.scoreFusionMode = ScoreFusionMode.valueOf(props.getScoreFusionMode().toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException e) {
+                    log.warn("Invalid score fusion mode '{}', keeping default {}", props.getScoreFusionMode(), this.scoreFusionMode);
+                }
+            }
+            this.strictnessCoefficient = props.getStrictnessCoefficient();
+            this.enableTrace = props.isTraceEnabled();
+            if (props.getMode() != null) {
+                try {
+                    this.recallMode = RecallMode.valueOf(props.getMode().toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException e) {
+                    log.warn("Invalid recall mode '{}', keeping default {}", props.getMode(), this.recallMode);
+                }
+            }
+            this.maxReplayEvents = props.getMaxReplayEvents();
+            this.includeContradictions = props.isIncludeContradictions();
+
+            if (props.getMmr() != null) {
+                this.enableMmr = props.getMmr().isEnabled();
+                this.mmrLambda = props.getMmr().getLambda();
+            }
+            if (props.getTextSearch() != null) {
+                this.enableTextSearch = props.getTextSearch().isEnabled();
+                if (props.getTextSearch().getMode() != null) {
+                    try {
+                        this.textSearchMode = TextSearchMode.valueOf(props.getTextSearch().getMode().toUpperCase(Locale.ROOT));
+                    } catch (IllegalArgumentException e) {
+                        log.warn("Invalid text search mode '{}', keeping default {}", props.getTextSearch().getMode(), this.textSearchMode);
+                    }
+                }
+            }
+            if (props.getReranker() != null) {
+                this.enableReranker = props.getReranker().isEnabled();
+                this.rerankerDepth = props.getReranker().getDepth();
+            }
+            if (props.getLateral() != null) {
+                this.lateralMode = props.getLateral().isEnabled();
+                this.lateralDistanceThreshold = props.getLateral().getDistanceThreshold();
+                this.lateralMinTagOverlap = props.getLateral().getMinTagOverlap();
+            }
+            if (props.getAutoProfile() != null) {
+                this.autoProfile = props.getAutoProfile().isEnabled();
+            }
+            if (props.getValenceAlignment() != null) {
+                this.enableValenceAlignment = props.getValenceAlignment().isEnabled();
+            }
             return this;
         }
 

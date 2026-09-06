@@ -333,6 +333,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final Path persistencePath;
     private final CircadianPolicy circadianPolicy;
     private final CognitiveProfileConfig profileConfig;
+    private final RecallOptions defaultRecallOptions;
 
     //  Multi-Tenant Namespace 
     private final SpectorNamespaceManager namespaceManager;
@@ -449,6 +450,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.persistencePath = builder.persistencePath();
         this.circadianPolicy = builder.circadianPolicy();
         this.profileConfig = builder.profileConfig();
+        this.defaultRecallOptions = builder.defaultRecallOptions() != null ? builder.defaultRecallOptions() : RecallOptions.DEFAULT;
         this.namespaceManager = bundle.namespaceManager();
         this.namespaceId = builder.namespaceId();
         this.idGenerator = bundle.idGenerator();
@@ -1052,9 +1054,17 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     @Override
+    public RecallOptions defaultRecallOptions() {
+        return this.defaultRecallOptions;
+    }
+
+    @Override
     public List<CognitiveResult> recall(String queryText, RecallOptions options) {
         acquireLease();
         try {
+            if (options == null) {
+                options = this.defaultRecallOptions != null ? this.defaultRecallOptions : RecallOptions.DEFAULT;
+            }
             // Auto-profile & query tag resolution: use ProfileAdaptor and TagExtractor
             if (options.autoProfile()) {
                 var optBuilder = options.toBuilder();
@@ -1098,12 +1108,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public List<CognitiveResult> recall(String queryText, CognitiveProfile profile) {
         CognitiveProfile effective = profileConfig.validate(profile);
-        return recall(queryText, RecallOptions.builder().profile(effective).build());
+        RecallOptions base = this.defaultRecallOptions != null ? this.defaultRecallOptions : RecallOptions.DEFAULT;
+        return recall(queryText, base.toBuilder().profile(effective).build());
     }
 
     @Override
     public List<CognitiveResult> recall(String queryText) {
-        return recall(queryText, RecallOptions.DEFAULT);
+        return recall(queryText, this.defaultRecallOptions != null ? this.defaultRecallOptions : RecallOptions.DEFAULT);
     }
 
     @Override

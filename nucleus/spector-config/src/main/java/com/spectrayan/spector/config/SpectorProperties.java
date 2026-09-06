@@ -28,8 +28,12 @@ import java.nio.file.Path;
 /**
  * Aggregate root configuration POJO for Spector.
  *
- * <p>Holds all typed sub-domain configuration objects as an immutable tree.
- * This is the single entry point that downstream modules (memory builders,
+ * <p>Holds all typed sub-domain configuration objects as an aggregate root.
+ * Note that while top-level references held by this class are final, child property
+ * objects are standard JavaBeans. The underlying {@link #source()} is transient and
+ * is not retained across serialization.</p>
+ *
+ * <p>This is the single entry point that downstream modules (memory builders,
  * auto-configurations, CLI commands) should accept for full configuration.</p>
  *
  * <h3>Usage</h3>
@@ -164,9 +168,9 @@ public final class SpectorProperties implements Serializable {
      * Returns the ingestion / file crawler configuration.
      * Maps to {@code spector.ingestion.*} namespace.
      *
-     * <p>This is a legacy adapter for the file crawler. Chunking configuration
-     * should be read from {@code memory().getRemember().getChunk()} once
-     * {@code RememberProperties} is introduced.</p>
+     * <p>This is an adapter for file crawling and legacy ingestion configurations.
+     * Memory write and chunking configuration is canonically configured and accessible
+     * via {@code memory().getRemember()}.</p>
      */
     public IngestionProperties ingestion() { return ingestion; }
 

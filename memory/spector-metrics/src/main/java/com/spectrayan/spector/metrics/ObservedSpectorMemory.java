@@ -196,6 +196,11 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
     }
 
     @Override
+    public RecallOptions defaultRecallOptions() {
+        return delegate.defaultRecallOptions();
+    }
+
+    @Override
     public void forget(String id) {
         withObservation(SpectorObservationDocumentation.MEMORY_FORGET,
                 createTags(null, id, null),

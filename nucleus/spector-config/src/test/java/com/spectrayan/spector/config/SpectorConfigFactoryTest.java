@@ -113,4 +113,69 @@ class SpectorConfigFactoryTest {
         assertThat(memory.getTagExtractor()).isEqualTo(TagExtractorMode.LLM);
         assertThat(memory.getTextSearchMode()).isEqualTo(TextSearchMode.FULL_STACK);
     }
+
+    @Test
+    void recallProperties_legacyRecallMmrFallback() {
+        SpectorConfigSource props = SpectorConfigSource.builder()
+                .override("spector.recall.mmr.enabled", "true")
+                .override("spector.recall.mmr.lambda", "0.85")
+                .build();
+
+        var recall = SpectorConfigFactory.recallProperties(props);
+        assertThat(recall.getMmr().isEnabled()).isTrue();
+        assertThat(recall.getMmr().getLambda()).isEqualTo(0.85f);
+
+        var memory = SpectorConfigFactory.memoryProperties(props);
+        assertThat(memory.isEnableMmr()).isTrue();
+        assertThat(memory.getMmrLambda()).isEqualTo(0.85f);
+    }
+
+    @Test
+    void recallProperties_legacyRetrievalMmrFallback() {
+        SpectorConfigSource props = SpectorConfigSource.builder()
+                .override("spector.memory.retrieval.enable-mmr", "true")
+                .override("spector.memory.retrieval.mmr-lambda", "0.75")
+                .build();
+
+        var recall = SpectorConfigFactory.recallProperties(props);
+        assertThat(recall.getMmr().isEnabled()).isTrue();
+        assertThat(recall.getMmr().getLambda()).isEqualTo(0.75f);
+
+        var memory = SpectorConfigFactory.memoryProperties(props);
+        assertThat(memory.isEnableMmr()).isTrue();
+        assertThat(memory.getMmrLambda()).isEqualTo(0.75f);
+    }
+
+    @Test
+    void rememberProperties_canonicalChunkSizeWinsOverLegacy() {
+        SpectorConfigSource props = SpectorConfigSource.builder()
+                .override("spector.ingestion.chunk-size", "512")
+                .override("spector.memory.remember.chunk.size", "1024")
+                .override("spector.ingestion.chunk-overlap", "50")
+                .override("spector.memory.remember.chunk.overlap", "128")
+                .build();
+
+        var remember = SpectorConfigFactory.rememberProperties(props);
+        assertThat(remember.getChunk().getSize()).isEqualTo(1024);
+        assertThat(remember.getChunk().getOverlap()).isEqualTo(128);
+    }
+
+    @Test
+    void recallProperties_engineRoutingAndPathwayDerivation() {
+        SpectorConfigSource propsDirect = SpectorConfigSource.builder()
+                .override("spector.memory.recall.engine", "direct")
+                .build();
+
+        var memoryDirect = SpectorConfigFactory.memoryProperties(propsDirect);
+        assertThat(memoryDirect.getRecall().getEngine()).isEqualTo("direct");
+        assertThat(memoryDirect.isPathwayEnabled()).isFalse();
+
+        SpectorConfigSource propsPathway = SpectorConfigSource.builder()
+                .override("spector.memory.recall.engine", "pathway")
+                .build();
+
+        var memoryPathway = SpectorConfigFactory.memoryProperties(propsPathway);
+        assertThat(memoryPathway.getRecall().getEngine()).isEqualTo("pathway");
+        assertThat(memoryPathway.isPathwayEnabled()).isTrue();
+    }
 }

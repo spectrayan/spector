@@ -40,6 +40,10 @@ public interface MemoryRecall {
 
     List<CognitiveResult> recall(String queryText);
 
+    default RecallOptions defaultRecallOptions() {
+        return RecallOptions.DEFAULT;
+    }
+
     WhyNotExplanation whyNot(String memoryId, String queryText, RecallOptions options);
 
     CognitiveRecord inspect(String id);

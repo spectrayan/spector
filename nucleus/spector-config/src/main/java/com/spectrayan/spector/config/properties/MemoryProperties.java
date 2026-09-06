@@ -316,13 +316,37 @@ public class MemoryProperties implements Serializable {
     }
     public float graphExpansionThreshold() { return graphExpansionThreshold; }
 
-    public boolean isEnableMmr() { return enableMmr; }
-    public void setEnableMmr(boolean enableMmr) { this.enableMmr = enableMmr; }
-    public boolean enableMmr() { return enableMmr; }
+    @Deprecated(forRemoval = true)
+    public boolean isEnableMmr() {
+        return recall != null && recall.getMmr() != null ? recall.getMmr().isEnabled() : enableMmr;
+    }
 
-    public float getMmrLambda() { return mmrLambda; }
-    public void setMmrLambda(float mmrLambda) { this.mmrLambda = mmrLambda; }
-    public float mmrLambda() { return mmrLambda; }
+    @Deprecated(forRemoval = true)
+    public void setEnableMmr(boolean enableMmr) {
+        this.enableMmr = enableMmr;
+        if (recall != null && recall.getMmr() != null) {
+            recall.getMmr().setEnabled(enableMmr);
+        }
+    }
+
+    @Deprecated(forRemoval = true)
+    public boolean enableMmr() { return isEnableMmr(); }
+
+    @Deprecated(forRemoval = true)
+    public float getMmrLambda() {
+        return recall != null && recall.getMmr() != null ? recall.getMmr().getLambda() : mmrLambda;
+    }
+
+    @Deprecated(forRemoval = true)
+    public void setMmrLambda(float mmrLambda) {
+        this.mmrLambda = mmrLambda;
+        if (recall != null && recall.getMmr() != null) {
+            recall.getMmr().setLambda(mmrLambda);
+        }
+    }
+
+    @Deprecated(forRemoval = true)
+    public float mmrLambda() { return getMmrLambda(); }
 
     public boolean isSchedulerEnabled() { return schedulerEnabled; }
     public void setSchedulerEnabled(boolean schedulerEnabled) { this.schedulerEnabled = schedulerEnabled; }

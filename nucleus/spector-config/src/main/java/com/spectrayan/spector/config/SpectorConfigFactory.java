@@ -222,11 +222,6 @@ public final class SpectorConfigFactory {
                 props.getDouble(GRAPH_EXPANSION_THRESHOLD_PROPERTY,
                 props.getDouble(GRAPH_EXPANSION_THRESHOLD_BENCH_ALIAS, DEFAULT_MEMORY_GRAPH_EXPANSION_THRESHOLD)))));
 
-        properties.setEnableMmr(props.getBoolean(MEMORY_RETRIEVAL_ENABLE_MMR,
-                props.getBoolean("spector.memory.enable-mmr", DEFAULT_MEMORY_RETRIEVAL_ENABLE_MMR)));
-        properties.setMmrLambda((float) props.getDouble(MEMORY_RETRIEVAL_MMR_LAMBDA,
-                props.getDouble("spector.memory.mmr-lambda", DEFAULT_MEMORY_RETRIEVAL_MMR_LAMBDA)));
-
         properties.setSchedulerEnabled(props.getBoolean(MEMORY_SCHEDULER_ENABLED, DEFAULT_MEMORY_SCHEDULER_ENABLED));
         properties.setWanderEnabled(props.getBoolean(MEMORY_WANDER_ENABLED, DEFAULT_MEMORY_WANDER_ENABLED));
         properties.setDreamEnabled(props.getBoolean(MEMORY_DREAM_ENABLED, DEFAULT_MEMORY_DREAM_ENABLED));
@@ -237,7 +232,20 @@ public final class SpectorConfigFactory {
         properties.setGraph(graphProperties(props));
         properties.setCircadian(circadianProperties(props));
         properties.setMaxNamespaces(props.getInt("spector.memory.max-namespaces", 100));
-        properties.setPathwayEnabled(props.getBoolean("spector.memory.pathway.enabled", true));
+
+        // Pathway enabled — respect explicit boolean, or derive from recall.engine
+        boolean pathwayDefault = true;
+        if (properties.getRecall() != null && properties.getRecall().getEngine() != null) {
+            String eng = properties.getRecall().getEngine();
+            if ("direct".equalsIgnoreCase(eng) || "legacy".equalsIgnoreCase(eng)) {
+                pathwayDefault = false;
+            }
+        }
+        properties.setPathwayEnabled(props.getBoolean("spector.memory.pathway.enabled", pathwayDefault));
+
+        // Sync deprecated top-level retrieval fields with unified recall.mmr
+        properties.setEnableMmr(properties.getRecall().getMmr().isEnabled());
+        properties.setMmrLambda(properties.getRecall().getMmr().getLambda());
 
         return properties;
     }
@@ -321,16 +329,29 @@ public final class SpectorConfigFactory {
                 props.getBoolean("spector.recall.trace.enabled", false)));
         recall.setMode(props.getString("spector.memory.recall.mode",
                 props.getString("spector.recall.mode", "LEARN")));
+        recall.setEngine(props.getString("spector.memory.recall.engine",
+                props.getString("spector.recall.engine",
+                        props.getString("spector.memory.engine", "pathway"))));
         recall.setMaxReplayEvents(props.getInt("spector.memory.recall.max-replay-events",
                 props.getInt("spector.recall.max-replay-events", 100000)));
         recall.setIncludeContradictions(props.getBoolean("spector.memory.recall.include-contradictions",
                 props.getBoolean("spector.recall.include-contradictions", false)));
 
         var mmr = recall.getMmr();
-        mmr.setEnabled(props.getBoolean("spector.memory.recall.mmr.enabled",
-                props.getBoolean("spector.recall.mmr.enabled", false)));
-        mmr.setLambda((float) props.getDouble("spector.memory.recall.mmr.lambda",
-                props.getDouble("spector.recall.mmr.lambda", 0.5)));
+        boolean defaultMmr = false;
+        boolean mmrEnabled = props.getBoolean("spector.memory.recall.mmr.enabled",
+                props.getBoolean("spector.recall.mmr.enabled",
+                        props.getBoolean("spector.memory.retrieval.enable-mmr",
+                                props.getBoolean("spector.memory.enable-mmr",
+                                        props.getBoolean("spector.memory.retrieval.mmr.enabled", defaultMmr)))));
+        mmr.setEnabled(mmrEnabled);
+
+        float mmrLambda = (float) props.getDouble("spector.memory.recall.mmr.lambda",
+                props.getDouble("spector.recall.mmr.lambda",
+                        props.getDouble("spector.memory.retrieval.mmr-lambda",
+                                props.getDouble("spector.memory.retrieval.mmr.lambda",
+                                        props.getDouble("spector.memory.mmr-lambda", 0.5)))));
+        mmr.setLambda(mmrLambda);
 
         var textSearch = recall.getTextSearch();
         textSearch.setEnabled(props.getBoolean("spector.memory.recall.text-search.enabled",
@@ -417,17 +438,27 @@ public final class SpectorConfigFactory {
         icnu.setWeightUrgency((float) props.getDouble("spector.memory.remember.icnu.weight-urgency",
                 props.getDouble("spector.memory.icnu.weight-urgency", 0.20)));
 
-        // Cognitive write parameters
-        remember.setSurpriseWarmup(props.getInt("spector.memory.surprise-warmup", 10));
-        remember.setFlashbulbThreshold((float) props.getDouble("spector.memory.flashbulb-threshold", 3.0));
-        remember.setValenceLearningRate((float) props.getDouble("spector.memory.valence-learning-rate", 0.3));
-        remember.setDeduplicationRadius((float) props.getDouble("spector.memory.deduplication-radius", 0.05));
-        remember.setInhibitionTtlMs(props.getLong("spector.memory.inhibition-ttl-ms", 300000L));
-        remember.setInhibitionFloor((float) props.getDouble("spector.memory.inhibition-floor", 0.1));
-        remember.setHabituationDecayRate((float) props.getDouble("spector.memory.habituation-decay-rate", 0.2));
-        remember.setLtpCooldownMs(props.getLong("spector.memory.ltp-cooldown-ms", 300000L));
-        remember.setPinSourceEpisodes(props.getBoolean("spector.memory.pin-source-episodes", false));
-        remember.setPinnedQuota(props.getInt("spector.memory.pinned-quota", 10000));
+        // Cognitive write parameters — canonical spector.memory.remember.* with spector.memory.* fallback
+        remember.setSurpriseWarmup(props.getInt("spector.memory.remember.surprise-warmup",
+                props.getInt("spector.memory.surprise-warmup", 10)));
+        remember.setFlashbulbThreshold((float) props.getDouble("spector.memory.remember.flashbulb-threshold",
+                props.getDouble("spector.memory.flashbulb-threshold", 3.0)));
+        remember.setValenceLearningRate((float) props.getDouble("spector.memory.remember.valence-learning-rate",
+                props.getDouble("spector.memory.valence-learning-rate", 0.3)));
+        remember.setDeduplicationRadius((float) props.getDouble("spector.memory.remember.deduplication-radius",
+                props.getDouble("spector.memory.deduplication-radius", 0.05)));
+        remember.setInhibitionTtlMs(props.getLong("spector.memory.remember.inhibition-ttl-ms",
+                props.getLong("spector.memory.inhibition-ttl-ms", 300000L)));
+        remember.setInhibitionFloor((float) props.getDouble("spector.memory.remember.inhibition-floor",
+                props.getDouble("spector.memory.inhibition-floor", 0.1)));
+        remember.setHabituationDecayRate((float) props.getDouble("spector.memory.remember.habituation-decay-rate",
+                props.getDouble("spector.memory.habituation-decay-rate", 0.2)));
+        remember.setLtpCooldownMs(props.getLong("spector.memory.remember.ltp-cooldown-ms",
+                props.getLong("spector.memory.ltp-cooldown-ms", 300000L)));
+        remember.setPinSourceEpisodes(props.getBoolean("spector.memory.remember.pin-source-episodes",
+                props.getBoolean("spector.memory.pin-source-episodes", false)));
+        remember.setPinnedQuota(props.getInt("spector.memory.remember.pinned-quota",
+                props.getInt("spector.memory.pinned-quota", 10000)));
 
         return remember;
     }

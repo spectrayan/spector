@@ -16,6 +16,9 @@ import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.api.CognitiveProfileConfig;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
+import com.spectrayan.spector.memory.model.RecallOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
 import com.spectrayan.spector.memory.neuromod.dopamine.DefaultImportanceProvider;
@@ -100,9 +103,12 @@ import com.spectrayan.spector.config.SpectorPropertyConstants;
  */
 public final class SpectorMemoryBuilder {
 
+    private static final Logger log = LoggerFactory.getLogger(SpectorMemoryBuilder.class);
+
     //  Core configuration 
     private boolean managedByRegistry = false;
     private boolean useBundleMode = true;   // V4 bundle architecture (ADR-0004)
+    private RecallOptions defaultRecallOptions = RecallOptions.DEFAULT;
     private int dimensions;
     private EmbeddingProvider embeddingProvider;
     private Path persistencePath;
@@ -361,6 +367,17 @@ public final class SpectorMemoryBuilder {
      */
     public SpectorMemoryBuilder chunkConfig(com.spectrayan.spector.commons.chunker.ChunkConfig config) {
         this.chunkConfig = config != null ? config : com.spectrayan.spector.commons.chunker.ChunkConfig.DEFAULT;
+        return this;
+    }
+
+    /**
+     * Sets the default recall options to use when options are not explicitly specified.
+     *
+     * @param options default recall options
+     * @return this builder
+     */
+    public SpectorMemoryBuilder defaultRecallOptions(RecallOptions options) {
+        this.defaultRecallOptions = options != null ? options : RecallOptions.DEFAULT;
         return this;
     }
 
@@ -685,80 +702,7 @@ public final class SpectorMemoryBuilder {
     public SpectorMemoryBuilder fromProperties(com.spectrayan.spector.config.SpectorProperties props) {
         if (props == null) return this;
         this.spectorProperties = props;
-
-        // Delegate to the MemoryProperties overload for core memory fields
-        fromProperties(props.memory());
-
-        // Wire sub-domain fields that MemoryProperties overload doesn't cover
-        var remember = props.memory().getRemember();
-        if (remember != null) {
-            this.surpriseWarmup = remember.getSurpriseWarmup();
-            this.flashbulbThreshold = remember.getFlashbulbThreshold();
-            this.valenceLearningRate = remember.getValenceLearningRate();
-            this.deduplicationRadius = remember.getDeduplicationRadius();
-            this.inhibitionTtlMs = remember.getInhibitionTtlMs();
-            this.inhibitionFloor = remember.getInhibitionFloor();
-            this.pinSourceEpisodes = remember.isPinSourceEpisodes();
-            this.pinnedQuota = remember.getPinnedQuota();
-
-            var chunk = remember.getChunk();
-            if (chunk != null) {
-                this.chunkConfig = com.spectrayan.spector.commons.chunker.ChunkConfig.markdown(
-                        chunk.getSize(), chunk.getOverlap());
-            }
-
-            var icnu = remember.getIcnu();
-            if (icnu != null) {
-                this.icnuWeights = new com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights(
-                        icnu.getWeightInterest(), icnu.getWeightChallenge(),
-                        icnu.getWeightNovelty(), icnu.getWeightUrgency());
-            }
-        }
-
-        // Wire maxNamespaces and pathwayEnabled from MemoryProperties sub-domain
-        this.maxActiveNamespaces = props.memory().getMaxNamespaces();
-        this.usePathwayEngine = props.memory().isPathwayEnabled();
-
-        // Wire graph scoring policy from GraphProperties sub-domain
-        var graph = props.memory().getGraph();
-        if (graph != null) {
-            try {
-                var mode = com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.valueOf(
-                        graph.getExpansionMode().toUpperCase(java.util.Locale.ROOT));
-                this.graphScoringPolicy = new com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy(
-                        graph.getCausalBoost(),
-                        graph.getHebbianBoost(),
-                        graph.getTemporalForward(),
-                        graph.getTemporalBackward(),
-                        graph.getEntityAttenuation(),
-                        graphScoringPolicy.hebbianMaxDepth(),
-                        graphScoringPolicy.temporalMaxHops(),
-                        graphScoringPolicy.entityMaxHops(),
-                        graph.getExpansionThreshold(),
-                        mode
-                );
-            } catch (Exception ignored) {}
-
-            var hebbian = graph.getHebbian();
-            if (hebbian != null) {
-                this.hebbianMaxDegree = hebbian.getMaxDegree();
-            }
-            var entity = graph.getEntity();
-            if (entity != null) {
-                this.entityMaxDegree = entity.getMaxDegree();
-                this.maxEntitiesPerMemory = entity.getMaxPerMemory();
-                this.entityResolutionEnabled = entity.isResolutionEnabled();
-                this.entityShadowMode = entity.isShadowMode();
-                this.entityCosineThreshold = entity.getCosineThreshold();
-                this.temporalRetentionDays = entity.getRetentionDays();
-                try {
-                    this.entityExtractionMode = com.spectrayan.spector.memory.graph.EntityExtractionMode.valueOf(
-                            entity.getExtractionMode().toUpperCase(java.util.Locale.ROOT));
-                } catch (Exception ignored) {}
-            }
-        }
-
-        return this;
+        return fromProperties(props.memory());
     }
 
     /**
@@ -808,7 +752,81 @@ public final class SpectorMemoryBuilder {
         if (properties.getAisme() != null) {
             this.aismeConfig = com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(properties.getAisme());
         }
-        if (properties.getGraphExpansionMode() != null) {
+        if (properties.getRecall() != null) {
+            this.defaultRecallOptions = RecallOptions.from(properties.getRecall());
+        }
+
+        var remember = properties.getRemember();
+        if (remember != null) {
+            this.surpriseWarmup = remember.getSurpriseWarmup();
+            this.flashbulbThreshold = remember.getFlashbulbThreshold();
+            this.valenceLearningRate = remember.getValenceLearningRate();
+            this.deduplicationRadius = remember.getDeduplicationRadius();
+            this.inhibitionTtlMs = remember.getInhibitionTtlMs();
+            this.inhibitionFloor = remember.getInhibitionFloor();
+            this.pinSourceEpisodes = remember.isPinSourceEpisodes();
+            this.pinnedQuota = remember.getPinnedQuota();
+
+            var chunk = remember.getChunk();
+            if (chunk != null) {
+                this.chunkConfig = com.spectrayan.spector.commons.chunker.ChunkConfig.markdown(
+                        chunk.getSize(), chunk.getOverlap());
+            }
+
+            var icnu = remember.getIcnu();
+            if (icnu != null) {
+                this.icnuWeights = new com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights(
+                        icnu.getWeightInterest(), icnu.getWeightChallenge(),
+                        icnu.getWeightNovelty(), icnu.getWeightUrgency());
+            }
+        }
+
+        if (properties.getMaxNamespaces() > 0) {
+            this.maxActiveNamespaces = properties.getMaxNamespaces();
+        }
+        this.usePathwayEngine = properties.isPathwayEnabled();
+
+        var graph = properties.getGraph();
+        if (graph != null) {
+            try {
+                var mode = com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.valueOf(
+                        graph.getExpansionMode().toUpperCase(java.util.Locale.ROOT));
+                this.graphScoringPolicy = new com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy(
+                        graph.getCausalBoost(),
+                        graph.getHebbianBoost(),
+                        graph.getTemporalForward(),
+                        graph.getTemporalBackward(),
+                        graph.getEntityAttenuation(),
+                        graphScoringPolicy.hebbianMaxDepth(),
+                        graphScoringPolicy.temporalMaxHops(),
+                        graphScoringPolicy.entityMaxHops(),
+                        graph.getExpansionThreshold(),
+                        mode
+                );
+            } catch (Exception e) {
+                log.warn("Failed to parse graph expansion mode '{}', keeping default", graph.getExpansionMode(), e);
+            }
+
+            var hebbian = graph.getHebbian();
+            if (hebbian != null) {
+                this.hebbianMaxDegree = hebbian.getMaxDegree();
+            }
+            var entity = graph.getEntity();
+            if (entity != null) {
+                this.entityMaxDegree = entity.getMaxDegree();
+                this.maxEntitiesPerMemory = entity.getMaxPerMemory();
+                this.entityResolutionEnabled = entity.isResolutionEnabled();
+                this.entityShadowMode = entity.isShadowMode();
+                this.entityCosineThreshold = entity.getCosineThreshold();
+                this.temporalRetentionDays = entity.getRetentionDays();
+                try {
+                    this.entityExtractionMode = com.spectrayan.spector.memory.graph.EntityExtractionMode.valueOf(
+                            entity.getExtractionMode().toUpperCase(java.util.Locale.ROOT));
+                } catch (Exception e) {
+                    log.warn("Failed to parse entity extraction mode '{}', keeping default", entity.getExtractionMode(), e);
+                }
+            }
+        } else if (properties.getGraphExpansionMode() != null) {
             try {
                 com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode mode =
                         com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.valueOf(
@@ -825,7 +843,9 @@ public final class SpectorMemoryBuilder {
                         properties.getGraphExpansionThreshold(),
                         mode
                 );
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("Failed to parse graph expansion mode '{}', keeping default", properties.getGraphExpansionMode(), e);
+            }
         }
         return this;
     }
@@ -857,6 +877,7 @@ public final class SpectorMemoryBuilder {
     public com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig dreamConfig() { return dreamConfig; }
     public boolean managedByRegistry() { return managedByRegistry; }
     public boolean useBundleMode() { return useBundleMode; }
+    public RecallOptions defaultRecallOptions() { return defaultRecallOptions; }
     public int dimensions() { return dimensions; }
     public EmbeddingProvider embeddingProvider() { return embeddingProvider; }
     public Path persistencePath() { return persistencePath; }

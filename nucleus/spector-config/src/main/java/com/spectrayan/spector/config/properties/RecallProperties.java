@@ -27,6 +27,7 @@ public class RecallProperties implements Serializable {
     private float strictnessCoefficient = 1.0f;
     private boolean traceEnabled = false;
     private String mode = "LEARN";  // LEARN, SEARCH, etc.
+    private String engine = "pathway"; // pathway, direct, auto, etc.
     private int maxReplayEvents = 100000;
     private boolean includeContradictions = false;
     
@@ -60,6 +61,10 @@ public class RecallProperties implements Serializable {
     public String getMode() { return mode; }
     public void setMode(String mode) { this.mode = mode; }
     public String mode() { return mode; }
+
+    public String getEngine() { return engine; }
+    public void setEngine(String engine) { this.engine = engine; }
+    public String engine() { return engine; }
 
     public int getMaxReplayEvents() { return maxReplayEvents; }
     public void setMaxReplayEvents(int maxReplayEvents) { this.maxReplayEvents = maxReplayEvents; }

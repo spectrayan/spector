@@ -459,10 +459,10 @@ public final class SpectorPropertyConstants {
     public static final float DEFAULT_MEMORY_GRAPH_EXPANSION_THRESHOLD = 0.40f;
 
     public static final String MEMORY_RETRIEVAL_ENABLE_MMR = "spector.memory.retrieval.enable-mmr";
-    public static final boolean DEFAULT_MEMORY_RETRIEVAL_ENABLE_MMR = true;
+    public static final boolean DEFAULT_MEMORY_RETRIEVAL_ENABLE_MMR = false;
 
     public static final String MEMORY_RETRIEVAL_MMR_LAMBDA = "spector.memory.retrieval.mmr-lambda";
-    public static final float DEFAULT_MEMORY_RETRIEVAL_MMR_LAMBDA = 0.70f;
+    public static final float DEFAULT_MEMORY_RETRIEVAL_MMR_LAMBDA = 0.50f;
 
     public static final String MEMORY_SCHEDULER_ENABLED = "spector.memory.scheduler.enabled";
     public static final boolean DEFAULT_MEMORY_SCHEDULER_ENABLED = true;
@@ -973,10 +973,14 @@ public final class SpectorPropertyConstants {
     public static final int DEFAULT_RECALL_RERANKER_DEPTH = 50;
 
     public static final String RECALL_MMR_ENABLED = "spector.recall.mmr.enabled";
-    public static final boolean DEFAULT_RECALL_MMR_ENABLED = true;
+    public static final boolean DEFAULT_RECALL_MMR_ENABLED = false;
 
     public static final String RECALL_MMR_LAMBDA = "spector.recall.mmr.lambda";
     public static final float DEFAULT_RECALL_MMR_LAMBDA = 0.5f;
+
+    public static final String RECALL_ENGINE = "spector.recall.engine";
+    public static final String MEMORY_RECALL_ENGINE = "spector.memory.recall.engine";
+    public static final String DEFAULT_RECALL_ENGINE = "pathway";
 
     public static final String RECALL_AUTO_PROFILE_ENABLED = "spector.recall.auto-profile.enabled";
     public static final boolean DEFAULT_RECALL_AUTO_PROFILE_ENABLED = false;
