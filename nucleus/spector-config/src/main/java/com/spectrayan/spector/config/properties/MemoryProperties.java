@@ -80,6 +80,14 @@ public class MemoryProperties implements Serializable {
     private int entityExtractionParallelism = DEFAULT_MEMORY_ENTITY_EXTRACTION_PARALLELISM;
     private int entityExtractionQueueCapacity = DEFAULT_MEMORY_ENTITY_EXTRACTION_QUEUE_CAPACITY;
 
+    // ─── Sub-Domain Children (Phase 2) ───
+    private RecallProperties recall = new RecallProperties();
+    private RememberProperties remember = new RememberProperties();
+    private GraphProperties graph = new GraphProperties();
+    private CircadianProperties circadian = new CircadianProperties();
+    private int maxNamespaces = 100;
+    private boolean pathwayEnabled = true;
+
     public MemoryProperties() {}
 
     public MemoryProperties(int maxMemories, int dimensions) {
@@ -327,4 +335,40 @@ public class MemoryProperties implements Serializable {
     public boolean isDreamEnabled() { return dreamEnabled; }
     public void setDreamEnabled(boolean dreamEnabled) { this.dreamEnabled = dreamEnabled; }
     public boolean dreamEnabled() { return dreamEnabled; }
+
+    // ─── Sub-Domain Children Accessors ───
+
+    public RecallProperties getRecall() { return recall; }
+    public void setRecall(RecallProperties recall) {
+        if (recall != null) this.recall = recall;
+    }
+    public RecallProperties recall() { return recall; }
+
+    public RememberProperties getRemember() { return remember; }
+    public void setRemember(RememberProperties remember) {
+        if (remember != null) this.remember = remember;
+    }
+    public RememberProperties remember() { return remember; }
+
+    public GraphProperties getGraph() { return graph; }
+    public void setGraph(GraphProperties graph) {
+        if (graph != null) this.graph = graph;
+    }
+    public GraphProperties graph() { return graph; }
+
+    public CircadianProperties getCircadian() { return circadian; }
+    public void setCircadian(CircadianProperties circadian) {
+        if (circadian != null) this.circadian = circadian;
+    }
+    public CircadianProperties circadian() { return circadian; }
+
+    public int getMaxNamespaces() { return maxNamespaces; }
+    public void setMaxNamespaces(int maxNamespaces) {
+        if (maxNamespaces > 0) this.maxNamespaces = maxNamespaces;
+    }
+    public int maxNamespaces() { return maxNamespaces; }
+
+    public boolean isPathwayEnabled() { return pathwayEnabled; }
+    public void setPathwayEnabled(boolean pathwayEnabled) { this.pathwayEnabled = pathwayEnabled; }
+    public boolean pathwayEnabled() { return pathwayEnabled; }
 }

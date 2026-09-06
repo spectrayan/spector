@@ -231,6 +231,14 @@ public final class SpectorConfigFactory {
         properties.setWanderEnabled(props.getBoolean(MEMORY_WANDER_ENABLED, DEFAULT_MEMORY_WANDER_ENABLED));
         properties.setDreamEnabled(props.getBoolean(MEMORY_DREAM_ENABLED, DEFAULT_MEMORY_DREAM_ENABLED));
 
+        // Sub-domain children
+        properties.setRecall(recallProperties(props));
+        properties.setRemember(rememberProperties(props));
+        properties.setGraph(graphProperties(props));
+        properties.setCircadian(circadianProperties(props));
+        properties.setMaxNamespaces(props.getInt("spector.memory.max-namespaces", 100));
+        properties.setPathwayEnabled(props.getBoolean("spector.memory.pathway.enabled", true));
+
         return properties;
     }
 
@@ -291,6 +299,206 @@ public final class SpectorConfigFactory {
         properties.setLifespanGamma(props.getFloat(MEMORY_AISME_LIFESPAN_GAMMA, DEFAULT_MEMORY_AISME_LIFESPAN_GAMMA));
         properties.setLifespanFlashbulbProtect(props.getBoolean(MEMORY_AISME_LIFESPAN_FLASHBULB_PROTECT, DEFAULT_MEMORY_AISME_LIFESPAN_FLASHBULB_PROTECT));
         return properties;
+    }
+
+    // ─────────────── Recall Properties ───────────────
+
+    /**
+     * Loads recall pipeline properties from configuration.
+     *
+     * <p>Reads from canonical {@code spector.memory.recall.*} keys with
+     * fallback alias resolution from legacy {@code spector.recall.*} keys.</p>
+     */
+    public static RecallProperties recallProperties(SpectorConfigSource props) {
+        RecallProperties recall = new RecallProperties();
+
+        // Top-level recall — try canonical spector.memory.recall.* first, fall back to spector.recall.*
+        recall.setScoringMode(props.getString("spector.memory.recall.scoring-mode",
+                props.getString("spector.recall.scoring-mode", "COGNITIVE")));
+        recall.setStrictnessCoefficient((float) props.getDouble("spector.memory.recall.strictness-coefficient",
+                props.getDouble("spector.recall.strictness-coefficient", 1.0)));
+        recall.setTraceEnabled(props.getBoolean("spector.memory.recall.trace.enabled",
+                props.getBoolean("spector.recall.trace.enabled", false)));
+        recall.setMode(props.getString("spector.memory.recall.mode",
+                props.getString("spector.recall.mode", "LEARN")));
+        recall.setMaxReplayEvents(props.getInt("spector.memory.recall.max-replay-events",
+                props.getInt("spector.recall.max-replay-events", 100000)));
+        recall.setIncludeContradictions(props.getBoolean("spector.memory.recall.include-contradictions",
+                props.getBoolean("spector.recall.include-contradictions", false)));
+
+        var mmr = recall.getMmr();
+        mmr.setEnabled(props.getBoolean("spector.memory.recall.mmr.enabled",
+                props.getBoolean("spector.recall.mmr.enabled", false)));
+        mmr.setLambda((float) props.getDouble("spector.memory.recall.mmr.lambda",
+                props.getDouble("spector.recall.mmr.lambda", 0.5)));
+
+        var textSearch = recall.getTextSearch();
+        textSearch.setEnabled(props.getBoolean("spector.memory.recall.text-search.enabled",
+                props.getBoolean("spector.recall.text-search.enabled", true)));
+        textSearch.setMode(props.getString("spector.memory.recall.text-search.mode",
+                props.getString("spector.recall.text-search.mode", "HYBRID")));
+
+        var reranker = recall.getReranker();
+        reranker.setEnabled(props.getBoolean("spector.memory.recall.reranker.enabled",
+                props.getBoolean("spector.recall.reranker.enabled", false)));
+        reranker.setDepth(props.getInt("spector.memory.recall.reranker.depth",
+                props.getInt("spector.recall.reranker.depth", 50)));
+
+        var lateral = recall.getLateral();
+        lateral.setEnabled(props.getBoolean("spector.memory.recall.lateral.enabled",
+                props.getBoolean("spector.recall.lateral.enabled", false)));
+        lateral.setDistanceThreshold((float) props.getDouble("spector.memory.recall.lateral.distance-threshold",
+                props.getDouble("spector.recall.lateral.distance-threshold", 1.2)));
+        lateral.setMinTagOverlap((float) props.getDouble("spector.memory.recall.lateral.min-tag-overlap",
+                props.getDouble("spector.recall.lateral.min-tag-overlap", 0.5)));
+
+        return recall;
+    }
+
+    // ─────────────── Remember Properties ───────────────
+
+    /**
+     * Loads remember pipeline properties from configuration.
+     *
+     * <p>Reads from canonical {@code spector.memory.remember.*} keys with
+     * fallback alias resolution from legacy {@code spector.ingestion.*} and
+     * {@code spector.memory.default-ingestion-tier} keys.</p>
+     */
+    public static RememberProperties rememberProperties(SpectorConfigSource props) {
+        RememberProperties remember = new RememberProperties();
+
+        // Default tier — canonical: spector.memory.remember.default-tier, legacy: spector.memory.default-ingestion-tier
+        remember.setDefaultTier(props.getString("spector.memory.remember.default-tier",
+                props.getString("spector.memory.default-ingestion-tier", "SEMANTIC")));
+
+        // Chunk config — canonical: spector.memory.remember.chunk.*, legacy: spector.ingestion.chunk-*
+        var chunk = remember.getChunk();
+        chunk.setSize(props.getInt("spector.memory.remember.chunk.size",
+                props.getInt("spector.ingestion.chunk-size", 2500)));
+        chunk.setOverlap(props.getInt("spector.memory.remember.chunk.overlap",
+                props.getInt("spector.ingestion.chunk-overlap", 200)));
+        chunk.setStrategy(props.getString("spector.memory.remember.chunk.strategy", "markdown"));
+
+        // File crawler config — canonical: spector.memory.remember.files.*, legacy: spector.ingestion.*
+        var files = remember.getFiles();
+        files.setRootDirectory(props.getString("spector.memory.remember.files.root-directory",
+                props.getPath("spector.ingestion.root-directory", java.nio.file.Path.of(".")).toString()));
+        files.setPattern(props.getString("spector.memory.remember.files.pattern",
+                props.getString("spector.ingestion.file-pattern", "**/*.md")));
+        files.setSkipDirs(props.getString("spector.memory.remember.files.skip-dirs",
+                props.getString("spector.ingestion.skip-dirs", ".git,.idea,.mvn,target,node_modules,.github")));
+        files.setParallelism(props.getInt("spector.memory.remember.files.parallelism",
+                props.getInt("spector.ingestion.parallelism", 4)));
+        files.setMaxRetries(props.getInt("spector.memory.remember.files.max-retries",
+                props.getInt("spector.ingestion.max-retries", 3)));
+        files.setRetryDelayMs(props.getInt("spector.memory.remember.files.retry-delay-ms",
+                props.getInt("spector.ingestion.retry-delay-ms", 2000)));
+
+        // ICNU weights — canonical: spector.memory.remember.icnu.*, legacy: spector.memory.icnu.*
+        var icnu = remember.getIcnu();
+        icnu.setThreshold((float) props.getDouble("spector.memory.remember.icnu.threshold",
+                props.getDouble("spector.memory.icnu.threshold", 0.2)));
+        icnu.setSteepness((float) props.getDouble("spector.memory.remember.icnu.steepness",
+                props.getDouble("spector.memory.icnu.steepness", 8.0)));
+        icnu.setWeightInterest((float) props.getDouble("spector.memory.remember.icnu.weight-interest",
+                props.getDouble("spector.memory.icnu.weight-interest", 0.30)));
+        icnu.setWeightChallenge((float) props.getDouble("spector.memory.remember.icnu.weight-challenge",
+                props.getDouble("spector.memory.icnu.weight-challenge", 0.10)));
+        icnu.setWeightNovelty((float) props.getDouble("spector.memory.remember.icnu.weight-novelty",
+                props.getDouble("spector.memory.icnu.weight-novelty", 0.40)));
+        icnu.setWeightUrgency((float) props.getDouble("spector.memory.remember.icnu.weight-urgency",
+                props.getDouble("spector.memory.icnu.weight-urgency", 0.20)));
+
+        // Cognitive write parameters
+        remember.setSurpriseWarmup(props.getInt("spector.memory.surprise-warmup", 10));
+        remember.setFlashbulbThreshold((float) props.getDouble("spector.memory.flashbulb-threshold", 3.0));
+        remember.setValenceLearningRate((float) props.getDouble("spector.memory.valence-learning-rate", 0.3));
+        remember.setDeduplicationRadius((float) props.getDouble("spector.memory.deduplication-radius", 0.05));
+        remember.setInhibitionTtlMs(props.getLong("spector.memory.inhibition-ttl-ms", 300000L));
+        remember.setInhibitionFloor((float) props.getDouble("spector.memory.inhibition-floor", 0.1));
+        remember.setHabituationDecayRate((float) props.getDouble("spector.memory.habituation-decay-rate", 0.2));
+        remember.setLtpCooldownMs(props.getLong("spector.memory.ltp-cooldown-ms", 300000L));
+        remember.setPinSourceEpisodes(props.getBoolean("spector.memory.pin-source-episodes", false));
+        remember.setPinnedQuota(props.getInt("spector.memory.pinned-quota", 10000));
+
+        return remember;
+    }
+
+    // ─────────────── Graph Properties ───────────────
+
+    /**
+     * Loads graph memory properties from configuration.
+     *
+     * <p>Reads from {@code spector.memory.graph.*}, {@code spector.memory.hebbian.*},
+     * {@code spector.memory.stdp.*}, {@code spector.memory.bridge.*}, and
+     * {@code spector.memory.entity.*} namespaces.</p>
+     */
+    public static GraphProperties graphProperties(SpectorConfigSource props) {
+        GraphProperties graph = new GraphProperties();
+
+        graph.setExpansionMode(props.getString(MEMORY_GRAPH_EXPANSION_MODE, DEFAULT_MEMORY_GRAPH_EXPANSION_MODE));
+        graph.setExpansionThreshold((float) props.getDouble(MEMORY_GRAPH_EXPANSION_THRESHOLD, DEFAULT_MEMORY_GRAPH_EXPANSION_THRESHOLD));
+        graph.setCausalBoost((float) props.getDouble(MEMORY_GRAPH_CAUSAL_BOOST, DEFAULT_MEMORY_GRAPH_CAUSAL_BOOST));
+        graph.setHebbianBoost((float) props.getDouble(MEMORY_GRAPH_HEBBIAN_BOOST, DEFAULT_MEMORY_GRAPH_HEBBIAN_BOOST));
+        graph.setTemporalForward((float) props.getDouble(MEMORY_GRAPH_TEMPORAL_FWD, DEFAULT_MEMORY_GRAPH_TEMPORAL_FWD));
+        graph.setTemporalBackward((float) props.getDouble(MEMORY_GRAPH_TEMPORAL_BWD, DEFAULT_MEMORY_GRAPH_TEMPORAL_BWD));
+        graph.setEntityAttenuation((float) props.getDouble(MEMORY_GRAPH_ENTITY_ATTENUATION, DEFAULT_MEMORY_GRAPH_ENTITY_ATTENUATION));
+
+        var hebbian = graph.getHebbian();
+        hebbian.setMaxDegree(props.getInt(MEMORY_HEBBIAN_MAX_DEGREE, DEFAULT_MEMORY_HEBBIAN_MAX_DEGREE));
+        hebbian.setSessionBoundaryMs(props.getLong(MEMORY_HEBBIAN_SESSION_BOUNDARY_MS, DEFAULT_MEMORY_HEBBIAN_SESSION_BOUNDARY_MS));
+        hebbian.setPromotionMinWeight((float) props.getDouble(MEMORY_HEBBIAN_PROMOTION_MIN_WEIGHT, DEFAULT_MEMORY_HEBBIAN_PROMOTION_MIN_WEIGHT));
+        hebbian.setDecayFactor((float) props.getDouble(MEMORY_HEBBIAN_DECAY_FACTOR, DEFAULT_MEMORY_HEBBIAN_DECAY_FACTOR));
+        hebbian.setDecayFloor((float) props.getDouble(MEMORY_HEBBIAN_DECAY_FLOOR, DEFAULT_MEMORY_HEBBIAN_DECAY_FLOOR));
+        hebbian.setActivationCutoff((float) props.getDouble(MEMORY_HEBBIAN_ACTIVATION_CUTOFF, DEFAULT_MEMORY_HEBBIAN_ACTIVATION_CUTOFF));
+        hebbian.setHopAttenuation((float) props.getDouble(MEMORY_HEBBIAN_HOP_ATTENUATION, DEFAULT_MEMORY_HEBBIAN_HOP_ATTENUATION));
+        hebbian.setDefaultWeightDelta((float) props.getDouble(MEMORY_HEBBIAN_DEFAULT_WEIGHT_DELTA, DEFAULT_MEMORY_HEBBIAN_DEFAULT_WEIGHT_DELTA));
+        hebbian.setNeutralBridgeScore(props.getInt(MEMORY_HEBBIAN_NEUTRAL_BRIDGE_SCORE, DEFAULT_MEMORY_HEBBIAN_NEUTRAL_BRIDGE_SCORE));
+
+        var stdp = graph.getStdp();
+        stdp.setAPlus((float) props.getDouble(MEMORY_STDP_A_PLUS, DEFAULT_MEMORY_STDP_A_PLUS));
+        stdp.setAMinus((float) props.getDouble(MEMORY_STDP_A_MINUS, DEFAULT_MEMORY_STDP_A_MINUS));
+        stdp.setTauPlus((float) props.getDouble(MEMORY_STDP_TAU_PLUS, DEFAULT_MEMORY_STDP_TAU_PLUS));
+        stdp.setTauMinus((float) props.getDouble(MEMORY_STDP_TAU_MINUS, DEFAULT_MEMORY_STDP_TAU_MINUS));
+
+        var bridge = graph.getBridge();
+        bridge.setSampleCount(props.getInt("spector.memory.bridge.sample-count", 15));
+        bridge.setBudgetMs(props.getLong("spector.memory.bridge.budget-ms", 500L));
+
+        var entity = graph.getEntity();
+        entity.setExtractionMode(props.getString("spector.memory.entity.extraction-mode", "NONE"));
+        entity.setResolutionEnabled(props.getBoolean("spector.memory.entity.resolution-enabled", false));
+        entity.setShadowMode(props.getBoolean("spector.memory.entity.shadow-mode", true));
+        entity.setMaxDegree(props.getInt("spector.memory.entity.max-degree", 16));
+        entity.setMaxPerMemory(props.getInt("spector.memory.entity.max-per-memory", 10));
+        entity.setCosineThreshold((float) props.getDouble("spector.memory.entity.cosine-threshold", 0.85));
+        entity.setRetentionDays(props.getInt("spector.memory.entity.retention-days", 7));
+        entity.setDecayFactor((float) props.getDouble("spector.memory.entity.decay-factor", 0.95));
+        entity.setPruneThreshold((float) props.getDouble("spector.memory.entity.prune-threshold", 0.5));
+        entity.setAdjDecayFactor((float) props.getDouble("spector.memory.entity.adj-decay-factor", 0.95));
+        entity.setAdjPruneThreshold((float) props.getDouble("spector.memory.entity.adj-prune-threshold", 0.2));
+        entity.setMergeDistance(props.getInt("spector.memory.entity.merge-distance", 2));
+
+        return graph;
+    }
+
+    // ─────────────── Circadian Properties ───────────────
+
+    /**
+     * Loads circadian / sleep consolidation properties from configuration.
+     *
+     * <p>Reads from {@code spector.memory.circadian.*} namespace.</p>
+     */
+    public static CircadianProperties circadianProperties(SpectorConfigSource props) {
+        CircadianProperties circadian = new CircadianProperties();
+        circadian.setEnabled(props.getBoolean(MEMORY_CIRCADIAN_ENABLED, DEFAULT_MEMORY_CIRCADIAN_ENABLED));
+        circadian.setVolumeTrigger(props.getInt(MEMORY_CIRCADIAN_VOLUME_TRIGGER, DEFAULT_MEMORY_CIRCADIAN_VOLUME_TRIGGER));
+        circadian.setTimeTriggerSeconds(props.getDuration(MEMORY_CIRCADIAN_TIME_TRIGGER, DEFAULT_MEMORY_CIRCADIAN_TIME_TRIGGER).toSeconds());
+        circadian.setTombstoneThreshold((float) props.getDouble(MEMORY_CIRCADIAN_TOMBSTONE_THRESHOLD, DEFAULT_MEMORY_CIRCADIAN_TOMBSTONE_THRESHOLD));
+        circadian.setDecayPruneThreshold((float) props.getDouble(MEMORY_CIRCADIAN_DECAY_PRUNE_THRESHOLD, DEFAULT_MEMORY_CIRCADIAN_DECAY_PRUNE_THRESHOLD));
+        circadian.setInterferenceThreshold((float) props.getDouble("spector.memory.circadian.interference-threshold", 0.12f));
+        circadian.setInterferenceDecayFactor((float) props.getDouble("spector.memory.circadian.interference-decay-factor", 0.7f));
+        return circadian;
     }
 
     // ─────────────── Global Mode ───────────────
