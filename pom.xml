@@ -97,6 +97,9 @@
         <!-- ── Bench: Benchmarks ── -->
         <module>bench/spector-bench</module>
 
+        <!-- ── SDKs ── -->
+        <module>sdks/java/spector-client</module>
+
         <!-- NOTE: cortex/spector-cortex is Angular 22 (no Maven POM) — built separately -->
     </modules>
 
