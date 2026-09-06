@@ -80,11 +80,13 @@ class TikaDocumentE2ETest {
         // Create memory with TikaTextExtractor
         TikaTextExtractor tikaExtractor = new TikaTextExtractor(400, 50);
 
-        memory = DefaultSpectorMemory.builder()
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setSemanticCapacity(1_000)
+                .setEpisodicPartitionCapacity(1_000);
+
+        memory = DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(embeddingProvider)
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .semanticCapacity(1_000)
-                .episodicPartitionCapacity(1_000)
                 .sensoryExtractors(List.of(tikaExtractor))
                 .build();
 

@@ -39,15 +39,17 @@ class RecallPathwayDirectTest {
 
     @BeforeEach
     void setUp() {
-        memory = (DefaultSpectorMemory) DefaultSpectorMemory.builder()
-                .dimensions(DIMENSIONS)
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(DIMENSIONS)
+                .setWorkingCapacity(20)
+                .setEpisodicPartitionCapacity(100)
+                .setSemanticCapacity(100)
+                .setProceduralCapacity(100)
+                .setPathwayEnabled(true);
+
+        memory = (DefaultSpectorMemory) DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(new MockEmbeddingProvider(DIMENSIONS))
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .workingCapacity(20)
-                .episodicPartitionCapacity(100)
-                .semanticCapacity(100)
-                .proceduralCapacity(100)
-                .usePathwayEngine(true)
                 .build();
 
         memory.remember("mem-1", "Authentication failure for user admin.", MemoryType.EPISODIC, MemorySource.OBSERVED, "auth", "security");

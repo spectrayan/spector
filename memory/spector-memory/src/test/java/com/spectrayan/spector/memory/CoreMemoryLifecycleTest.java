@@ -42,15 +42,16 @@ class CoreMemoryLifecycleTest {
     @BeforeAll
     void initMemory(@TempDir Path tempDir) {
         embedProvider = new FakeEmbeddingProvider();
-        memory = DefaultSpectorMemory.builder()
-                .dimensions(embedProvider.dimensions())
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(embedProvider.dimensions())
+                .setWorkingCapacity(20)
+                .setEpisodicPartitionCapacity(100)
+                .setSemanticCapacity(50)
+                .setProceduralCapacity(20);
+        memProps.getRemember().setSurpriseWarmup(2);
+        memory = DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(embedProvider)
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .workingCapacity(20)
-                .episodicPartitionCapacity(100)
-                .semanticCapacity(50)
-                .proceduralCapacity(20)
-                .surpriseWarmup(2)
                 .build();
     }
 

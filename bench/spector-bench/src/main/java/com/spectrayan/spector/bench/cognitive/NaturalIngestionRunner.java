@@ -35,6 +35,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.bench.cognitive.NaturalDatasetLoader.NaturalLoadedDataset;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
+import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
@@ -144,14 +145,15 @@ public final class NaturalIngestionRunner {
 
         try (CachedEmbeddingProvider embedder = new CachedEmbeddingProvider(rawEmbedder, cacheFile)) {
 
-            SpectorMemory memory = SpectorMemoryBuilder.create()
-                    .dimensions(embedder.dimensions())
+            MemoryProperties memProps = new MemoryProperties()
+                    .setEntityExtractionParallelism(4)
+                    .setEntityExtractionQueueCapacity(1000);
+
+            SpectorMemory memory = SpectorMemory.builder(memProps)
                     .embeddingProvider(embedder)
                     .persistence(naturalMemoryDir)
                     .persistenceMode(MemoryPersistenceMode.DISK)
                     .entityExtractor(new LlmEntityExtractor(geminiLlm))
-                    .entityExtractionParallelism(4)
-                    .entityExtractionQueueCapacity(1000)
                     .build();
 
             if (dataset.persona() != null && dataset.persona().hasSalienceProfile()) {
@@ -230,7 +232,6 @@ public final class NaturalIngestionRunner {
 
             // Re-open memory instance in DISK mode to verify persistent reload and export query candidates
             try (SpectorMemory queryMemory = SpectorMemoryBuilder.create()
-                    .dimensions(embedder.dimensions())
                     .embeddingProvider(embedder)
                     .persistence(naturalMemoryDir)
                     .persistenceMode(MemoryPersistenceMode.DISK)

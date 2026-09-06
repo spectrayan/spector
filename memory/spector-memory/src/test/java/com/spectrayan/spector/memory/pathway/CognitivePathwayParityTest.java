@@ -51,26 +51,30 @@ class CognitivePathwayParityTest {
     void setUp() {
         final EmbeddingProvider provider = new MockEmbeddingProvider(DIMENSIONS);
 
-        legacyMemory = DefaultSpectorMemory.builder()
-                .dimensions(DIMENSIONS)
+        var legacyProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(DIMENSIONS)
+                .setWorkingCapacity(50)
+                .setEpisodicPartitionCapacity(100)
+                .setSemanticCapacity(100)
+                .setProceduralCapacity(100)
+                .setPathwayEnabled(false);
+
+        legacyMemory = DefaultSpectorMemory.builder(legacyProps)
                 .embeddingProvider(provider)
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .workingCapacity(50)
-                .episodicPartitionCapacity(100)
-                .semanticCapacity(100)
-                .proceduralCapacity(100)
-                .usePathwayEngine(false)
                 .build();
 
-        pathwayMemory = DefaultSpectorMemory.builder()
-                .dimensions(DIMENSIONS)
+        var pathwayProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(DIMENSIONS)
+                .setWorkingCapacity(50)
+                .setEpisodicPartitionCapacity(100)
+                .setSemanticCapacity(100)
+                .setProceduralCapacity(100)
+                .setPathwayEnabled(true);
+
+        pathwayMemory = DefaultSpectorMemory.builder(pathwayProps)
                 .embeddingProvider(provider)
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .workingCapacity(50)
-                .episodicPartitionCapacity(100)
-                .semanticCapacity(100)
-                .proceduralCapacity(100)
-                .usePathwayEngine(true)
                 .build();
     }
 

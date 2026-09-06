@@ -35,6 +35,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.bench.cognitive.CachedEmbeddingProvider;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
+import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
@@ -143,14 +144,15 @@ public class MindSpanSampleIngestionTest {
         EmbeddingProvider cachedEmbedder = new CachedEmbeddingProvider(fallback, cacheFile);
 
         log.info("Ingesting 10 records into new persistent store at: {}", newOutputDir);
-        try (SpectorMemory memory = SpectorMemoryBuilder.create()
-                .dimensions(768)
+        MemoryProperties memProps = new MemoryProperties()
+                .setDimensions(768)
+                .setEpisodicPartitionCapacity(35_000)
+                .setSemanticCapacity(20_000);
+        try (SpectorMemory memory = SpectorMemory.builder(memProps)
                 .embeddingProvider(cachedEmbedder)
                 .persistence(newOutputDir)
                 .persistenceMode(MemoryPersistenceMode.DISK)
                 .bundleMode(true)
-                .episodicPartitionCapacity(35_000)
-                .semanticCapacity(20_000)
                 .build()) {
 
             for (BenchmarkCorpusRecord record : sampleRecords) {
@@ -250,14 +252,11 @@ public class MindSpanSampleIngestionTest {
 
         // 6. Verify Reopening from Disk
         log.info("Reopening SpectorMemory from new persistent store to verify on-disk bundle integrity...");
-        try (SpectorMemory reopened = SpectorMemoryBuilder.create()
-                .dimensions(768)
+        try (SpectorMemory reopened = SpectorMemory.builder(memProps)
                 .embeddingProvider(cachedEmbedder)
                 .persistence(newOutputDir)
                 .persistenceMode(MemoryPersistenceMode.DISK)
                 .bundleMode(true)
-                .episodicPartitionCapacity(35_000)
-                .semanticCapacity(20_000)
                 .build()) {
 
             assertEquals(10, reopened.totalMemories(), "Reopened store must contain 10 total memories");

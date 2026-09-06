@@ -54,17 +54,19 @@ class EagerConsolidationAndTraversalsIntegrationTest {
         embeddingProvider = new TestEmbeddingProvider(DIMENSIONS);
         llmProvider = new MockLlmProvider();
 
-        memory = (DefaultSpectorMemory) DefaultSpectorMemory.builder()
-                .dimensions(DIMENSIONS)
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(DIMENSIONS)
+                .setWorkingCapacity(20)
+                .setEpisodicPartitionCapacity(100)
+                .setSemanticCapacity(100)
+                .setProceduralCapacity(100);
+        memProps.getGraph().getEntity().setExtractionMode("LLM");
+        memProps.getConsolidation().setEagerQueueCapacity(256);
+
+        memory = (DefaultSpectorMemory) DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(embeddingProvider)
-                .LlmProvider(llmProvider)
-                .entityExtractionMode(com.spectrayan.spector.memory.graph.EntityExtractionMode.LLM)
+                .llmProvider(llmProvider)
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .workingCapacity(20)
-                .episodicPartitionCapacity(100)
-                .semanticCapacity(100)
-                .proceduralCapacity(100)
-                .eagerConsolidationQueueCapacity(256)
                 .build();
     }
 

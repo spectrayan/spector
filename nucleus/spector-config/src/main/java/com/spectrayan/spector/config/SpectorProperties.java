@@ -172,6 +172,75 @@ public final class SpectorProperties implements Serializable {
         return SpectorConfigFactory.spectorProperties(source);
     }
 
+    /**
+     * Creates a new builder for programmatic assembly of {@link SpectorProperties}.
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /**
+     * Creates a {@link SpectorProperties} aggregate containing the specified memory configuration
+     * and default configurations for all other sub-domains.
+     */
+    public static SpectorProperties of(MemoryProperties memory) {
+        return builder().memory(memory).build();
+    }
+
+    /**
+     * Creates a {@link SpectorProperties} aggregate containing the specified memory and provider
+     * configurations and default configurations for all other sub-domains.
+     */
+    public static SpectorProperties of(MemoryProperties memory, ProviderProperties provider) {
+        return builder().memory(memory).provider(provider).build();
+    }
+
+    /**
+     * Fluent builder for {@link SpectorProperties}.
+     */
+    public static final class Builder {
+        private MemoryProperties memory;
+        private ProviderProperties provider;
+        private IngestionProperties ingestion;
+        private HnswProperties hnsw;
+        private IvfProperties ivf;
+        private SpectrumProperties spectrum;
+        private TelemetryProperties telemetry;
+        private MultimodalProperties multimodal;
+        private HardwareProperties hardware;
+        private EventsProperties events;
+        private ConcurrencyProperties concurrency;
+        private SpectorConfigSource source;
+
+        public Builder memory(MemoryProperties memory) { this.memory = memory; return this; }
+        public Builder provider(ProviderProperties provider) { this.provider = provider; return this; }
+        public Builder ingestion(IngestionProperties ingestion) { this.ingestion = ingestion; return this; }
+        public Builder hnsw(HnswProperties hnsw) { this.hnsw = hnsw; return this; }
+        public Builder ivf(IvfProperties ivf) { this.ivf = ivf; return this; }
+        public Builder spectrum(SpectrumProperties spectrum) { this.spectrum = spectrum; return this; }
+        public Builder telemetry(TelemetryProperties telemetry) { this.telemetry = telemetry; return this; }
+        public Builder multimodal(MultimodalProperties multimodal) { this.multimodal = multimodal; return this; }
+        public Builder hardware(HardwareProperties hardware) { this.hardware = hardware; return this; }
+        public Builder events(EventsProperties events) { this.events = events; return this; }
+        public Builder concurrency(ConcurrencyProperties concurrency) { this.concurrency = concurrency; return this; }
+        public Builder source(SpectorConfigSource source) { this.source = source; return this; }
+
+        public SpectorProperties build() {
+            return new SpectorProperties(
+                    memory != null ? memory : new MemoryProperties(),
+                    provider != null ? provider : new ProviderProperties(),
+                    ingestion != null ? ingestion : new IngestionProperties(),
+                    hnsw, ivf, spectrum,
+                    telemetry != null ? telemetry : new TelemetryProperties(),
+                    multimodal != null ? multimodal : new MultimodalProperties(),
+                    hardware != null ? hardware : new HardwareProperties(),
+                    events != null ? events : new EventsProperties(),
+                    concurrency != null ? concurrency : new ConcurrencyProperties(),
+                    source
+            );
+        }
+    }
+
     // ─────────────── Typed Accessors ───────────────
 
     /**

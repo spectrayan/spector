@@ -383,6 +383,10 @@ public final class ReflectSignal {
         public Builder importanceProvider(ImportanceProvider ip) { this.importanceProvider = ip; return this; }
         public Builder salienceProfile(SalienceProfile sp) { this.salienceProfile = sp; return this; }
         public Builder policy(CircadianPolicy p) { this.policy = p; return this; }
+        public Builder policy(com.spectrayan.spector.config.properties.CircadianProperties p) {
+            this.policy = CircadianPolicy.from(p);
+            return this;
+        }
         public Builder centroidRouter(CentroidRouter cr) { this.centroidRouter = cr; return this; }
         public Builder templateEngine(TemplateEngine te) { this.templateEngine = te; return this; }
         public Builder episodicSessionIndex(EpisodicSessionIndex esi) { this.episodicSessionIndex = esi; return this; }

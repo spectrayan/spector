@@ -111,15 +111,13 @@ class McpToolsFunctionalTest {
             };
         }
 
-        memory = DefaultSpectorMemory.builder()
-                .dimensions(memoryProps.dimensions())
+        memoryProps.setSemanticCapacity(memoryProps.capacity());
+        memoryProps.setHebbianGraphCapacity(memoryProps.capacity());
+        memoryProps.setTemporalChainCapacity(memoryProps.capacity());
+
+        memory = DefaultSpectorMemory.builder(memoryProps)
                 .embeddingProvider(embedder)
-                .persistenceMode(MemoryPersistenceMode.valueOf(memoryProps.persistenceMode().name()))
                 .persistence(persistencePath)
-                .semanticCapacity(memoryProps.capacity())
-                .nodesPerPartition(memoryProps.nodesPerPartition())
-                .hebbianGraphCapacity(memoryProps.capacity())
-                .temporalChainCapacity(memoryProps.capacity())
                 .build();
 
         assertThat(memory).isNotNull();

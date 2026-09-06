@@ -53,6 +53,22 @@ public class TwoFactorProperties implements Serializable {
     public float getSExponent() { return sExponent; }
     public void setSExponent(float sExponent) { this.sExponent = sExponent; }
 
+    // ─────────────── Record-Style Accessors & Fluent API ───────────────
+
+    public float sGain() { return getSGain(); }
+    public float sMax() { return getSMax(); }
+    public float sExponent() { return getSExponent(); }
+    public boolean enabled() { return isEnabled(); }
+
+    public TwoFactorProperties sGain(float sGain) { setSGain(sGain); return this; }
+    public TwoFactorProperties sMax(float sMax) { setSMax(sMax); return this; }
+    public TwoFactorProperties sExponent(float sExponent) { setSExponent(sExponent); return this; }
+    public TwoFactorProperties enabled(boolean enabled) { setEnabled(enabled); return this; }
+
+    public static final TwoFactorProperties DEFAULT = new TwoFactorProperties();
+    public static final TwoFactorProperties DISABLED = new TwoFactorProperties(
+            DEFAULT_MEMORY_TWOFACTOR_S_GAIN, DEFAULT_MEMORY_TWOFACTOR_S_MAX, DEFAULT_MEMORY_TWOFACTOR_S_EXPONENT, false);
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

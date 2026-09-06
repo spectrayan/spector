@@ -68,7 +68,6 @@ class FileWatchIngestionE2ETest {
     void setUp() throws Exception {
         embeddingProvider = new StubEmbeddingProvider(DIMS);
         memory = DefaultSpectorMemory.builder()
-                .dimensions(DIMS)
                 .embeddingProvider(embeddingProvider)
                 .build();
 

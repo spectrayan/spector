@@ -123,6 +123,44 @@ public class DreamProperties implements Serializable {
     public float getHartmannVigilanceMultiplier() { return hartmannVigilanceMultiplier; }
     public void setHartmannVigilanceMultiplier(float hartmannVigilanceMultiplier) { this.hartmannVigilanceMultiplier = hartmannVigilanceMultiplier; }
 
+    // ─────────────── Record-Style Accessors & Runtime Helpers ───────────────
+
+    public boolean enabled() { return isEnabled(); }
+    public float noiseScale() { return getNoiseScale(); }
+    public float dreamNoiseScale() { return getNoiseScale(); }
+    public float temperatureRem() { return getTemperatureRem(); }
+    public float dreamTemperatureRem() { return getTemperatureRem(); }
+    public float temperatureDaydream() { return getTemperatureDaydream(); }
+    public float dreamTemperatureDaydream() { return getTemperatureDaydream(); }
+    public float temperatureThought() { return getTemperatureThought(); }
+    public float dreamTemperatureThought() { return getTemperatureThought(); }
+    public int maxDreamsPerCycle() { return getMaxDreamsPerCycle(); }
+    public int maxCounterfactualsPerSeed() { return getMaxCounterfactualsPerSeed(); }
+    public float persistenceThreshold() { return getPersistenceThreshold(); }
+    public float langevinStepSize() { return getLangevinStepSize(); }
+    public int langevinSteps() { return getLangevinSteps(); }
+    public float noveltyRadius() { return getNoveltyRadius(); }
+    public float hebbianInhibitionDelta() { return getHebbianInhibitionDelta(); }
+    public boolean journalEnabled() { return isJournalEnabled(); }
+    public int cycleFrequency() { return getCycleFrequency(); }
+    public int dreamCycleFrequency() { return getCycleFrequency(); }
+    public float seedWeightRecency() { return getSeedWeightRecency(); }
+    public float seedWeightNovelty() { return getSeedWeightNovelty(); }
+    public float seedWeightSoul() { return getSeedWeightSoul(); }
+    public float seedWeightSalience() { return getSeedWeightSalience(); }
+    public float identityResonanceThreshold() { return getIdentityResonanceThreshold(); }
+    public float ethicalViolationThreshold() { return getEthicalViolationThreshold(); }
+    public float langevinSoulAttractorLambda() { return getLangevinSoulAttractorLambda(); }
+    public float hartmannOpennessMultiplier() { return getHartmannOpennessMultiplier(); }
+    public float hartmannVigilanceMultiplier() { return getHartmannVigilanceMultiplier(); }
+
+    public static DreamProperties defaultConfig() { return new DreamProperties(); }
+    public static DreamProperties disabled() {
+        DreamProperties props = new DreamProperties();
+        props.setEnabled(false);
+        return props;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

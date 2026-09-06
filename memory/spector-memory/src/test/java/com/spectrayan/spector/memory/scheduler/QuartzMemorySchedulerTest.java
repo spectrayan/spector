@@ -35,13 +35,15 @@ class QuartzMemorySchedulerTest {
     @Test
     @DisplayName("Standalone SpectorMemory initializes QuartzMemoryScheduler with registered tasks")
     void testStandaloneSchedulerLifecycle(@TempDir Path tempDir) {
-        try (SpectorMemory memory = DefaultSpectorMemory.builder()
-                .dimensions(128)
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(128)
+                .setNamespaceId("test-standalone-ns");
+        memProps.getCircadian().setTimeTrigger(Duration.ofMinutes(10));
+
+        try (SpectorMemory memory = DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(new FakeEmbeddingProvider())
                 .persistence(tempDir)
                 .persistenceMode(MemoryPersistenceMode.DISK)
-                .namespaceId("test-standalone-ns")
-                .circadianPolicy(CircadianPolicy.builder().timeTrigger(Duration.ofMinutes(10)).build())
                 .build()) {
 
             MemoryScheduler scheduler = memory.scheduler();
@@ -63,13 +65,15 @@ class QuartzMemorySchedulerTest {
     @Test
     @DisplayName("triggerNow executes task immediately without error")
     void testTriggerNow(@TempDir Path tempDir) {
-        try (SpectorMemory memory = DefaultSpectorMemory.builder()
-                .dimensions(128)
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(128)
+                .setNamespaceId("test-trigger-ns");
+        memProps.getCircadian().setTimeTrigger(Duration.ofHours(1));
+
+        try (SpectorMemory memory = DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(new FakeEmbeddingProvider())
                 .persistence(tempDir)
                 .persistenceMode(MemoryPersistenceMode.DISK)
-                .namespaceId("test-trigger-ns")
-                .circadianPolicy(CircadianPolicy.builder().timeTrigger(Duration.ofHours(1)).build())
                 .build()) {
 
             memory.remember("mem-1", "Episodic test memory content", MemoryType.EPISODIC, MemorySource.OBSERVED);
@@ -86,13 +90,15 @@ class QuartzMemorySchedulerTest {
     @Test
     @DisplayName("pause and resume dynamically toggle task trigger state")
     void testPauseAndResume(@TempDir Path tempDir) {
-        try (SpectorMemory memory = DefaultSpectorMemory.builder()
-                .dimensions(128)
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(128)
+                .setNamespaceId("test-pause-ns");
+        memProps.getCircadian().setTimeTrigger(Duration.ofMinutes(5));
+
+        try (SpectorMemory memory = DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(new FakeEmbeddingProvider())
                 .persistence(tempDir)
                 .persistenceMode(MemoryPersistenceMode.DISK)
-                .namespaceId("test-pause-ns")
-                .circadianPolicy(CircadianPolicy.builder().timeTrigger(Duration.ofMinutes(5)).build())
                 .build()) {
 
             MemoryScheduler scheduler = memory.scheduler();
@@ -113,13 +119,15 @@ class QuartzMemorySchedulerTest {
     @Test
     @DisplayName("rescheduleInterval and rescheduleCron update trigger schedule")
     void testReschedule(@TempDir Path tempDir) {
-        try (SpectorMemory memory = DefaultSpectorMemory.builder()
-                .dimensions(128)
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(128)
+                .setNamespaceId("test-resched-ns");
+        memProps.getCircadian().setTimeTrigger(Duration.ofMinutes(5));
+
+        try (SpectorMemory memory = DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(new FakeEmbeddingProvider())
                 .persistence(tempDir)
                 .persistenceMode(MemoryPersistenceMode.DISK)
-                .namespaceId("test-resched-ns")
-                .circadianPolicy(CircadianPolicy.builder().timeTrigger(Duration.ofMinutes(5)).build())
                 .build()) {
 
             MemoryScheduler scheduler = memory.scheduler();

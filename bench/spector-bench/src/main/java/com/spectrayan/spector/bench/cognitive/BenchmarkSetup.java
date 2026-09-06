@@ -223,17 +223,16 @@ public final class BenchmarkSetup implements AutoCloseable {
         if (memoryProperties.getCoactivationEdgeCapacity() == SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_EDGE_CAPACITY) {
             memoryProperties.setCoactivationEdgeCapacity(Math.max(50_000, corpusSize * 50));
         }
+        memoryProperties.setWorkingCapacity(Math.max(50, corpusSize / 10));
+        memoryProperties.setEpisodicPartitionCapacity(corpusSize + 100);
+        memoryProperties.setProceduralCapacity(Math.max(50, corpusSize / 5));
 
         com.spectrayan.spector.memory.SpectorMemoryBuilder builder =
                 com.spectrayan.spector.memory.config.SpectorMemoryConfigurator.builder(datasetProps)
                 .fromProperties(memoryProperties)
                 .bundleMode(true)
                 .usePathwayEngine(true)
-                .dimensions(embedder.dimensions())
                 .embeddingProvider(embedder)
-                .workingCapacity(Math.max(50, corpusSize / 10))
-                .episodicPartitionCapacity(corpusSize + 100)
-                .proceduralCapacity(Math.max(50, corpusSize / 5))
                 .chunkConfig(com.spectrayan.spector.commons.chunker.ChunkConfig.plainText(100_000, 0))
                 .circadianPolicy(com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy.builder()
                         .volumeTrigger(Integer.MAX_VALUE)

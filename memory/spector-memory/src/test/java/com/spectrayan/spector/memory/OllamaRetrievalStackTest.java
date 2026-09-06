@@ -80,14 +80,14 @@ class OllamaRetrievalStackTest {
 
     @BeforeEach
     void setUp() {
-        memory = DefaultSpectorMemory.builder()
-                .dimensions(detectedDimensions)
+        memory = DefaultSpectorMemory.builder(new com.spectrayan.spector.config.properties.MemoryProperties()
+                        .setDimensions(detectedDimensions)
+                        .setWorkingCapacity(50)
+                        .setEpisodicPartitionCapacity(500)
+                        .setSemanticCapacity(200)
+                        .setProceduralCapacity(100))
                 .embeddingProvider(embeddingProvider)
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .workingCapacity(50)
-                .episodicPartitionCapacity(500)
-                .semanticCapacity(200)
-                .proceduralCapacity(100)
                 .build();
     }
 

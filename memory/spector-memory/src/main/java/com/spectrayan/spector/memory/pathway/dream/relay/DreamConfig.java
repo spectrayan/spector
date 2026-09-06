@@ -21,7 +21,9 @@ import com.spectrayan.spector.config.SpectorPropertyConstants;
  * neurotransmitter thresholds, and soul-conditioned salience during memory consolidation and dream generation.
  *
  * @since 1.4.0
+ * @deprecated Use {@link com.spectrayan.spector.config.properties.DreamProperties} directly from {@code spector-config}.
  */
+@Deprecated(since = "1.4.0", forRemoval = true)
 public record DreamConfig(
         boolean enabled,
         float dreamNoiseScale,

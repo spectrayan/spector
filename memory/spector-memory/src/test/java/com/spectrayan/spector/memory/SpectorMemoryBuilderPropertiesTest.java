@@ -45,7 +45,7 @@ class SpectorMemoryBuilderPropertiesTest {
         assertThat(defaultRecall.scoringMode()).isEqualTo(ScoringMode.SIMILARITY);
         assertThat(defaultRecall.enableTextSearch()).isFalse();
 
-        assertThat(builder.surpriseWarmup()).isEqualTo(25);
+        assertThat(builder.properties().memory().getRemember().getSurpriseWarmup()).isEqualTo(25);
         assertThat(builder.chunkConfig().maxChunkSize()).isEqualTo(1200);
         assertThat(builder.chunkConfig().overlap()).isEqualTo(150);
         assertThat(builder.graphScoringPolicy().graphExpansionThreshold()).isEqualTo(0.55f);
@@ -73,37 +73,37 @@ class SpectorMemoryBuilderPropertiesTest {
         SpectorProperties props = SpectorProperties.from(source);
         SpectorMemoryBuilder builder = SpectorMemoryBuilder.createEmpty().fromProperties(props);
 
-        assertThat(builder.workingCapacity()).isEqualTo(250);
-        assertThat(builder.episodicPartitionCapacity()).isEqualTo(50000);
-        assertThat(builder.proceduralCapacity()).isEqualTo(15000);
-        assertThat(builder.entityGraphCapacity()).isEqualTo(80000);
-        assertThat(builder.textSegmentSize()).isEqualTo(2097152L);
-        assertThat(builder.episodicSegmentSize()).isEqualTo(4194304L);
-        assertThat(builder.circadianPolicy().volumeTrigger()).isEqualTo(50);
-        assertThat(builder.dreamConfig().maxDreamsPerCycle()).isEqualTo(7);
-        assertThat(builder.twoFactorConfig().enabled()).isFalse();
-        assertThat(builder.twoFactorConfig().sGain()).isEqualTo(0.25f);
-        assertThat(builder.embedBatchSize()).isEqualTo(48);
+        assertThat(builder.properties().memory().getWorkingCapacity()).isEqualTo(250);
+        assertThat(builder.properties().memory().getEpisodicPartitionCapacity()).isEqualTo(50000);
+        assertThat(builder.properties().memory().getProceduralCapacity()).isEqualTo(15000);
+        assertThat(builder.properties().memory().getEntityGraphCapacity()).isEqualTo(80000);
+        assertThat(builder.properties().memory().getTextSegmentSize()).isEqualTo(2097152L);
+        assertThat(builder.properties().memory().getEpisodicSegmentSize()).isEqualTo(4194304L);
+        assertThat(builder.properties().memory().getCircadian().volumeTrigger()).isEqualTo(50);
+        assertThat(builder.properties().memory().getDream().maxDreamsPerCycle()).isEqualTo(7);
+        assertThat(builder.properties().memory().getTwofactor().isEnabled()).isFalse();
+        assertThat(builder.properties().memory().getTwofactor().sGain()).isEqualTo(0.25f);
+        assertThat(builder.properties().provider().getEmbedding().getBatchSize()).isEqualTo(48);
         assertThat(builder.namespaceId()).isEqualTo("test-ns");
-        assertThat(builder.persistWorkingMemory()).isTrue();
+        assertThat(builder.properties().memory().isPersistWorkingMemory()).isTrue();
     }
 
     @Test
     void create_seedsFromSnapshotByDefault() {
         SpectorMemoryBuilder builder = SpectorMemoryBuilder.create();
         // Should have loaded defaults from classpath spector-defaults.yml
-        assertThat(builder.dimensions()).isEqualTo(384);
-        assertThat(builder.semanticCapacity()).isEqualTo(100_000);
-        assertThat(builder.circadianPolicy()).isNotNull();
-        assertThat(builder.dreamConfig()).isNotNull();
-        assertThat(builder.twoFactorConfig()).isNotNull();
+        assertThat(builder.properties().memory().getDimensions()).isEqualTo(384);
+        assertThat(builder.properties().memory().getSemanticCapacity()).isEqualTo(10_000);
+        assertThat(builder.properties().memory().getCircadian()).isNotNull();
+        assertThat(builder.properties().memory().getDream()).isNotNull();
+        assertThat(builder.properties().memory().getTwofactor()).isNotNull();
     }
 
     @Test
     void createEmpty_returnsUnseededBuilder() {
         SpectorMemoryBuilder builder = SpectorMemoryBuilder.createEmpty();
-        assertThat(builder.dimensions()).isEqualTo(0);
-        assertThat(builder.spectorProperties()).isNull();
+        assertThat(builder.properties()).isNotNull();
+        assertThat(builder.spectorProperties()).isNotNull();
     }
 
     @Test

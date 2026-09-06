@@ -255,20 +255,19 @@ public final class MindSpanBenchmarkRunner {
             extMode = EntityExtractionMode.NONE;
         }
 
-        SpectorMemoryBuilder builder = SpectorMemoryBuilder.create()
-                .fromProperties(memoryProps)
-                .dimensions(embedder.dimensions())
+        memoryProps.setEpisodicPartitionCapacity(Math.max(35_000, corpus.size() + 100))
+                .setSemanticCapacity(Math.max(30_000, corpus.size() + 100))
+                .setEntityExtractionParallelism(4)
+                .setEntityExtractionQueueCapacity(2000)
+                .setCircadian(CircadianPolicy.builder().volumeTrigger(Integer.MAX_VALUE).build());
+
+        SpectorMemoryBuilder builder = SpectorMemory.builder(memoryProps)
                 .embeddingProvider(embedder)
                 .llmProvider(llm)
                 .entityExtractionMode(extMode)
                 .persistence(naturalMemoryDir)
                 .persistenceMode(MemoryPersistenceMode.DISK)
-                .bundleMode(true)
-                .episodicPartitionCapacity(Math.max(35_000, corpus.size() + 100))
-                .semanticCapacity(Math.max(30_000, corpus.size() + 100))
-                .entityExtractionParallelism(4)
-                .entityExtractionQueueCapacity(2000)
-                .circadianPolicy(CircadianPolicy.builder().volumeTrigger(Integer.MAX_VALUE).build());
+                .bundleMode(true);
 
         SalienceProfile salience = buildSalienceProfile(persona, embedder);
         if (salience != null) {

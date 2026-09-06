@@ -155,29 +155,29 @@ public final class E2EMemoryContext {
         boolean pathwayEnabled = true;
         boolean aismeEnabled = true;
 
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setPathwayEnabled(pathwayEnabled)
+                .setDimensions(dims)
+                .setWorkingCapacity(50)
+                .setEpisodicPartitionCapacity(500)
+                .setSemanticCapacity(200)
+                .setProceduralCapacity(100)
+                .setEntityGraphCapacity(1000)
+                .setHebbianGraphCapacity(500)
+                .setTemporalChainCapacity(500);
+        memProps.getRemember().setSurpriseWarmup(10);
+        memProps.getRemember().setFlashbulbThreshold(2.5f);
+        if (aismeEnabled) {
+            memProps.getAisme().setEnabled(true);
+        }
+
         // Build the memory system with all subsystems enabled
-        var memBuilder = DefaultSpectorMemory.builder()
-                .usePathwayEngine(pathwayEnabled)
-                .dimensions(dims)
+        var memBuilder = DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(embeddingProvider)
-                .SparseEmbeddingProvider(sparseProvider)
+                .sparseEmbeddingProvider(sparseProvider)
                 .tokenEmbeddingProvider(tokenProvider)
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .workingCapacity(50)
-                .episodicPartitionCapacity(500)
-                .semanticCapacity(200)
-                .proceduralCapacity(100)
-                .entityExtractionMode(EntityExtractionMode.CUSTOM)
-                .entityExtractor(new TestEntityExtractor())
-                .entityGraphCapacity(1000)
-                .hebbianGraphCapacity(500)
-                .temporalChainCapacity(500)
-                .surpriseWarmup(10)
-                .flashbulbThreshold(2.5);
-
-        if (aismeEnabled) {
-            memBuilder.enableAisme(true);
-        }
+                .entityExtractor(new TestEntityExtractor());
 
         memory = memBuilder.build();
 

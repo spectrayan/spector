@@ -36,21 +36,25 @@ class MultiTenantQuartzSchedulerTest {
         Path pathA = tempDir.resolve("tenant-a");
         Path pathB = tempDir.resolve("tenant-b");
 
-        try (SpectorMemory memoryA = DefaultSpectorMemory.builder()
-                .dimensions(128)
+        var propsA = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(128)
+                .setNamespaceId("tenant-a");
+        propsA.getCircadian().setTimeTrigger(Duration.ofHours(1));
+
+        var propsB = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(128)
+                .setNamespaceId("tenant-b");
+        propsB.getCircadian().setTimeTrigger(Duration.ofHours(1));
+
+        try (SpectorMemory memoryA = DefaultSpectorMemory.builder(propsA)
                 .embeddingProvider(new FakeEmbeddingProvider())
                 .persistence(pathA)
                 .persistenceMode(MemoryPersistenceMode.DISK)
-                .namespaceId("tenant-a")
-                .circadianPolicy(CircadianPolicy.builder().timeTrigger(Duration.ofHours(1)).build())
                 .build();
-             SpectorMemory memoryB = DefaultSpectorMemory.builder()
-                .dimensions(128)
+             SpectorMemory memoryB = DefaultSpectorMemory.builder(propsB)
                 .embeddingProvider(new FakeEmbeddingProvider())
                 .persistence(pathB)
                 .persistenceMode(MemoryPersistenceMode.DISK)
-                .namespaceId("tenant-b")
-                .circadianPolicy(CircadianPolicy.builder().timeTrigger(Duration.ofHours(1)).build())
                 .build()) {
 
             MemoryScheduler schedA = memoryA.scheduler();

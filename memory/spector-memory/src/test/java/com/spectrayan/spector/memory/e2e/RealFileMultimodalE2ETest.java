@@ -84,11 +84,13 @@ class RealFileMultimodalE2ETest {
 
         TikaTextExtractor tikaExtractor = new TikaTextExtractor(500, 80);
 
-        memory = DefaultSpectorMemory.builder()
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setSemanticCapacity(2_000)
+                .setEpisodicPartitionCapacity(2_000);
+
+        memory = DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(embeddingProvider)
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .semanticCapacity(2_000)
-                .episodicPartitionCapacity(2_000)
                 .sensoryExtractors(List.of(visionExtractor, tikaExtractor))
                 .build();
 

@@ -21,6 +21,7 @@ import java.nio.file.Paths;
 
 import org.junit.jupiter.api.Test;
 
+import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
@@ -93,14 +94,16 @@ public class MindSpanStrengthAndAuditInspectionTest {
                 ? memDir.getParent().resolve("audit_inspection.txt")
                 : Paths.get("audit_inspection.txt");
 
-        try (SpectorMemory memory = SpectorMemoryBuilder.create()
-                .dimensions(768)
+        MemoryProperties memProps = new MemoryProperties()
+                .setDimensions(768)
+                .setEpisodicPartitionCapacity(35_000)
+                .setSemanticCapacity(20_000);
+
+        try (SpectorMemory memory = SpectorMemory.builder(memProps)
                 .embeddingProvider(OllamaEmbeddingProvider.createDefault())
                 .persistence(memDir)
                 .persistenceMode(MemoryPersistenceMode.DISK)
                 .bundleMode(true)
-                .episodicPartitionCapacity(35_000)
-                .semanticCapacity(20_000)
                 .build();
              PrintWriter out = new PrintWriter(reportFile.toFile())) {
 

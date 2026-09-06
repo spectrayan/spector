@@ -59,17 +59,19 @@ class VirtualThreadMemoryStressTest {
         embeddingProvider = new StressEmbeddingProvider(DIMENSIONS);
         llmProvider = new StressLlmProvider();
 
-        memory = (DefaultSpectorMemory) DefaultSpectorMemory.builder()
-                .dimensions(DIMENSIONS)
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(DIMENSIONS)
+                .setWorkingCapacity(100)
+                .setEpisodicPartitionCapacity(500)
+                .setSemanticCapacity(1000)
+                .setProceduralCapacity(500);
+        memProps.getGraph().getEntity().setExtractionMode("LLM");
+        memProps.getConsolidation().setEagerQueueCapacity(1000);
+
+        memory = (DefaultSpectorMemory) DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(embeddingProvider)
-                .LlmProvider(llmProvider)
-                .entityExtractionMode(com.spectrayan.spector.memory.graph.EntityExtractionMode.LLM)
+                .llmProvider(llmProvider)
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .workingCapacity(100)
-                .episodicPartitionCapacity(500)
-                .semanticCapacity(1000)
-                .proceduralCapacity(500)
-                .eagerConsolidationQueueCapacity(1000)
                 .build();
     }
 
@@ -189,14 +191,16 @@ class VirtualThreadMemoryStressTest {
     @Test
     @DisplayName("Partition roll under concurrent 100 writers and 100 readers")
     void testConcurrentPartitionRollUnderReadWriteStress() throws Exception {
-        DefaultSpectorMemory rollingMemory = (DefaultSpectorMemory) DefaultSpectorMemory.builder()
-                .dimensions(DIMENSIONS)
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(DIMENSIONS)
+                .setWorkingCapacity(5) // Tiny working capacity to force frequent working -> episodic rolls
+                .setEpisodicPartitionCapacity(500)
+                .setSemanticCapacity(500)
+                .setProceduralCapacity(500);
+
+        DefaultSpectorMemory rollingMemory = (DefaultSpectorMemory) DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(embeddingProvider)
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .workingCapacity(5) // Tiny working capacity to force frequent working -> episodic rolls
-                .episodicPartitionCapacity(500)
-                .semanticCapacity(500)
-                .proceduralCapacity(500)
                 .build();
 
         try {

@@ -83,7 +83,7 @@ public final class DecayStrategy {
      * array copy overhead. External callers use {@link #decayBuckets()} for a
      * safe defensive copy.</p>
      */
-    static final float[] DECAY_BUCKETS = DecayConfig.DEFAULT.buckets();
+    static final float[] DECAY_BUCKETS = com.spectrayan.spector.config.properties.DecayProperties.DEFAULT.buckets();
 
     /** Maximum bucket index. */
     public static final int MAX_BUCKET = DECAY_BUCKETS.length - 1;

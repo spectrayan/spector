@@ -193,6 +193,27 @@ public final class SpectorMemoryFactory {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL,
                     "embeddingProvider is required");
         }
+        var memProps = builder.properties() != null && builder.properties().memory() != null
+                ? builder.properties().memory()
+                : new com.spectrayan.spector.config.properties.MemoryProperties();
+        var graphProps = memProps.getGraph() != null
+                ? memProps.getGraph()
+                : new com.spectrayan.spector.config.properties.GraphProperties();
+        var entityProps = graphProps.getEntity() != null
+                ? graphProps.getEntity()
+                : new com.spectrayan.spector.config.properties.GraphProperties.EntityGraphProperties();
+        var remProps = memProps.getRemember() != null
+                ? memProps.getRemember()
+                : new com.spectrayan.spector.config.properties.RememberProperties();
+        var aismeConfig = com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(
+                memProps.getAisme());
+        var circadianPolicy = com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy.from(
+                memProps.getCircadian());
+        var dreamConfig = com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig.from(
+                memProps.getDream());
+        var twoFactorConfig = com.spectrayan.spector.memory.synapse.TwoFactorConfig.from(
+                memProps.getTwofactor());
+
         com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager = builder.cacheManager() != null
                 ? builder.cacheManager()
                 : com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager();
@@ -201,12 +222,16 @@ public final class SpectorMemoryFactory {
                 builder.embeddingProvider(),
                 cacheManager
         );
-        boolean sequential = builder.spectorProperties() != null
-                && builder.spectorProperties().provider() != null
-                && builder.spectorProperties().provider().getEmbedding() != null
-                && builder.spectorProperties().provider().getEmbedding().isSequential();
+        boolean sequential = builder.properties() != null
+                && builder.properties().provider() != null
+                && builder.properties().provider().getEmbedding() != null
+                && builder.properties().provider().getEmbedding().isSequential();
         ParallelEmbeddingPipeline parallelPipeline = new ParallelEmbeddingPipeline(embeddingProvider, sequential);
-        EmbedConfig embedConfig = new EmbedConfig(builder.embedBatchSize(), 3, sequential);
+        int batchSize = (builder.properties() != null && builder.properties().provider() != null
+                && builder.properties().provider().getEmbedding() != null)
+                ? builder.properties().provider().getEmbedding().getBatchSize() : 32;
+        if (batchSize <= 0) batchSize = 32;
+        EmbedConfig embedConfig = new EmbedConfig(batchSize, 3, sequential);
 
         //  Storage + cortex foundation (path, quantizer, namespace, partitions, tier stores) 
         CognitiveCortexBuilder.CortexFoundation cortex = CognitiveCortexBuilder.build(builder);
@@ -264,10 +289,10 @@ public final class SpectorMemoryFactory {
                 .importanceProvider(importanceProvider)
                 .tagExtractor(builder.tagExtractor())
                 .semanticIndex(builder.semanticIndex())
-                .sparseEmbeddingProvider(builder.SparseEmbeddingProvider())
+                .sparseEmbeddingProvider(builder.sparseEmbeddingProvider())
                 .dataEncryptor(builder.dataEncryptor())
-                .entityExtractionParallelism(builder.entityExtractionParallelism())
-                .entityExtractionQueueCapacity(builder.entityExtractionQueueCapacity())
+                .entityExtractionParallelism(memProps.getEntityExtractionParallelism())
+                .entityExtractionQueueCapacity(memProps.getEntityExtractionQueueCapacity())
                 .normalizeAtIngest(true)
                 .build();
 
@@ -324,7 +349,7 @@ public final class SpectorMemoryFactory {
 
         // Active Inference Self-Model Engine (AISME) (#597, #623)
         com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle = null;
-        if (builder.aismeConfig() != null && builder.aismeConfig().enabled()) {
+        if (aismeConfig != null && aismeConfig.enabled()) {
             com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor vectorAccessor =
                     new com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor(
                             index, partitionManager, cortex.quantizer());
@@ -339,9 +364,9 @@ public final class SpectorMemoryFactory {
                 activeSouls = java.util.List.of();
             }
             aismeBundle = com.spectrayan.spector.memory.aisme.AismeBuilder.build(
-                    builder.aismeConfig(),
+                    aismeConfig,
                     primarySoul,
-                    builder.dimensions(),
+                    memProps.getDimensions(),
                     rememberPathway,
                     vectorAccessor,
                     activeSouls
@@ -359,7 +384,7 @@ public final class SpectorMemoryFactory {
                 .partitionManager(partitionManager)
                 .wal(wal)
                 .graphScoringPolicy(builder.graphScoringPolicy())
-                .sparseEmbeddingProvider(builder.SparseEmbeddingProvider())
+                .sparseEmbeddingProvider(builder.sparseEmbeddingProvider())
                 .hook(builder.hook())
                 .semanticIndex(builder.semanticIndex())
                 .aismeBundle(aismeBundle)
@@ -378,15 +403,17 @@ public final class SpectorMemoryFactory {
         //  ID Generator (moved up so ReflectPathway can use it)
         MemoryIdGenerator idGenerator = builder.idGenerator() != null
                 ? builder.idGenerator()
-                : builder.idStrategy().createGenerator();
+                : (memProps.getIdStrategy() != null && !memProps.getIdStrategy().isBlank()
+                ? com.spectrayan.spector.memory.kernel.id.IdStrategy.valueOf(memProps.getIdStrategy().toUpperCase(java.util.Locale.ROOT)).createGenerator()
+                : com.spectrayan.spector.memory.kernel.id.IdStrategy.TSID.createGenerator());
 
         //  Reflect Pathway (#503 / ADR-0007)
         ReflectPathway reflectPathway = ReflectPathway.builder()
                 .embeddingProvider(embeddingProvider)
-                .textGenerator(builder.LlmProvider())
+                .textGenerator(builder.llmProvider())
                 .importanceProvider(importanceProvider)
-                .policy(builder.circadianPolicy())
-                .centroidRouter(builder.dimensions() > 0 ? new com.spectrayan.spector.memory.cortex.CentroidRouter(builder.dimensions()) : null)
+                .policy(circadianPolicy)
+                .centroidRouter(memProps.getDimensions() > 0 ? new com.spectrayan.spector.memory.cortex.CentroidRouter(memProps.getDimensions()) : null)
                 .hebbianGraph(graphs.hebbianGraph())
                 .temporalChain(graphs.temporalChain())
                 .entityDirectory(graphs.entityDirectory())
@@ -394,14 +421,14 @@ public final class SpectorMemoryFactory {
                 .wal(wal)
                 .typeNormalizer(typeNormalizer)
                 .minClusterSize(5)
-                .pinSourceEpisodes(builder.pinSourceEpisodes())
-                .pinnedQuota(builder.pinnedQuota())
+                .pinSourceEpisodes(remProps.isPinSourceEpisodes())
+                .pinnedQuota(remProps.getPinnedQuota())
                 .soulDriftRefusionEnabled(true)
                 .soulDriftRefusionBatchSize(100)
-                .temporalRetentionDays(builder.temporalRetentionDays())
-                .entityResolutionEnabled(builder.entityResolutionEnabled())
-                .entityShadowMode(builder.entityShadowMode())
-                .entityCosineThreshold(builder.entityCosineThreshold())
+                .temporalRetentionDays(entityProps.getRetentionDays())
+                .entityResolutionEnabled(entityProps.isResolutionEnabled())
+                .entityShadowMode(entityProps.isShadowMode())
+                .entityCosineThreshold(entityProps.getCosineThreshold())
                 .cognitiveManifold(aismeBundle != null ? aismeBundle.cognitiveManifold() : null)
                 .manifoldConsolidationRelay(aismeBundle != null ? aismeBundle.manifoldConsolidationRelay() : null)
                 .mentalStateTracker(aismeBundle != null ? aismeBundle.mentalStateTracker() : null)
@@ -415,13 +442,13 @@ public final class SpectorMemoryFactory {
         //  Extracted Components (Deprecated, retained for backward compatibility)
         ReflectionOrchestrator reflectionOrchestrator = new ReflectionOrchestrator(
                 bio.reflectDaemon(), graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityDirectory(),
-                graphs.hyperEntityGraph(), wal, builder.temporalRetentionDays(),
-                embeddingProvider, builder.LlmProvider(),
-                builder.entityResolutionEnabled(), builder.entityShadowMode(), builder.entityCosineThreshold(), typeNormalizer);
+                graphs.hyperEntityGraph(), wal, entityProps.getRetentionDays(),
+                embeddingProvider, builder.llmProvider(),
+                entityProps.isResolutionEnabled(), entityProps.isShadowMode(), entityProps.getCosineThreshold(), typeNormalizer);
 
         ReinforcementHandler reinforcementHandler = new ReinforcementHandler(
                 bio.valenceTracker(), graphs.hebbianGraph(), bio.lateralEvaluator(), recallPathway,
-                wal, builder.twoFactorConfig(), profileAdaptor);
+                wal, twoFactorConfig, profileAdaptor);
 
         //  Wander Pathway (#609 / AISME Phase 10 — DMN & Longitudinal Continuity)
         WanderPathway wanderPathway = WanderPathway.builder()
@@ -433,7 +460,7 @@ public final class SpectorMemoryFactory {
                 .hebbianGraph(graphs.hebbianGraph())
                 .homeostaticCore(aismeBundle != null ? aismeBundle.homeostaticCore() : null)
                 .continuityMemory(cortex.continuityMemory())
-                .aismeConfig(builder.aismeConfig())
+                .aismeConfig(aismeConfig)
                 .build();
 
         //  Decide Pathway (#611 / AISME Phase 11 — Expected Free Energy G(π) Policy Engine)
@@ -456,9 +483,9 @@ public final class SpectorMemoryFactory {
         }
 
         DreamPathway dreamPathway = DreamPathway.builder()
-                .dreamConfig(builder.dreamConfig())
+                .dreamConfig(dreamConfig)
                 .partitionManager(partitionManager)
-                .aismeConfig(builder.aismeConfig())
+                .aismeConfig(aismeConfig)
                 .primarySoul(dreamPrimarySoul)
                 .soulContexts(dreamActiveSouls)
                 .salienceProfile(builder.salienceProfile())
@@ -476,11 +503,11 @@ public final class SpectorMemoryFactory {
 
         //  Homeostatic Decay Daemon (#613 / AISME Phase 12 — Continuous Self-Dynamics)
         if (daemons.daemonSupervisor() != null && aismeBundle != null
-                && builder.aismeConfig() != null && builder.aismeConfig().backgroundDecayEnabled()) {
+                && aismeConfig != null && aismeConfig.backgroundDecayEnabled()) {
             var decayDaemon = new com.spectrayan.spector.memory.aisme.dmn.HomeostaticDecayDaemon(
                     aismeBundle.mentalStateTracker(),
                     aismeBundle.homeostaticCore(),
-                    builder.aismeConfig().backgroundDecayFactor());
+                    aismeConfig.backgroundDecayFactor());
             // Deprecated: Homeostatic decay is now scheduled and managed exclusively by Quartz HomeostaticDecayJob (#683)
             // daemons.daemonSupervisor().schedule(
             //         "homeostatic-decay",

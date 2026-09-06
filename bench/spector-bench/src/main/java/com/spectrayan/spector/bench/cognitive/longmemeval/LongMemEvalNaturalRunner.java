@@ -45,6 +45,7 @@ import com.spectrayan.spector.bench.cognitive.NaturalDatasetLoader.NaturalLoaded
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
 import com.spectrayan.spector.bench.cognitive.model.PersonaDef;
+import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
@@ -181,17 +182,18 @@ public final class LongMemEvalNaturalRunner {
                 log.info("--- Phase 1: Ingesting & Reflecting {} Pending Sessions in Batches of {} ---",
                         pendingSessions.size(), sessionBatchSize);
 
-                SpectorMemoryBuilder memBuilder = SpectorMemoryBuilder.create()
-                        .dimensions(embedder.dimensions())
+                MemoryProperties memProps = new MemoryProperties()
+                        .setEpisodicPartitionCapacity(30_000)
+                        .setSemanticCapacity(20_000)
+                        .setEntityExtractionParallelism(4)
+                        .setEntityExtractionQueueCapacity(2000)
+                        .setCircadian(CircadianPolicy.builder().volumeTrigger(Integer.MAX_VALUE).build());
+
+                SpectorMemoryBuilder memBuilder = SpectorMemory.builder(memProps)
                         .embeddingProvider(embedder)
-                        .LlmProvider(geminiLlm)
+                        .llmProvider(geminiLlm)
                         .persistence(naturalMemoryDir)
-                        .persistenceMode(MemoryPersistenceMode.DISK)
-                        .episodicPartitionCapacity(30_000)
-                        .semanticCapacity(20_000)
-                        .entityExtractionParallelism(4)
-                        .entityExtractionQueueCapacity(2000)
-                        .circadianPolicy(CircadianPolicy.builder().volumeTrigger(Integer.MAX_VALUE).build());
+                        .persistenceMode(MemoryPersistenceMode.DISK);
 
                 SalienceProfile salienceProfile = buildSalienceProfileFromPersona(dataset.persona(), embedder);
                 if (salienceProfile != null) {
@@ -390,13 +392,14 @@ public final class LongMemEvalNaturalRunner {
         }
 
         log.info("--- Phase 2: Exporting Candidate Sets for {} Queries (with Multi-Hop Decomposition) ---", queries.size());
-        SpectorMemoryBuilder exportBuilder = SpectorMemoryBuilder.create()
-                .dimensions(embedder.dimensions())
+        MemoryProperties exportProps = new MemoryProperties()
+                .setEpisodicPartitionCapacity(30_000)
+                .setSemanticCapacity(20_000);
+
+        SpectorMemoryBuilder exportBuilder = SpectorMemory.builder(exportProps)
                 .embeddingProvider(embedder)
                 .persistence(naturalMemoryDir)
-                .persistenceMode(MemoryPersistenceMode.DISK)
-                .episodicPartitionCapacity(30_000)
-                .semanticCapacity(20_000);
+                .persistenceMode(MemoryPersistenceMode.DISK);
 
         SalienceProfile exportSalience = buildSalienceProfileFromPersona(persona, embedder);
         if (exportSalience != null) {
