@@ -20,6 +20,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.stereotype.Component;
+
 import com.spectrayan.spector.cli.client.SearchRequest;
 import com.spectrayan.spector.cli.client.SearchResponse;
 import com.spectrayan.spector.cli.client.SpectorClientException;
@@ -30,16 +32,19 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
 /**
- * Search documents in the Spector engine.
+ * Recall and search documents or memories in the Spector engine.
+ * Matches the {@code memory_recall} MCP tool.
  */
+@Component
 @Command(
-        name = "search",
-        description = "Search for documents in Spector.",
+        name = "recall",
+        aliases = {"search"},
+        description = "Recall and search documents or memories in Spector.",
         mixinStandardHelpOptions = true
 )
-class SearchCommand extends BaseCommand {
+public class RecallCommand extends BaseCommand {
 
-    @CommandLine.Parameters(index = "0", description = "Search query text.")
+    @CommandLine.Parameters(index = "0", description = "Recall query text.")
     private String query;
 
     @CommandLine.Option(names = {"-k", "--top-k"}, description = "Number of results to return (default: 10).",
@@ -63,7 +68,7 @@ class SearchCommand extends BaseCommand {
             if (isJson()) {
                 OutputFormatter.printJson(out(), response);
             } else {
-                out().println("Search results (" + response.getTotalHits() + " hits, " + response.getQueryTimeMs() + "ms):");
+                out().println("Recall results (" + response.getTotalHits() + " hits, " + response.getQueryTimeMs() + "ms):");
                 out().println();
 
                 if (response.getResults() == null || response.getResults().isEmpty()) {

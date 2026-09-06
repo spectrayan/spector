@@ -1,0 +1,17 @@
+spring:
+  main:
+    lazy-initialization: true
+    banner-mode: "off"
+  application:
+    name: spector-cli
+  batch:
+    job:
+      enabled: false
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.batch.autoconfigure.BatchAutoConfiguration
+      - org.springframework.boot.batch.autoconfigure.BatchJobLauncherAutoConfiguration
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

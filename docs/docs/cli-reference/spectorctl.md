@@ -63,23 +63,24 @@ spectorctl index delete --name my-index
 
 ---
 
-### 📥 `ingest` — Document Ingestion
+### 📥 `remember` — Document & Memory Ingestion
 
-The `ingest` command supports two modes, auto-detected from the flags:
+The `remember` command (with backward-compatible alias `ingest`) supports two modes, auto-detected from the flags:
 
 #### Local Batch Mode (Direct Ingestion)
 
-Discovers and ingests files directly through `IngestionPipeline` — no server needed. Reads configuration from `spector.yml`.
+Discovers and ingests files directly into `SpectorMemory` via Spring Boot auto-configuration — no server needed. Reads configuration from `spector.yml`.
 
 ```bash
-# Ingest from config (root-directory, pattern, etc. from spector.yml)
-spectorctl ingest --config spector.yml
+# Remember from config (root-directory, pattern, etc. from spector.yml)
+spectorctl remember --config spector.yml
 
-# Ingest with explicit root directory
+# Remember with explicit root directory (or with 'ingest' alias)
+spectorctl remember --root /path/to/docs --pattern "**/*.md"
 spectorctl ingest --root /path/to/docs --pattern "**/*.md"
 
 # Override chunk size
-spectorctl ingest --config spector.yml --root . --chunk-size 1200
+spectorctl remember --config spector.yml --root . --chunk-size 1200
 ```
 
 | Option | Required | Description |
@@ -94,13 +95,14 @@ spectorctl ingest --config spector.yml --root . --chunk-size 1200
 
 #### Remote Mode (via HTTP)
 
-Sends a single document to a running Spector server.
+Sends a single document or memory to a running Spector server.
 
 ```bash
-# Ingest text content
-spectorctl ingest --id doc-1 --content "Hello world"
+# Remember text content
+spectorctl remember --id doc-1 --content "Hello world"
 
-# Ingest from a file
+# Remember from a file (or with 'ingest' alias)
+spectorctl remember --file README.md --title "Project README"
 spectorctl ingest --file README.md --title "Project README"
 ```
 
@@ -113,30 +115,29 @@ spectorctl ingest --file README.md --title "Project README"
 
 ---
 
-### 🔍 `search` — Search Documents
+### 🔍 `recall` — Recall Documents & Memories
+
+The `recall` command (with backward-compatible alias `search`) queries Spector for documents or memories:
 
 ```bash
-# Text/keyword search
-spectorctl search --text "vector search engine" --topK 10
+# Keyword / semantic recall
+spectorctl recall "vector search engine" --top-k 10
 
-# Vector search
-spectorctl search --vector "0.1,0.2,0.3,0.4,0.5" --topK 5
+# Hybrid recall
+spectorctl recall "search" --mode HYBRID --top-k 10
 
-# Hybrid search
-spectorctl search --text "search" --vector "0.1,0.2,0.3,0.4,0.5" --topK 10
+# Backward-compatible alias
+spectorctl search "search" --top-k 10
 
 # JSON output for scripting
-spectorctl search --text "search" --json
+spectorctl recall "search" --json
 ```
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--text` | ❌* | Query text for keyword search |
-| `--vector` | ❌* | Comma-separated query vector |
-| `--topK` | ❌ | Number of results (default: 10) |
-
-> [!IMPORTANT]
-> *At least one of `--text` or `--vector` is required.
+| `<query>` | ✅ | Recall query text (positional parameter) |
+| `-k, --top-k` | ❌ | Number of results (default: 10) |
+| `-m, --mode` | ❌ | Search mode: `KEYWORD`, `VECTOR`, `HYBRID` (default: `KEYWORD`) |
 
 ---
 
@@ -238,8 +239,8 @@ Machine-parseable output for scripting and automation:
 ### Pipe to jq
 
 ```bash
-# Extract document IDs from search results
-spectorctl search --text "query" --json | jq '.results[].id'
+# Extract document IDs from recall results
+spectorctl recall "query" --json | jq '.results[].id'
 
 # Check server health in CI
 if spectorctl status --json | jq -e '.status == "RUNNING"' > /dev/null; then
@@ -254,8 +255,7 @@ fi
 while IFS= read -r line; do
   id=$(echo "$line" | jq -r '.id')
   content=$(echo "$line" | jq -r '.content')
-  vector=$(echo "$line" | jq -r '.vector | join(",")')
-  spectorctl ingest --id "$id" --content "$content" --vector "$vector"
+  spectorctl remember --id "$id" --content "$content"
 done < documents.jsonl
 ```
 

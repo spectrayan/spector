@@ -47,8 +47,8 @@ class SpectorCtlTest {
         String output = sw.toString();
         assertThat(output).contains("spectorctl");
         assertThat(output).contains("index");
-        assertThat(output).contains("ingest");
-        assertThat(output).contains("search");
+        assertThat(output).contains("remember");
+        assertThat(output).contains("recall");
         assertThat(output).contains("status");
         assertThat(output).contains("mcp");
     }
@@ -183,6 +183,35 @@ class SpectorCtlTest {
         assertThat(output).contains("--id");
         assertThat(output).contains("--content");
         assertThat(output).contains("--file");
+    }
+
+    @Test
+    void rememberHelp_showsOptions() {
+        var cli = createCli();
+        var sw = new StringWriter();
+        cli.setOut(new PrintWriter(sw));
+
+        int exitCode = cli.execute("remember", "--help");
+
+        assertThat(exitCode).isEqualTo(0);
+        String output = sw.toString();
+        assertThat(output).contains("--id");
+        assertThat(output).contains("--content");
+        assertThat(output).contains("--file");
+    }
+
+    @Test
+    void recallHelp_showsOptions() {
+        var cli = createCli();
+        var sw = new StringWriter();
+        cli.setOut(new PrintWriter(sw));
+
+        int exitCode = cli.execute("recall", "--help");
+
+        assertThat(exitCode).isEqualTo(0);
+        String output = sw.toString();
+        assertThat(output).contains("--top-k");
+        assertThat(output).contains("--mode");
     }
 
     @Test
