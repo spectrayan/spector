@@ -68,6 +68,21 @@ public record TwoFactorConfig(
             false);
 
     /**
+     * Creates a {@link TwoFactorConfig} from {@link com.spectrayan.spector.config.properties.TwoFactorProperties}.
+     */
+    public static TwoFactorConfig from(com.spectrayan.spector.config.properties.TwoFactorProperties props) {
+        if (props == null) {
+            return DEFAULT;
+        }
+        return new TwoFactorConfig(
+                props.getSGain(),
+                props.getSMax(),
+                props.getSExponent(),
+                props.isEnabled()
+        );
+    }
+
+    /**
      * Compact constructor with validation.
      */
     public TwoFactorConfig {

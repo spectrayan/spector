@@ -218,6 +218,8 @@ public final class SpectorMemoryBuilder {
     private long typeRegistrySize = SpectorPropertyConstants.DEFAULT_MEMORY_TYPE_REGISTRY_SIZE;
     private long insulaSize = SpectorPropertyConstants.DEFAULT_MEMORY_INSULA_SIZE;
     private int provenanceCapacity = SpectorPropertyConstants.DEFAULT_MEMORY_PROVENANCE_CAPACITY;
+    private long textSegmentSize = SpectorPropertyConstants.DEFAULT_MEMORY_TEXT_SEGMENT_SIZE;
+    private long episodicSegmentSize = SpectorPropertyConstants.DEFAULT_MEMORY_EPISODIC_SEGMENT_SIZE;
 
     // Eager consolidation (#526)
     private int eagerConsolidationQueueCapacity = SpectorPropertyConstants.DEFAULT_MEMORY_EAGER_CONSOLIDATION_QUEUE_CAPACITY;
@@ -238,8 +240,20 @@ public final class SpectorMemoryBuilder {
     // FACTORY
     // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
 
-    /** Creates a new builder instance. */
-    public static SpectorMemoryBuilder create() { return new SpectorMemoryBuilder(); }
+    /** Creates a new builder instance seeded with defaults from {@link com.spectrayan.spector.config.SpectorProperties#load()}. */
+    public static SpectorMemoryBuilder create() {
+        return new SpectorMemoryBuilder().fromProperties(com.spectrayan.spector.config.SpectorProperties.load());
+    }
+
+    /** Creates a new unseeded builder instance without loading system defaults. */
+    public static SpectorMemoryBuilder createEmpty() {
+        return new SpectorMemoryBuilder();
+    }
+
+    /** Creates a new builder instance initialized from explicit {@link com.spectrayan.spector.config.SpectorProperties}. */
+    public static SpectorMemoryBuilder create(com.spectrayan.spector.config.SpectorProperties props) {
+        return new SpectorMemoryBuilder().fromProperties(props);
+    }
 
     SpectorMemoryBuilder() {}
 
@@ -386,6 +400,8 @@ public final class SpectorMemoryBuilder {
 
     public SpectorMemoryBuilder workingCapacity(int c) { this.workingCapacity = c; return this; }
     public SpectorMemoryBuilder episodicPartitionCapacity(int c) { this.episodicPartitionCapacity = c; return this; }
+    public SpectorMemoryBuilder textSegmentSize(long bytes) { this.textSegmentSize = bytes; return this; }
+    public SpectorMemoryBuilder episodicSegmentSize(long bytes) { this.episodicSegmentSize = bytes; return this; }
     public SpectorMemoryBuilder semanticCapacity(int c) { this.semanticCapacity = c; return this; }
     /** Nodes per semantic partition before rolling to a new file (default: 10,000). */
     public SpectorMemoryBuilder nodesPerPartition(int n) { this.nodesPerPartition = n; return this; }
@@ -702,6 +718,12 @@ public final class SpectorMemoryBuilder {
     public SpectorMemoryBuilder fromProperties(com.spectrayan.spector.config.SpectorProperties props) {
         if (props == null) return this;
         this.spectorProperties = props;
+        if (props.provider() != null && props.provider().getEmbedding() != null) {
+            int batchSize = props.provider().getEmbedding().getBatchSize();
+            if (batchSize > 0) {
+                this.embedBatchSize = batchSize;
+            }
+        }
         return fromProperties(props.memory());
     }
 
@@ -723,6 +745,24 @@ public final class SpectorMemoryBuilder {
             this.hebbianGraphCapacity = properties.getCapacity();
             this.temporalChainCapacity = properties.getCapacity();
             this.entityGraphCapacity = properties.getCapacity();
+        }
+        if (properties.getWorkingCapacity() > 0) {
+            this.workingCapacity = properties.getWorkingCapacity();
+        }
+        if (properties.getEpisodicPartitionCapacity() > 0) {
+            this.episodicPartitionCapacity = properties.getEpisodicPartitionCapacity();
+        }
+        if (properties.getProceduralCapacity() > 0) {
+            this.proceduralCapacity = properties.getProceduralCapacity();
+        }
+        if (properties.getEntityGraphCapacity() > 0) {
+            this.entityGraphCapacity = properties.getEntityGraphCapacity();
+        }
+        if (properties.getTextSegmentSize() > 0) {
+            this.textSegmentSize = properties.getTextSegmentSize();
+        }
+        if (properties.getEpisodicSegmentSize() > 0) {
+            this.episodicSegmentSize = properties.getEpisodicSegmentSize();
         }
         if (properties.getNodesPerPartition() > 0) {
             this.nodesPerPartition = properties.getNodesPerPartition();
@@ -751,6 +791,15 @@ public final class SpectorMemoryBuilder {
         }
         if (properties.getAisme() != null) {
             this.aismeConfig = com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(properties.getAisme());
+        }
+        if (properties.getCircadian() != null) {
+            this.circadianPolicy = CircadianPolicy.from(properties.getCircadian());
+        }
+        if (properties.getDream() != null) {
+            this.dreamConfig = DreamConfig.from(properties.getDream());
+        }
+        if (properties.getTwofactor() != null) {
+            this.twoFactorConfig = TwoFactorConfig.from(properties.getTwofactor());
         }
         if (properties.getRecall() != null) {
             this.defaultRecallOptions = RecallOptions.from(properties.getRecall());
@@ -847,6 +896,22 @@ public final class SpectorMemoryBuilder {
                 log.warn("Failed to parse graph expansion mode '{}', keeping default", properties.getGraphExpansionMode(), e);
             }
         }
+
+        if (properties.getCheckpointIntervalSeconds() > 0) {
+            this.checkpointIntervalSeconds = properties.getCheckpointIntervalSeconds();
+        }
+        if (properties.getIdStrategy() != null && !properties.getIdStrategy().isBlank()) {
+            try {
+                this.idStrategy = IdStrategy.valueOf(properties.getIdStrategy().toUpperCase(java.util.Locale.ROOT));
+            } catch (Exception e) {
+                log.warn("Failed to parse id strategy '{}', keeping default", properties.getIdStrategy(), e);
+            }
+        }
+        if (properties.getNamespaceId() != null && !properties.getNamespaceId().isBlank()) {
+            this.namespaceId = properties.getNamespaceId();
+        }
+        this.persistWorkingMemory = properties.isPersistWorkingMemory();
+
         return this;
     }
 
@@ -888,6 +953,8 @@ public final class SpectorMemoryBuilder {
     public CircadianPolicy circadianPolicy() { return circadianPolicy; }
     public int workingCapacity() { return workingCapacity; }
     public int episodicPartitionCapacity() { return episodicPartitionCapacity; }
+    public long textSegmentSize() { return textSegmentSize; }
+    public long episodicSegmentSize() { return episodicSegmentSize; }
     public int semanticCapacity() { return semanticCapacity; }
     public int nodesPerPartition() { return nodesPerPartition; }
     public int proceduralCapacity() { return proceduralCapacity; }

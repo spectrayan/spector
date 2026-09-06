@@ -49,6 +49,23 @@ public record CircadianPolicy(
     );
 
     /**
+     * Creates a {@link CircadianPolicy} from {@link com.spectrayan.spector.config.properties.CircadianProperties}.
+     */
+    public static CircadianPolicy from(com.spectrayan.spector.config.properties.CircadianProperties props) {
+        if (props == null) {
+            return DEFAULT;
+        }
+        return builder()
+                .volumeTrigger(props.getVolumeTrigger())
+                .timeTrigger(Duration.ofSeconds(props.getTimeTriggerSeconds()))
+                .tombstoneThreshold(props.getTombstoneThreshold())
+                .decayPruneThreshold(props.getDecayPruneThreshold())
+                .interferenceThreshold(props.getInterferenceThreshold())
+                .interferenceDecayFactor(props.getInterferenceDecayFactor())
+                .build();
+    }
+
+    /**
      * Creates a builder for custom configuration.
      */
     public static Builder builder() {

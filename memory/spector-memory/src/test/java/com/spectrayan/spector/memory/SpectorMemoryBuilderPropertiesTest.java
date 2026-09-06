@@ -52,6 +52,61 @@ class SpectorMemoryBuilderPropertiesTest {
     }
 
     @Test
+    void fromProperties_hydratesAllCapacitiesSegmentSizesAndSubDomains() {
+        SpectorConfigSource source = SpectorConfigSource.builder()
+                .override("spector.memory.working-capacity", "250")
+                .override("spector.memory.episodic-partition-capacity", "50000")
+                .override("spector.memory.procedural-capacity", "15000")
+                .override("spector.memory.entity-graph-capacity", "80000")
+                .override("spector.memory.text-segment-size", "2097152")
+                .override("spector.memory.episodic-segment-size", "4194304")
+                .override("spector.memory.circadian.volume-trigger", "50")
+                .override("spector.memory.dream.max-dreams-per-cycle", "7")
+                .override("spector.memory.twofactor.enabled", "false")
+                .override("spector.memory.twofactor.s-gain", "0.25")
+                .override("spector.provider.embedding.batch-size", "48")
+                .override("spector.memory.checkpoint-interval-seconds", "120")
+                .override("spector.memory.namespace-id", "test-ns")
+                .override("spector.memory.persist-working-memory", "true")
+                .build();
+
+        SpectorProperties props = SpectorProperties.from(source);
+        SpectorMemoryBuilder builder = SpectorMemoryBuilder.createEmpty().fromProperties(props);
+
+        assertThat(builder.workingCapacity()).isEqualTo(250);
+        assertThat(builder.episodicPartitionCapacity()).isEqualTo(50000);
+        assertThat(builder.proceduralCapacity()).isEqualTo(15000);
+        assertThat(builder.entityGraphCapacity()).isEqualTo(80000);
+        assertThat(builder.textSegmentSize()).isEqualTo(2097152L);
+        assertThat(builder.episodicSegmentSize()).isEqualTo(4194304L);
+        assertThat(builder.circadianPolicy().volumeTrigger()).isEqualTo(50);
+        assertThat(builder.dreamConfig().maxDreamsPerCycle()).isEqualTo(7);
+        assertThat(builder.twoFactorConfig().enabled()).isFalse();
+        assertThat(builder.twoFactorConfig().sGain()).isEqualTo(0.25f);
+        assertThat(builder.embedBatchSize()).isEqualTo(48);
+        assertThat(builder.namespaceId()).isEqualTo("test-ns");
+        assertThat(builder.persistWorkingMemory()).isTrue();
+    }
+
+    @Test
+    void create_seedsFromSnapshotByDefault() {
+        SpectorMemoryBuilder builder = SpectorMemoryBuilder.create();
+        // Should have loaded defaults from classpath spector-defaults.yml
+        assertThat(builder.dimensions()).isEqualTo(384);
+        assertThat(builder.semanticCapacity()).isEqualTo(100_000);
+        assertThat(builder.circadianPolicy()).isNotNull();
+        assertThat(builder.dreamConfig()).isNotNull();
+        assertThat(builder.twoFactorConfig()).isNotNull();
+    }
+
+    @Test
+    void createEmpty_returnsUnseededBuilder() {
+        SpectorMemoryBuilder builder = SpectorMemoryBuilder.createEmpty();
+        assertThat(builder.dimensions()).isEqualTo(0);
+        assertThat(builder.spectorProperties()).isNull();
+    }
+
+    @Test
     void straySyspropDoesNotOverrideSnapshot() {
         String sysPropKey = "spector.memory.graphExpansionThreshold";
         String originalVal = System.getProperty(sysPropKey);

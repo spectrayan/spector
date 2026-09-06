@@ -95,6 +95,40 @@ public record DreamConfig(
         return new Builder().enabled(false).build();
     }
 
+    /**
+     * Creates a {@link DreamConfig} from {@link com.spectrayan.spector.config.properties.DreamProperties}.
+     */
+    public static DreamConfig from(com.spectrayan.spector.config.properties.DreamProperties props) {
+        if (props == null) {
+            return defaultConfig();
+        }
+        return builder()
+                .enabled(props.isEnabled())
+                .dreamNoiseScale(props.getNoiseScale())
+                .dreamTemperatureRem(props.getTemperatureRem())
+                .dreamTemperatureDaydream(props.getTemperatureDaydream())
+                .dreamTemperatureThought(props.getTemperatureThought())
+                .maxDreamsPerCycle(props.getMaxDreamsPerCycle())
+                .maxCounterfactualsPerSeed(props.getMaxCounterfactualsPerSeed())
+                .persistenceThreshold(props.getPersistenceThreshold())
+                .langevinStepSize(props.getLangevinStepSize())
+                .langevinSteps(props.getLangevinSteps())
+                .noveltyRadius(props.getNoveltyRadius())
+                .hebbianInhibitionDelta(props.getHebbianInhibitionDelta())
+                .journalEnabled(props.isJournalEnabled())
+                .dreamCycleFrequency(props.getCycleFrequency())
+                .seedWeightRecency(props.getSeedWeightRecency())
+                .seedWeightNovelty(props.getSeedWeightNovelty())
+                .seedWeightSoul(props.getSeedWeightSoul())
+                .seedWeightSalience(props.getSeedWeightSalience())
+                .identityResonanceThreshold(props.getIdentityResonanceThreshold())
+                .ethicalViolationThreshold(props.getEthicalViolationThreshold())
+                .langevinSoulAttractorLambda(props.getLangevinSoulAttractorLambda())
+                .hartmannOpennessMultiplier(props.getHartmannOpennessMultiplier())
+                .hartmannVigilanceMultiplier(props.getHartmannVigilanceMultiplier())
+                .build();
+    }
+
     public static final class Builder {
         private boolean enabled = true;
         private float dreamNoiseScale = SpectorPropertyConstants.DEFAULT_MEMORY_DREAM_NOISE_SCALE;
