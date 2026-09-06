@@ -345,12 +345,9 @@ public class NamespaceResolver implements AutoCloseable {
                     "Cannot build namespace memory: no EmbeddingProvider bean available");
         }
 
-        MemoryProperties memory = synapseProps.getMemory();
-
         var builder = SpectorMemoryBuilder.createEmpty()
-                .fromProperties(memory)
+                .fromProperties(synapseProps.toSpectorProperties())
                 .embeddingProvider(embedder)
-                .embedBatchSize(synapseProps.getProvider().getEmbedding().getBatchSize())
                 .persistence(dir);
 
         LlmProvider textGen = textGenProvider != null ? textGenProvider.getIfAvailable() : null;
@@ -366,10 +363,11 @@ public class NamespaceResolver implements AutoCloseable {
             builder.salienceProfileProvider(salience);
         }
 
-        if (memory.isSpladeEnabled()) {
+        MemoryProperties memory = synapseProps.getMemory();
+        if (memory != null && memory.isSpladeEnabled()) {
             builder.SparseEmbeddingProvider(new DenseDerivedSparseProvider(embedder));
         }
-        if (memory.isColbertEnabled()) {
+        if (memory != null && memory.isColbertEnabled()) {
             builder.tokenEmbeddingProvider(new DenseDerivedTokenProvider(embedder));
         }
 

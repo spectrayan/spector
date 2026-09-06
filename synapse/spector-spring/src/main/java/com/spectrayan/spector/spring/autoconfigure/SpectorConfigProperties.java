@@ -16,10 +16,16 @@
 package com.spectrayan.spector.spring.autoconfigure;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.config.properties.ClientProperties;
 import com.spectrayan.spector.config.properties.EmbeddingProperties;
 import com.spectrayan.spector.config.properties.ProviderProperties;
+import com.spectrayan.spector.config.properties.HardwareProperties;
+import com.spectrayan.spector.config.properties.EventsProperties;
+import com.spectrayan.spector.config.properties.ConcurrencyProperties;
+import com.spectrayan.spector.config.properties.TelemetryProperties;
+import com.spectrayan.spector.config.properties.MultimodalProperties;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -39,6 +45,11 @@ public class SpectorConfigProperties {
     private Metrics metrics = new Metrics();
     private ProviderProperties provider = new ProviderProperties();
     private ClientProperties client = new ClientProperties();
+    private HardwareProperties hardware = new HardwareProperties();
+    private EventsProperties events = new EventsProperties();
+    private ConcurrencyProperties concurrency = new ConcurrencyProperties();
+    private TelemetryProperties telemetry = new TelemetryProperties();
+    private MultimodalProperties multimodal = new MultimodalProperties();
 
     public ClientProperties getClient() { return client; }
     public void setClient(ClientProperties client) { this.client = client; }
@@ -52,6 +63,47 @@ public class SpectorConfigProperties {
     public ProviderProperties getProvider() { return provider; }
     public void setProvider(ProviderProperties provider) {
         if (provider != null) this.provider = provider;
+    }
+
+    public HardwareProperties getHardware() { return hardware; }
+    public void setHardware(HardwareProperties hardware) {
+        if (hardware != null) this.hardware = hardware;
+    }
+
+    public EventsProperties getEvents() { return events; }
+    public void setEvents(EventsProperties events) {
+        if (events != null) this.events = events;
+    }
+
+    public ConcurrencyProperties getConcurrency() { return concurrency; }
+    public void setConcurrency(ConcurrencyProperties concurrency) {
+        if (concurrency != null) this.concurrency = concurrency;
+    }
+
+    public TelemetryProperties getTelemetry() { return telemetry; }
+    public void setTelemetry(TelemetryProperties telemetry) {
+        if (telemetry != null) this.telemetry = telemetry;
+    }
+
+    public MultimodalProperties getMultimodal() { return multimodal; }
+    public void setMultimodal(MultimodalProperties multimodal) {
+        if (multimodal != null) this.multimodal = multimodal;
+    }
+
+    /**
+     * Converts this Spring Boot configuration properties bean into a canonical
+     * {@link SpectorProperties} aggregate root snapshot.
+     */
+    public SpectorProperties toSpectorProperties() {
+        return SpectorProperties.builder()
+                .memory(memory)
+                .provider(provider)
+                .hardware(hardware)
+                .events(events)
+                .concurrency(concurrency)
+                .telemetry(telemetry)
+                .multimodal(multimodal)
+                .build();
     }
 
     // ─────────────── Metrics ───────────────

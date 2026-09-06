@@ -138,7 +138,8 @@ public class SpectorAutoConfiguration {
                                  ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistryProvider,
                                  ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider) {
 
-        var memoryProps = props.getMemory();
+        var spectorProps = props.toSpectorProperties();
+        var memoryProps = spectorProps.memory();
         EmbeddingProvider embedder = embedderProvider.getIfAvailable();
 
         if (embedder == null) {
@@ -146,9 +147,8 @@ public class SpectorAutoConfiguration {
         }
 
         var builder = SpectorMemoryBuilder.createEmpty()
-                .fromProperties(memoryProps)
-                .embeddingProvider(embedder)
-                .embedBatchSize(props.getProvider().getEmbedding().getBatchSize());
+                .fromProperties(spectorProps)
+                .embeddingProvider(embedder);
 
         //  Entity extraction (LLM if LlmProvider is present)
         LlmProvider textGen = textGenProvider.getIfAvailable();
