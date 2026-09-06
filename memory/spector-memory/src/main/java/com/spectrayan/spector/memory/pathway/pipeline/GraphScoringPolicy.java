@@ -105,20 +105,6 @@ public record GraphScoringPolicy(
     public static final GraphScoringPolicy DEFAULT = resolveDefault();
 
     private static GraphScoringPolicy resolveDefault() {
-        float threshold = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_GRAPH_EXPANSION_THRESHOLD;
-        String thresholdStr = System.getProperty(THRESHOLD_SYSTEM_PROPERTY);
-        if (thresholdStr == null || thresholdStr.isBlank()) {
-            thresholdStr = System.getProperty("graphExpansionThreshold");
-        }
-        if (thresholdStr != null && !thresholdStr.isBlank()) {
-            try {
-                threshold = Float.parseFloat(thresholdStr);
-            } catch (NumberFormatException e) {
-                log.debug("Could not parse value, using default: {}", e.getMessage());
-            }
-        }
-        GraphExpansionMode mode = GraphExpansionMode.resolve();
-
         return new GraphScoringPolicy(
                 com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_GRAPH_CAUSAL_BOOST,
                 com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_GRAPH_HEBBIAN_BOOST,
@@ -128,8 +114,8 @@ public record GraphScoringPolicy(
                 3,      // hebbianMaxDepth (increased from 2 for deeper cross-session associations)
                 5,      // temporalMaxHops (increased from 3 for wider session coverage)
                 2,      // entityMaxHops
-                threshold,
-                mode
+                com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_GRAPH_EXPANSION_THRESHOLD,
+                GraphExpansionMode.GATED
         );
     }
 
