@@ -33,9 +33,11 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.format.DateTimeParseException;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
@@ -256,16 +258,7 @@ public final class SpectorConfigSource {
     public Duration getDuration(String key, Duration defaultValue) {
         String value = getString(key);
         if (value == null || value.isBlank()) return defaultValue;
-        try {
-            return parseDuration(value, key, defaultValue);
-        } catch (Exception customErr) {
-            try {
-                return config.getDuration(key, defaultValue);
-            } catch (Exception apacheErr) {
-                log.warn("Invalid duration for key '{}': '{}', using default {}", key, value, defaultValue);
-                return defaultValue;
-            }
-        }
+        return parseDuration(value, key, defaultValue);
     }
 
     /**
@@ -341,25 +334,30 @@ public final class SpectorConfigSource {
     // ─────────────── Duration Parsing ───────────────
 
     private static Duration parseDuration(String value, String key, Duration defaultValue) {
-        // Try ISO-8601 first (PT30S, PT5M, etc.)
-        if (value.startsWith("PT") || value.startsWith("pt")) {
-            return Duration.parse(value);
-        }
+        try {
+            // Try ISO-8601 first (PT30S, PT5M, etc.)
+            if (value.startsWith("PT") || value.startsWith("pt")) {
+                return Duration.parse(value);
+            }
 
-        // Human-readable: 30s, 5m, 1h, 500ms
-        String trimmed = value.trim().toLowerCase();
-        if (trimmed.endsWith("ms")) {
-            return Duration.ofMillis(Long.parseLong(trimmed.substring(0, trimmed.length() - 2).trim()));
-        } else if (trimmed.endsWith("s")) {
-            return Duration.ofSeconds(Long.parseLong(trimmed.substring(0, trimmed.length() - 1).trim()));
-        } else if (trimmed.endsWith("m")) {
-            return Duration.ofMinutes(Long.parseLong(trimmed.substring(0, trimmed.length() - 1).trim()));
-        } else if (trimmed.endsWith("h")) {
-            return Duration.ofHours(Long.parseLong(trimmed.substring(0, trimmed.length() - 1).trim()));
-        }
+            // Human-readable: 30s, 5m, 1h, 500ms
+            String trimmed = value.trim().toLowerCase();
+            if (trimmed.endsWith("ms")) {
+                return Duration.ofMillis(Long.parseLong(trimmed.substring(0, trimmed.length() - 2).trim()));
+            } else if (trimmed.endsWith("s")) {
+                return Duration.ofSeconds(Long.parseLong(trimmed.substring(0, trimmed.length() - 1).trim()));
+            } else if (trimmed.endsWith("m")) {
+                return Duration.ofMinutes(Long.parseLong(trimmed.substring(0, trimmed.length() - 1).trim()));
+            } else if (trimmed.endsWith("h")) {
+                return Duration.ofHours(Long.parseLong(trimmed.substring(0, trimmed.length() - 1).trim()));
+            }
 
-        // Try as seconds if just a number
-        return Duration.ofSeconds(Long.parseLong(trimmed));
+            // Try as seconds if just a number
+            return Duration.ofSeconds(Long.parseLong(trimmed));
+        } catch (NumberFormatException | DateTimeParseException e) {
+            log.warn("Invalid duration for key '{}': '{}', using default {}", key, value, defaultValue);
+            return defaultValue;
+        }
     }
 
     // ─────────────── Builder ───────────────
@@ -512,7 +510,9 @@ public final class SpectorConfigSource {
                 if (is != null) {
                     YAMLConfiguration yaml = new YAMLConfiguration();
                     configureInterpolator(yaml);
-                    yaml.read(new java.io.InputStreamReader(is));
+                    try (Reader reader = new java.io.InputStreamReader(is, StandardCharsets.UTF_8)) {
+                        yaml.read(reader);
+                    }
                     combined.addConfiguration(yaml, name);
                     log.debug("[SpectorConfigSource] Loaded classpath: {}", resource);
                 }

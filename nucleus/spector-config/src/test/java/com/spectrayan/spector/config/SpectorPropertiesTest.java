@@ -88,6 +88,19 @@ class SpectorPropertiesTest {
     }
 
     @Test
+    void duration_invalidFallback() {
+        SpectorConfigSource props = SpectorConfigSource.builder()
+                .override("timeout.bad.number", "notanumber")
+                .override("timeout.bad.unit", "abcms")
+                .override("timeout.bad.iso", "PTnotvalid")
+                .build();
+
+        assertThat(props.getDuration("timeout.bad.number", Duration.ofSeconds(10))).isEqualTo(Duration.ofSeconds(10));
+        assertThat(props.getDuration("timeout.bad.unit", Duration.ofSeconds(10))).isEqualTo(Duration.ofSeconds(10));
+        assertThat(props.getDuration("timeout.bad.iso", Duration.ofSeconds(10))).isEqualTo(Duration.ofSeconds(10));
+    }
+
+    @Test
     void builderOverrides_takePrecedence() {
         SpectorConfigSource props = SpectorConfigSource.builder()
                 .override("spector.memory.dimensions", "1024")
