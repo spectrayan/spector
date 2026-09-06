@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
@@ -344,24 +345,10 @@ public class NamespaceResolver implements AutoCloseable {
                     "Cannot build namespace memory: no EmbeddingProvider bean available");
         }
 
-        MemoryProperties memory = synapseProps.getMemory();
-
-        var builder = DefaultSpectorMemory.builder()
-                .dimensions(memory.getDimensions())
+        var builder = SpectorMemoryBuilder.createEmpty()
+                .fromProperties(synapseProps.toSpectorProperties())
                 .embeddingProvider(embedder)
-                .persistenceMode(MemoryPersistenceMode.valueOf(memory.getPersistenceMode().name()))
-                .semanticCapacity(memory.getCapacity())
-                .hebbianGraphCapacity(memory.getCapacity())
-                .temporalChainCapacity(memory.getCapacity())
-                .entityGraphCapacity(memory.getCapacity())
-                .embedBatchSize(synapseProps.getProvider().getEmbedding().getBatchSize())
-                .persistence(dir)
-                .bundleMode(memory.isBundleMode())
-                .insulaSize(memory.getInsulaSize());
-
-        if (memory.getAisme() != null) {
-            builder.aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(memory.getAisme()));
-        }
+                .persistence(dir);
 
         LlmProvider textGen = textGenProvider != null ? textGenProvider.getIfAvailable() : null;
         if (textGen != null) {
@@ -376,10 +363,11 @@ public class NamespaceResolver implements AutoCloseable {
             builder.salienceProfileProvider(salience);
         }
 
-        if (memory.isSpladeEnabled()) {
+        MemoryProperties memory = synapseProps.getMemory();
+        if (memory != null && memory.isSpladeEnabled()) {
             builder.SparseEmbeddingProvider(new DenseDerivedSparseProvider(embedder));
         }
-        if (memory.isColbertEnabled()) {
+        if (memory != null && memory.isColbertEnabled()) {
             builder.tokenEmbeddingProvider(new DenseDerivedTokenProvider(embedder));
         }
 

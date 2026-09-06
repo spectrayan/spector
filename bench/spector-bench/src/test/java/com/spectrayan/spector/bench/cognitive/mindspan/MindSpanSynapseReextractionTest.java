@@ -103,20 +103,19 @@ public class MindSpanSynapseReextractionTest {
         EmbeddingProvider embedder = new CachedEmbeddingProvider(raw, cacheFile);
 
         SpectorConfigSource props = SpectorConfigSource.builder().build();
-        MemoryProperties memProps = SpectorConfigFactory.memoryProperties(props);
+        MemoryProperties memProps = SpectorConfigFactory.memoryProperties(props)
+                .setDimensions(768)
+                .setEpisodicPartitionCapacity(35_000)
+                .setSemanticCapacity(20_000)
+                .setCircadian(CircadianPolicy.builder().volumeTrigger(Integer.MAX_VALUE).build());
 
-        SpectorMemory memory = SpectorMemoryBuilder.create()
-                .fromProperties(memProps)
-                .dimensions(768)
+        SpectorMemory memory = SpectorMemory.builder(memProps)
                 .embeddingProvider(embedder)
                 .llmProvider(llm)
                 .entityExtractionMode(EntityExtractionMode.LLM)
                 .persistence(naturalMemoryDir)
                 .persistenceMode(MemoryPersistenceMode.DISK)
                 .bundleMode(true)
-                .episodicPartitionCapacity(35_000)
-                .semanticCapacity(20_000)
-                .circadianPolicy(CircadianPolicy.builder().volumeTrigger(Integer.MAX_VALUE).build())
                 .build();
 
         try {

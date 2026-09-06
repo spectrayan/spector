@@ -318,14 +318,16 @@ class PerformanceBenchmarkTest {
         int dims = 64;
         MockEmbeddingProvider embedder = new MockEmbeddingProvider(dims);
 
-        try (SpectorMemory memory = DefaultSpectorMemory.builder()
-                .dimensions(dims)
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(dims)
+                .setWorkingCapacity(50)
+                .setEpisodicPartitionCapacity(2000)
+                .setSemanticCapacity(500)
+                .setProceduralCapacity(100);
+
+        try (SpectorMemory memory = DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(embedder)
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .workingCapacity(50)
-                .episodicPartitionCapacity(2000)
-                .semanticCapacity(500)
-                .proceduralCapacity(100)
                 .build()) {
 
             // Ingest 1000 memories

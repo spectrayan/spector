@@ -21,13 +21,18 @@ import com.spectrayan.spector.commons.error.SpectorValidationException;
 /**
  * Configuration for the parallel embedding pipeline.
  *
- * @param batchSize  number of chunks to embed per batch (must be &gt; 0)
- * @param maxRetries maximum number of retry attempts for a failed batch (must be &gt;= 0)
+ * @param batchSize   number of chunks to embed per batch (must be &gt; 0)
+ * @param maxRetries  maximum number of retry attempts for a failed batch (must be &gt;= 0)
+ * @param sequential  whether to force sequential processing instead of concurrent tasks
  */
-public record EmbedConfig(int batchSize, int maxRetries) {
+public record EmbedConfig(int batchSize, int maxRetries, boolean sequential) {
 
     /** Default configuration: batch size 32, 3 retries (aligned with SpectorPropertyConstants). */
-    public static final EmbedConfig DEFAULT = new EmbedConfig(32, 3);
+    public static final EmbedConfig DEFAULT = new EmbedConfig(32, 3, false);
+
+    public EmbedConfig(int batchSize, int maxRetries) {
+        this(batchSize, maxRetries, false);
+    }
 
     public EmbedConfig {
         if (batchSize <= 0) {

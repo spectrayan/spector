@@ -95,31 +95,44 @@ public final class CognitiveGraphBuilder {
     public static CognitiveGraphs build(SpectorMemoryBuilder builder,
                                  CognitiveCortexBuilder.CortexFoundation cortex,
                                  MemoryIndex index) {
+        var memProps = builder.properties() != null && builder.properties().memory() != null
+                ? builder.properties().memory()
+                : new com.spectrayan.spector.config.properties.MemoryProperties();
+        var graphProps = memProps.getGraph() != null
+                ? memProps.getGraph()
+                : new com.spectrayan.spector.config.properties.GraphProperties();
+        var hebbianProps = graphProps.getHebbian() != null
+                ? graphProps.getHebbian()
+                : new com.spectrayan.spector.config.properties.GraphProperties.HebbianProperties();
+        var entityProps = graphProps.getEntity() != null
+                ? graphProps.getEntity()
+                : new com.spectrayan.spector.config.properties.GraphProperties.EntityGraphProperties();
+
         boolean isDisk = cortex.isDisk();
         Path basePath = cortex.basePath();
         Path resolvedPartitionDir = cortex.resolvedPartitionDir();
 
         //  3-Layer Cognitive Graph 
-        int graphCapacity = builder.hebbianGraphCapacity() > 0
-                ? builder.hebbianGraphCapacity() : builder.episodicPartitionCapacity();
+        int graphCapacity = memProps.getHebbianGraphCapacity() > 0
+                ? memProps.getHebbianGraphCapacity() : memProps.getEpisodicPartitionCapacity();
+
+        int hebbianMaxDegree = hebbianProps.getMaxDegree() > 0 ? hebbianProps.getMaxDegree() : 16;
 
         HebbianGraphBase hebbianGraph;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
             java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.HEBBIAN);
             boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(regionSlice, 0L);
-            int edgeCapacity = builder.hebbianMaxDegree() > 0
-                    ? graphCapacity * builder.hebbianMaxDegree()
-                    : graphCapacity * 16;
+            int edgeCapacity = graphCapacity * hebbianMaxDegree;
             hebbianGraph = HebbianGraphMemory.fromBundle(
                     cortex.runtimeBundle().arena(), regionSlice, graphCapacity, edgeCapacity,
-                    builder.hebbianMaxDegree(), builder.edgeImportance(),
+                    hebbianMaxDegree, builder.edgeImportance(),
                     cortex.runtimeBundle().bundlePath(), isNew);
         } else {
             hebbianGraph = new HebbianGraphMemory(graphCapacity);
         }
 
-        int temporalCapacity = builder.temporalChainCapacity() > 0
-                ? builder.temporalChainCapacity() : graphCapacity;
+        int temporalCapacity = memProps.getTemporalChainCapacity() > 0
+                ? memProps.getTemporalChainCapacity() : graphCapacity;
         TemporalChainMemory temporalChain;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
             java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.TEMPORAL_CHAIN);
@@ -131,25 +144,34 @@ public final class CognitiveGraphBuilder {
             temporalChain = new TemporalChainMemory(temporalCapacity);
         }
 
+        EntityExtractionMode extractionMode = EntityExtractionMode.NONE;
+        if (builder.entityExtractor() != null) {
+            extractionMode = EntityExtractionMode.CUSTOM;
+        } else if (entityProps.getExtractionMode() != null && !entityProps.getExtractionMode().isBlank()) {
+            try {
+                extractionMode = EntityExtractionMode.valueOf(entityProps.getExtractionMode().toUpperCase(java.util.Locale.ROOT));
+            } catch (Exception ignored) {}
+        }
+
         EntityExtractor entityExtractor;
-        if (builder.entityExtractionMode() == EntityExtractionMode.LLM
-                && builder.LlmProvider() != null) {
+        if (extractionMode == EntityExtractionMode.LLM
+                && builder.llmProvider() != null) {
             entityExtractor = new LlmEntityExtractor(
-                    builder.LlmProvider(),
-                    builder.maxEntitiesPerMemory(), builder.maxRelationsPerMemory(),
+                    builder.llmProvider(),
+                    entityProps.getMaxPerMemory(), entityProps.getMaxRelationsPerMemory(),
                     builder.llmGenerationOptions());
-        } else if (builder.entityExtractionMode() == EntityExtractionMode.CUSTOM
+        } else if (extractionMode == EntityExtractionMode.CUSTOM
                 && builder.entityExtractor() != null) {
             entityExtractor = builder.entityExtractor();
         } else {
             entityExtractor = NoOpEntityExtractor.INSTANCE;
         }
 
-        boolean entityEnabled = builder.entityExtractionMode() != EntityExtractionMode.NONE;
+        boolean entityEnabled = extractionMode != EntityExtractionMode.NONE;
 
         HyperEntityGraphMemory hyperEntityGraph;
         if (entityEnabled) {
-            int hyperCap = builder.entityGraphCapacity();
+            int hyperCap = memProps.getEntityGraphCapacity();
             int hyperEdgeCap = hyperCap * 2;
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
                 java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.HYPERGRAPH);
@@ -171,7 +193,7 @@ public final class CognitiveGraphBuilder {
 
         EntityDirectory entityDirectory;
         if (entityEnabled) {
-            int dirCap = builder.entityGraphCapacity();
+            int dirCap = memProps.getEntityGraphCapacity();
             TypeRegistryMemory entityTypeRegistry;
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
                 java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_TYPES);

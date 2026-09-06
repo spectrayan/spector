@@ -78,6 +78,22 @@ public class GraphProperties implements Serializable {
     public void setEntity(EntityGraphProperties entity) { this.entity = entity; }
     public EntityGraphProperties entity() { return entity; }
 
+    public GraphProperties copy() {
+        GraphProperties cp = new GraphProperties();
+        cp.expansionMode = this.expansionMode;
+        cp.expansionThreshold = this.expansionThreshold;
+        cp.causalBoost = this.causalBoost;
+        cp.hebbianBoost = this.hebbianBoost;
+        cp.temporalForward = this.temporalForward;
+        cp.temporalBackward = this.temporalBackward;
+        cp.entityAttenuation = this.entityAttenuation;
+        cp.hebbian = this.hebbian != null ? this.hebbian.copy() : new HebbianProperties();
+        cp.stdp = this.stdp != null ? this.stdp.copy() : new StdpProperties();
+        cp.bridge = this.bridge != null ? this.bridge.copy() : new BridgeProperties();
+        cp.entity = this.entity != null ? this.entity.copy() : new EntityGraphProperties();
+        return cp;
+    }
+
     public static class HebbianProperties implements Serializable {
         private int maxDegree = 24;
         private long sessionBoundaryMs = 300000L;
@@ -124,6 +140,20 @@ public class GraphProperties implements Serializable {
         public int getNeutralBridgeScore() { return neutralBridgeScore; }
         public void setNeutralBridgeScore(int neutralBridgeScore) { this.neutralBridgeScore = neutralBridgeScore; }
         public int neutralBridgeScore() { return neutralBridgeScore; }
+
+        public HebbianProperties copy() {
+            HebbianProperties cp = new HebbianProperties();
+            cp.maxDegree = this.maxDegree;
+            cp.sessionBoundaryMs = this.sessionBoundaryMs;
+            cp.promotionMinWeight = this.promotionMinWeight;
+            cp.decayFactor = this.decayFactor;
+            cp.decayFloor = this.decayFloor;
+            cp.activationCutoff = this.activationCutoff;
+            cp.hopAttenuation = this.hopAttenuation;
+            cp.defaultWeightDelta = this.defaultWeightDelta;
+            cp.neutralBridgeScore = this.neutralBridgeScore;
+            return cp;
+        }
     }
 
     public static class StdpProperties implements Serializable {
@@ -147,6 +177,15 @@ public class GraphProperties implements Serializable {
         public float getTauMinus() { return tauMinus; }
         public void setTauMinus(float tauMinus) { this.tauMinus = tauMinus; }
         public float tauMinus() { return tauMinus; }
+
+        public StdpProperties copy() {
+            StdpProperties cp = new StdpProperties();
+            cp.aPlus = this.aPlus;
+            cp.aMinus = this.aMinus;
+            cp.tauPlus = this.tauPlus;
+            cp.tauMinus = this.tauMinus;
+            return cp;
+        }
     }
 
     public static class BridgeProperties implements Serializable {
@@ -160,6 +199,13 @@ public class GraphProperties implements Serializable {
         public long getBudgetMs() { return budgetMs; }
         public void setBudgetMs(long budgetMs) { this.budgetMs = budgetMs; }
         public long budgetMs() { return budgetMs; }
+
+        public BridgeProperties copy() {
+            BridgeProperties cp = new BridgeProperties();
+            cp.sampleCount = this.sampleCount;
+            cp.budgetMs = this.budgetMs;
+            return cp;
+        }
     }
 
     public static class EntityGraphProperties implements Serializable {
@@ -175,6 +221,7 @@ public class GraphProperties implements Serializable {
         private float adjDecayFactor = 0.95f;
         private float adjPruneThreshold = 0.2f;
         private int mergeDistance = 2;
+        private int maxRelationsPerMemory = 20;
 
         public String getExtractionMode() { return extractionMode; }
         public void setExtractionMode(String extractionMode) { this.extractionMode = extractionMode; }
@@ -223,5 +270,27 @@ public class GraphProperties implements Serializable {
         public int getMergeDistance() { return mergeDistance; }
         public void setMergeDistance(int mergeDistance) { this.mergeDistance = mergeDistance; }
         public int mergeDistance() { return mergeDistance; }
+
+        public int getMaxRelationsPerMemory() { return maxRelationsPerMemory; }
+        public void setMaxRelationsPerMemory(int maxRelationsPerMemory) { if (maxRelationsPerMemory > 0) this.maxRelationsPerMemory = maxRelationsPerMemory; }
+        public int maxRelationsPerMemory() { return maxRelationsPerMemory; }
+
+        public EntityGraphProperties copy() {
+            EntityGraphProperties cp = new EntityGraphProperties();
+            cp.extractionMode = this.extractionMode;
+            cp.resolutionEnabled = this.resolutionEnabled;
+            cp.shadowMode = this.shadowMode;
+            cp.maxDegree = this.maxDegree;
+            cp.maxPerMemory = this.maxPerMemory;
+            cp.cosineThreshold = this.cosineThreshold;
+            cp.retentionDays = this.retentionDays;
+            cp.decayFactor = this.decayFactor;
+            cp.pruneThreshold = this.pruneThreshold;
+            cp.adjDecayFactor = this.adjDecayFactor;
+            cp.adjPruneThreshold = this.adjPruneThreshold;
+            cp.mergeDistance = this.mergeDistance;
+            cp.maxRelationsPerMemory = this.maxRelationsPerMemory;
+            return cp;
+        }
     }
 }

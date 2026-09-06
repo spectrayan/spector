@@ -117,4 +117,8 @@ public class HnswProperties implements Serializable {
                 ", levelMultiplier=" + levelMultiplier +
                 '}';
     }
+
+    public HnswProperties copy() {
+        return new HnswProperties(m, efConstruction, efSearch, maxLevel0Connections, levelMultiplier);
+    }
 }

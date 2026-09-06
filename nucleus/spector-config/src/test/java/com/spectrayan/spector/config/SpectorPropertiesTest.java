@@ -239,4 +239,71 @@ class SpectorPropertiesTest {
             System.clearProperty("test.api.key");
         }
     }
+
+    @Test
+    void copy_producesIndependentDeepCopy() {
+        SpectorProperties original = SpectorProperties.load();
+        SpectorProperties cloned = original.copy();
+
+        assertThat(cloned).isNotSameAs(original);
+        assertThat(cloned.memory()).isNotSameAs(original.memory());
+        assertThat(cloned.provider()).isNotSameAs(original.provider());
+
+        // Mutating clone does not affect original
+        cloned.memory().setDimensions(1024);
+        cloned.memory().setWorkingCapacity(999);
+        cloned.provider().getEmbedding().setBatchSize(500);
+
+        assertThat(original.memory().getDimensions()).isNotEqualTo(1024);
+        assertThat(original.memory().getWorkingCapacity()).isNotEqualTo(999);
+        assertThat(original.provider().getEmbedding().getBatchSize()).isNotEqualTo(500);
+    }
+
+    @Test
+    void withDimensions_returnsIndependentInstanceWithNewDimensions() {
+        SpectorProperties original = SpectorProperties.builder()
+                .memory(new MemoryProperties().setDimensions(384))
+                .build();
+
+        SpectorProperties modified = original.withDimensions(768);
+
+        assertThat(original.memory().getDimensions()).isEqualTo(384);
+        assertThat(modified.memory().getDimensions()).isEqualTo(768);
+        assertThat(modified).isNotSameAs(original);
+    }
+
+    @Test
+    void copy_nestedChildPropertiesAreDeeplyCloned() {
+        SpectorProperties original = SpectorProperties.load();
+        SpectorProperties cloned = original.copy();
+
+        boolean origDream = original.memory().getDream().isEnabled();
+        boolean origMmr = original.memory().getRecall().getMmr().isEnabled();
+        String origModel = original.provider().getGeneration().getModel();
+        int origThreshold = original.hardware().getGpuBatchThreshold();
+        boolean origEventsAsync = original.events().isAsync();
+        boolean origStructured = original.concurrency().isStructured();
+        int origChunkSize = original.ingestion().getChunkSize();
+
+        // Mutate nested child properties on cloned instance
+        cloned.memory().getDream().setEnabled(!origDream);
+        cloned.memory().getRecall().getMmr().setEnabled(!origMmr);
+        cloned.provider().getGeneration().setModel("cloned-" + origModel);
+        cloned.hardware().setGpuBatchThreshold(origThreshold + 1000);
+        cloned.events().setAsync(!origEventsAsync);
+        cloned.concurrency().setStructured(!origStructured);
+        cloned.ingestion().setChunkSize(origChunkSize + 100);
+
+        // Verify original properties are unaffected
+        assertThat(original.memory().getDream().isEnabled()).isEqualTo(origDream);
+        assertThat(original.memory().getRecall().getMmr().isEnabled()).isEqualTo(origMmr);
+        assertThat(original.provider().getGeneration().getModel()).isEqualTo(origModel);
+        assertThat(original.hardware().getGpuBatchThreshold()).isEqualTo(origThreshold);
+        assertThat(original.events().isAsync()).isEqualTo(origEventsAsync);
+        assertThat(original.concurrency().isStructured()).isEqualTo(origStructured);
+        assertThat(original.ingestion().getChunkSize()).isEqualTo(origChunkSize);
+    }
 }
+
+
+

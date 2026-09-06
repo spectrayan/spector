@@ -47,30 +47,19 @@ public enum GraphExpansionMode {
      */
     ENTITY_ONLY;
 
-    /** System property key for configuring the graph expansion mode at runtime. */
-    public static final String SYSTEM_PROPERTY = "spector.memory.graphExpansionMode";
-
     /**
-     * Resolves the expansion mode from the system property, defaulting to {@link #GATED}.
+     * Parses a mode string into a {@code GraphExpansionMode}, defaulting to {@link #GATED}.
      *
-     * @return the configured or default expansion mode
-     * @deprecated Use {@code SpectorProperties.load().memory().getGraph().getExpansionMode()}
-     *             instead. This method reads JVM system properties directly, bypassing the
-     *             typed configuration system.
+     * @param modeStr the mode string (case-insensitive), may be {@code null}
+     * @return the parsed mode, or {@link #GATED} if {@code modeStr} is null, blank, or invalid
      */
-    @Deprecated(forRemoval = true)
-    public static GraphExpansionMode resolve() {
-        String value = System.getProperty(SYSTEM_PROPERTY);
-        if (value == null || value.isBlank()) {
-            value = System.getProperty("graphExpansionMode");
+    public static GraphExpansionMode fromString(String modeStr) {
+        if (modeStr != null && !modeStr.isBlank()) {
+            try {
+                return valueOf(modeStr.toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException ignored) {
+            }
         }
-        if (value == null || value.isBlank()) {
-            return GATED;
-        }
-        try {
-            return valueOf(value.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return GATED;
-        }
+        return GATED;
     }
 }

@@ -88,4 +88,16 @@ public class TaskQueueProperties implements Serializable {
     public String getBackpressurePolicy() { return backpressurePolicy; }
     public void setBackpressurePolicy(String backpressurePolicy) { this.backpressurePolicy = backpressurePolicy; }
     public String backpressurePolicy() { return getBackpressurePolicy(); }
+
+    public TaskQueueProperties copy() {
+        TaskQueueProperties cp = new TaskQueueProperties();
+        cp.capacity = this.capacity;
+        cp.parallelism = this.parallelism;
+        cp.pollTimeoutMs = this.pollTimeoutMs;
+        cp.drainTimeoutMs = this.drainTimeoutMs;
+        cp.maxRetries = this.maxRetries;
+        cp.retryBackoffMs = this.retryBackoffMs;
+        cp.backpressurePolicy = this.backpressurePolicy;
+        return cp;
+    }
 }

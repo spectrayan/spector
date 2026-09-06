@@ -44,16 +44,17 @@ class PartitionAwareHnswRecallTest {
 
     private SpectorMemory build(Path dir, int semanticCap, HnswIndex semanticIndex) {
         FakeEmbeddingProvider embed = new FakeEmbeddingProvider();
-        return DefaultSpectorMemory.builder()
-                .dimensions(embed.dimensions())
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(embed.dimensions())
+                .setWorkingCapacity(32)
+                .setEpisodicPartitionCapacity(64)
+                .setSemanticCapacity(semanticCap)
+                .setProceduralCapacity(32);
+        memProps.getRemember().setSurpriseWarmup(1);
+        return DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(embed)
                 .persistenceMode(MemoryPersistenceMode.DISK)
                 .persistence(dir)
-                .workingCapacity(32)
-                .episodicPartitionCapacity(64)
-                .semanticCapacity(semanticCap)
-                .proceduralCapacity(32)
-                .surpriseWarmup(1)
                 .semanticIndex(semanticIndex)
                 .build();
     }

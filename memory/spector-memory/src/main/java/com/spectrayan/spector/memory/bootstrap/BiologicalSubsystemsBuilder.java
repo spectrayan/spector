@@ -86,14 +86,22 @@ public final class BiologicalSubsystemsBuilder {
     public static BiologicalSubsystems build(SpectorMemoryBuilder builder,
                                       EmbeddingProvider embeddingProvider,
                                       CognitiveCortexBuilder.CortexFoundation cortex) {
+        var memProps = builder.properties() != null && builder.properties().memory() != null
+                ? builder.properties().memory()
+                : new com.spectrayan.spector.config.properties.MemoryProperties();
+        var remProps = memProps.getRemember() != null
+                ? memProps.getRemember()
+                : new com.spectrayan.spector.config.properties.RememberProperties();
+        var circProps = memProps.getCircadian();
+
         boolean isDisk = cortex.isDisk();
         var basePath = cortex.basePath();
 
-        //  Biological Subsystems 
-        SurpriseDetector surpriseDetector = new SurpriseDetector(builder.surpriseWarmup());
+        // ─── Biological Subsystems ───
+        SurpriseDetector surpriseDetector = new SurpriseDetector(remProps.getSurpriseWarmup());
         IcnuWeights icnuWeights = builder.icnuWeights() != null ? builder.icnuWeights() : IcnuWeights.DEFAULT;
-        FlashbulbPolicy flashbulbPolicy = new FlashbulbPolicy(builder.flashbulbThreshold());
-        ValenceTracker valenceTracker = new ValenceTracker(builder.valenceLearningRate());
+        FlashbulbPolicy flashbulbPolicy = new FlashbulbPolicy(remProps.getFlashbulbThreshold());
+        ValenceTracker valenceTracker = new ValenceTracker(remProps.getValenceLearningRate());
 
         CoActivationMemory coActivationTracker;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
@@ -107,19 +115,19 @@ public final class BiologicalSubsystemsBuilder {
             coActivationTracker = new CoActivationMemory();
         }
         SuppressionSet suppressionSet = new SuppressionSet();
-        HabituationPenalty habituationPenalty = new HabituationPenalty(0.2f, builder.inhibitionTtlMs(), builder.inhibitionFloor());
+        HabituationPenalty habituationPenalty = new HabituationPenalty(0.2f, remProps.getInhibitionTtlMs(), remProps.getInhibitionFloor());
         ProspectiveScheduler prospectiveScheduler = new ProspectiveScheduler();
         MemoryIntrospector introspector = new MemoryIntrospector(coActivationTracker);
         LateralEvaluator lateralEvaluator = new LateralEvaluator();
 
         ReflectDaemon reflectDaemon = new ReflectDaemon(
-                builder.circadianPolicy(),
-                builder.dimensions() > 0 ? new CentroidRouter(builder.dimensions()) : null,
-                builder.LlmProvider(),
+                com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy.from(circProps),
+                memProps.getDimensions() > 0 ? new CentroidRouter(memProps.getDimensions()) : null,
+                builder.llmProvider(),
                 embeddingProvider,
                 5, // minClusterSize
-                builder.pinSourceEpisodes(),
-                builder.pinnedQuota());
+                remProps.isPinSourceEpisodes(),
+                remProps.getPinnedQuota());
 
         return new BiologicalSubsystems(
                 surpriseDetector, icnuWeights, flashbulbPolicy, valenceTracker,

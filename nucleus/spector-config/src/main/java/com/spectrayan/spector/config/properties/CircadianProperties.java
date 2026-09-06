@@ -58,4 +58,60 @@ public class CircadianProperties implements Serializable {
     public float getInterferenceDecayFactor() { return interferenceDecayFactor; }
     public void setInterferenceDecayFactor(float interferenceDecayFactor) { this.interferenceDecayFactor = interferenceDecayFactor; }
     public float interferenceDecayFactor() { return interferenceDecayFactor; }
+
+    private String orchestrator = "";
+
+    public String getOrchestrator() { return orchestrator; }
+    public void setOrchestrator(String orchestrator) { this.orchestrator = orchestrator; }
+    public String orchestrator() { return orchestrator; }
+
+    // ─────────────── Duration & Fluent API ───────────────
+
+    public java.time.Duration timeTrigger() { return java.time.Duration.ofSeconds(timeTriggerSeconds); }
+    public java.time.Duration getTimeTrigger() { return timeTrigger(); }
+    public void setTimeTrigger(java.time.Duration duration) {
+        if (duration != null) this.timeTriggerSeconds = duration.toSeconds();
+    }
+
+    public CircadianProperties timeTrigger(java.time.Duration duration) { setTimeTrigger(duration); return this; }
+    public CircadianProperties volumeTrigger(int v) { setVolumeTrigger(v); return this; }
+    public CircadianProperties tombstoneThreshold(float t) { setTombstoneThreshold(t); return this; }
+    public CircadianProperties decayPruneThreshold(float d) { setDecayPruneThreshold(d); return this; }
+    public CircadianProperties interferenceThreshold(float i) { setInterferenceThreshold(i); return this; }
+    public CircadianProperties interferenceDecayFactor(float f) { setInterferenceDecayFactor(f); return this; }
+
+    public CircadianProperties copy() {
+        CircadianProperties cp = new CircadianProperties();
+        cp.setEnabled(this.isEnabled());
+        cp.setVolumeTrigger(this.getVolumeTrigger());
+        cp.setTimeTriggerSeconds(this.getTimeTriggerSeconds());
+        cp.setTombstoneThreshold(this.getTombstoneThreshold());
+        cp.setDecayPruneThreshold(this.getDecayPruneThreshold());
+        cp.setInterferenceThreshold(this.getInterferenceThreshold());
+        cp.setInterferenceDecayFactor(this.getInterferenceDecayFactor());
+        cp.setOrchestrator(this.getOrchestrator());
+        return cp;
+    }
+
+    public static final CircadianProperties DEFAULT = new CircadianProperties();
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+        private final CircadianProperties props = new CircadianProperties();
+
+        public Builder volumeTrigger(int v) { props.setVolumeTrigger(v); return this; }
+        public Builder timeTrigger(java.time.Duration d) { props.setTimeTrigger(d); return this; }
+        public Builder tombstoneThreshold(float t) { props.setTombstoneThreshold(t); return this; }
+        public Builder decayPruneThreshold(float d) { props.setDecayPruneThreshold(d); return this; }
+        public Builder interferenceThreshold(float i) { props.setInterferenceThreshold(i); return this; }
+        public Builder interferenceDecayFactor(float f) { props.setInterferenceDecayFactor(f); return this; }
+        public Builder orchestrator(String o) { props.setOrchestrator(o); return this; }
+
+        public CircadianProperties build() {
+            return props;
+        }
+    }
 }

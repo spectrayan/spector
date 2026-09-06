@@ -12,41 +12,19 @@
  */
 package com.spectrayan.spector.memory.pathway.dream;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
-import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
-import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
-import com.spectrayan.spector.memory.pathway.dream.relay.ConceptExtractRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.CounterfactualProbeRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamGateRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamGates;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamIngestionRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamJournalRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamSignal;
-import com.spectrayan.spector.memory.pathway.dream.relay.EfeTriageRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.FragmentUnpackRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.HyperAssociateRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.LangevinDiscoveryRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.RemReplayRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.SalientSeedRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.SceneConstructRelay;
-import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
-import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
-import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.model.SoulContext;
-import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.pathway.simulation.relay.SpacetimeSeedRelay;
-
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
+import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
+import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
 import com.spectrayan.spector.memory.pathway.dream.relay.ConceptExtractRelay;
 import com.spectrayan.spector.memory.pathway.dream.relay.CounterfactualProbeRelay;
@@ -65,13 +43,8 @@ import com.spectrayan.spector.memory.pathway.dream.relay.LangevinDiscoveryRelay;
 import com.spectrayan.spector.memory.pathway.dream.relay.RemReplayRelay;
 import com.spectrayan.spector.memory.pathway.dream.relay.SalientSeedRelay;
 import com.spectrayan.spector.memory.pathway.dream.relay.SceneConstructRelay;
-import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
-import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
-import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.model.SoulContext;
+import com.spectrayan.spector.memory.pathway.simulation.relay.SpacetimeSeedRelay;
+import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,6 +68,7 @@ public final class DreamPathway implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(DreamPathway.class);
 
     private final CognitivePathway<DreamSignal> pathway;
+    private final DreamProperties dreamProperties;
     private final DreamConfig dreamConfig;
     private final PartitionManager partitionManager;
     private final AismeConfig aismeConfig;
@@ -111,7 +85,39 @@ public final class DreamPathway implements AutoCloseable {
     private final MemoryIdGenerator idGenerator;
 
     private DreamPathway(final Builder builder) {
-        this.dreamConfig = builder.dreamConfig != null ? builder.dreamConfig : DreamConfig.defaultConfig();
+        if (builder.dreamProperties != null) {
+            this.dreamProperties = builder.dreamProperties;
+            this.dreamConfig = builder.dreamConfig != null ? builder.dreamConfig : DreamConfig.from(this.dreamProperties);
+        } else if (builder.dreamConfig != null) {
+            this.dreamConfig = builder.dreamConfig;
+            this.dreamProperties = new DreamProperties();
+            this.dreamProperties.setEnabled(this.dreamConfig.enabled());
+            this.dreamProperties.setNoiseScale(this.dreamConfig.dreamNoiseScale());
+            this.dreamProperties.setTemperatureRem(this.dreamConfig.dreamTemperatureRem());
+            this.dreamProperties.setTemperatureDaydream(this.dreamConfig.dreamTemperatureDaydream());
+            this.dreamProperties.setTemperatureThought(this.dreamConfig.dreamTemperatureThought());
+            this.dreamProperties.setMaxDreamsPerCycle(this.dreamConfig.maxDreamsPerCycle());
+            this.dreamProperties.setMaxCounterfactualsPerSeed(this.dreamConfig.maxCounterfactualsPerSeed());
+            this.dreamProperties.setPersistenceThreshold(this.dreamConfig.persistenceThreshold());
+            this.dreamProperties.setLangevinStepSize(this.dreamConfig.langevinStepSize());
+            this.dreamProperties.setLangevinSteps(this.dreamConfig.langevinSteps());
+            this.dreamProperties.setNoveltyRadius(this.dreamConfig.noveltyRadius());
+            this.dreamProperties.setHebbianInhibitionDelta(this.dreamConfig.hebbianInhibitionDelta());
+            this.dreamProperties.setJournalEnabled(this.dreamConfig.journalEnabled());
+            this.dreamProperties.setCycleFrequency(this.dreamConfig.dreamCycleFrequency());
+            this.dreamProperties.setSeedWeightRecency(this.dreamConfig.seedWeightRecency());
+            this.dreamProperties.setSeedWeightNovelty(this.dreamConfig.seedWeightNovelty());
+            this.dreamProperties.setSeedWeightSoul(this.dreamConfig.seedWeightSoul());
+            this.dreamProperties.setSeedWeightSalience(this.dreamConfig.seedWeightSalience());
+            this.dreamProperties.setIdentityResonanceThreshold(this.dreamConfig.identityResonanceThreshold());
+            this.dreamProperties.setEthicalViolationThreshold(this.dreamConfig.ethicalViolationThreshold());
+            this.dreamProperties.setLangevinSoulAttractorLambda(this.dreamConfig.langevinSoulAttractorLambda());
+            this.dreamProperties.setHartmannOpennessMultiplier(this.dreamConfig.hartmannOpennessMultiplier());
+            this.dreamProperties.setHartmannVigilanceMultiplier(this.dreamConfig.hartmannVigilanceMultiplier());
+        } else {
+            this.dreamProperties = new DreamProperties();
+            this.dreamConfig = DreamConfig.defaultConfig();
+        }
         this.partitionManager = builder.partitionManager;
         this.aismeConfig = builder.aismeConfig;
         this.primarySoul = builder.primarySoul;
@@ -177,6 +183,14 @@ public final class DreamPathway implements AutoCloseable {
         return new Builder();
     }
 
+    public DreamProperties properties() {
+        return dreamProperties;
+    }
+
+    /**
+     * @deprecated Use {@link #properties()} instead.
+     */
+    @Deprecated(since = "1.4.0", forRemoval = true)
     public DreamConfig config() {
         return dreamConfig;
     }
@@ -263,6 +277,7 @@ public final class DreamPathway implements AutoCloseable {
      * Builder for {@link DreamPathway}.
      */
     public static final class Builder {
+        private DreamProperties dreamProperties;
         private DreamConfig dreamConfig;
         private PartitionManager partitionManager;
         private AismeConfig aismeConfig = AismeConfig.defaultConfig();
@@ -279,7 +294,20 @@ public final class DreamPathway implements AutoCloseable {
         private MemoryIdGenerator idGenerator;
         private Function<SynapticRelay<DreamSignal>, SynapticRelay<DreamSignal>> interceptor;
 
-        public Builder dreamConfig(DreamConfig dc) { this.dreamConfig = dc; return this; }
+        public Builder dreamProperties(DreamProperties dp) {
+            this.dreamProperties = dp;
+            this.dreamConfig = dp != null ? DreamConfig.from(dp) : null;
+            return this;
+        }
+
+        public Builder dreamConfig(DreamProperties dp) {
+            return dreamProperties(dp);
+        }
+
+        public Builder dreamConfig(DreamConfig dc) {
+            this.dreamConfig = dc;
+            return this;
+        }
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
         public Builder aismeConfig(AismeConfig ac) { this.aismeConfig = ac; return this; }
         public Builder primarySoul(SoulContext soul) { this.primarySoul = soul; return this; }

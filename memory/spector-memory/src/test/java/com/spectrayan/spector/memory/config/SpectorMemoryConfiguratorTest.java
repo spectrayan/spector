@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory.config;
 
 import com.spectrayan.spector.config.SpectorConfigSource;
+import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -61,8 +62,8 @@ class SpectorMemoryConfiguratorTest {
         assertThat(props).isNotNull();
 
         // Create memory using configurator with mock embedding provider
-        SpectorMemoryBuilder builder = SpectorMemory.builder()
-                .fromProperties(com.spectrayan.spector.config.SpectorConfigFactory.memoryProperties(props))
+        SpectorProperties spectorProperties = com.spectrayan.spector.config.SpectorConfigFactory.spectorProperties(props);
+        SpectorMemoryBuilder builder = SpectorMemory.builder(spectorProperties)
                 .embeddingProvider(new DummyEmbedder(128));
 
         try (SpectorMemory memory = builder.build()) {

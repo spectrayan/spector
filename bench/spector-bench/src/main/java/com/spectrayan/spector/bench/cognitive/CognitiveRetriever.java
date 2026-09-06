@@ -170,9 +170,8 @@ public final class CognitiveRetriever {
                     datasetProps.getDouble("spector.benchmark.graphExpansionThreshold",
                     datasetProps.getDouble("spector.benchmark.retrieval.graph-expansion-threshold", -1.0))));
         }
-        String thresholdStr = System.getProperty("spector.memory.graphExpansionThreshold",
-                System.getProperty("spector.benchmark.graphExpansionThreshold",
-                System.getProperty("graphExpansionThreshold")));
+        String thresholdStr = System.getProperty("spector.benchmark.graphExpansionThreshold",
+                System.getProperty("graphExpansionThreshold"));
         if (thresholdStr != null && !thresholdStr.isBlank()) {
             try {
                 graphThreshold = Float.parseFloat(thresholdStr);

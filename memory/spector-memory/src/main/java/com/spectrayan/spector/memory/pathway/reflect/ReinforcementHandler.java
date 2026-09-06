@@ -92,7 +92,7 @@ public final class ReinforcementHandler {
     private final LateralEvaluator lateralEvaluator;
     private final RecallPathway recallPathway;
     private final MemoryWal wal;
-    private final TwoFactorConfig twoFactorConfig;
+    private final com.spectrayan.spector.config.properties.TwoFactorProperties twoFactorConfig;
     private final ProfileAdaptor profileAdaptor;
 
     public ReinforcementHandler(ValenceTracker valenceTracker,
@@ -100,7 +100,7 @@ public final class ReinforcementHandler {
                          LateralEvaluator lateralEvaluator,
                          RecallPathway recallPathway,
                          MemoryWal wal,
-                         TwoFactorConfig twoFactorConfig,
+                         com.spectrayan.spector.config.properties.TwoFactorProperties twoFactorConfig,
                          ProfileAdaptor profileAdaptor) {
         this.valenceTracker = valenceTracker;
         this.hebbianGraph = hebbianGraph;

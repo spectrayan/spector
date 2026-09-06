@@ -60,15 +60,21 @@ public class TelemetryProperties implements Serializable {
         this.graphEnabled = graphEnabled;
     }
 
-    public static TelemetryProperties fromSystemProperties() {
+    public static TelemetryProperties from(com.spectrayan.spector.config.SpectorConfigSource source) {
+        if (source == null) return DEFAULT;
         return new TelemetryProperties(
-                boolProp("spector.cortex.enabled", DEFAULT_TELEMETRY_ENABLED),
-                longProp("spector.cortex.interval", DEFAULT_TELEMETRY_INTERVAL_MS),
-                boolProp("spector.cortex.query.perQuery", DEFAULT_TELEMETRY_PER_QUERY_ENABLED),
-                doubleProp("spector.cortex.query.sampleRate", DEFAULT_TELEMETRY_QUERY_SAMPLE_RATE),
-                boolProp("spector.cortex.simd.enabled", DEFAULT_TELEMETRY_SIMD_ENABLED),
-                boolProp("spector.cortex.graph.enabled", DEFAULT_TELEMETRY_GRAPH_ENABLED)
+                source.getBoolean(TELEMETRY_ENABLED, source.getBoolean("spector.cortex.enabled", DEFAULT_TELEMETRY_ENABLED)),
+                source.getLong(TELEMETRY_INTERVAL_MS, source.getLong("spector.cortex.interval", DEFAULT_TELEMETRY_INTERVAL_MS)),
+                source.getBoolean(TELEMETRY_PER_QUERY_ENABLED, source.getBoolean("spector.cortex.query.perQuery", DEFAULT_TELEMETRY_PER_QUERY_ENABLED)),
+                source.getDouble(TELEMETRY_QUERY_SAMPLE_RATE, source.getDouble("spector.cortex.query.sampleRate", DEFAULT_TELEMETRY_QUERY_SAMPLE_RATE)),
+                source.getBoolean(TELEMETRY_SIMD_ENABLED, source.getBoolean("spector.cortex.simd.enabled", DEFAULT_TELEMETRY_SIMD_ENABLED)),
+                source.getBoolean(TELEMETRY_GRAPH_ENABLED, source.getBoolean("spector.cortex.graph.enabled", DEFAULT_TELEMETRY_GRAPH_ENABLED))
         );
+    }
+
+    @Deprecated(forRemoval = true)
+    public static TelemetryProperties fromSystemProperties() {
+        return from(com.spectrayan.spector.config.SpectorConfigSource.load());
     }
 
     public boolean shouldSampleQuery() {
@@ -102,25 +108,6 @@ public class TelemetryProperties implements Serializable {
     public void setGraphEnabled(boolean graphEnabled) { this.graphEnabled = graphEnabled; }
     public boolean graphEnabled() { return graphEnabled; }
 
-    private static boolean boolProp(String key, boolean defaultValue) {
-        String val = System.getProperty(key);
-        return val != null ? Boolean.parseBoolean(val) : defaultValue;
-    }
-
-    private static long longProp(String key, long defaultValue) {
-        String val = System.getProperty(key);
-        if (val == null) return defaultValue;
-        try { return Long.parseLong(val); }
-        catch (NumberFormatException e) { return defaultValue; }
-    }
-
-    private static double doubleProp(String key, double defaultValue) {
-        String val = System.getProperty(key);
-        if (val == null) return defaultValue;
-        try { return Double.parseDouble(val); }
-        catch (NumberFormatException e) { return defaultValue; }
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -147,5 +134,9 @@ public class TelemetryProperties implements Serializable {
                 ", simdEnabled=" + simdEnabled +
                 ", graphEnabled=" + graphEnabled +
                 '}';
+    }
+
+    public TelemetryProperties copy() {
+        return new TelemetryProperties(enabled, intervalMs, perQueryEnabled, querySampleRate, simdEnabled, graphEnabled);
     }
 }

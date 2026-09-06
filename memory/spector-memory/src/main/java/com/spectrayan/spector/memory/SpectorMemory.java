@@ -838,6 +838,26 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
     }
 
     /**
+     * Creates a new fluent {@link SpectorMemoryBuilder} initialized from explicit properties.
+     *
+     * @param properties typed properties snapshot
+     * @return a new memory builder instance holding the properties
+     */
+    static SpectorMemoryBuilder builder(com.spectrayan.spector.config.SpectorProperties properties) {
+        return new SpectorMemoryBuilder(properties);
+    }
+
+    /**
+     * Creates a new fluent {@link SpectorMemoryBuilder} initialized from memory properties.
+     *
+     * @param properties memory properties
+     * @return a new memory builder instance holding the properties
+     */
+    static SpectorMemoryBuilder builder(com.spectrayan.spector.config.properties.MemoryProperties properties) {
+        return new SpectorMemoryBuilder(com.spectrayan.spector.config.SpectorProperties.of(properties));
+    }
+
+    /**
      * Loads and configures a {@link SpectorMemory} instance from a configuration file.
      *
      * @param configFile path to the YAML or properties configuration file

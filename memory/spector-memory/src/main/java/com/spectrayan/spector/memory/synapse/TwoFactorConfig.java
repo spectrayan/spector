@@ -12,76 +12,39 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
+import com.spectrayan.spector.config.properties.TwoFactorProperties;
+
 /**
  * Configuration for the Two-Factor Memory model (Bjork &amp; Bjork, 1992).
  *
- * <h3>Two-Factor Model</h3>
- * <p>Each memory has two independent strengths:</p>
- * <ul>
- *   <li><b>Retrieval Strength R(t)</b> — how easily the memory can be accessed right now.
- *       Mapped to the existing {@code decay(t)} function. High R(t) = easy recall.</li>
- *   <li><b>Storage Strength S(t)</b> — how deeply the memory is encoded.
- *       Stored in the {@code storage_strength} header field (V2+ layouts). High S(t) = durable.</li>
- * </ul>
- *
- * <h3>Key Insight: Desirable Difficulty</h3>
- * <p>When retrieval is hard (low R(t)), successful recall causes the largest S(t) boost.
- * This is the "desirable difficulty" effect: struggling to retrieve a memory makes it
- * stick better. Conversely, re-retrieving something that's already easily accessible
- * provides little storage benefit.</p>
- *
- * <h3>Scoring Integration</h3>
- * <p>The final score modifier is {@code S(t)^sExponent}. The default exponent of 0.3
- * provides a gentle boost: a memory with S(t)=5.0 gets a 1.62× multiplier, while
- * the default S(t)=1.0 has no effect (1.0^0.3 = 1.0).</p>
- *
- * <h3>Storage Strength Update</h3>
- * <pre>
- *   ΔS = sGain × (1 - R(t))    // max boost when retrieval is hard
- *   S' = min(S + ΔS, sMax)     // bounded growth
- * </pre>
- *
- * @param sGain    learning rate for storage strength increment (default: 0.1)
- * @param sMax     maximum storage strength (default: 5.0)
- * @param sExponent exponent applied to S(t) in scoring (default: 0.3)
- * @param enabled  whether Two-Factor scoring is active (default: true)
+ * @deprecated Use {@link TwoFactorProperties} directly from {@code spector-config}.
+ *             This compatibility subclass will be removed in a future release.
+ * @since 1.4.0
  */
-public record TwoFactorConfig(
-        float sGain,
-        float sMax,
-        float sExponent,
-        boolean enabled
-) {
+@Deprecated(since = "1.4.0", forRemoval = true)
+public class TwoFactorConfig extends TwoFactorProperties {
 
-    /** Default configuration with gentle S(t) influence from SpectorPropertyConstants. */
-    public static final TwoFactorConfig DEFAULT = new TwoFactorConfig(
-            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_GAIN,
-            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MAX,
-            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_EXPONENT,
-            true);
+    public static final TwoFactorConfig DEFAULT = new TwoFactorConfig();
+    public static final TwoFactorConfig DISABLED = new TwoFactorConfig(0.0f, 0.0f, 0.0f, false);
 
-    /** Disabled configuration — S(t) has no effect on scoring. */
-    public static final TwoFactorConfig DISABLED = new TwoFactorConfig(
-            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_GAIN,
-            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MAX,
-            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_EXPONENT,
-            false);
+    public TwoFactorConfig() {
+        super();
+    }
+
+    public TwoFactorConfig(float sGain, float sMax, float sExponent, boolean enabled) {
+        super(sGain, sMax, sExponent, enabled);
+    }
 
     /**
-     * Compact constructor with validation.
+     * Compatibility bridge from {@link TwoFactorProperties}.
      */
-    public TwoFactorConfig {
-        if (sGain < 0 || sGain > 1.0f)
-            throw new com.spectrayan.spector.commons.error.SpectorValidationException(
-                    com.spectrayan.spector.commons.error.ErrorCode.ARGUMENT_OUT_OF_RANGE,
-                    "sGain", 0, 1.0f, sGain);
-        if (sMax < 1.0f || sMax > 100.0f)
-            throw new com.spectrayan.spector.commons.error.SpectorValidationException(
-                    com.spectrayan.spector.commons.error.ErrorCode.ARGUMENT_OUT_OF_RANGE,
-                    "sMax", 1.0f, 100.0f, sMax);
-        if (sExponent < 0 || sExponent > 2.0f)
-            throw new com.spectrayan.spector.commons.error.SpectorValidationException(
-                    com.spectrayan.spector.commons.error.ErrorCode.ARGUMENT_OUT_OF_RANGE,
-                    "sExponent", 0, 2.0f, sExponent);
+    public static TwoFactorConfig from(TwoFactorProperties props) {
+        if (props == null) {
+            return DEFAULT;
+        }
+        if (props instanceof TwoFactorConfig tfc) {
+            return tfc;
+        }
+        return new TwoFactorConfig(props.getSGain(), props.getSMax(), props.getSExponent(), props.isEnabled());
     }
 }

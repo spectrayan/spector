@@ -90,8 +90,12 @@ public final class DaemonSupervisorBuilder {
         DaemonSupervisor daemonSupervisor;
         if (isDisk && basePath != null) {
             daemonSupervisor = new DaemonSupervisor("memory");
+            var memProps = builder.properties() != null && builder.properties().memory() != null
+                    ? builder.properties().memory()
+                    : new com.spectrayan.spector.config.properties.MemoryProperties();
+            var aismeProps = memProps.getAisme();
 
-            if (builder.checkpointIntervalSeconds() > 0) {
+            if (memProps.getCheckpointIntervalSeconds() > 0) {
                 java.lang.foreign.MemorySegment ckptSlice = cortex.useBundleMode() && cortex.runtimeBundle() != null
                         ? cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.CHECKPOINT)
                         : null;
@@ -104,9 +108,13 @@ public final class DaemonSupervisorBuilder {
                         graphs.entityDirectory(), graphs.hyperEntityGraph(), bio.coActivationTracker(),
                         graphs.temporalKnowledgeGraph(),
                         resolvedPartitionDir, basePath, ckptSlice);
+                if (builder.spectorProperties() != null && builder.spectorProperties().events() != null) {
+                    checkpointDaemon.setEventBus(com.spectrayan.spector.events.EventBus.broadcast(
+                            builder.spectorProperties().events().isAsync()));
+                }
                 // Deprecated: Checkpointing is now scheduled and managed exclusively by Quartz CheckpointJob (#683)
                 // daemonSupervisor.schedule("checkpoint", checkpointDaemon::checkpoint,
-                //         java.time.Duration.ofSeconds(builder.checkpointIntervalSeconds()), DaemonPolicy.CRITICAL);
+                //         java.time.Duration.ofSeconds(memProps.getCheckpointIntervalSeconds()), DaemonPolicy.CRITICAL);
             } else {
                 checkpointDaemon = null;
             }
@@ -117,7 +125,7 @@ public final class DaemonSupervisorBuilder {
                 //         java.time.Duration.ofSeconds(30), DaemonPolicy.DEFAULT);
             }
 
-            if (wanderPathway != null && builder.aismeConfig() != null && builder.aismeConfig().enabled() && builder.aismeConfig().enableDmnSpontaneous()) {
+            if (wanderPathway != null && aismeProps != null && aismeProps.isEnabled() && aismeProps.isEnableDmnSpontaneous()) {
                 // Deprecated: DMN spontaneous wandering is now scheduled and managed exclusively by Quartz DmnWanderingJob (#683)
                 // com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon dmnDaemon =
                 //         new com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon(

@@ -96,7 +96,6 @@ class RssFeedIngestionE2ETest {
         // 2. Start Spector Memory
         embeddingProvider = new StubEmbeddingProvider(DIMS);
         memory = DefaultSpectorMemory.builder()
-                .dimensions(DIMS)
                 .embeddingProvider(embeddingProvider)
                 .build();
 

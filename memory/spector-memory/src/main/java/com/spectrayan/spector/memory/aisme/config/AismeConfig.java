@@ -25,7 +25,10 @@ import com.spectrayan.spector.config.SpectorPropertyConstants;
  * Riemannian cognitive manifolds, predictive coding, consciousness continuity,
  * the Global Workspace conscious access gateway, Soft Identity Anchor, Event Density Gating,
  * and Bayesian Online Change-Point & Surprisal Episode Boundary Segmentation.</p>
+ *
+ * @deprecated Use {@link com.spectrayan.spector.config.properties.AismeProperties} directly.
  */
+@Deprecated(since = "1.4.0", forRemoval = true)
 public record AismeConfig(
         boolean enabled,
         boolean enableHomeostasis,

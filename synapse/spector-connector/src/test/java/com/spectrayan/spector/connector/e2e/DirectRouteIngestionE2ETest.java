@@ -67,7 +67,6 @@ class DirectRouteIngestionE2ETest {
         // 1. Real SpectorMemory with stub embedder
         embeddingProvider = new StubEmbeddingProvider(DIMS);
         memory = DefaultSpectorMemory.builder()
-                .dimensions(DIMS)
                 .embeddingProvider(embeddingProvider)
                 .build();
 

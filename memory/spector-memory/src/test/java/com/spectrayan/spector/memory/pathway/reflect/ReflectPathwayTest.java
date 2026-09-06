@@ -51,13 +51,15 @@ class ReflectPathwayTest {
         embeddingProvider = new TestEmbeddingProvider(DIMS);
         llmProvider = new MockLlmProvider();
 
-        memory = DefaultSpectorMemory.builder()
-                .dimensions(DIMS)
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(DIMS)
+                .setPathwayEnabled(true);
+        memProps.getCircadian().setTimeTrigger(Duration.ofMinutes(30));
+
+        memory = DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(embeddingProvider)
-                .LlmProvider(llmProvider)
+                .llmProvider(llmProvider)
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .usePathwayEngine(true)
-                .circadianPolicy(CircadianPolicy.builder().timeTrigger(Duration.ofMinutes(30)).build())
                 .build();
     }
 

@@ -41,6 +41,7 @@ public class EmbeddingProperties implements Serializable {
     private Duration timeout = DEFAULT_PROVIDER_EMBEDDING_TIMEOUT;
     private CacheProperties cache = new CacheProperties();
     private Map<String, String> properties = Map.of();
+    private boolean sequential = DEFAULT_EMBEDDING_SEQUENTIAL;
 
     public EmbeddingProperties() {}
 
@@ -155,6 +156,10 @@ public class EmbeddingProperties implements Serializable {
         public void setStatsLogInterval(Duration statsLogInterval) { if (statsLogInterval != null) this.statsLogInterval = statsLogInterval; }
     }
 
+    public boolean isSequential() { return sequential; }
+    public void setSequential(boolean sequential) { this.sequential = sequential; }
+    public boolean sequential() { return isSequential(); }
+
     public String type() { return getType(); }
     public String model() { return getModel(); }
     public String apiKey() { return getApiKey(); }
@@ -173,4 +178,35 @@ public class EmbeddingProperties implements Serializable {
     public String executionProvider() { return getExecutionProvider(); }
     public int intraOpThreads() { return getIntraOpThreads(); }
     public String vocabPath() { return getVocabPath(); }
+
+    /**
+     * Creates a full copy of this {@link EmbeddingProperties} instance.
+     */
+    public EmbeddingProperties copy() {
+        EmbeddingProperties cp = new EmbeddingProperties();
+        cp.setType(this.type);
+        cp.setModel(this.model);
+        cp.setApiKey(this.apiKey);
+        cp.setBaseUrl(this.baseUrl);
+        cp.setDimensions(this.dimensions);
+        cp.setBatchSize(this.batchSize);
+        cp.setMaxRetries(this.maxRetries);
+        cp.setMaxConcurrent(this.maxConcurrent);
+        cp.setTimeout(this.timeout);
+        cp.setProperties(this.properties != null ? Map.copyOf(this.properties) : Map.of());
+        cp.setSequential(this.sequential);
+        cp.setModelPath(this.modelPath);
+        cp.setExecutionProvider(this.executionProvider);
+        cp.setIntraOpThreads(this.intraOpThreads);
+        cp.setVocabPath(this.vocabPath);
+        if (this.cache != null) {
+            CacheProperties cacheCp = new CacheProperties();
+            cacheCp.setEnabled(this.cache.isEnabled());
+            cacheCp.setMaxSize(this.cache.getMaxSize());
+            cacheCp.setTtl(this.cache.getTtl());
+            cacheCp.setStatsLogInterval(this.cache.getStatsLogInterval());
+            cp.setCache(cacheCp);
+        }
+        return cp;
+    }
 }

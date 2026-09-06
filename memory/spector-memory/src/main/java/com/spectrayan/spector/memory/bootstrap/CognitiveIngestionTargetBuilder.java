@@ -62,6 +62,10 @@ public final class CognitiveIngestionTargetBuilder {
             int activePartitionIndex,
             ImportanceProvider importanceProvider) {
 
+        var memProps = builder.properties() != null && builder.properties().memory() != null
+                ? builder.properties().memory()
+                : new com.spectrayan.spector.config.properties.MemoryProperties();
+
         //  Ingestion Target 
         CognitiveIngestionTarget cognitiveTarget = new CognitiveIngestionTarget(
                 cortex.quantizer(), bio.surpriseDetector(), bio.flashbulbPolicy(),
@@ -70,10 +74,10 @@ public final class CognitiveIngestionTargetBuilder {
                 graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityExtractor(),
                 graphs.entityDirectory(), graphs.hyperEntityGraph(), graphs.temporalKnowledgeGraph(),
                 retrieval.bm25Index(), retrieval.textDataStore(), activePartitionIndex,
-                retrieval.memorySpladeIndex(), builder.SparseEmbeddingProvider(),
+                retrieval.memorySpladeIndex(), builder.sparseEmbeddingProvider(),
                 builder.dataEncryptor(), importanceProvider,
                 new com.spectrayan.spector.memory.session.SessionRegistry(),
-                builder.entityExtractionParallelism(), builder.entityExtractionQueueCapacity());
+                memProps.getEntityExtractionParallelism(), memProps.getEntityExtractionQueueCapacity());
 
         //  Wire Salience Profile Provider 
         if (builder.salienceProfileProvider() != null) {

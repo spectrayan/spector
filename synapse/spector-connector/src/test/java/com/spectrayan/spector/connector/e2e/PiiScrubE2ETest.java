@@ -62,7 +62,6 @@ class PiiScrubE2ETest {
     void setUp() throws Exception {
         embeddingProvider = new StubEmbeddingProvider(DIMS);
         memory = DefaultSpectorMemory.builder()
-                .dimensions(DIMS)
                 .embeddingProvider(embeddingProvider)
                 .persistenceMode(com.spectrayan.spector.memory.model.MemoryPersistenceMode.IN_MEMORY)
                 .build();

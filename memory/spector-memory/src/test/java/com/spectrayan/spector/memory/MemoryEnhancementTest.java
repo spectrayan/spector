@@ -56,14 +56,14 @@ class MemoryEnhancementTest {
 
     @BeforeEach
     void setUp() {
-        memory = DefaultSpectorMemory.builder()
-                .dimensions(DIMENSIONS)
+        memory = DefaultSpectorMemory.builder(new com.spectrayan.spector.config.properties.MemoryProperties()
+                        .setDimensions(DIMENSIONS)
+                        .setWorkingCapacity(20)
+                        .setEpisodicPartitionCapacity(100)
+                        .setSemanticCapacity(100)
+                        .setProceduralCapacity(100))
                 .embeddingProvider(new NormalizingMockProvider(DIMENSIONS))
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .workingCapacity(20)
-                .episodicPartitionCapacity(100)
-                .semanticCapacity(100)
-                .proceduralCapacity(100)
                 .build();
     }
 

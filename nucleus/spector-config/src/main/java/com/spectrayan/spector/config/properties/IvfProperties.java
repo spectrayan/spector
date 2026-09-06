@@ -86,4 +86,8 @@ public class IvfProperties implements Serializable {
     public String toString() {
         return "IvfProperties{nlist=" + nlist + ", nprobe=" + nprobe + ", pqSubspaces=" + pqSubspaces + '}';
     }
+
+    public IvfProperties copy() {
+        return new IvfProperties(nlist, nprobe, pqSubspaces);
+    }
 }

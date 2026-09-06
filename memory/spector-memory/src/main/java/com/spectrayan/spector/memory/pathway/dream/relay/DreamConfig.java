@@ -21,7 +21,9 @@ import com.spectrayan.spector.config.SpectorPropertyConstants;
  * neurotransmitter thresholds, and soul-conditioned salience during memory consolidation and dream generation.
  *
  * @since 1.4.0
+ * @deprecated Use {@link com.spectrayan.spector.config.properties.DreamProperties} directly from {@code spector-config}.
  */
+@Deprecated(since = "1.4.0", forRemoval = true)
 public record DreamConfig(
         boolean enabled,
         float dreamNoiseScale,
@@ -93,6 +95,40 @@ public record DreamConfig(
 
     public static DreamConfig disabled() {
         return new Builder().enabled(false).build();
+    }
+
+    /**
+     * Creates a {@link DreamConfig} from {@link com.spectrayan.spector.config.properties.DreamProperties}.
+     */
+    public static DreamConfig from(com.spectrayan.spector.config.properties.DreamProperties props) {
+        if (props == null) {
+            return defaultConfig();
+        }
+        return builder()
+                .enabled(props.isEnabled())
+                .dreamNoiseScale(props.getNoiseScale())
+                .dreamTemperatureRem(props.getTemperatureRem())
+                .dreamTemperatureDaydream(props.getTemperatureDaydream())
+                .dreamTemperatureThought(props.getTemperatureThought())
+                .maxDreamsPerCycle(props.getMaxDreamsPerCycle())
+                .maxCounterfactualsPerSeed(props.getMaxCounterfactualsPerSeed())
+                .persistenceThreshold(props.getPersistenceThreshold())
+                .langevinStepSize(props.getLangevinStepSize())
+                .langevinSteps(props.getLangevinSteps())
+                .noveltyRadius(props.getNoveltyRadius())
+                .hebbianInhibitionDelta(props.getHebbianInhibitionDelta())
+                .journalEnabled(props.isJournalEnabled())
+                .dreamCycleFrequency(props.getCycleFrequency())
+                .seedWeightRecency(props.getSeedWeightRecency())
+                .seedWeightNovelty(props.getSeedWeightNovelty())
+                .seedWeightSoul(props.getSeedWeightSoul())
+                .seedWeightSalience(props.getSeedWeightSalience())
+                .identityResonanceThreshold(props.getIdentityResonanceThreshold())
+                .ethicalViolationThreshold(props.getEthicalViolationThreshold())
+                .langevinSoulAttractorLambda(props.getLangevinSoulAttractorLambda())
+                .hartmannOpennessMultiplier(props.getHartmannOpennessMultiplier())
+                .hartmannVigilanceMultiplier(props.getHartmannVigilanceMultiplier())
+                .build();
     }
 
     public static final class Builder {

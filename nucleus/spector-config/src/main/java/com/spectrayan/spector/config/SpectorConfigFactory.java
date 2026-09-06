@@ -53,6 +53,11 @@ public final class SpectorConfigFactory {
                 hnswProperties(source),
                 ivfProperties(source),
                 spectrumProperties(source),
+                telemetryProperties(source),
+                multimodalProperties(source),
+                hardwareProperties(source),
+                eventsProperties(source),
+                concurrencyProperties(source),
                 source
         );
     }
@@ -133,6 +138,7 @@ public final class SpectorConfigFactory {
         properties.setCacheMaxSize(cacheMaxSize);
         properties.setCacheTtl(cacheTtl);
         properties.setCacheStatsLogInterval(cacheStatsLogInterval);
+        properties.setSequential(props.getBoolean(EMBEDDING_SEQUENTIAL, DEFAULT_EMBEDDING_SEQUENTIAL));
 
         return properties;
     }
@@ -211,6 +217,8 @@ public final class SpectorConfigFactory {
         var consolidation = properties.getConsolidation();
         Duration interval = props.getDuration(MEMORY_CONSOLIDATION_INTERVAL, DEFAULT_MEMORY_CONSOLIDATION_INTERVAL);
         consolidation.setInterval(interval.toMillis());
+        consolidation.setEagerQueueCapacity(props.getInt(MEMORY_EAGER_CONSOLIDATION_QUEUE_CAPACITY,
+                DEFAULT_MEMORY_EAGER_CONSOLIDATION_QUEUE_CAPACITY));
 
         var aisme = aismeProperties(props);
         properties.setAisme(aisme);
@@ -231,7 +239,31 @@ public final class SpectorConfigFactory {
         properties.setRemember(rememberProperties(props));
         properties.setGraph(graphProperties(props));
         properties.setCircadian(circadianProperties(props));
+        properties.setDream(dreamProperties(props));
+        properties.setTwofactor(twoFactorProperties(props));
+        properties.setWal(walProperties(props));
+        properties.setVacuum(vacuumProperties(props));
+        properties.setSession(sessionProperties(props));
+
+        properties.setWorkingCapacity(props.getInt(MEMORY_WORKING_CAPACITY, DEFAULT_MEMORY_WORKING_CAPACITY));
+        properties.setEpisodicPartitionCapacity(props.getInt(MEMORY_EPISODIC_PARTITION_CAPACITY, DEFAULT_MEMORY_EPISODIC_PARTITION_CAPACITY));
+        properties.setSemanticCapacity(props.getInt(MEMORY_SEMANTIC_CAPACITY, DEFAULT_MEMORY_SEMANTIC_CAPACITY));
+        properties.setProceduralCapacity(props.getInt(MEMORY_PROCEDURAL_CAPACITY, DEFAULT_MEMORY_PROCEDURAL_CAPACITY));
+        properties.setEntityGraphCapacity(props.getInt(MEMORY_ENTITY_GRAPH_CAPACITY, DEFAULT_MEMORY_ENTITY_GRAPH_CAPACITY));
+        properties.setPinnedQuota(props.getInt(MEMORY_PINNED_QUOTA, DEFAULT_MEMORY_PINNED_QUOTA));
+        properties.setCheckpointIntervalSeconds(props.getInt(MEMORY_CHECKPOINT_INTERVAL_SECONDS, DEFAULT_MEMORY_CHECKPOINT_INTERVAL_SECONDS));
+
+        properties.setTextSegmentSize(props.getLong(MEMORY_TEXT_SEGMENT_SIZE, DEFAULT_MEMORY_TEXT_SEGMENT_SIZE));
+        properties.setEpisodicSegmentSize(props.getLong(MEMORY_EPISODIC_SEGMENT_SIZE, DEFAULT_MEMORY_EPISODIC_SEGMENT_SIZE));
+        properties.setPersistWorkingMemory(props.getBoolean(MEMORY_PERSIST_WORKING_MEMORY, DEFAULT_MEMORY_PERSIST_WORKING_MEMORY));
+        properties.setPinSourceEpisodes(props.getBoolean(MEMORY_PIN_SOURCE_EPISODES, DEFAULT_MEMORY_PIN_SOURCE_EPISODES));
+
+        properties.setIdStrategy(props.getString(MEMORY_ID_STRATEGY, DEFAULT_MEMORY_ID_STRATEGY));
+        properties.setEdgeImportance(props.getString(MEMORY_EDGE_IMPORTANCE, DEFAULT_MEMORY_EDGE_IMPORTANCE));
+        properties.setNamespaceId(props.getString(MEMORY_NAMESPACE_ID, DEFAULT_MEMORY_NAMESPACE_ID));
+
         properties.setMaxNamespaces(props.getInt("spector.memory.max-namespaces", 100));
+        properties.setProvenanceCapacity(props.getInt(MEMORY_PROVENANCE_CAPACITY, DEFAULT_MEMORY_PROVENANCE_CAPACITY));
 
         // Pathway enabled — respect explicit boolean, or derive from recall.engine
         boolean pathwayDefault = true;
@@ -517,6 +549,7 @@ public final class SpectorConfigFactory {
         entity.setAdjDecayFactor((float) props.getDouble("spector.memory.entity.adj-decay-factor", 0.95));
         entity.setAdjPruneThreshold((float) props.getDouble("spector.memory.entity.adj-prune-threshold", 0.2));
         entity.setMergeDistance(props.getInt("spector.memory.entity.merge-distance", 2));
+        entity.setMaxRelationsPerMemory(props.getInt(MEMORY_RELATION_MAX_PER_MEM, DEFAULT_MEMORY_RELATION_MAX_PER_MEM));
 
         return graph;
     }
@@ -537,6 +570,7 @@ public final class SpectorConfigFactory {
         circadian.setDecayPruneThreshold((float) props.getDouble(MEMORY_CIRCADIAN_DECAY_PRUNE_THRESHOLD, DEFAULT_MEMORY_CIRCADIAN_DECAY_PRUNE_THRESHOLD));
         circadian.setInterferenceThreshold((float) props.getDouble("spector.memory.circadian.interference-threshold", 0.12f));
         circadian.setInterferenceDecayFactor((float) props.getDouble("spector.memory.circadian.interference-decay-factor", 0.7f));
+        circadian.setOrchestrator(props.getString(MEMORY_REFLECT_ORCHESTRATOR, DEFAULT_MEMORY_REFLECT_ORCHESTRATOR));
         return circadian;
     }
 
@@ -589,7 +623,140 @@ public final class SpectorConfigFactory {
         gen.setApiKey(genApiKey);
         gen.setBaseUrl(genBaseUrl);
 
+        providerProperties.setSslInsecure(props.getBoolean(PROVIDER_SSL_INSECURE, DEFAULT_PROVIDER_SSL_INSECURE));
+
         return providerProperties;
+    }
+
+    // ─────────────── Dream Properties ───────────────
+
+    /**
+     * Loads dream and thought experiment properties from configuration.
+     */
+    public static DreamProperties dreamProperties(SpectorConfigSource props) {
+        DreamProperties dream = new DreamProperties();
+        dream.setEnabled(props.getBoolean(MEMORY_DREAM_ENABLED, DEFAULT_MEMORY_DREAM_ENABLED));
+        dream.setNoiseScale((float) props.getDouble(MEMORY_DREAM_NOISE_SCALE, DEFAULT_MEMORY_DREAM_NOISE_SCALE));
+        dream.setTemperatureRem((float) props.getDouble(MEMORY_DREAM_TEMPERATURE_REM, DEFAULT_MEMORY_DREAM_TEMPERATURE_REM));
+        dream.setTemperatureDaydream((float) props.getDouble(MEMORY_DREAM_TEMPERATURE_DAYDREAM, DEFAULT_MEMORY_DREAM_TEMPERATURE_DAYDREAM));
+        dream.setTemperatureThought((float) props.getDouble(MEMORY_DREAM_TEMPERATURE_THOUGHT, DEFAULT_MEMORY_DREAM_TEMPERATURE_THOUGHT));
+        dream.setMaxDreamsPerCycle(props.getInt(MEMORY_DREAM_MAX_DREAMS_PER_CYCLE, DEFAULT_MEMORY_DREAM_MAX_DREAMS_PER_CYCLE));
+        dream.setMaxCounterfactualsPerSeed(props.getInt(MEMORY_DREAM_MAX_COUNTERFACTUALS_PER_SEED, DEFAULT_MEMORY_DREAM_MAX_COUNTERFACTUALS_PER_SEED));
+        dream.setPersistenceThreshold((float) props.getDouble(MEMORY_DREAM_PERSISTENCE_THRESHOLD, DEFAULT_MEMORY_DREAM_PERSISTENCE_THRESHOLD));
+        dream.setLangevinStepSize((float) props.getDouble(MEMORY_DREAM_LANGEVIN_STEP_SIZE, DEFAULT_MEMORY_DREAM_LANGEVIN_STEP_SIZE));
+        dream.setLangevinSteps(props.getInt(MEMORY_DREAM_LANGEVIN_STEPS, DEFAULT_MEMORY_DREAM_LANGEVIN_STEPS));
+        dream.setNoveltyRadius((float) props.getDouble(MEMORY_DREAM_NOVELTY_RADIUS, DEFAULT_MEMORY_DREAM_NOVELTY_RADIUS));
+        dream.setHebbianInhibitionDelta((float) props.getDouble(MEMORY_DREAM_HEBBIAN_INHIBITION_DELTA, DEFAULT_MEMORY_DREAM_HEBBIAN_INHIBITION_DELTA));
+        dream.setJournalEnabled(props.getBoolean(MEMORY_DREAM_JOURNAL_ENABLED, DEFAULT_MEMORY_DREAM_JOURNAL_ENABLED));
+        dream.setCycleFrequency(props.getInt(MEMORY_DREAM_CYCLE_FREQUENCY, DEFAULT_MEMORY_DREAM_CYCLE_FREQUENCY));
+        dream.setSeedWeightRecency((float) props.getDouble(MEMORY_DREAM_SEED_WEIGHT_RECENCY, DEFAULT_MEMORY_DREAM_SEED_WEIGHT_RECENCY));
+        dream.setSeedWeightNovelty((float) props.getDouble(MEMORY_DREAM_SEED_WEIGHT_NOVELTY, DEFAULT_MEMORY_DREAM_SEED_WEIGHT_NOVELTY));
+        dream.setSeedWeightSoul((float) props.getDouble(MEMORY_DREAM_SEED_WEIGHT_SOUL, DEFAULT_MEMORY_DREAM_SEED_WEIGHT_SOUL));
+        dream.setSeedWeightSalience((float) props.getDouble(MEMORY_DREAM_SEED_WEIGHT_SALIENCE, DEFAULT_MEMORY_DREAM_SEED_WEIGHT_SALIENCE));
+        dream.setIdentityResonanceThreshold((float) props.getDouble(MEMORY_DREAM_IDENTITY_RESONANCE_THRESHOLD, DEFAULT_MEMORY_DREAM_IDENTITY_RESONANCE_THRESHOLD));
+        dream.setEthicalViolationThreshold((float) props.getDouble(MEMORY_DREAM_ETHICAL_VIOLATION_THRESHOLD, DEFAULT_MEMORY_DREAM_ETHICAL_VIOLATION_THRESHOLD));
+        dream.setLangevinSoulAttractorLambda((float) props.getDouble(MEMORY_DREAM_LANGEVIN_SOUL_ATTRACTOR_LAMBDA, DEFAULT_MEMORY_DREAM_LANGEVIN_SOUL_ATTRACTOR_LAMBDA));
+        dream.setHartmannOpennessMultiplier((float) props.getDouble(MEMORY_DREAM_HARTMANN_OPENNESS_MULTIPLIER, DEFAULT_MEMORY_DREAM_HARTMANN_OPENNESS_MULTIPLIER));
+        dream.setHartmannVigilanceMultiplier((float) props.getDouble(MEMORY_DREAM_HARTMANN_VIGILANCE_MULTIPLIER, DEFAULT_MEMORY_DREAM_HARTMANN_VIGILANCE_MULTIPLIER));
+        return dream;
+    }
+
+    // ─────────────── Two-Factor Properties ───────────────
+
+    /**
+     * Loads Two-Factor memory properties from configuration.
+     */
+    public static TwoFactorProperties twoFactorProperties(SpectorConfigSource props) {
+        TwoFactorProperties tf = new TwoFactorProperties();
+        tf.setEnabled(props.getBoolean(MEMORY_TWOFACTOR_ENABLED, DEFAULT_MEMORY_TWOFACTOR_ENABLED));
+        tf.setSGain((float) props.getDouble(MEMORY_TWOFACTOR_S_GAIN, DEFAULT_MEMORY_TWOFACTOR_S_GAIN));
+        tf.setSMax((float) props.getDouble(MEMORY_TWOFACTOR_S_MAX, DEFAULT_MEMORY_TWOFACTOR_S_MAX));
+        tf.setSExponent((float) props.getDouble(MEMORY_TWOFACTOR_S_EXPONENT, DEFAULT_MEMORY_TWOFACTOR_S_EXPONENT));
+        return tf;
+    }
+
+    // ─────────────── WAL Properties ───────────────
+
+    /**
+     * Loads memory WAL properties from configuration.
+     */
+    public static WalProperties walProperties(SpectorConfigSource props) {
+        return new WalProperties(props.getLong(MEMORY_WAL_MAX_CHUNK_BYTES, DEFAULT_MEMORY_WAL_MAX_CHUNK_BYTES));
+    }
+
+    // ─────────────── Vacuum Properties ───────────────
+
+    /**
+     * Loads memory vacuum properties from configuration.
+     */
+    public static VacuumProperties vacuumProperties(SpectorConfigSource props) {
+        return new VacuumProperties((float) props.getDouble(MEMORY_VACUUM_THRESHOLD, DEFAULT_MEMORY_VACUUM_THRESHOLD));
+    }
+
+    // ─────────────── Session Properties ───────────────
+
+    /**
+     * Loads memory session buffer properties from configuration.
+     */
+    public static SessionProperties sessionProperties(SpectorConfigSource props) {
+        return new SessionProperties(
+                props.getInt(MEMORY_SESSION_BUFFER_SIZE, DEFAULT_MEMORY_SESSION_BUFFER_SIZE),
+                props.getLong(MEMORY_SESSION_BUFFER_TTL_MS, DEFAULT_MEMORY_SESSION_BUFFER_TTL_MS)
+        );
+    }
+
+    // ─────────────── Telemetry Properties ───────────────
+
+    /**
+     * Loads telemetry properties from configuration.
+     */
+    public static TelemetryProperties telemetryProperties(SpectorConfigSource props) {
+        return TelemetryProperties.from(props);
+    }
+
+    // ─────────────── Multimodal Properties ───────────────
+
+    /**
+     * Loads multimodal sensory processing properties from configuration.
+     */
+    public static MultimodalProperties multimodalProperties(SpectorConfigSource props) {
+        return MultimodalProperties.from(props);
+    }
+
+    // ─────────────── Hardware Properties ───────────────
+
+    /**
+     * Loads hardware & GPU acceleration properties from configuration.
+     */
+    public static HardwareProperties hardwareProperties(SpectorConfigSource props) {
+        HardwareProperties hw = new HardwareProperties();
+        int threshold = props.getInt(HARDWARE_GPU_BATCH_THRESHOLD,
+                props.getInt("spector.hardware.gpu-batch-threshold",
+                        props.getInt(HARDWARE_GPU_BATCH_THRESHOLD_LEGACY, DEFAULT_HARDWARE_GPU_BATCH_THRESHOLD)));
+        hw.setGpuBatchThreshold(threshold);
+        hw.setGpuBatchMinWindowMs(props.getLong(GPU_BATCH_MIN_WINDOW_MS, DEFAULT_GPU_BATCH_MIN_WINDOW_MS));
+        hw.setGpuBatchMaxWindowMs(props.getLong(GPU_BATCH_MAX_WINDOW_MS, DEFAULT_GPU_BATCH_MAX_WINDOW_MS));
+        hw.setGpuBatchDefaultMaxBatch(props.getInt(GPU_BATCH_DEFAULT_MAX_BATCH, DEFAULT_GPU_BATCH_DEFAULT_MAX_BATCH));
+        hw.setGpuMemoryMinBudgetBytes(props.getLong(GPU_MEMORY_MIN_BUDGET_BYTES, DEFAULT_GPU_MEMORY_MIN_BUDGET_BYTES));
+        return hw;
+    }
+
+    // ─────────────── Events Properties ───────────────
+
+    /**
+     * Loads event bus properties from configuration.
+     */
+    public static EventsProperties eventsProperties(SpectorConfigSource props) {
+        return new EventsProperties(props.getBoolean(EVENTS_ASYNC, DEFAULT_EVENTS_ASYNC));
+    }
+
+    // ─────────────── Concurrency Properties ───────────────
+
+    /**
+     * Loads concurrency properties from configuration.
+     */
+    public static ConcurrencyProperties concurrencyProperties(SpectorConfigSource props) {
+        return new ConcurrencyProperties(props.getBoolean(CONCURRENCY_STRUCTURED, DEFAULT_CONCURRENCY_STRUCTURED));
     }
 
     // ─────────────── Deprecated Bridge Accessors ───────────────

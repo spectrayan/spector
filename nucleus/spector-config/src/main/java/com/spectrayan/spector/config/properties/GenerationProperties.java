@@ -65,4 +65,14 @@ public class GenerationProperties implements Serializable {
     public String apiKey() { return getApiKey(); }
     public String baseUrl() { return getBaseUrl(); }
     public Map<String, String> properties() { return getProperties(); }
+
+    public GenerationProperties copy() {
+        GenerationProperties cp = new GenerationProperties();
+        cp.setType(this.type);
+        cp.setModel(this.model);
+        cp.setApiKey(this.apiKey);
+        cp.setBaseUrl(this.baseUrl);
+        cp.setProperties(this.properties != null ? new java.util.HashMap<>(this.properties) : java.util.Map.of());
+        return cp;
+    }
 }

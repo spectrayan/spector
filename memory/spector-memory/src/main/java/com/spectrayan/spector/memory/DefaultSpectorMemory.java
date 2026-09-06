@@ -332,6 +332,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final MemoryPersistenceMode persistenceMode;
     private final Path persistencePath;
     private final CircadianPolicy circadianPolicy;
+    private final com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor reflectSweepExecutor;
     private final CognitiveProfileConfig profileConfig;
     private final RecallOptions defaultRecallOptions;
 
@@ -402,7 +403,19 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.importanceProvider = bundle.importanceProvider();
         this.reflectionOrchestrator = bundle.reflectionOrchestrator();
         this.reinforcementHandler = bundle.reinforcementHandler();
-        this.batchConsolidator = new BatchConsolidator(builder.LlmProvider(), this.embeddingProvider);
+        var memProps = builder.properties() != null && builder.properties().memory() != null
+                ? builder.properties().memory()
+                : new com.spectrayan.spector.config.properties.MemoryProperties();
+        var remProps = memProps.getRemember() != null
+                ? memProps.getRemember()
+                : new com.spectrayan.spector.config.properties.RememberProperties();
+        var consProps = memProps.getConsolidation() != null
+                ? memProps.getConsolidation()
+                : new com.spectrayan.spector.config.properties.ConsolidationProperties();
+        var aismeConfig = com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(
+                memProps.getAisme());
+ 
+        this.batchConsolidator = new BatchConsolidator(builder.llmProvider(), this.embeddingProvider);
         this.eagerConsolidator = new com.spectrayan.spector.memory.cortex.consolidation.EagerConsolidator(
                 bundle.partitionManager().cognitiveRouter(),
                 bundle.index(),
@@ -410,11 +423,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 bundle.entityDirectory(),
                 bundle.hyperEntityGraph(),
                 bundle.temporalKnowledgeGraph(),
-                builder.LlmProvider(),
+                builder.llmProvider(),
                 this.embeddingProvider,
                 this::inspect,
-                builder.deduplicationRadius(),
-                builder.eagerConsolidationQueueCapacity()
+                remProps.getDeduplicationRadius(),
+                consProps.getEagerQueueCapacity()
         );
 
         this.valenceTracker = bundle.valenceTracker();
@@ -445,10 +458,15 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 this.coActivationTracker.rebuildInvertedIndex(tagMap);
             }
         }
-        this.dimensions = builder.dimensions();
+        this.dimensions = memProps.getDimensions();
         this.persistenceMode = builder.persistenceMode();
         this.persistencePath = builder.persistencePath();
-        this.circadianPolicy = builder.circadianPolicy();
+        this.circadianPolicy = com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy.from(
+                memProps.getCircadian());
+        String orchestratorName = memProps.getCircadian() != null ? memProps.getCircadian().getOrchestrator() : null;
+        this.reflectSweepExecutor = builder.reflectSweepExecutor() != null
+                ? builder.reflectSweepExecutor()
+                : com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutors.getExecutor(orchestratorName);
         this.profileConfig = builder.profileConfig();
         this.defaultRecallOptions = builder.defaultRecallOptions() != null ? builder.defaultRecallOptions() : RecallOptions.DEFAULT;
         this.namespaceManager = bundle.namespaceManager();
@@ -487,17 +505,17 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     .circadianPolicy(circadianPolicy)
                     .dreamPathway(this.dreamPathway)
                     .partitionManager(this.partitionManager)
-                    .aismeConfig(builder.aismeConfig())
+                    .aismeConfig(aismeConfig)
                     .checkpointDaemon(this.checkpointDaemon)
                     .graphEnrichmentDaemon(this.graphEnrichmentDaemon)
-                    .dmnDaemon((this.wanderPathway != null && builder.aismeConfig() != null && builder.aismeConfig().enabled() && builder.aismeConfig().enableDmnSpontaneous())
+                    .dmnDaemon((this.wanderPathway != null && aismeConfig != null && aismeConfig.enabled() && aismeConfig.enableDmnSpontaneous())
                             ? new com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon(this.wanderPathway, this.partitionManager, System::currentTimeMillis) : null)
-                    .decayDaemon((bundle.aismeBundle() != null && builder.aismeConfig() != null && builder.aismeConfig().backgroundDecayEnabled())
+                    .decayDaemon((bundle.aismeBundle() != null && aismeConfig != null && aismeConfig.backgroundDecayEnabled())
                             ? new com.spectrayan.spector.memory.aisme.dmn.HomeostaticDecayDaemon(
                                     bundle.aismeBundle().mentalStateTracker(),
                                     bundle.aismeBundle().homeostaticCore(),
-                                    builder.aismeConfig().backgroundDecayFactor()) : null)
-                    .checkpointIntervalSeconds(builder.checkpointIntervalSeconds())
+                                    aismeConfig.backgroundDecayFactor()) : null)
+                    .checkpointIntervalSeconds(memProps.getCheckpointIntervalSeconds())
                     .suppliedExecutor(builder.suppliedExecutor())
                     .quartzScheduler(builder.customQuartzScheduler())
                     .build();
@@ -1145,9 +1163,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public ReflectReport reflect(com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec spec) {
         acquireLease();
         try {
-            com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor executor =
-                    com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutors.getPrimary();
-            return executor.execute(this, spec != null ? spec : com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec.fullCycle());
+            return this.reflectSweepExecutor.execute(this, spec != null ? spec : com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec.fullCycle());
         } finally {
             releaseLease();
         }
@@ -1175,9 +1191,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public com.spectrayan.spector.memory.pathway.reflect.ReflectSweepProgress progress(String sweepId) {
         acquireLease();
         try {
-            com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor executor =
-                    com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutors.getPrimary();
-            return executor.progress(sweepId);
+            return this.reflectSweepExecutor.progress(sweepId);
         } finally {
             releaseLease();
         }
@@ -2074,4 +2088,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     /** Creates a new builder for configuring and assembling a SpectorMemory instance. */
     public static SpectorMemoryBuilder builder() { return new SpectorMemoryBuilder(); }
+
+    /** Creates a new builder initialized with the given aggregate properties snapshot. */
+    public static SpectorMemoryBuilder builder(com.spectrayan.spector.config.SpectorProperties properties) { return SpectorMemoryBuilder.create(properties); }
+
+    /** Creates a new builder initialized with the given memory properties. */
+    public static SpectorMemoryBuilder builder(com.spectrayan.spector.config.properties.MemoryProperties properties) { return SpectorMemoryBuilder.create(com.spectrayan.spector.config.SpectorProperties.of(properties)); }
 }

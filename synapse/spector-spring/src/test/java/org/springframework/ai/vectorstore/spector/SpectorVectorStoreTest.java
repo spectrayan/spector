@@ -15,6 +15,7 @@
  */
 package org.springframework.ai.vectorstore.spector;
 
+import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
@@ -61,13 +62,15 @@ class SpectorVectorStoreTest {
                     return new EmbeddingResult(vec, 1, "mock-embed");
                 });
 
-        memory = DefaultSpectorMemory.builder()
-                .dimensions(DIMS)
+        MemoryProperties props = new MemoryProperties()
+                .setDimensions(DIMS)
+                .setSemanticCapacity(100)
+                .setHebbianGraphCapacity(100)
+                .setTemporalChainCapacity(100)
+                .setEntityGraphCapacity(100);
+
+        memory = DefaultSpectorMemory.builder(props)
                 .embeddingProvider(embeddingProvider)
-                .semanticCapacity(100)
-                .hebbianGraphCapacity(100)
-                .temporalChainCapacity(100)
-                .entityGraphCapacity(100)
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
                 .build();
 

@@ -22,6 +22,7 @@ import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.codec.XxHash64;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractAppendMemory;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,7 +72,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
      * @param file path to the text.dat file (may or may not exist yet)
      */
     public TextBlobMemory(Path file) {
-        this(file, DataEncryptor.NOOP);
+        this(file, DataEncryptor.NOOP, 0);
     }
 
     /**
@@ -81,11 +82,22 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
      * @param encryptor data encryptor for text-at-rest (null → NOOP)
      */
     public TextBlobMemory(Path file, DataEncryptor encryptor) {
-        this(file, encryptor, migrateLegacyIfNeeded(file, encryptor != null ? encryptor : DataEncryptor.NOOP));
+        this(file, encryptor, 0);
     }
 
-    private TextBlobMemory(Path file, DataEncryptor encryptor, Map<String, TextEntry> legacyEntries) {
-        super(SystemMemoryId.CORTEX_TEXT.id(), new TextBlobLayout(), 0, calculateInitialSize(file, legacyEntries), file);
+    /**
+     * Creates a TextBlobMemory with encryption support and an explicit segment size.
+     *
+     * @param file                   path to the text.dat file
+     * @param encryptor              data encryptor for text-at-rest (null → NOOP)
+     * @param configuredSegmentSize  configured segment size in bytes, or {@code 0} for default (32 MB)
+     */
+    public TextBlobMemory(Path file, DataEncryptor encryptor, long configuredSegmentSize) {
+        this(file, encryptor, migrateLegacyIfNeeded(file, encryptor != null ? encryptor : DataEncryptor.NOOP), configuredSegmentSize);
+    }
+
+    private TextBlobMemory(Path file, DataEncryptor encryptor, Map<String, TextEntry> legacyEntries, long configuredSegmentSize) {
+        super(SystemMemoryId.CORTEX_TEXT.id(), new TextBlobLayout(), 0, calculateInitialSize(file, legacyEntries, configuredSegmentSize), file);
         this.file = file;
         this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
         this.entryCount = 0;
@@ -138,8 +150,8 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
         }
     }
 
-    private static long calculateInitialSize(Path file, Map<String, TextEntry> legacyEntries) {
-        long size = Long.getLong("spector.memory.text-segment-size", 32 * 1024 * 1024L); // 32MB default
+    private static long calculateInitialSize(Path file, Map<String, TextEntry> legacyEntries, long configuredSegmentSize) {
+        long size = configuredSegmentSize > 0 ? configuredSegmentSize : SpectorPropertyConstants.DEFAULT_MEMORY_TEXT_SEGMENT_SIZE;
         if (legacyEntries != null && !legacyEntries.isEmpty()) {
             long totalBytes = 0;
             for (TextEntry entry : legacyEntries.values()) {

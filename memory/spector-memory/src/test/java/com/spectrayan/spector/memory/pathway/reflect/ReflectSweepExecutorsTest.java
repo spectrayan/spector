@@ -91,4 +91,21 @@ class ReflectSweepExecutorsTest {
         assertThat(custom.timeBudget()).isEqualTo(Duration.ofSeconds(30));
         assertThat(custom.runCompanionRelays()).isFalse();
     }
+
+    @Test
+    @DisplayName("getExecutor resolves executor by name or falls back to primary")
+    void testGetExecutorByName() {
+        ReflectSweepExecutors.reset();
+        ReflectSweepExecutor byName = ReflectSweepExecutors.getExecutor("in-process");
+        assertThat(byName).isNotNull();
+        assertThat(byName.name()).isEqualTo("in-process");
+
+        // Null and blank fall back to primary
+        assertThat(ReflectSweepExecutors.getExecutor(null)).isSameAs(ReflectSweepExecutors.getPrimary());
+        assertThat(ReflectSweepExecutors.getExecutor("")).isSameAs(ReflectSweepExecutors.getPrimary());
+        assertThat(ReflectSweepExecutors.getExecutor("   ")).isSameAs(ReflectSweepExecutors.getPrimary());
+
+        // Unknown name falls back to primary with a warning
+        assertThat(ReflectSweepExecutors.getExecutor("unknown-orchestrator")).isSameAs(ReflectSweepExecutors.getPrimary());
+    }
 }

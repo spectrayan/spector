@@ -51,6 +51,7 @@ import java.util.concurrent.Callable;
 public class ParallelEmbeddingPipeline {
 
     private final EmbeddingProvider provider;
+    private final boolean defaultSequential;
 
     /**
      * Creates a pipeline backed by the given embedding provider.
@@ -58,10 +59,21 @@ public class ParallelEmbeddingPipeline {
      * @param provider the embedding provider to use for generating vectors
      */
     public ParallelEmbeddingPipeline(EmbeddingProvider provider) {
+        this(provider, false);
+    }
+
+    /**
+     * Creates a pipeline backed by the given embedding provider with default sequential mode.
+     *
+     * @param provider          the embedding provider to use for generating vectors
+     * @param defaultSequential whether to default to sequential execution
+     */
+    public ParallelEmbeddingPipeline(EmbeddingProvider provider, boolean defaultSequential) {
         if (provider == null) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "provider");
         }
         this.provider = provider;
+        this.defaultSequential = defaultSequential;
     }
 
     /**
@@ -95,12 +107,10 @@ public class ParallelEmbeddingPipeline {
         List<List<String>> batches = partition(texts, batchSize);
         int numBatches = batches.size();
 
-        // Sequential mode: when there's only 1 batch, or the system property
-        // spector.embedding.sequential=true is set, skip fork-join overhead
-        // and process batches in a simple loop. This is the safest mode for
+        // Sequential mode: when there's only 1 batch, or sequential is enabled in config or pipeline,
+        // skip fork-join overhead and process batches in a simple loop. This is the safest mode for
         // single-GPU Ollama deployments.
-        boolean sequential = numBatches == 1
-                || Boolean.getBoolean("spector.embedding.sequential");
+        boolean sequential = numBatches == 1 || config.sequential() || this.defaultSequential;
 
         List<List<PipelineEmbeddingResult>> batchResults;
 

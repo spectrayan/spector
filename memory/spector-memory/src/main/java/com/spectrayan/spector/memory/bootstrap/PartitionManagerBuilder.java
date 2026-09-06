@@ -62,6 +62,9 @@ public final class PartitionManagerBuilder {
             CognitiveGraphBuilder.CognitiveGraphs graphs,
             RememberPathway cognitiveTarget) {
 
+        var memProps = builder.properties() != null && builder.properties().memory() != null
+                ? builder.properties().memory()
+                : new com.spectrayan.spector.config.properties.MemoryProperties();
         boolean isDisk = cortex.isDisk();
         Path basePath = cortex.basePath();
         int quantizedVecBytes = cortex.quantizedVecBytes();
@@ -83,8 +86,8 @@ public final class PartitionManagerBuilder {
                 try {
                     frozenHandles.add(PartitionManager.openFrozenPartition(
                             frozenDir, frozenSeq, workingStore, quantizedVecBytes,
-                            builder.semanticCapacity(), builder.episodicPartitionCapacity(),
-                            builder.proceduralCapacity(), builder.dataEncryptor()));
+                            memProps.getSemanticCapacity(), memProps.getEpisodicPartitionCapacity(),
+                            memProps.getProceduralCapacity(), builder.dataEncryptor()));
                 } catch (RuntimeException e) {
                     log.error("Failed to open frozen partition {} — records there will be unreadable: {}",
                             frozenDir.getFileName(), e.getMessage(), e);
@@ -96,21 +99,23 @@ public final class PartitionManagerBuilder {
         PartitionManager partitionManager;
         if (isDisk) {
             partitionManager = new PartitionManager(
-                    basePath, quantizedVecBytes, builder.semanticCapacity(),
-                    builder.episodicPartitionCapacity(), builder.proceduralCapacity(),
+                    basePath, quantizedVecBytes, memProps.getSemanticCapacity(),
+                    memProps.getEpisodicPartitionCapacity(), memProps.getProceduralCapacity(),
                     cognitiveRouter, resolvedPartitionDir, textDataStore, initialPartitionSeq,
                     frozenHandles,
                     index, graphs.hebbianGraph(), graphs.temporalChain(), cognitiveTarget,
-                    builder.dataEncryptor(), useBundleMode, activeBundle);
+                    builder.dataEncryptor(), useBundleMode, activeBundle,
+                    memProps.getTextSegmentSize(), memProps.getEpisodicSegmentSize());
             cognitiveTarget.setPartitionRollCallback(partitionManager::rollPartition);
         } else {
             partitionManager = new PartitionManager(
-                    null, quantizedVecBytes, builder.semanticCapacity(),
-                    builder.episodicPartitionCapacity(), builder.proceduralCapacity(),
+                    null, quantizedVecBytes, memProps.getSemanticCapacity(),
+                    memProps.getEpisodicPartitionCapacity(), memProps.getProceduralCapacity(),
                     cognitiveRouter, null, textDataStore, initialPartitionSeq,
                     List.of(),
                     index, graphs.hebbianGraph(), graphs.temporalChain(), cognitiveTarget,
-                    builder.dataEncryptor(), false, null);
+                    builder.dataEncryptor(), false, null,
+                    memProps.getTextSegmentSize(), memProps.getEpisodicSegmentSize());
         }
 
         // #443 (D3b): resolve MemoryIndex.text(id) via the memory's colocated partition,

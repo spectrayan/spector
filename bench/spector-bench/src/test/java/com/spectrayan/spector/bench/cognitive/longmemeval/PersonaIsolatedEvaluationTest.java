@@ -23,6 +23,7 @@ import com.spectrayan.spector.bench.cognitive.CachedEmbeddingProvider;
 import com.spectrayan.spector.bench.cognitive.DatasetLoader;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
+import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
@@ -209,13 +210,13 @@ public class PersonaIsolatedEvaluationTest {
                 boolean needsIngest = !Files.exists(memoryDir.resolve("runtime").resolve("runtime.bundle"));
                 if (needsIngest) {
                     log.info("Ingesting {} into isolated memory store at {}", personaName, memoryDir);
-                    SpectorMemoryBuilder builder = SpectorMemoryBuilder.create()
-                            .dimensions(embedder.dimensions())
+                    MemoryProperties ingestProps = new MemoryProperties()
+                            .setEpisodicPartitionCapacity(2_000)
+                            .setSemanticCapacity(2_000);
+                    SpectorMemoryBuilder builder = SpectorMemory.builder(ingestProps)
                             .embeddingProvider(embedder)
                             .persistence(memoryDir)
-                            .persistenceMode(MemoryPersistenceMode.DISK)
-                            .episodicPartitionCapacity(2_000)
-                            .semanticCapacity(2_000);
+                            .persistenceMode(MemoryPersistenceMode.DISK);
 
                     try (SpectorMemory ingestMemory = builder.build()) {
                         List<BenchmarkCorpusRecord> corpus = loader.loadCorpus(corpusFile);
@@ -262,13 +263,13 @@ public class PersonaIsolatedEvaluationTest {
                 }
 
                 // 2. Open isolated memory store for recall and evaluation
-                SpectorMemoryBuilder evalBuilder = SpectorMemoryBuilder.create()
-                        .dimensions(embedder.dimensions())
+                MemoryProperties evalProps = new MemoryProperties()
+                        .setEpisodicPartitionCapacity(2_000)
+                        .setSemanticCapacity(2_000);
+                SpectorMemoryBuilder evalBuilder = SpectorMemory.builder(evalProps)
                         .embeddingProvider(embedder)
                         .persistence(memoryDir)
-                        .persistenceMode(MemoryPersistenceMode.DISK)
-                        .episodicPartitionCapacity(2_000)
-                        .semanticCapacity(2_000);
+                        .persistenceMode(MemoryPersistenceMode.DISK);
 
                 AismeConfig aismeConfig = AismeConfig.builder()
                         .enabled(true)

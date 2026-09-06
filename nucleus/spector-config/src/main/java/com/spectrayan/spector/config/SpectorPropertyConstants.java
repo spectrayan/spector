@@ -120,6 +120,9 @@ public final class SpectorPropertyConstants {
     public static final String PROVIDER_GENERATION_FALLBACK_MODEL = "spector.provider.generation.fallback-model";
     public static final String DEFAULT_PROVIDER_GENERATION_FALLBACK_MODEL = "qwen3:0.6b";
 
+    public static final String PROVIDER_SSL_INSECURE = "spector.ssl.insecure";
+    public static final boolean DEFAULT_PROVIDER_SSL_INSECURE = false;
+
     // Chunking Subsystem (Commons & Ingestion)
     public static final String CHUNKING_TEXT_SIZE = "spector.chunking.text.size";
     public static final int DEFAULT_CHUNKING_TEXT_SIZE = 512;
@@ -201,6 +204,12 @@ public final class SpectorPropertyConstants {
 
     public static final String MEMORY_CHECKPOINT_INTERVAL_SECONDS = "spector.memory.checkpoint-interval-seconds";
     public static final int DEFAULT_MEMORY_CHECKPOINT_INTERVAL_SECONDS = 30;
+
+    public static final String MEMORY_TEXT_SEGMENT_SIZE = "spector.memory.text-segment-size";
+    public static final long DEFAULT_MEMORY_TEXT_SEGMENT_SIZE = 32L * 1024 * 1024;
+
+    public static final String MEMORY_EPISODIC_SEGMENT_SIZE = "spector.memory.episodic-segment-size";
+    public static final long DEFAULT_MEMORY_EPISODIC_SEGMENT_SIZE = 0L;
 
     public static final String MEMORY_DECAY_ENABLED = "spector.memory.decay-enabled";
     public static final boolean DEFAULT_MEMORY_DECAY_ENABLED = true;
@@ -317,6 +326,9 @@ public final class SpectorPropertyConstants {
 
     public static final String MEMORY_DECAY_FLOOR = "spector.memory.decay.floor";
     public static final float DEFAULT_MEMORY_DECAY_FLOOR = 0.10f;
+
+    public static final String MEMORY_TWOFACTOR_ENABLED = "spector.memory.twofactor.enabled";
+    public static final boolean DEFAULT_MEMORY_TWOFACTOR_ENABLED = true;
 
     public static final String MEMORY_TWOFACTOR_S_GAIN = "spector.memory.twofactor.s-gain";
     public static final float DEFAULT_MEMORY_TWOFACTOR_S_GAIN = 0.1f;
@@ -902,6 +914,9 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_CIRCADIAN_INTERFERENCE_DECAY_FACTOR = "spector.memory.circadian.interference-decay-factor";
     public static final float DEFAULT_MEMORY_CIRCADIAN_INTERFERENCE_DECAY_FACTOR = 0.7f;
 
+    public static final String MEMORY_REFLECT_ORCHESTRATOR = "spector.memory.reflect.orchestrator";
+    public static final String DEFAULT_MEMORY_REFLECT_ORCHESTRATOR = "";
+
     public static final String MEMORY_HYPERFOCUS_TTL_MS = "spector.memory.hyperfocus.ttl-ms";
     public static final long DEFAULT_MEMORY_HYPERFOCUS_TTL_MS = 1800_000L;
 
@@ -1129,6 +1144,10 @@ public final class SpectorPropertyConstants {
     public static final int DEFAULT_QUERY_HYBRID_MIN_RETRIEVAL_K = 50;
 
     // GPU Vector Search & Memory
+    public static final String HARDWARE_GPU_BATCH_THRESHOLD = "spector.hardware.gpu.batch-threshold";
+    public static final String HARDWARE_GPU_BATCH_THRESHOLD_LEGACY = "spector.gpu.batch.threshold";
+    public static final int DEFAULT_HARDWARE_GPU_BATCH_THRESHOLD = 32;
+
     public static final String GPU_BATCH_MIN_WINDOW_MS = "spector.gpu.batch.min-window-ms";
     public static final long DEFAULT_GPU_BATCH_MIN_WINDOW_MS = 1L;
 

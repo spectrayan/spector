@@ -25,6 +25,7 @@ import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.ProviderFactory;
+import com.spectrayan.spector.provider.embedding.EmbedConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import org.slf4j.Logger;
@@ -32,6 +33,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Map;
 import java.util.ServiceLoader;
 
@@ -122,19 +124,82 @@ public final class SpectorMemoryConfigurator {
         return builder(props).build();
     }
 
+    /**
+     * Derives a {@link ProviderConfig} SPI descriptor from {@link EmbeddingProperties}.
+     *
+     * @param props embedding properties
+     * @return derived ProviderConfig, or null if props is null
+     */
+    public static ProviderConfig from(EmbeddingProperties props) {
+        if (props == null) return null;
+        String type = props.getType() != null ? props.getType() : "";
+        String name = (type.isBlank() ? "default" : type.toLowerCase(Locale.ROOT)) + "-embedding";
+        return new ProviderConfig(
+                name,
+                type,
+                props.getModel() != null ? props.getModel() : "",
+                props.getApiKey() != null ? props.getApiKey() : "",
+                props.getBaseUrl() != null ? props.getBaseUrl() : "",
+                props.getDimensions(),
+                props.getProperties() != null ? props.getProperties() : Map.of()
+        );
+    }
+
+    /**
+     * Derives a {@link ProviderConfig} SPI descriptor from {@link GenerationProperties} and optional {@link LlmProperties}.
+     *
+     * @param genProps generation properties
+     * @param llmProps optional memory LLM configuration defaults
+     * @return derived ProviderConfig, or null if genProps is null
+     */
+    public static ProviderConfig from(GenerationProperties genProps, LlmProperties llmProps) {
+        if (genProps == null) return null;
+        String type = genProps.getType() != null ? genProps.getType() : "";
+        String name = (type.isBlank() ? "default" : type.toLowerCase(Locale.ROOT)) + "-generation";
+        String apiKey = genProps.getApiKey() != null ? genProps.getApiKey() : "";
+
+        float temperature = llmProps != null ? llmProps.getTemperature() : com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_LLM_TEMPERATURE;
+        int maxTokens = llmProps != null ? llmProps.getMaxTokens() : com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_LLM_MAX_TOKENS;
+        float topP = llmProps != null ? llmProps.getTopP() : com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_LLM_TOP_P;
+
+        java.util.Map<String, String> providerOptions = new java.util.HashMap<>();
+        providerOptions.put("temperature", String.valueOf(temperature));
+        providerOptions.put("maxOutputTokens", String.valueOf(maxTokens));
+        providerOptions.put("topP", String.valueOf(topP));
+        if (genProps.getProperties() != null) {
+            providerOptions.putAll(genProps.getProperties());
+        }
+
+        return new ProviderConfig(
+                name,
+                type,
+                genProps.getModel() != null ? genProps.getModel() : "",
+                apiKey,
+                genProps.getBaseUrl() != null ? genProps.getBaseUrl() : "",
+                0,
+                providerOptions
+        );
+    }
+
+    /**
+     * Derives an {@link EmbedConfig} runtime pipeline configuration from {@link EmbeddingProperties}.
+     *
+     * @param props embedding properties
+     * @return derived EmbedConfig
+     */
+    public static EmbedConfig embedConfigFrom(EmbeddingProperties props) {
+        if (props == null) return EmbedConfig.DEFAULT;
+        int batchSize = props.getBatchSize() > 0 ? props.getBatchSize() : 32;
+        int maxRetries = props.getMaxRetries() >= 0 ? props.getMaxRetries() : 3;
+        return new EmbedConfig(batchSize, maxRetries);
+    }
+
     public static EmbeddingProvider resolveEmbeddingProvider(EmbeddingProperties props) {
+        if (props == null || props.getType() == null) return null;
+        ProviderConfig config = from(props);
         ServiceLoader<ProviderFactory> loader = ServiceLoader.load(ProviderFactory.class);
         for (ProviderFactory factory : loader) {
             if (factory.supportsEmbedding() && factory.name().equalsIgnoreCase(props.getType())) {
-                ProviderConfig config = new ProviderConfig(
-                        factory.name() + "-embedding",
-                        factory.name(),
-                        props.getModel(),
-                        props.getApiKey(),
-                        props.getBaseUrl(),
-                        props.getDimensions(),
-                        Map.of()
-                );
                 return factory.createEmbeddingProvider(config).orElse(null);
             }
         }
@@ -150,35 +215,10 @@ public final class SpectorMemoryConfigurator {
             return null;
         }
 
-        String apiKey = genProps.getApiKey();
-        if ((apiKey == null || apiKey.isBlank()) && ("google".equalsIgnoreCase(type) || "gemini".equalsIgnoreCase(type))) {
-            apiKey = System.getProperty("geminiApiKey", System.getenv("GEMINI_API_KEY"));
-        }
-
-        float temperature = llmProps != null ? llmProps.getTemperature() : com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_LLM_TEMPERATURE;
-        int maxTokens = llmProps != null ? llmProps.getMaxTokens() : com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_LLM_MAX_TOKENS;
-        float topP = llmProps != null ? llmProps.getTopP() : com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_LLM_TOP_P;
-
-        java.util.Map<String, String> providerOptions = new java.util.HashMap<>();
-        providerOptions.put("temperature", String.valueOf(temperature));
-        providerOptions.put("maxOutputTokens", String.valueOf(maxTokens));
-        providerOptions.put("topP", String.valueOf(topP));
-        if (genProps.getProperties() != null) {
-            providerOptions.putAll(genProps.getProperties());
-        }
-
+        ProviderConfig config = from(genProps, llmProps);
         ServiceLoader<ProviderFactory> loader = ServiceLoader.load(ProviderFactory.class);
         for (ProviderFactory factory : loader) {
             if (factory.supportsGeneration() && factory.name().equalsIgnoreCase(type)) {
-                ProviderConfig config = new ProviderConfig(
-                        factory.name() + "-generation",
-                        factory.name(),
-                        genProps.getModel(),
-                        apiKey != null ? apiKey : "",
-                        genProps.getBaseUrl() != null ? genProps.getBaseUrl() : "",
-                        0,
-                        providerOptions
-                );
                 return factory.createGenerationProvider(config).orElse(null);
             }
         }

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
+import com.spectrayan.spector.config.properties.DecayProperties;
+
 /**
  * Configuration for the power-law decay strategy.
  *
@@ -49,19 +51,10 @@ package com.spectrayan.spector.memory.synapse;
  *       <i>JEP: General</i>, 113(1), 1-29.</li>
  * </ul>
  *
- * @param exponent power-law decay exponent d (default: 0.15, range: 0.05-1.0)
- * @param floor    minimum decay multiplier — permastore floor (default: 0.10)
- * @param buckets  precomputed bucket values; pass {@code null} to auto-generate
- *                 from exponent and floor using {@link #computeBuckets}
+ * @deprecated Use {@link DecayProperties} directly. This compatibility subclass will be removed in a future release.
  */
-public record DecayConfig(
-        float exponent,
-        float floor,
-        float[] buckets
-) {
-
-    /** Number of decay buckets in the 12-bucket power-law system. */
-    public static final int BUCKET_COUNT = 12;
+@Deprecated(since = "1.4.0", forRemoval = true)
+public class DecayConfig extends DecayProperties {
 
     /** Default from SpectorPropertyConstants: moderate forgetting (d=0.15), 10% permastore floor. */
     public static final DecayConfig DEFAULT = new DecayConfig(
@@ -75,26 +68,33 @@ public record DecayConfig(
     /** Fast forgetting: for chat assistants, ephemeral contexts. */
     public static final DecayConfig FAST_FORGET = new DecayConfig(0.30f, 0.05f, null);
 
-    /**
-     * Compact constructor with validation and auto-generation of buckets.
-     */
-    public DecayConfig {
+    public DecayConfig(float exponent, float floor, float[] buckets) {
+        super(validateExponent(exponent), validateFloor(floor), validateBuckets(buckets));
+    }
+
+    private static float validateExponent(float exponent) {
         if (exponent < 0.05f || exponent > 1.0f)
             throw new com.spectrayan.spector.commons.error.SpectorValidationException(
                     com.spectrayan.spector.commons.error.ErrorCode.ARGUMENT_OUT_OF_RANGE,
                     "exponent", 0.05f, 1.0f, exponent);
+        return exponent;
+    }
+
+    private static float validateFloor(float floor) {
         if (floor < 0.0f || floor > 0.5f)
             throw new com.spectrayan.spector.commons.error.SpectorValidationException(
                     com.spectrayan.spector.commons.error.ErrorCode.ARGUMENT_OUT_OF_RANGE,
                     "floor", 0.0f, 0.5f, floor);
-        if (buckets == null) {
-            buckets = computeBuckets(exponent, floor);
-        }
-        if (buckets.length != BUCKET_COUNT) {
+        return floor;
+    }
+
+    private static float[] validateBuckets(float[] buckets) {
+        if (buckets != null && buckets.length != BUCKET_COUNT) {
             throw new com.spectrayan.spector.commons.error.SpectorValidationException(
                     com.spectrayan.spector.commons.error.ErrorCode.LENGTH_MISMATCH,
                     "buckets", buckets.length, "BUCKET_COUNT", BUCKET_COUNT);
         }
+        return buckets;
     }
 
     /**

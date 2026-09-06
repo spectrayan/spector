@@ -37,6 +37,7 @@ import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorServerException;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,6 +95,8 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
     private final RememberPathway cognitiveTarget;
     private final DataEncryptor encryptor;
     private final boolean useBundleMode;
+    private final long textSegmentSize;
+    private final long episodicSegmentSize;
     private volatile RememberPathway rememberPathway;
 
     public void setRememberPathway(final RememberPathway rememberPathway) {
@@ -124,6 +127,31 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                      DataEncryptor encryptor,
                      boolean useBundleMode,
                      PartitionBundle activePartitionBundle) {
+        this(basePath, quantizedVecBytes, semanticCapacity, episodicPartitionCapacity, proceduralCapacity,
+                initialRouter, initialPartitionDir, initialText, initialSeq, initialFrozen,
+                index, hebbianGraph, temporalChain, cognitiveTarget, encryptor, useBundleMode,
+                activePartitionBundle, 0L, 0L);
+    }
+
+    public PartitionManager(Path basePath,
+                     int quantizedVecBytes,
+                     int semanticCapacity,
+                     int episodicPartitionCapacity,
+                     int proceduralCapacity,
+                     CognitiveMemoryRouter initialRouter,
+                     Path initialPartitionDir,
+                     TextBlobMemory initialText,
+                     int initialSeq,
+                     List<PartitionHandle> initialFrozen,
+                     MemoryIndex index,
+                     HebbianGraphBase hebbianGraph,
+                     TemporalChainMemory temporalChain,
+                     RememberPathway cognitiveTarget,
+                     DataEncryptor encryptor,
+                     boolean useBundleMode,
+                     PartitionBundle activePartitionBundle,
+                     long textSegmentSize,
+                     long episodicSegmentSize) {
         this.basePath = basePath;
         this.quantizedVecBytes = quantizedVecBytes;
         this.semanticCapacity = semanticCapacity;
@@ -135,6 +163,8 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
         this.cognitiveTarget = cognitiveTarget;
         this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
         this.useBundleMode = useBundleMode;
+        this.textSegmentSize = textSegmentSize;
+        this.episodicSegmentSize = episodicSegmentSize;
 
         // #443 Phase 2 (open-all-on-load): the registry is seeded with every discovered
         // partition — all older ones frozen/read-only, the newest active/writable.
@@ -380,10 +410,9 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                 Path bundleFile = StorageLayout.partitionBundleFile(newPartition);
                 EngramLayout cogLayout = new EngramLayout(quantizedVecBytes);
                 TextBlobLayout textLayout = new TextBlobLayout();
-                long textSize = Long.getLong("spector.memory.text-segment-size", 32 * 1024 * 1024L);
-
-                long episodicSize = Long.getLong("spector.memory.episodic-segment-size",
-                        (long) episodicPartitionCapacity * cogLayout.stride());
+                long textSize = textSegmentSize > 0 ? textSegmentSize : SpectorPropertyConstants.DEFAULT_MEMORY_TEXT_SEGMENT_SIZE;
+                long episodicSize = episodicSegmentSize > 0 ? episodicSegmentSize :
+                        ((long) episodicPartitionCapacity * cogLayout.stride());
 
                 newBundle = PartitionBundle.Init.mmap(
                         bundleFile,

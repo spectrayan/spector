@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.memory.model.*;
 
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -69,14 +70,14 @@ class ConcurrentPipelineTest {
 
     @BeforeEach
     void setUp() {
-        memory = DefaultSpectorMemory.builder()
-                .dimensions(DIMENSIONS)
+        memory = DefaultSpectorMemory.builder(new MemoryProperties()
+                        .setDimensions(DIMENSIONS)
+                        .setWorkingCapacity(100)
+                        .setEpisodicPartitionCapacity(500)
+                        .setSemanticCapacity(500)
+                        .setProceduralCapacity(500))
                 .embeddingProvider(new DeterministicEmbeddingProvider(DIMENSIONS))
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .workingCapacity(100)
-                .episodicPartitionCapacity(500)
-                .semanticCapacity(500)
-                .proceduralCapacity(500)
                 .build();
     }
 
@@ -398,14 +399,14 @@ class ConcurrentPipelineTest {
     void partitionRoll_duringConcurrentAccess() throws InterruptedException {
         // Create a memory with very small working capacity to force rolls
         memory.close();
-        memory = DefaultSpectorMemory.builder()
-                .dimensions(DIMENSIONS)
+        memory = DefaultSpectorMemory.builder(new MemoryProperties()
+                        .setDimensions(DIMENSIONS)
+                        .setWorkingCapacity(5) // tiny  --  forces frequent working -> episodic rolls
+                        .setEpisodicPartitionCapacity(50)
+                        .setSemanticCapacity(50)
+                        .setProceduralCapacity(50))
                 .embeddingProvider(new DeterministicEmbeddingProvider(DIMENSIONS))
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .workingCapacity(5) // tiny  --  forces frequent working -> episodic rolls
-                .episodicPartitionCapacity(50)
-                .semanticCapacity(50)
-                .proceduralCapacity(50)
                 .build();
 
         int writerCount = 10;

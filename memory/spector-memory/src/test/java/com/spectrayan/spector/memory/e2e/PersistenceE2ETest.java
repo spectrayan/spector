@@ -91,17 +91,18 @@ class PersistenceE2ETest extends AbstractE2ETest {
 
         try {
             // 1. Create a DISK-mode memory and ingest a few memories
-            SpectorMemory diskMemory = DefaultSpectorMemory.builder()
-                    .dimensions(embeddingProvider.dimensions())
+            var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                    .setDimensions(embeddingProvider.dimensions())
+                    .setWorkingCapacity(20)
+                    .setEpisodicPartitionCapacity(100)
+                    .setSemanticCapacity(50)
+                    .setProceduralCapacity(20)
+                    .setHebbianGraphCapacity(100)
+                    .setTemporalChainCapacity(100);
+            SpectorMemory diskMemory = DefaultSpectorMemory.builder(memProps)
                     .embeddingProvider(embeddingProvider)
                     .persistenceMode(MemoryPersistenceMode.DISK)
                     .persistence(testDataDir)
-                    .workingCapacity(20)
-                    .episodicPartitionCapacity(100)
-                    .semanticCapacity(50)
-                    .proceduralCapacity(20)
-                    .hebbianGraphCapacity(100)
-                    .temporalChainCapacity(100)
                     .build();
 
             diskMemory.remember("persist-001", "This is a test memory for persistence validation",
@@ -123,17 +124,18 @@ class PersistenceE2ETest extends AbstractE2ETest {
                     .as("Runtime storage bundle/index should exist").isTrue();
 
             // 4. Reload from disk
-            SpectorMemory reloaded = DefaultSpectorMemory.builder()
-                    .dimensions(embeddingProvider.dimensions())
+            var reloadProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                    .setDimensions(embeddingProvider.dimensions())
+                    .setWorkingCapacity(20)
+                    .setEpisodicPartitionCapacity(100)
+                    .setSemanticCapacity(50)
+                    .setProceduralCapacity(20)
+                    .setHebbianGraphCapacity(100)
+                    .setTemporalChainCapacity(100);
+            SpectorMemory reloaded = DefaultSpectorMemory.builder(reloadProps)
                     .embeddingProvider(embeddingProvider)
                     .persistenceMode(MemoryPersistenceMode.DISK)
                     .persistence(testDataDir)
-                    .workingCapacity(20)
-                    .episodicPartitionCapacity(100)
-                    .semanticCapacity(50)
-                    .proceduralCapacity(20)
-                    .hebbianGraphCapacity(100)
-                    .temporalChainCapacity(100)
                     .build();
 
             int countAfter = reloaded.totalMemories();
@@ -172,17 +174,18 @@ class PersistenceE2ETest extends AbstractE2ETest {
         Files.createDirectories(testDataDir);
 
         try {
-            SpectorMemory diskMemory = DefaultSpectorMemory.builder()
-                    .dimensions(embeddingProvider.dimensions())
+            var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                    .setDimensions(embeddingProvider.dimensions())
+                    .setWorkingCapacity(10)
+                    .setEpisodicPartitionCapacity(50)
+                    .setSemanticCapacity(20)
+                    .setProceduralCapacity(10)
+                    .setHebbianGraphCapacity(50)
+                    .setTemporalChainCapacity(50);
+            SpectorMemory diskMemory = DefaultSpectorMemory.builder(memProps)
                     .embeddingProvider(embeddingProvider)
                     .persistenceMode(MemoryPersistenceMode.DISK)
                     .persistence(testDataDir)
-                    .workingCapacity(10)
-                    .episodicPartitionCapacity(50)
-                    .semanticCapacity(20)
-                    .proceduralCapacity(10)
-                    .hebbianGraphCapacity(50)
-                    .temporalChainCapacity(50)
                     .build();
 
             diskMemory.close();

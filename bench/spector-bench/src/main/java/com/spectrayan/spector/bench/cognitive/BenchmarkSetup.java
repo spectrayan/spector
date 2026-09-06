@@ -223,17 +223,16 @@ public final class BenchmarkSetup implements AutoCloseable {
         if (memoryProperties.getCoactivationEdgeCapacity() == SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_EDGE_CAPACITY) {
             memoryProperties.setCoactivationEdgeCapacity(Math.max(50_000, corpusSize * 50));
         }
+        memoryProperties.setWorkingCapacity(Math.max(50, corpusSize / 10));
+        memoryProperties.setEpisodicPartitionCapacity(corpusSize + 100);
+        memoryProperties.setProceduralCapacity(Math.max(50, corpusSize / 5));
 
         com.spectrayan.spector.memory.SpectorMemoryBuilder builder =
                 com.spectrayan.spector.memory.config.SpectorMemoryConfigurator.builder(datasetProps)
                 .fromProperties(memoryProperties)
                 .bundleMode(true)
-                .usePathwayEngine(Boolean.parseBoolean(System.getProperty("spector.pathway.enabled", System.getProperty("usePathwayEngine", "true"))))
-                .dimensions(embedder.dimensions())
+                .usePathwayEngine(true)
                 .embeddingProvider(embedder)
-                .workingCapacity(Math.max(50, corpusSize / 10))
-                .episodicPartitionCapacity(corpusSize + 100)
-                .proceduralCapacity(Math.max(50, corpusSize / 5))
                 .chunkConfig(com.spectrayan.spector.commons.chunker.ChunkConfig.plainText(100_000, 0))
                 .circadianPolicy(com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy.builder()
                         .volumeTrigger(Integer.MAX_VALUE)
@@ -266,9 +265,8 @@ public final class BenchmarkSetup implements AutoCloseable {
         }
 
         float threshold = memoryProperties.getGraphExpansionThreshold();
-        String thresholdStr = System.getProperty("spector.memory.graphExpansionThreshold",
-                System.getProperty("spector.benchmark.graphExpansionThreshold",
-                System.getProperty("graphExpansionThreshold")));
+        String thresholdStr = System.getProperty("spector.benchmark.graphExpansionThreshold",
+                System.getProperty("graphExpansionThreshold"));
         if (thresholdStr != null && !thresholdStr.isBlank()) {
             try {
                 threshold = Float.parseFloat(thresholdStr);
@@ -279,7 +277,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                         datasetProps.getDouble("graph_expansion_threshold", threshold)));
         }
 
-        com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode expansionMode = com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.resolve();
+        com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode expansionMode = com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.GATED;
         if (memoryProperties.getGraphExpansionMode() != null && !memoryProperties.getGraphExpansionMode().isBlank()) {
             try {
                 expansionMode = com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.valueOf(
@@ -330,16 +328,16 @@ public final class BenchmarkSetup implements AutoCloseable {
         boolean useDisk = memoryProperties.getPersistenceMode() == com.spectrayan.spector.config.model.PersistenceMode.DISK
                 || Boolean.parseBoolean(System.getProperty("spector.benchmark.persistence", "true"));
         String persistenceModeStr = datasetProps != null ? datasetProps.getString("spector.memory.persistence-mode", null) : null;
-        if ("EPHEMERAL".equalsIgnoreCase(System.getProperty("spector.memory.persistence-mode", persistenceModeStr))) {
+        if ("EPHEMERAL".equalsIgnoreCase(persistenceModeStr)) {
             useDisk = false;
-        } else if ("DISK".equalsIgnoreCase(System.getProperty("spector.memory.persistence-mode", persistenceModeStr))) {
+        } else if ("DISK".equalsIgnoreCase(persistenceModeStr)) {
             useDisk = true;
         }
         Path persistencePath = null;
         if (useDisk) {
-            String sysPropPath = System.getProperty("spector.memory.persistence-path");
-            if (sysPropPath != null && !sysPropPath.isBlank()) {
-                persistencePath = Path.of(sysPropPath);
+            String configPath = memoryProperties.getPersistencePath();
+            if (configPath != null && !configPath.isBlank()) {
+                persistencePath = Path.of(configPath);
             }
             if (persistencePath == null && datasetDir != null) {
                 if (datasetConfig != null && Files.exists(datasetConfig)) {

@@ -15,12 +15,7 @@
  */
 package com.spectrayan.spector.config;
 
-import com.spectrayan.spector.config.properties.HnswProperties;
-import com.spectrayan.spector.config.properties.IngestionProperties;
-import com.spectrayan.spector.config.properties.IvfProperties;
-import com.spectrayan.spector.config.properties.MemoryProperties;
-import com.spectrayan.spector.config.properties.ProviderProperties;
-import com.spectrayan.spector.config.properties.SpectrumProperties;
+import com.spectrayan.spector.config.properties.*;
 
 import java.io.Serializable;
 import java.nio.file.Path;
@@ -71,6 +66,11 @@ public final class SpectorProperties implements Serializable {
     private final HnswProperties hnsw;
     private final IvfProperties ivf;
     private final SpectrumProperties spectrum;
+    private final TelemetryProperties telemetry;
+    private final MultimodalProperties multimodal;
+    private final HardwareProperties hardware;
+    private final EventsProperties events;
+    private final ConcurrencyProperties concurrency;
     private final transient SpectorConfigSource source;
 
     /**
@@ -83,12 +83,34 @@ public final class SpectorProperties implements Serializable {
                       IvfProperties ivf,
                       SpectrumProperties spectrum,
                       SpectorConfigSource source) {
+        this(memory, provider, ingestion, hnsw, ivf, spectrum,
+                new TelemetryProperties(), new MultimodalProperties(), new HardwareProperties(),
+                new EventsProperties(), new ConcurrencyProperties(), source);
+    }
+
+    SpectorProperties(MemoryProperties memory,
+                      ProviderProperties provider,
+                      IngestionProperties ingestion,
+                      HnswProperties hnsw,
+                      IvfProperties ivf,
+                      SpectrumProperties spectrum,
+                      TelemetryProperties telemetry,
+                      MultimodalProperties multimodal,
+                      HardwareProperties hardware,
+                      EventsProperties events,
+                      ConcurrencyProperties concurrency,
+                      SpectorConfigSource source) {
         this.memory = memory != null ? memory : new MemoryProperties();
         this.provider = provider != null ? provider : new ProviderProperties();
         this.ingestion = ingestion != null ? ingestion : new IngestionProperties();
         this.hnsw = hnsw;
         this.ivf = ivf;
         this.spectrum = spectrum;
+        this.telemetry = telemetry != null ? telemetry : new TelemetryProperties();
+        this.multimodal = multimodal != null ? multimodal : new MultimodalProperties();
+        this.hardware = hardware != null ? hardware : new HardwareProperties();
+        this.events = events != null ? events : new EventsProperties();
+        this.concurrency = concurrency != null ? concurrency : new ConcurrencyProperties();
         this.source = source;
     }
 
@@ -150,6 +172,106 @@ public final class SpectorProperties implements Serializable {
         return SpectorConfigFactory.spectorProperties(source);
     }
 
+    /**
+     * Creates a new builder for programmatic assembly of {@link SpectorProperties}.
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /**
+     * Creates a {@link SpectorProperties} aggregate containing the specified memory configuration
+     * and default configurations for all other sub-domains.
+     */
+    public static SpectorProperties of(MemoryProperties memory) {
+        return builder().memory(memory).build();
+    }
+
+    /**
+     * Creates a {@link SpectorProperties} aggregate containing the specified memory and provider
+     * configurations and default configurations for all other sub-domains.
+     */
+    public static SpectorProperties of(MemoryProperties memory, ProviderProperties provider) {
+        return builder().memory(memory).provider(provider).build();
+    }
+
+    /**
+     * Fluent builder for {@link SpectorProperties}.
+     */
+    public static final class Builder {
+        private MemoryProperties memory;
+        private ProviderProperties provider;
+        private IngestionProperties ingestion;
+        private HnswProperties hnsw;
+        private IvfProperties ivf;
+        private SpectrumProperties spectrum;
+        private TelemetryProperties telemetry;
+        private MultimodalProperties multimodal;
+        private HardwareProperties hardware;
+        private EventsProperties events;
+        private ConcurrencyProperties concurrency;
+        private SpectorConfigSource source;
+
+        public Builder memory(MemoryProperties memory) { this.memory = memory; return this; }
+        public Builder provider(ProviderProperties provider) { this.provider = provider; return this; }
+        public Builder ingestion(IngestionProperties ingestion) { this.ingestion = ingestion; return this; }
+        public Builder hnsw(HnswProperties hnsw) { this.hnsw = hnsw; return this; }
+        public Builder ivf(IvfProperties ivf) { this.ivf = ivf; return this; }
+        public Builder spectrum(SpectrumProperties spectrum) { this.spectrum = spectrum; return this; }
+        public Builder telemetry(TelemetryProperties telemetry) { this.telemetry = telemetry; return this; }
+        public Builder multimodal(MultimodalProperties multimodal) { this.multimodal = multimodal; return this; }
+        public Builder hardware(HardwareProperties hardware) { this.hardware = hardware; return this; }
+        public Builder events(EventsProperties events) { this.events = events; return this; }
+        public Builder concurrency(ConcurrencyProperties concurrency) { this.concurrency = concurrency; return this; }
+        public Builder source(SpectorConfigSource source) { this.source = source; return this; }
+
+        public SpectorProperties build() {
+            return new SpectorProperties(
+                    memory != null ? memory : new MemoryProperties(),
+                    provider != null ? provider : new ProviderProperties(),
+                    ingestion != null ? ingestion : new IngestionProperties(),
+                    hnsw, ivf, spectrum,
+                    telemetry != null ? telemetry : new TelemetryProperties(),
+                    multimodal != null ? multimodal : new MultimodalProperties(),
+                    hardware != null ? hardware : new HardwareProperties(),
+                    events != null ? events : new EventsProperties(),
+                    concurrency != null ? concurrency : new ConcurrencyProperties(),
+                    source
+            );
+        }
+    }
+
+    /**
+     * Creates a full deep copy of this {@link SpectorProperties} aggregate root,
+     * deep-copying all mutable child properties.
+     */
+    public SpectorProperties copy() {
+        return new SpectorProperties(
+                this.memory != null ? this.memory.copy() : new MemoryProperties(),
+                this.provider != null ? this.provider.copy() : new ProviderProperties(),
+                this.ingestion != null ? this.ingestion.copy() : new IngestionProperties(),
+                this.hnsw != null ? this.hnsw.copy() : null,
+                this.ivf != null ? this.ivf.copy() : null,
+                this.spectrum != null ? this.spectrum.copy() : null,
+                this.telemetry != null ? this.telemetry.copy() : new TelemetryProperties(),
+                this.multimodal != null ? this.multimodal.copy() : new MultimodalProperties(),
+                this.hardware != null ? this.hardware.copy() : new HardwareProperties(),
+                this.events != null ? this.events.copy() : new EventsProperties(),
+                this.concurrency != null ? this.concurrency.copy() : new ConcurrencyProperties(),
+                this.source
+        );
+    }
+
+    /**
+     * Creates a deep copy of this {@link SpectorProperties} with memory dimensions set to {@code dims}.
+     * The original instance is never mutated.
+     */
+    public SpectorProperties withDimensions(int dims) {
+        SpectorProperties cp = copy();
+        cp.memory().setDimensions(dims);
+        return cp;
+    }
+
     // ─────────────── Typed Accessors ───────────────
 
     /**
@@ -191,6 +313,41 @@ public final class SpectorProperties implements Serializable {
      * Maps to {@code spector.spectrum.*} namespace.
      */
     public SpectrumProperties spectrum() { return spectrum; }
+
+    /**
+     * Returns the Telemetry configuration.
+     * Maps to {@code spector.telemetry.*} namespace.
+     */
+    public TelemetryProperties telemetry() { return telemetry; }
+    public TelemetryProperties getTelemetry() { return telemetry; }
+
+    /**
+     * Returns the Multimodal sensory media configuration.
+     * Maps to {@code spector.multimodal.*} namespace.
+     */
+    public MultimodalProperties multimodal() { return multimodal; }
+    public MultimodalProperties getMultimodal() { return multimodal; }
+
+    /**
+     * Returns the Hardware & GPU configuration.
+     * Maps to {@code spector.hardware.*} and {@code spector.gpu.*} namespaces.
+     */
+    public HardwareProperties hardware() { return hardware; }
+    public HardwareProperties getHardware() { return hardware; }
+
+    /**
+     * Returns the Event Bus configuration.
+     * Maps to {@code spector.events.*} namespace.
+     */
+    public EventsProperties events() { return events; }
+    public EventsProperties getEvents() { return events; }
+
+    /**
+     * Returns the Concurrency configuration.
+     * Maps to {@code spector.concurrency.*} namespace.
+     */
+    public ConcurrencyProperties concurrency() { return concurrency; }
+    public ConcurrencyProperties getConcurrency() { return concurrency; }
 
     /**
      * Returns the underlying raw configuration source.

@@ -34,6 +34,7 @@ import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.metrics.MeteredSpectorMemory;
 import com.spectrayan.spector.metrics.SpectorMetrics;
 
@@ -75,6 +76,9 @@ import com.spectrayan.spector.mcp.tools.SpectorToolRegistry;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
+import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
+import com.spectrayan.spector.core.spi.AcceleratorRegistry;
+import com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutors;
 
 /**
  * Spring Boot auto-configuration for embedded Spector Cognitive Memory.
@@ -137,39 +141,32 @@ public class SpectorAutoConfiguration {
                                  ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistryProvider,
                                  ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider) {
 
-        var memoryProps = props.getMemory();
+        var spectorProps = props.toSpectorProperties();
+        var memoryProps = spectorProps.memory();
         EmbeddingProvider embedder = embedderProvider.getIfAvailable();
 
         if (embedder == null) {
             throw new SpectorInternalException(ErrorCode.ARGUMENT_NULL, "EmbeddingProvider bean (configure provider or set spector.memory.enabled=false)");
         }
 
-        var builder = DefaultSpectorMemory.builder()
-                .dimensions(memoryProps.getDimensions())
-                .embeddingProvider(embedder)
-                .persistenceMode(MemoryPersistenceMode.valueOf(memoryProps.getPersistenceMode().name()))
-                .semanticCapacity(memoryProps.getCapacity())
-                .hebbianGraphCapacity(memoryProps.getCapacity())
-                .temporalChainCapacity(memoryProps.getCapacity())
-                .entityGraphCapacity(memoryProps.getCapacity())
-                .embedBatchSize(props.getProvider().getEmbedding().getBatchSize())
-                .bundleMode(memoryProps.isBundleMode())
-                .coactivationPairCapacity(memoryProps.coactivationPairCapacity())
-                .coactivationEdgeCapacity(memoryProps.coactivationEdgeCapacity())
-                .temporalFactsInitialSize(memoryProps.temporalFactsInitialSize())
-                .indexMidxCapacity(memoryProps.indexMidxCapacity())
-                .indexIdplSize(memoryProps.indexIdplSize())
-                .typeRegistryCapacity(memoryProps.typeRegistryCapacity())
-                .typeRegistrySize(memoryProps.typeRegistrySize())
-                .insulaSize(memoryProps.insulaSize());
-
-        if (memoryProps.getPersistencePath() != null) {
-            builder.persistence(Path.of(memoryProps.getPersistencePath()));
+        if (spectorProps.hardware() != null) {
+            AcceleratorRegistry.setBatchThreshold(
+                    spectorProps.hardware().getGpuBatchThreshold());
+        }
+        if (spectorProps.concurrency() != null) {
+            ConcurrentTasks.setStructuredEnabled(
+                    spectorProps.concurrency().isStructured());
+        }
+        if (spectorProps.memory() != null && spectorProps.memory().getCircadian() != null
+                && spectorProps.memory().getCircadian().getOrchestrator() != null
+                && !spectorProps.memory().getCircadian().getOrchestrator().isBlank()) {
+            ReflectSweepExecutors.setOrchestrator(
+                    spectorProps.memory().getCircadian().getOrchestrator());
         }
 
-        if (memoryProps.getAisme() != null) {
-            builder.aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(memoryProps.getAisme()));
-        }
+        var builder = SpectorMemoryBuilder.createEmpty()
+                .fromProperties(spectorProps)
+                .embeddingProvider(embedder);
 
         //  Entity extraction (LLM if LlmProvider is present)
         LlmProvider textGen = textGenProvider.getIfAvailable();

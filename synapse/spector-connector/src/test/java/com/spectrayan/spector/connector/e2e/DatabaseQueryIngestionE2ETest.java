@@ -129,7 +129,6 @@ class DatabaseQueryIngestionE2ETest {
         // 2. Real SpectorMemory with deterministic embedding provider
         embeddingProvider = new StubEmbeddingProvider(DIMS);
         memory = DefaultSpectorMemory.builder()
-                .dimensions(DIMS)
                 .embeddingProvider(embeddingProvider)
                 .build();
 

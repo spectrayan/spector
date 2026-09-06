@@ -44,11 +44,12 @@ class NamespaceRegistryTest {
     }
 
     private SpectorMemory createTestMemory(String namespaceId) {
-        return DefaultSpectorMemory.builder()
-                .dimensions(embedProvider.dimensions())
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(embedProvider.dimensions())
+                .setNamespaceId(namespaceId);
+        return DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(embedProvider)
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .namespaceId(namespaceId)
                 .managedByRegistry(true)
                 .build();
     }

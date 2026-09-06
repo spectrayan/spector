@@ -54,17 +54,19 @@ class PartitionConsolidationTest {
         embeddingProvider = new TestEmbeddingProvider(DIMENSIONS);
         llmProvider = new MockLlmProvider();
 
-        return DefaultSpectorMemory.builder()
-                .dimensions(DIMENSIONS)
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(DIMENSIONS)
+                .setWorkingCapacity(32)
+                .setEpisodicPartitionCapacity(16)
+                .setSemanticCapacity(semanticCap)
+                .setProceduralCapacity(32);
+        memProps.getRemember().setSurpriseWarmup(1);
+
+        return DefaultSpectorMemory.builder(memProps)
                 .embeddingProvider(embeddingProvider)
-                .LlmProvider(llmProvider)
+                .llmProvider(llmProvider)
                 .persistenceMode(MemoryPersistenceMode.DISK)
                 .persistence(dir)
-                .workingCapacity(32)
-                .episodicPartitionCapacity(16)
-                .semanticCapacity(semanticCap)
-                .proceduralCapacity(32)
-                .surpriseWarmup(1)
                 .build();
     }
 

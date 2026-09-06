@@ -98,6 +98,25 @@ public class RecallProperties implements Serializable {
     public void setValenceAlignment(ValenceAlignmentProperties valenceAlignment) { this.valenceAlignment = valenceAlignment; }
     public ValenceAlignmentProperties valenceAlignment() { return valenceAlignment; }
 
+    public RecallProperties copy() {
+        RecallProperties cp = new RecallProperties();
+        cp.scoringMode = this.scoringMode;
+        cp.scoreFusionMode = this.scoreFusionMode;
+        cp.strictnessCoefficient = this.strictnessCoefficient;
+        cp.traceEnabled = this.traceEnabled;
+        cp.mode = this.mode;
+        cp.engine = this.engine;
+        cp.maxReplayEvents = this.maxReplayEvents;
+        cp.includeContradictions = this.includeContradictions;
+        cp.mmr = this.mmr != null ? this.mmr.copy() : new MmrProperties();
+        cp.textSearch = this.textSearch != null ? this.textSearch.copy() : new TextSearchProperties();
+        cp.reranker = this.reranker != null ? this.reranker.copy() : new RerankerProperties();
+        cp.lateral = this.lateral != null ? this.lateral.copy() : new LateralProperties();
+        cp.autoProfile = this.autoProfile != null ? this.autoProfile.copy() : new AutoProfileProperties();
+        cp.valenceAlignment = this.valenceAlignment != null ? this.valenceAlignment.copy() : new ValenceAlignmentProperties();
+        return cp;
+    }
+
     // Inner classes:
     public static class MmrProperties implements Serializable {
         private static final long serialVersionUID = 1L;
@@ -111,6 +130,13 @@ public class RecallProperties implements Serializable {
         public float getLambda() { return lambda; }
         public void setLambda(float lambda) { this.lambda = lambda; }
         public float lambda() { return lambda; }
+
+        public MmrProperties copy() {
+            MmrProperties cp = new MmrProperties();
+            cp.enabled = this.enabled;
+            cp.lambda = this.lambda;
+            return cp;
+        }
     }
     
     public static class TextSearchProperties implements Serializable {
@@ -125,6 +151,13 @@ public class RecallProperties implements Serializable {
         public String getMode() { return mode; }
         public void setMode(String mode) { this.mode = mode; }
         public String mode() { return mode; }
+
+        public TextSearchProperties copy() {
+            TextSearchProperties cp = new TextSearchProperties();
+            cp.enabled = this.enabled;
+            cp.mode = this.mode;
+            return cp;
+        }
     }
     
     public static class RerankerProperties implements Serializable {
@@ -139,6 +172,13 @@ public class RecallProperties implements Serializable {
         public int getDepth() { return depth; }
         public void setDepth(int depth) { this.depth = depth; }
         public int depth() { return depth; }
+
+        public RerankerProperties copy() {
+            RerankerProperties cp = new RerankerProperties();
+            cp.enabled = this.enabled;
+            cp.depth = this.depth;
+            return cp;
+        }
     }
     
     public static class LateralProperties implements Serializable {
@@ -158,6 +198,14 @@ public class RecallProperties implements Serializable {
         public float getMinTagOverlap() { return minTagOverlap; }
         public void setMinTagOverlap(float minTagOverlap) { this.minTagOverlap = minTagOverlap; }
         public float minTagOverlap() { return minTagOverlap; }
+
+        public LateralProperties copy() {
+            LateralProperties cp = new LateralProperties();
+            cp.enabled = this.enabled;
+            cp.distanceThreshold = this.distanceThreshold;
+            cp.minTagOverlap = this.minTagOverlap;
+            return cp;
+        }
     }
     
     public static class AutoProfileProperties implements Serializable {
@@ -167,6 +215,12 @@ public class RecallProperties implements Serializable {
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
         public boolean enabled() { return enabled; }
+
+        public AutoProfileProperties copy() {
+            AutoProfileProperties cp = new AutoProfileProperties();
+            cp.enabled = this.enabled;
+            return cp;
+        }
     }
     
     public static class ValenceAlignmentProperties implements Serializable {
@@ -176,5 +230,11 @@ public class RecallProperties implements Serializable {
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
         public boolean enabled() { return enabled; }
+
+        public ValenceAlignmentProperties copy() {
+            ValenceAlignmentProperties cp = new ValenceAlignmentProperties();
+            cp.enabled = this.enabled;
+            return cp;
+        }
     }
 }

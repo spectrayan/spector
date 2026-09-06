@@ -182,7 +182,7 @@ public final class LangChain4jHelper {
             } else {
                 boolean insecure = Boolean.parseBoolean(config.properties().getOrDefault("insecure",
                         config.properties().getOrDefault("trustAllCertificates",
-                        System.getProperty("spector.ssl.insecure", "false"))));
+                        config.properties().getOrDefault("sslInsecure", "false"))));
                 if (insecure) {
                     try {
                         javax.net.ssl.TrustManager[] trustAll = new javax.net.ssl.TrustManager[]{

@@ -79,9 +79,6 @@ public class EventBus<E extends SpectorEvent> implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(EventBus.class);
 
-    /** System property to enable async event dispatch on virtual threads. */
-    private static final String ASYNC_PROP = "spector.events.async";
-
     // In-process subscribers — receive ALL events (no scope filtering)
     private final List<Consumer<E>> subscribers = new CopyOnWriteArrayList<>();
 
@@ -93,10 +90,19 @@ public class EventBus<E extends SpectorEvent> implements AutoCloseable {
     // ── Constructors ────────────────────────────────────────────────
 
     /**
-     * Creates an event bus with no transports (in-process subscribers only).
+     * Creates an event bus with synchronous delivery and no transports (in-process subscribers only).
      */
     public EventBus() {
-        this.asyncMode = Boolean.getBoolean(ASYNC_PROP);
+        this(false);
+    }
+
+    /**
+     * Creates an event bus with the specified asyncMode and no transports.
+     *
+     * @param asyncMode whether to publish events asynchronously on virtual threads
+     */
+    public EventBus(boolean asyncMode) {
+        this.asyncMode = asyncMode;
     }
 
     /**
@@ -105,7 +111,17 @@ public class EventBus<E extends SpectorEvent> implements AutoCloseable {
      * @param transport the initial notification transport
      */
     public EventBus(NotificationTransport<E> transport) {
-        this();
+        this(transport, false);
+    }
+
+    /**
+     * Creates an event bus with an initial transport and explicit asyncMode.
+     *
+     * @param transport the initial notification transport
+     * @param asyncMode whether to publish events asynchronously on virtual threads
+     */
+    public EventBus(NotificationTransport<E> transport, boolean asyncMode) {
+        this(asyncMode);
         if (transport != null) {
             this.transports.add(transport);
         }
@@ -120,8 +136,17 @@ public class EventBus<E extends SpectorEvent> implements AutoCloseable {
      * telemetry, and other events that don't need audience targeting.</p>
      */
     public static <E extends SpectorEvent> EventBus<E> broadcast() {
+        return broadcast(false);
+    }
+
+    /**
+     * Creates a broadcast event bus with explicit asyncMode.
+     *
+     * @param asyncMode whether to publish events asynchronously on virtual threads
+     */
+    public static <E extends SpectorEvent> EventBus<E> broadcast(boolean asyncMode) {
         return new EventBus<>(new LocalNotificationTransport<>(
-                e -> NotificationScope.BROADCAST));
+                e -> NotificationScope.BROADCAST), asyncMode);
     }
 
     /**
@@ -135,7 +160,18 @@ public class EventBus<E extends SpectorEvent> implements AutoCloseable {
      */
     public static <E extends SpectorEvent> EventBus<E> scoped(
             Function<E, NotificationScope> scopeExtractor) {
-        return new EventBus<>(new LocalNotificationTransport<>(scopeExtractor));
+        return scoped(scopeExtractor, false);
+    }
+
+    /**
+     * Creates a scoped event bus with scope-aware delivery and explicit asyncMode.
+     *
+     * @param scopeExtractor function to extract scope from events
+     * @param asyncMode whether to publish events asynchronously on virtual threads
+     */
+    public static <E extends SpectorEvent> EventBus<E> scoped(
+            Function<E, NotificationScope> scopeExtractor, boolean asyncMode) {
+        return new EventBus<>(new LocalNotificationTransport<>(scopeExtractor), asyncMode);
     }
 
     // ── Publishing ──────────────────────────────────────────────────
