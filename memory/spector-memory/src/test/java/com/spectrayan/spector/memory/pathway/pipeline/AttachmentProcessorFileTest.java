@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.pathway.pipeline;
 import com.spectrayan.spector.ingestion.sensory.AssetStore;
 import com.spectrayan.spector.ingestion.sensory.SensoryExtractor;
 import com.spectrayan.spector.ingestion.sensory.SensoryExtractor.ExtractionChunk;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.pathway.pipeline.AttachmentProcessor.AttachmentResult;
 
@@ -90,7 +90,7 @@ class AttachmentProcessorFileTest {
 
             var processor = new AttachmentProcessor(List.of(imageExtractor), null);
 
-            var context = IngestionContext.builder()
+            var context = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, imageFile.toAbsolutePath().toString())
                     .build();
 
@@ -113,7 +113,7 @@ class AttachmentProcessorFileTest {
 
             var processor = new AttachmentProcessor(List.of(textExtractor), null);
 
-            var context = IngestionContext.builder()
+            var context = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, textFile.toAbsolutePath().toString())
                     .build();
 
@@ -128,7 +128,7 @@ class AttachmentProcessorFileTest {
 
             var processor = new AttachmentProcessor(List.of(imageExtractor), null);
 
-            var context = IngestionContext.builder()
+            var context = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, unknownFile.toAbsolutePath().toString())
                     .build();
 
@@ -159,7 +159,7 @@ class AttachmentProcessorFileTest {
                     List.of(imageExtractor, textExtractor), null);
 
             String attachments = imageFile.toAbsolutePath() + "," + textFile.toAbsolutePath();
-            var context = IngestionContext.builder()
+            var context = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, attachments)
                     .build();
 
@@ -184,7 +184,7 @@ class AttachmentProcessorFileTest {
 
             var processor = new AttachmentProcessor(List.of(multiExtractor), null);
 
-            var context = IngestionContext.builder()
+            var context = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, textFile.toAbsolutePath().toString())
                     .build();
 
@@ -213,7 +213,7 @@ class AttachmentProcessorFileTest {
 
             var processor = new AttachmentProcessor(List.of(imageExtractor), mockStore);
 
-            var context = IngestionContext.builder()
+            var context = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, imageFile.toAbsolutePath().toString())
                     .build();
 
@@ -238,7 +238,7 @@ class AttachmentProcessorFileTest {
 
             var processor = new AttachmentProcessor(List.of(imageExtractor), failingStore);
 
-            var context = IngestionContext.builder()
+            var context = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, imageFile.toAbsolutePath().toString())
                     .build();
 
@@ -262,7 +262,7 @@ class AttachmentProcessorFileTest {
             var extractor = new MockExtractor(Set.of("text/plain"), List.of());
             var processor = new AttachmentProcessor(List.of(extractor), null);
 
-            var context = IngestionContext.builder()
+            var context = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, "/nonexistent/file.txt")
                     .build();
 
@@ -283,7 +283,7 @@ class AttachmentProcessorFileTest {
 
             // Image will use failingExtractor, text will use goodExtractor
             String attachments = imageFile.toAbsolutePath() + "," + textFile.toAbsolutePath();
-            var context = IngestionContext.builder()
+            var context = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, attachments)
                     .build();
 
@@ -304,7 +304,7 @@ class AttachmentProcessorFileTest {
         @DisplayName("Empty attachments key returns empty list")
         void emptyAttachmentsKeyEmpty() {
             var processor = new AttachmentProcessor(List.of(), null);
-            var context = IngestionContext.builder()
+            var context = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, "")
                     .build();
             assertTrue(processor.processAttachments("id", context).isEmpty());
@@ -329,7 +329,7 @@ class AttachmentProcessorFileTest {
 
             var processor = new AttachmentProcessor(List.of(extractor), null);
 
-            var context = IngestionContext.builder()
+            var context = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, imageFile.toAbsolutePath().toString())
                     .build();
 
@@ -354,7 +354,7 @@ class AttachmentProcessorFileTest {
 
             var processor = new AttachmentProcessor(List.of(extractor), null);
 
-            var context = IngestionContext.builder()
+            var context = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, imageFile.toAbsolutePath().toString())
                     .build();
 

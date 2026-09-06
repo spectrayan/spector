@@ -24,7 +24,7 @@ package com.spectrayan.spector.memory.model;
  * <pre>{@code
  *   // Step 1: LLM asks Spector to evaluate a memory
  *   var est = memory.estimateImportance("The database crashed after migration",
- *       new IngestionHints(0.7f, 0.3f, 0.9f));
+ *       new RememberHints(0.7f, 0.3f, 0.9f));
  *
  *   // Step 2: LLM sees: novelty=0.82, fusedImportance=7.8, nearestId="mem-42"
  *   //         Decides to proceed with adjusted urgency.

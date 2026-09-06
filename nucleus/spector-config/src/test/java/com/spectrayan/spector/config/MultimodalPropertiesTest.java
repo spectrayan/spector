@@ -124,7 +124,7 @@ class MultimodalPropertiesTest {
         @Test
         @DisplayName("Loads from classpath defaults")
         void loadsFromDefaults() {
-            SpectorProperties props = SpectorProperties.loadClasspathOnly();
+            SpectorConfigSource props = SpectorConfigSource.loadClasspathOnly();
             MultimodalProperties config = MultimodalProperties.from(props);
 
             // Should use defaults when not specified in spector-defaults.yml
@@ -135,7 +135,7 @@ class MultimodalPropertiesTest {
         @Test
         @DisplayName("Overrides from properties")
         void overridesFromProperties() {
-            SpectorProperties props = SpectorProperties.builder()
+            SpectorConfigSource props = SpectorConfigSource.builder()
                     .override("spector.multimodal.enabled", "true")
                     .override("spector.multimodal.vision.model", "llava")
                     .override("spector.multimodal.audio.model", "qwen2-audio")

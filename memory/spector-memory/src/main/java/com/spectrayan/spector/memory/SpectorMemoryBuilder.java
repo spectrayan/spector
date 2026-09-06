@@ -16,6 +16,9 @@ import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.api.CognitiveProfileConfig;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
+import com.spectrayan.spector.memory.model.RecallOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
 import com.spectrayan.spector.memory.neuromod.dopamine.DefaultImportanceProvider;
@@ -100,17 +103,18 @@ import com.spectrayan.spector.config.SpectorPropertyConstants;
  */
 public final class SpectorMemoryBuilder {
 
+    private static final Logger log = LoggerFactory.getLogger(SpectorMemoryBuilder.class);
+
     //  Core configuration 
     private boolean managedByRegistry = false;
     private boolean useBundleMode = true;   // V4 bundle architecture (ADR-0004)
+    private RecallOptions defaultRecallOptions = RecallOptions.DEFAULT;
     private int dimensions;
     private EmbeddingProvider embeddingProvider;
     private Path persistencePath;
     private MemoryPersistenceMode persistenceMode = MemoryPersistenceMode.valueOf(
             com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_PERSISTENCE_MODE_NAME);
-    private int maxActiveNamespaces = Integer.getInteger(
-            com.spectrayan.spector.config.SpectorPropertyConstants.MEMORY_MAX_NAMESPACES,
-            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_MAX_NAMESPACES);
+    private int maxActiveNamespaces = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_MAX_NAMESPACES;
     private String namespaceId = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_NAMESPACE_ID;
     private boolean persistWorkingMemory = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_PERSIST_WORKING_MEMORY;
     private CircadianPolicy circadianPolicy = CircadianPolicy.DEFAULT;
@@ -219,13 +223,16 @@ public final class SpectorMemoryBuilder {
     private int eagerConsolidationQueueCapacity = SpectorPropertyConstants.DEFAULT_MEMORY_EAGER_CONSOLIDATION_QUEUE_CAPACITY;
 
     // Cognitive Pathway Engine (#561) — default engine (legacy pipeline deprecated)
-    private boolean usePathwayEngine = Boolean.parseBoolean(System.getProperty("spector.pathway.enabled", "true"));
+    private boolean usePathwayEngine = true;
 
     // Active Inference Self-Model Engine (AISME) (#597)
     private com.spectrayan.spector.memory.aisme.config.AismeConfig aismeConfig = com.spectrayan.spector.memory.aisme.config.AismeConfig.disabled();
     private com.spectrayan.spector.memory.model.AgentSoul agentSoul;
     private com.spectrayan.spector.memory.model.SoulContext soul;
     private java.util.List<com.spectrayan.spector.memory.model.SoulContext> soulContexts;
+
+    // Full aggregate root configuration (Phase 3 — #757)
+    private com.spectrayan.spector.config.SpectorProperties spectorProperties;
 
     // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
     // FACTORY
@@ -360,6 +367,17 @@ public final class SpectorMemoryBuilder {
      */
     public SpectorMemoryBuilder chunkConfig(com.spectrayan.spector.commons.chunker.ChunkConfig config) {
         this.chunkConfig = config != null ? config : com.spectrayan.spector.commons.chunker.ChunkConfig.DEFAULT;
+        return this;
+    }
+
+    /**
+     * Sets the default recall options to use when options are not explicitly specified.
+     *
+     * @param options default recall options
+     * @return this builder
+     */
+    public SpectorMemoryBuilder defaultRecallOptions(RecallOptions options) {
+        this.defaultRecallOptions = options != null ? options : RecallOptions.DEFAULT;
         return this;
     }
 
@@ -661,6 +679,33 @@ public final class SpectorMemoryBuilder {
     }
 
     /**
+     * Returns the aggregate root configuration, if set via
+     * {@link #fromProperties(com.spectrayan.spector.config.SpectorProperties)}.
+     */
+    public com.spectrayan.spector.config.SpectorProperties spectorProperties() {
+        return this.spectorProperties;
+    }
+
+    /**
+     * Applies configuration from the full aggregate {@link com.spectrayan.spector.config.SpectorProperties}.
+     *
+     * <p>This is the preferred entry point for configuring the builder.
+     * It delegates to {@link #fromProperties(com.spectrayan.spector.config.properties.MemoryProperties)}
+     * for memory-specific fields, then wires additional properties:
+     * chunking config from {@code props.memory().getRemember().getChunk()},
+     * maxNamespaces, pathwayEnabled, and graph scoring policy from the
+     * graph sub-domain.</p>
+     *
+     * @param props full aggregate root configuration
+     * @return this builder
+     */
+    public SpectorMemoryBuilder fromProperties(com.spectrayan.spector.config.SpectorProperties props) {
+        if (props == null) return this;
+        this.spectorProperties = props;
+        return fromProperties(props.memory());
+    }
+
+    /**
      * Applies configuration properties from a {@link com.spectrayan.spector.config.properties.MemoryProperties} instance (#605).
      *
      * @param properties memory configuration properties
@@ -707,7 +752,81 @@ public final class SpectorMemoryBuilder {
         if (properties.getAisme() != null) {
             this.aismeConfig = com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(properties.getAisme());
         }
-        if (properties.getGraphExpansionMode() != null) {
+        if (properties.getRecall() != null) {
+            this.defaultRecallOptions = RecallOptions.from(properties.getRecall());
+        }
+
+        var remember = properties.getRemember();
+        if (remember != null) {
+            this.surpriseWarmup = remember.getSurpriseWarmup();
+            this.flashbulbThreshold = remember.getFlashbulbThreshold();
+            this.valenceLearningRate = remember.getValenceLearningRate();
+            this.deduplicationRadius = remember.getDeduplicationRadius();
+            this.inhibitionTtlMs = remember.getInhibitionTtlMs();
+            this.inhibitionFloor = remember.getInhibitionFloor();
+            this.pinSourceEpisodes = remember.isPinSourceEpisodes();
+            this.pinnedQuota = remember.getPinnedQuota();
+
+            var chunk = remember.getChunk();
+            if (chunk != null) {
+                this.chunkConfig = com.spectrayan.spector.commons.chunker.ChunkConfig.markdown(
+                        chunk.getSize(), chunk.getOverlap());
+            }
+
+            var icnu = remember.getIcnu();
+            if (icnu != null) {
+                this.icnuWeights = new com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights(
+                        icnu.getWeightInterest(), icnu.getWeightChallenge(),
+                        icnu.getWeightNovelty(), icnu.getWeightUrgency());
+            }
+        }
+
+        if (properties.getMaxNamespaces() > 0) {
+            this.maxActiveNamespaces = properties.getMaxNamespaces();
+        }
+        this.usePathwayEngine = properties.isPathwayEnabled();
+
+        var graph = properties.getGraph();
+        if (graph != null) {
+            try {
+                var mode = com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.valueOf(
+                        graph.getExpansionMode().toUpperCase(java.util.Locale.ROOT));
+                this.graphScoringPolicy = new com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy(
+                        graph.getCausalBoost(),
+                        graph.getHebbianBoost(),
+                        graph.getTemporalForward(),
+                        graph.getTemporalBackward(),
+                        graph.getEntityAttenuation(),
+                        graphScoringPolicy.hebbianMaxDepth(),
+                        graphScoringPolicy.temporalMaxHops(),
+                        graphScoringPolicy.entityMaxHops(),
+                        graph.getExpansionThreshold(),
+                        mode
+                );
+            } catch (Exception e) {
+                log.warn("Failed to parse graph expansion mode '{}', keeping default", graph.getExpansionMode(), e);
+            }
+
+            var hebbian = graph.getHebbian();
+            if (hebbian != null) {
+                this.hebbianMaxDegree = hebbian.getMaxDegree();
+            }
+            var entity = graph.getEntity();
+            if (entity != null) {
+                this.entityMaxDegree = entity.getMaxDegree();
+                this.maxEntitiesPerMemory = entity.getMaxPerMemory();
+                this.entityResolutionEnabled = entity.isResolutionEnabled();
+                this.entityShadowMode = entity.isShadowMode();
+                this.entityCosineThreshold = entity.getCosineThreshold();
+                this.temporalRetentionDays = entity.getRetentionDays();
+                try {
+                    this.entityExtractionMode = com.spectrayan.spector.memory.graph.EntityExtractionMode.valueOf(
+                            entity.getExtractionMode().toUpperCase(java.util.Locale.ROOT));
+                } catch (Exception e) {
+                    log.warn("Failed to parse entity extraction mode '{}', keeping default", entity.getExtractionMode(), e);
+                }
+            }
+        } else if (properties.getGraphExpansionMode() != null) {
             try {
                 com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode mode =
                         com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionMode.valueOf(
@@ -724,7 +843,9 @@ public final class SpectorMemoryBuilder {
                         properties.getGraphExpansionThreshold(),
                         mode
                 );
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("Failed to parse graph expansion mode '{}', keeping default", properties.getGraphExpansionMode(), e);
+            }
         }
         return this;
     }
@@ -756,6 +877,7 @@ public final class SpectorMemoryBuilder {
     public com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig dreamConfig() { return dreamConfig; }
     public boolean managedByRegistry() { return managedByRegistry; }
     public boolean useBundleMode() { return useBundleMode; }
+    public RecallOptions defaultRecallOptions() { return defaultRecallOptions; }
     public int dimensions() { return dimensions; }
     public EmbeddingProvider embeddingProvider() { return embeddingProvider; }
     public Path persistencePath() { return persistencePath; }

@@ -43,13 +43,13 @@ import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreFusionMode;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
@@ -164,11 +164,11 @@ public final class NaturalIngestionRunner {
 
             int count = 0;
             for (BenchmarkCorpusRecord record : corpusToIngest) {
-                IngestionHints hints = new IngestionHints(
+                RememberHints hints = new RememberHints(
                         record.interest(), record.challenge(), record.urgency(),
                         record.valence(), (byte) record.arousal()
                 );
-                var context = IngestionContext.builder()
+                var context = RememberContext.builder()
                         .hints(hints)
                         .overrideTimestampMs(record.timestampMs())
                         .build();

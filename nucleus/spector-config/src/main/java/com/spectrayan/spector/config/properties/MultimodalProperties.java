@@ -17,7 +17,7 @@ package com.spectrayan.spector.config.properties;
 
 import static com.spectrayan.spector.config.SpectorPropertyConstants.*;
 
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 
 import java.io.Serializable;
 import java.nio.file.Path;
@@ -68,7 +68,7 @@ public class MultimodalProperties implements Serializable {
         this.assetBasePath = assetBasePath;
     }
 
-    public static MultimodalProperties from(SpectorProperties props) {
+    public static MultimodalProperties from(SpectorConfigSource props) {
         if (props == null) return DEFAULT;
         return new MultimodalProperties(
                 props.getBoolean(MULTIMODAL_ENABLED, DEFAULT.enabled),

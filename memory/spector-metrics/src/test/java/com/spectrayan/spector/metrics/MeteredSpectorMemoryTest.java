@@ -105,11 +105,11 @@ class MeteredSpectorMemoryTest {
         metered.target();
 
         metered.remember("id-1", "text-1", MemoryType.EPISODIC, MemorySource.USER_STATED, "tag");
-        metered.remember("id-2", "text-2", MemoryType.EPISODIC, MemorySource.USER_STATED, (com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints) null, "tag");
+        metered.remember("id-2", "text-2", MemoryType.EPISODIC, MemorySource.USER_STATED, (com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints) null, "tag");
         metered.remember("id-3", "text-3", MemoryType.EPISODIC, "tag");
-        metered.remember("id-4", "text-4", MemoryType.EPISODIC, MemorySource.USER_STATED, (IngestionContext) null, "tag");
+        metered.remember("id-4", "text-4", MemoryType.EPISODIC, MemorySource.USER_STATED, (RememberContext) null, "tag");
         metered.remember("text-5", MemoryType.EPISODIC, MemorySource.USER_STATED, "tag");
-        metered.remember("text-6", MemoryType.EPISODIC, MemorySource.USER_STATED, (com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints) null, "tag");
+        metered.remember("text-6", MemoryType.EPISODIC, MemorySource.USER_STATED, (com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints) null, "tag");
 
         metered.recall("query", (RecallOptions) null);
         metered.recall("query", (CognitiveProfile) null);
@@ -166,12 +166,12 @@ class MeteredSpectorMemoryTest {
     static class DummySpectorMemory implements SpectorMemory {
         @Override public RememberPathway target() { return null; }
         @Override public void remember(String id, String text, MemoryType type, MemorySource source, String... tags) {}
-        @Override public void remember(String id, String text, MemoryType type, MemorySource source, com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints, String... tags) {}
+        @Override public void remember(String id, String text, MemoryType type, MemorySource source, com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints hints, String... tags) {}
         @Override public void remember(String id, String text, MemoryType type, String... tags) {}
-        @Override public void remember(String id, String text, MemoryType type, MemorySource source, IngestionContext context, String... tags) {}
+        @Override public void remember(String id, String text, MemoryType type, MemorySource source, RememberContext context, String... tags) {}
         @Override public String remember(String text, MemoryType type, MemorySource source, String... tags) { return "auto-id"; }
-        @Override public String remember(String text, MemoryType type, MemorySource source, com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints, String... tags) { return "auto-id"; }
-        @Override public String remember(String text, MemoryType type, MemorySource source, IngestionContext context, String... tags) { return "auto-id"; }
+        @Override public String remember(String text, MemoryType type, MemorySource source, com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints hints, String... tags) { return "auto-id"; }
+        @Override public String remember(String text, MemoryType type, MemorySource source, RememberContext context, String... tags) { return "auto-id"; }
         @Override public List<CognitiveResult> recall(String queryText, RecallOptions options) { return null; }
         @Override public List<CognitiveResult> recall(String queryText, CognitiveProfile profile) { return null; }
         @Override public List<CognitiveResult> recall(String queryText) { return null; }
@@ -195,7 +195,7 @@ class MeteredSpectorMemoryTest {
         @Override public com.spectrayan.spector.memory.model.WhyNotExplanation whyNot(String memoryId, String queryText, RecallOptions options) { return null; }
         private final com.spectrayan.spector.memory.SpectorMemoryAdmin adminMock = org.mockito.Mockito.mock(com.spectrayan.spector.memory.SpectorMemoryAdmin.class);
         @Override public com.spectrayan.spector.memory.SpectorMemoryAdmin admin() { return adminMock; }
-        @Override public com.spectrayan.spector.memory.model.ImportanceResult estimateImportance(String text, com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints) { return null; }
+        @Override public com.spectrayan.spector.memory.model.ImportanceResult estimateImportance(String text, com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints hints) { return null; }
         @Override public com.spectrayan.spector.memory.model.CognitiveRecord inspect(String id) { return null; }
         @Override public java.util.List<com.spectrayan.spector.memory.model.CognitiveRecord> browse(String... tags) { return java.util.List.of(); }
         @Override public String exportJson() { return "[]"; }

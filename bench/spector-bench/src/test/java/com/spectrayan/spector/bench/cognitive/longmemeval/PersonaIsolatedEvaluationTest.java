@@ -29,13 +29,13 @@ import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreFusionMode;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
@@ -223,12 +223,12 @@ public class PersonaIsolatedEvaluationTest {
                         String currentSessionId = null;
 
                         for (BenchmarkCorpusRecord record : corpus) {
-                            IngestionHints hints = new IngestionHints(
+                            RememberHints hints = new RememberHints(
                                     record.interest(), record.challenge(), record.urgency(),
                                     record.valence(), (byte) record.arousal()
                             );
 
-                            var contextBuilder = IngestionContext.builder()
+                            var contextBuilder = RememberContext.builder()
                                     .hints(hints)
                                     .overrideTimestampMs(record.timestampMs());
 

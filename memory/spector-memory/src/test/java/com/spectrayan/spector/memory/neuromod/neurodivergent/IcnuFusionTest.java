@@ -18,15 +18,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.data.Offset.offset;
 
 /**
- * Tests for {@link IngestionHints} and {@link IcnuWeights} — ICNU fusion formula.
+ * Tests for {@link RememberHints} and {@link IcnuWeights} — ICNU fusion formula.
  */
 class IcnuFusionTest {
 
-    // ── IngestionHints tests ──
+    // ── RememberHints tests ──
 
     @Test
     void hints_clampsToUnitRange() {
-        var hints = new IngestionHints(2.0f, -1.0f, 0.5f);
+        var hints = new RememberHints(2.0f, -1.0f, 0.5f);
         assertThat(hints.interest()).isEqualTo(1.0f);
         assertThat(hints.challenge()).isEqualTo(0.0f);
         assertThat(hints.urgency()).isEqualTo(0.5f);
@@ -34,12 +34,12 @@ class IcnuFusionTest {
 
     @Test
     void hints_noneIsEmpty() {
-        assertThat(IngestionHints.NONE.isEmpty()).isTrue();
+        assertThat(RememberHints.NONE.isEmpty()).isTrue();
     }
 
     @Test
     void hints_nonZeroIsNotEmpty() {
-        var hints = new IngestionHints(0.5f, 0f, 0f);
+        var hints = new RememberHints(0.5f, 0f, 0f);
         assertThat(hints.isEmpty()).isFalse();
     }
 
@@ -122,7 +122,7 @@ class IcnuFusionTest {
     @Test
     void fuse_withEmptyHints_fallsBackToNoveltyOnly() {
         var w = IcnuWeights.DEFAULT;
-        float withHints = w.fuse(IngestionHints.NONE, 0.5f);
+        float withHints = w.fuse(RememberHints.NONE, 0.5f);
         float noveltyOnly = IcnuWeights.NOVELTY_ONLY.fuse(0f, 0f, 0.5f, 0f);
         assertThat(withHints).isCloseTo(noveltyOnly, offset(0.01f));
     }

@@ -98,10 +98,21 @@ public class SpectorNamespaceManager {
      * @param sharded  if true, use hash-based directory sharding
      */
     public SpectorNamespaceManager(Path basePath, boolean sharded) {
+        this(basePath, sharded, 100);
+    }
+
+    /**
+     * Creates a namespace manager with optional directory sharding and explicit max namespaces.
+     *
+     * @param basePath root persistence path
+     * @param sharded  if true, use hash-based directory sharding
+     * @param maxNamespaces maximum number of concurrently active namespaces
+     */
+    public SpectorNamespaceManager(Path basePath, boolean sharded, int maxNamespaces) {
         this.basePath = basePath;
         this.sharded = sharded;
         this.namespaces = new ConcurrentHashMap<>();
-        this.registry = new NamespaceRegistry(Integer.getInteger("spector.memory.max-namespaces", 100));
+        this.registry = new NamespaceRegistry(maxNamespaces > 0 ? maxNamespaces : 100);
 
         // Discover existing namespaces
         Path namespacesDir = StorageLayout.namespacesDir(basePath);

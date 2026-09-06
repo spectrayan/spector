@@ -106,13 +106,13 @@ class RememberPathwayDirectTest {
                 .beta(0.7f)
                 .build();
 
-        com.spectrayan.spector.memory.model.IngestionContext ctxA = com.spectrayan.spector.memory.model.IngestionContext.builder()
+        com.spectrayan.spector.memory.model.RememberContext ctxA = com.spectrayan.spector.memory.model.RememberContext.builder()
                 .soulContexts(List.of(soulA))
                 .soulVersion(soulA.soulVersion())
                 .salienceProfile(salienceA)
                 .build();
 
-        com.spectrayan.spector.memory.model.IngestionContext ctxB = com.spectrayan.spector.memory.model.IngestionContext.builder()
+        com.spectrayan.spector.memory.model.RememberContext ctxB = com.spectrayan.spector.memory.model.RememberContext.builder()
                 .soulContexts(List.of(soulB))
                 .soulVersion(soulB.soulVersion())
                 .salienceProfile(salienceB)

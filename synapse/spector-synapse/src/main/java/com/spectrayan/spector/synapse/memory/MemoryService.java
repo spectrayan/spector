@@ -51,7 +51,7 @@ import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepProgress;
 import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec;
 import com.spectrayan.spector.memory.model.ScoringMode;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.synapse.memory.MemoryDto.AcceptedResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.CompactionResult;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ConsolidationStats;
@@ -292,20 +292,20 @@ public class MemoryService {
         MemorySource source = MemoryTypeParser.safeMemorySource(request.effectiveSource(), MemorySource.OBSERVED);
         String[] tags = request.tagsArray();
 
-        IngestionHints hints = null;
+        RememberHints hints = null;
         if (request.hasCognitiveHints()) {
             float interest = request.interest() != null ? request.interest() : 0f;
             float challenge = request.challenge() != null ? request.challenge() : 0f;
             float urgency = request.urgency() != null ? request.urgency() : 0f;
             int valence = request.valence() != null ? request.valence() : 0;
             int arousal = request.arousal() != null ? request.arousal() : 0;
-            hints = new IngestionHints(interest, challenge, urgency,
+            hints = new RememberHints(interest, challenge, urgency,
                     (byte) Math.clamp(valence, -128, 127),
                     (byte) Math.clamp(arousal, 0, 255));
         }
 
         String taskId = tsid.generate();
-        final IngestionHints finalHints = hints;
+        final RememberHints finalHints = hints;
         final String finalId = effectiveId;
 
         final RequestMemoryContext capturedContext = MemoryBinding.current()

@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.config.properties;
 
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 
 import java.io.Serializable;
@@ -56,7 +56,7 @@ public class SpectrumProperties implements Serializable {
         this.kmeansIterations = kmeansIterations;
     }
 
-    public static SpectrumProperties from(SpectorProperties props) {
+    public static SpectrumProperties from(SpectorConfigSource props) {
         if (props == null) return DEFAULTS;
         return new SpectrumProperties(
                 props.getInt(SpectorPropertyConstants.SPECTRUM_N_CENTROIDS, DEFAULTS.nCentroids),

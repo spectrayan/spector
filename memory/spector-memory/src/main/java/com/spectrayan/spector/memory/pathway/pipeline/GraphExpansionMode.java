@@ -54,7 +54,11 @@ public enum GraphExpansionMode {
      * Resolves the expansion mode from the system property, defaulting to {@link #GATED}.
      *
      * @return the configured or default expansion mode
+     * @deprecated Use {@code SpectorProperties.load().memory().getGraph().getExpansionMode()}
+     *             instead. This method reads JVM system properties directly, bypassing the
+     *             typed configuration system.
      */
+    @Deprecated(forRemoval = true)
     public static GraphExpansionMode resolve() {
         String value = System.getProperty(SYSTEM_PROPERTY);
         if (value == null || value.isBlank()) {

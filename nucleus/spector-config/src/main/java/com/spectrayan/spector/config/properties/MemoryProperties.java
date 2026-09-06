@@ -18,7 +18,7 @@ package com.spectrayan.spector.config.properties;
 import static com.spectrayan.spector.config.SpectorPropertyConstants.*;
 
 import com.spectrayan.spector.config.model.HnswPrefilterMode;
-import com.spectrayan.spector.config.model.IngestionTierMode;
+import com.spectrayan.spector.config.model.RememberTier;
 import com.spectrayan.spector.config.model.PersistenceMode;
 import com.spectrayan.spector.config.model.TagExtractorMode;
 import com.spectrayan.spector.config.model.TextSearchMode;
@@ -41,7 +41,7 @@ public class MemoryProperties implements Serializable {
     private int capacity = DEFAULT_MEMORY_CAPACITY;
     private int nodesPerPartition = DEFAULT_MEMORY_NODES_PER_PARTITION;
 
-    private IngestionTierMode defaultIngestionTier = DEFAULT_MEMORY_DEFAULT_INGESTION_TIER;
+    private RememberTier defaultIngestionTier = DEFAULT_MEMORY_DEFAULT_INGESTION_TIER;
     private HnswPrefilterMode hnswPrefilter = DEFAULT_MEMORY_HNSW_PREFILTER;
     private TagExtractorMode tagExtractor = DEFAULT_MEMORY_TAG_EXTRACTOR;
     private String tagExtractorModel = DEFAULT_MEMORY_TAG_EXTRACTOR_MODEL;
@@ -79,6 +79,14 @@ public class MemoryProperties implements Serializable {
 
     private int entityExtractionParallelism = DEFAULT_MEMORY_ENTITY_EXTRACTION_PARALLELISM;
     private int entityExtractionQueueCapacity = DEFAULT_MEMORY_ENTITY_EXTRACTION_QUEUE_CAPACITY;
+
+    // ─── Sub-Domain Children (Phase 2) ───
+    private RecallProperties recall = new RecallProperties();
+    private RememberProperties remember = new RememberProperties();
+    private GraphProperties graph = new GraphProperties();
+    private CircadianProperties circadian = new CircadianProperties();
+    private int maxNamespaces = 100;
+    private boolean pathwayEnabled = true;
 
     public MemoryProperties() {}
 
@@ -132,14 +140,14 @@ public class MemoryProperties implements Serializable {
         if (nodesPerPartition > 0) this.nodesPerPartition = nodesPerPartition;
     }
 
-    public IngestionTierMode getDefaultIngestionTier() { return defaultIngestionTier; }
-    public void setDefaultIngestionTier(IngestionTierMode defaultIngestionTier) {
+    public RememberTier getDefaultIngestionTier() { return defaultIngestionTier; }
+    public void setDefaultIngestionTier(RememberTier defaultIngestionTier) {
         if (defaultIngestionTier != null) this.defaultIngestionTier = defaultIngestionTier;
     }
     public void setDefaultIngestionTier(String defaultIngestionTier) {
         if (defaultIngestionTier != null && !defaultIngestionTier.isBlank()) {
             try {
-                this.defaultIngestionTier = IngestionTierMode.valueOf(defaultIngestionTier.toUpperCase(Locale.ROOT).replace('-', '_'));
+                this.defaultIngestionTier = RememberTier.valueOf(defaultIngestionTier.toUpperCase(Locale.ROOT).replace('-', '_'));
             } catch (IllegalArgumentException ignored) {}
         }
     }
@@ -235,7 +243,7 @@ public class MemoryProperties implements Serializable {
     public int dimensions() { return getDimensions(); }
     public int capacity() { return getCapacity(); }
     public int nodesPerPartition() { return getNodesPerPartition(); }
-    public IngestionTierMode defaultIngestionTier() { return getDefaultIngestionTier(); }
+    public RememberTier defaultIngestionTier() { return getDefaultIngestionTier(); }
     public HnswPrefilterMode hnswPrefilter() { return getHnswPrefilter(); }
     public TagExtractorMode tagExtractor() { return getTagExtractor(); }
     public String tagExtractorModel() { return getTagExtractorModel(); }
@@ -308,13 +316,37 @@ public class MemoryProperties implements Serializable {
     }
     public float graphExpansionThreshold() { return graphExpansionThreshold; }
 
-    public boolean isEnableMmr() { return enableMmr; }
-    public void setEnableMmr(boolean enableMmr) { this.enableMmr = enableMmr; }
-    public boolean enableMmr() { return enableMmr; }
+    @Deprecated(forRemoval = true)
+    public boolean isEnableMmr() {
+        return recall != null && recall.getMmr() != null ? recall.getMmr().isEnabled() : enableMmr;
+    }
 
-    public float getMmrLambda() { return mmrLambda; }
-    public void setMmrLambda(float mmrLambda) { this.mmrLambda = mmrLambda; }
-    public float mmrLambda() { return mmrLambda; }
+    @Deprecated(forRemoval = true)
+    public void setEnableMmr(boolean enableMmr) {
+        this.enableMmr = enableMmr;
+        if (recall != null && recall.getMmr() != null) {
+            recall.getMmr().setEnabled(enableMmr);
+        }
+    }
+
+    @Deprecated(forRemoval = true)
+    public boolean enableMmr() { return isEnableMmr(); }
+
+    @Deprecated(forRemoval = true)
+    public float getMmrLambda() {
+        return recall != null && recall.getMmr() != null ? recall.getMmr().getLambda() : mmrLambda;
+    }
+
+    @Deprecated(forRemoval = true)
+    public void setMmrLambda(float mmrLambda) {
+        this.mmrLambda = mmrLambda;
+        if (recall != null && recall.getMmr() != null) {
+            recall.getMmr().setLambda(mmrLambda);
+        }
+    }
+
+    @Deprecated(forRemoval = true)
+    public float mmrLambda() { return getMmrLambda(); }
 
     public boolean isSchedulerEnabled() { return schedulerEnabled; }
     public void setSchedulerEnabled(boolean schedulerEnabled) { this.schedulerEnabled = schedulerEnabled; }
@@ -327,4 +359,40 @@ public class MemoryProperties implements Serializable {
     public boolean isDreamEnabled() { return dreamEnabled; }
     public void setDreamEnabled(boolean dreamEnabled) { this.dreamEnabled = dreamEnabled; }
     public boolean dreamEnabled() { return dreamEnabled; }
+
+    // ─── Sub-Domain Children Accessors ───
+
+    public RecallProperties getRecall() { return recall; }
+    public void setRecall(RecallProperties recall) {
+        if (recall != null) this.recall = recall;
+    }
+    public RecallProperties recall() { return recall; }
+
+    public RememberProperties getRemember() { return remember; }
+    public void setRemember(RememberProperties remember) {
+        if (remember != null) this.remember = remember;
+    }
+    public RememberProperties remember() { return remember; }
+
+    public GraphProperties getGraph() { return graph; }
+    public void setGraph(GraphProperties graph) {
+        if (graph != null) this.graph = graph;
+    }
+    public GraphProperties graph() { return graph; }
+
+    public CircadianProperties getCircadian() { return circadian; }
+    public void setCircadian(CircadianProperties circadian) {
+        if (circadian != null) this.circadian = circadian;
+    }
+    public CircadianProperties circadian() { return circadian; }
+
+    public int getMaxNamespaces() { return maxNamespaces; }
+    public void setMaxNamespaces(int maxNamespaces) {
+        if (maxNamespaces > 0) this.maxNamespaces = maxNamespaces;
+    }
+    public int maxNamespaces() { return maxNamespaces; }
+
+    public boolean isPathwayEnabled() { return pathwayEnabled; }
+    public void setPathwayEnabled(boolean pathwayEnabled) { this.pathwayEnabled = pathwayEnabled; }
+    public boolean pathwayEnabled() { return pathwayEnabled; }
 }

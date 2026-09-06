@@ -294,7 +294,7 @@ class AismePropertiesTest {
 
     @Test
     void aismeProperties_fromSpectorProperties() {
-        SpectorProperties props = SpectorProperties.builder()
+        SpectorConfigSource props = SpectorConfigSource.builder()
                 .override("spector.memory.aisme.enabled", "true")
                 .override("spector.memory.aisme.homeostasis.enabled", "false")
                 .override("spector.memory.aisme.global-workspace.capacity", "5")

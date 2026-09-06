@@ -21,7 +21,7 @@ import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -104,7 +104,7 @@ class VideoIngestionE2ETest {
         Path mp4 = resolveTestResource("test-video/sample_test.mp4");
         Assumptions.assumeTrue(Files.exists(mp4), "Test MP4 not found");
 
-        var context = IngestionContext.builder()
+        var context = RememberContext.builder()
                 .metadata(SourceModality.ATTACHMENTS_KEY, mp4.toAbsolutePath().toString())
                 .sourceModality(SourceModality.VIDEO)
                 .build();
@@ -156,7 +156,7 @@ class VideoIngestionE2ETest {
         // Ingest an image for cross-modal comparison
         Path image = resolveTestResource("test-images/golden_retriever_park.png");
         if (Files.exists(image)) {
-            var imgCtx = IngestionContext.builder()
+            var imgCtx = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, image.toAbsolutePath().toString())
                     .sourceModality(SourceModality.IMAGE)
                     .build();

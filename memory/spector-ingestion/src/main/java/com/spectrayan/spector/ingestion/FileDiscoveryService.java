@@ -30,13 +30,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.config.SpectorConfigFactory;
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 
 /**
  * File discovery service — finds files matching patterns in a directory tree.
  *
  * <p>This is a pure utility service that discovers files without performing
- * ingestion. It reads configuration from {@link SpectorProperties} and
+ * ingestion. It reads configuration from {@link SpectorConfigSource} and
  * provides the file list to be ingested via {@link IngestionPipeline}.</p>
  *
  * <h3>Usage</h3>
@@ -76,7 +76,7 @@ public class FileDiscoveryService {
      * @param rootDir the root directory to discover files from
      * @return configured file discovery service
      */
-    public static FileDiscoveryService fromProperties(SpectorProperties props, Path rootDir) {
+    public static FileDiscoveryService fromProperties(SpectorConfigSource props, Path rootDir) {
         var ingestion = SpectorConfigFactory.ingestionDefaults(props);
         return builder()
                 .rootDirectory(rootDir)

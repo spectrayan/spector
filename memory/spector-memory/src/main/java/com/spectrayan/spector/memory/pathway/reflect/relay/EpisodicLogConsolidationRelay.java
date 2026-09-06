@@ -21,9 +21,9 @@ import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.EpisodeRecord;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
 import org.slf4j.Logger;
@@ -68,10 +68,8 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
     private static final Logger log = LoggerFactory.getLogger(EpisodicLogConsolidationRelay.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private static final int MAX_PRIOR_CONTEXT_TURNS = Integer.getInteger(
-            SpectorPropertyConstants.CONSOLIDATION_REFLECTION_MAX_PRIOR_CONTEXT_TURNS,
-            SpectorPropertyConstants.DEFAULT_CONSOLIDATION_REFLECTION_MAX_PRIOR_CONTEXT_TURNS
-    );
+    private static final int MAX_PRIOR_CONTEXT_TURNS =
+            SpectorPropertyConstants.DEFAULT_CONSOLIDATION_REFLECTION_MAX_PRIOR_CONTEXT_TURNS;
 
     private static final GenerationOptions REFLECTION_GENERATION_OPTIONS = GenerationOptions.builder()
             .temperature(SpectorPropertyConstants.DEFAULT_CONSOLIDATION_REFLECTION_TEMPERATURE)

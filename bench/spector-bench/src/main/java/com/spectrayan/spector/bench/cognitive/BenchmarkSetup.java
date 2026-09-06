@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import com.spectrayan.spector.config.SpectorConfigFactory;
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
@@ -54,7 +54,7 @@ import com.spectrayan.spector.memory.graph.RelationType;
 import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 
 /**
@@ -200,10 +200,10 @@ public final class BenchmarkSetup implements AutoCloseable {
         };
 
         Path datasetConfig = datasetDir != null ? datasetDir.resolve("spector-bench.yml") : null;
-        SpectorProperties datasetProps = null;
+        SpectorConfigSource datasetProps = null;
         if (datasetConfig != null && Files.exists(datasetConfig)) {
             try {
-                datasetProps = SpectorProperties.load(datasetConfig);
+                datasetProps = SpectorConfigSource.load(datasetConfig);
                 log.info("Loaded dataset configuration from {}", datasetConfig);
             } catch (Exception e) {
                 log.warn("Failed to load dataset config from {}: {}", datasetConfig, e.getMessage());
@@ -351,7 +351,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                 Path configFile = Path.of("spector-bench.yml");
                 if (Files.exists(configFile)) {
                     try {
-                        var props = SpectorProperties.load(configFile);
+                        var props = SpectorConfigSource.load(configFile);
                         var defaults = SpectorConfigFactory.memoryDefaults(props);
                         persistencePath = defaults.persistencePath() != null ? Path.of(defaults.persistencePath()) : null;
                     } catch (Exception e) {
@@ -438,16 +438,16 @@ public final class BenchmarkSetup implements AutoCloseable {
             int slot = 0;
             for (BenchmarkCorpusRecord record : corpus) {
                 try {
-                    IngestionHints hints = new IngestionHints(
+                    RememberHints hints = new RememberHints(
                             record.interest(), record.challenge(), record.urgency(),
                             record.valence(),
                             (byte) record.arousal()
                     );
 
-                    // Use IngestionContext to pass the corpus record's original timestamp
+                    // Use RememberContext to pass the corpus record's original timestamp
                     // into the cognitive header, preserving temporal accuracy for decay and
                     // temporal chain ordering across the 180-day benchmark span.
-                    var context = com.spectrayan.spector.memory.model.IngestionContext.builder()
+                    var context = com.spectrayan.spector.memory.model.RememberContext.builder()
                             .hints(hints)
                             .overrideTimestampMs(record.timestampMs())
                             .build();

@@ -42,10 +42,10 @@ import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 import com.spectrayan.spector.commons.observation.MemoryObservationHook;
 import static com.spectrayan.spector.commons.observation.MemoryObservationHook.*;
@@ -426,9 +426,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                         ? String.format(" (valence=%d, arousal=%d)", extraction.valence(), Byte.toUnsignedInt(extraction.arousal()))
                         : "");
 
-        // Build IngestionHints from LLM emotional context (if available)
-        IngestionHints hints = extraction.hasEmotionalContext()
-                ? new IngestionHints(0f, 0f, 0f, extraction.valence(), extraction.arousal())
+        // Build RememberHints from LLM emotional context (if available)
+        RememberHints hints = extraction.hasEmotionalContext()
+                ? new RememberHints(0f, 0f, 0f, extraction.valence(), extraction.arousal())
                 : null;
 
         ingestCognitive(id, text, vector, MemoryType.SEMANTIC,
@@ -455,7 +455,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
      */
     public void ingestCognitive(String id, String text, float[] vector,
                                  MemoryType type, String[] tags,
-                                 MemorySource source, IngestionHints hints) {
+                                 MemorySource source, RememberHints hints) {
         //  Dedup guard: skip if this ID is already indexed 
         // The MemoryIndex (loaded from disk on startup) tracks all known IDs.
         // Without this check, re-ingesting the same files would:
@@ -674,7 +674,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     }
 
     /**
-     * Full cognitive ingestion with consolidated {@link com.spectrayan.spector.memory.model.IngestionContext}.
+     * Full cognitive ingestion with consolidated {@link com.spectrayan.spector.memory.model.RememberContext}.
      *
      * <p>Delegates core ingestion (steps 2-9c) to the existing pipeline, then
      * processes pre-extracted entities, Hebbian edge hints, and temporal link
@@ -692,9 +692,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     public void ingestCognitive(String id, String text, float[] vector,
                                  MemoryType type, String[] tags,
                                  MemorySource source,
-                                 com.spectrayan.spector.memory.model.IngestionContext context) {
+                                 com.spectrayan.spector.memory.model.RememberContext context) {
         if (context == null) {
-            ingestCognitive(id, text, vector, type, tags, source, (IngestionHints) null);
+            ingestCognitive(id, text, vector, type, tags, source, (RememberHints) null);
             return;
         }
 
@@ -707,7 +707,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         // We'll re-implement 9d below if context has entities.
 
         // Use context hints for ICNU fusion
-        IngestionHints hints = context.hints();
+        RememberHints hints = context.hints();
 
         // Dedup guard
         if (index.locate(id) != null) {
@@ -804,12 +804,12 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         int previousIdx = lastIngestedMemoryIdx.getAndSet(memoryIdx);
         postIngestSync.syncGraphEdges(memoryIdx, previousIdx, sessionIntId);
 
-        // Step 9b-ext: Pre-computed Hebbian edges from IngestionContext
+        // Step 9b-ext: Pre-computed Hebbian edges from RememberContext
         if (context.hasHebbianEdges()) {
             postIngestSync.syncHebbianEdgeHints(memoryIdx, id, context.hebbianEdges());
         }
 
-        // Step 9c-ext: Pre-computed temporal links from IngestionContext
+        // Step 9c-ext: Pre-computed temporal links from RememberContext
         if (context.hasTemporalLinks()) {
             postIngestSync.syncTemporalLinkHints(memoryIdx, id, context.temporalLinks());
         }
@@ -834,7 +834,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             }
         }
 
-        log.debug("Ingested '{}' as {} with IngestionContext (importance={}, {} tags, entities={}, hebbianEdges={}, temporalLinks={})",
+        log.debug("Ingested '{}' as {} with RememberContext (importance={}, {} tags, entities={}, hebbianEdges={}, temporalLinks={})",
                 id, type, importance, tags.length,
                 context.hasEntities() ? context.entities().size() : 0,
                 context.hasHebbianEdges() ? context.hebbianEdges().size() : 0,

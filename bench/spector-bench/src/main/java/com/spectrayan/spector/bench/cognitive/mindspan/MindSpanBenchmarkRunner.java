@@ -56,7 +56,7 @@ import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
 import com.spectrayan.spector.bench.cognitive.model.PersonaDef;
 import com.spectrayan.spector.config.SpectorConfigFactory;
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.config.model.TextSearchMode;
 import com.spectrayan.spector.config.properties.EmbeddingProperties;
 import com.spectrayan.spector.config.properties.GenerationProperties;
@@ -70,7 +70,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.ConversationRole;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallMode;
@@ -78,7 +78,7 @@ import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.memory.model.SourceModality;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
 import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -164,11 +164,11 @@ public final class MindSpanBenchmarkRunner {
 
         // 1. Load Dataset Configuration
         Path configFile = resolveDataFile(datasetDir, "spector-bench.yml");
-        SpectorProperties props;
+        SpectorConfigSource props;
         if (Files.exists(configFile)) {
-            props = SpectorProperties.load(configFile);
+            props = SpectorConfigSource.load(configFile);
         } else {
-            props = SpectorProperties.builder().build();
+            props = SpectorConfigSource.builder().build();
         }
 
         // 2. Load Corpus, Queries, and Qrels
@@ -237,7 +237,7 @@ public final class MindSpanBenchmarkRunner {
         log.info("MindSpan Benchmark execution complete. Results saved in {}", outputDir);
     }
 
-    private SpectorMemory setupOrIngestMemory(SpectorProperties props,
+    private SpectorMemory setupOrIngestMemory(SpectorConfigSource props,
                                              List<BenchmarkCorpusRecord> corpus,
                                              EmbeddingProvider embedder,
                                              LlmProvider llm,
@@ -356,12 +356,12 @@ public final class MindSpanBenchmarkRunner {
                         }
                     }
 
-                    IngestionHints hints = new IngestionHints(
+                    RememberHints hints = new RememberHints(
                             record.interest(), record.challenge(), record.urgency(),
                             record.valence(),
                             (byte) record.arousal()
                     );
-                    IngestionContext ctx = IngestionContext.builder()
+                    RememberContext ctx = RememberContext.builder()
                             .hints(hints)
                             .overrideTimestampMs(ts)
                             .build();
@@ -535,7 +535,7 @@ public final class MindSpanBenchmarkRunner {
                                        List<MindSpanQuery> queries,
                                        Map<String, Map<String, Integer>> allQrels,
                                        LlmProvider llm,
-                                       SpectorProperties datasetProps,
+                                       SpectorConfigSource datasetProps,
                                        List<BenchmarkCorpusRecord> corpus) throws Exception {
         Path qaResultsFile = outputDir.resolve("qa_judge_results.jsonl");
         Path detailCsvFile = outputDir.resolve("detail.csv");

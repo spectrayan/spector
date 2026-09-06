@@ -45,7 +45,7 @@ import com.spectrayan.spector.memory.model.FactHistory;
 import com.spectrayan.spector.memory.model.GraphRecallOptions;
 import com.spectrayan.spector.memory.model.GraphTraversalResult;
 import com.spectrayan.spector.memory.model.ImportanceResult;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.OrgUnitSoul;
 import com.spectrayan.spector.memory.model.PersonalityModifiers;
@@ -57,7 +57,7 @@ import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.model.TenantSoul;
 import com.spectrayan.spector.memory.model.UserSoul;
 import com.spectrayan.spector.memory.model.WhyNotExplanation;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler;
@@ -84,7 +84,7 @@ import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.ImportanceResult;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.WhyNotExplanation;
@@ -179,17 +179,17 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * @param source provenance (USER_STATED, OBSERVED, INFERRED, PROCEDURAL)
      * @param hints  ICNU + emotional context (null for novelty-only importance)
      * @param tags   synaptic tag strings for Bloom filter encoding
-     * @see com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints
+     * @see com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints
      */
     void remember(String id, String text, MemoryType type,
                                       MemorySource source,
-                                      com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints,
+                                      com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints hints,
                                       String... tags);
 
     /**
      * Ingests a new memory with full cognitive context.
      *
-     * <p>The {@link IngestionContext} consolidates all LLM-provided metadata:
+     * <p>The {@link RememberContext} consolidates all LLM-provided metadata:
      * ICNU hints, pre-extracted entities, Hebbian edge hints, and temporal
      * chain links. This enables a single-call ingestion with complete
      * cognitive context — ideal for MCP tool integration.</p>
@@ -200,11 +200,11 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * @param source  provenance (USER_STATED, OBSERVED, INFERRED, PROCEDURAL)
      * @param context consolidated cognitive metadata (entities, edges, links, hints)
      * @param tags    synaptic tag strings for Bloom filter encoding
-     * @see IngestionContext
+     * @see RememberContext
      */
     void remember(String id, String text, MemoryType type,
                                       MemorySource source,
-                                      IngestionContext context,
+                                      RememberContext context,
                                       String... tags);
 
     /** Convenience overload with default source. */
@@ -243,7 +243,7 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      */
     String remember(String text, MemoryType type,
                                        MemorySource source,
-                                       com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints,
+                                       com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints hints,
                                        String... tags);
 
     /**
@@ -251,7 +251,7 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      *
      * <p>This is the richest auto-ID overload — carries metadata (source modality,
      * asset URIs), ICNU hints, entities, Hebbian edges, and temporal links in
-     * a single {@link IngestionContext}. Preferred for multimodal ingestion.</p>
+     * a single {@link RememberContext}. Preferred for multimodal ingestion.</p>
      *
      * @param text    the memory content (or extracted caption/transcript)
      * @param type    cognitive tier
@@ -262,13 +262,13 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      */
     String remember(String text, MemoryType type,
                                        MemorySource source,
-                                       IngestionContext context,
+                                       RememberContext context,
                                        String... tags);
 
     /**
      * Ingests a file as a memory with auto-generated ID.
      *
-     * <p>Convenience method that builds an {@link IngestionContext} with the file path
+     * <p>Convenience method that builds an {@link RememberContext} with the file path
      * in the {@code attachments} metadata key. The pipeline auto-detects MIME type,
      * routes to the appropriate {@code SensoryExtractor}, and stores extracted
      * content as sub-memories linked to the parent.</p>
@@ -290,7 +290,7 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
                                                     MemorySource source,
                                                     String... tags) {
         String effectiveText = (text != null && !text.isBlank()) ? text : filePath.getFileName().toString();
-        IngestionContext context = IngestionContext.builder()
+        RememberContext context = RememberContext.builder()
                 .metadata(com.spectrayan.spector.memory.model.SourceModality.ATTACHMENTS_KEY,
                         filePath.toAbsolutePath().toString())
                 .build();
@@ -426,7 +426,7 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * @return importance estimate with novelty, fusion, nearest memory, and profile weights
      */
     ImportanceResult estimateImportance(String text,
-                                          com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints);
+                                          com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints hints);
 
     /**
      * Convenience overload — estimates importance with novelty-only (no ICNU hints).
@@ -455,7 +455,7 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * @param updatedHints optional ICNU hints for re-fusion (null = auto-compute from graph)
      */
     default void reinforce(String memoryId, byte valence,
-                           com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints updatedHints) {
+                           com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints updatedHints) {
         reinforce(memoryId, valence); // default: delegate to simple reinforce
     }
 
@@ -848,12 +848,12 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
     }
 
     /**
-     * Configures a {@link SpectorMemory} instance from {@link com.spectrayan.spector.config.SpectorProperties}.
+     * Configures a {@link SpectorMemory} instance from {@link com.spectrayan.spector.config.SpectorConfigSource}.
      *
      * @param properties typed properties object
      * @return fully configured SpectorMemory instance
      */
-    static SpectorMemory fromProperties(com.spectrayan.spector.config.SpectorProperties properties) {
+    static SpectorMemory fromProperties(com.spectrayan.spector.config.SpectorConfigSource properties) {
         return com.spectrayan.spector.memory.config.SpectorMemoryConfigurator.configure(properties);
     }
 }

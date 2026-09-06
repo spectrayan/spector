@@ -32,7 +32,7 @@ class SpectorConfigFactoryTest {
 
     @Test
     void hnswProperties_fromClasspath() {
-        var hnsw = SpectorConfigFactory.hnswProperties(SpectorProperties.load());
+        var hnsw = SpectorConfigFactory.hnswProperties(SpectorConfigSource.load());
 
         assertThat(hnsw.m()).isEqualTo(16);
         assertThat(hnsw.efConstruction()).isEqualTo(200);
@@ -41,7 +41,7 @@ class SpectorConfigFactoryTest {
 
     @Test
     void ivfProperties_fromClasspath() {
-        var ivf = SpectorConfigFactory.ivfProperties(SpectorProperties.load());
+        var ivf = SpectorConfigFactory.ivfProperties(SpectorConfigSource.load());
 
         assertThat(ivf.nlist()).isEqualTo(0);
         assertThat(ivf.nprobe()).isEqualTo(0);
@@ -50,7 +50,7 @@ class SpectorConfigFactoryTest {
 
     @Test
     void spectrumProperties_fromClasspath() {
-        var spectrum = SpectorConfigFactory.spectrumProperties(SpectorProperties.load());
+        var spectrum = SpectorConfigFactory.spectrumProperties(SpectorConfigSource.load());
 
         assertThat(spectrum.nCentroids()).isEqualTo(256);
         assertThat(spectrum.nProbe()).isEqualTo(16);
@@ -61,7 +61,7 @@ class SpectorConfigFactoryTest {
 
     @Test
     void embeddingProperties_fromClasspath() {
-        var embed = SpectorConfigFactory.embeddingProperties(SpectorProperties.load());
+        var embed = SpectorConfigFactory.embeddingProperties(SpectorConfigSource.load());
 
         assertThat(embed.model()).isEqualTo("nomic-embed-text");
         assertThat(embed.baseUrl()).isEqualTo("http://localhost:11434");
@@ -72,7 +72,7 @@ class SpectorConfigFactoryTest {
 
     @Test
     void memoryProperties_fromClasspath() {
-        var memory = SpectorConfigFactory.memoryProperties(SpectorProperties.load());
+        var memory = SpectorConfigFactory.memoryProperties(SpectorConfigSource.load());
 
         assertThat(memory.enabled()).isFalse();
         assertThat(memory.persistenceMode()).isEqualTo(PersistenceMode.DISK);
@@ -86,7 +86,7 @@ class SpectorConfigFactoryTest {
 
     @Test
     void ingestionProperties_fromClasspath() {
-        var ingestion = SpectorConfigFactory.ingestionProperties(SpectorProperties.load());
+        var ingestion = SpectorConfigFactory.ingestionProperties(SpectorConfigSource.load());
 
         assertThat(ingestion.rootDirectory()).isEqualTo(Path.of("."));
         assertThat(ingestion.filePattern()).isEqualTo("**/*.md");
@@ -97,7 +97,7 @@ class SpectorConfigFactoryTest {
 
     @Test
     void memoryProperties_flexibleCaseInsensitiveEnums() {
-        SpectorProperties props = SpectorProperties.builder()
+        SpectorConfigSource props = SpectorConfigSource.builder()
                 .override("spector.memory.persistence-mode", "in-memory")
                 .override("spector.memory.default-ingestion-tier", "semantic")
                 .override("spector.memory.hnsw-prefilter", "Enabled")
@@ -108,9 +108,74 @@ class SpectorConfigFactoryTest {
         var memory = SpectorConfigFactory.memoryProperties(props);
 
         assertThat(memory.getPersistenceMode()).isEqualTo(PersistenceMode.IN_MEMORY);
-        assertThat(memory.getDefaultIngestionTier()).isEqualTo(IngestionTierMode.SEMANTIC);
+        assertThat(memory.getDefaultIngestionTier()).isEqualTo(RememberTier.SEMANTIC);
         assertThat(memory.getHnswPrefilter()).isEqualTo(HnswPrefilterMode.ENABLED);
         assertThat(memory.getTagExtractor()).isEqualTo(TagExtractorMode.LLM);
         assertThat(memory.getTextSearchMode()).isEqualTo(TextSearchMode.FULL_STACK);
+    }
+
+    @Test
+    void recallProperties_legacyRecallMmrFallback() {
+        SpectorConfigSource props = SpectorConfigSource.builder()
+                .override("spector.recall.mmr.enabled", "true")
+                .override("spector.recall.mmr.lambda", "0.85")
+                .build();
+
+        var recall = SpectorConfigFactory.recallProperties(props);
+        assertThat(recall.getMmr().isEnabled()).isTrue();
+        assertThat(recall.getMmr().getLambda()).isEqualTo(0.85f);
+
+        var memory = SpectorConfigFactory.memoryProperties(props);
+        assertThat(memory.isEnableMmr()).isTrue();
+        assertThat(memory.getMmrLambda()).isEqualTo(0.85f);
+    }
+
+    @Test
+    void recallProperties_legacyRetrievalMmrFallback() {
+        SpectorConfigSource props = SpectorConfigSource.builder()
+                .override("spector.memory.retrieval.enable-mmr", "true")
+                .override("spector.memory.retrieval.mmr-lambda", "0.75")
+                .build();
+
+        var recall = SpectorConfigFactory.recallProperties(props);
+        assertThat(recall.getMmr().isEnabled()).isTrue();
+        assertThat(recall.getMmr().getLambda()).isEqualTo(0.75f);
+
+        var memory = SpectorConfigFactory.memoryProperties(props);
+        assertThat(memory.isEnableMmr()).isTrue();
+        assertThat(memory.getMmrLambda()).isEqualTo(0.75f);
+    }
+
+    @Test
+    void rememberProperties_canonicalChunkSizeWinsOverLegacy() {
+        SpectorConfigSource props = SpectorConfigSource.builder()
+                .override("spector.ingestion.chunk-size", "512")
+                .override("spector.memory.remember.chunk.size", "1024")
+                .override("spector.ingestion.chunk-overlap", "50")
+                .override("spector.memory.remember.chunk.overlap", "128")
+                .build();
+
+        var remember = SpectorConfigFactory.rememberProperties(props);
+        assertThat(remember.getChunk().getSize()).isEqualTo(1024);
+        assertThat(remember.getChunk().getOverlap()).isEqualTo(128);
+    }
+
+    @Test
+    void recallProperties_engineRoutingAndPathwayDerivation() {
+        SpectorConfigSource propsDirect = SpectorConfigSource.builder()
+                .override("spector.memory.recall.engine", "direct")
+                .build();
+
+        var memoryDirect = SpectorConfigFactory.memoryProperties(propsDirect);
+        assertThat(memoryDirect.getRecall().getEngine()).isEqualTo("direct");
+        assertThat(memoryDirect.isPathwayEnabled()).isFalse();
+
+        SpectorConfigSource propsPathway = SpectorConfigSource.builder()
+                .override("spector.memory.recall.engine", "pathway")
+                .build();
+
+        var memoryPathway = SpectorConfigFactory.memoryProperties(propsPathway);
+        assertThat(memoryPathway.getRecall().getEngine()).isEqualTo("pathway");
+        assertThat(memoryPathway.isPathwayEnabled()).isTrue();
     }
 }

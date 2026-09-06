@@ -33,7 +33,7 @@ package com.spectrayan.spector.memory.model;
  *
  * <h3>Metadata Convention</h3>
  * <p>When provided via the {@code metadata} map in
- * {@link com.spectrayan.spector.memory.model.IngestionContext IngestionContext},
+ * {@link com.spectrayan.spector.memory.model.RememberContext RememberContext},
  * use the key {@value #METADATA_KEY}. The ingestion pipeline extracts it and
  * encodes it into the binary header automatically.</p>
  */

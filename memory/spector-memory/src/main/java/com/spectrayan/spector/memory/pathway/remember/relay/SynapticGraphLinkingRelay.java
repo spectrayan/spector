@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.pathway.remember.relay;
 
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.pathway.pipeline.PostIngestSync;
 import com.spectrayan.spector.memory.session.SessionRegistry;
@@ -54,8 +54,8 @@ public final class SynapticGraphLinkingRelay implements SynapticRelay<RememberSi
         // 1. Session co-ingestion Hebbian + Temporal linking
         postIngestSync.syncGraphEdges(memoryIdx, previousIdx, sessionIntId);
 
-        // 2. Pre-computed edge hints from IngestionContext
-        final IngestionContext context = signal.context();
+        // 2. Pre-computed edge hints from RememberContext
+        final RememberContext context = signal.context();
         if (context != null) {
             if (context.hasHebbianEdges()) {
                 postIngestSync.syncHebbianEdgeHints(memoryIdx, signal.id(), context.hebbianEdges());

@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.ImportanceContext;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -199,7 +199,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         float[] vector = (quantizer != null) ? quantizer.decode(quantized) : new float[vecBytes];
 
         MemoryType memoryType = EncodingHeaderFields.memoryTypeOf(header.flags());
-        IngestionHints hints = new IngestionHints(
+        RememberHints hints = new RememberHints(
                 Math.clamp(header.importance() / 10.0f, 0.0f, 1.0f),
                 0.5f,
                 0.5f,

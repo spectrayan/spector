@@ -29,7 +29,7 @@ import com.spectrayan.spector.cli.client.SpectorConnectionException;
 import com.spectrayan.spector.commons.chunker.ChunkConfig;
 import com.spectrayan.spector.commons.chunker.MarkdownChunker;
 import com.spectrayan.spector.config.SpectorConfigFactory;
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.ingestion.FileDiscoveryService;
 import com.spectrayan.spector.ingestion.IngestionPipeline;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
@@ -100,7 +100,7 @@ class IngestCommand extends BaseCommand {
         if (rootDir != null) {
             runLocalBatch();
         } else if (configFile != null) {
-            var props = SpectorProperties.builder().configFile(configFile).build();
+            var props = SpectorConfigSource.builder().configFile(configFile).build();
             var ingestionConfig = SpectorConfigFactory.ingestionProperties(props);
             if (ingestionConfig.rootDirectory() != null) {
                 rootDir = ingestionConfig.rootDirectory();
@@ -119,7 +119,7 @@ class IngestCommand extends BaseCommand {
     // Local Batch Mode
 
     private void runLocalBatch() {
-        SpectorProperties.Builder propsBuilder = SpectorProperties.builder();
+        SpectorConfigSource.Builder propsBuilder = SpectorConfigSource.builder();
 
         if (configFile != null) propsBuilder.configFile(configFile);
         if (pattern != null)
@@ -130,7 +130,7 @@ class IngestCommand extends BaseCommand {
         if (rootDir != null)
             propsBuilder.override("spector.ingestion.root-directory", rootDir.toString());
 
-        SpectorProperties props = propsBuilder.build();
+        SpectorConfigSource props = propsBuilder.build();
 
         var ingestionConfig = SpectorConfigFactory.ingestionProperties(props);
         var embedConfig = SpectorConfigFactory.embeddingProperties(props);
@@ -162,16 +162,8 @@ class IngestCommand extends BaseCommand {
         propsBuilder.override("spector.provider.embedding.dimensions", String.valueOf(dims));
         props = propsBuilder.build();
 
-        LlmProvider textGenProvider = null;
-        memoryConfig = SpectorConfigFactory.memoryProperties(props);
-        if (memoryConfig.tagExtractor() == com.spectrayan.spector.config.model.TagExtractorMode.LLM) {
-            String tagModel = memoryConfig.tagExtractorModel();
-            if (tagModel == null || tagModel.isBlank()) {
-                tagModel = "qwen3:1.7b";
-            }
-            textGenProvider = OllamaLlmProvider.create(tagModel, embedConfig.baseUrl());
-            out().printf("[Tags] LLM extraction: %s @ %s%n", tagModel, embedConfig.baseUrl());
-        }
+        SpectorConfigSource configSource = propsBuilder.build();
+        com.spectrayan.spector.config.SpectorProperties finalProps = com.spectrayan.spector.config.SpectorProperties.from(configSource);
 
         var chunker = new MarkdownChunker();
         var chunkConfig = new ChunkConfig(
@@ -184,25 +176,7 @@ class IngestCommand extends BaseCommand {
                 false
         );
 
-        Path persistencePath = memoryConfig.persistencePath() != null ? Path.of(memoryConfig.persistencePath()) : null;
-        var memoryBuilder = DefaultSpectorMemory.builder()
-                .dimensions(memoryConfig.dimensions())
-                .embeddingProvider(embedder)
-                .persistenceMode(MemoryPersistenceMode.valueOf(memoryConfig.persistenceMode().name()))
-                .persistence(persistencePath)
-                .semanticCapacity(memoryConfig.capacity())
-                .nodesPerPartition(memoryConfig.nodesPerPartition())
-                .hebbianGraphCapacity(memoryConfig.capacity())
-                .temporalChainCapacity(memoryConfig.capacity())
-                .chunker(chunker, chunkConfig);
-
-        if (textGenProvider != null) {
-            memoryBuilder.entityExtractionMode(EntityExtractionMode.LLM).LlmProvider(textGenProvider);
-        } else {
-            memoryBuilder.entityExtractionMode(EntityExtractionMode.NONE);
-        }
-
-        try (SpectorMemory memory = memoryBuilder.build()) {
+        try (SpectorMemory memory = com.spectrayan.spector.memory.config.SpectorMemoryConfigurator.builder(finalProps).build()) {
             long startMs = System.currentTimeMillis();
 
             IngestionPipeline pipeline = IngestionPipeline.builder()

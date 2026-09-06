@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.pathway.pipeline;
 import com.spectrayan.spector.ingestion.sensory.AssetStore;
 import com.spectrayan.spector.ingestion.sensory.SensoryExtractor;
 import com.spectrayan.spector.ingestion.sensory.SensoryExtractor.ExtractionChunk;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.SourceModality;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 /**
- * Processes attachments from {@link IngestionContext} metadata.
+ * Processes attachments from {@link RememberContext} metadata.
  *
  * <p>When a memory's metadata contains the {@value SourceModality#ATTACHMENTS_KEY} key,
  * this processor resolves each path/URI, routes to the appropriate {@link SensoryExtractor},
@@ -90,7 +90,7 @@ public final class AttachmentProcessor {
      * @param context  the ingestion context containing attachment metadata
      * @return list of attachment results ready for sub-memory ingestion
      */
-    public List<AttachmentResult> processAttachments(String parentId, IngestionContext context) {
+    public List<AttachmentResult> processAttachments(String parentId, RememberContext context) {
         if (context == null || !context.hasAttachments()) {
             return List.of();
         }

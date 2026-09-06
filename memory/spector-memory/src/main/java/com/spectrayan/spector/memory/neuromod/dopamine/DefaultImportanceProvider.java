@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.model.ImportanceContext;
 import com.spectrayan.spector.memory.model.ImportanceResult;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,7 +74,7 @@ public final class DefaultImportanceProvider implements ImportanceProvider {
 
         // Step 4: ICNU fusion
         float fusedImportance;
-        IngestionHints hints = ctx.hints();
+        RememberHints hints = ctx.hints();
         SalienceProfile salienceProfile = ctx.salienceProfile();
 
         IcnuWeights effectiveIcnuWeights = (salienceProfile != null && salienceProfile.hasIcnuOverride())

@@ -155,15 +155,15 @@ public record IcnuWeights(float interest, float challenge, float novelty, float 
     }
 
     /**
-     * Fuses importance using {@link IngestionHints} and a normalized novelty score.
+     * Fuses importance using {@link RememberHints} and a normalized novelty score.
      *
      * <p>If hints are empty, falls back to novelty-only weighting.</p>
      *
-     * @param hints       LLM-provided hints (may be {@link IngestionHints#NONE})
+     * @param hints       LLM-provided hints (may be {@link RememberHints#NONE})
      * @param noveltyNorm normalized novelty score (0.0–1.0)
      * @return fused importance
      */
-    public float fuse(IngestionHints hints, float noveltyNorm) {
+    public float fuse(RememberHints hints, float noveltyNorm) {
         if (hints == null || hints.isEmpty()) {
             return NOVELTY_ONLY.fuse(0f, 0f, noveltyNorm, 0f);
         }

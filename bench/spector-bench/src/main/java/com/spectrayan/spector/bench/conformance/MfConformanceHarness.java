@@ -53,7 +53,7 @@ import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.BigFiveTraits;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.PersonaContext;
@@ -62,7 +62,7 @@ import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreFusionMode;
 import com.spectrayan.spector.memory.model.UserSoul;
 import com.spectrayan.spector.memory.model.ScoringMode;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 
@@ -606,7 +606,7 @@ public final class MfConformanceHarness {
     private void ingestCorpus(SpectorMemory memory, List<MfCorpusRecord> corpus) {
         for (MfCorpusRecord record : corpus) {
             MemorySource source = parseSource(record.source());
-            IngestionHints hints = new IngestionHints(
+            RememberHints hints = new RememberHints(
                     record.interest(),
                     record.challenge(),
                     record.urgency(),
@@ -614,7 +614,7 @@ public final class MfConformanceHarness {
                     (byte) record.arousal()
             );
 
-            IngestionContext context = IngestionContext.builder()
+            RememberContext context = RememberContext.builder()
                     .hints(hints)
                     .overrideTimestampMs(record.timestampMs())
                     .build();

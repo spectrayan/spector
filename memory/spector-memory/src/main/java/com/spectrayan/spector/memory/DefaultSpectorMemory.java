@@ -78,7 +78,7 @@ import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.FactHistory;
 import com.spectrayan.spector.memory.model.ImportanceContext;
 import com.spectrayan.spector.memory.model.ImportanceResult;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallMode;
@@ -91,7 +91,7 @@ import com.spectrayan.spector.memory.model.WhyNotExplanation;
 import com.spectrayan.spector.memory.namespace.NamespaceQuotas;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
 import com.spectrayan.spector.memory.pathway.decide.DecidePathway;
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
@@ -196,7 +196,7 @@ import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.ImportanceContext;
 import com.spectrayan.spector.memory.model.ImportanceResult;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallMode;
@@ -333,6 +333,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final Path persistencePath;
     private final CircadianPolicy circadianPolicy;
     private final CognitiveProfileConfig profileConfig;
+    private final RecallOptions defaultRecallOptions;
 
     //  Multi-Tenant Namespace 
     private final SpectorNamespaceManager namespaceManager;
@@ -449,6 +450,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.persistencePath = builder.persistencePath();
         this.circadianPolicy = builder.circadianPolicy();
         this.profileConfig = builder.profileConfig();
+        this.defaultRecallOptions = builder.defaultRecallOptions() != null ? builder.defaultRecallOptions() : RecallOptions.DEFAULT;
         this.namespaceManager = bundle.namespaceManager();
         this.namespaceId = builder.namespaceId();
         this.idGenerator = bundle.idGenerator();
@@ -551,13 +553,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public void remember(String id, String text, MemoryType type,
                                               MemorySource source, String... tags) {
         remember(id, text, type, source,
-                (com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints) null, tags);
+                (com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints) null, tags);
     }
 
     @Override
     public void remember(String id, String text, MemoryType type,
                                               MemorySource source,
-                                              com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints,
+                                              com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints hints,
                                               String... tags) {
         acquireLease();
         try {
@@ -608,7 +610,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public String remember(String text, MemoryType type,
                                                MemorySource source,
-                                               com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints,
+                                               com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints hints,
                                                String... tags) {
         String generatedId = idGenerator.generate();
         remember(generatedId, text, type, source, hints, tags);
@@ -618,7 +620,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public String remember(String text, MemoryType type,
                                                MemorySource source,
-                                               IngestionContext context,
+                                               RememberContext context,
                                                String... tags) {
         String generatedId = idGenerator.generate();
         remember(generatedId, text, type, source, context, tags);
@@ -628,7 +630,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public void remember(String id, String text, MemoryType type,
                                               MemorySource source,
-                                              IngestionContext context,
+                                              RememberContext context,
                                               String... tags) {
         acquireLease();
         try {
@@ -821,8 +823,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
      */
     private void rememberChunked(String id, String text, MemoryType type,
                                   MemorySource source,
-                                  com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints,
-                                  IngestionContext context,
+                                  com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints hints,
+                                  RememberContext context,
                                   String... tags) {
         var chunks = chunker.chunk(id, text, chunkConfig);
         if (chunks.isEmpty()) {
@@ -868,7 +870,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             // 1. Ingest parent chunks (bypass embedding via zero vector)
             float[] dummyVector = new float[this.dimensions];
             for (var chunk : parentChunks) {
-                var parentBuilder = IngestionContext.builder()
+                var parentBuilder = RememberContext.builder()
                         .metadata(chunk.metadata());
                 if (context != null && context.overrideTimestampMs() != null) {
                     parentBuilder.overrideTimestampMs(context.overrideTimestampMs());
@@ -903,12 +905,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 for (String ct : contentTags) mergedSet.add(ct);
                 String[] chunkTags = mergedSet.toArray(String[]::new);
 
-                // Construct child IngestionContext merging metadata
-                IngestionContext childContext;
+                // Construct child RememberContext merging metadata
+                RememberContext childContext;
                 if (context != null) {
                     var mergedMeta = new java.util.HashMap<>(context.metadata());
                     mergedMeta.putAll(chunk.metadata());
-                    var childBuilder = IngestionContext.builder()
+                    var childBuilder = RememberContext.builder()
                             .hints(context.hints())
                             .entities(context.entities())
                             .hebbianEdges(context.hebbianEdges())
@@ -919,7 +921,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     }
                     childContext = childBuilder.build();
                 } else {
-                    childContext = IngestionContext.builder()
+                    childContext = RememberContext.builder()
                             .hints(hints)
                             .metadata(chunk.metadata())
                             .build();
@@ -967,12 +969,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     /**
-     * Processes attachments from IngestionContext and creates sub-memories.
+     * Processes attachments from RememberContext and creates sub-memories.
      *
      * <p>Each extracted chunk from an attachment is stored as a separate memory
      * with a Hebbian edge linking it to the parent memory.</p>
      */
-    private void processAttachments(String parentId, IngestionContext context,
+    private void processAttachments(String parentId, RememberContext context,
                                      MemoryType type, MemorySource source, String[] tags) {
         if (attachmentProcessor == null) {
             log.debug("No AttachmentProcessor configured  --  skipping attachments for '{}'", parentId);
@@ -991,7 +993,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         for (var result : results) {
             try {
                 // Build sub-memory context with Hebbian edge to parent
-                var subContext = IngestionContext.builder()
+                var subContext = RememberContext.builder()
                         .metadata(result.metadata())
                         .hebbianEdge(parentId, 0.8f)  // strong link to parent
                         .build();
@@ -1012,7 +1014,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public ImportanceResult estimateImportance(String text,
-                                                com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints) {
+                                                com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints hints) {
         try {
             // Step 1: Embed text
             float[] vector = embeddingProvider.embed(text).vector();
@@ -1052,9 +1054,17 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     @Override
+    public RecallOptions defaultRecallOptions() {
+        return this.defaultRecallOptions;
+    }
+
+    @Override
     public List<CognitiveResult> recall(String queryText, RecallOptions options) {
         acquireLease();
         try {
+            if (options == null) {
+                options = this.defaultRecallOptions != null ? this.defaultRecallOptions : RecallOptions.DEFAULT;
+            }
             // Auto-profile & query tag resolution: use ProfileAdaptor and TagExtractor
             if (options.autoProfile()) {
                 var optBuilder = options.toBuilder();
@@ -1098,12 +1108,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public List<CognitiveResult> recall(String queryText, CognitiveProfile profile) {
         CognitiveProfile effective = profileConfig.validate(profile);
-        return recall(queryText, RecallOptions.builder().profile(effective).build());
+        RecallOptions base = this.defaultRecallOptions != null ? this.defaultRecallOptions : RecallOptions.DEFAULT;
+        return recall(queryText, base.toBuilder().profile(effective).build());
     }
 
     @Override
     public List<CognitiveResult> recall(String queryText) {
-        return recall(queryText, RecallOptions.DEFAULT);
+        return recall(queryText, this.defaultRecallOptions != null ? this.defaultRecallOptions : RecallOptions.DEFAULT);
     }
 
     @Override
@@ -1328,7 +1339,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void reinforce(String memoryId, byte valence,
-                           com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints updatedHints) {
+                           com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints updatedHints) {
         acquireLease();
         try {
             reinforcementHandler.reinforceWithHints(memoryId, valence, updatedHints,

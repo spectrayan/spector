@@ -26,11 +26,11 @@ import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.pathway.pipeline.AsyncEntityExtractionQueue;
 import com.spectrayan.spector.memory.pathway.pipeline.CognitiveIngestionTarget;
@@ -178,7 +178,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
      * @param vector pre-computed embedding vector
      */
     public void ingest(final String id, final String text, final float[] vector) {
-        ingestCognitive(id, text, vector, MemoryType.SEMANTIC, null, MemorySource.OBSERVED, (IngestionHints) null);
+        ingestCognitive(id, text, vector, MemoryType.SEMANTIC, null, MemorySource.OBSERVED, (RememberHints) null);
     }
 
     /**
@@ -199,7 +199,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
             final MemoryType type,
             final String[] tags,
             final MemorySource source,
-            final IngestionHints hints) {
+            final RememberHints hints) {
         final RememberSignal signal = RememberSignal.forCognitive(
                 id, text, vector, type, tags, source, hints,
                 salienceProfile, currentSoulVersion
@@ -209,7 +209,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
     }
 
     /**
-     * Ingests a memory with rich consolidated {@link IngestionContext}.
+     * Ingests a memory with rich consolidated {@link RememberContext}.
      *
      * @param id      unique memory identifier
      * @param text    the memory content
@@ -226,7 +226,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
             final MemoryType type,
             final String[] tags,
             final MemorySource source,
-            final IngestionContext context) {
+            final RememberContext context) {
         final SalienceProfile effectiveSalience = (context != null && context.salienceProfile() != null)
                 ? context.salienceProfile()
                 : this.salienceProfile;

@@ -14,10 +14,10 @@ package com.spectrayan.spector.memory.pathway.remember.relay;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 
 import java.util.List;
 import java.util.Objects;
@@ -32,8 +32,8 @@ public final class RememberSignal {
     private final float[] vector;
     private final MemoryType type;
     private final MemorySource source;
-    private final IngestionHints hints;
-    private final IngestionContext context;
+    private final RememberHints hints;
+    private final RememberContext context;
     private final SalienceProfile salienceProfile;
     private final short soulVersion;
     private final long timestampMs;
@@ -64,8 +64,8 @@ public final class RememberSignal {
             final MemoryType type,
             final String[] tags,
             final MemorySource source,
-            final IngestionHints hints,
-            final IngestionContext context,
+            final RememberHints hints,
+            final RememberContext context,
             final SalienceProfile salienceProfile,
             final short soulVersion,
             final long timestampMs) {
@@ -89,7 +89,7 @@ public final class RememberSignal {
             final MemoryType type,
             final String[] tags,
             final MemorySource source,
-            final IngestionHints hints,
+            final RememberHints hints,
             final SalienceProfile salienceProfile,
             final short soulVersion) {
         return new RememberSignal(
@@ -104,10 +104,10 @@ public final class RememberSignal {
             final MemoryType type,
             final String[] tags,
             final MemorySource source,
-            final IngestionContext context,
+            final RememberContext context,
             final SalienceProfile salienceProfile,
             final short soulVersion) {
-        final IngestionHints effectiveHints = context != null ? context.hints() : null;
+        final RememberHints effectiveHints = context != null ? context.hints() : null;
         final long ts = (context != null && context.effectiveTimestampMs() > 0)
                 ? context.effectiveTimestampMs()
                 : System.currentTimeMillis();
@@ -146,8 +146,8 @@ public final class RememberSignal {
     }
     public MemoryType type() { return type; }
     public MemorySource source() { return source; }
-    public IngestionHints hints() { return hints; }
-    public IngestionContext context() { return context; }
+    public RememberHints hints() { return hints; }
+    public RememberContext context() { return context; }
     public SalienceProfile salienceProfile() { return salienceProfile; }
     public List<com.spectrayan.spector.memory.model.SoulContext> soulContexts() { return soulContexts; }
     public void soulContexts(List<com.spectrayan.spector.memory.model.SoulContext> soulContexts) {

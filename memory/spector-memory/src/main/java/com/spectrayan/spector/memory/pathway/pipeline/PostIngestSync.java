@@ -305,10 +305,10 @@ public final class PostIngestSync {
     }
 
     /**
-     * Applies pre-computed Hebbian edge hints from IngestionContext.
+     * Applies pre-computed Hebbian edge hints from RememberContext.
      */
     public void syncHebbianEdgeHints(int memoryIdx, String id,
-                              List<com.spectrayan.spector.memory.model.IngestionContext.HebbianEdgeHint> edges) {
+                              List<com.spectrayan.spector.memory.model.RememberContext.HebbianEdgeHint> edges) {
         if (hebbianGraph == null) return;
         for (var edgeHint : edges) {
             try {
@@ -327,10 +327,10 @@ public final class PostIngestSync {
     }
 
     /**
-     * Applies pre-computed temporal link hints from IngestionContext.
+     * Applies pre-computed temporal link hints from RememberContext.
      */
     public void syncTemporalLinkHints(int memoryIdx, String id,
-                               List<com.spectrayan.spector.memory.model.IngestionContext.TemporalLinkHint> links) {
+                               List<com.spectrayan.spector.memory.model.RememberContext.TemporalLinkHint> links) {
         if (temporalChain == null) return;
         for (var linkHint : links) {
             try {

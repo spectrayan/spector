@@ -28,7 +28,7 @@ import com.spectrayan.spector.memory.model.OrgUnitSoul;
 import com.spectrayan.spector.memory.model.TenantSoul;
 import com.spectrayan.spector.memory.model.UserSoul;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 
 @DisplayName("DefaultImportanceProvider Multi-Soul Composition (ADR-0029 §2.5.2)")
 class DefaultImportanceProviderMultiSoulTest {
@@ -59,7 +59,7 @@ class DefaultImportanceProviderMultiSoulTest {
         );
 
         // Low-interest memory cue that happens to contain a compliance rule trigger
-        IngestionHints hints = new IngestionHints(0.1f, 0.1f, 0.1f);
+        RememberHints hints = new RememberHints(0.1f, 0.1f, 0.1f);
         ImportanceContext ctx = new ImportanceContext(
                 "failed access review on Ward B",
                 new float[]{0.1f, 0.2f},
@@ -91,7 +91,7 @@ class DefaultImportanceProviderMultiSoulTest {
                 Instant.now()
         );
 
-        IngestionHints hints = new IngestionHints(0.5f, 0.5f, 0.5f);
+        RememberHints hints = new RememberHints(0.5f, 0.5f, 0.5f);
         ImportanceContext ctxWithoutSoul = new ImportanceContext(
                 "Routine server maintenance log",
                 alignedEmbedding,
@@ -140,7 +140,7 @@ class DefaultImportanceProviderMultiSoulTest {
         ImportanceContext ctx = new ImportanceContext(
                 "critical security alert found",
                 new float[]{1.0f, 0.0f},
-                new IngestionHints(0.2f, 0.2f, 0.2f),
+                new RememberHints(0.2f, 0.2f, 0.2f),
                 null,
                 MemoryType.EPISODIC,
                 1.0f,

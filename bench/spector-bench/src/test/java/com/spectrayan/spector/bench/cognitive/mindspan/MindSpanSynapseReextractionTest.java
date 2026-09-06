@@ -18,7 +18,7 @@ package com.spectrayan.spector.bench.cognitive.mindspan;
 import com.spectrayan.spector.bench.cognitive.CachedEmbeddingProvider;
 import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.config.SpectorConfigFactory;
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
@@ -102,7 +102,7 @@ public class MindSpanSynapseReextractionTest {
         EmbeddingProvider raw = OllamaEmbeddingProvider.createDefault();
         EmbeddingProvider embedder = new CachedEmbeddingProvider(raw, cacheFile);
 
-        SpectorProperties props = SpectorProperties.builder().build();
+        SpectorConfigSource props = SpectorConfigSource.builder().build();
         MemoryProperties memProps = SpectorConfigFactory.memoryProperties(props);
 
         SpectorMemory memory = SpectorMemoryBuilder.create()

@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.config;
 
 import com.spectrayan.spector.config.SpectorConfigFactory;
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.config.properties.EmbeddingProperties;
 import com.spectrayan.spector.config.properties.GenerationProperties;
 import com.spectrayan.spector.config.properties.IngestionProperties;
@@ -61,7 +61,7 @@ public final class SpectorMemoryConfigurator {
      */
     public static SpectorMemory configure(Path configPath) {
         try {
-            SpectorProperties props = SpectorProperties.load(configPath);
+            SpectorConfigSource props = SpectorConfigSource.load(configPath);
             return configure(props);
         } catch (Exception e) {
             throw new IllegalArgumentException("Failed to load Spector configuration from " + configPath, e);
@@ -69,74 +69,56 @@ public final class SpectorMemoryConfigurator {
     }
 
     /**
-     * Configures and returns a {@link SpectorMemoryBuilder} populated from {@link SpectorProperties}.
+     * Configures and returns a {@link SpectorMemoryBuilder} populated from {@link SpectorConfigSource}.
      *
      * <p>Allows callers to customize or override settings before calling {@code build()}.</p>
      *
      * @param props configuration properties
      * @return pre-configured SpectorMemoryBuilder
      */
-    public static SpectorMemoryBuilder builder(SpectorProperties props) {
-        if (props == null) {
-            props = SpectorProperties.builder().build();
-        }
+    public static SpectorMemoryBuilder builder(SpectorConfigSource props) {
+        return builder(com.spectrayan.spector.config.SpectorProperties.from(props));
+    }
 
-        MemoryProperties memoryProps = SpectorConfigFactory.memoryProperties(props);
-        ProviderProperties providerProps = SpectorConfigFactory.providerProperties(props);
-        EmbeddingProperties embProps = providerProps.getEmbedding();
-        GenerationProperties genProps = providerProps.getGeneration();
-        IngestionProperties ingProps = SpectorConfigFactory.ingestionProperties(props);
+    /**
+     * Creates a fully-configured {@link SpectorMemory} builder from the
+     * aggregate {@link SpectorProperties} POJO.
+     *
+     * @param props the aggregate root configuration
+     * @return a configured SpectorMemoryBuilder
+     */
+    public static SpectorMemoryBuilder builder(com.spectrayan.spector.config.SpectorProperties props) {
+        var builder = SpectorMemory.builder()
+                .fromProperties(props);
 
-        SpectorMemoryBuilder builder = SpectorMemory.builder()
-                .fromProperties(memoryProps);
-
-        // 1. Resolve Embedding Provider
-        String embType = embProps.getType();
-        if (embType != null && !embType.isBlank() && !"none".equalsIgnoreCase(embType)) {
-            EmbeddingProvider embedder = resolveEmbeddingProvider(embProps);
-            if (embedder != null) {
-                builder.embeddingProvider(embedder);
-                builder.dimensions(embedder.dimensions());
-                log.info("SpectorMemory auto-configured EmbeddingProvider: {} (model={}, dims={})",
-                        embType, embProps.getModel(), embedder.dimensions());
-            } else {
-                log.warn("No EmbeddingProvider found for type '{}'. SpectorMemory will require a manually supplied embedder.", embType);
+        // Auto-resolve providers from typed config
+        var embProps = props.provider() != null ? props.provider().getEmbedding() : null;
+        if (embProps != null && builder.embeddingProvider() == null) {
+            var embProvider = resolveEmbeddingProvider(embProps);
+            if (embProvider != null) {
+                builder.embeddingProvider(embProvider);
             }
         }
 
-        // 2. Resolve Generation / LLM Provider & Entity Extraction
-        String genType = genProps.getType();
-        if (genType != null && !genType.isBlank() && !"none".equalsIgnoreCase(genType)) {
-            LlmProvider llm = resolveGenerationProvider(genProps, memoryProps.getLlm());
-            if (llm != null) {
-                builder.llmProvider(llm);
-                builder.entityExtractionMode(EntityExtractionMode.LLM);
-                log.info("SpectorMemory auto-configured LlmProvider: {} (model={}) with EntityExtractionMode.LLM",
-                        genType, genProps.getModel());
-            } else {
-                builder.entityExtractionMode(EntityExtractionMode.NONE);
+        var genProps = props.provider() != null ? props.provider().getGeneration() : null;
+        var llmProps = props.memory() != null ? props.memory().getLlm() : null;
+        if (genProps != null) {
+            var llmProvider = resolveGenerationProvider(genProps, llmProps);
+            if (llmProvider != null) {
+                builder.llmProvider(llmProvider);
             }
-        } else {
-            builder.entityExtractionMode(EntityExtractionMode.NONE);
         }
-
-        // 3. Configure Chunker (com.spectrayan.spector.commons.chunker.MarkdownChunker)
-        int chunkSize = ingProps.getChunkSize() > 0 ? ingProps.getChunkSize() : 2500;
-        int chunkOverlap = ingProps.getChunkOverlap() >= 0 ? ingProps.getChunkOverlap() : 200;
-        com.spectrayan.spector.commons.chunker.ChunkConfig chunkConfig =
-                com.spectrayan.spector.commons.chunker.ChunkConfig.markdown(chunkSize, chunkOverlap);
-        builder.chunker(new com.spectrayan.spector.commons.chunker.MarkdownChunker(), chunkConfig);
 
         return builder;
     }
 
     /**
-     * Configures and constructs a {@link SpectorMemory} instance from {@link SpectorProperties}.
+     * Configures and constructs a {@link SpectorMemory} instance from {@link SpectorConfigSource}.
      *
      * @param props configuration properties
      * @return fully initialized SpectorMemory instance
      */
-    public static SpectorMemory configure(SpectorProperties props) {
+    public static SpectorMemory configure(SpectorConfigSource props) {
         return builder(props).build();
     }
 
@@ -212,3 +194,4 @@ public final class SpectorMemoryConfigurator {
         return resolveGenerationProvider(gen, null);
     }
 }
+

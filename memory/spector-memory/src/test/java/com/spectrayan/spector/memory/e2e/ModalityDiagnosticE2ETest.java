@@ -56,15 +56,15 @@ class ModalityDiagnosticE2ETest extends AbstractE2ETest {
 
     @Test
     @Order(2)
-    @DisplayName("2. Ingest IMAGE via IngestionContext → recall → check modality")
+    @DisplayName("2. Ingest IMAGE via RememberContext → recall → check modality")
     void ingestWithContext_imageModality() {
-        IngestionContext ctx = IngestionContext.builder()
+        RememberContext ctx = RememberContext.builder()
                 .sourceModality(SourceModality.IMAGE)
                 .sourceUri("file:///test/diagnostic.png")
                 .metadata("test", "diagnostic")
                 .build();
 
-        log.info("IngestionContext: modality={}, uri={}, metadata={}",
+        log.info("RememberContext: modality={}, uri={}, metadata={}",
                 ctx.sourceModality(), ctx.sourceUri(), ctx.metadata());
 
         String id = memory.remember(
@@ -129,7 +129,7 @@ class ModalityDiagnosticE2ETest extends AbstractE2ETest {
     @Order(4)
     @DisplayName("4. Inspect index directly for modality metadata")
     void inspectIndex_metadataPresent() {
-        IngestionContext ctx = IngestionContext.builder()
+        RememberContext ctx = RememberContext.builder()
                 .sourceModality(SourceModality.AUDIO)
                 .metadata("key1", "val1")
                 .build();

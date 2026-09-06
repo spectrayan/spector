@@ -19,7 +19,7 @@ import com.spectrayan.spector.bench.cognitive.CachedEmbeddingProvider;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
 import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.config.SpectorConfigFactory;
-import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.config.model.TextSearchMode;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SpectorMemory;
@@ -119,7 +119,7 @@ public class MindSpanIngestionValidationTest {
         EmbeddingProvider raw = OllamaEmbeddingProvider.createDefault();
         EmbeddingProvider embedder = new CachedEmbeddingProvider(raw, cacheFile);
 
-        SpectorProperties props = SpectorProperties.builder().build();
+        SpectorConfigSource props = SpectorConfigSource.builder().build();
         MemoryProperties memProps = SpectorConfigFactory.memoryProperties(props);
 
         SpectorMemory memory = SpectorMemoryBuilder.create()

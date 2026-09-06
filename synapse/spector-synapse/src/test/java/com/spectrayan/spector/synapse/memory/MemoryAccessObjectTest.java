@@ -36,7 +36,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 
 /**
  * Unit tests for {@link MemoryAccessObject}.
@@ -76,7 +76,7 @@ class MemoryAccessObjectTest {
     void remember_liveMode_callsRemember() {
         doNothing().when(mockMemory)
                 .remember(eq("mem-xyz"), eq("knowledge about HNSW index"),
-                        eq(MemoryType.SEMANTIC), eq(MemorySource.USER_STATED), any(com.spectrayan.spector.memory.model.IngestionContext.class), any(String[].class));
+                        eq(MemoryType.SEMANTIC), eq(MemorySource.USER_STATED), any(com.spectrayan.spector.memory.model.RememberContext.class), any(String[].class));
 
         var result = mao.remember(mockMemory, "mem-xyz", "knowledge about HNSW index",
                 MemoryType.SEMANTIC, MemorySource.USER_STATED, null, new String[]{"index", "hnsw"});
@@ -86,9 +86,9 @@ class MemoryAccessObjectTest {
 
     @Test
     @DisplayName("remember — passes soulStack, salienceProfile, and soulVersion from RequestMemoryContext")
-    void remember_withRequestContext_passesIngestionContext() {
-        org.mockito.ArgumentCaptor<com.spectrayan.spector.memory.model.IngestionContext> captor =
-                org.mockito.ArgumentCaptor.forClass(com.spectrayan.spector.memory.model.IngestionContext.class);
+    void remember_withRequestContext_passesRememberContext() {
+        org.mockito.ArgumentCaptor<com.spectrayan.spector.memory.model.RememberContext> captor =
+                org.mockito.ArgumentCaptor.forClass(com.spectrayan.spector.memory.model.RememberContext.class);
 
         com.spectrayan.spector.memory.model.SoulContext soul =
                 new com.spectrayan.spector.memory.model.UserSoul("user-1", "Developer", "Test soul", null, null);
@@ -106,7 +106,7 @@ class MemoryAccessObjectTest {
         verify(mockMemory).remember(eq("mem-scoped"), eq("Scoped content"),
                 eq(MemoryType.SEMANTIC), eq(MemorySource.USER_STATED), captor.capture(), any(String[].class));
 
-        com.spectrayan.spector.memory.model.IngestionContext passedCtx = captor.getValue();
+        com.spectrayan.spector.memory.model.RememberContext passedCtx = captor.getValue();
         assertThat(passedCtx).isNotNull();
         assertThat(passedCtx.soulContexts()).contains(soul);
         assertThat(passedCtx.salienceProfile()).isEqualTo(salience);

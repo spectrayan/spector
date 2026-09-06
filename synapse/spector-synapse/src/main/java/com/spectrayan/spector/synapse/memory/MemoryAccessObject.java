@@ -37,7 +37,7 @@ import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.TopologyStats;
 import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepProgress;
 import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.synapse.memory.MemoryDto.CompactionResult;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryGraphResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStatusResponse;
@@ -94,15 +94,15 @@ public class MemoryAccessObject {
      * Store/remember a memory synchronously with optional timestamp override and request context.
      */
     public String remember(SpectorMemory memory, String id, String text, MemoryType type, MemorySource source,
-                           IngestionHints hints, String[] tags, Long timestampMs, RequestMemoryContext requestContext) {
+                           RememberHints hints, String[] tags, Long timestampMs, RequestMemoryContext requestContext) {
         if (!isAvailable(memory)) {
             log.warn("[MemoryAccessObject] Stub mode: remember ignored (id={})", id);
             return id;
         }
         try {
             RequestMemoryContext reqCtx = requestContext != null ? requestContext : resolveCurrentRequestContext();
-            com.spectrayan.spector.memory.model.IngestionContext.Builder ctxBuilder =
-                    com.spectrayan.spector.memory.model.IngestionContext.builder()
+            com.spectrayan.spector.memory.model.RememberContext.Builder ctxBuilder =
+                    com.spectrayan.spector.memory.model.RememberContext.builder()
                             .hints(hints);
             if (timestampMs != null && timestampMs > 0) {
                 ctxBuilder.overrideTimestampMs(timestampMs);
@@ -120,7 +120,7 @@ public class MemoryAccessObject {
                 }
             }
 
-            com.spectrayan.spector.memory.model.IngestionContext ctx = ctxBuilder.build();
+            com.spectrayan.spector.memory.model.RememberContext ctx = ctxBuilder.build();
             memory.remember(id, text, type, source, ctx, tags);
             log.debug("[MemoryAccessObject] Remembered memory: id={}", id);
             return id;
@@ -134,7 +134,7 @@ public class MemoryAccessObject {
      * Store/remember a memory synchronously with optional timestamp override.
      */
     public String remember(SpectorMemory memory, String id, String text, MemoryType type, MemorySource source,
-                           IngestionHints hints, String[] tags, Long timestampMs) {
+                           RememberHints hints, String[] tags, Long timestampMs) {
         return remember(memory, id, text, type, source, hints, tags, timestampMs, null);
     }
 
@@ -142,7 +142,7 @@ public class MemoryAccessObject {
      * Backward-compatible overload without timestamp override.
      */
     public String remember(SpectorMemory memory, String id, String text, MemoryType type, MemorySource source,
-                           IngestionHints hints, String[] tags) {
+                           RememberHints hints, String[] tags) {
         return remember(memory, id, text, type, source, hints, tags, null, null);
     }
 
@@ -416,7 +416,7 @@ public class MemoryAccessObject {
             String[] tags = request.tags() != null ? request.tags().toArray(String[]::new) : record.tags();
 
             // Re-store memory with the same ID, overwriting previous content
-            memory.remember(id, request.text(), record.memoryType(), record.source(), (IngestionHints) null, tags);
+            memory.remember(id, request.text(), record.memoryType(), record.source(), (RememberHints) null, tags);
             log.info("[MemoryAccessObject] Updated memory id={}", id);
         } catch (Exception e) {
             log.error("[MemoryAccessObject] Update memory failed for id={}: {}", id, e.getMessage(), e);

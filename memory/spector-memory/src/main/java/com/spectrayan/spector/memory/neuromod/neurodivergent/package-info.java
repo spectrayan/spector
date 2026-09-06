@@ -20,7 +20,7 @@
  *   <li><b>Hyperfocus</b> ({@link com.spectrayan.spector.memory.neuromod.neurodivergent.HyperfocusState})
  *       — zero time decay, strict tag gating, TTL with agent self-extension</li>
  *   <li><b>ICNU Fusion</b> ({@link com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights},
- *       {@link com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints})
+ *       {@link com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints})
  *       — Interest/Challenge/Novelty/Urgency importance computation</li>
  *   <li><b>Lateral Evaluation</b> ({@link com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator})
  *       — tracks utility, suppression, and hallucination rates for orthogonal retrieval</li>
