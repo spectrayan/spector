@@ -47,7 +47,7 @@ import java.util.Map;
  *   // LLM provides full cognitive context in a single remember() call:
  *   memory.remember("mem-123", "The database crashed after migration...",
  *       MemoryType.EPISODIC, MemorySource.OBSERVED,
- *       IngestionContext.builder()
+ *       RememberContext.builder()
  *           .hints(new RememberHints(0.8f, 0.6f, 0.9f))
  *           .entities(List.of(
  *               new ExtractedEntity("PostgreSQL", EntityType.TECHNOLOGY),
@@ -70,8 +70,7 @@ import java.util.Map;
  * @param salienceProfile     request-scoped effective salience profile
  * @param soulVersion         request-scoped soul version
  */
-@Deprecated(forRemoval = true)
-public record IngestionContext(
+public record RememberContext(
         RememberHints hints,
         List<ExtractedEntity> entities,
         List<HebbianEdgeHint> hebbianEdges,
@@ -84,33 +83,33 @@ public record IngestionContext(
 ) {
 
     /** Canonical constructor — enforces unmodifiable metadata and defensive copies. */
-    public IngestionContext {
+    public RememberContext {
         metadata = metadata != null ? Collections.unmodifiableMap(new HashMap<>(metadata)) : Map.of();
         soulContexts = soulContexts != null ? List.copyOf(soulContexts) : List.of();
     }
 
     /** Constructor with metadata — no request-scoped identity. */
-    public IngestionContext(RememberHints hints, List<ExtractedEntity> entities,
+    public RememberContext(RememberHints hints, List<ExtractedEntity> entities,
                             List<HebbianEdgeHint> hebbianEdges, List<TemporalLinkHint> temporalLinks,
                             Long overrideTimestampMs, Map<String, String> metadata) {
         this(hints, entities, hebbianEdges, temporalLinks, overrideTimestampMs, metadata, List.of(), null, null);
     }
 
     /** Backward-compatible constructor — no timestamp override, no metadata. */
-    public IngestionContext(RememberHints hints, List<ExtractedEntity> entities,
+    public RememberContext(RememberHints hints, List<ExtractedEntity> entities,
                             List<HebbianEdgeHint> hebbianEdges, List<TemporalLinkHint> temporalLinks) {
         this(hints, entities, hebbianEdges, temporalLinks, null, null, List.of(), null, null);
     }
 
     /** Backward-compatible constructor — timestamp override, no metadata. */
-    public IngestionContext(RememberHints hints, List<ExtractedEntity> entities,
+    public RememberContext(RememberHints hints, List<ExtractedEntity> entities,
                             List<HebbianEdgeHint> hebbianEdges, List<TemporalLinkHint> temporalLinks,
                             Long overrideTimestampMs) {
         this(hints, entities, hebbianEdges, temporalLinks, overrideTimestampMs, null, List.of(), null, null);
     }
 
     /** Empty context — triggers all automatic pipelines with novelty-only importance. */
-    public static final IngestionContext EMPTY = new IngestionContext(null, null, null, null, null, null, List.of(), null, null);
+    public static final RememberContext EMPTY = new RememberContext(null, null, null, null, null, null, List.of(), null, null);
 
     /** Returns true if pre-extracted entities are provided. */
     public boolean hasEntities() { return entities != null && !entities.isEmpty(); }
@@ -224,14 +223,14 @@ public record IngestionContext(
     }
 
     /**
-     * Creates a builder for constructing an IngestionContext.
+     * Creates a builder for constructing an RememberContext.
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * Builder for {@link IngestionContext}.
+     * Builder for {@link RememberContext}.
      */
     public static final class Builder {
         private RememberHints hints;
@@ -333,8 +332,8 @@ public record IngestionContext(
             return this;
         }
 
-        public IngestionContext build() {
-            return new IngestionContext(hints, entities, hebbianEdges, temporalLinks,
+        public RememberContext build() {
+            return new RememberContext(hints, entities, hebbianEdges, temporalLinks,
                     overrideTimestampMs, metadata, soulContexts, salienceProfile, soulVersion);
         }
     }

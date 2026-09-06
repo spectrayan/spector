@@ -209,7 +209,7 @@ public final class SpectorPropertyConstants {
     public static final Duration DEFAULT_MEMORY_CONSOLIDATION_INTERVAL = Duration.ofSeconds(60);
 
     public static final String MEMORY_DEFAULT_INGESTION_TIER = "spector.memory.default-ingestion-tier";
-    public static final IngestionTierMode DEFAULT_MEMORY_DEFAULT_INGESTION_TIER = IngestionTierMode.SEMANTIC;
+    public static final RememberTier DEFAULT_MEMORY_DEFAULT_INGESTION_TIER = RememberTier.SEMANTIC;
 
     public static final String MEMORY_HNSW_PREFILTER = "spector.memory.hnsw-prefilter";
     public static final HnswPrefilterMode DEFAULT_MEMORY_HNSW_PREFILTER = HnswPrefilterMode.AUTO;

@@ -26,7 +26,7 @@ import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
 import com.spectrayan.spector.memory.model.ImportanceResult;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 
 /**
  * MCP tool: {@code memory_compute_importance} — pre-ingestion importance estimation.
@@ -47,7 +47,7 @@ import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
  * <p>This eliminates the problem of LLMs blindly guessing ICNU values without
  * feedback on what the resulting importance will actually be.</p>
  *
- * <p>Maps to {@link SpectorMemory#estimateImportance(String, IngestionHints)}.</p>
+ * <p>Maps to {@link SpectorMemory#estimateImportance(String, RememberHints)}.</p>
  */
 public final class MemoryComputeImportanceTool extends MemoryToolHandler {
 
@@ -75,11 +75,11 @@ public final class MemoryComputeImportanceTool extends MemoryToolHandler {
         int arousal = optionalInt(args, "arousal", 0);
 
         // Build hints only if any params provided
-        IngestionHints hints = null;
+        RememberHints hints = null;
         boolean hasHints = interest > 0 || challenge > 0 || urgency > 0
                 || valence != 0 || arousal != 0;
         if (hasHints) {
-            hints = new IngestionHints(interest, challenge, urgency,
+            hints = new RememberHints(interest, challenge, urgency,
                     (byte) Math.clamp(valence, -128, 127),
                     (byte) Math.clamp(arousal, 0, 255));
         }

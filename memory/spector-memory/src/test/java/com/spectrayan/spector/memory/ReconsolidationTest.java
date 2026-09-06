@@ -93,7 +93,7 @@ class ReconsolidationTest {
         float[] vector = dsm.embeddingProvider().embed(text).vector();
         memory.target().ingestCognitive(id, text, vector, type, tags,
                 source != null ? source : MemorySource.OBSERVED,
-                (com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints) null);
+                (com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints) null);
     }
 
     // ══════════════════════════════════════════════════════════════

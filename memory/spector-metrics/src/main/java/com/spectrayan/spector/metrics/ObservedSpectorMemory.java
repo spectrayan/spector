@@ -29,14 +29,14 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.FactHistory;
 import com.spectrayan.spector.memory.model.ImportanceResult;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.model.WhyNotExplanation;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.cortex.prospective.Reminder;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
@@ -130,7 +130,7 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
 
     @Override
     public void remember(String id, String text, MemoryType type, MemorySource source,
-                         IngestionHints hints, String... tags) {
+                         RememberHints hints, String... tags) {
         withObservation(SpectorObservationDocumentation.MEMORY_REMEMBER,
                 createTags(type != null ? type.name() : null, id, null),
                 () -> delegate.remember(id, text, type, source, hints, tags));
@@ -145,7 +145,7 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
 
     @Override
     public void remember(String id, String text, MemoryType type, MemorySource source,
-                         IngestionContext context, String... tags) {
+                         RememberContext context, String... tags) {
         withObservation(SpectorObservationDocumentation.MEMORY_REMEMBER,
                 createTags(type != null ? type.name() : null, id, null),
                 () -> delegate.remember(id, text, type, source, context, tags));
@@ -160,7 +160,7 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
 
     @Override
     public String remember(String text, MemoryType type, MemorySource source,
-                           IngestionHints hints, String... tags) {
+                           RememberHints hints, String... tags) {
         return withObservation(SpectorObservationDocumentation.MEMORY_REMEMBER,
                 createTags(type != null ? type.name() : null, null, null),
                 () -> delegate.remember(text, type, source, hints, tags));
@@ -168,7 +168,7 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
 
     @Override
     public String remember(String text, MemoryType type, MemorySource source,
-                           IngestionContext context, String... tags) {
+                           RememberContext context, String... tags) {
         return withObservation(SpectorObservationDocumentation.MEMORY_REMEMBER,
                 createTags(type != null ? type.name() : null, null, null),
                 () -> delegate.remember(text, type, source, context, tags));
@@ -234,7 +234,7 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
     }
 
     @Override
-    public ImportanceResult estimateImportance(String text, IngestionHints hints) {
+    public ImportanceResult estimateImportance(String text, RememberHints hints) {
         return delegate.estimateImportance(text, hints);
     }
 
@@ -246,7 +246,7 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
     }
 
     @Override
-    public void reinforce(String memoryId, byte valence, IngestionHints updatedHints) {
+    public void reinforce(String memoryId, byte valence, RememberHints updatedHints) {
         withObservation(SpectorObservationDocumentation.MEMORY_REINFORCE,
                 createTags(null, memoryId, null),
                 () -> delegate.reinforce(memoryId, valence, updatedHints));

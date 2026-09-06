@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -175,7 +175,7 @@ class TikaDocumentE2ETest {
                 """);
 
         // Ingest with attachments metadata
-        var context = IngestionContext.builder()
+        var context = RememberContext.builder()
                 .metadata(SourceModality.ATTACHMENTS_KEY, htmlDoc.toAbsolutePath().toString())
                 .sourceModality(SourceModality.TEXT)
                 .build();
@@ -309,7 +309,7 @@ class TikaDocumentE2ETest {
         Path doc = tempDir.resolve("metadata_test.txt");
         Files.writeString(doc, "Test document for verifying metadata propagation through pipeline.");
 
-        var context = IngestionContext.builder()
+        var context = RememberContext.builder()
                 .metadata(SourceModality.ATTACHMENTS_KEY, doc.toAbsolutePath().toString())
                 .metadata("custom_field", "test_value")
                 .sourceModality(SourceModality.TEXT)

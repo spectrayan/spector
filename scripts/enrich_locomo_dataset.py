@@ -3,7 +3,7 @@
 Spector Memory — Cognitive Dataset Enrichment Pipeline for LoCoMo.
 
 Extracts rich cognitive metadata (Entities, Typed Hypergraph Relations,
-Neuromodulatory Valence/Arousal, ICNU IngestionHints, and Synaptic Tags)
+Neuromodulatory Valence/Arousal, ICNU RememberHints, and Synaptic Tags)
 using Google Gemini API (gemini-3.1-flash-lite / gemini-2.0-flash-lite) or local Ollama.
 
 Features:

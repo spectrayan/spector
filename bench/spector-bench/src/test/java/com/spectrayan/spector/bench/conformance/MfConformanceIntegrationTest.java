@@ -35,7 +35,7 @@ import com.spectrayan.spector.bench.conformance.model.MfQuery;
 import com.spectrayan.spector.bench.conformance.model.MfReport;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;

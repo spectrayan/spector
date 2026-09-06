@@ -33,7 +33,7 @@ Practical recipes for configuring Spector Memory across real-world scenarios. Ea
 // Important life event — high arousal ensures slow decay
 memory.remember("mem-wedding", "Married Sarah on June 15, 2024 at the beach",
     MemoryType.EPISODIC, MemorySource.USER_STATED,
-    IngestionHints.builder()
+    RememberHints.builder()
         .interest(1.0f).urgency(0.2f).challenge(0.1f)
         .valence((byte) 120)    // very positive
         .arousal((byte) 200)    // high arousal → extreme decay resistance

@@ -44,11 +44,11 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 
@@ -166,11 +166,11 @@ public class MindSpanSampleIngestionTest {
                     }
                 }
 
-                IngestionHints hints = new IngestionHints(
+                RememberHints hints = new RememberHints(
                         record.interest(), record.challenge(), record.urgency(),
                         record.valence(), (byte) record.arousal()
                 );
-                IngestionContext ctx = IngestionContext.builder()
+                RememberContext ctx = RememberContext.builder()
                         .hints(hints)
                         .overrideTimestampMs(ts)
                         .build();

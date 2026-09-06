@@ -18,7 +18,7 @@ package com.spectrayan.spector.config.properties;
 import static com.spectrayan.spector.config.SpectorPropertyConstants.*;
 
 import com.spectrayan.spector.config.model.HnswPrefilterMode;
-import com.spectrayan.spector.config.model.IngestionTierMode;
+import com.spectrayan.spector.config.model.RememberTier;
 import com.spectrayan.spector.config.model.PersistenceMode;
 import com.spectrayan.spector.config.model.TagExtractorMode;
 import com.spectrayan.spector.config.model.TextSearchMode;
@@ -41,7 +41,7 @@ public class MemoryProperties implements Serializable {
     private int capacity = DEFAULT_MEMORY_CAPACITY;
     private int nodesPerPartition = DEFAULT_MEMORY_NODES_PER_PARTITION;
 
-    private IngestionTierMode defaultIngestionTier = DEFAULT_MEMORY_DEFAULT_INGESTION_TIER;
+    private RememberTier defaultIngestionTier = DEFAULT_MEMORY_DEFAULT_INGESTION_TIER;
     private HnswPrefilterMode hnswPrefilter = DEFAULT_MEMORY_HNSW_PREFILTER;
     private TagExtractorMode tagExtractor = DEFAULT_MEMORY_TAG_EXTRACTOR;
     private String tagExtractorModel = DEFAULT_MEMORY_TAG_EXTRACTOR_MODEL;
@@ -140,14 +140,14 @@ public class MemoryProperties implements Serializable {
         if (nodesPerPartition > 0) this.nodesPerPartition = nodesPerPartition;
     }
 
-    public IngestionTierMode getDefaultIngestionTier() { return defaultIngestionTier; }
-    public void setDefaultIngestionTier(IngestionTierMode defaultIngestionTier) {
+    public RememberTier getDefaultIngestionTier() { return defaultIngestionTier; }
+    public void setDefaultIngestionTier(RememberTier defaultIngestionTier) {
         if (defaultIngestionTier != null) this.defaultIngestionTier = defaultIngestionTier;
     }
     public void setDefaultIngestionTier(String defaultIngestionTier) {
         if (defaultIngestionTier != null && !defaultIngestionTier.isBlank()) {
             try {
-                this.defaultIngestionTier = IngestionTierMode.valueOf(defaultIngestionTier.toUpperCase(Locale.ROOT).replace('-', '_'));
+                this.defaultIngestionTier = RememberTier.valueOf(defaultIngestionTier.toUpperCase(Locale.ROOT).replace('-', '_'));
             } catch (IllegalArgumentException ignored) {}
         }
     }
@@ -243,7 +243,7 @@ public class MemoryProperties implements Serializable {
     public int dimensions() { return getDimensions(); }
     public int capacity() { return getCapacity(); }
     public int nodesPerPartition() { return getNodesPerPartition(); }
-    public IngestionTierMode defaultIngestionTier() { return getDefaultIngestionTier(); }
+    public RememberTier defaultIngestionTier() { return getDefaultIngestionTier(); }
     public HnswPrefilterMode hnswPrefilter() { return getHnswPrefilter(); }
     public TagExtractorMode tagExtractor() { return getTagExtractor(); }
     public String tagExtractorModel() { return getTagExtractorModel(); }

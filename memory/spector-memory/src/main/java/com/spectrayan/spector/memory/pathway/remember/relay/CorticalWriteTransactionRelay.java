@@ -26,11 +26,11 @@ import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.ConversationRole;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SourceModality;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.pathway.pipeline.PostIngestSync;
 import org.slf4j.Logger;
@@ -105,8 +105,8 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
 
         // 2. Cognitive Header Assembly
         final MemoryType type = signal.type();
-        final IngestionHints hints = signal.hints();
-        final IngestionContext context = signal.context();
+        final RememberHints hints = signal.hints();
+        final RememberContext context = signal.context();
         final SalienceProfile salienceProfile = signal.salienceProfile();
         final float l2Norm = (vector != null) ? VectorOps.magnitude(vector) : 0.0f;
 

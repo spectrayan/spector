@@ -22,7 +22,7 @@ import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -123,7 +123,7 @@ class RealFileMultimodalE2ETest {
             Assumptions.assumeTrue(Files.exists(image), "Test image not found: " + image);
 
             // Ingest via attachments metadata
-            var context = IngestionContext.builder()
+            var context = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, image.toAbsolutePath().toString())
                     .sourceModality(SourceModality.IMAGE)
                     .build();
@@ -157,7 +157,7 @@ class RealFileMultimodalE2ETest {
             Path image = resolveTestResource("test-images/whiteboard_diagram.png");
             Assumptions.assumeTrue(Files.exists(image), "Test image not found: " + image);
 
-            var context = IngestionContext.builder()
+            var context = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, image.toAbsolutePath().toString())
                     .sourceModality(SourceModality.IMAGE)
                     .build();
@@ -308,7 +308,7 @@ class RealFileMultimodalE2ETest {
             Assumptions.assumeTrue(Files.exists(wav), "Test WAV not found");
 
             // Ingest as text memory with audio attachment
-            var context = IngestionContext.builder()
+            var context = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, wav.toAbsolutePath().toString())
                     .sourceModality(SourceModality.AUDIO)
                     .build();
@@ -370,7 +370,7 @@ class RealFileMultimodalE2ETest {
             Path mp4 = resolveTestResource("test-video/sample_test.mp4");
             Assumptions.assumeTrue(Files.exists(mp4), "Test MP4 not found");
 
-            var context = IngestionContext.builder()
+            var context = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, mp4.toAbsolutePath().toString())
                     .sourceModality(SourceModality.VIDEO)
                     .build();
@@ -436,7 +436,7 @@ class RealFileMultimodalE2ETest {
         // Comma-separated attachments
         String attachments = image.toAbsolutePath() + "," + doc.toAbsolutePath();
 
-        var context = IngestionContext.builder()
+        var context = RememberContext.builder()
                 .metadata(SourceModality.ATTACHMENTS_KEY, attachments)
                 .build();
 

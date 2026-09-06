@@ -70,7 +70,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.ConversationRole;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallMode;
@@ -78,7 +78,7 @@ import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.memory.model.SourceModality;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
 import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -356,12 +356,12 @@ public final class MindSpanBenchmarkRunner {
                         }
                     }
 
-                    IngestionHints hints = new IngestionHints(
+                    RememberHints hints = new RememberHints(
                             record.interest(), record.challenge(), record.urgency(),
                             record.valence(),
                             (byte) record.arousal()
                     );
-                    IngestionContext ctx = IngestionContext.builder()
+                    RememberContext ctx = RememberContext.builder()
                             .hints(hints)
                             .overrideTimestampMs(ts)
                             .build();

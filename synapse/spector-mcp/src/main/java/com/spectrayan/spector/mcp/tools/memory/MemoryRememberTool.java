@@ -23,12 +23,12 @@ import com.spectrayan.spector.commons.security.SpectorScopes;
 import io.modelcontextprotocol.spec.McpSchema;
 
 import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 
 /**
  * MCP tool: {@code memory_remember} — store a memory with full cognitive metadata.
@@ -40,7 +40,7 @@ import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
  * <p>All cognitive parameters are optional for backward compatibility.
  * When omitted, the memory is stored as SEMANTIC with novelty-only importance.</p>
  *
- * <p>Maps to {@link SpectorMemory#remember} with optional {@link IngestionHints}.</p>
+ * <p>Maps to {@link SpectorMemory#remember} with optional {@link RememberHints}.</p>
  */
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,16 +91,16 @@ public final class MemoryRememberTool extends MemoryToolHandler {
         int valence = optionalInt(args, "valence", 0);
         int arousal = optionalInt(args, "arousal", 0);
 
-        // Build IngestionHints (if any cognitive params were provided)
-        IngestionHints hints = null;
+        // Build RememberHints (if any cognitive params were provided)
+        RememberHints hints = null;
         if (interest > 0 || challenge > 0 || urgency > 0 || valence != 0 || arousal != 0) {
-            hints = new IngestionHints(interest, challenge, urgency,
+            hints = new RememberHints(interest, challenge, urgency,
                     (byte) Math.clamp(valence, -128, 127),
                     (byte) Math.clamp(arousal, 0, 255));
         }
 
-        // Build IngestionContext with metadata + hints
-        var ctxBuilder = IngestionContext.builder();
+        // Build RememberContext with metadata + hints
+        var ctxBuilder = RememberContext.builder();
         if (hints != null) {
             ctxBuilder.hints(hints);
         }
@@ -121,7 +121,7 @@ public final class MemoryRememberTool extends MemoryToolHandler {
             }
         }
 
-        IngestionContext context = ctxBuilder.build();
+        RememberContext context = ctxBuilder.build();
 
         // Ingest: auto-generate ID if not provided
         boolean autoId = id.isEmpty();

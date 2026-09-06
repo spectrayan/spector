@@ -16,7 +16,7 @@ import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.pathway.pipeline.AsyncEntityExtractionQueue;
 import com.spectrayan.spector.memory.pathway.pipeline.PostIngestSync;
@@ -54,13 +54,13 @@ public final class KnowledgeGraphEnrichmentRelay implements SynapticRelay<Rememb
             return true;
         }
 
-        final IngestionContext context = signal.context();
+        final RememberContext context = signal.context();
         final long epochSeconds = signal.timestampMs() / 1000;
         final String tsid = MemoryScope.sessionId();
         final String nsid = MemoryScope.namespaceId();
 
         if (context != null && context.hasEntities()) {
-            // Pre-extracted entities from IngestionContext
+            // Pre-extracted entities from RememberContext
             postIngestSync.syncPreExtractedEntities(context.entities(), memoryIdx, signal.id());
             postIngestSync.syncTemporalFacts(context.entities(), memoryIdx, signal.id(), epochSeconds);
         } else if (asyncEntityExtractionQueue != null && entityExtractor != null && entityExtractor.isAvailable()) {

@@ -188,7 +188,7 @@ public class MeteredSpectorMemory implements SpectorMemory {
     @Override
     public void remember(String id, String text, MemoryType type,
                                               MemorySource source,
-                                              com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints,
+                                              com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints hints,
                                               String... tags) {
         rememberCounter.increment();
         delegate.remember(id, text, type, source, hints, tags);
@@ -204,7 +204,7 @@ public class MeteredSpectorMemory implements SpectorMemory {
     @Override
     public void remember(String id, String text, MemoryType type,
                                               MemorySource source,
-                                              com.spectrayan.spector.memory.model.IngestionContext context,
+                                              com.spectrayan.spector.memory.model.RememberContext context,
                                               String... tags) {
         rememberCounter.increment();
         delegate.remember(id, text, type, source, context, tags);
@@ -220,7 +220,7 @@ public class MeteredSpectorMemory implements SpectorMemory {
     @Override
     public String remember(String text, MemoryType type,
                                               MemorySource source,
-                                              com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints,
+                                              com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints hints,
                                               String... tags) {
         rememberCounter.increment();
         return delegate.remember(text, type, source, hints, tags);
@@ -229,7 +229,7 @@ public class MeteredSpectorMemory implements SpectorMemory {
     @Override
     public String remember(String text, MemoryType type,
                                               MemorySource source,
-                                              com.spectrayan.spector.memory.model.IngestionContext context,
+                                              com.spectrayan.spector.memory.model.RememberContext context,
                                               String... tags) {
         rememberCounter.increment();
         return delegate.remember(text, type, source, context, tags);
@@ -394,7 +394,7 @@ public class MeteredSpectorMemory implements SpectorMemory {
 
     @Override
     public com.spectrayan.spector.memory.model.ImportanceResult estimateImportance(
-            String text, com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints hints) {
+            String text, com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints hints) {
         return delegate.estimateImportance(text, hints);
     }
 

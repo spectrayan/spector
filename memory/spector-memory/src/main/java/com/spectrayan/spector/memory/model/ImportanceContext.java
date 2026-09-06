@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.model;
 
 import java.util.List;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 
 /**
  * Consolidates all inputs required for computing the importance of a memory.
@@ -31,7 +31,7 @@ import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
 public record ImportanceContext(
     String text,
     float[] vector,
-    IngestionHints hints,
+    RememberHints hints,
     SalienceProfile salienceProfile,
     MemoryType targetTier,
     float nearestDistance,
@@ -39,7 +39,7 @@ public record ImportanceContext(
     boolean readOnly,
     List<SoulContext> soulContexts
 ) {
-    public ImportanceContext(String text, float[] vector, IngestionHints hints,
+    public ImportanceContext(String text, float[] vector, RememberHints hints,
                              SalienceProfile salienceProfile, MemoryType targetTier,
                              float nearestDistance, double noveltyZScore, boolean readOnly) {
         this(text, vector, hints, salienceProfile, targetTier, nearestDistance, noveltyZScore, readOnly, List.of());

@@ -21,10 +21,10 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for multimodal-related methods in {@link IngestionContext}.
+ * Tests for multimodal-related methods in {@link RememberContext}.
  */
-@DisplayName("IngestionContext — Multimodal")
-class IngestionContextMultimodalTest {
+@DisplayName("RememberContext — Multimodal")
+class RememberContextMultimodalTest {
 
     // ══════════════════════════════════════════════════════════════
     // SOURCE MODALITY
@@ -37,14 +37,14 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("Returns null when no modality set")
         void nullWhenNotSet() {
-            var ctx = IngestionContext.EMPTY;
+            var ctx = RememberContext.EMPTY;
             assertNull(ctx.sourceModality());
         }
 
         @Test
         @DisplayName("Returns IMAGE when modality set via builder")
         void imageModalityFromBuilder() {
-            var ctx = IngestionContext.builder()
+            var ctx = RememberContext.builder()
                     .sourceModality(SourceModality.IMAGE)
                     .build();
             assertEquals(SourceModality.IMAGE, ctx.sourceModality());
@@ -53,7 +53,7 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("Returns AUDIO when modality set via metadata key")
         void audioModalityFromMetadata() {
-            var ctx = IngestionContext.builder()
+            var ctx = RememberContext.builder()
                     .metadata(SourceModality.METADATA_KEY, "AUDIO")
                     .build();
             assertEquals(SourceModality.AUDIO, ctx.sourceModality());
@@ -62,7 +62,7 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("Case-insensitive modality parsing")
         void caseInsensitive() {
-            var ctx = IngestionContext.builder()
+            var ctx = RememberContext.builder()
                     .metadata(SourceModality.METADATA_KEY, "video")
                     .build();
             assertEquals(SourceModality.VIDEO, ctx.sourceModality());
@@ -71,7 +71,7 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("Unknown modality defaults to TEXT")
         void unknownDefaultsToText() {
-            var ctx = IngestionContext.builder()
+            var ctx = RememberContext.builder()
                     .metadata(SourceModality.METADATA_KEY, "hologram")
                     .build();
             assertEquals(SourceModality.TEXT, ctx.sourceModality());
@@ -89,13 +89,13 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("Returns null when no URI set")
         void nullWhenNotSet() {
-            assertNull(IngestionContext.EMPTY.sourceUri());
+            assertNull(RememberContext.EMPTY.sourceUri());
         }
 
         @Test
         @DisplayName("Returns URI from builder")
         void uriFromBuilder() {
-            var ctx = IngestionContext.builder()
+            var ctx = RememberContext.builder()
                     .sourceUri("file:///photos/cat.jpg")
                     .build();
             assertEquals("file:///photos/cat.jpg", ctx.sourceUri());
@@ -104,7 +104,7 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("Returns URI from metadata key")
         void uriFromMetadata() {
-            var ctx = IngestionContext.builder()
+            var ctx = RememberContext.builder()
                     .metadata(SourceModality.URI_KEY, "s3://bucket/image.png")
                     .build();
             assertEquals("s3://bucket/image.png", ctx.sourceUri());
@@ -122,13 +122,13 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("hasAttachments false when not set")
         void falseWhenNotSet() {
-            assertFalse(IngestionContext.EMPTY.hasAttachments());
+            assertFalse(RememberContext.EMPTY.hasAttachments());
         }
 
         @Test
         @DisplayName("hasAttachments false for blank value")
         void falseForBlank() {
-            var ctx = IngestionContext.builder()
+            var ctx = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, "   ")
                     .build();
             assertFalse(ctx.hasAttachments());
@@ -137,7 +137,7 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("hasAttachments true when set")
         void trueWhenSet() {
-            var ctx = IngestionContext.builder()
+            var ctx = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, "/photos/cat.jpg")
                     .build();
             assertTrue(ctx.hasAttachments());
@@ -146,7 +146,7 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("attachmentList parses single path")
         void singlePath() {
-            var ctx = IngestionContext.builder()
+            var ctx = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, "/photos/cat.jpg")
                     .build();
             assertEquals(List.of("/photos/cat.jpg"), ctx.attachmentList());
@@ -155,7 +155,7 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("attachmentList parses comma-separated paths")
         void multiplePaths() {
-            var ctx = IngestionContext.builder()
+            var ctx = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY,
                             "/photos/cat.jpg,/photos/dog.png,/videos/trip.mp4")
                     .build();
@@ -166,7 +166,7 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("attachmentList trims whitespace around paths")
         void trimsWhitespace() {
-            var ctx = IngestionContext.builder()
+            var ctx = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY,
                             "  /photos/cat.jpg , /photos/dog.png  ")
                     .build();
@@ -176,7 +176,7 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("attachmentList skips empty entries")
         void skipsEmpty() {
-            var ctx = IngestionContext.builder()
+            var ctx = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY, "/photos/cat.jpg,,, ,/photos/dog.png")
                     .build();
             assertEquals(List.of("/photos/cat.jpg", "/photos/dog.png"), ctx.attachmentList());
@@ -185,13 +185,13 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("attachmentList returns empty list for no attachments")
         void emptyListForNoAttachments() {
-            assertEquals(List.of(), IngestionContext.EMPTY.attachmentList());
+            assertEquals(List.of(), RememberContext.EMPTY.attachmentList());
         }
 
         @Test
         @DisplayName("attachmentList handles mixed URI schemes")
         void mixedUriSchemes() {
-            var ctx = IngestionContext.builder()
+            var ctx = RememberContext.builder()
                     .metadata(SourceModality.ATTACHMENTS_KEY,
                             "/local/file.jpg,s3://bucket/key.png,https://cdn.example.com/img.webp")
                     .build();
@@ -212,7 +212,7 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("sourceModality() sets metadata key correctly")
         void sourceModalityBuilder() {
-            var ctx = IngestionContext.builder()
+            var ctx = RememberContext.builder()
                     .sourceModality(SourceModality.VIDEO)
                     .build();
             assertEquals("VIDEO", ctx.metadata().get(SourceModality.METADATA_KEY));
@@ -222,7 +222,7 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("sourceUri() sets metadata key correctly")
         void sourceUriBuilder() {
-            var ctx = IngestionContext.builder()
+            var ctx = RememberContext.builder()
                     .sourceUri("gs://bucket/audio.mp3")
                     .build();
             assertEquals("gs://bucket/audio.mp3", ctx.metadata().get(SourceModality.URI_KEY));
@@ -231,7 +231,7 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("Chained multimodal builder")
         void chainedBuilder() {
-            var ctx = IngestionContext.builder()
+            var ctx = RememberContext.builder()
                     .sourceModality(SourceModality.IMAGE)
                     .sourceUri("file:///photos/sunset.jpg")
                     .metadata("vlm_model", "llava")
@@ -247,7 +247,7 @@ class IngestionContextMultimodalTest {
         @Test
         @DisplayName("Empty builder produces EMPTY-like context")
         void emptyBuilder() {
-            var ctx = IngestionContext.builder().build();
+            var ctx = RememberContext.builder().build();
             assertNull(ctx.sourceModality());
             assertNull(ctx.sourceUri());
             assertFalse(ctx.hasAttachments());

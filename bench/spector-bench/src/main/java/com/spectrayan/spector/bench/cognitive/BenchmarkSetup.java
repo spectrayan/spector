@@ -54,7 +54,7 @@ import com.spectrayan.spector.memory.graph.RelationType;
 import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 
 /**
@@ -438,16 +438,16 @@ public final class BenchmarkSetup implements AutoCloseable {
             int slot = 0;
             for (BenchmarkCorpusRecord record : corpus) {
                 try {
-                    IngestionHints hints = new IngestionHints(
+                    RememberHints hints = new RememberHints(
                             record.interest(), record.challenge(), record.urgency(),
                             record.valence(),
                             (byte) record.arousal()
                     );
 
-                    // Use IngestionContext to pass the corpus record's original timestamp
+                    // Use RememberContext to pass the corpus record's original timestamp
                     // into the cognitive header, preserving temporal accuracy for decay and
                     // temporal chain ordering across the 180-day benchmark span.
-                    var context = com.spectrayan.spector.memory.model.IngestionContext.builder()
+                    var context = com.spectrayan.spector.memory.model.RememberContext.builder()
                             .hints(hints)
                             .overrideTimestampMs(record.timestampMs())
                             .build();

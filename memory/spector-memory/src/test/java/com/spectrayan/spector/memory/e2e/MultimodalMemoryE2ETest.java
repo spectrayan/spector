@@ -256,18 +256,18 @@ class MultimodalMemoryE2ETest extends AbstractE2ETest {
                 .as("Caption from Phase 2 must be available")
                 .isNotNull();
 
-        // Build IngestionContext with multimodal metadata
+        // Build RememberContext with multimodal metadata
         String assetUriStr = storedAssetUri != null ? storedAssetUri.toString()
                 : testImagePath.toUri().toString();
 
-        IngestionContext context = IngestionContext.builder()
+        RememberContext context = RememberContext.builder()
                 .sourceModality(SourceModality.IMAGE)
                 .sourceUri(assetUriStr)
                 .metadata("vlm_model", VISION_MODEL)
                 .metadata("original_filename", "cat_on_desk.png")
                 .build();
 
-        // Ingest via the auto-ID IngestionContext path
+        // Ingest via the auto-ID RememberContext path
         imageMemoryId = memory.remember(imageCaption, MemoryType.EPISODIC,
                 MemorySource.OBSERVED, context, "photo", "cat", "workspace");
 
@@ -564,7 +564,7 @@ class MultimodalMemoryE2ETest extends AbstractE2ETest {
     @DisplayName("41. Edge: audio modality marker without VLM extraction")
     void audioModality_withoutVlm() {
         // Simulate an audio memory (e.g., transcribed speech)
-        IngestionContext audioCtx = IngestionContext.builder()
+        RememberContext audioCtx = RememberContext.builder()
                 .sourceModality(SourceModality.AUDIO)
                 .sourceUri("file:///recordings/meeting-2026-06-13.wav")
                 .metadata("transcription_model", "whisper-large-v3")
@@ -606,7 +606,7 @@ class MultimodalMemoryE2ETest extends AbstractE2ETest {
     @Order(42)
     @DisplayName("42. Edge: video modality marker")
     void videoModality_marker() {
-        IngestionContext videoCtx = IngestionContext.builder()
+        RememberContext videoCtx = RememberContext.builder()
                 .sourceModality(SourceModality.VIDEO)
                 .sourceUri("file:///videos/demo-2026-06-13.mp4")
                 .metadata("frame_count", "450")
@@ -642,8 +642,8 @@ class MultimodalMemoryE2ETest extends AbstractE2ETest {
     @Order(43)
     @DisplayName("43. Edge: empty metadata defaults gracefully")
     void emptyMetadata_defaultsGracefully() {
-        // Ingest with IngestionContext that has modality but no metadata map
-        IngestionContext bareCtx = IngestionContext.builder()
+        // Ingest with RememberContext that has modality but no metadata map
+        RememberContext bareCtx = RememberContext.builder()
                 .sourceModality(SourceModality.IMAGE)
                 .build();
 

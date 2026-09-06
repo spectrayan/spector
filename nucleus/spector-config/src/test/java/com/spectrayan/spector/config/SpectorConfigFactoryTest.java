@@ -108,7 +108,7 @@ class SpectorConfigFactoryTest {
         var memory = SpectorConfigFactory.memoryProperties(props);
 
         assertThat(memory.getPersistenceMode()).isEqualTo(PersistenceMode.IN_MEMORY);
-        assertThat(memory.getDefaultIngestionTier()).isEqualTo(IngestionTierMode.SEMANTIC);
+        assertThat(memory.getDefaultIngestionTier()).isEqualTo(RememberTier.SEMANTIC);
         assertThat(memory.getHnswPrefilter()).isEqualTo(HnswPrefilterMode.ENABLED);
         assertThat(memory.getTagExtractor()).isEqualTo(TagExtractorMode.LLM);
         assertThat(memory.getTextSearchMode()).isEqualTo(TextSearchMode.FULL_STACK);

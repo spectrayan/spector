@@ -16,24 +16,12 @@
 package com.spectrayan.spector.config.model;
 
 /**
- * Ingestion tier for cognitive memory items.
- * @deprecated Use {@link RememberTier} instead.
+ * Remember tier for cognitive memory items.
  */
-@Deprecated(forRemoval = true)
-public enum IngestionTierMode {
+public enum RememberTier {
 
     WORKING,
     EPISODIC,
     SEMANTIC,
-    PROCEDURAL;
-    
-    /** Converts to the canonical {@link RememberTier}. */
-    public RememberTier toRememberTier() {
-        return RememberTier.valueOf(this.name());
-    }
-    
-    /** Converts from the canonical {@link RememberTier}. */
-    public static IngestionTierMode fromRememberTier(RememberTier tier) {
-        return valueOf(tier.name());
-    }
+    PROCEDURAL
 }

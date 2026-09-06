@@ -21,7 +21,7 @@
  * <ul>
  *   <li>{@link com.spectrayan.spector.memory.model.CognitiveResult} — a single recall result with score breakdown</li>
  *   <li>{@link com.spectrayan.spector.memory.model.ImportanceResult} — importance computation result with explainability breakdown</li>
- *   <li>{@link com.spectrayan.spector.memory.model.IngestionContext} — consolidated ingestion metadata (hints, entities, edges)</li>
+ *   <li>{@link com.spectrayan.spector.memory.model.RememberContext} — consolidated ingestion metadata (hints, entities, edges)</li>
  *   <li>{@link com.spectrayan.spector.memory.model.RecallOptions} — full recall configuration (topK, alpha, beta, filters, etc.)</li>
  *   <li>{@link com.spectrayan.spector.memory.model.RecallTrace} — step-by-step recall pipeline audit trail</li>
  *   <li>{@link com.spectrayan.spector.memory.model.ReflectReport} — sleep consolidation report</li>

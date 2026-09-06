@@ -21,7 +21,7 @@ import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
 import com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.model.ReflectReport;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.memory.cortex.prospective.Reminder;
 import com.spectrayan.spector.memory.pathway.wander.relay.WanderReport;
 
@@ -80,7 +80,7 @@ public interface MemoryReflection {
 
     void reinforce(String memoryId, byte valence);
 
-    default void reinforce(String memoryId, byte valence, IngestionHints updatedHints) {
+    default void reinforce(String memoryId, byte valence, RememberHints updatedHints) {
         reinforce(memoryId, valence);
     }
 

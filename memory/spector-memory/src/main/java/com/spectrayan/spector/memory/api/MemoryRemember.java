@@ -16,10 +16,10 @@ import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.ImportanceResult;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.SourceModality;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 
 import java.nio.file.Path;
 
@@ -38,21 +38,21 @@ public interface MemoryRemember {
 
     void remember(String id, String text, MemoryType type, MemorySource source, String... tags);
 
-    void remember(String id, String text, MemoryType type, MemorySource source, IngestionHints hints, String... tags);
+    void remember(String id, String text, MemoryType type, MemorySource source, RememberHints hints, String... tags);
 
-    void remember(String id, String text, MemoryType type, MemorySource source, IngestionContext context, String... tags);
+    void remember(String id, String text, MemoryType type, MemorySource source, RememberContext context, String... tags);
 
     void remember(String id, String text, MemoryType type, String... tags);
 
     String remember(String text, MemoryType type, MemorySource source, String... tags);
 
-    String remember(String text, MemoryType type, MemorySource source, IngestionHints hints, String... tags);
+    String remember(String text, MemoryType type, MemorySource source, RememberHints hints, String... tags);
 
-    String remember(String text, MemoryType type, MemorySource source, IngestionContext context, String... tags);
+    String remember(String text, MemoryType type, MemorySource source, RememberContext context, String... tags);
 
     default String rememberFile(Path filePath, String text, MemoryType type, MemorySource source, String... tags) {
         String effectiveText = (text != null && !text.isBlank()) ? text : filePath.getFileName().toString();
-        IngestionContext context = IngestionContext.builder()
+        RememberContext context = RememberContext.builder()
                 .metadata(SourceModality.ATTACHMENTS_KEY, filePath.toAbsolutePath().toString())
                 .build();
         return remember(effectiveText, type, source, context, tags);
@@ -69,7 +69,7 @@ public interface MemoryRemember {
 
     void scratchpad(String text);
 
-    ImportanceResult estimateImportance(String text, IngestionHints hints);
+    ImportanceResult estimateImportance(String text, RememberHints hints);
 
     default ImportanceResult estimateImportance(String text) {
         return estimateImportance(text, null);

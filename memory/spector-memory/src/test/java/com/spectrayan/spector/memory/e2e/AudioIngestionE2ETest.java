@@ -22,7 +22,7 @@ import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.IngestionContext;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -112,7 +112,7 @@ class AudioIngestionE2ETest {
         Path wav = resolveTestResource("test-audio/hello_tone.wav");
         Assumptions.assumeTrue(Files.exists(wav), "Test WAV not found");
 
-        var context = IngestionContext.builder()
+        var context = RememberContext.builder()
                 .metadata(SourceModality.ATTACHMENTS_KEY, wav.toAbsolutePath().toString())
                 .sourceModality(SourceModality.AUDIO)
                 .build();
@@ -141,7 +141,7 @@ class AudioIngestionE2ETest {
                 "Test WAV files not found");
 
         // Ingest two audio memories
-        var ctx1 = IngestionContext.builder()
+        var ctx1 = RememberContext.builder()
                 .metadata(SourceModality.ATTACHMENTS_KEY, wav1.toAbsolutePath().toString())
                 .sourceModality(SourceModality.AUDIO)
                 .build();
@@ -149,7 +149,7 @@ class AudioIngestionE2ETest {
                 MemoryType.EPISODIC, MemorySource.USER_STATED, ctx1,
                 "audio", "morning");
 
-        var ctx2 = IngestionContext.builder()
+        var ctx2 = RememberContext.builder()
                 .metadata(SourceModality.ATTACHMENTS_KEY, wav2.toAbsolutePath().toString())
                 .sourceModality(SourceModality.AUDIO)
                 .build();
@@ -171,11 +171,11 @@ class AudioIngestionE2ETest {
 
         // Ingest a text-only memory for comparison
         memory.remember("Written notes about the project architecture",
-                MemoryType.SEMANTIC, MemorySource.USER_STATED, (IngestionContext) null,
+                MemoryType.SEMANTIC, MemorySource.USER_STATED, (RememberContext) null,
                 "notes", "architecture");
 
         // Ingest audio memory
-        var ctx = IngestionContext.builder()
+        var ctx = RememberContext.builder()
                 .metadata(SourceModality.ATTACHMENTS_KEY, wav.toAbsolutePath().toString())
                 .sourceModality(SourceModality.AUDIO)
                 .build();
