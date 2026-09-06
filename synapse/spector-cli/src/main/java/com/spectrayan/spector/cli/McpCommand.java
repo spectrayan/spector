@@ -131,69 +131,10 @@ public class McpCommand implements Runnable {
             propsBuilder.override("spector.memory.default-ingestion-tier", "SEMANTIC");
         }
 
-        SpectorConfigSource props = propsBuilder.build();
+        SpectorConfigSource configSource = propsBuilder.build();
+        com.spectrayan.spector.config.SpectorProperties props = com.spectrayan.spector.config.SpectorProperties.from(configSource);
 
-        var embedDefaults = SpectorConfigFactory.embeddingDefaults(props);
-        var config = com.spectrayan.spector.provider.ProviderConfig.local("ollama", "ollama", embedDefaults.model(), embedDefaults.baseUrl());
-        var registry = com.spectrayan.spector.provider.ProviderDiscovery.discover(java.util.List.of(config));
-        EmbeddingProvider embedder = registry.activeEmbedding().orElseThrow();
-
-        LlmProvider textGenProvider = null;
-        var memoryDefaults = SpectorConfigFactory.memoryDefaults(props);
-        if (memoryDefaults.tagExtractor() == com.spectrayan.spector.config.model.TagExtractorMode.LLM) {
-            String tagModel = memoryDefaults.tagExtractorModel();
-            if (tagModel == null || tagModel.isBlank()) {
-                tagModel = "qwen3:1.7b";
-            }
-            textGenProvider = OllamaLlmProvider.create(tagModel, embedDefaults.baseUrl());
-        }
-
-        var embedProps = SpectorConfigFactory.embeddingProperties(props);
-        var cacheManager = TtlConcurrentMapCacheManager.defaultManager();
-        EmbeddingProvider activeEmbedder = embedProps.cacheEnabled()
-                ? CachingEmbeddingProvider.wrap(embedder, cacheManager)
-                : embedder;
-
-        var memoryProps = SpectorConfigFactory.memoryProperties(props);
-        var ingestionProps = SpectorConfigFactory.ingestionProperties(props);
-        var chunker = new MarkdownChunker();
-        var chunkConfig = new ChunkConfig(
-                ingestionProps.chunkSize(),
-                ingestionProps.chunkOverlap(),
-                "text/markdown",
-                "text/markdown",
-                true,
-                true,
-                false
-        );
-
-        Path persistencePath = memoryProps.persistencePath() != null ? Path.of(memoryProps.persistencePath()) : null;
-        var memoryBuilder = DefaultSpectorMemory.builder()
-                .dimensions(memoryProps.dimensions())
-                .embeddingProvider(activeEmbedder)
-                .cacheManager(cacheManager)
-                .persistenceMode(MemoryPersistenceMode.valueOf(memoryProps.persistenceMode().name()))
-                .persistence(persistencePath)
-                .semanticCapacity(memoryProps.capacity())
-                .nodesPerPartition(memoryProps.nodesPerPartition())
-                .hebbianGraphCapacity(memoryProps.capacity())
-                .temporalChainCapacity(memoryProps.capacity())
-                .chunker(chunker, chunkConfig);
-
-        if (textGenProvider != null) {
-            memoryBuilder.entityExtractionMode(EntityExtractionMode.LLM).LlmProvider(textGenProvider);
-        } else {
-            memoryBuilder.entityExtractionMode(EntityExtractionMode.NONE);
-        }
-
-        if (memoryProps.spladeEnabled()) {
-            memoryBuilder.SparseEmbeddingProvider(new DenseDerivedSparseProvider(activeEmbedder));
-        }
-        if (memoryProps.colbertEnabled()) {
-            memoryBuilder.tokenEmbeddingProvider(new DenseDerivedTokenProvider(activeEmbedder));
-        }
-
-        SpectorMemory memory = memoryBuilder.build();
+        SpectorMemory memory = com.spectrayan.spector.memory.config.SpectorMemoryConfigurator.builder(props).build();
         SpectorMcpServer server = new SpectorMcpServer(memory);
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
