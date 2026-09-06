@@ -688,22 +688,22 @@ public class MemoryProperties implements Serializable {
         cp.entityExtractionParallelism = this.entityExtractionParallelism;
         cp.entityExtractionQueueCapacity = this.entityExtractionQueueCapacity;
 
-        cp.decay = this.decay;
-        cp.consolidation = this.consolidation;
-        cp.llm = this.llm;
-        cp.aisme = this.aisme;
-        cp.taskQueue = this.taskQueue;
-        cp.entityExtractionTaskQueue = this.entityExtractionTaskQueue;
-        cp.consolidationTaskQueue = this.consolidationTaskQueue;
-        cp.recall = this.recall;
-        cp.remember = this.remember;
-        cp.graph = this.graph;
-        cp.circadian = this.circadian;
-        cp.dream = this.dream;
-        cp.twofactor = this.twofactor;
-        cp.wal = this.wal;
-        cp.vacuum = this.vacuum;
-        cp.session = this.session;
+        cp.decay = this.decay != null ? this.decay.copy() : new DecayProperties();
+        cp.consolidation = this.consolidation != null ? this.consolidation.copy() : new ConsolidationProperties();
+        cp.llm = this.llm != null ? this.llm.copy() : new LlmProperties();
+        cp.aisme = this.aisme != null ? this.aisme.copy() : new AismeProperties();
+        cp.taskQueue = this.taskQueue != null ? this.taskQueue.copy() : new TaskQueueProperties();
+        cp.entityExtractionTaskQueue = this.entityExtractionTaskQueue != null ? this.entityExtractionTaskQueue.copy() : null;
+        cp.consolidationTaskQueue = this.consolidationTaskQueue != null ? this.consolidationTaskQueue.copy() : null;
+        cp.recall = this.recall != null ? this.recall.copy() : new RecallProperties();
+        cp.remember = this.remember != null ? this.remember.copy() : new RememberProperties();
+        cp.graph = this.graph != null ? this.graph.copy() : new GraphProperties();
+        cp.circadian = this.circadian != null ? this.circadian.copy() : new CircadianProperties();
+        cp.dream = this.dream != null ? this.dream.copy() : new DreamProperties();
+        cp.twofactor = this.twofactor != null ? this.twofactor.copy() : new TwoFactorProperties();
+        cp.wal = this.wal != null ? this.wal.copy() : new WalProperties();
+        cp.vacuum = this.vacuum != null ? this.vacuum.copy() : new VacuumProperties();
+        cp.session = this.session != null ? this.session.copy() : new SessionProperties();
         return cp;
     }
 }

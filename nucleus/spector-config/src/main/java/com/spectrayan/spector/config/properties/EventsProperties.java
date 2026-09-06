@@ -50,4 +50,8 @@ public class EventsProperties implements Serializable {
     public int hashCode() {
         return Objects.hash(async);
     }
+
+    public EventsProperties copy() {
+        return new EventsProperties(this.async);
+    }
 }

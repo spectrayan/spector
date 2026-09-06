@@ -56,7 +56,7 @@ public class ProviderProperties implements Serializable {
     public ProviderProperties copy() {
         ProviderProperties cp = new ProviderProperties();
         cp.setEmbedding(this.embedding != null ? this.embedding.copy() : new EmbeddingProperties());
-        cp.setGeneration(this.generation);
+        cp.setGeneration(this.generation != null ? this.generation.copy() : new GenerationProperties());
         cp.setSslInsecure(this.sslInsecure);
         return cp;
     }

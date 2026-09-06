@@ -152,8 +152,14 @@ public final class SpectorMemoryBuilder {
 
     /**
      * Creates a new builder instance seeded with defaults from {@link SpectorProperties#load()}.
-     * <p>Initializes process-level runtime systems (e.g. GPU threshold, virtual thread concurrency)
-     * from system defaults at process bootstrap.</p>
+     *
+     * <p><b>Process Bootstrap Semantics:</b> This method is intended for standalone process startup.
+     * In addition to loading environment defaults, it initializes JVM-wide runtime systems
+     * (e.g., GPU acceleration threshold in {@link AcceleratorRegistry}, structured concurrency in
+     * {@link ConcurrentTasks}, and sleep sweep orchestrators in {@link com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutors}).</p>
+     *
+     * <p>For pure instance creation without JVM-wide side-effects (e.g., in unit tests or multi-tenant
+     * environments), prefer {@link #create(SpectorProperties)} or {@link #createEmpty()}.</p>
      */
     public static SpectorMemoryBuilder create() {
         SpectorProperties props = SpectorProperties.load();
@@ -174,12 +180,25 @@ public final class SpectorMemoryBuilder {
         return new SpectorMemoryBuilder(props);
     }
 
-    /** Creates a new unseeded builder instance without loading system defaults. Useful for unit tests. */
+    /**
+     * Creates a new unseeded builder instance with empty/default properties without loading
+     * system defaults or mutating JVM runtime singletons.
+     *
+     * <p>Particularly useful for unit tests requiring isolated, predictable configuration state.</p>
+     */
     public static SpectorMemoryBuilder createEmpty() {
         return new SpectorMemoryBuilder(SpectorProperties.builder().build());
     }
 
-    /** Creates a new builder instance initialized from explicit {@link SpectorProperties}. */
+    /**
+     * Creates a new builder instance initialized from explicit {@link SpectorProperties} without
+     * mutating JVM process globals or loading environment defaults.
+     *
+     * <p>This pure factory is ideal for containerized or framework-managed environments (such as Spring Boot)
+     * where configuration lifecycle is externally controlled.</p>
+     *
+     * @param props the explicit aggregate properties to initialize the builder with
+     */
     public static SpectorMemoryBuilder create(SpectorProperties props) {
         return new SpectorMemoryBuilder(props);
     }

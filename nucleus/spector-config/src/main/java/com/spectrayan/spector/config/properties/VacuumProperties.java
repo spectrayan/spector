@@ -50,4 +50,8 @@ public class VacuumProperties implements Serializable {
     public int hashCode() {
         return Objects.hash(threshold);
     }
+
+    public VacuumProperties copy() {
+        return new VacuumProperties(threshold);
+    }
 }

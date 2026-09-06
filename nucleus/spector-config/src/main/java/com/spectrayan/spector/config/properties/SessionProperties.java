@@ -56,4 +56,8 @@ public class SessionProperties implements Serializable {
     public int hashCode() {
         return Objects.hash(bufferSize, bufferTtlMs);
     }
+
+    public SessionProperties copy() {
+        return new SessionProperties(bufferSize, bufferTtlMs);
+    }
 }

@@ -132,4 +132,14 @@ public class DecayProperties implements Serializable {
         result[0] = 1.00f;
         return result;
     }
+
+    public DecayProperties copy() {
+        DecayProperties cp = new DecayProperties();
+        cp.setMinThreshold(this.minThreshold);
+        cp.setBaselineHalfLifeDays(this.baselineHalfLifeDays);
+        cp.setExponent(this.exponent);
+        cp.setFloor(this.floor);
+        cp.buckets = this.buckets != null ? this.buckets.clone() : null;
+        return cp;
+    }
 }

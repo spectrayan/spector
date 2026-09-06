@@ -249,15 +249,15 @@ public final class SpectorProperties implements Serializable {
         return new SpectorProperties(
                 this.memory != null ? this.memory.copy() : new MemoryProperties(),
                 this.provider != null ? this.provider.copy() : new ProviderProperties(),
-                this.ingestion,
-                this.hnsw,
-                this.ivf,
-                this.spectrum,
-                this.telemetry,
-                this.multimodal,
-                this.hardware,
-                this.events,
-                this.concurrency,
+                this.ingestion != null ? this.ingestion.copy() : new IngestionProperties(),
+                this.hnsw != null ? this.hnsw.copy() : null,
+                this.ivf != null ? this.ivf.copy() : null,
+                this.spectrum != null ? this.spectrum.copy() : null,
+                this.telemetry != null ? this.telemetry.copy() : new TelemetryProperties(),
+                this.multimodal != null ? this.multimodal.copy() : new MultimodalProperties(),
+                this.hardware != null ? this.hardware.copy() : new HardwareProperties(),
+                this.events != null ? this.events.copy() : new EventsProperties(),
+                this.concurrency != null ? this.concurrency.copy() : new ConcurrencyProperties(),
                 this.source
         );
     }

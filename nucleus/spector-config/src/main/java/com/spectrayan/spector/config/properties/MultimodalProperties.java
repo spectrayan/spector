@@ -126,6 +126,11 @@ public class MultimodalProperties implements Serializable {
     public void setAssetBasePath(Path assetBasePath) { this.assetBasePath = assetBasePath; }
     public Path assetBasePath() { return assetBasePath; }
 
+    public MultimodalProperties copy() {
+        return new MultimodalProperties(enabled, visionModel, visionBaseUrl, visionTimeout,
+                audioModel, audioTimeout, assetStoreType, assetBasePath);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

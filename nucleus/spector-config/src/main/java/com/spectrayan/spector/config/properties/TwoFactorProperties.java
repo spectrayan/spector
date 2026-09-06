@@ -84,4 +84,8 @@ public class TwoFactorProperties implements Serializable {
     public int hashCode() {
         return Objects.hash(enabled, sGain, sMax, sExponent);
     }
+
+    public TwoFactorProperties copy() {
+        return new TwoFactorProperties(sGain, sMax, sExponent, enabled);
+    }
 }

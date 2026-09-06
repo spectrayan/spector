@@ -50,4 +50,8 @@ public class ConcurrencyProperties implements Serializable {
     public int hashCode() {
         return Objects.hash(structured);
     }
+
+    public ConcurrencyProperties copy() {
+        return new ConcurrencyProperties(this.structured);
+    }
 }

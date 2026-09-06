@@ -96,4 +96,17 @@ public class IngestionProperties implements Serializable {
     public int parallelism() { return getParallelism(); }
     public int maxRetries() { return getMaxRetries(); }
     public int retryDelayMs() { return getRetryDelayMs(); }
+
+    public IngestionProperties copy() {
+        IngestionProperties cp = new IngestionProperties();
+        cp.setRootDirectory(this.rootDirectory);
+        cp.setFilePattern(this.filePattern);
+        cp.setSkipDirs(this.skipDirs);
+        cp.setChunkSize(this.chunkSize);
+        cp.setChunkOverlap(this.chunkOverlap);
+        cp.setParallelism(this.parallelism);
+        cp.setMaxRetries(this.maxRetries);
+        cp.setRetryDelayMs(this.retryDelayMs);
+        return cp;
+    }
 }

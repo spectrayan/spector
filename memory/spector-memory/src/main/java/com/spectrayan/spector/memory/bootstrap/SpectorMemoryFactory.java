@@ -207,10 +207,6 @@ public final class SpectorMemoryFactory {
                 : new com.spectrayan.spector.config.properties.RememberProperties();
         var aismeConfig = com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(
                 memProps.getAisme());
-        var circadianPolicy = com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy.from(
-                memProps.getCircadian());
-        var dreamConfig = com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig.from(
-                memProps.getDream());
         var twoFactorConfig = com.spectrayan.spector.memory.synapse.TwoFactorConfig.from(
                 memProps.getTwofactor());
 
@@ -412,7 +408,7 @@ public final class SpectorMemoryFactory {
                 .embeddingProvider(embeddingProvider)
                 .textGenerator(builder.llmProvider())
                 .importanceProvider(importanceProvider)
-                .policy(circadianPolicy)
+                .policy(memProps.getCircadian())
                 .centroidRouter(memProps.getDimensions() > 0 ? new com.spectrayan.spector.memory.cortex.CentroidRouter(memProps.getDimensions()) : null)
                 .hebbianGraph(graphs.hebbianGraph())
                 .temporalChain(graphs.temporalChain())
@@ -483,7 +479,7 @@ public final class SpectorMemoryFactory {
         }
 
         DreamPathway dreamPathway = DreamPathway.builder()
-                .dreamConfig(dreamConfig)
+                .dreamProperties(memProps.getDream())
                 .partitionManager(partitionManager)
                 .aismeConfig(aismeConfig)
                 .primarySoul(dreamPrimarySoul)

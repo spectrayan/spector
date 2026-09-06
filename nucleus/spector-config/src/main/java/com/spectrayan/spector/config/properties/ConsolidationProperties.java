@@ -76,4 +76,12 @@ public class ConsolidationProperties implements Serializable {
         if (eagerQueueCapacity > 0) this.eagerQueueCapacity = eagerQueueCapacity;
     }
     public int eagerQueueCapacity() { return eagerQueueCapacity; }
+
+    public ConsolidationProperties copy() {
+        ConsolidationProperties cp = new ConsolidationProperties();
+        cp.setInterval(this.interval);
+        cp.setMaxPriorContextTurns(this.maxPriorContextTurns);
+        cp.setEagerQueueCapacity(this.eagerQueueCapacity);
+        return cp;
+    }
 }

@@ -796,4 +796,75 @@ public class AismeProperties implements Serializable {
     public long lifespanVTarget() { return getLifespanVTarget(); }
     public float lifespanGamma() { return getLifespanGamma(); }
     public boolean lifespanFlashbulbProtect() { return isLifespanFlashbulbProtect(); }
+
+    public AismeProperties copy() {
+        AismeProperties cp = new AismeProperties();
+        cp.enabled = this.enabled;
+        cp.enableHomeostasis = this.enableHomeostasis;
+        cp.enableFreeEnergy = this.enableFreeEnergy;
+        cp.enableHopfield = this.enableHopfield;
+        cp.enableManifold = this.enableManifold;
+        cp.enablePredictiveCoding = this.enablePredictiveCoding;
+        cp.enableConsciousnessContinuity = this.enableConsciousnessContinuity;
+        cp.enableGlobalWorkspace = this.enableGlobalWorkspace;
+        cp.globalWorkspaceCapacity = this.globalWorkspaceCapacity;
+        cp.hopfieldTemperature = this.hopfieldTemperature;
+        cp.manifoldSigma = this.manifoldSigma;
+        cp.phiCohesionThreshold = this.phiCohesionThreshold;
+        cp.enableDmnSpontaneous = this.enableDmnSpontaneous;
+        cp.dmnIdleIntervalSeconds = this.dmnIdleIntervalSeconds;
+        cp.enableLongitudinalContinuity = this.enableLongitudinalContinuity;
+        cp.longitudinalSnapshotIntervalMinutes = this.longitudinalSnapshotIntervalMinutes;
+        cp.enableExpectedFreeEnergy = this.enableExpectedFreeEnergy;
+        cp.efePolicyPrecision = this.efePolicyPrecision;
+        cp.efeEpistemicWeight = this.efeEpistemicWeight;
+        cp.efePragmaticWeight = this.efePragmaticWeight;
+        cp.efeSoulWeightAgent = this.efeSoulWeightAgent;
+        cp.efeSoulWeightUser = this.efeSoulWeightUser;
+        cp.efeSoulWeightTenant = this.efeSoulWeightTenant;
+        cp.efeSoulWeightOrgUnit = this.efeSoulWeightOrgUnit;
+        cp.constructivePersistenceEnabled = this.constructivePersistenceEnabled;
+        cp.constructivePersistenceThreshold = this.constructivePersistenceThreshold;
+        cp.backgroundDecayEnabled = this.backgroundDecayEnabled;
+        cp.backgroundDecayFactor = this.backgroundDecayFactor;
+        cp.backgroundDecayIntervalSeconds = this.backgroundDecayIntervalSeconds;
+        cp.enableSoftIdentityAnchor = this.enableSoftIdentityAnchor;
+        cp.identityAnchorEta = this.identityAnchorEta;
+        cp.identityLyapunovThreshold = this.identityLyapunovThreshold;
+        cp.identityCoreSnapshotEpochs = this.identityCoreSnapshotEpochs;
+        cp.enableEventDensity = this.enableEventDensity;
+        cp.eventDensityThreshold = this.eventDensityThreshold;
+        cp.eventDensityAlphaKl = this.eventDensityAlphaKl;
+        cp.eventDensityBetaGradient = this.eventDensityBetaGradient;
+        cp.eventDensityGammaSurprise = this.eventDensityGammaSurprise;
+        cp.eventDensitySamplingMinHz = this.eventDensitySamplingMinHz;
+        cp.eventDensitySamplingMaxHz = this.eventDensitySamplingMaxHz;
+        cp.enableBocpd = this.enableBocpd;
+        cp.bocpdHazardLambda = this.bocpdHazardLambda;
+        cp.bocpdChangePointThreshold = this.bocpdChangePointThreshold;
+        cp.bocpdSurprisalCutThreshold = this.bocpdSurprisalCutThreshold;
+        cp.bocpdMaxEpisodeFrames = this.bocpdMaxEpisodeFrames;
+        cp.bocpdMaxRunLength = this.bocpdMaxRunLength;
+        cp.enablePrivacy = this.enablePrivacy;
+        cp.privacyEpsilon = this.privacyEpsilon;
+        cp.privacyDelta = this.privacyDelta;
+        cp.privacyClippingNorm = this.privacyClippingNorm;
+        cp.privacyAnonymizePii = this.privacyAnonymizePii;
+        cp.privacyPseudonymizationSalt = this.privacyPseudonymizationSalt;
+        cp.enableImportance = this.enableImportance;
+        cp.importanceWeightSurprise = this.importanceWeightSurprise;
+        cp.importanceWeightAffect = this.importanceWeightAffect;
+        cp.importanceWeightGoal = this.importanceWeightGoal;
+        cp.importanceWeightSocial = this.importanceWeightSocial;
+        cp.importanceWeightNovelty = this.importanceWeightNovelty;
+        cp.importanceFlashbulbThreshold = this.importanceFlashbulbThreshold;
+        cp.enableLifespan = this.enableLifespan;
+        cp.lifespanTau0 = this.lifespanTau0;
+        cp.lifespanK = this.lifespanK;
+        cp.lifespanT0Epochs = this.lifespanT0Epochs;
+        cp.lifespanVTarget = this.lifespanVTarget;
+        cp.lifespanGamma = this.lifespanGamma;
+        cp.lifespanFlashbulbProtect = this.lifespanFlashbulbProtect;
+        return cp;
+    }
 }

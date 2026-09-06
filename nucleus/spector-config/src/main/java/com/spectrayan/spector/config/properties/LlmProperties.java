@@ -58,4 +58,8 @@ public class LlmProperties implements Serializable {
     public int maxTokens() { return getMaxTokens(); }
     public float topP() { return getTopP(); }
     public String entityModel() { return getEntityModel(); }
+
+    public LlmProperties copy() {
+        return new LlmProperties(temperature, maxTokens, topP, entityModel);
+    }
 }

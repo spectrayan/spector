@@ -25,6 +25,7 @@ import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.TypeNormalizer;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.config.properties.CircadianProperties;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.ReflectReport;
@@ -58,7 +59,7 @@ public final class ReflectSignal {
     private final LlmProvider textGenerator;
     private final ImportanceProvider importanceProvider;
     private final SalienceProfile salienceProfile;
-    private final CircadianPolicy policy;
+    private final CircadianProperties policy;
     private final CentroidRouter centroidRouter;
     private final TemplateEngine templateEngine;
     private final EpisodicSessionIndex episodicSessionIndex;
@@ -126,7 +127,7 @@ public final class ReflectSignal {
         this.textGenerator = builder.textGenerator;
         this.importanceProvider = builder.importanceProvider != null ? builder.importanceProvider : ImportanceProvider.baseline();
         this.salienceProfile = builder.salienceProfile != null ? builder.salienceProfile : SalienceProfile.NEUTRAL;
-        this.policy = builder.policy != null ? builder.policy : CircadianPolicy.DEFAULT;
+        this.policy = builder.policy != null ? builder.policy : CircadianProperties.DEFAULT;
         this.centroidRouter = builder.centroidRouter;
         this.templateEngine = builder.templateEngine != null ? builder.templateEngine : TemplateEngine.getDefault();
         this.episodicSessionIndex = builder.episodicSessionIndex;
@@ -198,7 +199,7 @@ public final class ReflectSignal {
     public LlmProvider textGenerator() { return textGenerator; }
     public ImportanceProvider importanceProvider() { return importanceProvider; }
     public SalienceProfile salienceProfile() { return salienceProfile; }
-    public CircadianPolicy policy() { return policy; }
+    public CircadianProperties policy() { return policy; }
     public CentroidRouter centroidRouter() { return centroidRouter; }
     public TemplateEngine templateEngine() { return templateEngine; }
     public EpisodicSessionIndex episodicSessionIndex() { return episodicSessionIndex; }
@@ -336,7 +337,7 @@ public final class ReflectSignal {
         private LlmProvider textGenerator;
         private ImportanceProvider importanceProvider;
         private SalienceProfile salienceProfile;
-        private CircadianPolicy policy = CircadianPolicy.DEFAULT;
+        private CircadianProperties policy = CircadianProperties.DEFAULT;
         private CentroidRouter centroidRouter;
         private TemplateEngine templateEngine;
         private EpisodicSessionIndex episodicSessionIndex;
@@ -382,11 +383,8 @@ public final class ReflectSignal {
         public Builder textGenerator(LlmProvider tg) { this.textGenerator = tg; return this; }
         public Builder importanceProvider(ImportanceProvider ip) { this.importanceProvider = ip; return this; }
         public Builder salienceProfile(SalienceProfile sp) { this.salienceProfile = sp; return this; }
+        public Builder policy(CircadianProperties p) { this.policy = p; return this; }
         public Builder policy(CircadianPolicy p) { this.policy = p; return this; }
-        public Builder policy(com.spectrayan.spector.config.properties.CircadianProperties p) {
-            this.policy = CircadianPolicy.from(p);
-            return this;
-        }
         public Builder centroidRouter(CentroidRouter cr) { this.centroidRouter = cr; return this; }
         public Builder templateEngine(TemplateEngine te) { this.templateEngine = te; return this; }
         public Builder episodicSessionIndex(EpisodicSessionIndex esi) { this.episodicSessionIndex = esi; return this; }

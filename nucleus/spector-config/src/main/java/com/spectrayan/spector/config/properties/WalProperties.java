@@ -50,4 +50,8 @@ public class WalProperties implements Serializable {
     public int hashCode() {
         return Objects.hash(maxChunkBytes);
     }
+
+    public WalProperties copy() {
+        return new WalProperties(maxChunkBytes);
+    }
 }

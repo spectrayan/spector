@@ -26,6 +26,10 @@ import com.spectrayan.spector.config.properties.EventsProperties;
 import com.spectrayan.spector.config.properties.ConcurrencyProperties;
 import com.spectrayan.spector.config.properties.TelemetryProperties;
 import com.spectrayan.spector.config.properties.MultimodalProperties;
+import com.spectrayan.spector.config.properties.IngestionProperties;
+import com.spectrayan.spector.config.properties.HnswProperties;
+import com.spectrayan.spector.config.properties.IvfProperties;
+import com.spectrayan.spector.config.properties.SpectrumProperties;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -50,6 +54,10 @@ public class SpectorConfigProperties {
     private ConcurrencyProperties concurrency = new ConcurrencyProperties();
     private TelemetryProperties telemetry = new TelemetryProperties();
     private MultimodalProperties multimodal = new MultimodalProperties();
+    private IngestionProperties ingestion = new IngestionProperties();
+    private HnswProperties hnsw;
+    private IvfProperties ivf;
+    private SpectrumProperties spectrum;
 
     public ClientProperties getClient() { return client; }
     public void setClient(ClientProperties client) { this.client = client; }
@@ -90,6 +98,20 @@ public class SpectorConfigProperties {
         if (multimodal != null) this.multimodal = multimodal;
     }
 
+    public IngestionProperties getIngestion() { return ingestion; }
+    public void setIngestion(IngestionProperties ingestion) {
+        if (ingestion != null) this.ingestion = ingestion;
+    }
+
+    public HnswProperties getHnsw() { return hnsw; }
+    public void setHnsw(HnswProperties hnsw) { this.hnsw = hnsw; }
+
+    public IvfProperties getIvf() { return ivf; }
+    public void setIvf(IvfProperties ivf) { this.ivf = ivf; }
+
+    public SpectrumProperties getSpectrum() { return spectrum; }
+    public void setSpectrum(SpectrumProperties spectrum) { this.spectrum = spectrum; }
+
     /**
      * Converts this Spring Boot configuration properties bean into a canonical
      * {@link SpectorProperties} aggregate root snapshot.
@@ -98,6 +120,10 @@ public class SpectorConfigProperties {
         return SpectorProperties.builder()
                 .memory(memory)
                 .provider(provider)
+                .ingestion(ingestion)
+                .hnsw(hnsw)
+                .ivf(ivf)
+                .spectrum(spectrum)
                 .hardware(hardware)
                 .events(events)
                 .concurrency(concurrency)

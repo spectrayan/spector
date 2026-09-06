@@ -271,4 +271,39 @@ class SpectorPropertiesTest {
         assertThat(modified.memory().getDimensions()).isEqualTo(768);
         assertThat(modified).isNotSameAs(original);
     }
+
+    @Test
+    void copy_nestedChildPropertiesAreDeeplyCloned() {
+        SpectorProperties original = SpectorProperties.load();
+        SpectorProperties cloned = original.copy();
+
+        boolean origDream = original.memory().getDream().isEnabled();
+        boolean origMmr = original.memory().getRecall().getMmr().isEnabled();
+        String origModel = original.provider().getGeneration().getModel();
+        int origThreshold = original.hardware().getGpuBatchThreshold();
+        boolean origEventsAsync = original.events().isAsync();
+        boolean origStructured = original.concurrency().isStructured();
+        int origChunkSize = original.ingestion().getChunkSize();
+
+        // Mutate nested child properties on cloned instance
+        cloned.memory().getDream().setEnabled(!origDream);
+        cloned.memory().getRecall().getMmr().setEnabled(!origMmr);
+        cloned.provider().getGeneration().setModel("cloned-" + origModel);
+        cloned.hardware().setGpuBatchThreshold(origThreshold + 1000);
+        cloned.events().setAsync(!origEventsAsync);
+        cloned.concurrency().setStructured(!origStructured);
+        cloned.ingestion().setChunkSize(origChunkSize + 100);
+
+        // Verify original properties are unaffected
+        assertThat(original.memory().getDream().isEnabled()).isEqualTo(origDream);
+        assertThat(original.memory().getRecall().getMmr().isEnabled()).isEqualTo(origMmr);
+        assertThat(original.provider().getGeneration().getModel()).isEqualTo(origModel);
+        assertThat(original.hardware().getGpuBatchThreshold()).isEqualTo(origThreshold);
+        assertThat(original.events().isAsync()).isEqualTo(origEventsAsync);
+        assertThat(original.concurrency().isStructured()).isEqualTo(origStructured);
+        assertThat(original.ingestion().getChunkSize()).isEqualTo(origChunkSize);
+    }
 }
+
+
+

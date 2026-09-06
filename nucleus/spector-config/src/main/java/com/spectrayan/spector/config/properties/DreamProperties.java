@@ -200,4 +200,32 @@ public class DreamProperties implements Serializable {
                 identityResonanceThreshold, ethicalViolationThreshold, langevinSoulAttractorLambda,
                 hartmannOpennessMultiplier, hartmannVigilanceMultiplier);
     }
+
+    public DreamProperties copy() {
+        DreamProperties cp = new DreamProperties();
+        cp.setEnabled(this.enabled);
+        cp.setNoiseScale(this.noiseScale);
+        cp.setTemperatureRem(this.temperatureRem);
+        cp.setTemperatureDaydream(this.temperatureDaydream);
+        cp.setTemperatureThought(this.temperatureThought);
+        cp.setMaxDreamsPerCycle(this.maxDreamsPerCycle);
+        cp.setMaxCounterfactualsPerSeed(this.maxCounterfactualsPerSeed);
+        cp.setPersistenceThreshold(this.persistenceThreshold);
+        cp.setLangevinStepSize(this.langevinStepSize);
+        cp.setLangevinSteps(this.langevinSteps);
+        cp.setNoveltyRadius(this.noveltyRadius);
+        cp.setHebbianInhibitionDelta(this.hebbianInhibitionDelta);
+        cp.setJournalEnabled(this.journalEnabled);
+        cp.setCycleFrequency(this.cycleFrequency);
+        cp.setSeedWeightRecency(this.seedWeightRecency);
+        cp.setSeedWeightNovelty(this.seedWeightNovelty);
+        cp.setSeedWeightSoul(this.seedWeightSoul);
+        cp.setSeedWeightSalience(this.seedWeightSalience);
+        cp.setIdentityResonanceThreshold(this.identityResonanceThreshold);
+        cp.setEthicalViolationThreshold(this.ethicalViolationThreshold);
+        cp.setLangevinSoulAttractorLambda(this.langevinSoulAttractorLambda);
+        cp.setHartmannOpennessMultiplier(this.hartmannOpennessMultiplier);
+        cp.setHartmannVigilanceMultiplier(this.hartmannVigilanceMultiplier);
+        return cp;
+    }
 }

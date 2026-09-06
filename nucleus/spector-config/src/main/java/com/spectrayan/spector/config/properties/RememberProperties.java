@@ -98,6 +98,25 @@ public class RememberProperties implements Serializable {
     public void setPinnedQuota(int pinnedQuota) { this.pinnedQuota = pinnedQuota; }
     public int pinnedQuota() { return pinnedQuota; }
 
+    public RememberProperties copy() {
+        RememberProperties cp = new RememberProperties();
+        cp.defaultTier = this.defaultTier;
+        cp.chunk = this.chunk != null ? this.chunk.copy() : new ChunkProperties();
+        cp.files = this.files != null ? this.files.copy() : new FileCrawlerProperties();
+        cp.icnu = this.icnu != null ? this.icnu.copy() : new IcnuProperties();
+        cp.surpriseWarmup = this.surpriseWarmup;
+        cp.flashbulbThreshold = this.flashbulbThreshold;
+        cp.valenceLearningRate = this.valenceLearningRate;
+        cp.deduplicationRadius = this.deduplicationRadius;
+        cp.inhibitionTtlMs = this.inhibitionTtlMs;
+        cp.inhibitionFloor = this.inhibitionFloor;
+        cp.habituationDecayRate = this.habituationDecayRate;
+        cp.ltpCooldownMs = this.ltpCooldownMs;
+        cp.pinSourceEpisodes = this.pinSourceEpisodes;
+        cp.pinnedQuota = this.pinnedQuota;
+        return cp;
+    }
+
     public static class ChunkProperties implements Serializable {
         private int size = 2500;
         private int overlap = 200;
@@ -114,6 +133,14 @@ public class RememberProperties implements Serializable {
         public String getStrategy() { return strategy; }
         public void setStrategy(String strategy) { this.strategy = strategy; }
         public String strategy() { return strategy; }
+
+        public ChunkProperties copy() {
+            ChunkProperties cp = new ChunkProperties();
+            cp.size = this.size;
+            cp.overlap = this.overlap;
+            cp.strategy = this.strategy;
+            return cp;
+        }
     }
 
     public static class FileCrawlerProperties implements Serializable {
@@ -147,6 +174,17 @@ public class RememberProperties implements Serializable {
         public int getRetryDelayMs() { return retryDelayMs; }
         public void setRetryDelayMs(int retryDelayMs) { this.retryDelayMs = retryDelayMs; }
         public int retryDelayMs() { return retryDelayMs; }
+
+        public FileCrawlerProperties copy() {
+            FileCrawlerProperties cp = new FileCrawlerProperties();
+            cp.rootDirectory = this.rootDirectory;
+            cp.pattern = this.pattern;
+            cp.skipDirs = this.skipDirs;
+            cp.parallelism = this.parallelism;
+            cp.maxRetries = this.maxRetries;
+            cp.retryDelayMs = this.retryDelayMs;
+            return cp;
+        }
     }
 
     public static class IcnuProperties implements Serializable {
@@ -180,5 +218,16 @@ public class RememberProperties implements Serializable {
         public float getWeightUrgency() { return weightUrgency; }
         public void setWeightUrgency(float weightUrgency) { this.weightUrgency = weightUrgency; }
         public float weightUrgency() { return weightUrgency; }
+
+        public IcnuProperties copy() {
+            IcnuProperties cp = new IcnuProperties();
+            cp.threshold = this.threshold;
+            cp.steepness = this.steepness;
+            cp.weightInterest = this.weightInterest;
+            cp.weightChallenge = this.weightChallenge;
+            cp.weightNovelty = this.weightNovelty;
+            cp.weightUrgency = this.weightUrgency;
+            return cp;
+        }
     }
 }

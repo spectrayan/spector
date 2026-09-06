@@ -67,4 +67,14 @@ public class HardwareProperties implements Serializable {
         return Objects.hash(gpuBatchThreshold, gpuBatchMinWindowMs, gpuBatchMaxWindowMs,
                 gpuBatchDefaultMaxBatch, gpuMemoryMinBudgetBytes);
     }
+
+    public HardwareProperties copy() {
+        HardwareProperties cp = new HardwareProperties();
+        cp.setGpuBatchThreshold(this.gpuBatchThreshold);
+        cp.setGpuBatchMinWindowMs(this.gpuBatchMinWindowMs);
+        cp.setGpuBatchMaxWindowMs(this.gpuBatchMaxWindowMs);
+        cp.setGpuBatchDefaultMaxBatch(this.gpuBatchDefaultMaxBatch);
+        cp.setGpuMemoryMinBudgetBytes(this.gpuMemoryMinBudgetBytes);
+        return cp;
+    }
 }

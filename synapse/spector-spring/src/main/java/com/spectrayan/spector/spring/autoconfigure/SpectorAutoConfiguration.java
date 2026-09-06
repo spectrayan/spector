@@ -76,6 +76,9 @@ import com.spectrayan.spector.mcp.tools.SpectorToolRegistry;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
+import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
+import com.spectrayan.spector.core.spi.AcceleratorRegistry;
+import com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutors;
 
 /**
  * Spring Boot auto-configuration for embedded Spector Cognitive Memory.
@@ -144,6 +147,21 @@ public class SpectorAutoConfiguration {
 
         if (embedder == null) {
             throw new SpectorInternalException(ErrorCode.ARGUMENT_NULL, "EmbeddingProvider bean (configure provider or set spector.memory.enabled=false)");
+        }
+
+        if (spectorProps.hardware() != null) {
+            AcceleratorRegistry.setBatchThreshold(
+                    spectorProps.hardware().getGpuBatchThreshold());
+        }
+        if (spectorProps.concurrency() != null) {
+            ConcurrentTasks.setStructuredEnabled(
+                    spectorProps.concurrency().isStructured());
+        }
+        if (spectorProps.memory() != null && spectorProps.memory().getCircadian() != null
+                && spectorProps.memory().getCircadian().getOrchestrator() != null
+                && !spectorProps.memory().getCircadian().getOrchestrator().isBlank()) {
+            ReflectSweepExecutors.setOrchestrator(
+                    spectorProps.memory().getCircadian().getOrchestrator());
         }
 
         var builder = SpectorMemoryBuilder.createEmpty()

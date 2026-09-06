@@ -135,4 +135,8 @@ public class TelemetryProperties implements Serializable {
                 ", graphEnabled=" + graphEnabled +
                 '}';
     }
+
+    public TelemetryProperties copy() {
+        return new TelemetryProperties(enabled, intervalMs, perQueryEnabled, querySampleRate, simdEnabled, graphEnabled);
+    }
 }

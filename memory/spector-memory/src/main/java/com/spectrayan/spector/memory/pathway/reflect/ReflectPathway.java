@@ -76,7 +76,7 @@ public final class ReflectPathway implements AutoCloseable {
     private final EmbeddingProvider embeddingProvider;
     private final LlmProvider textGenerator;
     private final ImportanceProvider importanceProvider;
-    private final CircadianPolicy policy;
+    private final CircadianProperties policy;
     private final CentroidRouter centroidRouter;
     private final TemplateEngine templateEngine;
     private final EpisodicSessionIndex episodicSessionIndex;
@@ -110,7 +110,7 @@ public final class ReflectPathway implements AutoCloseable {
         this.embeddingProvider = builder.embeddingProvider;
         this.textGenerator = builder.textGenerator;
         this.importanceProvider = builder.importanceProvider != null ? builder.importanceProvider : ImportanceProvider.baseline();
-        this.policy = builder.policy != null ? builder.policy : CircadianPolicy.DEFAULT;
+        this.policy = builder.policy != null ? builder.policy : CircadianProperties.DEFAULT;
         this.centroidRouter = builder.centroidRouter;
         this.templateEngine = builder.templateEngine != null ? builder.templateEngine : TemplateEngine.getDefault();
         this.episodicSessionIndex = builder.episodicSessionIndex;
@@ -193,6 +193,10 @@ public final class ReflectPathway implements AutoCloseable {
             log.error("ReflectPathway: reflection cycle aborted due to error: {}", e.getMessage(), e);
             throw new com.spectrayan.spector.memory.error.SpectorPathwayException("ReflectPathway execution failed: " + e.getMessage(), e);
         }
+    }
+
+    public CircadianProperties policy() {
+        return policy;
     }
 
     /**
@@ -285,7 +289,7 @@ public final class ReflectPathway implements AutoCloseable {
         private EmbeddingProvider embeddingProvider;
         private LlmProvider textGenerator;
         private ImportanceProvider importanceProvider;
-        private CircadianPolicy policy = CircadianPolicy.DEFAULT;
+        private CircadianProperties policy = CircadianProperties.DEFAULT;
         private CentroidRouter centroidRouter;
         private TemplateEngine templateEngine;
         private EpisodicSessionIndex episodicSessionIndex;
@@ -324,8 +328,8 @@ public final class ReflectPathway implements AutoCloseable {
         public Builder embeddingProvider(EmbeddingProvider ep) { this.embeddingProvider = ep; return this; }
         public Builder textGenerator(LlmProvider tg) { this.textGenerator = tg; return this; }
         public Builder importanceProvider(ImportanceProvider ip) { this.importanceProvider = ip; return this; }
+        public Builder policy(CircadianProperties p) { this.policy = p; return this; }
         public Builder policy(CircadianPolicy p) { this.policy = p; return this; }
-        public Builder policy(CircadianProperties p) { this.policy = CircadianPolicy.from(p); return this; }
         public Builder centroidRouter(CentroidRouter cr) { this.centroidRouter = cr; return this; }
         public Builder templateEngine(TemplateEngine te) { this.templateEngine = te; return this; }
         public Builder episodicSessionIndex(EpisodicSessionIndex esi) { this.episodicSessionIndex = esi; return this; }

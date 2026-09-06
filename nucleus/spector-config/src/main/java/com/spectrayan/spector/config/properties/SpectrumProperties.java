@@ -113,4 +113,8 @@ public class SpectrumProperties implements Serializable {
                 ", kmeansIterations=" + kmeansIterations +
                 '}';
     }
+
+    public SpectrumProperties copy() {
+        return new SpectrumProperties(nCentroids, nProbe, shardThreshold, oversamplingFactor, kmeansIterations);
+    }
 }

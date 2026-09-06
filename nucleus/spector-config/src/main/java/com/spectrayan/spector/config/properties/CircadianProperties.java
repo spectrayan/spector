@@ -80,6 +80,19 @@ public class CircadianProperties implements Serializable {
     public CircadianProperties interferenceThreshold(float i) { setInterferenceThreshold(i); return this; }
     public CircadianProperties interferenceDecayFactor(float f) { setInterferenceDecayFactor(f); return this; }
 
+    public CircadianProperties copy() {
+        CircadianProperties cp = new CircadianProperties();
+        cp.setEnabled(this.isEnabled());
+        cp.setVolumeTrigger(this.getVolumeTrigger());
+        cp.setTimeTriggerSeconds(this.getTimeTriggerSeconds());
+        cp.setTombstoneThreshold(this.getTombstoneThreshold());
+        cp.setDecayPruneThreshold(this.getDecayPruneThreshold());
+        cp.setInterferenceThreshold(this.getInterferenceThreshold());
+        cp.setInterferenceDecayFactor(this.getInterferenceDecayFactor());
+        cp.setOrchestrator(this.getOrchestrator());
+        return cp;
+    }
+
     public static final CircadianProperties DEFAULT = new CircadianProperties();
 
     public static Builder builder() {
