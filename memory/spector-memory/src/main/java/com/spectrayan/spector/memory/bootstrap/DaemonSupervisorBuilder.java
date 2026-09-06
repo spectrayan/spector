@@ -108,6 +108,10 @@ public final class DaemonSupervisorBuilder {
                         graphs.entityDirectory(), graphs.hyperEntityGraph(), bio.coActivationTracker(),
                         graphs.temporalKnowledgeGraph(),
                         resolvedPartitionDir, basePath, ckptSlice);
+                if (builder.spectorProperties() != null && builder.spectorProperties().events() != null) {
+                    checkpointDaemon.setEventBus(com.spectrayan.spector.events.EventBus.broadcast(
+                            builder.spectorProperties().events().isAsync()));
+                }
                 // Deprecated: Checkpointing is now scheduled and managed exclusively by Quartz CheckpointJob (#683)
                 // daemonSupervisor.schedule("checkpoint", checkpointDaemon::checkpoint,
                 //         java.time.Duration.ofSeconds(memProps.getCheckpointIntervalSeconds()), DaemonPolicy.CRITICAL);

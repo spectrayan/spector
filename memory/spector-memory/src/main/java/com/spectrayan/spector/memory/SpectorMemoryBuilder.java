@@ -95,26 +95,26 @@ public final class SpectorMemoryBuilder {
     private SparseEmbeddingProvider sparseEmbeddingProvider;
     private TokenEmbeddingProvider tokenEmbeddingProvider;
     private ScalarQuantizer quantizer;
-    public VectorIndex semanticIndex;
+    private VectorIndex semanticIndex;
     private DataEncryptor dataEncryptor = DataEncryptor.NOOP;
     private MemoryObservationHook hook;
     private TagExtractor tagExtractor;
     private EntityExtractor entityExtractor;
     private List<SensoryExtractor> sensoryExtractors = List.of();
     private AssetStore assetStore;
-    public SpectorCacheManager cacheManager;
+    private SpectorCacheManager cacheManager;
     private MemoryScheduler scheduler;
     private org.quartz.Scheduler customQuartzScheduler;
     private Executor suppliedExecutor;
-    public TextChunker chunker = new MarkdownChunker();
-    public ChunkConfig chunkConfig = ChunkConfig.markdown(
+    private TextChunker chunker = new MarkdownChunker();
+    private ChunkConfig chunkConfig = ChunkConfig.markdown(
             SpectorPropertyConstants.DEFAULT_INGESTION_CHUNK_SIZE,
             SpectorPropertyConstants.DEFAULT_INGESTION_CHUNK_OVERLAP);
     private MemoryIdGenerator idGenerator;
     private ImportanceProvider importanceProvider;
     private SalienceProfileProvider salienceProfileProvider;
-    public SalienceProfile salienceProfile;
-    public OntologyConfig ontologyConfig;
+    private SalienceProfile salienceProfile;
+    private OntologyConfig ontologyConfig;
     private GenerationOptions llmGenerationOptions;
     private GraphScoringPolicy graphScoringPolicy = GraphScoringPolicy.DEFAULT;
     private EdgeImportance edgeImportance = EdgeImportance.DEFAULT;
@@ -129,25 +129,52 @@ public final class SpectorMemoryBuilder {
     private com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy circadianPolicy;
     private com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig;
     private com.spectrayan.spector.memory.graph.EntityExtractionMode entityExtractionMode = com.spectrayan.spector.memory.graph.EntityExtractionMode.NONE;
+    private com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor reflectSweepExecutor;
 
     // ==============================================================
     // CONSTRUCTORS & FACTORY
     // ==============================================================
 
+    /**
+     * Creates an unseeded builder with empty default configuration.
+     * <p>Production applications should use {@link #create()} or {@link SpectorMemory#builder(SpectorProperties)}.</p>
+     */
     public SpectorMemoryBuilder() {
         this(SpectorProperties.builder().build());
     }
 
+    /**
+     * Creates a builder initialized with the specified aggregate snapshot.
+     */
     public SpectorMemoryBuilder(SpectorProperties properties) {
         fromProperties(properties != null ? properties : SpectorProperties.builder().build());
     }
 
-    /** Creates a new builder instance seeded with defaults from {@link SpectorProperties#load()}. */
+    /**
+     * Creates a new builder instance seeded with defaults from {@link SpectorProperties#load()}.
+     * <p>Initializes process-level runtime systems (e.g. GPU threshold, virtual thread concurrency)
+     * from system defaults at process bootstrap.</p>
+     */
     public static SpectorMemoryBuilder create() {
-        return new SpectorMemoryBuilder(SpectorProperties.load());
+        SpectorProperties props = SpectorProperties.load();
+        if (props.hardware() != null) {
+            AcceleratorRegistry.setBatchThreshold(
+                    props.hardware().getGpuBatchThreshold());
+        }
+        if (props.concurrency() != null) {
+            ConcurrentTasks.setStructuredEnabled(
+                    props.concurrency().isStructured());
+        }
+        if (props.memory() != null && props.memory().getCircadian() != null
+                && props.memory().getCircadian().getOrchestrator() != null
+                && !props.memory().getCircadian().getOrchestrator().isBlank()) {
+            com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutors.setOrchestrator(
+                    props.memory().getCircadian().getOrchestrator());
+        }
+        return new SpectorMemoryBuilder(props);
     }
 
-    /** Creates a new unseeded builder instance without loading system defaults. */
+    /** Creates a new unseeded builder instance without loading system defaults. Useful for unit tests. */
     public static SpectorMemoryBuilder createEmpty() {
         return new SpectorMemoryBuilder(SpectorProperties.builder().build());
     }
@@ -169,14 +196,6 @@ public final class SpectorMemoryBuilder {
      */
     public SpectorMemoryBuilder fromProperties(SpectorProperties props) {
         this.properties = props != null ? props : SpectorProperties.builder().build();
-        if (this.properties.hardware() != null) {
-            AcceleratorRegistry.setBatchThreshold(
-                    this.properties.hardware().getGpuBatchThreshold());
-        }
-        if (this.properties.concurrency() != null) {
-            ConcurrentTasks.setStructuredEnabled(
-                    this.properties.concurrency().isStructured());
-        }
         if (this.properties.memory() != null) {
             var mem = this.properties.memory();
             if (mem.getRecall() != null) {
@@ -250,10 +269,19 @@ public final class SpectorMemoryBuilder {
 
     /**
      * Sets embedding batch size on the provider configuration.
+     * @deprecated Configure on {@code props.provider().getEmbedding().setBatchSize(...)} instead.
      */
+    @Deprecated(forRemoval = true)
     public SpectorMemoryBuilder embedBatchSize(int size) {
-        if (size > 0 && this.properties != null && this.properties.provider() != null && this.properties.provider().getEmbedding() != null) {
-            this.properties.provider().getEmbedding().setBatchSize(size);
+        if (size > 0) {
+            if (this.properties != null) {
+                this.properties = this.properties.copy();
+            } else {
+                this.properties = SpectorProperties.builder().build();
+            }
+            if (this.properties.provider() != null && this.properties.provider().getEmbedding() != null) {
+                this.properties.provider().getEmbedding().setBatchSize(size);
+            }
         }
         return this;
     }
@@ -548,13 +576,22 @@ public final class SpectorMemoryBuilder {
         return this;
     }
 
+    public SpectorMemoryBuilder reflectSweepExecutor(com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor executor) {
+        this.reflectSweepExecutor = executor;
+        return this;
+    }
+
     // ==============================================================
     // BUILD
     // ==============================================================
 
     public SpectorMemory build() {
-        if (embeddingProvider != null && embeddingProvider.dimensions() > 0
-                && this.properties != null && this.properties.memory() != null) {
+        if (this.properties != null) {
+            this.properties = this.properties.copy();
+        } else {
+            this.properties = SpectorProperties.builder().build();
+        }
+        if (embeddingProvider != null && embeddingProvider.dimensions() > 0) {
             this.properties.memory().setDimensions(embeddingProvider.dimensions());
         }
         return new DefaultSpectorMemory(this);
@@ -650,5 +687,8 @@ public final class SpectorMemoryBuilder {
             } catch (Exception ignored) {}
         }
         return com.spectrayan.spector.memory.graph.EntityExtractionMode.NONE;
+    }
+    public com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor reflectSweepExecutor() {
+        return reflectSweepExecutor;
     }
 }

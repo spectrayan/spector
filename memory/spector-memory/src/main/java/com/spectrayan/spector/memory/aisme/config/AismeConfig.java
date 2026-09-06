@@ -28,7 +28,7 @@ import com.spectrayan.spector.config.SpectorPropertyConstants;
  *
  * @deprecated Use {@link com.spectrayan.spector.config.properties.AismeProperties} directly.
  */
-@Deprecated
+@Deprecated(since = "1.4.0", forRemoval = true)
 public record AismeConfig(
         boolean enabled,
         boolean enableHomeostasis,

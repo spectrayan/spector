@@ -63,6 +63,26 @@ public final class ReflectSweepExecutors {
         return getState().availableExecutors;
     }
 
+    /**
+     * Resolves an executor matching {@code name} (case-insensitive), or falls back to the primary executor
+     * if {@code name} is null, blank, or not found.
+     *
+     * @param name name of the desired executor, or null/blank for primary
+     * @return the resolved executor
+     */
+    public static ReflectSweepExecutor getExecutor(String name) {
+        if (name == null || name.isBlank()) {
+            return getPrimary();
+        }
+        for (ReflectSweepExecutor exec : getAvailable()) {
+            if (exec.name().equalsIgnoreCase(name.trim())) {
+                return exec;
+            }
+        }
+        log.warn("ReflectSweepExecutor '{}' not found, falling back to primary '{}'", name, getPrimary().name());
+        return getPrimary();
+    }
+
     private static volatile String orchestratorOverride;
 
     /**

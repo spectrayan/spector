@@ -332,6 +332,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final MemoryPersistenceMode persistenceMode;
     private final Path persistencePath;
     private final CircadianPolicy circadianPolicy;
+    private final com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor reflectSweepExecutor;
     private final CognitiveProfileConfig profileConfig;
     private final RecallOptions defaultRecallOptions;
 
@@ -462,6 +463,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.persistencePath = builder.persistencePath();
         this.circadianPolicy = com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy.from(
                 memProps.getCircadian());
+        String orchestratorName = memProps.getCircadian() != null ? memProps.getCircadian().getOrchestrator() : null;
+        this.reflectSweepExecutor = builder.reflectSweepExecutor() != null
+                ? builder.reflectSweepExecutor()
+                : com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutors.getExecutor(orchestratorName);
         this.profileConfig = builder.profileConfig();
         this.defaultRecallOptions = builder.defaultRecallOptions() != null ? builder.defaultRecallOptions() : RecallOptions.DEFAULT;
         this.namespaceManager = bundle.namespaceManager();
@@ -1158,9 +1163,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public ReflectReport reflect(com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec spec) {
         acquireLease();
         try {
-            com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor executor =
-                    com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutors.getPrimary();
-            return executor.execute(this, spec != null ? spec : com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec.fullCycle());
+            return this.reflectSweepExecutor.execute(this, spec != null ? spec : com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec.fullCycle());
         } finally {
             releaseLease();
         }
@@ -1188,9 +1191,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public com.spectrayan.spector.memory.pathway.reflect.ReflectSweepProgress progress(String sweepId) {
         acquireLease();
         try {
-            com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor executor =
-                    com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutors.getPrimary();
-            return executor.progress(sweepId);
+            return this.reflectSweepExecutor.progress(sweepId);
         } finally {
             releaseLease();
         }

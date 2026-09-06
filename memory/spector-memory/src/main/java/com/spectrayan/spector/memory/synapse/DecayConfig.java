@@ -53,7 +53,7 @@ import com.spectrayan.spector.config.properties.DecayProperties;
  *
  * @deprecated Use {@link DecayProperties} directly. This compatibility subclass will be removed in a future release.
  */
-@Deprecated
+@Deprecated(since = "1.4.0", forRemoval = true)
 public class DecayConfig extends DecayProperties {
 
     /** Default from SpectorPropertyConstants: moderate forgetting (d=0.15), 10% permastore floor. */

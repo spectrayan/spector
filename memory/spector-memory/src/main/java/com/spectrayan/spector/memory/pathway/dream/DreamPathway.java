@@ -12,41 +12,19 @@
  */
 package com.spectrayan.spector.memory.pathway.dream;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
-import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
-import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
-import com.spectrayan.spector.memory.pathway.dream.relay.ConceptExtractRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.CounterfactualProbeRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamGateRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamGates;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamIngestionRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamJournalRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamSignal;
-import com.spectrayan.spector.memory.pathway.dream.relay.EfeTriageRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.FragmentUnpackRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.HyperAssociateRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.LangevinDiscoveryRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.RemReplayRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.SalientSeedRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.SceneConstructRelay;
-import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
-import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
-import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.model.SoulContext;
-import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.pathway.simulation.relay.SpacetimeSeedRelay;
-
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
+import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
+import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
 import com.spectrayan.spector.memory.pathway.dream.relay.ConceptExtractRelay;
 import com.spectrayan.spector.memory.pathway.dream.relay.CounterfactualProbeRelay;
@@ -65,13 +43,8 @@ import com.spectrayan.spector.memory.pathway.dream.relay.LangevinDiscoveryRelay;
 import com.spectrayan.spector.memory.pathway.dream.relay.RemReplayRelay;
 import com.spectrayan.spector.memory.pathway.dream.relay.SalientSeedRelay;
 import com.spectrayan.spector.memory.pathway.dream.relay.SceneConstructRelay;
-import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
-import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
-import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.model.SoulContext;
+import com.spectrayan.spector.memory.pathway.simulation.relay.SpacetimeSeedRelay;
+import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -280,6 +253,7 @@ public final class DreamPathway implements AutoCloseable {
         private Function<SynapticRelay<DreamSignal>, SynapticRelay<DreamSignal>> interceptor;
 
         public Builder dreamConfig(DreamConfig dc) { this.dreamConfig = dc; return this; }
+        public Builder dreamConfig(DreamProperties dp) { this.dreamConfig = DreamConfig.from(dp); return this; }
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
         public Builder aismeConfig(AismeConfig ac) { this.aismeConfig = ac; return this; }
         public Builder primarySoul(SoulContext soul) { this.primarySoul = soul; return this; }
