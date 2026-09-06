@@ -17,7 +17,7 @@ package com.spectrayan.spector.client;
 
 import com.spectrayan.spector.client.exception.MemoryNotFoundException;
 import com.spectrayan.spector.client.exception.SpectorAuthException;
-import com.spectrayan.spector.client.exception.SpectorException;
+import com.spectrayan.spector.client.exception.SpectorClientException;
 import com.spectrayan.spector.client.exception.SpectorExceptionHandler;
 import com.spectrayan.spector.client.exception.SpectorServerException;
 import com.spectrayan.spector.client.exception.SpectorValidationException;
@@ -33,13 +33,13 @@ class SpectorExceptionHandlerTest {
     @DisplayName("401 and 403 translate to SpectorAuthException")
     void translatesAuth() {
         ApiException e401 = new ApiException(401, "Unauthorized", null, "{\"error\":\"unauthorized\"}");
-        SpectorException result401 = SpectorExceptionHandler.translate(e401, null);
+        SpectorClientException result401 = SpectorExceptionHandler.translate(e401, null);
         assertThat(result401).isInstanceOf(SpectorAuthException.class);
         assertThat(result401.getStatusCode()).isEqualTo(401);
         assertThat(result401.getResponseBody()).isEqualTo("{\"error\":\"unauthorized\"}");
 
         ApiException e403 = new ApiException(403, "Forbidden", null, null);
-        SpectorException result403 = SpectorExceptionHandler.translate(e403, null);
+        SpectorClientException result403 = SpectorExceptionHandler.translate(e403, null);
         assertThat(result403).isInstanceOf(SpectorAuthException.class);
         assertThat(result403.getStatusCode()).isEqualTo(403);
     }
@@ -48,7 +48,7 @@ class SpectorExceptionHandlerTest {
     @DisplayName("404 translates to MemoryNotFoundException with resourceId")
     void translatesNotFound() {
         ApiException e404 = new ApiException(404, "Not Found", null, "{\"error\":\"memory missing\"}");
-        SpectorException result = SpectorExceptionHandler.translate(e404, "mem-999");
+        SpectorClientException result = SpectorExceptionHandler.translate(e404, "mem-999");
         assertThat(result).isInstanceOf(MemoryNotFoundException.class);
         MemoryNotFoundException notFound = (MemoryNotFoundException) result;
         assertThat(notFound.getMemoryId()).isEqualTo("mem-999");
@@ -60,12 +60,12 @@ class SpectorExceptionHandlerTest {
     @DisplayName("400 and 422 translate to SpectorValidationException")
     void translatesValidation() {
         ApiException e400 = new ApiException(400, "Bad Request", null, "invalid text");
-        SpectorException result400 = SpectorExceptionHandler.translate(e400, null);
+        SpectorClientException result400 = SpectorExceptionHandler.translate(e400, null);
         assertThat(result400).isInstanceOf(SpectorValidationException.class);
         assertThat(result400.getStatusCode()).isEqualTo(400);
 
         ApiException e422 = new ApiException(422, "Unprocessable", null, null);
-        SpectorException result422 = SpectorExceptionHandler.translate(e422, null);
+        SpectorClientException result422 = SpectorExceptionHandler.translate(e422, null);
         assertThat(result422).isInstanceOf(SpectorValidationException.class);
         assertThat(result422.getStatusCode()).isEqualTo(422);
     }
@@ -74,22 +74,22 @@ class SpectorExceptionHandlerTest {
     @DisplayName("500+ translates to SpectorServerException")
     void translatesServerError() {
         ApiException e500 = new ApiException(500, "Internal Server Error", null, "db connection error");
-        SpectorException result500 = SpectorExceptionHandler.translate(e500, null);
+        SpectorClientException result500 = SpectorExceptionHandler.translate(e500, null);
         assertThat(result500).isInstanceOf(SpectorServerException.class);
         assertThat(result500.getStatusCode()).isEqualTo(500);
 
         ApiException e503 = new ApiException(503, "Service Unavailable", null, null);
-        SpectorException result503 = SpectorExceptionHandler.translate(e503, null);
+        SpectorClientException result503 = SpectorExceptionHandler.translate(e503, null);
         assertThat(result503).isInstanceOf(SpectorServerException.class);
         assertThat(result503.getStatusCode()).isEqualTo(503);
     }
 
     @Test
-    @DisplayName("Other HTTP codes translate to base SpectorException")
+    @DisplayName("Other HTTP codes translate to base SpectorClientException")
     void translatesOtherCodes() {
         ApiException e418 = new ApiException(418, "I'm a teapot", null, null);
-        SpectorException result = SpectorExceptionHandler.translate(e418, null);
-        assertThat(result.getClass()).isEqualTo(SpectorException.class);
+        SpectorClientException result = SpectorExceptionHandler.translate(e418, null);
+        assertThat(result.getClass()).isEqualTo(SpectorClientException.class);
         assertThat(result.getStatusCode()).isEqualTo(418);
     }
 }

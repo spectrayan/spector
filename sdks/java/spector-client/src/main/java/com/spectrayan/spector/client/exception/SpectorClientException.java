@@ -18,24 +18,24 @@ package com.spectrayan.spector.client.exception;
 /**
  * Base runtime exception for all errors encountered by the Spector Client SDK.
  */
-public class SpectorException extends RuntimeException {
+public class SpectorClientException extends RuntimeException {
 
     private final int statusCode;
     private final String responseBody;
 
-    public SpectorException(String message) {
+    public SpectorClientException(String message) {
         super(message);
         this.statusCode = -1;
         this.responseBody = null;
     }
 
-    public SpectorException(String message, Throwable cause) {
+    public SpectorClientException(String message, Throwable cause) {
         super(message, cause);
         this.statusCode = -1;
         this.responseBody = null;
     }
 
-    public SpectorException(int statusCode, String message, String responseBody, Throwable cause) {
+    public SpectorClientException(int statusCode, String message, String responseBody, Throwable cause) {
         super(message, cause);
         this.statusCode = statusCode;
         this.responseBody = responseBody;

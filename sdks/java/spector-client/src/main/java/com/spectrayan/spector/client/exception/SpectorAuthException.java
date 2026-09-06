@@ -16,9 +16,9 @@
 package com.spectrayan.spector.client.exception;
 
 /**
- * Exception thrown when authentication or authorization fails (HTTP 401/403).
+ * Exception thrown when authentication or authorization fails in the Spector Client SDK (HTTP 401/403).
  */
-public class SpectorAuthException extends SpectorException {
+public class SpectorAuthException extends SpectorClientException {
 
     public SpectorAuthException(int statusCode, String message, String responseBody, Throwable cause) {
         super(statusCode, message, responseBody, cause);

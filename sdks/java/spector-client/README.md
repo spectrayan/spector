@@ -9,6 +9,7 @@ Lightweight, modern Java Client SDK for the **Spector Cognitive Memory & Search*
 - **Standardized OpenAPI 3.1 Core**: Backed by OpenAPI Generator with the native `java.net.http.HttpClient` (Java 21+). Zero external HTTP transport dependencies.
 - **Ergonomic Facade**: Fluent `SpectorClient` and `MemoryClient` with intuitive methods: `store()`, `remember()`, `recall()`, `search()`, `get()`, `forget()`, `reinforce()`, `suppress()`, `resolve()`.
 - **Typed Domain Exceptions**: Transparent translation of HTTP errors into unchecked domain exceptions:
+  - `SpectorClientException` (Base client runtime exception carrying HTTP status and response body)
   - `SpectorAuthException` (HTTP 401 / 403)
   - `MemoryNotFoundException` (HTTP 404)
   - `SpectorValidationException` (HTTP 400 / 422)

@@ -18,7 +18,7 @@ package com.spectrayan.spector.client.exception;
 /**
  * Exception thrown when a request fails validation or contains invalid parameters (HTTP 400/422).
  */
-public class SpectorValidationException extends SpectorException {
+public class SpectorValidationException extends SpectorClientException {
 
     public SpectorValidationException(int statusCode, String message, String responseBody, Throwable cause) {
         super(statusCode, message, responseBody, cause);

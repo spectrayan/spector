@@ -26,9 +26,9 @@ public final class SpectorExceptionHandler {
     }
 
     /**
-     * Translates an {@link ApiException} to a typed {@link SpectorException}.
+     * Translates an {@link ApiException} to a typed {@link SpectorClientException}.
      */
-    public static SpectorException translate(ApiException e, String resourceId) {
+    public static SpectorClientException translate(ApiException e, String resourceId) {
         int code = e.getCode();
         String body = e.getResponseBody();
         String message = e.getMessage();
@@ -45,7 +45,7 @@ public final class SpectorExceptionHandler {
         if (code >= 500) {
             return new SpectorServerException(code, "Server error (" + code + "): " + message, body, e);
         }
-        return new SpectorException(code, "Spector API request failed with status " + code + ": " + message, body, e);
+        return new SpectorClientException(code, "Spector API request failed with status " + code + ": " + message, body, e);
     }
 
     /**
@@ -64,7 +64,7 @@ public final class SpectorExceptionHandler {
         } catch (ApiException e) {
             throw translate(e, resourceId);
         } catch (Exception e) {
-            throw new SpectorException("Client execution failed: " + e.getMessage(), e);
+            throw new SpectorClientException("Client execution failed: " + e.getMessage(), e);
         }
     }
 
@@ -84,7 +84,7 @@ public final class SpectorExceptionHandler {
         } catch (ApiException e) {
             throw translate(e, resourceId);
         } catch (Exception e) {
-            throw new SpectorException("Client execution failed: " + e.getMessage(), e);
+            throw new SpectorClientException("Client execution failed: " + e.getMessage(), e);
         }
     }
 

@@ -18,7 +18,7 @@ package com.spectrayan.spector.client.exception;
 /**
  * Exception thrown when a requested memory record or resource is not found (HTTP 404).
  */
-public class MemoryNotFoundException extends SpectorException {
+public class MemoryNotFoundException extends SpectorClientException {
 
     private final String memoryId;
 

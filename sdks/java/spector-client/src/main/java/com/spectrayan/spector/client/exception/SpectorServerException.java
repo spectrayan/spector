@@ -18,7 +18,7 @@ package com.spectrayan.spector.client.exception;
 /**
  * Exception thrown when the Spector server encounters an internal error (HTTP 5xx).
  */
-public class SpectorServerException extends SpectorException {
+public class SpectorServerException extends SpectorClientException {
 
     public SpectorServerException(int statusCode, String message, String responseBody, Throwable cause) {
         super(statusCode, message, responseBody, cause);
