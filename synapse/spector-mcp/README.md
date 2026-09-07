@@ -38,7 +38,7 @@ spector-mcp/
 │   ├── tools/
 │   │   ├── McpToolHandler.java        ← Base class (auto-binds to McpToolSpec)
 │   │   ├── SpectorToolRegistry.java   ← Tool discovery & registration
-│   │   └── memory/                    ← Pure execution handlers (22 tools)
+│   │   └── memory/                    ← Pure execution handlers (23 tools)
 │   ├── resources/
 │   │   └── SpectorResourceProvider.java
 │   ├── prompts/
@@ -79,6 +79,7 @@ spector-mcp/
 | `memory_forget` | Tombstone a memory by ID |
 | `memory_introspect` | Metamemory self-analysis on a topic |
 | `memory_scratchpad` | Quick-write to working memory |
+| `persona_enact` | Enacts persona cognitive stance, Hopfield attractor, and EFE policy over memory |
 
 ## Quick Start
 
