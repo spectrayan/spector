@@ -61,7 +61,10 @@ public class CognitiveState extends AgentState {
             entry("child_results",       Channels.appender(ArrayList::new)),
             entry("reflection_decision", Channels.base(() -> "ACCEPT")),
             entry("critique",            Channels.appender(ArrayList::new)),
-            entry("retry_count",         Channels.base(() -> 0))
+            entry("retry_count",         Channels.base(() -> 0)),
+            entry("enact_mode",          Channels.base(() -> "REACT")),
+            entry("acting_soul_id",      Channels.base(() -> "")),
+            entry("enactment",           Channels.base(() -> null))
     );
 
     public CognitiveState(Map<String, Object> initData) {
@@ -121,5 +124,17 @@ public class CognitiveState extends AgentState {
 
     public int retryCount() {
         return this.<Integer>value("retry_count").orElse(0);
+    }
+
+    public String enactMode() {
+        return this.<String>value("enact_mode").orElse("REACT");
+    }
+
+    public String actingSoulId() {
+        return this.<String>value("acting_soul_id").orElse("");
+    }
+
+    public Optional<com.spectrayan.spector.memory.model.enactment.Enactment> enactment() {
+        return this.<com.spectrayan.spector.memory.model.enactment.Enactment>value("enactment");
     }
 }

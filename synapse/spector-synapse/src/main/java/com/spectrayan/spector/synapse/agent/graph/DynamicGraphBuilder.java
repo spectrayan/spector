@@ -81,6 +81,7 @@ public final class DynamicGraphBuilder {
     private final AgentSelector agentSelector;
     private final AgenticChatGraph agenticChatGraph;
     private final CognitiveSoulService soulService;
+    private final com.spectrayan.spector.synapse.agent.enactment.EnactmentService enactmentService;
 
     /** Cache of compiled subgraphs by flow ID — compile once, execute many times. */
     private final ConcurrentHashMap<String, CompiledGraph<CognitiveState>> subgraphCache =
@@ -91,11 +92,22 @@ public final class DynamicGraphBuilder {
                                AgentSelector agentSelector,
                                AgenticChatGraph agenticChatGraph,
                                CognitiveSoulService soulService) {
+        this(llmBridge, toolRegistry, agentSelector, agenticChatGraph, soulService, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public DynamicGraphBuilder(LlmBridge llmBridge,
+                               ToolRegistry toolRegistry,
+                               AgentSelector agentSelector,
+                               AgenticChatGraph agenticChatGraph,
+                               CognitiveSoulService soulService,
+                               org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.synapse.agent.enactment.EnactmentService> enactmentServiceProvider) {
         this.llmBridge = Objects.requireNonNull(llmBridge, "llmBridge");
         this.toolRegistry = Objects.requireNonNull(toolRegistry, "toolRegistry");
         this.agentSelector = Objects.requireNonNull(agentSelector, "agentSelector");
         this.agenticChatGraph = Objects.requireNonNull(agenticChatGraph, "agenticChatGraph");
         this.soulService = Objects.requireNonNull(soulService, "soulService");
+        this.enactmentService = enactmentServiceProvider != null ? enactmentServiceProvider.getIfAvailable() : null;
     }
 
     /**
@@ -169,6 +181,7 @@ public final class DynamicGraphBuilder {
             case FUNCTION -> createFunctionNode(nodeName, nodeSpec);
             case SUBGRAPH -> createSubgraphNode(nodeName, nodeSpec);
             case REFLECTION -> createReflectionNode(nodeName, nodeSpec);
+            case ENACT -> createEnactNode(nodeName, nodeSpec);
             case END -> throw new IllegalStateException("END nodes should not be resolved");
         };
 
@@ -361,6 +374,14 @@ public final class DynamicGraphBuilder {
         String defTarget = "END".equalsIgnoreCase(defaultTarget) ? END : defaultTarget;
         resolved.put("_DEFAULT_", defTarget);
         return resolved;
+    }
+
+    private NodeAction<CognitiveState> createEnactNode(String nodeName, NodeSpec nodeSpec) {
+        if (enactmentService == null) {
+            throw new IllegalStateException("EnactmentService is not available to build ENACT node '" + nodeName + "'");
+        }
+        String soulId = nodeSpec.agent() != null ? nodeSpec.agent() : "default";
+        return new com.spectrayan.spector.synapse.agent.graph.nodes.EnactNode(enactmentService, soulId);
     }
 
     // ── Helpers ───────────────────────────────────────────────
