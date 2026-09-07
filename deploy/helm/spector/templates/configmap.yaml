@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "spector.fullname" . }}-config
+  labels:
+    {{- include "spector.labels" . | nindent 4 }}
+data:
+  spector.yml: |
+    server:
+      port: 7070
+    spector:
+      memory:
+        dimensions: {{ .Values.env.SPECTOR_DIMS | default 384 }}
+        storage-path: /data/memory
+      persistence:
+        enabled: true
+        path: /data/memory
+      index:
+        path: /data/index
