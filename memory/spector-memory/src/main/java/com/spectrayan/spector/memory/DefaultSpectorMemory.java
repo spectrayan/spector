@@ -381,6 +381,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final com.spectrayan.spector.memory.cortex.ContinuityMemory continuityMemory;
     private final com.spectrayan.spector.memory.cortex.ProvenanceMemory provenanceMemory;
     private final DecidePathway decidePathway;
+    private final com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle;
 
     private final com.spectrayan.spector.memory.session.SessionBufferManager sessionBufferManager = new com.spectrayan.spector.memory.session.SessionBufferManager();
 
@@ -493,6 +494,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.provenanceMemory = bundle.provenanceMemory();
         this.decidePathway = bundle.decidePathway();
         this.dreamPathway = bundle.dreamPathway();
+        this.aismeBundle = bundle.aismeBundle();
         this.hook = builder.hook() != null ? builder.hook() : MemoryObservationHook.NOOP;
 
         //  Quartz Memory Scheduler (In-Memory Multi-Tenant Background Scheduling & Auditing)
@@ -2080,6 +2082,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 log.warn("Failed to close RuntimeBundle on close", e);
             }
         }
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle() {
+        return aismeBundle;
     }
 
     // ==============================================================

@@ -157,6 +157,14 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
         return () -> {};
     }
 
+    /**
+     * Returns the initialized AISME bundle containing cognitive self-model engines and relays,
+     * or null if AISME is disabled for this memory instance.
+     */
+    default com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle() {
+        return null;
+    }
+
     // ══════════════════════════════════════════════════════════════
     // CORE API — remember / recall / forget / reflect
     // ══════════════════════════════════════════════════════════════
