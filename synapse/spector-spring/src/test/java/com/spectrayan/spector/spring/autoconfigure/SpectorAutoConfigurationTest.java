@@ -41,7 +41,9 @@ class SpectorAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withPropertyValues("spector.memory.enabled=true")
-            .withConfiguration(AutoConfigurations.of(SpectorAutoConfiguration.class))
+            .withConfiguration(AutoConfigurations.of(
+                    SpectorEmbeddingAutoConfiguration.class,
+                    SpectorAutoConfiguration.class))
             ;
     @Configuration(proxyBeanMethods = false)
     static class TestDependenciesConfiguration {
@@ -108,10 +110,31 @@ class SpectorAutoConfigurationTest {
         });
     }
     @Test
-    void shouldNotCreateEmbeddingProviderBeanWithoutEmbeddingModelBean(){
+    void shouldCreateFallbackOnnxEmbeddingProviderByDefault() {
         contextRunner.run(context -> {
-            assertThat(context).doesNotHaveBean(EmbeddingProvider.class);
+            assertThat(context).hasSingleBean(EmbeddingProvider.class);
+            assertThat(context).hasBean("defaultFallbackOnnxEmbeddingProvider");
+            EmbeddingProvider provider = context.getBean("defaultFallbackOnnxEmbeddingProvider", EmbeddingProvider.class);
+            assertThat(provider.dimensions()).isEqualTo(384);
         });
+    }
+
+    @Test
+    void shouldNotCreateEmbeddingProviderBeanWhenFallbackDisabled() {
+        contextRunner.withPropertyValues("spector.provider.embedding.fallback.enabled=false")
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(EmbeddingProvider.class);
+                });
+    }
+
+    @Test
+    void shouldCreateExplicitOnnxEmbeddingProvider() {
+        contextRunner.withPropertyValues("spector.provider.embedding.type=Onnx")
+                .run(context -> {
+                    assertThat(context).hasBean("onnxEmbeddingProvider");
+                    EmbeddingProvider provider = context.getBean("onnxEmbeddingProvider", EmbeddingProvider.class);
+                    assertThat(provider.dimensions()).isEqualTo(384);
+                });
     }
     @Test
     public void shouldCreateOllamaEmbeddingModelProvider(){
