@@ -24,7 +24,8 @@ public record DeliberationConfig(
         float urgencyBlindSpotThreshold,
         float copingDefensivenessThreshold,
         String urgencyBlindSpotMessage,
-        String copingDefensivenessMessage
+        String copingDefensivenessMessage,
+        float lowIntensitySkipThreshold
 ) {
 
     public static final String DEFAULT_FALLBACK_DOGMA = "Uphold system integrity and operational excellence";
@@ -34,6 +35,7 @@ public record DeliberationConfig(
     public static final float DEFAULT_COPING_DEFENSIVENESS_THRESHOLD = 0.0f;
     public static final String DEFAULT_URGENCY_BLIND_SPOT_MESSAGE = "Heightened urgency may bias toward premature action";
     public static final String DEFAULT_COPING_DEFENSIVENESS_MESSAGE = "Low perceived coping potential may elevate defensiveness";
+    public static final float DEFAULT_LOW_INTENSITY_SKIP_THRESHOLD = 0.15f;
 
     public DeliberationConfig {
         fallbackDogma = (fallbackDogma != null && !fallbackDogma.isBlank()) ? fallbackDogma : DEFAULT_FALLBACK_DOGMA;
@@ -51,6 +53,26 @@ public record DeliberationConfig(
                 : DEFAULT_COPING_DEFENSIVENESS_MESSAGE;
     }
 
+    public DeliberationConfig(
+            String fallbackDogma,
+            String defaultTradeOffDeprioritized,
+            String defaultTradeOffRationale,
+            float urgencyBlindSpotThreshold,
+            float copingDefensivenessThreshold,
+            String urgencyBlindSpotMessage,
+            String copingDefensivenessMessage) {
+        this(
+                fallbackDogma,
+                defaultTradeOffDeprioritized,
+                defaultTradeOffRationale,
+                urgencyBlindSpotThreshold,
+                copingDefensivenessThreshold,
+                urgencyBlindSpotMessage,
+                copingDefensivenessMessage,
+                DEFAULT_LOW_INTENSITY_SKIP_THRESHOLD
+        );
+    }
+
     public static DeliberationConfig defaultConfig() {
         return new DeliberationConfig(
                 DEFAULT_FALLBACK_DOGMA,
@@ -59,7 +81,8 @@ public record DeliberationConfig(
                 DEFAULT_URGENCY_BLIND_SPOT_THRESHOLD,
                 DEFAULT_COPING_DEFENSIVENESS_THRESHOLD,
                 DEFAULT_URGENCY_BLIND_SPOT_MESSAGE,
-                DEFAULT_COPING_DEFENSIVENESS_MESSAGE
+                DEFAULT_COPING_DEFENSIVENESS_MESSAGE,
+                DEFAULT_LOW_INTENSITY_SKIP_THRESHOLD
         );
     }
 
@@ -75,6 +98,7 @@ public record DeliberationConfig(
         private float copingDefensivenessThreshold = DEFAULT_COPING_DEFENSIVENESS_THRESHOLD;
         private String urgencyBlindSpotMessage = DEFAULT_URGENCY_BLIND_SPOT_MESSAGE;
         private String copingDefensivenessMessage = DEFAULT_COPING_DEFENSIVENESS_MESSAGE;
+        private float lowIntensitySkipThreshold = DEFAULT_LOW_INTENSITY_SKIP_THRESHOLD;
 
         public Builder fallbackDogma(String dogma) {
             this.fallbackDogma = dogma;
@@ -111,6 +135,11 @@ public record DeliberationConfig(
             return this;
         }
 
+        public Builder lowIntensitySkipThreshold(float threshold) {
+            this.lowIntensitySkipThreshold = threshold;
+            return this;
+        }
+
         public DeliberationConfig build() {
             return new DeliberationConfig(
                     fallbackDogma,
@@ -119,7 +148,8 @@ public record DeliberationConfig(
                     urgencyBlindSpotThreshold,
                     copingDefensivenessThreshold,
                     urgencyBlindSpotMessage,
-                    copingDefensivenessMessage
+                    copingDefensivenessMessage,
+                    lowIntensitySkipThreshold
             );
         }
     }

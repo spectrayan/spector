@@ -95,6 +95,28 @@ public record RecallConfig(
         );
     }
 
+    /**
+     * Returns a lightweight copy of this configuration with scaled-down top-K values for low-intensity queries.
+     *
+     * @param maxTopK the maximum top-k allowed for any individual cue
+     * @return lightweight RecallConfig
+     */
+    public RecallConfig lightweight(int maxTopK) {
+        return new RecallConfig(
+                Math.max(1, Math.min(this.semanticTopK, maxTopK)),
+                Math.max(1, Math.min(this.episodicTopK, Math.max(1, maxTopK / 2))),
+                Math.max(1, Math.min(this.proceduralTopK, Math.max(1, maxTopK / 2))),
+                Math.max(1, Math.min(this.workingTopK, Math.max(1, maxTopK / 2))),
+                this.defaultQuery,
+                this.constitutionTags,
+                this.scarTags,
+                this.livedTags,
+                this.habitTags,
+                this.stateTags,
+                this.scarMaxValence
+        );
+    }
+
     public static Builder builder() {
         return new Builder();
     }

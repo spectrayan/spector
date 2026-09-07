@@ -77,16 +77,23 @@ public final class EnactmentEngine {
 
         AismeBundle bundle = (memory != null) ? memory.aismeBundle() : null;
 
-        // Step 1: Self-Recall (4-cue with Global Workspace conscious bottleneck)
-        PersonaRecall.RecallOutput recallOutput = PersonaRecall.recall(memory, soul, situation, mode, config.recall());
+        // Step 1: Fast System 1 Pre-Appraisal (Intuitive VAD Dynamics & Stakes, Amended D3)
+        CognitiveAppraisal preAppraisal = AppraisalEngine.preAppraise(situation, soul, bundle, config.appraisal());
 
-        // Step 2: Cognitive Appraisal (VAD Dynamics via Lazarus & Scherer)
+        // Step 2: Persona-Conditioned, Intensity-Gated Self-Recall
+        RecallConfig effectiveRecallConfig = config.recall();
+        if (preAppraisal.urgencyAndStakes() < config.deliberation().lowIntensitySkipThreshold()) {
+            effectiveRecallConfig = config.recall().lightweight(2);
+        }
+        PersonaRecall.RecallOutput recallOutput = PersonaRecall.recall(memory, soul, situation, mode, effectiveRecallConfig);
+
+        // Step 3: Refined Cognitive Appraisal (Engrams as Primary Driver)
         CognitiveAppraisal appraisal = AppraisalEngine.appraise(situation, soul, bundle, recallOutput, config.appraisal());
 
-        // Step 3: Stance Resolution (Hopfield Attractors + EFE Policy Selection)
+        // Step 4: Stance Resolution (Hopfield Attractors + EFE Policy Selection)
         StanceResolver.StanceOutput stance = StanceResolver.resolve(soul, bundle, appraisal, recallOutput, situation, config.stance());
 
-        // Step 4: System 2 Bounded Deliberation
+        // Step 5: System 2 Bounded Deliberation
         PersonaDeliberation deliberation = buildDeliberation(situation, soul, appraisal, recallOutput, stance, config.deliberation());
 
         // Step 5: Embodiment Utterance under Epistemic Tense (ADR-0031)
@@ -162,29 +169,50 @@ public final class EnactmentEngine {
             activeDogma = config.fallbackDogma();
         }
 
-        // 2. Low-intensity Fast Path (Skip heavy deliberation for routine low-urgency conditions with proven playbooks)
+        // 2. Low-intensity Fast Path / Skip (Skip heavy deliberation for routine low-urgency conditions)
         boolean hasPlaybook = winningPolicy != null && "playbook".equals(winningPolicy.metadata().get("source"));
-        boolean lowIntensity = appraisal.urgencyAndStakes() < 0.15f;
-        if (lowIntensity && hasPlaybook) {
-            String tacticalFirstMove = "Execute playbook routine: " + winningPolicy.name();
-            TradeOffSelection tradeOffs = new TradeOffSelection(
-                    activeDogma,
-                    "Deliberation latency",
-                    "Low allostatic urgency allows immediate execution of crystallized procedural playbook"
-            );
-            String monologue = String.format(
-                    "Low urgency condition (A=%.2f). Fast-pathing execution of established playbook '%s' under dogma '%s'.",
-                    appraisal.urgencyAndStakes(),
-                    winningPolicy.name(),
-                    activeDogma
-            );
-            return new PersonaDeliberation(
-                    monologue,
-                    activeDogma,
-                    tradeOffs,
-                    List.of(),
-                    tacticalFirstMove
-            );
+        boolean lowIntensity = appraisal.urgencyAndStakes() < config.lowIntensitySkipThreshold();
+        if (lowIntensity) {
+            if (hasPlaybook) {
+                String tacticalFirstMove = "Execute playbook routine: " + winningPolicy.name();
+                TradeOffSelection tradeOffs = new TradeOffSelection(
+                        activeDogma,
+                        "Deliberation latency",
+                        "Low allostatic urgency allows immediate execution of crystallized procedural playbook"
+                );
+                String monologue = String.format(
+                        "Low urgency condition (A=%.2f). Fast-pathing execution of established playbook '%s' under dogma '%s'.",
+                        appraisal.urgencyAndStakes(),
+                        winningPolicy.name(),
+                        activeDogma
+                );
+                return new PersonaDeliberation(
+                        monologue,
+                        activeDogma,
+                        tradeOffs,
+                        List.of(),
+                        tacticalFirstMove
+                );
+            } else {
+                String tacticalFirstMove = "Assess situation with routine low-arousal observation";
+                TradeOffSelection tradeOffs = new TradeOffSelection(
+                        activeDogma,
+                        "Deliberation overhead",
+                        "Low allostatic urgency bypasses System 2 bounded deliberation"
+                );
+                String monologue = String.format(
+                        "Low urgency condition (A=%.2f). System 2 deliberation skipped under dogma '%s'.",
+                        appraisal.urgencyAndStakes(),
+                        activeDogma
+                );
+                return new PersonaDeliberation(
+                        monologue,
+                        activeDogma,
+                        tradeOffs,
+                        List.of(),
+                        tacticalFirstMove
+                );
+            }
         }
 
         // 3. Dynamic Trade-Off Selection derived from winning policy vs runner-up alternative

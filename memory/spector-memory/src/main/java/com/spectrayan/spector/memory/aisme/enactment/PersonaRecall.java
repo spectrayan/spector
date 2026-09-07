@@ -46,7 +46,8 @@ public final class PersonaRecall {
             List<CognitiveResult> scars,
             List<CognitiveResult> livedEpisodes,
             List<CognitiveResult> playbooks,
-            List<CognitiveResult> workingState
+            List<CognitiveResult> workingState,
+            List<CognitiveResult> constitution
     ) {
         public RecallOutput {
             results = (results != null) ? List.copyOf(results) : List.of();
@@ -57,16 +58,30 @@ public final class PersonaRecall {
             livedEpisodes = (livedEpisodes != null) ? List.copyOf(livedEpisodes) : List.of();
             playbooks = (playbooks != null) ? List.copyOf(playbooks) : List.of();
             workingState = (workingState != null) ? List.copyOf(workingState) : List.of();
+            constitution = (constitution != null) ? List.copyOf(constitution) : List.of();
+        }
+
+        public RecallOutput(
+                List<CognitiveResult> results,
+                List<EngramCitation> citations,
+                List<CognitiveResult> dogmas,
+                List<CognitiveResult> causalModels,
+                List<CognitiveResult> scars,
+                List<CognitiveResult> livedEpisodes,
+                List<CognitiveResult> playbooks,
+                List<CognitiveResult> workingState) {
+            this(results, citations, dogmas, causalModels, scars, livedEpisodes, playbooks, workingState, List.of());
         }
 
         public static RecallOutput empty() {
-            return new RecallOutput(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+            return new RecallOutput(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
         }
 
-        /** Backward-compatible view of constitution memories (dogmas + causal models). */
-        public List<CognitiveResult> constitution() {
+        /** View of all constitutional semantic memories (dogmas + causal models + general constitution). */
+        public List<CognitiveResult> allConstitution() {
             List<CognitiveResult> combined = new ArrayList<>(dogmas);
             combined.addAll(causalModels);
+            combined.addAll(constitution);
             return combined;
         }
 
@@ -127,6 +142,7 @@ public final class PersonaRecall {
         List<CognitiveResult> livedEpisodes = new ArrayList<>();
         List<CognitiveResult> playbooks = new ArrayList<>();
         List<CognitiveResult> workingState = new ArrayList<>();
+        List<CognitiveResult> constitution = new ArrayList<>();
 
         // 1. Semantic Cue (Constitution & Invariants & Causal Models)
         try {
@@ -143,10 +159,12 @@ public final class PersonaRecall {
             }
             List<CognitiveResult> semResults = memory.recall(query, semBldr.build());
             for (CognitiveResult cr : semResults) {
-                if (hasAnyTag(cr, "causal_model", "mental_model", "heuristic", "architecture", "causal")) {
+                if (hasAnyTag(cr, "causal_model", "mental_model", "heuristic", "theory", "causal")) {
                     causalModels.add(cr);
-                } else {
+                } else if (hasAnyTag(cr, "dogma", "core_dogma", "tenet")) {
                     dogmas.add(cr);
+                } else {
+                    constitution.add(cr);
                 }
             }
         } catch (SecurityException | IllegalArgumentException e) {
@@ -233,6 +251,7 @@ public final class PersonaRecall {
         for (CognitiveResult cr : livedEpisodes) uniqueCandidates.putIfAbsent(cr.id(), cr);
         for (CognitiveResult cr : playbooks) uniqueCandidates.putIfAbsent(cr.id(), cr);
         for (CognitiveResult cr : workingState) uniqueCandidates.putIfAbsent(cr.id(), cr);
+        for (CognitiveResult cr : constitution) uniqueCandidates.putIfAbsent(cr.id(), cr);
         List<CognitiveResult> allCandidates = new ArrayList<>(uniqueCandidates.values());
 
         // Apply Global Workspace conscious access bottleneck (~7 items) if AISME is active
@@ -279,7 +298,8 @@ public final class PersonaRecall {
                 scars,
                 livedEpisodes,
                 playbooks,
-                workingState
+                workingState,
+                constitution
         );
     }
 

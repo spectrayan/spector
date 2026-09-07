@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -199,6 +200,46 @@ class PersonaEnactmentTest {
             Enactment result = configuredService.enact(situation, "default", "forge", EnactMode.REACT);
 
             assertThat(result.deliberation().activeDogma()).isEqualTo("Configured Spring Enactment Service Dogma");
+        }
+    }
+
+    @Nested
+    @DisplayName("Fail-Closed Identity & Isolation on Service Path")
+    class FailClosedServiceTests {
+
+        @Test
+        @DisplayName("EnactmentService throws IllegalArgumentException when actingSoulId cannot be resolved")
+        void enact_unresolvableSoul_throwsIllegalArgumentException() {
+            when(soulService.getEffectiveSoul("unknown-soul")).thenReturn(null);
+            SituationFrame situation = SituationFrame.of("Execute task");
+
+            assertThatThrownBy(() -> enactmentService.enact(situation, "default", "unknown-soul", EnactMode.REACT))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Cannot resolve AgentSoul for persona ID: unknown-soul");
+        }
+
+        @Test
+        @DisplayName("EnactmentService throws IllegalArgumentException when actingSoulId is null or blank")
+        void enact_blankSoulId_throwsIllegalArgumentException() {
+            SituationFrame situation = SituationFrame.of("Execute task");
+
+            assertThatThrownBy(() -> enactmentService.enact(situation, "default", "", EnactMode.REACT))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("actingSoulId must not be null or blank");
+        }
+
+        @Test
+        @DisplayName("EnactmentService throws IllegalStateException when SpectorMemory namespace cannot be resolved")
+        void enact_unresolvableNamespace_throwsIllegalStateException() {
+            AgentSoul soul = AgentSoul.builder().id("forge").name("Forge").build();
+            when(soulService.getEffectiveSoul("forge")).thenReturn(soul);
+            when(memoryRegistry.resolveFor("missing-namespace")).thenReturn(null);
+
+            SituationFrame situation = SituationFrame.of("Execute task");
+
+            assertThatThrownBy(() -> enactmentService.enact(situation, "missing-namespace", "forge", EnactMode.REACT))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Cannot resolve SpectorMemory for namespace: missing-namespace");
         }
     }
 }

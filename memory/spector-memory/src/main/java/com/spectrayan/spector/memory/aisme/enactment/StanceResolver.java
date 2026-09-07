@@ -187,32 +187,7 @@ public final class StanceResolver {
 
         if (soul != null && soul.tools() != null) {
             for (String tool : soul.tools()) {
-                boolean toolVetoed = false;
-                for (String veto : vetoes) {
-                    String vLower = veto.toLowerCase(java.util.Locale.ROOT);
-                    String tLower = tool.toLowerCase(java.util.Locale.ROOT);
-                    if (vLower.contains(tLower)) {
-                        toolVetoed = true;
-                        break;
-                    }
-                    String[] parts = tLower.split("[_\\-\\s]+");
-                    int matches = 0;
-                    int meaningfulParts = 0;
-                    for (String part : parts) {
-                        if (part.equals("tool") || part.equals("action") || part.length() < 3) {
-                            continue;
-                        }
-                        meaningfulParts++;
-                        if (vLower.contains(part) || (part.equals("auth") && vLower.contains("authentication"))) {
-                            matches++;
-                        }
-                    }
-                    if (meaningfulParts > 0 && (matches >= 2 || matches == meaningfulParts)) {
-                        toolVetoed = true;
-                        break;
-                    }
-                }
-                if (!toolVetoed) {
+                if (!isToolVetoed(tool, vetoes)) {
                     intendedActs.add("TOOL:" + tool);
                 }
             }
@@ -308,6 +283,68 @@ public final class StanceResolver {
         );
     }
 
+    private static final java.util.regex.Pattern DENIED_TOOLS_PATTERN =
+            java.util.regex.Pattern.compile("\\[(?:denied|deny|veto):\\s*([^\\]]+)\\]", java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    private static boolean isToolVetoed(String tool, List<String> vetoes) {
+        if (tool == null || tool.isBlank() || vetoes == null || vetoes.isEmpty()) {
+            return false;
+        }
+        String toolClean = tool.trim();
+        java.util.regex.Pattern toolWordPattern = java.util.regex.Pattern.compile(
+                "\\b" + java.util.regex.Pattern.quote(toolClean) + "\\b",
+                java.util.regex.Pattern.CASE_INSENSITIVE
+        );
+
+        for (String veto : vetoes) {
+            // 1. Explicit [denied: tool_a, tool_b] pattern
+            java.util.regex.Matcher m = DENIED_TOOLS_PATTERN.matcher(veto);
+            while (m.find()) {
+                String deniedList = m.group(1);
+                String[] deniedItems = deniedList.split("[,;\\s]+");
+                for (String item : deniedItems) {
+                    if (item.trim().equalsIgnoreCase(toolClean)) {
+                        return true;
+                    }
+                }
+            }
+
+            // 2. Whole-identifier match in the veto text
+            if (toolWordPattern.matcher(veto).find()) {
+                return true;
+            }
+
+            // 3. Strict multi-part whole-word concept match (e.g. "bypass" + "authentication")
+            // using whole-word boundaries (\b) to prevent "author" matching "authorization"
+            String tLower = toolClean.toLowerCase(java.util.Locale.ROOT);
+            String[] parts = tLower.split("[_\\-\\s]+");
+            int meaningfulParts = 0;
+            int matches = 0;
+            for (String part : parts) {
+                if (part.equals("tool") || part.equals("action") || part.length() < 3) {
+                    continue;
+                }
+                meaningfulParts++;
+                java.util.regex.Pattern partPattern = java.util.regex.Pattern.compile(
+                        "\\b" + java.util.regex.Pattern.quote(part) + "\\b",
+                        java.util.regex.Pattern.CASE_INSENSITIVE
+                );
+                if (partPattern.matcher(veto).find()) {
+                    matches++;
+                } else if (part.equals("auth")) {
+                    // Match whole word "authentication" or "auth"
+                    if (java.util.regex.Pattern.compile("\\bauthentication\\b", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(veto).find()) {
+                        matches++;
+                    }
+                }
+            }
+            if (meaningfulParts >= 2 && matches == meaningfulParts) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static ConfidenceLevel determineConfidence(
             PersonaRecall.RecallOutput recallOutput,
             AgentSoul soul,
@@ -320,16 +357,26 @@ public final class StanceResolver {
         String soulId = (soul != null && soul.id() != null) ? soul.id().trim() : "";
 
         // Check for owned dogma: A dogma is owned if explicitly associated with this soul
-        // or not attributed to another persona. If marked with another personaId, it is UNOWNED.
+        // via metadata (persona_id / owner) or synapticTags ("persona:<soulId>" or "<soulId>").
+        // Untagged/unowned dogmas do NOT count as owned.
         boolean hasOwnedDogma = false;
-        boolean hasUnownedDogmaOnly = false;
+        boolean hasUnownedDogma = false;
         for (CognitiveResult d : recallOutput.dogmas()) {
             String owner = d.metadata() != null ? d.metadata().get("persona_id") : null;
             if (owner == null && d.metadata() != null) owner = d.metadata().get("owner");
-            if (owner != null && !owner.isBlank() && !soulId.isBlank() && !owner.equalsIgnoreCase(soulId)) {
-                hasUnownedDogmaOnly = true;
-            } else {
+            boolean matchesTag = false;
+            if (d.synapticTags() != null && !soulId.isBlank()) {
+                for (String t : d.synapticTags()) {
+                    if (t.equalsIgnoreCase("persona:" + soulId) || t.equalsIgnoreCase(soulId)) {
+                        matchesTag = true;
+                        break;
+                    }
+                }
+            }
+            if ((owner != null && !soulId.isBlank() && owner.equalsIgnoreCase(soulId)) || matchesTag) {
                 hasOwnedDogma = true;
+            } else {
+                hasUnownedDogma = true;
             }
         }
 
@@ -361,13 +408,15 @@ public final class StanceResolver {
             }
         }
 
-        // Evidenced requires: owned dogma AND (eligible scar OR playbook) AND waking evidence
-        if (hasOwnedDogma && (hasEligibleScar || hasEligiblePlaybook) && groundedCount >= 1 && !hasUnownedDogmaOnly) {
+        // Evidenced requires: owned dogma AND (eligible scar OR playbook) AND waking evidence >= threshold,
+        // without unowned dogma contaminating the persona stance
+        if (hasOwnedDogma && (hasEligibleScar || hasEligiblePlaybook)
+                && groundedCount >= config.evidencedGroundingThreshold() && !hasUnownedDogma) {
             return ConfidenceLevel.EVIDENCED;
         }
 
-        // Partial grounding
-        if (groundedCount > 0 || syntheticCount > 0 || hasUnownedDogmaOnly) {
+        // Partial grounding or unowned dogma yields MIXED
+        if (groundedCount > 0 || syntheticCount > 0 || hasUnownedDogma) {
             return ConfidenceLevel.MIXED;
         }
 

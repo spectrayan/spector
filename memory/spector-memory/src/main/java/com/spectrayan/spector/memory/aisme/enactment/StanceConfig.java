@@ -32,7 +32,7 @@ public record StanceConfig(
 
     public static final float DEFAULT_HOPFIELD_BETA = 2.0f;
     public static final float DEFAULT_HIGH_URGENCY_THRESHOLD = 0.7f;
-    public static final int DEFAULT_EVIDENCED_GROUNDING_THRESHOLD = 3;
+    public static final int DEFAULT_EVIDENCED_GROUNDING_THRESHOLD = 2;
 
     public StanceConfig {
         crisisPlaybooks = crisisPlaybooks != null ? List.copyOf(crisisPlaybooks) : List.of();

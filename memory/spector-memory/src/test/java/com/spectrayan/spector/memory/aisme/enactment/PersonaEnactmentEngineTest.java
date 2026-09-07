@@ -18,6 +18,7 @@ import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.aisme.policy.PolicyType;
 import com.spectrayan.spector.memory.model.enactment.AgencyAttribution;
 import com.spectrayan.spector.memory.model.enactment.ConfidenceLevel;
@@ -239,6 +240,29 @@ class PersonaEnactmentEngineTest {
             assertThat(enactment.intendedActs()).contains("TOOL:read_telemetry_tool");
             assertThat(enactment.intendedActs()).doesNotContain("TOOL:auth_bypass_tool");
         }
+
+        @Test
+        @DisplayName("Precision tool gating: substring overlap like author_tool or authority_lookup is NOT vetoed")
+        void precisionToolGating_doesNotFalsePositiveOnSubstringOverlap() {
+            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of());
+
+            AgentSoul soul = AgentSoul.builder()
+                    .id("sentinel")
+                    .name("Sentinel")
+                    .tool("auth_bypass_tool")
+                    .tool("author_tool")
+                    .tool("authority_lookup")
+                    .ethicalGuardrail("Never bypass authentication protocols without multi-party authorization [denied: auth_bypass_tool]")
+                    .build();
+
+            SituationFrame situation = SituationFrame.of("Bypass auth check to restore service immediately");
+
+            Enactment enactment = EnactmentEngine.enact(memory, soul, situation, EnactMode.REACT);
+
+            assertThat(enactment.intendedActs()).doesNotContain("TOOL:auth_bypass_tool");
+            assertThat(enactment.intendedActs()).contains("TOOL:author_tool");
+            assertThat(enactment.intendedActs()).contains("TOOL:authority_lookup");
+        }
     }
 
     @Nested
@@ -361,6 +385,39 @@ class PersonaEnactmentEngineTest {
 
             assertThat(enactment.confidence()).isEqualTo(ConfidenceLevel.EVIDENCED);
         }
+
+        @Test
+        @DisplayName("Untagged dogma with missing persona_id is unowned and degrades confidence from EVIDENCED to MIXED")
+        void untaggedDogma_missingOwner_degradesToMixedConfidence() {
+            CognitiveResult untaggedDogma = new CognitiveResult(
+                    "dogma-generic",
+                    "Loose generic advice without persona attribution",
+                    0.90f, 0.85f, 5.0f, 2, (byte) 30,
+                    MemoryType.SEMANTIC,
+                    MemorySource.USER_STATED,
+                    new String[]{"dogma"},
+                    0.90f, 0.90f, null, null, null, null,
+                    java.util.Map.of(), // Missing persona_id / owner!
+                    (byte) 0, System.currentTimeMillis()
+            );
+
+            CognitiveResult playbook = new CognitiveResult(
+                    "pb-1", "Standard playbook", 0.85f, 0.85f, 1.0f, 1, (byte) 20,
+                    MemoryType.PROCEDURAL, MemorySource.USER_STATED, new String[]{"habit", "playbook"},
+                    0.9f, 0.9f, null, null, null, null, java.util.Map.of(), (byte) 0, System.currentTimeMillis()
+            );
+
+            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of(untaggedDogma, playbook));
+
+            AgentSoul forge = AgentSoul.builder().id("forge").name("Forge").build();
+            SituationFrame situation = SituationFrame.of("Build customer settings view");
+
+            Enactment enactment = EnactmentEngine.enact(memory, forge, situation, EnactMode.REACT);
+
+            // Invariant I12: Untagged dogma cannot produce EVIDENCED confidence
+            assertThat(enactment.confidence()).isEqualTo(ConfidenceLevel.MIXED);
+            assertThat(enactment.confidence()).isNotEqualTo(ConfidenceLevel.EVIDENCED);
+        }
     }
 
     @Nested
@@ -399,6 +456,25 @@ class PersonaEnactmentEngineTest {
         }
 
         @Test
+        @DisplayName("Low urgency condition without playbook skips System 2 deliberation")
+        void lowIntensity_skipsSystem2DeliberationWithoutPlaybook() {
+            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of());
+
+            AgentSoul forge = AgentSoul.builder()
+                    .id("forge")
+                    .name("Forge")
+                    .emotionalBaseline(new AgentSoul.EmotionalBaseline((byte) 10, (byte) 20))
+                    .build();
+
+            SituationFrame situation = new SituationFrame("Check system uptime stats", List.of(), "LOW", false, java.util.Map.of());
+
+            Enactment enactment = EnactmentEngine.enact(memory, forge, situation, EnactMode.REACT);
+
+            assertThat(enactment.deliberation().internalMonologue()).contains("System 2 deliberation skipped");
+            assertThat(enactment.deliberation().tradeOffs().sacrificedValue()).isEqualTo("Deliberation overhead");
+        }
+
+        @Test
         @DisplayName("REPLAY mode strictly applies REPLAY tense and historical framing")
         void replayMode_appliesHistoricalFraming() {
             when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of());
@@ -411,6 +487,37 @@ class PersonaEnactmentEngineTest {
 
             assertThat(enactment.tense()).isEqualTo("REPLAY");
             assertThat(enactment.utterance()).contains("[REPLAY] Historical stance as of 2026-08-15T10:00:00Z");
+        }
+    }
+
+    @Nested
+    @DisplayName("Invariant I6: Attractor Boundedness (Continuous Hopfield Lyapunov Energy)")
+    class AttractorBoundednessTests {
+
+        @Test
+        @DisplayName("Continuous Hopfield network relaxes sensory state into bounded attractor basin with finite Lyapunov energy")
+        void continuousHopfieldAttractor_convergesWithBoundedLyapunovEnergy() {
+            ContinuousHopfieldNetwork hopfield = new ContinuousHopfieldNetwork();
+            com.spectrayan.spector.memory.aisme.AismeBundle bundle = mock(com.spectrayan.spector.memory.aisme.AismeBundle.class);
+            when(bundle.hopfieldNetwork()).thenReturn(hopfield);
+            when(memory.aismeBundle()).thenReturn(bundle);
+
+            CognitiveResult pattern1 = createMockResult("m1", "High reliability patterns", MemorySource.USER_STATED, MemoryType.SEMANTIC);
+            CognitiveResult pattern2 = createMockResult("m2", "Database sharding heuristics", MemorySource.USER_STATED, MemoryType.SEMANTIC);
+            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of(pattern1, pattern2));
+
+            AgentSoul soul = AgentSoul.builder().id("forge").name("Forge").build();
+            SituationFrame situation = SituationFrame.of("Database scaling review");
+
+            Enactment enactment = EnactmentEngine.enact(memory, soul, situation, EnactMode.REACT);
+
+            assertThat(enactment.activeAttractor()).isNotNull();
+            assertThat(enactment.activeAttractor().iterations()).isGreaterThanOrEqualTo(1);
+            assertThat(Float.isFinite(enactment.activeAttractor().energy())).isTrue();
+            for (float val : enactment.activeAttractor().attractorVector()) {
+                assertThat(Float.isFinite(val)).isTrue();
+            }
+            assertThat(enactment.intendedActs()).anyMatch(act -> act.startsWith("STANCE:"));
         }
     }
 

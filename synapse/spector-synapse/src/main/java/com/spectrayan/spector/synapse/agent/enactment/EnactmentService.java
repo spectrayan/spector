@@ -86,20 +86,26 @@ public class EnactmentService {
         if (mode == null) {
             mode = EnactMode.REACT;
         }
+        if (actingSoulId == null || actingSoulId.isBlank()) {
+            throw new IllegalArgumentException("actingSoulId must not be null or blank");
+        }
         String effectiveNamespace = (namespace != null && !namespace.isBlank()) ? namespace : "default";
-        String targetSoulId = (actingSoulId != null && !actingSoulId.isBlank()) ? actingSoulId : "default";
 
-        // 1. Resolve Memory and Acting Soul
-        SpectorMemory memory = null;
-        try {
-            memory = memoryRegistry.resolveFor(effectiveNamespace);
-        } catch (Exception e) {
-            log.warn("Could not resolve SpectorMemory for namespace {}: {}", effectiveNamespace, e.getMessage());
+        // 1. Resolve Acting Soul (Fail-Closed Identity)
+        AgentSoul soul = (soulService != null) ? soulService.getEffectiveSoul(actingSoulId) : null;
+        if (soul == null) {
+            throw new IllegalArgumentException("Cannot resolve AgentSoul for persona ID: " + actingSoulId);
         }
 
-        AgentSoul soul = soulService.getEffectiveSoul(targetSoulId);
-        if (soul == null) {
-            soul = CognitiveSoulService.DEFAULT_FALLBACK_SOUL;
+        // 2. Resolve Memory Namespace (Fail-Closed Isolation)
+        SpectorMemory memory;
+        try {
+            memory = (memoryRegistry != null) ? memoryRegistry.resolveFor(effectiveNamespace) : null;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to resolve SpectorMemory for namespace: " + effectiveNamespace, e);
+        }
+        if (memory == null) {
+            throw new IllegalStateException("Cannot resolve SpectorMemory for namespace: " + effectiveNamespace);
         }
 
         EnactmentConfig effectiveConfig = (config != null) ? config : this.enactmentConfig;
