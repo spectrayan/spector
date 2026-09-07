@@ -29,7 +29,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
@@ -44,9 +46,9 @@ import static org.awaitility.Awaitility.await;
  * End-to-end integration test: External Database (H2) → Apache Camel db-query Route
  * → SpectorIngestionSink → Spector Memory → Agent Recall.
  *
- * <h3>What This Tests</h3>
+ * <p>Validates the full enterprise multi-table ingestion and recall loop:</p>
  * <ul>
- *   <li>An external SQL database (simulated with standalone H2) contains multiple tables:
+ *   <li>An external enterprise system (H2 DB) holds two separate tables:
  *       Knowledge Base solutions and multi-turn Conversation logs.</li>
  *   <li>Camel dynamic 'db-query' routes poll the external database via JDBC.</li>
  *   <li>Row-level splitting breaks each table result set into individual documents.</li>
@@ -59,6 +61,9 @@ class DatabaseQueryIngestionE2ETest {
 
     private static final int DIMS = 384;
     private static final String EXTERNAL_DB_URL = "jdbc:h2:mem:external_enterprise_db;DB_CLOSE_DELAY=-1";
+
+    @TempDir
+    Path tempDir;
 
     private StubEmbeddingProvider embeddingProvider;
     private SpectorMemory memory;
@@ -130,6 +135,7 @@ class DatabaseQueryIngestionE2ETest {
         embeddingProvider = new StubEmbeddingProvider(DIMS);
         memory = DefaultSpectorMemory.builder()
                 .embeddingProvider(embeddingProvider)
+                .persistence(tempDir)
                 .build();
 
         // 3. Real IngestionTarget from SpectorMemory

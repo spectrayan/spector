@@ -65,7 +65,7 @@ public class CognitiveState extends AgentState {
             entry("enact_mode",          Channels.base(() -> "REACT")),
             entry("acting_soul_id",      Channels.base(() -> "")),
             entry("namespace",           Channels.base(() -> "default")),
-            entry("enactment",           Channels.base(() -> null))
+            entry("enactment",           Channels.base(() -> ""))
     );
 
     public CognitiveState(Map<String, Object> initData) {
@@ -140,6 +140,10 @@ public class CognitiveState extends AgentState {
     }
 
     public Optional<com.spectrayan.spector.memory.model.enactment.Enactment> enactment() {
-        return this.<com.spectrayan.spector.memory.model.enactment.Enactment>value("enactment");
+        Object val = this.value("enactment").orElse(null);
+        if (val instanceof com.spectrayan.spector.memory.model.enactment.Enactment e) {
+            return Optional.of(e);
+        }
+        return Optional.empty();
     }
 }
