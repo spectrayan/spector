@@ -136,6 +136,7 @@
         <context-propagation.version>1.1.2</context-propagation.version>
         <armeria.version>1.41.0</armeria.version>
         <langchain4j.version>1.18.1</langchain4j.version>
+        <langchain4j-embeddings.version>1.0.0-beta1</langchain4j-embeddings.version>
         <spring-boot.version>4.1.0</spring-boot.version>
         <flyway.version>12.4.0</flyway.version>
         <spring-ai.version>2.0.0</spring-ai.version>
@@ -382,6 +383,16 @@
                 <version>${langchain4j.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-embeddings-all-minilm-l6-v2-q</artifactId>
+                <version>${langchain4j-embeddings.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-embeddings-bge-small-en-v15-q</artifactId>
+                <version>${langchain4j-embeddings.version}</version>
             </dependency>
 
             <!-- ── Apache Commons Configuration (hierarchical config) ── -->

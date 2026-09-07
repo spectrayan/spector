@@ -66,6 +66,8 @@ class SpectorCtlTest {
         assertThat(output).contains("recall");
         assertThat(output).contains("status");
         assertThat(output).contains("mcp");
+        assertThat(output).contains("doctor");
+        assertThat(output).contains("init");
     }
 
     @Test

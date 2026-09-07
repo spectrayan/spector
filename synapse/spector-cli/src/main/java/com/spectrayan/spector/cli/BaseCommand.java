@@ -50,15 +50,18 @@ abstract class BaseCommand implements Runnable {
     }
 
     protected String getHost() {
-        return resolveRoot().host;
+        var root = resolveRoot();
+        return root != null && root.host != null ? root.host : "localhost";
     }
 
     protected int getPort() {
-        return resolveRoot().port;
+        var root = resolveRoot();
+        return root != null && root.port > 0 ? root.port : 7070;
     }
 
     protected boolean isJson() {
-        return resolveRoot().json;
+        var root = resolveRoot();
+        return root != null && root.json;
     }
 
     protected PrintWriter out() {
@@ -97,7 +100,6 @@ abstract class BaseCommand implements Runnable {
         if (parent instanceof SpectorCtl root) {
             return root;
         }
-        // Should not happen if Picocli wiring is correct
-        throw new SpectorInternalException(ErrorCode.INTERNAL_ERROR, "Cannot resolve root SpectorCtl command");
+        return null;
     }
 }

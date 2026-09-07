@@ -4713,19 +4713,19 @@ components:
         timestampMs:
           type: integer
           format: int64
-        multimodal:
-          type: boolean
-        negativeOutcome:
-          type: boolean
-        hyperfocused:
-          type: boolean
-        positivelyReinforced:
+        lateral:
           type: boolean
         dreamed:
           type: boolean
-        lateral:
-          type: boolean
         simulated:
+          type: boolean
+        multimodal:
+          type: boolean
+        positivelyReinforced:
+          type: boolean
+        hyperfocused:
+          type: boolean
+        negativeOutcome:
           type: boolean
     FederatedRecallHit:
       type: object

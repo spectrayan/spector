@@ -610,8 +610,15 @@ public final class SpectorMemoryBuilder {
         } else {
             this.properties = SpectorProperties.builder().build();
         }
-        if (embeddingProvider != null && embeddingProvider.dimensions() > 0) {
-            this.properties.memory().setDimensions(embeddingProvider.dimensions());
+        if (embeddingProvider != null) {
+            try {
+                int dims = embeddingProvider.dimensions();
+                if (dims > 0) {
+                    this.properties.memory().setDimensions(dims);
+                }
+            } catch (Exception e) {
+                log.debug("[Spector] Could not probe embedding provider dimensions eagerly: {}", e.getMessage());
+            }
         }
         return new DefaultSpectorMemory(this);
     }

@@ -1,1 +1,2 @@
+com.spectrayan.spector.spring.autoconfigure.SpectorEmbeddingAutoConfiguration
 com.spectrayan.spector.spring.autoconfigure.SpectorAutoConfiguration

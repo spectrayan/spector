@@ -51,5 +51,26 @@ class SpectorCliApplicationTest {
         assertThat(context.containsBean("rememberCommand")).isTrue();
         assertThat(context.containsBean("recallCommand")).isTrue();
         assertThat(context.containsBean("memoryCommand")).isTrue();
+        assertThat(context.containsBean("doctorCommand")).isTrue();
+        assertThat(context.containsBean("initCommand")).isTrue();
+    }
+
+    @org.junit.jupiter.api.Nested
+    @SpringBootTest(classes = SpectorCliApplication.class, properties = {
+            "spring.main.lazy-initialization=true",
+            "spring.main.banner-mode=off"
+    })
+    @ActiveProfiles(value = "cli-embedded", inheritProfiles = false)
+    class EmbeddedProfileTest {
+
+        @Autowired
+        private ApplicationContext embeddedContext;
+
+        @Test
+        void contextLoads_inEmbeddedProfile_spectorMemoryBeanIsCreated() {
+            assertThat(embeddedContext).isNotNull();
+            assertThat(embeddedContext.getBeanNamesForType(SpectorMemory.class)).isNotEmpty();
+        }
     }
 }
+
