@@ -35,6 +35,8 @@ jobs:
       - name: Build sdist and wheel
         run: |
           cd sdks/python
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i -E "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
           python -m build
 
       - name: Publish to PyPI

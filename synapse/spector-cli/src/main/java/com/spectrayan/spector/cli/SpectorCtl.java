@@ -21,39 +21,44 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 /**
- * Main entry point for the spectorctl command-line tool.
+ * Main entry point for the spector command-line tool.
  *
  * <p>Provides subcommands for managing a running Spector instance
- * via its REST API.</p>
+ * via its REST API, starting embedded MCP, running diagnostic doctor,
+ * or serving the Synapse daemon.</p>
  *
  * <h3>Usage</h3>
  * <pre>
- * spectorctl [--host HOST] [--port PORT] [--json] COMMAND
+ * spector [--host HOST] [--port PORT] [--json] COMMAND
  *
  * Commands:
+ *   init              Initialize local Spector configuration and storage directories
+ *   doctor            Diagnose local environment, Java 25 Vector API, and dependencies
+ *   mcp               Start the Spector MCP server (STDIO JSON-RPC 2.0 transport)
+ *   serve             Start the Spector Synapse daemon (REST, SSE, and MCP HTTP)
  *   remember (ingest) Store or ingest documents/memories
  *   recall (search)   Recall or search documents/memories
  *   index             Manage indexes (create, delete, list)
  *   status            Show instance status
  *   memory            Manage cognitive memory subsystem
- *   mcp               Start the Spector MCP server
  * </pre>
  */
 @Component
 @Command(
-        name = "spectorctl",
-        description = "Command-line tool for managing Spector instances.",
+        name = "spector",
+        description = "Command-line tool and local runtime for Spector Cognitive Memory.",
         mixinStandardHelpOptions = true,
         versionProvider = VersionProvider.class,
         subcommands = {
-                IndexCommand.class,
+                InitCommand.class,
+                DoctorCommand.class,
+                McpCommand.class,
+                ServeCommand.class,
                 RememberCommand.class,
                 RecallCommand.class,
+                IndexCommand.class,
                 StatusCommand.class,
-                MemoryCommand.class,
-                McpCommand.class,
-                DoctorCommand.class,
-                InitCommand.class
+                MemoryCommand.class
         }
 )
 public class SpectorCtl implements Runnable {

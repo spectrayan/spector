@@ -15,8 +15,8 @@ Spector provides official multi-architecture container images (`linux/amd64`, `l
 
 Spector includes an out-of-the-box [`docker-compose.yml`](https://github.com/spectrayan/spector/blob/main/docker-compose.yml) with automatic named volume provisioning.
 
-### 1. Launch Core Memory Engine
-Starts the high-performance Spector Synapse daemon (REST, SSE, and MCP HTTP endpoints on port `:7070`):
+### 1. Launch Core Memory Engine & Dashboard
+Starts the Spector Synapse daemon (REST, SSE, and MCP HTTP endpoints on port `:7070`) and Cortex Neural Dashboard (on port `:7700`):
 
 ```bash
 docker compose up -d
@@ -33,22 +33,21 @@ Spector uses modular Docker Compose profiles for optional subsystems:
 
 | Profile | Command | Description | Ports |
 |:---|:---|:---|:---|
-| **Default** | `docker compose up -d` | Core cognitive memory engine (REST, SSE, MCP HTTP) | `7070` |
-| **`ui`** | `docker compose --profile ui up -d` | Adds the Angular 22 Cortex 3D Neural Explorer UI reverse-proxied via Nginx | `80`, `7070` |
-| **`embeddings`** | `docker compose --profile embeddings up -d` | Adds a bundled local Ollama container with pre-pulled embedding models | `11434`, `7070` |
-| **`gpu`** | `docker compose --profile gpu up -d` | Activates NVIDIA CUDA container runtime for hardware-accelerated embeddings | `7070` |
+| **Default** | `docker compose up -d` | Core engine + Cortex Neural Dashboard | `7070`, `7700:8080` |
+| **`embeddings`** | `docker compose --profile embeddings up -d` | Adds a bundled local Ollama container for embeddings | `11434`, `7070`, `7700` |
+| **`gpu`** | `docker compose --profile gpu up -d` | Enables GPU passthrough to Ollama for hardware-accelerated embeddings | `11434`, `7070`, `7700` |
 
 Combine profiles as needed:
 ```bash
-# Launch core engine + Cortex visual dashboard + Ollama embeddings:
-docker compose --profile ui --profile embeddings up -d
+# Launch engine + dashboard + GPU Ollama embeddings:
+docker compose --profile embeddings --profile gpu up -d
 ```
 
 ---
 
 ## Persistent Storage
 
-Spector persists off-heap Panama memory partitions and Write-Ahead Logs (WAL) in the named volume `spector-data` mounted at `/var/lib/spector`.
+Spector persists off-heap memory partitions, Write-Ahead Logs (WAL), and indexes in the named volume `spector-data` mounted at `/data`.
 
 To inspect or backup persistent memory files:
 ```bash
@@ -63,7 +62,7 @@ The official [`deploy/docker/Dockerfile`](https://github.com/spectrayan/spector/
 
 1. **Stage 1 (`builder-cortex`)**: `node:22-alpine` compiles the Angular Cortex dashboard into static distribution files.
 2. **Stage 2 (`builder-synapse`)**: `maven:3.9-eclipse-temurin-25` compiles the full reactor and produces the Synapse fat JAR.
-3. **Stage 3 (`runtime`)**: `eclipse-temurin:25-jre-alpine` combines the JRE 25 runtime with Nginx, tini process supervisor, and a non-root `spector` user.
+3. **Stage 3 (`runtime`)**: `eclipse-temurin:25-jre` (glibc bookworm) combines the JRE 25 runtime with Nginx, tini process supervisor, and a non-root `spector` user (UID 1000).
 
 ### Building Locally
 
@@ -76,8 +75,8 @@ Run the locally built image:
 docker run -d \
   --name spector \
   -p 7070:7070 \
-  -p 80:80 \
-  -v spector-data:/var/lib/spector \
+  -p 7700:8080 \
+  -v spector-data:/data \
   spector:local
 ```
 
@@ -90,6 +89,6 @@ Configure container behavior via environment variables in `.env` or Compose:
 | Variable | Default | Description |
 |:---|:---|:---|
 | `SPECTOR_PORT` | `7070` | Synapse HTTP REST & SSE listen port |
-| `SPECTOR_STORAGE_PATH` | `/var/lib/spector` | Persistence directory for WAL and memory kernels |
-| `SPECTOR_EMBEDDER_PROVIDER` | `onnx` | Embedder provider (`onnx`, `ollama`, `openai`, `gemini`) |
+| `SPECTOR_DATA_DIR` | `/data` | Persistence directory for memory, index, and WAL storage |
+| `SPECTOR_DIMS` | `384` | Embedding vector dimensionality |
 | `JAVA_OPTS` | `-Xms512m -Xmx2g` | JVM memory parameters |

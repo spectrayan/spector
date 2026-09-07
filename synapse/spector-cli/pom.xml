@@ -70,6 +70,13 @@
             <artifactId>spector-mcp</artifactId>
         </dependency>
 
+        <!-- ── Spector Synapse (Daemon REST/SSE/Armeria server for spector serve) ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-synapse</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-batch</artifactId>

@@ -34,7 +34,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "test": "node ./bin/spector.js --help"
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {}
 }

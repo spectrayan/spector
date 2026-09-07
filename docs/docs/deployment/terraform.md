@@ -3,11 +3,14 @@ title: Terraform Multi-Cloud Deployment
 description: "Deploy Spector Cognitive Memory across AWS, GCP, and Azure using reusable Terraform modules."
 ---
 
-# ☁️ Terraform Multi-Cloud Deployment
+# ☁️ Terraform Multi-Cloud Deployment (Experimental)
 
-> **Production infrastructure-as-code modules for AWS ECS, GCP Cloud Run, and Azure Container Apps.**
+> **Infrastructure-as-code reference modules for AWS ECS, GCP Cloud Run, and Azure Container Apps.**
 
-Spector includes modular Terraform packages located in [`deploy/terraform/modules/`](https://github.com/spectrayan/spector/tree/main/deploy/terraform/modules) that provision serverless container execution with persistent cloud storage mounts.
+> [!WARNING]
+> **Experimental / Reference Only**: These Terraform modules are provided as architectural references and have not been production-applied. For production setups, prefer the official [Docker Compose](docker.md) or [Kubernetes Helm Chart](helm.md).
+
+Spector includes modular Terraform packages located in [`deploy/terraform/modules/`](https://github.com/spectrayan/spector/tree/main/deploy/terraform/modules) that illustrate container execution with persistent cloud storage mounts.
 
 ---
 

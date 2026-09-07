@@ -37,7 +37,7 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/client.test.ts tests/memory.test.ts tests/events.test.ts tests/utils.test.ts",
+    "test": "node --experimental-strip-types --test tests/client.test.ts tests/memory.test.ts tests/events.test.ts tests/utils.test.ts tests/contract.test.ts",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {

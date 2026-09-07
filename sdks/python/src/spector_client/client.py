@@ -121,6 +121,26 @@ class SpectorClientBuilder:
             self._config.headers.update(headers)
         return self
 
+    def with_api_key(self, api_key: str) -> SpectorClientBuilder:
+        self._config.api_key = api_key
+        return self
+
+    def with_bearer_token(self, token: str) -> SpectorClientBuilder:
+        self._config.bearer_token = token
+        return self
+
+    def with_user(self, user_id: str) -> SpectorClientBuilder:
+        self._config.user_id = user_id
+        return self
+
+    def with_agent(self, agent_id: str) -> SpectorClientBuilder:
+        self._config.agent_id = agent_id
+        return self
+
+    def with_namespace(self, namespace: str) -> SpectorClientBuilder:
+        self._config.namespace = namespace
+        return self
+
     def with_transport(self, transport: BaseTransport) -> SpectorClientBuilder:
         self._custom_transport = transport
         return self
@@ -159,6 +179,26 @@ class AsyncSpectorClientBuilder:
             self._config.headers.update(headers)
         return self
 
+    def with_api_key(self, api_key: str) -> AsyncSpectorClientBuilder:
+        self._config.api_key = api_key
+        return self
+
+    def with_bearer_token(self, token: str) -> AsyncSpectorClientBuilder:
+        self._config.bearer_token = token
+        return self
+
+    def with_user(self, user_id: str) -> AsyncSpectorClientBuilder:
+        self._config.user_id = user_id
+        return self
+
+    def with_agent(self, agent_id: str) -> AsyncSpectorClientBuilder:
+        self._config.agent_id = agent_id
+        return self
+
+    def with_namespace(self, namespace: str) -> AsyncSpectorClientBuilder:
+        self._config.namespace = namespace
+        return self
+
     def with_transport(self, transport: AsyncBaseTransport) -> AsyncSpectorClientBuilder:
         self._custom_transport = transport
         return self
@@ -166,3 +206,4 @@ class AsyncSpectorClientBuilder:
     def build(self) -> AsyncSpectorClient:
         transport = self._custom_transport or AsyncRestTransport(self._config)
         return AsyncSpectorClient(transport=transport)
+

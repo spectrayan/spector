@@ -89,10 +89,10 @@
         <!-- ── Synapse: Nervous system — API, agents, wiring ── -->
         <module>synapse/spector-connector</module>
         <module>synapse/spector-mcp</module>
-        <module>synapse/spector-cli</module>
         <module>synapse/spector-spring</module>
         <module>synapse/spector-batch</module>
         <module>synapse/spector-synapse</module>
+        <module>synapse/spector-cli</module>
 
         <!-- ── Bench: Benchmarks ── -->
         <module>bench/spector-bench</module>

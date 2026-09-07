@@ -11,13 +11,13 @@ description: "Install Spector: Zero-install NPX runner, one-line scripts, Homebr
 
 ## 1. Zero-Install MCP Runner (for AI Agents)
 
-If you are using Claude Desktop, Cursor, Windsurf, or Claude Code, you do not need to install Java, Maven, or Docker:
+If you are using Claude Desktop, Cursor, Windsurf, or Claude Code:
 
 ```bash
 npx -y @spectrayan/spector mcp
 ```
 
-The NPX launcher automatically detects any running local Spector Synapse daemon on `:7070` or `:7700` and bridges stdio JSON-RPC over HTTP/SSE. If no daemon is running, it automatically downloads and runs the release binary.
+The NPX launcher connects to a running local Spector Synapse daemon on `:7070` if healthy. If no daemon is running, it downloads `spector.jar` to run an in-process memory kernel with embedded ONNX vector embeddings (requires OpenJDK 25+).
 
 ---
 
@@ -60,18 +60,15 @@ spector doctor
 
 ## 4. Docker & Docker Compose
 
-Launch the complete cognitive stack (core memory engine, REST/SSE gateway, and optional Cortex 3D neural explorer) with zero local prerequisites:
+Launch the complete cognitive stack (core memory engine on `:7070` and Cortex 3D neural explorer on `:7700`) with zero local prerequisites:
 
 ```bash
 # Clone the repository
 git clone https://github.com/spectrayan/spector.git
 cd spector
 
-# Launch the core daemon
+# Launch engine and Cortex dashboard
 docker compose up -d
-
-# Or launch with the Cortex 3D UI
-docker compose --profile ui up -d
 ```
 
 See the [Docker Deployment Guide](../deployment/docker.md) for multi-stage build instructions and GPU acceleration.

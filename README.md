@@ -31,7 +31,7 @@ Legacy AI stacks bolt memory onto stateless vector databases — storage without
 Connect an agent, install an SDK, or launch a local node in seconds:
 
 ### 1. Zero-Install MCP Server (for AI Agents)
-Run instantly via NPX — auto-detects running local Synapse daemons on `:7070` or bootstraps an embedded ONNX memory kernel:
+Run instantly via NPX — connects to a running local Synapse daemon on `:7070` if healthy, or automatically downloads `spector.jar` to run an embedded ONNX memory kernel (requires OpenJDK 25+):
 ```bash
 npx -y @spectrayan/spector mcp
 ```
@@ -68,14 +68,13 @@ await client.memory.remember({
   tier: MemoryTier.SEMANTIC,
   tags: ['preferences', 'ui'],
 });
-const memories = await client.memory.recall({ query: 'user preferences', topK: 3 });
+const memories = await client.memory.recall('user preferences', { topK: 3 });
 ```
 
 ### 3. Instant Local Server (Docker Compose)
 ```bash
-docker compose up -d                        # Core engine + REST + SSE + MCP HTTP (:7070)
-docker compose --profile ui up -d           # Adds Cortex 3D Neural Explorer (:80)
-docker compose --profile embeddings up -d   # Adds bundled local Ollama container
+docker compose up -d                        # Core engine (:7070) + Cortex Neural Dashboard (:7700)
+docker compose --profile embeddings up -d   # Adds local Ollama container for embeddings
 ```
 
 ### 4. Standalone One-Line Installers
@@ -87,7 +86,8 @@ curl -fsSL https://raw.githubusercontent.com/spectrayan/spector/main/scripts/ins
 irm https://raw.githubusercontent.com/spectrayan/spector/main/scripts/install.ps1 | iex
 
 # Homebrew (macOS / Linux)
-brew tap spectrayan/spector https://github.com/spectrayan/spector && brew install spector
+brew tap spectrayan/spector https://github.com/spectrayan/spector
+brew install spector
 
 # Scoop (Windows)
 scoop install https://raw.githubusercontent.com/spectrayan/spector/main/packaging/scoop/spector.json

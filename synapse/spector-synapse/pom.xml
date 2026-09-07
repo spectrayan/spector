@@ -327,6 +327,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>${spring-boot.version}</version>
                 <configuration>
+                    <classifier>exec</classifier>
                     <jvmArguments>
                         --add-modules jdk.incubator.vector --enable-preview --enable-native-access=ALL-UNNAMED
                     </jvmArguments>

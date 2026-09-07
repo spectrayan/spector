@@ -31,14 +31,21 @@ services:
     image: ghcr.io/spectrayan/spector:latest
     container_name: spector
     ports:
-      - "7700:80"
+      - "7700:8080"
       - "7070:7070"
     environment:
       - SPECTOR_PORT=7070
       - SPECTOR_NODE_ID=spector-docker
       - SPECTOR_DIMS=384
+      - SPECTOR_DATA_DIR=/data
     volumes:
       - spector-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:7070/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped
     stop_grace_period: 30s
     extra_hosts:

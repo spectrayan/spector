@@ -10,27 +10,92 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const { spawn, execSync } = require('child_process');
-const readline = require('readline');
 
 const GITHUB_REPO = 'spectrayan/spector';
-const DEFAULT_PORT = process.env.SPECTOR_PORT || '7070';
-const DEFAULT_HOST = process.env.SPECTOR_HOST || '127.0.0.1';
-const SPECTOR_HOME = process.env.SPECTOR_HOME || path.join(os.homedir(), '.spector');
-const BIN_DIR = path.join(SPECTOR_HOME, 'bin');
-const JAR_PATH = path.join(BIN_DIR, 'spector.jar');
+
+function parseCliArgs(argv) {
+  const args = argv.slice(2);
+  let host = process.env.SPECTOR_HOST || '127.0.0.1';
+  let port = process.env.SPECTOR_PORT || '7070';
+  let printHttpConfig = false;
+  let showHelp = false;
+  const forwardedArgs = [];
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--help' || arg === '-h' || arg === 'help') {
+      showHelp = true;
+    } else if (arg === '--host') {
+      if (i + 1 < args.length) host = args[++i];
+    } else if (arg.startsWith('--host=')) {
+      host = arg.slice('--host='.length);
+    } else if (arg === '--port') {
+      if (i + 1 < args.length) port = args[++i];
+    } else if (arg.startsWith('--port=')) {
+      port = arg.slice('--port='.length);
+    } else if (arg === '--print-http-config') {
+      printHttpConfig = true;
+    } else {
+      forwardedArgs.push(arg);
+    }
+  }
+
+  return { host, port, printHttpConfig, showHelp, forwardedArgs };
+}
+
+function parseJavaMajorVersion(versionOutput) {
+  if (!versionOutput) return null;
+  const match = versionOutput.match(/(?:java|openjdk) version "([0-9]+)(?:[.\-_][0-9a-zA-Z]+)?"/i) ||
+                versionOutput.match(/"([0-9]+)(?:\.[0-9]+)*.*"/);
+  if (match && match[1]) {
+    const major = parseInt(match[1], 10);
+    return isNaN(major) ? null : major;
+  }
+  return null;
+}
+
+function getJavaCommand() {
+  if (process.env.JAVA_HOME) {
+    const javaBin = path.join(process.env.JAVA_HOME, 'bin', process.platform === 'win32' ? 'java.exe' : 'java');
+    if (fs.existsSync(javaBin)) {
+      return javaBin;
+    }
+  }
+  return 'java';
+}
+
+function checkJavaVersion(javaCmd = getJavaCommand()) {
+  try {
+    const output = execSync(`"${javaCmd}" -version 2>&1`, { encoding: 'utf8' });
+    const major = parseJavaMajorVersion(output);
+    return { ok: major !== null && major >= 25, major, raw: output };
+  } catch (err) {
+    return { ok: false, major: null, error: err.message };
+  }
+}
+
+function computeSha256(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    const stream = fs.createReadStream(filePath);
+    stream.on('data', (data) => hash.update(data));
+    stream.on('end', () => resolve(hash.digest('hex')));
+    stream.on('error', reject);
+  });
+}
 
 function checkServerOnline(host, port, timeoutMs = 800) {
   return new Promise((resolve) => {
     const req = http.request(
       {
         host,
-        port,
-        path: '/api/v1/engine/status',
+        port: parseInt(port, 10),
+        path: '/actuator/health',
         method: 'GET',
         timeout: timeoutMs,
       },
       (res) => {
-        resolve(res.statusCode === 200 || res.statusCode === 204);
+        resolve(res.statusCode === 200);
       }
     );
     req.on('error', () => resolve(false));
@@ -42,130 +107,233 @@ function checkServerOnline(host, port, timeoutMs = 800) {
   });
 }
 
-function runHttpMcpBridge(host, port) {
-  process.stderr.write(`[spector-npx] Connected to active Spector Synapse daemon at http://${host}:${port}\n`);
-  process.stderr.write(`[spector-npx] Ready for Model Context Protocol (MCP) JSON-RPC over stdio.\n`);
+function downloadFile(url, destPath, maxRedirects = 5) {
+  return new Promise((resolve, reject) => {
+    if (maxRedirects < 0) return reject(new Error('Too many HTTP redirects'));
 
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    terminal: false,
-  });
-
-  rl.on('line', (line) => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
-
-    const req = http.request(
+    const parsed = new URL(url);
+    const client = parsed.protocol === 'https:' ? https : http;
+    const req = client.get(
+      url,
       {
-        host,
-        port,
-        path: '/mcp',
-        method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Content-Length': Buffer.byteLength(trimmed),
+          'User-Agent': '@spectrayan/spector-launcher',
+          'Accept': 'application/octet-stream, application/json',
         },
       },
       (res) => {
-        let body = '';
-        res.setEncoding('utf8');
-        res.on('data', (chunk) => {
-          body += chunk;
-        });
-        res.on('end', () => {
-          if (body.trim()) {
-            process.stdout.write(body.trim() + '\n');
-          }
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          return downloadFile(res.headers.location, destPath, maxRedirects - 1)
+            .then(resolve)
+            .catch(reject);
+        }
+        if (res.statusCode === 403) {
+          return reject(new Error('GitHub API rate limit exceeded (HTTP 403). Set SPECTOR_VERSION or wait before retrying.'));
+        }
+        if (res.statusCode !== 200) {
+          return reject(new Error(`HTTP ${res.statusCode} downloading ${url}`));
+        }
+        const file = fs.createWriteStream(destPath);
+        res.pipe(file);
+        file.on('finish', () => {
+          file.close(() => resolve());
         });
       }
     );
-
-    req.on('error', (err) => {
-      process.stderr.write(`[spector-npx] MCP bridge error: ${err.message}\n`);
-    });
-
-    req.write(trimmed);
-    req.end();
+    req.on('error', reject);
   });
 }
 
-function checkJavaAvailable() {
-  try {
-    const output = execSync('java -version 2>&1', { encoding: 'utf8' });
-    return output.includes('Runtime Environment') || output.includes('OpenJDK') || output.includes('Java(TM)');
-  } catch {
-    return false;
-  }
-}
-
-async function downloadReleaseJar() {
-  if (!fs.existsSync(BIN_DIR)) {
-    fs.mkdirSync(BIN_DIR, { recursive: true });
-  }
-
-  process.stderr.write(`[spector-npx] Fetching latest release metadata from GitHub (${GITHUB_REPO})...\n`);
+async function fetchReleaseMetadata(version) {
+  const apiPath = (!version || version === 'latest')
+    ? `/repos/${GITHUB_REPO}/releases/latest`
+    : `/repos/${GITHUB_REPO}/releases/tags/${version.startsWith('v') ? version : 'v' + version}`;
 
   return new Promise((resolve, reject) => {
     const options = {
       host: 'api.github.com',
-      path: `/repos/${GITHUB_REPO}/releases/latest`,
-      headers: { 'User-Agent': '@spectrayan/spector-npx' },
+      path: apiPath,
+      headers: {
+        'User-Agent': '@spectrayan/spector-launcher',
+        'Accept': 'application/vnd.github.v3+json',
+      },
     };
 
     https.get(options, (res) => {
       let data = '';
+      if (res.statusCode === 403) {
+        return reject(new Error('GitHub API rate limit exceeded (HTTP 403). Set SPECTOR_VERSION or wait before retrying.'));
+      }
+      if (res.statusCode === 404) {
+        return reject(new Error(`Release ${version || 'latest'} not found in GitHub repository ${GITHUB_REPO}.`));
+      }
+      if (res.statusCode !== 200) {
+        return reject(new Error(`GitHub API returned HTTP ${res.statusCode}`));
+      }
       res.on('data', (chunk) => (data += chunk));
       res.on('end', () => {
         try {
-          const release = JSON.parse(data);
-          if (!release.assets || !Array.isArray(release.assets)) {
-            return reject(new Error('No release assets found in latest release.'));
-          }
-
-          const jarAsset = release.assets.find((a) => a.name === 'spector.jar' || a.name.endsWith('-cli.jar') || a.name.endsWith('.jar'));
-          if (!jarAsset) {
-            return reject(new Error('spector.jar was not found among release assets.'));
-          }
-
-          process.stderr.write(`[spector-npx] Downloading ${jarAsset.name} to ${JAR_PATH}...\n`);
-          const file = fs.createWriteStream(JAR_PATH);
-          const download = (url) => {
-            https.get(url, { headers: { 'User-Agent': '@spectrayan/spector-npx' } }, (resp) => {
-              if (resp.statusCode === 302 || resp.statusCode === 301) {
-                return download(resp.headers.location);
-              }
-              resp.pipe(file);
-              file.on('finish', () => {
-                file.close(() => {
-                  process.stderr.write(`[spector-npx] Download complete (${(fs.statSync(JAR_PATH).size / (1024 * 1024)).toFixed(1)} MB).\n`);
-                  resolve();
-                });
-              });
-            }).on('error', reject);
-          };
-
-          download(jarAsset.browser_download_url);
+          resolve(JSON.parse(data));
         } catch (e) {
-          reject(e);
+          reject(new Error(`Failed to parse GitHub release JSON: ${e.message}`));
         }
       });
     }).on('error', reject);
   });
 }
 
-function runJavaStandalone(args) {
+async function ensureSpectorJar(spectorHome) {
+  const binDir = path.join(spectorHome, 'bin');
+  const jarPath = path.join(binDir, 'spector.jar');
+  const shaPath = path.join(binDir, 'spector.jar.sha256');
+
+  if (!fs.existsSync(binDir)) {
+    fs.mkdirSync(binDir, { recursive: true });
+  }
+
+  const configuredVersion = process.env.SPECTOR_VERSION;
+  const configuredSha = process.env.SPECTOR_JAR_SHA256;
+
+  // Check if existing JAR matches expected hash
+  if (fs.existsSync(jarPath) && fs.existsSync(shaPath)) {
+    const expectedSha = (fs.readFileSync(shaPath, 'utf8').trim().split(/\s+/)[0] || '').toLowerCase();
+    const actualSha = (await computeSha256(jarPath)).toLowerCase();
+    if (expectedSha && actualSha === expectedSha) {
+      return jarPath;
+    }
+    process.stderr.write(`[spector-npx] Existing spector.jar hash mismatch or corrupted. Re-downloading...\n`);
+  }
+
+  process.stderr.write(`[spector-npx] Fetching release metadata from GitHub (${GITHUB_REPO})...\n`);
+  const release = await fetchReleaseMetadata(configuredVersion);
+  if (!release.assets || !Array.isArray(release.assets)) {
+    throw new Error('No assets found in release metadata.');
+  }
+
+  const jarAsset = release.assets.find((a) => a.name === 'spector.jar');
+  if (!jarAsset) {
+    throw new Error("Release asset 'spector.jar' was not found on GitHub Releases.");
+  }
+
+  const shaAsset = release.assets.find((a) => a.name === 'spector.jar.sha256');
+  if (!shaAsset && !configuredSha) {
+    throw new Error("Release asset 'spector.jar.sha256' was not found on GitHub Releases and SPECTOR_JAR_SHA256 is not set.");
+  }
+
+  process.stderr.write(`[spector-npx] Downloading spector.jar from ${jarAsset.browser_download_url}...\n`);
+  await downloadFile(jarAsset.browser_download_url, jarPath);
+
+  let expectedHash = configuredSha;
+  if (shaAsset) {
+    await downloadFile(shaAsset.browser_download_url, shaPath);
+    expectedHash = fs.readFileSync(shaPath, 'utf8').trim().split(/\s+/)[0];
+  }
+
+  if (expectedHash) {
+    const computedHash = await computeSha256(jarPath);
+    if (computedHash.toLowerCase() !== expectedHash.trim().toLowerCase()) {
+      fs.unlinkSync(jarPath);
+      throw new Error(`SHA-256 verification failed! Expected ${expectedHash}, got ${computedHash}`);
+    }
+    process.stderr.write(`[spector-npx] Verified SHA-256: ${computedHash}\n`);
+  }
+
+  return jarPath;
+}
+
+function printUsage() {
+  console.log(`
+Spector Zero-Install MCP & CLI Runner (@spectrayan/spector)
+
+Usage:
+  npx -y @spectrayan/spector [command] [options]
+
+Commands:
+  mcp                    Run Model Context Protocol server over STDIO (default)
+  doctor                 Diagnose environment, Java 25 Vector API, and storage
+  init                   Initialize local Spector configuration and storage
+  serve                  Start local Spector Synapse daemon (REST, SSE, MCP HTTP)
+  [args...]              Forward all other arguments directly to spector.jar
+
+Options:
+  --host <host>          Spector Synapse daemon host (default: 127.0.0.1 or SPECTOR_HOST)
+  --port <port>          Spector Synapse daemon port (default: 7070 or SPECTOR_PORT)
+  --print-http-config    Print MCP HTTP JSON configuration for active daemon and exit
+  --help, -h             Show this help message
+`);
+}
+
+async function main() {
+  const { host, port, printHttpConfig, showHelp, forwardedArgs } = parseCliArgs(process.argv);
+
+  if (showHelp) {
+    printUsage();
+    return;
+  }
+
+  const spectorHome = process.env.SPECTOR_HOME || path.join(os.homedir(), '.spector');
+
+  // 1. Probe if local or remote Synapse daemon is online
+  const isDaemonOnline = await checkServerOnline(host, port);
+
+  if (isDaemonOnline) {
+    process.stderr.write(`[spector-npx] Spector daemon detected at http://${host}:${port}\n`);
+    if (printHttpConfig) {
+      console.log(JSON.stringify({
+        mcpServers: {
+          spector: {
+            url: `http://${host}:${port}/mcp`
+          }
+        }
+      }, null, 2));
+      return;
+    }
+  }
+
+  // 2. Validate Java 25+ requirement
+  const javaCmd = getJavaCommand();
+  const javaCheck = checkJavaVersion(javaCmd);
+
+  if (!javaCheck.ok) {
+    process.stderr.write(`
+[spector-npx] Error: OpenJDK 25+ is required to execute the local Spector engine.
+Detected Java runtime: ${javaCheck.major ? `Java ${javaCheck.major}` : 'Not found on PATH'}
+
+Spector leverages Project Panama FFM and the Java Vector API (SIMD) for sub-millisecond AI memory retrieval.
+
+To install OpenJDK 25:
+  macOS:    brew install openjdk@25
+  Windows:  winget install Microsoft.OpenJDK.25   (or: scoop install openjdk25)
+  Linux:    sudo apt install openjdk-25-jdk        (or: sudo dnf install java-25-openjdk)
+
+Alternatively, connect to a running Spector daemon or container:
+  docker compose up -d
+  npx -y @spectrayan/spector --host 127.0.0.1 --port 7070 --print-http-config
+\n`);
+    process.exit(1);
+  }
+
+  // 3. Ensure verified spector.jar is present
+  let jarPath;
+  try {
+    jarPath = await ensureSpectorJar(spectorHome);
+  } catch (err) {
+    process.stderr.write(`[spector-npx] Failed to acquire spector.jar: ${err.message}\n`);
+    process.exit(1);
+  }
+
+  // 4. Forward arguments directly to spector.jar
+  const subArgs = forwardedArgs.length > 0 ? forwardedArgs : ['mcp'];
   const javaArgs = [
     '--enable-preview',
     '--add-modules=jdk.incubator.vector',
     '--enable-native-access=ALL-UNNAMED',
     '-jar',
-    JAR_PATH,
-    ...args,
+    jarPath,
+    ...subArgs,
   ];
 
-  const proc = spawn('java', javaArgs, {
+  const proc = spawn(javaCmd, javaArgs, {
     stdio: 'inherit',
     env: process.env,
   });
@@ -175,79 +343,18 @@ function runJavaStandalone(args) {
   });
 }
 
-async function main() {
-  const args = process.argv.slice(2);
-  const command = args[0] || 'mcp';
-
-  if (command === '--help' || command === '-h' || command === 'help') {
-    console.log(`
-Spector Zero-Install MCP & CLI Runner (@spectrayan/spector)
-
-Usage:
-  npx -y @spectrayan/spector [command] [options]
-
-Commands:
-  mcp            Run Model Context Protocol server over stdio (default)
-  doctor         Inspect local environment and connectivity
-  init           Generate starter ~/.spector/spector.yml configuration
-  [args...]      Forward arguments directly to underlying spector.jar
-
-Options:
-  --host <host>  Spector Synapse host (default: 127.0.0.1)
-  --port <port>  Spector Synapse port (default: 7070)
-  --help, -h     Show this help message
-`);
-    return;
-  }
-
-  // 1. Check if a local Spector Synapse daemon is online
-  const isOnline = await checkServerOnline(DEFAULT_HOST, DEFAULT_PORT);
-
-  if (isOnline) {
-    if (command === 'mcp') {
-      runHttpMcpBridge(DEFAULT_HOST, DEFAULT_PORT);
-      return;
-    }
-  }
-
-  // 2. Fallback to Java spector.jar
-  const hasJava = checkJavaAvailable();
-  if (!hasJava) {
-    process.stderr.write(`
-[spector-npx] Notice: No local Spector daemon detected on http://${DEFAULT_HOST}:${DEFAULT_PORT}, and Java 25 was not found on PATH.
-
-To use Spector:
-  1. Start the Docker container (Recommended):
-     docker compose up -d
-
-  2. Or install OpenJDK 25:
-     macOS:   brew install openjdk@25
-     Windows: winget install Microsoft.OpenJDK.25
-     Linux:   sudo apt install openjdk-25-jdk
-
-  3. Or run against a remote Spector instance:
-     export SPECTOR_HOST="my-remote-server"
-     export SPECTOR_PORT="7070"
-     npx -y @spectrayan/spector mcp
-\n`);
+if (require.main === module) {
+  main().catch((err) => {
+    process.stderr.write(`[spector-npx] Fatal: ${err.message}\n`);
     process.exit(1);
-  }
-
-  // Ensure spector.jar is downloaded
-  if (!fs.existsSync(JAR_PATH)) {
-    try {
-      await downloadReleaseJar();
-    } catch (err) {
-      process.stderr.write(`[spector-npx] Error acquiring spector.jar: ${err.message}\n`);
-      process.stderr.write(`[spector-npx] Please build from source with: mvn clean package -DskipTests\n`);
-      process.exit(1);
-    }
-  }
-
-  runJavaStandalone(args);
+  });
 }
 
-main().catch((err) => {
-  process.stderr.write(`[spector-npx] Fatal error: ${err.message}\n`);
-  process.exit(1);
-});
+module.exports = {
+  parseCliArgs,
+  parseJavaMajorVersion,
+  checkJavaVersion,
+  computeSha256,
+  checkServerOnline,
+};
+

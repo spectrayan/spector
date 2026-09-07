@@ -2,13 +2,13 @@
 # frozen_string_literal: true
 
 # ═══════════════════════════════════════════════════════════════════
-# Spector Homebrew Formula (spectrayan/homebrew-spector)
+# Spector Homebrew Formula (spectrayan/homebrew-spector or spector tap)
 # ═══════════════════════════════════════════════════════════════════
 class Spector < Formula
   desc "Zero-overhead, agent-ready AI memory backbone and search engine"
   homepage "https://github.com/spectrayan/spector"
   url "https://github.com/spectrayan/spector/releases/download/v0.1.0-alpha/spector.jar"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000" # Placeholder updated on release
+  sha256 "0000000000000000000000000000000000000000000000000000000000000000" # Updated on release
   license "Apache-2.0"
   version "0.1.0-alpha"
 
@@ -40,3 +40,4 @@ class Spector < Formula
     assert_match "spector", shell_output("#{bin}/spector --help")
   end
 end
+

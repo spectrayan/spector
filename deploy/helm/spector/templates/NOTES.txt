@@ -10,9 +10,10 @@
   echo "Spector Dashboard: http://$SERVICE_IP:{{ .Values.service.ports.dashboard }}"
 {{- else if contains "ClusterIP" .Values.service.type }}
   export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "{{ include "spector.selectorLabels" . }}" -o jsonpath="{.items[0].metadata.name}")
-  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
-  echo "Forwarding Dashboard (80 -> 7700) and API (7070 -> 7070)..."
-  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 7700:80 7070:7070 &
+  echo "Forwarding Dashboard (8080 -> 7700) and API (7070 -> 7070)..."
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 7700:8080 7070:7070 &
   echo "Spector Dashboard: http://127.0.0.1:7700"
   echo "Spector API/MCP:   http://127.0.0.1:7070"
+  echo "Health Endpoint:   http://127.0.0.1:7070/actuator/health"
 {{- end }}
+

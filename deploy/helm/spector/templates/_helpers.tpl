@@ -47,3 +47,15 @@ Selector labels
 app.kubernetes.io/name: {{ include "spector.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+
+{{/*
+Create the name of the service account to use
+*/}}
+{{- define "spector.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "spector.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}
+

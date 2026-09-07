@@ -17,7 +17,7 @@ If you are connecting Spector to **Claude Desktop**, **Cursor**, **Windsurf**, o
 npx -y @spectrayan/spector mcp
 ```
 
-This connects directly to your local Spector node if one is running, or automatically boots an in-process memory kernel with embedded ONNX neural embeddings.
+This connects directly to your local Spector node on `:7070` if running, or automatically downloads `spector.jar` and runs an in-process memory kernel with embedded ONNX neural embeddings (requires OpenJDK 25+).
 
 ---
 
@@ -45,7 +45,7 @@ record = client.memory.remember(
     interest=0.9,
     valence=1,
 )
-print(f"Memory recorded: {record.id}")
+print(f"Memory recorded: {record.get('id', 'stored')}")
 
 # 2. Recall with associative cognitive scoring
 memories = client.memory.recall("database architecture preferences", top_k=3)
@@ -79,8 +79,7 @@ async function main() {
   });
 
   // Recall
-  const results = await client.memory.recall({
-    query: 'user ui preferences',
+  const results = await client.memory.recall('user ui preferences', {
     topK: 5,
   });
 
@@ -101,17 +100,14 @@ Start the Spector memory daemon with a single command:
 git clone https://github.com/spectrayan/spector.git
 cd spector
 
-# Start core daemon (REST + SSE on port :7070)
+# Start core daemon (REST + SSE on :7070) and Cortex Dashboard (on :7700)
 docker compose up -d
 
 # Check health
 curl http://localhost:7070/actuator/health
-```
 
-To launch the 3D Neural Galaxy UI (Cortex):
-```bash
-docker compose --profile ui up -d
-# Open http://localhost in your browser
+# Open the 3D Neural Galaxy UI (Cortex) in your browser:
+# http://localhost:7700
 ```
 
 ---
