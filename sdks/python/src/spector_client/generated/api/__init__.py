@@ -1,0 +1,29 @@
+# flake8: noqa
+
+# import apis into api package
+from spector_client.generated.api.memory_api import MemoryApi
+from spector_client.generated.api.account_default_controller_api import AccountDefaultControllerApi
+from spector_client.generated.api.agent_approval_controller_api import AgentApprovalControllerApi
+from spector_client.generated.api.agent_controller_api import AgentControllerApi
+from spector_client.generated.api.auth_controller_api import AuthControllerApi
+from spector_client.generated.api.cache_controller_api import CacheControllerApi
+from spector_client.generated.api.chat_controller_api import ChatControllerApi
+from spector_client.generated.api.config_controller_api import ConfigControllerApi
+from spector_client.generated.api.connector_controller_api import ConnectorControllerApi
+from spector_client.generated.api.credential_controller_api import CredentialControllerApi
+from spector_client.generated.api.event_controller_api import EventControllerApi
+from spector_client.generated.api.feature_flag_controller_api import FeatureFlagControllerApi
+from spector_client.generated.api.health_controller_api import HealthControllerApi
+from spector_client.generated.api.mcp_controller_api import McpControllerApi
+from spector_client.generated.api.migration_controller_api import MigrationControllerApi
+from spector_client.generated.api.namespace_controller_api import NamespaceControllerApi
+from spector_client.generated.api.observability_controller_api import ObservabilityControllerApi
+from spector_client.generated.api.plugin_manager_api import PluginManagerApi
+from spector_client.generated.api.provider_controller_api import ProviderControllerApi
+from spector_client.generated.api.salience_controller_api import SalienceControllerApi
+from spector_client.generated.api.system_controller_api import SystemControllerApi
+from spector_client.generated.api.task_management_controller_api import TaskManagementControllerApi
+from spector_client.generated.api.token_usage_controller_api import TokenUsageControllerApi
+from spector_client.generated.api.user_salience_controller_api import UserSalienceControllerApi
+from spector_client.generated.api.well_known_controller_api import WellKnownControllerApi
+

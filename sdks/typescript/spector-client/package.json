@@ -1,0 +1,48 @@
+{
+  "name": "@spectrayan/spector-client",
+  "version": "0.1.0",
+  "description": "Universal TypeScript/JavaScript Client SDK for Spector — Cognitive Memory, Vector Search & Real-Time Event Streaming",
+  "author": "Spectrayan Maintainers <dev@spectrayan.com>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/spectrayan/spector.git",
+    "directory": "sdks/typescript/spector-client"
+  },
+  "keywords": [
+    "spector",
+    "cognitive-memory",
+    "vector-search",
+    "mcp",
+    "ai-agents",
+    "sse",
+    "typescript"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/client.test.ts tests/memory.test.ts tests/events.test.ts tests/utils.test.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsup": "^8.1.0",
+    "typescript": "^5.5.4"
+  }
+}
