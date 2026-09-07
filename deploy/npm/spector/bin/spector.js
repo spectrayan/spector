@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
-const { spawn, execSync } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 
 const GITHUB_REPO = 'spectrayan/spector';
 
@@ -44,9 +44,8 @@ function parseCliArgs(argv) {
 }
 
 function parseJavaMajorVersion(versionOutput) {
-  if (!versionOutput) return null;
-  const match = versionOutput.match(/(?:java|openjdk) version "([0-9]+)(?:[.\-_][0-9a-zA-Z]+)?"/i) ||
-                versionOutput.match(/"([0-9]+)(?:\.[0-9]+)*.*"/);
+  if (!versionOutput || typeof versionOutput !== 'string') return null;
+  const match = versionOutput.match(/"(\d+)[^"]*"/);
   if (match && match[1]) {
     const major = parseInt(match[1], 10);
     return isNaN(major) ? null : major;
@@ -66,7 +65,8 @@ function getJavaCommand() {
 
 function checkJavaVersion(javaCmd = getJavaCommand()) {
   try {
-    const output = execSync(`"${javaCmd}" -version 2>&1`, { encoding: 'utf8' });
+    const result = spawnSync(javaCmd, ['-version'], { encoding: 'utf8' });
+    const output = (result.stdout || '') + (result.stderr || '');
     const major = parseJavaMajorVersion(output);
     return { ok: major !== null && major >= 25, major, raw: output };
   } catch (err) {

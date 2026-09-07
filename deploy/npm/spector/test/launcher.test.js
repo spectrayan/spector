@@ -56,13 +56,14 @@ test('parseJavaMajorVersion extracts major version numbers accurately', () => {
 });
 
 test('computeSha256 produces exact hex digest of file', async () => {
-  const tempFile = path.join(os.tmpdir(), `spector-test-${Date.now()}.txt`);
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spector-test-'));
+  const tempFile = path.join(tempDir, 'hash-test.txt');
   fs.writeFileSync(tempFile, 'Spector Cognitive Memory');
   try {
     const hash = await computeSha256(tempFile);
     assert.equal(hash, '5608b20d3dfc448e32ab01ebe32c70593f0cf50074014e2594f5eee7247fee8b');
   } finally {
-    fs.unlinkSync(tempFile);
+    fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });
 
