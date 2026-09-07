@@ -1,0 +1,44 @@
+name: Release NPM Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish-npm:
+    name: Build & Publish Packages to NPM
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      # 1. Publish TypeScript Client SDK (@spectrayan/spector-client)
+      - name: Build and Publish @spectrayan/spector-client
+        working-directory: sdks/typescript/spector-client
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm ci
+          npm run build
+          npm publish --access public
+
+      # 2. Publish Zero-Install MCP Runner (@spectrayan/spector)
+      - name: Publish @spectrayan/spector (NPX Runner)
+        working-directory: deploy/npm/spector
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm publish --access public
