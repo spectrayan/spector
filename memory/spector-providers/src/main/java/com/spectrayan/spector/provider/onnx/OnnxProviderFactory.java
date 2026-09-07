@@ -103,18 +103,23 @@ public class OnnxProviderFactory extends AbstractProviderFactory {
             } catch (Exception ignored) {}
         }
 
-        try {
-            Class<?> clazz = Class.forName("dev.langchain4j.model.embedding.onnx.allminilml6v2q.AllMiniLmL6V2QuantizedEmbeddingModel");
-            return (EmbeddingModel) clazz.getConstructor().newInstance();
-        } catch (Exception ignored) {}
+        if (lower.contains("all-minilm") || lower.contains("minilm") || lower.isBlank() || lower.equals("default") || lower.equals("onnx")) {
+            try {
+                Class<?> clazz = Class.forName("dev.langchain4j.model.embedding.onnx.allminilml6v2q.AllMiniLmL6V2QuantizedEmbeddingModel");
+                return (EmbeddingModel) clazz.getConstructor().newInstance();
+            } catch (Exception ignored) {}
+        }
 
         throw new IllegalStateException("No ONNX embedding model found on classpath for model: " + modelName
                 + ". Please specify 'modelPath' in configuration or add langchain4j-embeddings-all-minilm-l6-v2 dependency.");
     }
 
     public static int resolveDimensions(String model, int configuredDims) {
-        if (configuredDims > 0) return configuredDims;
         String lower = model != null ? model.toLowerCase(Locale.ROOT) : "";
+        if (lower.contains("minilm") || lower.contains("bge-small") || lower.contains("bge_small")) {
+            return 384;
+        }
+        if (configuredDims > 0) return configuredDims;
         if (lower.contains("large") || lower.contains("1024")) return 1024;
         if (lower.contains("base") || lower.contains("768") || lower.contains("nomic") || lower.contains("mpnet")) return 768;
         return 384;
