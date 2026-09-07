@@ -1,0 +1,40 @@
+{
+  "name": "@spectrayan/spector",
+  "version": "0.1.0",
+  "description": "Zero-install Model Context Protocol (MCP) launcher and CLI bridge for Spector Cognitive Memory",
+  "author": "Spectrayan Maintainers <dev@spectrayan.com>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/spectrayan/spector.git",
+    "directory": "deploy/npm/spector"
+  },
+  "keywords": [
+    "spector",
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "ai-agents",
+    "claude-desktop",
+    "cursor",
+    "windsurf",
+    "vector-search",
+    "cognitive-memory"
+  ],
+  "bin": {
+    "spector": "./bin/spector.js"
+  },
+  "main": "./bin/spector.js",
+  "files": [
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "node ./bin/spector.js --help"
+  },
+  "dependencies": {}
+}
