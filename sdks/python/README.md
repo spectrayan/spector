@@ -1,135 +1,149 @@
-# Spector Python SDK
+# Spector Python Client SDK (`spector-client`)
 
-> **Zero-dependency Python client for the Spector AI Memory & Search platform.**
+> **Lightweight, zero-dependency Python client for the Spector Cognitive Memory & Vector Search platform.**
 
-The SDK wraps Spector's MCP server via JSON-RPC 2.0 over stdio, providing a Pythonic API for cognitive memory and vector search operations.
+`spector-client` is generated from OpenAPI 3.1 with an ergonomic handwritten facade providing 1-to-1 cognitive verb parity (`remember`, `recall`, `forget`, `inspect`, `reinforce`) and real-time Server-Sent Events (SSE) streaming.
+
+## Highlights
+
+- **Zero Mandatory Dependencies**: Built entirely on the Python standard library (`urllib.request`, `asyncio`, `json`, `dataclasses`).
+- **Zero Java Prerequisite for REST**: Connects directly to Spector Synapse over HTTP REST on port `:7070` with no JVM or incubator flags required.
+- **Sync & Async (`asyncio`)**: Dual clients (`SpectorClient` and `AsyncSpectorClient`) with identical cognitive signatures.
+- **Real-Time Streaming**: Stream live cognitive consolidation events, Hebbian graph co-activations, and recall telemetry over Server-Sent Events (SSE).
+- **Multi-Transport Support**: Connect via HTTP REST (default), remote MCP over HTTP/SSE, or local standalone `spector.jar` subprocess.
+
+---
 
 ## Installation
 
 ```bash
-# From the repo (git-installable)
-pip install git+https://github.com/spectrayan/spector.git#subdirectory=sdks/python
+# Install via pip
+pip install spector-client
 
 # Or install locally for development
 cd sdks/python
 pip install -e ".[dev]"
 ```
 
-## Requirements
+---
 
-- **Python ≥ 3.10**
-- **JDK 25+** (for the Spector MCP server process)
-- Built `spector.jar` — run `mvn package -pl synapse/spector-cli -am -DskipTests` from the repo root
-
-## Quick Start
+## Quick Start (Synchronous)
 
 ```python
-from spector import SpectorClient
+from spector_client import SpectorClient, MemoryTier
 
-with SpectorClient(
-    jar_path="/path/to/synapse/spector-cli/target/spector.jar",
-    config_path="/path/to/spector.yml",
-) as client:
-    # ── Memory Operations ──
-    
-    # Store a memory (ID auto-generated)
-    mem_id = client.memory.remember(
-        "User prefers dark mode with high contrast",
-        tags=["preferences", "ui"],
-    )
-    print(f"Stored: {mem_id}")
+# Connect to running Spector Synapse instance (default: http://localhost:7070)
+client = SpectorClient.builder() \
+    .with_rest(base_url="http://localhost:7070", api_key="optional-api-key") \
+    .build()
 
-    # Recall with cognitive scoring
-    results = client.memory.recall("user preferences")
-    print(results)
+# 1. Remember — Store with cognitive metadata
+client.memory.remember(
+    text="User prefers concise answers and dark mode UI",
+    tier=MemoryTier.SEMANTIC,
+    tags=["preferences", "ui"],
+    interest=0.9,
+    valence=1,
+)
 
-    # Inspect — full cognitive X-ray
-    record = client.memory.inspect(mem_id)
-    print(record)
+# 2. Recall — Retrieve using multi-tier associative cognitive scoring
+results = client.memory.recall("user preferences", top_k=5)
+for record in results:
+    print(f"[{record.id}] score={record.score:.4f} | {record.text}")
 
-    # Browse by tags (no vector search)
-    matches = client.memory.browse("preferences")
-    print(matches)
-
-    # Export all memories as JSON
-    export = client.memory.export_json()
-    print(export)
-
-    # ── Search Operations ──
-    
-    hits = client.engine.search("SIMD acceleration", top_k=5)
-    print(hits)
-
-    context = client.engine.rag("How does quantization work?")
-    print(context)
+# 3. Stream Events — Real-time Server-Sent Events (SSE)
+for event in client.events.stream(topics=["memory", "cortex"]):
+    print(f"📡 Real-time event: {event.event} -> {event.data}")
 ```
 
-## API Reference
+---
 
-### SpectorClient
-
-| Method | Description |
-|--------|-------------|
-| `SpectorClient(jar_path, config_path, java_bin, extra_jvm_args)` | Constructor |
-| `start()` / `stop()` | Lifecycle management |
-| `with SpectorClient(...) as client:` | Context manager |
-| `client.memory` | Access `MemoryClient` |
-| `client.engine` | Access `EngineClient` |
-| `client.call_tool(name, args)` | Raw MCP tool call |
-| `client.list_tools()` | List available tools |
-
-### MemoryClient (`client.memory`)
-
-| Method | Description |
-|--------|-------------|
-| `remember(text, type, source, tags, id)` | Store a cognitive memory |
-| `recall(query, top_k, tags)` | Recall with cognitive scoring |
-| `inspect(id)` | Full cognitive X-ray |
-| `browse(*tags)` | Tag-based browsing |
-| `export_json()` | Bulk JSON export |
-| `forget(id)` | Tombstone a memory |
-| `reinforce(id, valence)` | LTP reinforcement |
-| `suppress(id, reason)` | Suppress from recall |
-| `resolve(id)` | Zeigarnik resolution |
-| `introspect(topic)` | Metamemory analysis |
-| `why_not(id, query)` | Recall diagnostic |
-| `compute_importance(text)` | Importance estimation |
-| `status()` | Tier counts |
-| `scratchpad(text)` | Working memory |
-| `reminder(text, delay_seconds)` | Prospective scheduling |
-
-### EngineClient (`client.engine`)
-
-| Method | Description |
-|--------|-------------|
-| `search(query, top_k)` | Vector similarity search |
-| `hybrid_search(query, top_k, keyword_weight)` | Hybrid search with RRF |
-| `rag(query, top_k)` | RAG context retrieval |
-| `ingest(id, text, metadata)` | Add document to index |
-| `delete(id)` | Remove document |
-| `status()` | Engine stats |
-
-## Configuration
-
-The SDK spawns the Spector JAR with the correct JVM flags automatically. You can customize:
+## Quick Start (Asynchronous `asyncio`)
 
 ```python
-client = SpectorClient(
+import asyncio
+from spector_client import AsyncSpectorClient, MemoryTier
+
+async def main():
+    async with AsyncSpectorClient.builder().with_rest("http://localhost:7070").build() as client:
+        # Asynchronously remember
+        await client.memory.remember(
+            "Working memory context for active task",
+            tier=MemoryTier.WORKING,
+            tags=["task-42"]
+        )
+
+        # Asynchronously recall
+        memories = await client.memory.recall("active task context")
+        for mem in memories:
+            print(mem.text)
+
+        # Asynchronously stream events
+        async for event in client.events.stream(topics=["memory"]):
+            print(f"Stream: {event.event}")
+
+asyncio.run(main())
+```
+
+---
+
+## Multi-Transport Modes
+
+### 1. High-Throughput REST (Default)
+```python
+client = SpectorClient.builder() \
+    .with_rest(base_url="http://localhost:7070", api_key="secret-key") \
+    .build()
+```
+
+### 2. Standalone Subprocess (`spector.jar`)
+```python
+from spector_client.transports import StdioTransport
+
+transport = StdioTransport(
     jar_path="/path/to/spector.jar",
     config_path="/path/to/spector.yml",
-    java_bin="/usr/lib/jvm/java-25/bin/java",   # Custom JDK path
-    extra_jvm_args=["-Xmx1g", "-Xms256m"],       # Additional JVM args
+    java_bin="java"
 )
+transport.start()
+client = SpectorClient(transport=transport)
 ```
 
-## Development
+---
+
+## Cognitive Verbs API Reference
+
+| Verb | Signature | Description |
+|:---|:---|:---|
+| **`remember()`** | `(text, tier, tags, interest, urgency, challenge, valence, arousal)` | Asynchronously store memory with cognitive tier hints. |
+| **`store()`** | `(text, tags)` | Synchronous store returning assigned memory ID. |
+| **`recall()`** | `(query, top_k, profile, min_salience, tags)` | Retrieve memories via fused cognitive scoring. |
+| **`search()`** | `(query, top_k)` | Pure dense vector semantic similarity search. |
+| **`get()`** / **`find()`** | `(id)` | Retrieve full memory record by ID. |
+| **`forget()`** | `(id, reason)` | Tombstone memory. |
+| **`reinforce()`** | `(id, valence)` | Hebbian Long-Term Potentiation (LTP). |
+| **`suppress()`** / **`unsuppress()`** | `(id, reason)` | Active recall inhibition / habituation. |
+| **`resolve()`** / **`unresolve()`** | `(id)` | Zeigarnik closure. |
+| **`status()`** | `()` | Real-time memory tier counts and index health. |
+| **`browse()`** | `(tags)` | Fast inverted tag index lookup. |
+| **`table()`** | `(page, page_size, tier)` | Paginated database records. |
+| **`vector()`** | `(id)` | INT8 quantized embedding vector retrieval. |
+| **`consolidate()`** | `()` | Trigger circadian sleep consolidation sweep. |
+| **`vacuum()`** | `(tier)` | Trigger vacuum compaction. |
+
+---
+
+## Development & Testing
 
 ```bash
 cd sdks/python
-pip install -e ".[dev]"
-python -m pytest tests/ -v
+python -m unittest discover -s tests -t .
+# Or if package is installed in editable mode:
+# pip install -e ".[dev]" && pytest
 ```
+
+---
 
 ## License
 
-Apache 2.0 — see [LICENSE](../../LICENSE) for details.
+Apache License, Version 2.0 — see [LICENSE](../../LICENSE) for details.
