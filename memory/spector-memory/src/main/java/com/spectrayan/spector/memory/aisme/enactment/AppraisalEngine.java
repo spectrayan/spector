@@ -36,7 +36,7 @@ public final class AppraisalEngine {
     }
 
     /**
-     * Appraises a situation against the agent soul's baseline and memory recall output.
+     * Appraises a situation against the agent soul's baseline and memory recall output with default configuration.
      *
      * @param situation the incoming situation frame
      * @param soul the acting agent soul
@@ -49,6 +49,29 @@ public final class AppraisalEngine {
             AgentSoul soul,
             AismeBundle aismeBundle,
             PersonaRecall.RecallOutput recallOutput) {
+        return appraise(situation, soul, aismeBundle, recallOutput, AppraisalConfig.defaultConfig());
+    }
+
+    /**
+     * Appraises a situation against the agent soul's baseline and memory recall output with explicit AppraisalConfig.
+     *
+     * @param situation the incoming situation frame
+     * @param soul the acting agent soul
+     * @param aismeBundle the active inference self-model bundle (optional)
+     * @param recallOutput the 4-cue recall candidates and citations
+     * @param config the appraisal configuration
+     * @return continuous CognitiveAppraisal
+     */
+    public static CognitiveAppraisal appraise(
+            SituationFrame situation,
+            AgentSoul soul,
+            AismeBundle aismeBundle,
+            PersonaRecall.RecallOutput recallOutput,
+            AppraisalConfig config) {
+
+        if (config == null) {
+            config = AppraisalConfig.defaultConfig();
+        }
 
         String text = situation != null && situation.problem() != null
                 ? situation.problem().toLowerCase(Locale.ROOT)
@@ -56,56 +79,56 @@ public final class AppraisalEngine {
 
         // 1. Goal Congruence (valence delta [-1.0, 1.0])
         float valenceBias = 0.0f;
-        if (text.contains("outage") || text.contains("breach") || text.contains("fail") || text.contains("corrupt") || text.contains("error")) {
-            valenceBias -= 0.6f;
-        }
-        if (text.contains("success") || text.contains("resolved") || text.contains("optimize") || text.contains("speedup")) {
-            valenceBias += 0.5f;
+        for (java.util.Map.Entry<String, Float> entry : config.valenceKeywords().entrySet()) {
+            if (text.contains(entry.getKey())) {
+                valenceBias += entry.getValue();
+            }
         }
 
         // 2. Novelty / Urgency (arousal delta [0.0, 1.0])
-        float arousalDelta = 0.2f;
-        if (text.contains("critical") || text.contains("urgent") || text.contains("immediately") || text.contains("p0") || text.contains("emergency")) {
-            arousalDelta = 0.85f;
-        } else if (text.contains("investigate") || text.contains("audit") || text.contains("review")) {
-            arousalDelta = 0.4f;
+        float arousalDelta = config.defaultArousal();
+        for (java.util.Map.Entry<String, Float> entry : config.arousalKeywords().entrySet()) {
+            if (text.contains(entry.getKey())) {
+                arousalDelta = Math.max(arousalDelta, entry.getValue());
+            }
         }
 
         // 3. Coping Potential / Power (dominance delta [-1.0, 1.0])
-        float dominanceDelta = 0.3f;
+        float dominanceDelta = config.defaultDominance();
         if (soul != null && soul.emotionalBaseline() != null) {
             // Factor baseline valence and arousal into coping baseline
             float baseArousal = (soul.emotionalBaseline().defaultArousal() & 0xFF) / 255.0f;
-            dominanceDelta -= (baseArousal * 0.2f);
+            dominanceDelta -= (baseArousal * config.baselineArousalFactor());
         }
-        if (text.contains("unknown") || text.contains("unprecedented") || text.contains("unreproducible")) {
-            dominanceDelta -= 0.4f;
+        for (java.util.Map.Entry<String, Float> entry : config.dominanceKeywords().entrySet()) {
+            if (text.contains(entry.getKey())) {
+                dominanceDelta += entry.getValue();
+            }
         }
 
         // 4. Agency Attribution (Lazarus & Scherer: SELF, OTHER_ADVERSARY, OTHER_BENIGN, CIRCUMSTANTIAL)
-        AgencyAttribution agency = AgencyAttribution.CIRCUMSTANTIAL;
-        if (text.contains("our bug") || text.contains("my mistake") || text.contains("i broke") || text.contains("we deployed")) {
-            agency = AgencyAttribution.SELF;
-        } else if (text.contains("attacker") || text.contains("breach") || text.contains("malicious")) {
-            agency = AgencyAttribution.OTHER_ADVERSARY;
-        } else if (text.contains("client") || text.contains("third-party") || text.contains("vendor") || text.contains("user")) {
-            agency = AgencyAttribution.OTHER_BENIGN;
+        AgencyAttribution agency = config.defaultAgency();
+        for (java.util.Map.Entry<String, AgencyAttribution> entry : config.agencyKeywords().entrySet()) {
+            if (text.contains(entry.getKey())) {
+                agency = entry.getValue();
+                break;
+            }
         }
 
         // 5. Normative Significance (Value conflict / policy violation)
         boolean normativeViolation = false;
-        String primaryConcern = "operational_stability";
+        String primaryConcern = config.defaultPrimaryConcern();
         if (soul != null && soul.coreValues() != null) {
             for (String val : soul.coreValues()) {
                 String v = val.toLowerCase(Locale.ROOT);
-                if (v.contains("safety") && text.contains("bypass auth")) {
-                    normativeViolation = true;
-                    primaryConcern = "safety_violation";
-                    break;
+                for (NormativeRule rule : config.normativeRules()) {
+                    if (v.contains(rule.coreValueKeyword()) && text.contains(rule.textKeyword())) {
+                        normativeViolation = true;
+                        primaryConcern = rule.violationConcern();
+                        break;
+                    }
                 }
-                if (v.contains("integrity") && text.contains("skip audit")) {
-                    normativeViolation = true;
-                    primaryConcern = "integrity_violation";
+                if (normativeViolation) {
                     break;
                 }
             }
@@ -120,7 +143,7 @@ public final class AppraisalEngine {
             HomeostaticCore core = aismeBundle.homeostaticCore();
             try {
                 // Perturb homeostatic state by sensory external stimulus vector
-                core.step(new float[]{valenceBias, arousalDelta, dominanceDelta}, 0.1f);
+                core.step(new float[]{valenceBias, arousalDelta, dominanceDelta}, config.sdeDt());
                 InteroceptiveState vad = core.currentState();
                 finalValence = vad.valence();
                 finalArousal = vad.arousal();

@@ -48,7 +48,7 @@ public final class PersonaRecall {
     ) {}
 
     /**
-     * Executes 4-cue persona self-recall.
+     * Executes 4-cue persona self-recall with default configuration.
      *
      * @param memory the bound SpectorMemory instance
      * @param soul the acting agent soul
@@ -57,11 +57,34 @@ public final class PersonaRecall {
      * @return structured RecallOutput
      */
     public static RecallOutput recall(SpectorMemory memory, AgentSoul soul, SituationFrame situation, EnactMode mode) {
+        return recall(memory, soul, situation, mode, RecallConfig.defaultConfig());
+    }
+
+    /**
+     * Executes 4-cue persona self-recall with explicit RecallConfig.
+     *
+     * @param memory the bound SpectorMemory instance
+     * @param soul the acting agent soul
+     * @param situation the situation frame
+     * @param mode the enactment mode
+     * @param config the recall configuration
+     * @return structured RecallOutput
+     */
+    public static RecallOutput recall(
+            SpectorMemory memory,
+            AgentSoul soul,
+            SituationFrame situation,
+            EnactMode mode,
+            RecallConfig config) {
+
+        if (config == null) {
+            config = RecallConfig.defaultConfig();
+        }
         if (memory == null) {
             return new RecallOutput(List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
         }
 
-        String query = situation != null && !situation.problem().isBlank() ? situation.problem() : "self";
+        String query = situation != null && !situation.problem().isBlank() ? situation.problem() : config.defaultQuery();
         boolean allowSynthetic = (mode == EnactMode.SIMULATE);
 
         List<CognitiveResult> constitution = new ArrayList<>();
@@ -73,7 +96,7 @@ public final class PersonaRecall {
         try {
             RecallOptions semOpts = RecallOptions.builder()
                     .memoryTypes(MemoryType.SEMANTIC)
-                    .topK(8)
+                    .topK(config.semanticTopK())
                     .build();
             constitution = memory.recall(query, semOpts);
         } catch (Exception e) {
@@ -84,7 +107,7 @@ public final class PersonaRecall {
         try {
             RecallOptions epiOpts = RecallOptions.builder()
                     .memoryTypes(MemoryType.EPISODIC)
-                    .topK(5)
+                    .topK(config.episodicTopK())
                     .build();
             analogues = memory.recall(query, epiOpts);
         } catch (Exception e) {
@@ -95,7 +118,7 @@ public final class PersonaRecall {
         try {
             RecallOptions procOpts = RecallOptions.builder()
                     .memoryTypes(MemoryType.PROCEDURAL)
-                    .topK(5)
+                    .topK(config.proceduralTopK())
                     .build();
             playbooks = memory.recall(query, procOpts);
         } catch (Exception e) {
@@ -106,7 +129,7 @@ public final class PersonaRecall {
         try {
             RecallOptions workOpts = RecallOptions.builder()
                     .memoryTypes(MemoryType.WORKING)
-                    .topK(5)
+                    .topK(config.workingTopK())
                     .build();
             workingState = memory.recall(query, workOpts);
         } catch (Exception e) {

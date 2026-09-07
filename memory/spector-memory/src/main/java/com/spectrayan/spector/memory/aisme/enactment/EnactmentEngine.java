@@ -33,7 +33,7 @@ public final class EnactmentEngine {
     }
 
     /**
-     * Executes the full System 1 cognitive loop of persona enactment.
+     * Executes the full System 1 cognitive loop of persona enactment using default configuration.
      *
      * @param memory the bound SpectorMemory instance (optional)
      * @param soul the agent soul persona
@@ -42,6 +42,29 @@ public final class EnactmentEngine {
      * @return complete, immutable Enactment result
      */
     public static Enactment enact(SpectorMemory memory, AgentSoul soul, SituationFrame situation, EnactMode mode) {
+        return enact(memory, soul, situation, mode, EnactmentConfig.defaultConfig());
+    }
+
+    /**
+     * Executes the full System 1 cognitive loop of persona enactment with explicit EnactmentConfig.
+     *
+     * @param memory the bound SpectorMemory instance (optional)
+     * @param soul the agent soul persona
+     * @param situation the incoming situation context
+     * @param mode the enactment mode (REACT, DECIDE, SIMULATE, REPLAY)
+     * @param config the enactment configuration
+     * @return complete, immutable Enactment result
+     */
+    public static Enactment enact(
+            SpectorMemory memory,
+            AgentSoul soul,
+            SituationFrame situation,
+            EnactMode mode,
+            EnactmentConfig config) {
+
+        if (config == null) {
+            config = EnactmentConfig.defaultConfig();
+        }
         if (situation == null) {
             situation = SituationFrame.of("");
         }
@@ -55,16 +78,16 @@ public final class EnactmentEngine {
         AismeBundle bundle = (memory != null) ? memory.aismeBundle() : null;
 
         // Step 1: Self-Recall (4-cue with Global Workspace conscious bottleneck)
-        PersonaRecall.RecallOutput recallOutput = PersonaRecall.recall(memory, soul, situation, mode);
+        PersonaRecall.RecallOutput recallOutput = PersonaRecall.recall(memory, soul, situation, mode, config.recall());
 
         // Step 2: Cognitive Appraisal (VAD Dynamics via Lazarus & Scherer)
-        CognitiveAppraisal appraisal = AppraisalEngine.appraise(situation, soul, bundle, recallOutput);
+        CognitiveAppraisal appraisal = AppraisalEngine.appraise(situation, soul, bundle, recallOutput, config.appraisal());
 
         // Step 3: Stance Resolution (Hopfield Attractors + EFE Policy Selection)
-        StanceResolver.StanceOutput stance = StanceResolver.resolve(soul, bundle, appraisal, recallOutput, situation);
+        StanceResolver.StanceOutput stance = StanceResolver.resolve(soul, bundle, appraisal, recallOutput, situation, config.stance());
 
         // Step 4: System 2 Bounded Deliberation
-        PersonaDeliberation deliberation = buildDeliberation(situation, soul, appraisal, stance);
+        PersonaDeliberation deliberation = buildDeliberation(situation, soul, appraisal, stance, config.deliberation());
 
         // Step 5: Embodiment Utterance under Epistemic Tense (ADR-0031)
         String tense = switch (mode) {
@@ -98,24 +121,25 @@ public final class EnactmentEngine {
             SituationFrame situation,
             AgentSoul soul,
             CognitiveAppraisal appraisal,
-            StanceResolver.StanceOutput stance) {
+            StanceResolver.StanceOutput stance,
+            DeliberationConfig config) {
 
         String activeDogma = (soul.coreValues() != null && !soul.coreValues().isEmpty())
                 ? soul.coreValues().get(0)
-                : "Uphold system integrity and operational excellence";
+                : config.fallbackDogma();
 
         TradeOffSelection tradeOffs = new TradeOffSelection(
                 activeDogma,
-                "Short-term convenience",
-                "Prioritize fundamental stability over hasty temporary fixes"
+                config.defaultTradeOffDeprioritized(),
+                config.defaultTradeOffRationale()
         );
 
         List<String> blindSpots = new ArrayList<>();
-        if (appraisal.urgencyAndStakes() > 0.5f) {
-            blindSpots.add("Heightened urgency may bias toward premature action");
+        if (appraisal.urgencyAndStakes() > config.urgencyBlindSpotThreshold()) {
+            blindSpots.add(config.urgencyBlindSpotMessage());
         }
-        if (appraisal.copingPotential() < 0.0f) {
-            blindSpots.add("Low perceived coping potential may elevate defensiveness");
+        if (appraisal.copingPotential() < config.copingDefensivenessThreshold()) {
+            blindSpots.add(config.copingDefensivenessMessage());
         }
 
         String tacticalFirstMove = stance.policyReport().selectedPolicy() != null

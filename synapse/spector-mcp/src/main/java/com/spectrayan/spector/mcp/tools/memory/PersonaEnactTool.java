@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.aisme.enactment.EnactmentConfig;
 import com.spectrayan.spector.memory.aisme.enactment.EnactmentEngine;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.enactment.EnactMode;
@@ -41,13 +42,29 @@ public final class PersonaEnactTool extends MemoryToolHandler {
 
     public static final String NAME = "persona_enact";
 
+    private final EnactmentConfig enactmentConfig;
+
     public PersonaEnactTool(SpectorMemory memory) {
+        this(memory, EnactmentConfig.defaultConfig());
+    }
+
+    public PersonaEnactTool(SpectorMemory memory, EnactmentConfig enactmentConfig) {
         super(NAME, memory);
+        this.enactmentConfig = (enactmentConfig != null) ? enactmentConfig : EnactmentConfig.defaultConfig();
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public PersonaEnactTool(Supplier<SpectorMemory> memoryResolver) {
+        this(memoryResolver, EnactmentConfig.defaultConfig());
+    }
+
+    public PersonaEnactTool(Supplier<SpectorMemory> memoryResolver, EnactmentConfig enactmentConfig) {
         super(NAME, memoryResolver);
+        this.enactmentConfig = (enactmentConfig != null) ? enactmentConfig : EnactmentConfig.defaultConfig();
+    }
+
+    public EnactmentConfig enactmentConfig() {
+        return enactmentConfig;
     }
 
     @Override
@@ -76,7 +93,7 @@ public final class PersonaEnactTool extends MemoryToolHandler {
                     .build();
         }
 
-        Enactment enactment = EnactmentEngine.enact(memory, soul, situation, mode);
+        Enactment enactment = EnactmentEngine.enact(memory, soul, situation, mode, enactmentConfig);
 
         String json = MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(enactment);
         return textResult(json);

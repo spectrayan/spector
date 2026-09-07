@@ -13,6 +13,8 @@
 package com.spectrayan.spector.synapse.agent.enactment;
 
 import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.aisme.enactment.DeliberationConfig;
+import com.spectrayan.spector.memory.aisme.enactment.EnactmentConfig;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -107,6 +109,36 @@ class PersonaEnactmentTest {
             assertThat(enactment).isNotNull();
             assertThat(enactment.situation().problem()).contains("high-severity vulnerability");
             assertThat(enactment.tense()).isEqualTo("FACT");
+        }
+    }
+
+    @Nested
+    @DisplayName("EnactmentConfig Wiring")
+    class ConfigWiringTests {
+
+        @Test
+        @DisplayName("EnactmentService honors injected EnactmentConfig and custom configuration")
+        void enactmentService_honorsEnactmentConfig() {
+            SpectorMemory memory = mock(SpectorMemory.class);
+            when(memoryRegistry.resolveFor("default")).thenReturn(memory);
+            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of());
+
+            AgentSoul soul = AgentSoul.builder().id("forge").name("Forge").build();
+            when(soulService.getEffectiveSoul("forge")).thenReturn(soul);
+
+            EnactmentConfig customConfig = EnactmentConfig.builder()
+                    .deliberation(DeliberationConfig.builder()
+                            .fallbackDogma("Configured Spring Enactment Service Dogma")
+                            .build())
+                    .build();
+
+            EnactmentService configuredService = new EnactmentService(soulService, memoryRegistry, customConfig);
+            assertThat(configuredService.enactmentConfig()).isSameAs(customConfig);
+
+            SituationFrame situation = SituationFrame.of("Implement pipeline");
+            Enactment result = configuredService.enact(situation, "default", "forge", EnactMode.REACT);
+
+            assertThat(result.deliberation().activeDogma()).isEqualTo("Configured Spring Enactment Service Dogma");
         }
     }
 }

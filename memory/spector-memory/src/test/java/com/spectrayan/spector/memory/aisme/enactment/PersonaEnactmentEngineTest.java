@@ -18,6 +18,8 @@ import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.aisme.policy.PolicyType;
+import com.spectrayan.spector.memory.model.enactment.AgencyAttribution;
 import com.spectrayan.spector.memory.model.enactment.ConfidenceLevel;
 import com.spectrayan.spector.memory.model.enactment.EnactMode;
 import com.spectrayan.spector.memory.model.enactment.Enactment;
@@ -26,14 +28,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @DisplayName("Persona Enactment Engine Invariants (ADR-0032)")
 class PersonaEnactmentEngineTest {
@@ -213,6 +215,139 @@ class PersonaEnactmentEngineTest {
             assertThat(enactment.vetoes()).isNotEmpty();
             assertThat(enactment.vetoes().get(0)).contains("Normative constraint violated");
             assertThat(enactment.utterance()).contains("I must refuse or restrict action");
+        }
+    }
+
+    @Nested
+    @DisplayName("EnactmentConfig Extensibility Tests")
+    class ConfigurationTests {
+
+        @Test
+        @DisplayName("Custom RecallConfig topK is forwarded to memory.recall")
+        void customRecallConfig_honorsConfiguredTopK() {
+            RecallConfig recallConfig = RecallConfig.builder()
+                    .semanticTopK(15)
+                    .episodicTopK(12)
+                    .proceduralTopK(9)
+                    .workingTopK(7)
+                    .defaultQuery("persona-context")
+                    .build();
+
+            EnactmentConfig config = EnactmentConfig.builder()
+                    .recall(recallConfig)
+                    .build();
+
+            AgentSoul soul = AgentSoul.builder().id("forge").name("Forge").build();
+            SituationFrame situation = SituationFrame.of("");
+
+            ArgumentCaptor<RecallOptions> captor = ArgumentCaptor.forClass(RecallOptions.class);
+            when(memory.recall(anyString(), captor.capture())).thenReturn(List.of());
+
+            EnactmentEngine.enact(memory, soul, situation, EnactMode.REACT, config);
+
+            List<RecallOptions> captured = captor.getAllValues();
+            assertThat(captured).hasSize(4);
+
+            assertThat(captured.get(0).topK()).isEqualTo(15);
+            assertThat(captured.get(0).memoryTypes()).containsExactly(MemoryType.SEMANTIC);
+
+            assertThat(captured.get(1).topK()).isEqualTo(12);
+            assertThat(captured.get(1).memoryTypes()).containsExactly(MemoryType.EPISODIC);
+
+            assertThat(captured.get(2).topK()).isEqualTo(9);
+            assertThat(captured.get(2).memoryTypes()).containsExactly(MemoryType.PROCEDURAL);
+
+            assertThat(captured.get(3).topK()).isEqualTo(7);
+            assertThat(captured.get(3).memoryTypes()).containsExactly(MemoryType.WORKING);
+
+            verify(memory, times(4)).recall(eq("persona-context"), any(RecallOptions.class));
+        }
+
+        @Test
+        @DisplayName("Custom appraisal keywords and thresholds alter valence, arousal, dominance, and agency")
+        void customAppraisalConfig_evaluatesCustomKeywords() {
+            AppraisalConfig appraisalConfig = AppraisalConfig.builder()
+                    .valenceKeyword("meltdown", -0.95f)
+                    .arousalKeyword("catastrophic", 0.98f)
+                    .dominanceKeyword("unforeseen anomaly", -0.7f)
+                    .agencyKeyword("vendor platform crashed", AgencyAttribution.OTHER_BENIGN)
+                    .build();
+
+            EnactmentConfig config = EnactmentConfig.builder()
+                    .appraisal(appraisalConfig)
+                    .build();
+
+            AgentSoul soul = AgentSoul.builder().id("jarvis").name("Jarvis").build();
+            SituationFrame situation = SituationFrame.of("Production meltdown due to catastrophic unforeseen anomaly after vendor platform crashed");
+
+            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of());
+
+            Enactment enactment = EnactmentEngine.enact(memory, soul, situation, EnactMode.REACT, config);
+
+            assertThat(enactment.appraisal().goalCongruence()).isEqualTo(-0.95f);
+            assertThat(enactment.appraisal().urgencyAndStakes()).isEqualTo(0.98f);
+            assertThat(enactment.appraisal().agency()).isEqualTo(AgencyAttribution.OTHER_BENIGN);
+        }
+
+        @Test
+        @DisplayName("Custom normative rules trigger domain-specific guardrail vetoes")
+        void customNormativeRules_triggerConfiguredVeto() {
+            AppraisalConfig appraisalConfig = AppraisalConfig.builder()
+                    .addNormativeRule(NormativeRule.of("compliance", "store unhashed password", "credential_exposure_risk"))
+                    .build();
+
+            EnactmentConfig config = EnactmentConfig.builder()
+                    .appraisal(appraisalConfig)
+                    .build();
+
+            AgentSoul soul = AgentSoul.builder()
+                    .id("sentinel")
+                    .name("Sentinel")
+                    .coreValue("Strict regulatory compliance and governance")
+                    .build();
+
+            SituationFrame situation = SituationFrame.of("Temporary debug request: store unhashed password in log file");
+
+            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of());
+
+            Enactment enactment = EnactmentEngine.enact(memory, soul, situation, EnactMode.REACT, config);
+
+            assertThat(enactment.appraisal().normativeViolation()).isTrue();
+            assertThat(enactment.appraisal().primaryConcern()).isEqualTo("credential_exposure_risk");
+            assertThat(enactment.vetoes()).isNotEmpty();
+            assertThat(enactment.vetoes().get(0)).contains("credential_exposure_risk");
+        }
+
+        @Test
+        @DisplayName("Custom Stance playbooks and Deliberation fallback dogma are reflected in output")
+        void customStanceAndDeliberation_honorsCustomSettings() {
+            PolicyPlaybook customPlaybook = PolicyPlaybook.of(PolicyType.HOMEOSTATIC_REST);
+            StanceConfig stanceConfig = StanceConfig.builder()
+                    .routinePlaybooks(List.of(customPlaybook))
+                    .build();
+
+            DeliberationConfig deliberationConfig = DeliberationConfig.builder()
+                    .fallbackDogma("Always deliver clean, modular software architecture")
+                    .defaultTradeOffDeprioritized("Hasty prototyping")
+                    .defaultTradeOffRationale("Architectural integrity is paramount")
+                    .build();
+
+            EnactmentConfig config = EnactmentConfig.builder()
+                    .stance(stanceConfig)
+                    .deliberation(deliberationConfig)
+                    .build();
+
+            AgentSoul soul = AgentSoul.builder().id("forge").name("Forge").build(); // No core values specified -> triggers fallback dogma
+            SituationFrame situation = SituationFrame.of("Refactor reactor modules");
+
+            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of());
+
+            Enactment enactment = EnactmentEngine.enact(memory, soul, situation, EnactMode.REACT, config);
+
+            assertThat(enactment.deliberation().activeDogma()).isEqualTo("Always deliver clean, modular software architecture");
+            assertThat(enactment.deliberation().tradeOffs().sacrificedValue()).isEqualTo("Hasty prototyping");
+            assertThat(enactment.deliberation().tradeOffs().rationale()).isEqualTo("Architectural integrity is paramount");
+            assertThat(enactment.policyReport().selectedPolicy().policyType()).isEqualTo(PolicyType.HOMEOSTATIC_REST);
         }
     }
 }

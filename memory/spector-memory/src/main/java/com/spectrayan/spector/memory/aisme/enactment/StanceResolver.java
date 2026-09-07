@@ -52,7 +52,7 @@ public final class StanceResolver {
     ) {}
 
     /**
-     * Resolves the active attractor, policy inference, and action constraints for the persona.
+     * Resolves the active attractor, policy inference, and action constraints for the persona using default configuration.
      *
      * @param soul the acting agent soul
      * @param aismeBundle the active inference self-model bundle (optional)
@@ -67,6 +67,31 @@ public final class StanceResolver {
             CognitiveAppraisal appraisal,
             PersonaRecall.RecallOutput recallOutput,
             SituationFrame situation) {
+        return resolve(soul, aismeBundle, appraisal, recallOutput, situation, StanceConfig.defaultConfig());
+    }
+
+    /**
+     * Resolves the active attractor, policy inference, and action constraints for the persona using explicit StanceConfig.
+     *
+     * @param soul the acting agent soul
+     * @param aismeBundle the active inference self-model bundle (optional)
+     * @param appraisal the cognitive appraisal vector
+     * @param recallOutput self-recall results
+     * @param situation the incoming situation frame
+     * @param config the stance configuration
+     * @return StanceOutput
+     */
+    public static StanceOutput resolve(
+            AgentSoul soul,
+            AismeBundle aismeBundle,
+            CognitiveAppraisal appraisal,
+            PersonaRecall.RecallOutput recallOutput,
+            SituationFrame situation,
+            StanceConfig config) {
+
+        if (config == null) {
+            config = StanceConfig.defaultConfig();
+        }
 
         // 1. Hopfield Attractor Convergence
         AttractorState activeAttractor = null;
@@ -84,14 +109,16 @@ public final class StanceResolver {
                             (items.get(i).valence() + 128) / 255.0f
                     };
                 }
-                activeAttractor = aismeBundle.hopfieldNetwork().retrieveAttractor(sensoryState, patterns, 2.0f);
+                activeAttractor = aismeBundle.hopfieldNetwork().retrieveAttractor(sensoryState, patterns, config.hopfieldBeta());
             } catch (Exception e) {
                 log.debug("Hopfield attractor convergence fallback: {}", e.getMessage());
             }
         }
 
         if (activeAttractor == null) {
-            AttractorType type = appraisal.urgencyAndStakes() > 0.7f ? AttractorType.FIXED_POINT : AttractorType.METASTABLE;
+            AttractorType type = appraisal.urgencyAndStakes() > config.highUrgencyThreshold()
+                    ? AttractorType.FIXED_POINT
+                    : AttractorType.METASTABLE;
             activeAttractor = new AttractorState(
                     sensoryState,
                     new float[]{1.0f},
@@ -103,7 +130,7 @@ public final class StanceResolver {
         }
 
         // 2. Expected Free Energy Policy Inference (System 1 Active Policy Ranking)
-        List<CognitivePolicy> candidatePolicies = generateCandidatePolicies(soul, activeAttractor, appraisal);
+        List<CognitivePolicy> candidatePolicies = generateCandidatePolicies(soul, activeAttractor, appraisal, config);
         PolicyDecisionReport policyReport = null;
 
         if (aismeBundle != null && aismeBundle.policyInferenceEngine() != null) {
@@ -115,7 +142,7 @@ public final class StanceResolver {
         }
 
         if (policyReport == null || policyReport.selectedPolicy() == null) {
-            CognitivePolicy selected = !candidatePolicies.isEmpty() ? candidatePolicies.get(0) : defaultPolicy();
+            CognitivePolicy selected = !candidatePolicies.isEmpty() ? candidatePolicies.get(0) : defaultPolicy(config);
             List<PolicyDecisionReport.ScoredPolicy> scored = List.of(
                     new PolicyDecisionReport.ScoredPolicy(selected, 0.1f, 0.9f, 0.15f, 1.0f)
             );
@@ -129,7 +156,7 @@ public final class StanceResolver {
         }
 
         // 4. Determine Confidence Level (Evidenced vs Mixed vs Inferred)
-        ConfidenceLevel confidence = determineConfidence(recallOutput, soul);
+        ConfidenceLevel confidence = determineConfidence(recallOutput, soul, config);
 
         // 5. Intended Acts (Action affordances)
         Set<String> intendedActs = new HashSet<>();
@@ -152,33 +179,42 @@ public final class StanceResolver {
     private static List<CognitivePolicy> generateCandidatePolicies(
             AgentSoul soul,
             AttractorState attractor,
-            CognitiveAppraisal appraisal) {
+            CognitiveAppraisal appraisal,
+            StanceConfig config) {
 
         List<CognitivePolicy> policies = new ArrayList<>();
         float[] mean = new float[]{appraisal.goalCongruence(), appraisal.urgencyAndStakes(), appraisal.copingPotential()};
         float[] precision = new float[]{1.0f, 1.0f, 1.0f};
 
-        if (attractor.type() == AttractorType.FIXED_POINT || appraisal.urgencyAndStakes() > 0.7f) {
-            policies.add(CognitivePolicy.of(PolicyType.PRAGMATIC_EXPLOITATION, mean, precision));
-            policies.add(CognitivePolicy.of(PolicyType.CLARIFYING_INTERACTION, mean, precision));
-        } else {
-            policies.add(CognitivePolicy.of(PolicyType.EPISTEMIC_EXPLORATION, mean, precision));
-            policies.add(CognitivePolicy.of(PolicyType.PROCEDURAL_CRYSTALLIZATION, mean, precision));
-            policies.add(CognitivePolicy.of(PolicyType.PRAGMATIC_EXPLOITATION, mean, precision));
+        List<PolicyPlaybook> playbooks = (attractor.type() == AttractorType.FIXED_POINT || appraisal.urgencyAndStakes() > config.highUrgencyThreshold())
+                ? config.crisisPlaybooks()
+                : config.routinePlaybooks();
+
+        for (PolicyPlaybook pb : playbooks) {
+            float[] m = pb.observationMean() != null ? pb.observationMean() : mean;
+            float[] p = pb.observationPrecision() != null ? pb.observationPrecision() : precision;
+            policies.add(CognitivePolicy.of(pb.policyType(), m, p));
         }
 
         return policies;
     }
 
-    private static CognitivePolicy defaultPolicy() {
+    private static CognitivePolicy defaultPolicy(StanceConfig config) {
+        PolicyPlaybook def = config.defaultPlaybook();
+        float[] mean = def.observationMean() != null ? def.observationMean() : new float[]{0.0f, 0.2f, 0.3f};
+        float[] precision = def.observationPrecision() != null ? def.observationPrecision() : new float[]{1.0f, 1.0f, 1.0f};
         return CognitivePolicy.of(
-                PolicyType.EPISTEMIC_EXPLORATION,
-                new float[]{0.0f, 0.2f, 0.3f},
-                new float[]{1.0f, 1.0f, 1.0f}
+                def.policyType(),
+                mean,
+                precision
         );
     }
 
-    private static ConfidenceLevel determineConfidence(PersonaRecall.RecallOutput recallOutput, AgentSoul soul) {
+    private static ConfidenceLevel determineConfidence(
+            PersonaRecall.RecallOutput recallOutput,
+            AgentSoul soul,
+            StanceConfig config) {
+
         if (recallOutput == null || recallOutput.results().isEmpty()) {
             return ConfidenceLevel.INFERRED; // Invariant I5: Thin Soul Honesty
         }
@@ -194,7 +230,7 @@ public final class StanceResolver {
             }
         }
 
-        if (groundedCount >= 3) {
+        if (groundedCount >= config.evidencedGroundingThreshold()) {
             return ConfidenceLevel.EVIDENCED;
         } else if (groundedCount > 0 || syntheticCount > 0) {
             return ConfidenceLevel.MIXED;
