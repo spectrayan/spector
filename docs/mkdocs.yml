@@ -124,12 +124,17 @@ nav:
       - Java SDK: sdk-usage/java-client.md
       - Java API Reference: apidocs/index.html
       - Python SDK: sdk-usage/python-sdk.md
+      - TypeScript SDK: sdk-usage/typescript-sdk.md
       - Spring AI Integration: sdk-usage/spring-ai.md
       - CLI Reference:
           - spectorctl: cli-reference/spectorctl.md
           - spector-inspect: cli-reference/spector-inspect.md
       - REST API: api-reference/rest-endpoints.md
       - Configuration: configuration/parameters.md
+      - Deployment:
+          - Docker & Compose: deployment/docker.md
+          - Kubernetes & Helm: deployment/helm.md
+          - Terraform Cloud Modules: deployment/terraform.md
 
   # Tab 3: Cognitive Memory — the differentiator (own tab)
   - Cognitive Memory:

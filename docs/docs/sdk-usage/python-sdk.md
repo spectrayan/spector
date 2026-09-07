@@ -1,205 +1,209 @@
 ---
 title: Python SDK
-description: "Install and use the Spector Python SDK to control cognitive memory and vector search from Python."
+description: "Install and use the Spector Python SDK (spector-client) for cognitive memory operations and real-time SSE streaming."
 ---
 
-# 🐍 Python SDK
+# 🐍 Python SDK (`spector-client`)
 
-> **Zero-dependency Python client wrapping Spector's MCP server.**
+> **Zero-dependency, high-throughput Python client for the Spector Cognitive Memory & Vector Search platform.**
 
-The Python SDK spawns the Spector JVM as a subprocess and communicates via JSON-RPC 2.0 over stdio. All 16 MCP tools are accessible through a clean Pythonic API.
+`spector-client` connects Python AI applications and agent frameworks (OpenClaw, LangChain, AutoGen, CrewAI) to Spector over HTTP REST and Server-Sent Events (SSE). It requires **zero Java on the client machine** while preserving full cognitive verb parity with the underlying memory engine.
+
+---
+
+## Highlights
+
+- **Zero Mandatory Dependencies**: Built entirely on the Python standard library (`urllib.request`, `asyncio`, `json`, `dataclasses`).
+- **Zero Java Prerequisite for REST**: Connects directly to Spector Synapse over HTTP REST on port `:7070` with no JVM or incubator flags required.
+- **Sync & Async (`asyncio`)**: Dual clients (`SpectorClient` and `AsyncSpectorClient`) with identical cognitive signatures.
+- **Real-Time Streaming**: Stream live cognitive consolidation events, Hebbian graph co-activations, and recall telemetry over Server-Sent Events (SSE).
+- **Multi-Transport Support**: Connect via HTTP REST (default), remote MCP over HTTP/SSE, or local standalone `spector.jar` subprocess.
 
 ---
 
 ## Installation
 
 ```bash
-# Git-installable (no PyPI yet)
-pip install git+https://github.com/spectrayan/spector.git#subdirectory=sdks/python
+# Install from PyPI
+pip install spector-client
 
 # Or install locally for development
 cd sdks/python
 pip install -e ".[dev]"
 ```
 
-**Requirements:**
-
-- Python ≥ 3.10
-- JDK 25+ (for the Spector MCP server process)
-- Built `spector.jar` — run `mvn package -pl synapse/spector-cli -am -DskipTests` from the repo root
+**Requirements:** Python ≥ 3.10.
 
 ---
 
-## Quick Start
+## Quick Start (Synchronous)
 
 ```python
-from spector import SpectorClient
+from spector_client import SpectorClient, MemoryTier
 
-with SpectorClient(
-    jar_path="/path/to/synapse/spector-cli/target/spector.jar",
-    config_path="/path/to/spector.yml",
-) as client:
-    # Store a memory (ID auto-generated via TSID)
-    mem_id = client.memory.remember(
-        "User prefers dark mode with high contrast",
-        tags=["preferences", "ui"],
-    )
-    print(f"Stored: {mem_id}")  # e.g., "0HJGQK4N00000"
+# Connect to running Spector Synapse instance (default: http://localhost:7070)
+client = SpectorClient.builder() \
+    .with_rest(base_url="http://localhost:7070", api_key="optional-api-key") \
+    .build()
 
-    # Recall with cognitive scoring
-    results = client.memory.recall("user preferences")
+# 1. Remember — Store with cognitive metadata
+record = client.memory.remember(
+    text="User prefers concise answers and dark mode UI",
+    tier=MemoryTier.SEMANTIC,
+    tags=["preferences", "ui"],
+    interest=0.9,
+    valence=1,
+)
+print(f"Stored memory: {record.id}")
 
-    # Full cognitive X-ray
-    record = client.memory.inspect(mem_id)
+# 2. Recall — Retrieve using multi-tier associative cognitive scoring
+results = client.memory.recall("user preferences", top_k=5)
+for item in results:
+    print(f"[{item.id}] score={item.score:.4f} | {item.text}")
 
-    # Export all memories as JSON
-    export = client.memory.export_json()
+# 3. Real-time Server-Sent Events (SSE)
+for event in client.events.stream(topics=["memory", "consolidation"]):
+    print(f"📡 Event: {event.event} -> {event.data}")
 ```
 
 ---
 
-## Memory Operations
+## Quick Start (Asynchronous `asyncio`)
 
-### remember — Store a Memory
+For modern async agent loops, use `AsyncSpectorClient`:
 
 ```python
-mem_id = client.memory.remember(
-    "The deployment uses Kubernetes with StatefulSets",
-    type=MemoryType.SEMANTIC,          # WORKING, EPISODIC, SEMANTIC, PROCEDURAL
-    source=MemorySource.OBSERVED,      # USER_STATED, OBSERVED, INFERRED, etc.
-    tags=["deployment", "kubernetes"],
-    interest=0.7,                      # ICNU importance hints
-    challenge=0.3,
+import asyncio
+from spector_client import AsyncSpectorClient, MemoryTier
+
+async def main():
+    async with AsyncSpectorClient.builder().with_rest("http://localhost:7070").build() as client:
+        # Asynchronously remember
+        record = await client.memory.remember(
+            text="Active task state: calculating cognitive graph embeddings",
+            tier=MemoryTier.WORKING,
+            tags=["agent-loop", "task-102"],
+        )
+
+        # Asynchronously recall
+        memories = await client.memory.recall("active task state")
+        for mem in memories:
+            print(f"Recalled: {mem.text}")
+
+        # Stream real-time events asynchronously
+        async for event in client.events.stream(topics=["memory"]):
+            print(f"Received event: {event.event}")
+
+asyncio.run(main())
+```
+
+---
+
+## Cognitive Memory Operations
+
+The `client.memory` facade exposes biological memory operations:
+
+### `remember` — Store a Memory
+Store across the 4 cognitive tiers (`WORKING`, `EPISODIC`, `SEMANTIC`, `PROCEDURAL`):
+
+```python
+record = client.memory.remember(
+    text="Production cluster runs Kubernetes 1.31 with Cilium CNI",
+    tier=MemoryTier.SEMANTIC,
+    tags=["infrastructure", "kubernetes"],
+    interest=0.85,    # ICNU interest (0.0 to 1.0)
+    challenge=0.2,    # ICNU novelty/difficulty factor
+    urgency=0.1,      # ICNU time-sensitivity
+    valence=0,        # Emotional valence (-128 to 127)
+    arousal=50,       # Emotional arousal (0 to 255)
 )
 ```
 
-When `id` is omitted, Spector auto-generates a 13-character TSID (time-sorted, distributed-safe).
-
-### recall — Cognitive Search
+### `recall` — Fused Cognitive Retrieval
+Queries memories with fused similarity × importance × temporal decay:
 
 ```python
-results = client.memory.recall(
-    "kubernetes deployment strategy",
+memories = client.memory.recall(
+    query="cluster networking CNI",
     top_k=5,
-    tags=["deployment"],
+    tier=MemoryTier.SEMANTIC,
+    tags=["infrastructure"],
+    min_salience=0.25,
+    profile="BALANCED",  # Or HYPERFOCUS, THE_EXECUTOR, DIVERGENT, DEBUGGING
 )
-```
-
-### inspect — Cognitive X-Ray
-
-```python
-# Returns full header + vector + metadata correlation
-record = client.memory.inspect("0HJGQK4N00000")
-```
-
-### browse — Tag-Based Browsing
-
-```python
-# AND semantics — returns memories matching ALL tags
-matches = client.memory.browse("deployment", "kubernetes")
-```
-
-### export — Bulk JSON Export
-
-```python
-json_data = client.memory.export_json()
 ```
 
 ### Lifecycle Operations
 
 ```python
-client.memory.forget("mem-123")                    # Permanent tombstone
-client.memory.suppress("mem-123", reason="noisy")  # Reversible suppression
-client.memory.reinforce("mem-123", valence=1)       # Positive feedback
-client.memory.resolve("mem-123")                    # Zeigarnik resolution
-```
+# Apply Long-Term Potentiation (Hebbian reinforcement)
+client.memory.reinforce(record.id, strength=1)
 
-### Analysis Tools
+# Close an active task loop (Zeigarnik closure)
+client.memory.resolve(record.id)
 
-```python
-client.memory.introspect("kubernetes")          # Metamemory analysis
-client.memory.why_not("mem-123", "deployment")  # Recall diagnostic
-client.memory.compute_importance("text...")       # Importance estimation
-client.memory.status()                           # Tier counts
-```
+# Inhibit recall without deleting
+client.memory.suppress(record.id, reason="Deprecated configuration")
 
----
+# Permanently tombstone and prune memory graph edges
+client.memory.forget(record.id)
 
-## Search Engine Operations
+# Tag index browsing
+matches = client.memory.browse(tags=["infrastructure", "kubernetes"])
 
-```python
-# Vector similarity search
-hits = client.engine.search("SIMD acceleration", top_k=5)
-
-# Hybrid search (keyword + vector with RRF fusion)
-hits = client.engine.hybrid_search("Panama API", top_k=10)
-
-# RAG context retrieval
-context = client.engine.rag("How does quantization work?")
-
-# Index management
-client.engine.ingest("doc-1", "Document content here...")
-client.engine.delete("doc-1")
-client.engine.status()
+# Node health and tier statistics
+stats = client.memory.status()
+print(f"Total memories: {stats.total_memories}")
 ```
 
 ---
 
-## Advanced Configuration
+## Multi-Transport Modes
 
+### 1. High-Throughput HTTP REST (Default)
+Connects to Spector Synapse over standard HTTP:
 ```python
-from spector import SpectorClient
-
-client = SpectorClient(
-    jar_path="/path/to/spector.jar",
-    config_path="/path/to/spector.yml",
-    java_bin="/usr/lib/jvm/java-25/bin/java",   # Custom JDK path
-    extra_jvm_args=["-Xmx1g", "-Xms256m"],       # Additional JVM args
-)
+client = SpectorClient.builder() \
+    .with_rest(base_url="http://localhost:7070", api_key="secret-key") \
+    .build()
 ```
 
-### Raw MCP Access
-
-For tools not covered by the high-level API:
-
+### 2. Standalone Subprocess (`spector.jar`)
+Spawns the local Spector JVM with vector incubator flags:
 ```python
-result = client.call_tool("memory_remember", {
-    "text": "Raw tool call",
-    "tier": "SEMANTIC",
-})
-
-tools = client.list_tools()  # List all available tools
-```
-
-### Logging
-
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-logging.getLogger("spector").setLevel(logging.DEBUG)
+client = SpectorClient.builder() \
+    .with_jar(
+        jar_path="/opt/spector/spector.jar",
+        config_path="/opt/spector/spector.yml",
+        java_bin="/usr/lib/jvm/java-25/bin/java",
+    ) \
+    .build()
 ```
 
 ---
 
-## Architecture
+## Error Handling
 
-```
-┌──────────────────┐         JSON-RPC 2.0          ┌──────────────────┐
-│   Python SDK     │  ─────── stdio ──────────►    │  Spector JVM     │
-│                  │                                │  (MCP Server)    │
-│  SpectorClient   │  ◄────── stdout ──────────    │                  │
-│  ├── memory      │                                │  16 MCP tools    │
-│  └── engine      │         stderr → logging       │  Off-heap memory │
-└──────────────────┘                                └──────────────────┘
-```
+Exceptions derive from `SpectorError`:
 
-The SDK is a thin wrapper — all cognitive scoring, SIMD search, and off-heap management happens in the JVM process. The Python side only serializes/deserializes JSON-RPC messages.
+```python
+from spector_client.exceptions import SpectorError, SpectorConnectionError, SpectorApiError
+
+try:
+    client.memory.recall("query")
+except SpectorConnectionError as err:
+    print(f"Failed to connect to Spector daemon: {err}")
+except SpectorApiError as err:
+    print(f"HTTP {err.status}: {err.message}")
+except SpectorError as err:
+    print(f"Spector SDK error: {err}")
+```
 
 ---
 
 ## See Also
 
-- :material-server: [**MCP Server Setup**](mcp-server.md) — Configure for Claude, Cursor, and custom clients
-- :material-language-java: [**Java SDK**](java-client.md) — Direct library usage (no subprocess)
-- :material-leaf: [**Spring AI**](spring-ai.md) — Spring Boot integration
-- :material-brain: [**Memory API Reference**](../memory/api-reference.md) — Full Java API docs
+- :material-language-typescript: [**TypeScript SDK**](typescript-sdk.md) — Universal TS/JS client for Node.js, Bun, Deno, and Browser
+- :material-server: [**MCP Server Setup**](mcp-server.md) — Connect AI agents to Spector via MCP
+- :material-language-java: [**Java SDK**](java-client.md) — Native JVM client and Spring AI integration
+- :material-docker: [**Docker Deployment**](../deployment/docker.md) — Run Spector Synapse locally with Docker Compose

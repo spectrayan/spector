@@ -81,35 +81,39 @@ OpenClaw provides the agentic loop (observe → reason → act) and multi-channe
 
 ---
 
-## ✅ Completed — Client SDKs & Documentation
+## ✅ Completed — Client SDKs, Packaging & Distribution
 
-### ✅ Python SDK — MCP Client Wrapper {#python-sdk}
+### ✅ Universal TypeScript SDK (`@spectrayan/spector-client`) {#typescript-sdk}
 
 !!! success "Completed"
-    Implemented in `sdks/python` as the `spector-sdk` package. Thin wrapper over MCP stdio transport with zero mandatory dependencies. Published with `pyproject.toml`, Python 3.10+ support. Documentation at `docs/sdk-usage/python-sdk.md`.
+    Implemented in `sdks/typescript/spector-client` as `@spectrayan/spector-client`. Dual ESM/CJS universal packaging targeting Node.js 18+, Bun, Deno, and modern browsers with zero external dependencies. Full cognitive verb parity (`remember`, `recall`, `forget`, `reinforce`, `suppress`, `resolve`), typed OpenAPI escape hatch, and native async iterable Server-Sent Events (SSE) streaming. Published to npm registry. Documentation at `docs/sdk-usage/typescript-sdk.md`.
 
-A lightweight Python package that wraps Spector's MCP server via subprocess/stdio transport, giving Python developers a native-feeling API without touching Java:
+### ✅ Python SDK (`spector-client`) — HTTP/SSE Client & PyPI Release {#python-sdk}
 
-```python
-from spector import Memory
+!!! success "Completed"
+    Standardized in `sdks/python` as `spector-client`. Dual synchronous (`SpectorClient`) and asynchronous (`AsyncSpectorClient`) clients connecting directly to Spector Synapse over HTTP REST and SSE with zero Java runtime requirements on the client machine. Includes authentic cognitive verbs, real-time event streaming, and PyPI Trusted Publishing workflow (`.github/workflows/release-pypi.yml`). Documentation at `docs/sdk-usage/python-sdk.md`.
 
-mem = Memory()
-mem.remember("user likes dark mode", tags=["pref", "ui"])
-results = mem.recall("theme preference?")
-# → [MemoryResult(text="user likes dark mode", score=0.92, confidence=HIGH)]
+### ✅ Zero-Install NPX MCP Runner (`@spectrayan/spector`) {#npx-runner}
 
-explanation = mem.why_not("mem-42", "theme preference?")
-# → WhyNot(reason=OUTRANKED, score_gap=0.15, ...)
-```
+!!! success "Completed"
+    Lightweight zero-install launcher package in `deploy/npm/spector/` runnable via `npx -y @spectrayan/spector mcp`. Intelligently auto-detects active local Synapse daemons on `:7070` or `:7700` and streams MCP JSON-RPC over HTTP/SSE, or auto-downloads and bootstraps the release JVM binary with JDK 25 Vector API flags. Package size: 3.7 kB.
 
-**Implementation:**
+### ✅ One-Line Installers & Package Managers (Brew & Scoop) {#installers}
 
-- Thin `subprocess.Popen` wrapper for MCP stdio transport
-- Maps all MCP tools to Pythonic methods (`remember`, `recall`, `forget`, `reinforce`, `why_not`, `introspect`)
-- Returns typed dataclasses (`MemoryResult`, `WhyNotExplanation`, `MemoryInsight`)
-- Published to PyPI as `spector-memory`
+!!! success "Completed"
+    Standalone binary distribution channels:
+    - POSIX shell installer (`scripts/install.sh`) via `curl -fsSL ... | sh`
+    - Windows PowerShell installer (`scripts/install.ps1`) via `irm ... | iex`
+    - Homebrew tap formula (`packaging/homebrew/spector.rb`) with managed OpenJDK 25 dependency
+    - Windows Scoop manifest (`packaging/scoop/spector.json`)
 
-**Why:** The Python-first AI ecosystem (LangChain, LlamaIndex, AutoGen) is the largest potential audience. Eliminates the "language barrier" concern entirely.
+### ✅ Containerization, Helm & Cloud Deployments {#containers-cloud}
+
+!!! success "Completed"
+    - **Hermetic Dockerfile** (`deploy/docker/Dockerfile`): 3-stage self-contained build (Node 22 + Temurin 25 + Alpine JRE 25) with multi-arch GHCR publishing.
+    - **Docker Compose** (`docker-compose.yml`): Automatic volume provisioning and profiles (`embeddings`, `gpu`, `ui`).
+    - **Helm Chart** (`deploy/helm/spector/`): StatefulSet packaging published to GHCR OCI registry (`oci://ghcr.io/spectrayan/charts/spector`).
+    - **Terraform Multi-Cloud** (`deploy/terraform/`): Reusable production modules for AWS ECS Fargate, GCP Cloud Run v2, and Azure Container Apps.
 
 ---
 
