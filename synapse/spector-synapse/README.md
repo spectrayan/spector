@@ -70,6 +70,7 @@ docker compose -f docker-compose.synapse.yml up --build
 | **Provider Registry** | LLM provider management with health checks |
 | **Plugin SPI** | Runtime plugin loading and lifecycle |
 | **Rate Limiting Engine** | Inbound/outbound multi-tier token bucket limiting (Bucket4j + Caffeine/Redis) |
+| **Persona Enactment Engine** | Dual-process persona enactment with pure System 1 cognitive appraisal, intensity-gated retrieval, and bounded deliberation (ADR-0032) |
 | **MCP Multi-Transport** | Universal Model Context Protocol endpoints (SSE, Streamable HTTP, Stateless HTTP, REST) |
 | **Memory Bridge** | Bidirectional integration with Spector Memory |
 

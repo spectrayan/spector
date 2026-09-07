@@ -46,7 +46,7 @@ public record NodeSpec(
     }
 
     public enum NodeType {
-        AGENT, TOOL, FUNCTION, SUBGRAPH, REFLECTION, END
+        AGENT, TOOL, FUNCTION, SUBGRAPH, REFLECTION, END, ENACT
     }
 
     /**

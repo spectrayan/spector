@@ -45,4 +45,10 @@ public class SynapseProviderConfig {
     public TsidGenerator tsidGenerator() {
         return new TsidGenerator();
     }
+
+    @Bean
+    @ConditionalOnMissingBean(com.spectrayan.spector.memory.aisme.enactment.EnactmentConfig.class)
+    public com.spectrayan.spector.memory.aisme.enactment.EnactmentConfig enactmentConfig() {
+        return com.spectrayan.spector.memory.aisme.enactment.EnactmentConfig.defaultConfig();
+    }
 }

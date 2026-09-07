@@ -1,0 +1,36 @@
+{
+  "name": "persona_enact",
+  "description": "Enacts a persona's cognitive stance and active inference policy over memory under Dual-Process appraisal dynamics (ADR-0032).",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "problem": {
+        "type": "string",
+        "description": "Problem context or situation to appraise and react to"
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
+      },
+      "acting_soul_id": {
+        "type": "string",
+        "description": "ID or handle of the persona to enact (e.g. 'jarvis', 'forge', 'atlas')"
+      },
+      "mode": {
+        "type": "string",
+        "description": "Enactment mode: REACT, DECIDE, SIMULATE, REPLAY. Defaults to REACT."
+      },
+      "as_of": {
+        "type": "string",
+        "description": "Optional ISO-8601 timestamp for temporal counterfactual replay"
+      }
+    },
+    "required": [
+      "problem"
+    ]
+  }
+}
