@@ -53,6 +53,7 @@ test('parseJavaMajorVersion extracts major version numbers accurately', () => {
   assert.equal(parseJavaMajorVersion('openjdk version "21.0.2" 2024-01-16 LTS'), 21);
   assert.equal(parseJavaMajorVersion('openjdk version "17.0.9" 2023-10-17'), 17);
   assert.equal(parseJavaMajorVersion('invalid output without version'), null);
+  assert.equal(parseJavaMajorVersion('"9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999'), null);
 });
 
 test('computeSha256 produces exact hex digest of file', async () => {

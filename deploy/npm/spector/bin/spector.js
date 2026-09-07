@@ -45,12 +45,14 @@ function parseCliArgs(argv) {
 
 function parseJavaMajorVersion(versionOutput) {
   if (!versionOutput || typeof versionOutput !== 'string') return null;
-  const match = versionOutput.match(/"(\d+)[^"]*"/);
-  if (match && match[1]) {
-    const major = parseInt(match[1], 10);
-    return isNaN(major) ? null : major;
-  }
-  return null;
+  const firstQuote = versionOutput.indexOf('"');
+  if (firstQuote === -1) return null;
+  const secondQuote = versionOutput.indexOf('"', firstQuote + 1);
+  if (secondQuote === -1) return null;
+  const versionInside = versionOutput.substring(firstQuote + 1, secondQuote);
+  const majorPart = versionInside.split(/[.-]/)[0];
+  const major = parseInt(majorPart, 10);
+  return isNaN(major) ? null : major;
 }
 
 function getJavaCommand() {
