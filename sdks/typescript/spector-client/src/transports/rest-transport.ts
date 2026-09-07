@@ -12,6 +12,7 @@ import {
   TransportError,
 } from '../errors';
 import { RequestOptions, Transport } from './transport';
+import { joinUrl, trimTrailingSlashes } from '../utils';
 
 export class RestTransport implements Transport {
   private readonly baseUrl: string;
@@ -19,7 +20,7 @@ export class RestTransport implements Transport {
 
   constructor(options: ClientOptions = {}) {
     this.options = options;
-    this.baseUrl = (options.baseUrl || 'http://localhost:7070').replace(/\/+$/, '');
+    this.baseUrl = trimTrailingSlashes(options.baseUrl || 'http://localhost:7070');
   }
 
   private buildHeaders(): Record<string, string> {
@@ -48,7 +49,7 @@ export class RestTransport implements Transport {
   }
 
   async request<T>(method: string, path: string, options?: RequestOptions): Promise<T> {
-    let url = `${this.baseUrl}/${path.replace(/^\/+/, '')}`;
+    let url = joinUrl(this.baseUrl, path);
 
     if (options?.queryParams) {
       const params = new URLSearchParams();
@@ -132,7 +133,7 @@ export class RestTransport implements Transport {
   }
 
   async *streamEvents(path: string, options?: RequestOptions): AsyncIterable<SseEvent> {
-    let url = `${this.baseUrl}/${path.replace(/^\/+/, '')}`;
+    let url = joinUrl(this.baseUrl, path);
 
     if (options?.queryParams) {
       const params = new URLSearchParams();
@@ -175,7 +176,7 @@ export class RestTransport implements Transport {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split(/\r\n|\r|\n/);
+        const lines = buffer.split(/\r?\n/);
         buffer = lines.pop() || '';
 
         for (const line of lines) {

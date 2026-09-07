@@ -7,6 +7,7 @@ import { MemoryClient } from './memory';
 import { EventClient } from './events';
 import { RestTransport, Transport } from './transports';
 import { Configuration, MemoryApi } from './generated';
+import { trimTrailingSlashes } from './utils';
 
 export class SpectorClient {
   public readonly memory: MemoryClient;
@@ -17,7 +18,7 @@ export class SpectorClient {
     this.memory = new MemoryClient(transport);
     this.events = new EventClient(transport);
 
-    const basePath = (options?.baseUrl || 'http://localhost:7070').replace(/\/+$/, '');
+    const basePath = trimTrailingSlashes(options?.baseUrl || 'http://localhost:7070');
     const headers: Record<string, string> = { ...options?.headers };
     if (options?.apiKey) {
       headers['X-API-Key'] = options.apiKey;

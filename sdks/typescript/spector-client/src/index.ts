@@ -8,4 +8,5 @@ export * from './events';
 export * from './models';
 export * from './errors';
 export * from './transports';
+export * from './utils';
 export * as generated from './generated';
