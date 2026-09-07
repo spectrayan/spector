@@ -307,10 +307,9 @@ public final class PersonaRecall {
         if (cr == null || cr.synapticTags() == null || targetTags == null || targetTags.isEmpty()) return false;
         for (String tag : cr.synapticTags()) {
             if (tag != null) {
-                String lower = tag.toLowerCase(java.util.Locale.ROOT);
+                String normalizedTag = tag.trim().toLowerCase(java.util.Locale.ROOT);
                 for (String target : targetTags) {
-                    if (target != null && (lower.equals(target.toLowerCase(java.util.Locale.ROOT))
-                            || lower.contains(target.toLowerCase(java.util.Locale.ROOT)))) {
+                    if (target != null && normalizedTag.equals(target.trim().toLowerCase(java.util.Locale.ROOT))) {
                         return true;
                     }
                 }

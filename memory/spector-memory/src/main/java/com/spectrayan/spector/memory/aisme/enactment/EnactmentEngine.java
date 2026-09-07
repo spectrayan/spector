@@ -71,6 +71,9 @@ public final class EnactmentEngine {
         if (mode == null) {
             mode = EnactMode.REACT;
         }
+        // Test-only fallback: In production, callers must go through EnactmentService,
+        // which enforces ADR-0032 Invariant I6 (Anti-Impersonation Floor) by rejecting
+        // unresolvable or blank souls. This fallback exists solely for isolated engine unit testing.
         if (soul == null) {
             soul = AgentSoul.builder().id("default").name("Default Persona").build();
         }

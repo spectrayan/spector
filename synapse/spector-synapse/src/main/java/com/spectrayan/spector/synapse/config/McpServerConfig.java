@@ -305,11 +305,29 @@ public class McpServerConfig {
     }
 
     @Bean(name = "coreMemoryTools")
-    public List<McpToolHandler> coreMemoryTools(ObjectProvider<SpectorMemory> sharedMemory) {
+    public List<McpToolHandler> coreMemoryTools(
+            ObjectProvider<SpectorMemory> sharedMemory,
+            ObjectProvider<com.spectrayan.spector.synapse.agent.enactment.EnactmentService> enactmentServiceProvider) {
         Supplier<SpectorMemory> resolver = () -> {
             SpectorMemory perUser = McpRequestMemory.current();
             return perUser != null ? perUser : sharedMemory.getIfAvailable();
         };
-        return SpectorToolRegistry.handlers(SERVER_VERSION, resolver);
+        com.spectrayan.spector.mcp.tools.memory.PersonaEnactTool.Enactor enactor = (situation, namespace, actingSoulId, mode) -> {
+            com.spectrayan.spector.synapse.agent.enactment.EnactmentService svc = enactmentServiceProvider.getIfAvailable();
+            if (svc == null) {
+                throw new IllegalStateException("EnactmentService is not available in application context");
+            }
+            return svc.enact(situation, namespace, actingSoulId, mode);
+        };
+        List<McpToolHandler> baseHandlers = SpectorToolRegistry.handlers(SERVER_VERSION, resolver);
+        List<McpToolHandler> handlers = new java.util.ArrayList<>(baseHandlers.size());
+        for (McpToolHandler h : baseHandlers) {
+            if (h instanceof com.spectrayan.spector.mcp.tools.memory.PersonaEnactTool pet) {
+                handlers.add(new com.spectrayan.spector.mcp.tools.memory.PersonaEnactTool(resolver, enactor, pet.enactmentConfig()));
+            } else {
+                handlers.add(h);
+            }
+        }
+        return List.copyOf(handlers);
     }
 }

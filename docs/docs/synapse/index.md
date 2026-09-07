@@ -60,13 +60,14 @@ Together, they ensure the agent's actions are highly personalized to the user's 
 Moving beyond shallow prompt-wrapping, Spector Synapse implements biological **Persona Enactment** grounded in Dual-Process Cognitive Appraisal Theory and Continuous Hopfield Attractor Networks:
 
 1. **System 1 (Automatic Stance Synthesis, sub-10ms)**:
-   - **4-Cue Self-Recall**: Gathers constitution invariants (Semantic), autobiography/scars (Episodic), playbooks (Procedural), and active loop (Working), filtered through the limited-capacity conscious bottleneck (`GlobalWorkspace`).
-   - **Cognitive Appraisal**: Computes continuous Valence, Arousal, and Dominance (VAD) deltas and agency attribution (Lazarus & Scherer), perturbing the `HomeostaticCore` SDE.
+   - **Intuitive Pre-Appraisal**: Evaluates initial Valence, Arousal, and Dominance (VAD) deltas and agency attribution (Lazarus & Scherer) by reading `HomeostaticCore.currentState()` purely functionally without in-place SDE mutation (SDE stepping occurs post-turn in episodic learning).
+   - **Intensity-Gated Self-Recall**: Gathers constitution invariants, dogmas, scars, and playbooks, with low-urgency situations gating retrieval to lightweight queries.
+   - **Refined Cognitive Appraisal**: Re-evaluates VAD and coping potential with recalled scars, dogmas, and playbooks as the primary driver.
    - **Hopfield Attractor Basin**: Relaxes emotional-sensory state into the persona's nearest associative attractor (`ContinuousHopfieldNetwork`).
    - **Active Policy Selection**: Evaluates Expected Free Energy (EFE) $G(\pi)$ across candidate policies (`PolicyInferenceEngine`).
 2. **System 2 (Bounded Deliberation & Embodiment)**:
-   - Evaluates active dogma, trade-off matrix, blind spots, and tactical first move.
-   - Enforces Epistemic Tense gating (`FACT` vs `SIM`, ADR-0031) and ancestral guardrail vetoes.
+   - Evaluates active dogma, dynamic trade-off matrix (prioritized vs sacrificed), blind spots, and tactical first move (with low-intensity skip for routine conditions).
+   - Enforces Epistemic Tense gating (`FACT` vs `SIM`, ADR-0031) and ancestral PEP guardrail vetoes.
    - Accessible via the `ENACT` node in LangGraph4j state graphs and the `persona_enact` MCP tool.
 
 ---

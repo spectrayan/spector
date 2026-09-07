@@ -418,6 +418,35 @@ class PersonaEnactmentEngineTest {
             assertThat(enactment.confidence()).isEqualTo(ConfidenceLevel.MIXED);
             assertThat(enactment.confidence()).isNotEqualTo(ConfidenceLevel.EVIDENCED);
         }
+
+        @Test
+        @DisplayName("Substring tags like 'causality' or 'dogmatic' do not match reserved tags and remain constitution")
+        void substringTags_doNotMatchReservedTags_remainConstitution() {
+            CognitiveResult substringRow = new CognitiveResult(
+                    "mem-substring",
+                    "A study on causality and dogmatic structures in ancient law",
+                    0.90f, 0.85f, 5.0f, 2, (byte) 30,
+                    MemoryType.SEMANTIC,
+                    MemorySource.USER_STATED,
+                    new String[]{"causality", "dogmatic"},
+                    0.90f, 0.90f, null, null, null, null,
+                    java.util.Map.of("persona_id", "forge"),
+                    (byte) 0, System.currentTimeMillis()
+            );
+
+            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of(substringRow));
+
+            AgentSoul forge = AgentSoul.builder().id("forge").name("Forge").build();
+            SituationFrame situation = SituationFrame.of("Review legal structure");
+
+            PersonaRecall.RecallOutput output = PersonaRecall.recall(memory, forge, situation, EnactMode.REACT, RecallConfig.defaultConfig());
+
+            // Substring tags 'causality' and 'dogmatic' must NOT match reserved tags 'causal_model' or 'dogma'
+            assertThat(output.causalModels()).isEmpty();
+            assertThat(output.dogmas()).isEmpty();
+            assertThat(output.constitution()).hasSize(1);
+            assertThat(output.constitution().get(0).id()).isEqualTo("mem-substring");
+        }
     }
 
     @Nested
@@ -491,7 +520,7 @@ class PersonaEnactmentEngineTest {
     }
 
     @Nested
-    @DisplayName("Invariant I6: Attractor Boundedness (Continuous Hopfield Lyapunov Energy)")
+    @DisplayName("Attractor Boundedness (Continuous Hopfield Lyapunov Energy Minimization)")
     class AttractorBoundednessTests {
 
         @Test

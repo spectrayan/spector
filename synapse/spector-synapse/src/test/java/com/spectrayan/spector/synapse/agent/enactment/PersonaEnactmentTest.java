@@ -204,11 +204,11 @@ class PersonaEnactmentTest {
     }
 
     @Nested
-    @DisplayName("Fail-Closed Identity & Isolation on Service Path")
-    class FailClosedServiceTests {
+    @DisplayName("Invariant I6: Anti-Impersonation Floor (Fallback Soul Cannot Wear a Named ID)")
+    class InvariantI6AntiImpersonationTests {
 
         @Test
-        @DisplayName("EnactmentService throws IllegalArgumentException when actingSoulId cannot be resolved")
+        @DisplayName("Fallback soul cannot wear a named id: EnactmentService throws IllegalArgumentException when actingSoulId cannot be resolved (Invariant I6)")
         void enact_unresolvableSoul_throwsIllegalArgumentException() {
             when(soulService.getEffectiveSoul("unknown-soul")).thenReturn(null);
             SituationFrame situation = SituationFrame.of("Execute task");
@@ -240,6 +240,39 @@ class PersonaEnactmentTest {
             assertThatThrownBy(() -> enactmentService.enact(situation, "missing-namespace", "forge", EnactMode.REACT))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("Cannot resolve SpectorMemory for namespace: missing-namespace");
+        }
+    }
+
+    @Nested
+    @DisplayName("PersonaEnactTool MCP Integration via EnactmentService")
+    class McpEnactToolIntegrationTests {
+
+        @Test
+        @DisplayName("PersonaEnactTool delegates to EnactmentService without direct engine bypass")
+        void personaEnactTool_delegatesToEnactmentService() throws Exception {
+            SpectorMemory memory = mock(SpectorMemory.class);
+            when(memoryRegistry.resolveFor("default")).thenReturn(memory);
+            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of());
+
+            AgentSoul soul = AgentSoul.builder().id("forge").name("Forge").build();
+            when(soulService.getEffectiveSoul("forge")).thenReturn(soul);
+
+            com.spectrayan.spector.mcp.tools.memory.PersonaEnactTool.Enactor enactor = (situation, ns, soulId, mode) ->
+                    enactmentService.enact(situation, ns, soulId, mode);
+
+            com.spectrayan.spector.mcp.tools.memory.PersonaEnactTool tool =
+                    new com.spectrayan.spector.mcp.tools.memory.PersonaEnactTool(memory, enactor);
+
+            Map<String, Object> args = Map.of(
+                    "problem", "Implement secure authentication flow",
+                    "acting_soul_id", "forge",
+                    "mode", "REACT"
+            );
+
+            io.modelcontextprotocol.spec.McpSchema.CallToolResult result = tool.execute(args);
+            assertThat(result).isNotNull();
+            assertThat(result.isError()).isFalse();
+            verify(soulService).getEffectiveSoul("forge");
         }
     }
 }

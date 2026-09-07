@@ -42,25 +42,57 @@ public final class PersonaEnactTool extends MemoryToolHandler {
 
     public static final String NAME = "persona_enact";
 
+    /**
+     * Functional interface allowing Synapse EnactmentService to handle persona enactment
+     * without introducing a circular module dependency from spector-mcp to spector-synapse.
+     */
+    @FunctionalInterface
+    public interface Enactor {
+        Enactment enact(SituationFrame situation, String namespace, String actingSoulId, EnactMode mode) throws Exception;
+    }
+
+    private final Enactor enactor;
     private final EnactmentConfig enactmentConfig;
 
     public PersonaEnactTool(SpectorMemory memory) {
-        this(memory, EnactmentConfig.defaultConfig());
+        this(memory, (Enactor) null, EnactmentConfig.defaultConfig());
     }
 
     public PersonaEnactTool(SpectorMemory memory, EnactmentConfig enactmentConfig) {
+        this(memory, (Enactor) null, enactmentConfig);
+    }
+
+    public PersonaEnactTool(SpectorMemory memory, Enactor enactor) {
+        this(memory, enactor, EnactmentConfig.defaultConfig());
+    }
+
+    public PersonaEnactTool(SpectorMemory memory, Enactor enactor, EnactmentConfig enactmentConfig) {
         super(NAME, memory);
+        this.enactor = enactor;
         this.enactmentConfig = (enactmentConfig != null) ? enactmentConfig : EnactmentConfig.defaultConfig();
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public PersonaEnactTool(Supplier<SpectorMemory> memoryResolver) {
-        this(memoryResolver, EnactmentConfig.defaultConfig());
+        this(memoryResolver, (Enactor) null, EnactmentConfig.defaultConfig());
     }
 
     public PersonaEnactTool(Supplier<SpectorMemory> memoryResolver, EnactmentConfig enactmentConfig) {
+        this(memoryResolver, (Enactor) null, enactmentConfig);
+    }
+
+    public PersonaEnactTool(Supplier<SpectorMemory> memoryResolver, Enactor enactor) {
+        this(memoryResolver, enactor, EnactmentConfig.defaultConfig());
+    }
+
+    public PersonaEnactTool(Supplier<SpectorMemory> memoryResolver, Enactor enactor, EnactmentConfig enactmentConfig) {
         super(NAME, memoryResolver);
+        this.enactor = enactor;
         this.enactmentConfig = (enactmentConfig != null) ? enactmentConfig : EnactmentConfig.defaultConfig();
+    }
+
+    public Enactor enactor() {
+        return enactor;
     }
 
     public EnactmentConfig enactmentConfig() {
@@ -69,9 +101,16 @@ public final class PersonaEnactTool extends MemoryToolHandler {
 
     @Override
     protected McpSchema.CallToolResult executeMemory(SpectorMemory memory, Map<String, Object> args) throws Exception {
+        if (enactor == null) {
+            throw new IllegalStateException(
+                    "Persona enactment via MCP requires EnactmentService to enforce soul identity and namespace isolation. "
+                    + "Calling EnactmentEngine directly without EnactmentService is not permitted (ADR-0032 Invariant I6).");
+        }
+
         String problem = requireString(args, "problem");
         String modeStr = optionalString(args, "mode", "REACT");
         String actingSoulId = optionalString(args, "acting_soul_id", "default");
+        String namespace = optionalString(args, "namespace", "default");
 
         EnactMode mode = EnactMode.REACT;
         try {
@@ -80,20 +119,7 @@ public final class PersonaEnactTool extends MemoryToolHandler {
         }
 
         SituationFrame situation = SituationFrame.of(problem);
-
-        AgentSoul soul = null;
-        if (memory != null && memory.aismeBundle() != null && memory.aismeBundle().agentSoul() != null) {
-            soul = memory.aismeBundle().agentSoul();
-        }
-        if (soul == null) {
-            soul = AgentSoul.builder()
-                    .id(actingSoulId)
-                    .name(actingSoulId)
-                    .purpose("Persona Enactment for " + actingSoulId)
-                    .build();
-        }
-
-        Enactment enactment = EnactmentEngine.enact(memory, soul, situation, mode, enactmentConfig);
+        Enactment enactment = enactor.enact(situation, namespace, actingSoulId, mode);
 
         String json = MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(enactment);
         return textResult(json);
