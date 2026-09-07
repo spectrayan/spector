@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Persona Enactment Engine (ADR-0032) (#764)
+- **spector-memory:** Implemented Dual-Process Cognitive Enactment Engine under `com.spectrayan.spector.memory.aisme.enactment`:
+  - `CognitiveAppraisal` grounding in Lazarus & Scherer Cognitive Appraisal Theory with VAD dynamics and agency attribution
+  - `PersonaRecall` multi-tier 4-cue retrieval (Constitution, Scars, Habits, Working state) with `GlobalWorkspace` conscious access bottleneck
+  - `StanceResolver` continuous Hopfield attractor relaxation and Expected Free Energy (EFE) policy inference
+  - `EnactmentEngine` System 1/System 2 bounded deliberation, epistemic tense gating (ADR-0031), and ancestral guardrail vetoes
+  - Domain records: `Enactment`, `CognitiveAppraisal`, `PersonaDeliberation`, `TradeOffSelection`, `EngramCitation`, `SituationFrame`, `EnactMode`, `ConfidenceLevel`, `AgencyAttribution`
+- **spector-synapse:** Wired `EnactmentService` and added `NodeType.ENACT` to `DynamicGraphBuilder` and `CognitiveState` for LangGraph4j state graphs
+- **spector-mcp:** Added declarative tool `persona_enact` (`src/main/resources/mcp/tools/persona_enact.json`, `PersonaEnactTool.java`), expanding tool suite to 23 tools with full JSON schema validation
+
 ### Added & Fixed — Cognitive Memory Review Remediation (MR-01 — MR-09) (#661)
 - **spector-memory (MR-01):** Implemented simulated-memory binary provenance in `HeaderLayout64` using `FLAG_SIMULATED` (0x20 in consolidation flags, byte 34) and `soulVersion` (bytes 46-47); fixed roundtrip persistence durability and `EncodingHeader.createSynthetic`
 - **spector-memory (MR-02):** Resolved fused score formula truth with `ScoreFusionMode` (`MULTIPLICATIVE` vs `ADDITIVE`); validated $\alpha \in [0.0, 1.0]$ in `RecallOptions` and `ScoringOptions`; added `FusedScoreFormulaPropertyTest`

@@ -55,6 +55,20 @@ graph LR
 
 Together, they ensure the agent's actions are highly personalized to the user's focus areas while remaining character-consistent and ethically bounded.
 
+### Persona Enactment: Soul as Policy over Memory (ADR-0032)
+
+Moving beyond shallow prompt-wrapping, Spector Synapse implements biological **Persona Enactment** grounded in Dual-Process Cognitive Appraisal Theory and Continuous Hopfield Attractor Networks:
+
+1. **System 1 (Automatic Stance Synthesis, sub-10ms)**:
+   - **4-Cue Self-Recall**: Gathers constitution invariants (Semantic), autobiography/scars (Episodic), playbooks (Procedural), and active loop (Working), filtered through the limited-capacity conscious bottleneck (`GlobalWorkspace`).
+   - **Cognitive Appraisal**: Computes continuous Valence, Arousal, and Dominance (VAD) deltas and agency attribution (Lazarus & Scherer), perturbing the `HomeostaticCore` SDE.
+   - **Hopfield Attractor Basin**: Relaxes emotional-sensory state into the persona's nearest associative attractor (`ContinuousHopfieldNetwork`).
+   - **Active Policy Selection**: Evaluates Expected Free Energy (EFE) $G(\pi)$ across candidate policies (`PolicyInferenceEngine`).
+2. **System 2 (Bounded Deliberation & Embodiment)**:
+   - Evaluates active dogma, trade-off matrix, blind spots, and tactical first move.
+   - Enforces Epistemic Tense gating (`FACT` vs `SIM`, ADR-0031) and ancestral guardrail vetoes.
+   - Accessible via the `ENACT` node in LangGraph4j state graphs and the `persona_enact` MCP tool.
+
 ---
 
 ## Submodule Architecture & Core Flows
