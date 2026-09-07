@@ -35,4 +35,22 @@ public record SituationFrame(
     public static SituationFrame of(String problem) {
         return new SituationFrame(problem, List.of(), "MEDIUM", false, Map.of());
     }
+
+    /**
+     * Resolves the target point-in-time timestamp for REPLAY mode if specified in context.
+     */
+    public java.time.Instant asOf() {
+        if (context == null) return null;
+        Object val = context.get("as_of");
+        if (val == null) val = context.get("asOf");
+        if (val instanceof java.time.Instant instant) return instant;
+        if (val instanceof Long epochMs) return java.time.Instant.ofEpochMilli(epochMs);
+        if (val instanceof String str && !str.isBlank()) {
+            try {
+                return java.time.Instant.parse(str);
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
 }

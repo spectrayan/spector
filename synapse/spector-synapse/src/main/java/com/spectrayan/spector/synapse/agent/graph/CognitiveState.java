@@ -64,6 +64,7 @@ public class CognitiveState extends AgentState {
             entry("retry_count",         Channels.base(() -> 0)),
             entry("enact_mode",          Channels.base(() -> "REACT")),
             entry("acting_soul_id",      Channels.base(() -> "")),
+            entry("namespace",           Channels.base(() -> "default")),
             entry("enactment",           Channels.base(() -> null))
     );
 
@@ -132,6 +133,10 @@ public class CognitiveState extends AgentState {
 
     public String actingSoulId() {
         return this.<String>value("acting_soul_id").orElse("");
+    }
+
+    public String namespace() {
+        return this.<String>value("namespace").filter(s -> !s.isBlank()).orElse("default");
     }
 
     public Optional<com.spectrayan.spector.memory.model.enactment.Enactment> enactment() {

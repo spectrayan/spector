@@ -20,7 +20,13 @@ public record RecallConfig(
         int episodicTopK,
         int proceduralTopK,
         int workingTopK,
-        String defaultQuery
+        String defaultQuery,
+        java.util.List<String> constitutionTags,
+        java.util.List<String> scarTags,
+        java.util.List<String> livedTags,
+        java.util.List<String> habitTags,
+        java.util.List<String> stateTags,
+        byte scarMaxValence
 ) {
 
     public static final int DEFAULT_SEMANTIC_TOP_K = 8;
@@ -28,6 +34,13 @@ public record RecallConfig(
     public static final int DEFAULT_PROCEDURAL_TOP_K = 5;
     public static final int DEFAULT_WORKING_TOP_K = 5;
     public static final String DEFAULT_QUERY = "self";
+
+    public static final java.util.List<String> DEFAULT_CONSTITUTION_TAGS = java.util.List.of("dogma", "value", "belief", "constraint", "soul");
+    public static final java.util.List<String> DEFAULT_SCAR_TAGS = java.util.List.of("scar", "incident", "failure", "outage", "vulnerability");
+    public static final java.util.List<String> DEFAULT_LIVED_TAGS = java.util.List.of("lived", "reaction", "decision", "waking", "enactment");
+    public static final java.util.List<String> DEFAULT_HABIT_TAGS = java.util.List.of("habit", "playbook", "procedure");
+    public static final java.util.List<String> DEFAULT_STATE_TAGS = java.util.List.of("affect", "stance", "open_loop", "active_task");
+    public static final byte DEFAULT_SCAR_MAX_VALENCE = (byte) -10;
 
     public RecallConfig {
         if (semanticTopK <= 0) {
@@ -43,6 +56,27 @@ public record RecallConfig(
             throw new IllegalArgumentException("workingTopK must be positive, got: " + workingTopK);
         }
         defaultQuery = (defaultQuery != null && !defaultQuery.isBlank()) ? defaultQuery : DEFAULT_QUERY;
+        constitutionTags = (constitutionTags != null) ? java.util.List.copyOf(constitutionTags) : DEFAULT_CONSTITUTION_TAGS;
+        scarTags = (scarTags != null) ? java.util.List.copyOf(scarTags) : DEFAULT_SCAR_TAGS;
+        livedTags = (livedTags != null) ? java.util.List.copyOf(livedTags) : DEFAULT_LIVED_TAGS;
+        habitTags = (habitTags != null) ? java.util.List.copyOf(habitTags) : DEFAULT_HABIT_TAGS;
+        stateTags = (stateTags != null) ? java.util.List.copyOf(stateTags) : DEFAULT_STATE_TAGS;
+    }
+
+    public RecallConfig(int semanticTopK, int episodicTopK, int proceduralTopK, int workingTopK, String defaultQuery) {
+        this(
+                semanticTopK,
+                episodicTopK,
+                proceduralTopK,
+                workingTopK,
+                defaultQuery,
+                DEFAULT_CONSTITUTION_TAGS,
+                DEFAULT_SCAR_TAGS,
+                DEFAULT_LIVED_TAGS,
+                DEFAULT_HABIT_TAGS,
+                DEFAULT_STATE_TAGS,
+                DEFAULT_SCAR_MAX_VALENCE
+        );
     }
 
     public static RecallConfig defaultConfig() {
@@ -51,7 +85,13 @@ public record RecallConfig(
                 DEFAULT_EPISODIC_TOP_K,
                 DEFAULT_PROCEDURAL_TOP_K,
                 DEFAULT_WORKING_TOP_K,
-                DEFAULT_QUERY
+                DEFAULT_QUERY,
+                DEFAULT_CONSTITUTION_TAGS,
+                DEFAULT_SCAR_TAGS,
+                DEFAULT_LIVED_TAGS,
+                DEFAULT_HABIT_TAGS,
+                DEFAULT_STATE_TAGS,
+                DEFAULT_SCAR_MAX_VALENCE
         );
     }
 
@@ -65,6 +105,12 @@ public record RecallConfig(
         private int proceduralTopK = DEFAULT_PROCEDURAL_TOP_K;
         private int workingTopK = DEFAULT_WORKING_TOP_K;
         private String defaultQuery = DEFAULT_QUERY;
+        private java.util.List<String> constitutionTags = DEFAULT_CONSTITUTION_TAGS;
+        private java.util.List<String> scarTags = DEFAULT_SCAR_TAGS;
+        private java.util.List<String> livedTags = DEFAULT_LIVED_TAGS;
+        private java.util.List<String> habitTags = DEFAULT_HABIT_TAGS;
+        private java.util.List<String> stateTags = DEFAULT_STATE_TAGS;
+        private byte scarMaxValence = DEFAULT_SCAR_MAX_VALENCE;
 
         public Builder semanticTopK(int semanticTopK) {
             this.semanticTopK = semanticTopK;
@@ -91,8 +137,50 @@ public record RecallConfig(
             return this;
         }
 
+        public Builder constitutionTags(java.util.List<String> tags) {
+            this.constitutionTags = tags;
+            return this;
+        }
+
+        public Builder scarTags(java.util.List<String> tags) {
+            this.scarTags = tags;
+            return this;
+        }
+
+        public Builder livedTags(java.util.List<String> tags) {
+            this.livedTags = tags;
+            return this;
+        }
+
+        public Builder habitTags(java.util.List<String> tags) {
+            this.habitTags = tags;
+            return this;
+        }
+
+        public Builder stateTags(java.util.List<String> tags) {
+            this.stateTags = tags;
+            return this;
+        }
+
+        public Builder scarMaxValence(byte valence) {
+            this.scarMaxValence = valence;
+            return this;
+        }
+
         public RecallConfig build() {
-            return new RecallConfig(semanticTopK, episodicTopK, proceduralTopK, workingTopK, defaultQuery);
+            return new RecallConfig(
+                    semanticTopK,
+                    episodicTopK,
+                    proceduralTopK,
+                    workingTopK,
+                    defaultQuery,
+                    constitutionTags,
+                    scarTags,
+                    livedTags,
+                    habitTags,
+                    stateTags,
+                    scarMaxValence
+            );
         }
     }
 }

@@ -18,6 +18,9 @@ import com.spectrayan.spector.memory.aisme.enactment.EnactmentConfig;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.enactment.EngramCitation;
 import com.spectrayan.spector.memory.model.enactment.EnactMode;
 import com.spectrayan.spector.memory.model.enactment.Enactment;
 import com.spectrayan.spector.memory.model.enactment.SituationFrame;
@@ -78,6 +81,39 @@ class PersonaEnactmentTest {
             verify(memoryA, atLeastOnce()).recall(anyString(), any(RecallOptions.class));
             verify(memoryB, never()).recall(anyString(), any(RecallOptions.class));
         }
+
+        @Test
+        @DisplayName("Enactments across two namespaces produce strictly disjoint citation sets (Invariant I1)")
+        void namespaceIsolation_producesDisjointCitationsBetweenNamespaces() {
+            SpectorMemory memoryA = mock(SpectorMemory.class);
+            SpectorMemory memoryB = mock(SpectorMemory.class);
+
+            when(memoryRegistry.resolveFor("ns-a")).thenReturn(memoryA);
+            when(memoryRegistry.resolveFor("ns-b")).thenReturn(memoryB);
+
+            CognitiveResult hitA = new CognitiveResult(
+                    "mem://ns-a/1", "Namespace A trace", 0.9f, 1.0f, 0.0f, 0, (byte) 0,
+                    MemoryType.SEMANTIC, MemorySource.OBSERVED, new String[]{"constitution", "persona:forge"}, 1.0f, 1.0f);
+            CognitiveResult hitB = new CognitiveResult(
+                    "mem://ns-b/2", "Namespace B trace", 0.9f, 1.0f, 0.0f, 0, (byte) 0,
+                    MemoryType.SEMANTIC, MemorySource.OBSERVED, new String[]{"constitution", "persona:forge"}, 1.0f, 1.0f);
+
+            when(memoryA.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of(hitA));
+            when(memoryB.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of(hitB));
+
+            AgentSoul soul = AgentSoul.builder().id("forge").name("Forge").build();
+            when(soulService.getEffectiveSoul("forge")).thenReturn(soul);
+
+            SituationFrame situation = SituationFrame.of("Execute task");
+            Enactment enactA = enactmentService.enact(situation, "ns-a", "forge", EnactMode.REACT);
+            Enactment enactB = enactmentService.enact(situation, "ns-b", "forge", EnactMode.REACT);
+
+            assertThat(enactA.citations()).extracting(EngramCitation::memoryId).contains("mem://ns-a/1");
+            assertThat(enactA.citations()).extracting(EngramCitation::memoryId).doesNotContain("mem://ns-b/2");
+
+            assertThat(enactB.citations()).extracting(EngramCitation::memoryId).contains("mem://ns-b/2");
+            assertThat(enactB.citations()).extracting(EngramCitation::memoryId).doesNotContain("mem://ns-a/1");
+        }
     }
 
     @Nested
@@ -109,6 +145,30 @@ class PersonaEnactmentTest {
             assertThat(enactment).isNotNull();
             assertThat(enactment.situation().problem()).contains("high-severity vulnerability");
             assertThat(enactment.tense()).isEqualTo("FACT");
+        }
+
+        @Test
+        @DisplayName("EnactNode dynamically resolves and propagates namespace from CognitiveState")
+        void enactNode_propagatesDynamicNamespaceFromCognitiveState() {
+            SpectorMemory tenantMemory = mock(SpectorMemory.class);
+            when(memoryRegistry.resolveFor("tenant-security")).thenReturn(tenantMemory);
+            when(tenantMemory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of());
+
+            AgentSoul jarvis = AgentSoul.builder().id("jarvis").name("Jarvis").build();
+            when(soulService.getEffectiveSoul("jarvis")).thenReturn(jarvis);
+
+            EnactNode enactNode = new EnactNode(enactmentService, "jarvis");
+
+            CognitiveState state = new CognitiveState(Map.of(
+                    "query", "Audit secrets exposure",
+                    "namespace", "tenant-security"
+            ));
+
+            Map<String, Object> updates = enactNode.apply(state);
+
+            assertThat(updates).containsKey("enactment");
+            verify(memoryRegistry).resolveFor("tenant-security");
+            verify(memoryRegistry, never()).resolveFor("default");
         }
     }
 

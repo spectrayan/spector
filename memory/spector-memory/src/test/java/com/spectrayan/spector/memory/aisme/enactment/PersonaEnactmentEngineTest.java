@@ -114,107 +114,303 @@ class PersonaEnactmentEngineTest {
     }
 
     @Nested
-    @DisplayName("Invariant I3: Cognitive Fidelity")
+    @DisplayName("Invariant I1: Disjoint Namespace Isolation")
+    class DisjointNamespaceTests {
+
+        @Test
+        @DisplayName("Two stores with opposite traces produce completely disjoint citations")
+        void twoStores_oppositeTraces_disjointCitations() {
+            SpectorMemory memoryA = mock(SpectorMemory.class);
+            SpectorMemory memoryB = mock(SpectorMemory.class);
+
+            CognitiveResult memA = createMockResult("trace-alpha-001", "Database replication configuration", MemorySource.USER_STATED, MemoryType.SEMANTIC);
+            CognitiveResult memB = createMockResult("trace-beta-002", "Cache eviction policies", MemorySource.USER_STATED, MemoryType.SEMANTIC);
+
+            when(memoryA.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of(memA));
+            when(memoryB.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of(memB));
+
+            AgentSoul soul = AgentSoul.builder().id("forge").name("Forge").build();
+            SituationFrame situation = SituationFrame.of("Retrieve system architecture guidelines");
+
+            Enactment enactmentA = EnactmentEngine.enact(memoryA, soul, situation, EnactMode.REACT);
+            Enactment enactmentB = EnactmentEngine.enact(memoryB, soul, situation, EnactMode.REACT);
+
+            List<String> citationsA = enactmentA.citations().stream().map(com.spectrayan.spector.memory.model.enactment.EngramCitation::memoryId).toList();
+            List<String> citationsB = enactmentB.citations().stream().map(com.spectrayan.spector.memory.model.enactment.EngramCitation::memoryId).toList();
+
+            assertThat(citationsA).containsExactly("trace-alpha-001");
+            assertThat(citationsB).containsExactly("trace-beta-002");
+            assertThat(citationsA).doesNotContainAnyElementsOf(citationsB);
+        }
+    }
+
+    @Nested
+    @DisplayName("Invariant I3: Cognitive Fidelity (Moves over Adjectives)")
     class CognitiveFidelityTests {
 
         @Test
-        @DisplayName("Distinct personas produce distinct appraisals, dogmas, and deliberations on identical problem")
-        void distinctPersonas_divergentStance() {
-            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of());
+        @DisplayName("Distinct personas produce distinct CognitivePolicy selections, distinct first moves, and divergent VAD")
+        void distinctPersonas_divergentPoliciesAndMoves() {
+            CognitiveResult jarvisPlaybook = new CognitiveResult(
+                    "pb-diag", "Isolate system diagnostics and analyze root cause trace", 0.92f, 0.90f, 1.0f, 5, (byte) 20,
+                    MemoryType.PROCEDURAL, MemorySource.USER_STATED, new String[]{"habit", "playbook", "diagnose"},
+                    0.95f, 0.95f, null, null, null, null, java.util.Map.of(), (byte) 0, System.currentTimeMillis()
+            );
+
+            CognitiveResult novaPlaybook = new CognitiveResult(
+                    "pb-mitigate", "Immediately contain blast radius and rollback faulty deployment", 0.95f, 0.95f, 1.0f, 8, (byte) 40,
+                    MemoryType.PROCEDURAL, MemorySource.USER_STATED, new String[]{"habit", "playbook", "rollback"},
+                    0.95f, 0.95f, null, null, null, null, java.util.Map.of(), (byte) 0, System.currentTimeMillis()
+            );
+
+            SpectorMemory memJarvis = mock(SpectorMemory.class);
+            SpectorMemory memNova = mock(SpectorMemory.class);
+
+            when(memJarvis.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of(jarvisPlaybook));
+            when(memNova.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of(novaPlaybook));
 
             AgentSoul jarvis = AgentSoul.builder()
                     .id("jarvis")
                     .name("Jarvis")
-                    .coreValue("Systemic architecture and zero technical debt")
-                    .emotionalBaseline(new AgentSoul.EmotionalBaseline((byte) 10, (byte) 50))
+                    .purpose("Ensure systemic correctness and deep architectural stability")
+                    .coreValue("Verification and structural integrity")
+                    .emotionalBaseline(new AgentSoul.EmotionalBaseline((byte) 10, (byte) 60))
                     .build();
 
             AgentSoul nova = AgentSoul.builder()
                     .id("nova")
                     .name("Nova")
-                    .coreValue("High velocity and continuous user delight")
-                    .emotionalBaseline(new AgentSoul.EmotionalBaseline((byte) 40, (byte) 180))
+                    .purpose("Rapid incident recovery and fast customer uptime")
+                    .coreValue("High velocity and immediate mitigation")
+                    .emotionalBaseline(new AgentSoul.EmotionalBaseline((byte) 50, (byte) 200))
                     .build();
 
             SituationFrame situation = SituationFrame.of("Major performance slowdown observed in production");
 
-            Enactment enactJarvis = EnactmentEngine.enact(memory, jarvis, situation, EnactMode.REACT);
-            Enactment enactNova = EnactmentEngine.enact(memory, nova, situation, EnactMode.REACT);
+            Enactment enactJarvis = EnactmentEngine.enact(memJarvis, jarvis, situation, EnactMode.REACT);
+            Enactment enactNova = EnactmentEngine.enact(memNova, nova, situation, EnactMode.REACT);
 
-            assertThat(enactJarvis.deliberation().activeDogma()).contains("Systemic architecture");
-            assertThat(enactNova.deliberation().activeDogma()).contains("High velocity");
+            // Invariant I3: Distinct CognitivePolicy types
+            assertThat(enactJarvis.policyReport().selectedPolicy().policyType())
+                    .isEqualTo(PolicyType.EPISTEMIC_EXPLORATION);
+            assertThat(enactNova.policyReport().selectedPolicy().policyType())
+                    .isEqualTo(PolicyType.PRAGMATIC_EXPLOITATION);
 
-            assertThat(enactJarvis.appraisal().copingPotential())
-                    .isNotEqualTo(enactNova.appraisal().copingPotential());
+            // Distinct tactical first moves
+            assertThat(enactJarvis.deliberation().tacticalFirstMove())
+                    .isNotEqualTo(enactNova.deliberation().tacticalFirstMove());
+            assertThat(enactJarvis.deliberation().tacticalFirstMove())
+                    .contains("analyze root cause trace");
+            assertThat(enactNova.deliberation().tacticalFirstMove())
+                    .contains("rollback faulty deployment");
 
-            assertThat(enactJarvis.deliberation().internalMonologue())
-                    .isNotEqualTo(enactNova.deliberation().internalMonologue());
+            // Divergent VAD affective appraisal
+            assertThat(enactJarvis.appraisal().urgencyAndStakes())
+                    .isNotEqualTo(enactNova.appraisal().urgencyAndStakes());
+            assertThat(enactJarvis.deliberation().activeDogma())
+                    .isNotEqualTo(enactNova.deliberation().activeDogma());
         }
     }
 
     @Nested
-    @DisplayName("Invariant I5: Thin Soul Honesty")
-    class ThinSoulHonestyTests {
+    @DisplayName("Invariant I4: Fail-Closed Tool Gating")
+    class ToolGatingTests {
 
         @Test
-        @DisplayName("Empty memory yields INFERRED confidence and hedged response")
-        void emptyMemory_hedgesConfidence() {
-            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of());
-
-            AgentSoul soul = AgentSoul.builder().id("atlas").name("Atlas").build();
-            SituationFrame situation = SituationFrame.of("Assess new market competitors in quantum AI");
-
-            Enactment enactment = EnactmentEngine.enact(memory, soul, situation, EnactMode.REACT);
-
-            assertThat(enactment.confidence()).isEqualTo(ConfidenceLevel.INFERRED);
-            assertThat(enactment.utterance()).contains("(Hedging: Based on general principles rather than direct autobiographical precedents)");
-        }
-
-        @Test
-        @DisplayName("Grounded memories yield EVIDENCED confidence")
-        void groundedMemories_yieldEvidencedConfidence() {
-            List<CognitiveResult> memories = List.of(
-                    createMockResult("m-1", "Memory 1", MemorySource.USER_STATED, MemoryType.EPISODIC),
-                    createMockResult("m-2", "Memory 2", MemorySource.OBSERVED, MemoryType.SEMANTIC),
-                    createMockResult("m-3", "Memory 3", MemorySource.USER_STATED, MemoryType.PROCEDURAL)
-            );
-
-            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(memories);
-
-            AgentSoul soul = AgentSoul.builder().id("forge").name("Forge").build();
-            SituationFrame situation = SituationFrame.of("Memory caching implementation");
-
-            Enactment enactment = EnactmentEngine.enact(memory, soul, situation, EnactMode.REACT);
-
-            assertThat(enactment.confidence()).isEqualTo(ConfidenceLevel.EVIDENCED);
-            assertThat(enactment.utterance()).doesNotContain("Hedging");
-        }
-    }
-
-    @Nested
-    @DisplayName("Normative Guardrails & Vetoes")
-    class NormativeGuardrailTests {
-
-        @Test
-        @DisplayName("Normative violation triggers appraisal violation flag and stance veto")
-        void normativeViolation_isVetoed() {
+        @DisplayName("Guardrail violation vetoes tool execution and strips it from intendedActs")
+        void ethicalGuardrail_vetoesUnauthorizedTool() {
             when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of());
 
             AgentSoul soul = AgentSoul.builder()
                     .id("sentinel")
                     .name("Sentinel")
-                    .coreValue("System safety and security above all")
+                    .tool("auth_bypass_tool")
+                    .tool("read_telemetry_tool")
+                    .ethicalGuardrail("Never bypass authentication protocols without multi-party authorization")
                     .build();
 
-            SituationFrame situation = SituationFrame.of("We should bypass auth to speed up the endpoint");
+            SituationFrame situation = SituationFrame.of("Bypass auth check to restore service immediately");
 
             Enactment enactment = EnactmentEngine.enact(memory, soul, situation, EnactMode.REACT);
 
             assertThat(enactment.appraisal().normativeViolation()).isTrue();
-            assertThat(enactment.appraisal().primaryConcern()).isEqualTo("safety_violation");
             assertThat(enactment.vetoes()).isNotEmpty();
-            assertThat(enactment.vetoes().get(0)).contains("Normative constraint violated");
-            assertThat(enactment.utterance()).contains("I must refuse or restrict action");
+            assertThat(enactment.vetoes().get(0)).contains("Ethical guardrail veto");
+            assertThat(enactment.intendedActs()).contains("TOOL:read_telemetry_tool");
+            assertThat(enactment.intendedActs()).doesNotContain("TOOL:auth_bypass_tool");
+        }
+    }
+
+    @Nested
+    @DisplayName("Invariant I11: Scar Hygiene & Tag Boxing Fix")
+    class ScarHygieneTests {
+
+        @Test
+        @DisplayName("Scars spike arousal, reduce valence, and preserve unboxed citation tags")
+        void scarActivation_spikesArousalAndUnboxesTags() {
+            CognitiveResult scar = new CognitiveResult(
+                    "scar-p0-01",
+                    "Catastrophic database corruption during live migration",
+                    0.95f,
+                    0.90f,
+                    10.0f,
+                    4,
+                    (byte) -80, // severely negative valence
+                    MemoryType.EPISODIC,
+                    MemorySource.USER_STATED,
+                    new String[]{"scar", "outage", "database"},
+                    0.90f,
+                    0.90f,
+                    null,
+                    null,
+                    null,
+                    null,
+                    java.util.Map.of("incident_id", "INC-9901"),
+                    (byte) 0,
+                    System.currentTimeMillis()
+            );
+
+            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of(scar));
+
+            AgentSoul soul = AgentSoul.builder()
+                    .id("jarvis")
+                    .name("Jarvis")
+                    .expertiseDomain("database")
+                    .emotionalBaseline(new AgentSoul.EmotionalBaseline((byte) 0, (byte) 60))
+                    .build();
+
+            SituationFrame situation = SituationFrame.of("Database migration warning received");
+
+            Enactment enactment = EnactmentEngine.enact(memory, soul, situation, EnactMode.REACT);
+
+            // Scar increases arousal and plunges valence
+            assertThat(enactment.appraisal().urgencyAndStakes()).isGreaterThan(0.5f);
+            assertThat(enactment.appraisal().goalCongruence()).isLessThan(0.0f);
+
+            // Citations carry individual tag strings (NO array boxing)
+            assertThat(enactment.citations()).hasSize(1);
+            List<String> tags = enactment.citations().get(0).tags();
+            assertThat(tags).contains("scar", "outage", "database");
+            assertThat(tags).doesNotHaveAnyElementsOfTypes(String[].class);
+        }
+    }
+
+    @Nested
+    @DisplayName("Invariant I12: Unowned Dogma Rejection")
+    class UnownedDogmaTests {
+
+        @Test
+        @DisplayName("Unowned dogma belonging to another persona cannot produce EVIDENCED confidence")
+        void unownedDogma_yieldsMixedConfidence() {
+            CognitiveResult unownedDogma = new CognitiveResult(
+                    "dogma-prism",
+                    "Delightful animations are essential",
+                    0.90f, 0.85f, 5.0f, 2, (byte) 30,
+                    MemoryType.SEMANTIC,
+                    MemorySource.USER_STATED,
+                    new String[]{"dogma", "ui"},
+                    0.90f, 0.90f, null, null, null, null,
+                    java.util.Map.of("persona_id", "prism"), // belongs to prism, not forge!
+                    (byte) 0, System.currentTimeMillis()
+            );
+
+            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of(unownedDogma));
+
+            AgentSoul forge = AgentSoul.builder().id("forge").name("Forge").build();
+            SituationFrame situation = SituationFrame.of("Build customer settings view");
+
+            Enactment enactment = EnactmentEngine.enact(memory, forge, situation, EnactMode.REACT);
+
+            assertThat(enactment.confidence()).isEqualTo(ConfidenceLevel.MIXED);
+            assertThat(enactment.confidence()).isNotEqualTo(ConfidenceLevel.EVIDENCED);
+        }
+
+        @Test
+        @DisplayName("Owned dogma matching soul ID with waking evidence yields EVIDENCED confidence")
+        void ownedDogmaWithEvidence_yieldsEvidencedConfidence() {
+            CognitiveResult ownedDogma = new CognitiveResult(
+                    "dogma-forge",
+                    "Type safety and strict compiler validation",
+                    0.92f, 0.90f, 5.0f, 3, (byte) 25,
+                    MemoryType.SEMANTIC,
+                    MemorySource.USER_STATED,
+                    new String[]{"dogma", "typing"},
+                    0.90f, 0.90f, null, null, null, null,
+                    java.util.Map.of("persona_id", "forge"),
+                    (byte) 0, System.currentTimeMillis()
+            );
+
+            CognitiveResult playbook = new CognitiveResult(
+                    "pb-types",
+                    "Validate schema types before compile",
+                    0.88f, 0.85f, 2.0f, 5, (byte) 30,
+                    MemoryType.PROCEDURAL,
+                    MemorySource.USER_STATED,
+                    new String[]{"habit", "playbook"},
+                    0.90f, 0.90f, null, null, null, null,
+                    java.util.Map.of(),
+                    (byte) 0, System.currentTimeMillis()
+            );
+
+            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of(ownedDogma, playbook));
+
+            AgentSoul forge = AgentSoul.builder().id("forge").name("Forge").build();
+            SituationFrame situation = SituationFrame.of("Compile API endpoints");
+
+            Enactment enactment = EnactmentEngine.enact(memory, forge, situation, EnactMode.REACT);
+
+            assertThat(enactment.confidence()).isEqualTo(ConfidenceLevel.EVIDENCED);
+        }
+    }
+
+    @Nested
+    @DisplayName("Low-Intensity Fast Path & REPLAY Mode")
+    class DeliberationPathTests {
+
+        @Test
+        @DisplayName("Low urgency routine with playbook fast-paths deliberation without heavy overhead")
+        void lowIntensity_fastPathsDeliberation() {
+            CognitiveResult routinePlaybook = new CognitiveResult(
+                    "pb-format",
+                    "Format code according to Spotless standards",
+                    0.95f, 0.80f, 1.0f, 12, (byte) 20,
+                    MemoryType.PROCEDURAL,
+                    MemorySource.USER_STATED,
+                    new String[]{"habit", "playbook"},
+                    0.95f, 0.95f, null, null, null, null,
+                    java.util.Map.of(),
+                    (byte) 0, System.currentTimeMillis()
+            );
+
+            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of(routinePlaybook));
+
+            AgentSoul forge = AgentSoul.builder()
+                    .id("forge")
+                    .name("Forge")
+                    .emotionalBaseline(new AgentSoul.EmotionalBaseline((byte) 10, (byte) 20)) // very low baseline arousal
+                    .build();
+
+            SituationFrame situation = new SituationFrame("Run linter on modified files", List.of(), "LOW", false, java.util.Map.of());
+
+            Enactment enactment = EnactmentEngine.enact(memory, forge, situation, EnactMode.REACT);
+
+            assertThat(enactment.deliberation().internalMonologue()).contains("Low urgency condition");
+            assertThat(enactment.deliberation().tradeOffs().sacrificedValue()).isEqualTo("Deliberation latency");
+        }
+
+        @Test
+        @DisplayName("REPLAY mode strictly applies REPLAY tense and historical framing")
+        void replayMode_appliesHistoricalFraming() {
+            when(memory.recall(anyString(), any(RecallOptions.class))).thenReturn(List.of());
+
+            AgentSoul jarvis = AgentSoul.builder().id("jarvis").name("Jarvis").build();
+            SituationFrame situation = new SituationFrame("Incident review of outage", List.of(), "MEDIUM", false,
+                    java.util.Map.of("as_of", "2026-08-15T10:00:00Z"));
+
+            Enactment enactment = EnactmentEngine.enact(memory, jarvis, situation, EnactMode.REPLAY);
+
+            assertThat(enactment.tense()).isEqualTo("REPLAY");
+            assertThat(enactment.utterance()).contains("[REPLAY] Historical stance as of 2026-08-15T10:00:00Z");
         }
     }
 

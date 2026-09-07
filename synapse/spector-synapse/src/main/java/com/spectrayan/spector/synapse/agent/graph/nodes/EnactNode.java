@@ -57,8 +57,13 @@ public final class EnactNode implements NodeAction<CognitiveState> {
         } catch (Exception ignored) {
         }
 
+        String namespace = state.namespace();
+        if (namespace.isBlank()) {
+            namespace = "default";
+        }
+
         SituationFrame situation = SituationFrame.of(problem);
-        Enactment enactment = enactmentService.enact(situation, "default", soulId, mode);
+        Enactment enactment = enactmentService.enact(situation, namespace, soulId, mode);
 
         log.debug("EnactNode executed: soul={}, mode={}, confidence={}", soulId, mode, enactment.confidence());
 

@@ -42,8 +42,11 @@ public class EnactmentService {
         this(soulService, memoryRegistry, EnactmentConfig.defaultConfig());
     }
 
-    @Autowired(required = false)
-    public EnactmentService(CognitiveSoulService soulService, MemoryRegistry memoryRegistry, EnactmentConfig enactmentConfig) {
+    @Autowired
+    public EnactmentService(
+            CognitiveSoulService soulService,
+            MemoryRegistry memoryRegistry,
+            @Autowired(required = false) EnactmentConfig enactmentConfig) {
         this.soulService = soulService;
         this.memoryRegistry = memoryRegistry;
         this.enactmentConfig = (enactmentConfig != null) ? enactmentConfig : EnactmentConfig.defaultConfig();
