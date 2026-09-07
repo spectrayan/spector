@@ -322,4 +322,23 @@ class SpectorAutoConfigurationTest {
             assertThat(provider).isNotInstanceOf(CachingEmbeddingProvider.class);
         });
     }
+
+    @Configuration(proxyBeanMethods = false)
+    static class TestOfflineEmbeddingProviderConfiguration {
+        @Bean
+        EmbeddingProvider embeddingProvider() {
+            EmbeddingProvider mock = Mockito.mock(EmbeddingProvider.class);
+            Mockito.when(mock.dimensions()).thenThrow(new RuntimeException("Connection refused (provider offline)"));
+            Mockito.when(mock.modelName()).thenReturn("offline-embed");
+            return mock;
+        }
+    }
+
+    @Test
+    void shouldGracefullyHandleOfflineEmbeddingProviderDuringDimensionProbing() {
+        contextRunner.withUserConfiguration(TestOfflineEmbeddingProviderConfiguration.class)
+                .run(context -> {
+                    assertThat(context).hasSingleBean(SpectorMemory.class);
+                });
+    }
 }

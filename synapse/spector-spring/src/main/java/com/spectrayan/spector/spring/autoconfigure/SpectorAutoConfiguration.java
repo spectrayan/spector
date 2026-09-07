@@ -138,11 +138,19 @@ public class SpectorAutoConfiguration {
                 throw new SpectorInternalException(ErrorCode.ARGUMENT_NULL, "EmbeddingProvider bean (configure provider or set spector.memory.enabled=false)");
             }
 
-            if (embedder.dimensions() > 0 && memoryProps.getDimensions() != embedder.dimensions()) {
+            int embedderDims = props.getProvider().getEmbedding().getDimensions();
+            if (embedderDims <= 0) {
+                try {
+                    embedderDims = embedder.dimensions();
+                } catch (Exception e) {
+                    log.debug("[Spector] Could not probe embedder dimensions eagerly (provider offline): {}", e.getMessage());
+                }
+            }
+            if (embedderDims > 0 && memoryProps.getDimensions() != embedderDims) {
                 log.info("[Spector] Aligning memory dimensions from {} to active embedder dimensions ({})",
-                        memoryProps.getDimensions(), embedder.dimensions());
-                memoryProps.setDimensions(embedder.dimensions());
-                props.getMemory().setDimensions(embedder.dimensions());
+                        memoryProps.getDimensions(), embedderDims);
+                memoryProps.setDimensions(embedderDims);
+                props.getMemory().setDimensions(embedderDims);
             }
 
             if (spectorProps.hardware() != null) {
