@@ -1,0 +1,44 @@
+name: Publish Helm Chart to GHCR
+
+on:
+  push:
+    paths:
+      - 'deploy/helm/**'
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish-chart:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Lint Helm Chart
+        run: |
+          helm lint deploy/helm/spector
+
+      - name: Package Chart
+        run: |
+          mkdir -p .cr-release-packages
+          helm package deploy/helm/spector --destination .cr-release-packages
+
+      - name: Log in to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push Chart to OCI Registry
+        run: |
+          for pkg in .cr-release-packages/*.tgz; do
+            helm push "$pkg" oci://ghcr.io/spectrayan/charts
+          done

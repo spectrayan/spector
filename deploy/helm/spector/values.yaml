@@ -1,0 +1,77 @@
+# Default values for spector.
+# Developer-friendly defaults suitable for local clusters (kind, k3d, Minikube) and cloud clusters.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/spectrayan/spector
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  ports:
+    dashboard: 7700
+    api: 7070
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: spector.local
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 7700
+  tls: []
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 3Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+persistence:
+  enabled: true
+  accessMode: ReadWriteOnce
+  size: 10Gi
+  mountPath: /data
+  # storageClass: "-"
+
+env:
+  SPECTOR_PORT: "7070"
+  SPECTOR_DIMS: "384"
+  SPECTOR_NODE_ID: "spector-k8s"
+
+config:
+  persistence:
+    path: /data/memory
+    wal:
+      path: /data/memory/wal
+  index:
+    path: /data/index
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

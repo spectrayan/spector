@@ -1,0 +1,18 @@
+apiVersion: v2
+name: spector
+description: Lightweight, agent-ready AI memory backbone and vector search engine with cognitive tiers
+type: application
+version: 0.1.0-alpha
+appVersion: "0.1.0-alpha"
+keywords:
+  - ai-memory
+  - vector-search
+  - mcp
+  - cognitive-computing
+  - panama-vector
+home: https://github.com/spectrayan/spector
+sources:
+  - https://github.com/spectrayan/spector
+maintainers:
+  - name: Spectrayan Maintainers
+    email: dev@spectrayan.com
