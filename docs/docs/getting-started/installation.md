@@ -42,7 +42,10 @@ spector doctor
 
 ---
 
-## 3. Package Managers
+## 3. Package Managers (Available with Release Tags)
+
+> [!NOTE]
+> Homebrew and Scoop package manager installations pull `spector.jar` from GitHub Releases. They activate once the release binary is published for your tag.
 
 === "macOS & Linux (Homebrew)"
     ```bash
@@ -96,9 +99,13 @@ If you are building applications that interact with Spector over HTTP/SSE:
     <dependency>
         <groupId>com.spectrayan</groupId>
         <artifactId>spector-client</artifactId>
-        <version>0.1.0-alpha</version>
+        <version>0.1.0-beta</version>
     </dependency>
     ```
+
+    > [!NOTE]
+    > **Java Embed Dependency**: Applications should depend on `com.spectrayan:spector-client`. The root coordinate `com.spectrayan:spector` is the multi-module reactor parent POM and does not contain client classes.
+
     See the [Java Client Guide](../sdk-usage/java-client.md).
 
 ---

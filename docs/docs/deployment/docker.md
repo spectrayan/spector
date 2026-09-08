@@ -15,6 +15,11 @@ Spector provides official multi-architecture container images (`linux/amd64`, `l
 
 Spector includes an out-of-the-box [`docker-compose.yml`](https://github.com/spectrayan/spector/blob/main/docker-compose.yml) with automatic named volume provisioning.
 
+> [!NOTE]
+> **Architecture Split: Daemon vs. CLI Runner**
+> The Docker container runs the full **Spector Synapse server daemon** (`spector-synapse.jar`), exposing the REST API, SSE event streams, HTTP MCP endpoints, and the embedded Cortex Neural Dashboard.
+> In contrast, the standalone CLI installer and `npx @spectrayan/spector` launcher run the lightweight **Spector CLI runner** (`spector.jar`), designed for direct MCP stdio communication and ad-hoc administration commands (`spector doctor`, `spector inspect`).
+
 ### 1. Launch Core Memory Engine & Dashboard
 Starts the Spector Synapse daemon (REST, SSE, and MCP HTTP endpoints on port `:7070`) and Cortex Neural Dashboard (on port `:7700`):
 
@@ -34,8 +39,14 @@ Spector uses modular Docker Compose profiles for optional subsystems:
 | Profile | Command | Description | Ports |
 |:---|:---|:---|:---|
 | **Default** | `docker compose up -d` | Core engine + Cortex Neural Dashboard | `7070`, `7700:8080` |
-| **`embeddings`** | `docker compose --profile embeddings up -d` | Adds a bundled local Ollama container for embeddings | `11434`, `7070`, `7700` |
+| **`embeddings`** | `docker compose --profile embeddings up -d` | Adds a bundled local Ollama container (`OLLAMA_HOST=http://ollama:11434`) | `11434`, `7070`, `7700` |
 | **`gpu`** | `docker compose --profile gpu up -d` | Enables GPU passthrough to Ollama for hardware-accelerated embeddings | `11434`, `7070`, `7700` |
+
+> [!TIP]
+> When using the `embeddings` profile, initialize the embedding model inside the Ollama container:
+> ```bash
+> docker exec -it spector-ollama ollama pull nomic-embed-text
+> ```
 
 Combine profiles as needed:
 ```bash

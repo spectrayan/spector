@@ -31,9 +31,14 @@ Legacy AI stacks bolt memory onto stateless vector databases — storage without
 Connect an agent, install an SDK, or launch a local node in seconds:
 
 ### 1. Zero-Install MCP Server (for AI Agents)
-Run instantly via NPX — connects to a running local Synapse daemon on `:7070` if healthy, or automatically downloads `spector.jar` to run an embedded ONNX memory kernel (requires OpenJDK 25+):
+Run instantly via NPX — connects to a running local Synapse daemon on `:7070` if healthy, or runs an embedded memory kernel (requires OpenJDK 25+):
 ```bash
+# Agent runner: connects to local daemon or launches in-process MCP kernel
 npx -y @spectrayan/spector mcp
+
+# Or build and launch from source:
+mvn clean package -pl synapse/spector-cli -am -DskipTests
+java --enable-preview --add-modules=jdk.incubator.vector -jar synapse/spector-cli/target/spector.jar mcp
 ```
 
 ### 2. Client SDKs (Zero Java Required)
@@ -84,14 +89,9 @@ curl -fsSL https://raw.githubusercontent.com/spectrayan/spector/main/scripts/ins
 
 # Windows (PowerShell)
 irm https://raw.githubusercontent.com/spectrayan/spector/main/scripts/install.ps1 | iex
-
-# Homebrew (macOS / Linux)
-brew tap spectrayan/spector https://github.com/spectrayan/spector
-brew install spector
-
-# Scoop (Windows)
-scoop install https://raw.githubusercontent.com/spectrayan/spector/main/packaging/scoop/spector.json
 ```
+
+*(For Homebrew, Scoop, Helm, and Java embed instructions, see the [Installation Guide](https://spectrayan.github.io/spector/getting-started/installation/)).*
 
 ---
 
