@@ -52,8 +52,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user spector (UID/GID 1000)
-RUN groupadd -g 1000 spector && \
-    useradd -u 1000 -g spector -m -s /bin/bash spector
+RUN (userdel -r ubuntu 2>/dev/null || true) && \
+    (groupdel ubuntu 2>/dev/null || true) && \
+    (groupadd -g 1000 spector 2>/dev/null || true) && \
+    (id -u 1000 >/dev/null 2>&1 || useradd -u 1000 -g 1000 -m -s /bin/bash spector)
 
 WORKDIR /app
 
