@@ -10,7 +10,7 @@
     <packaging>pom</packaging>
 
     <name>Spector</name>
-    <description>Ultra-fast, SIMD-accelerated semantic search engine built on Java Vector API + modern JVM technologies.</description>
+    <description>Spector — Cognitive memory engine for AI agents</description>
     <url>https://github.com/spectrayan/spector</url>
 
     <licenses>

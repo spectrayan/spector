@@ -13,10 +13,7 @@
 
     <artifactId>spector-client</artifactId>
     <name>Spector Client SDK (Java)</name>
-    <description>
-        Lightweight, zero-dependency Java Client SDK for the Spector Cognitive Memory &amp; Search platform.
-        Generated from OpenAPI 3.1 with a thin ergonomic facade for JVM applications.
-    </description>
+    <description>Client SDK for Spector — Cognitive memory engine for AI agents</description>
 
     <properties>
         <spector.module.name>com.spectrayan.spector.client</spector.module.name>
