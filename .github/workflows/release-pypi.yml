@@ -48,10 +48,15 @@ jobs:
           cd sdks/python
           if [ -n "${{ github.event.inputs.version }}" ]; then
             VERSION="${{ github.event.inputs.version }}"
-            sed -i -E "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
           elif [[ "$GITHUB_REF_NAME" =~ ^v?[0-9] ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
-            sed -i -E "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
+          else
+            VERSION=""
+          fi
+          if [ -n "$VERSION" ]; then
+            # Normalize semver pre-release to PEP 440 (e.g. 0.1.0-beta.1 -> 0.1.0b1, 0.1.0-alpha.1 -> 0.1.0a1, 0.1.0-rc.1 -> 0.1.0rc1)
+            PEP440_VERSION=$(echo "$VERSION" | sed -E 's/-beta\.?([0-9]*)/b\1/' | sed -E 's/-alpha\.?([0-9]*)/a\1/' | sed -E 's/-rc\.?([0-9]*)/rc\1/')
+            sed -i -E "s/^version = .*/version = \"$PEP440_VERSION\"/" pyproject.toml
           fi
           python -m build
           twine check dist/*
@@ -61,3 +66,4 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: sdks/python/dist/
+          skip-existing: true

@@ -5,6 +5,12 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.1.0-beta.0). Required when running manually'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
@@ -20,7 +26,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '25'
           distribution: 'temurin'
@@ -28,8 +34,16 @@ jobs:
 
       - name: Build spector.jar
         run: |
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          VERSION_ARG=""
+          if [ -n "$TAG" ] && [ "$TAG" != "main" ]; then
+            VERSION_ARG="-Drevision=${TAG#v}"
+          fi
           # Build fat JAR with all synapse dependencies
-          mvn -B clean package -DskipTests -pl synapse/spector-cli -am --no-transfer-progress
+          mvn -B clean package -DskipTests $VERSION_ARG -pl synapse/spector-cli -am --no-transfer-progress
           cp synapse/spector-cli/target/spector.jar ./spector.jar
           sha256sum spector.jar > spector.jar.sha256
           echo "Generated spector.jar checksum:"
@@ -44,7 +58,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          if [ "$TAG" = "main" ] || [ -z "$TAG" ]; then
+            echo "Error: Must specify a valid release tag (e.g. v0.1.0-beta.0) when running manually." >&2
+            exit 1
+          fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists; uploading assets..."
             gh release upload "$TAG" spector.jar spector.jar.sha256 --clobber
