@@ -1,12 +1,12 @@
 {
-  "version": "0.1.0-alpha",
+  "version": "0.1.0-beta.0",
   "description": "Cognitive memory engine for AI agents (Requires OpenJDK 25+)",
   "homepage": "https://github.com/spectrayan/spector",
   "license": "Apache-2.0",
   "suggest": {
     "JDK 25": "java/openjdk25"
   },
-  "url": "https://github.com/spectrayan/spector/releases/download/v0.1.0-alpha/spector.jar",
+  "url": "https://github.com/spectrayan/spector/releases/download/v0.1.0-beta.0/spector.jar",
   "hash": "0000000000000000000000000000000000000000000000000000000000000000",
   "bin": "spector.cmd",
   "pre_install": [

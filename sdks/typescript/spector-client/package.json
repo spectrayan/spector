@@ -1,6 +1,6 @@
 {
   "name": "@spectrayan/spector-client",
-  "version": "0.1.0-alpha",
+  "version": "0.1.0-beta.0",
   "description": "Client SDK for Spector — Cognitive memory engine for AI agents",
   "author": "Spectrayan Maintainers <dev@spectrayan.com>",
   "license": "Apache-2.0",

@@ -7,10 +7,10 @@
 class Spector < Formula
   desc "Cognitive memory engine for AI agents"
   homepage "https://github.com/spectrayan/spector"
-  url "https://github.com/spectrayan/spector/releases/download/v0.1.0-alpha/spector.jar"
+  url "https://github.com/spectrayan/spector/releases/download/v0.1.0-beta.0/spector.jar"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000" # Updated on release
   license "Apache-2.0"
-  version "0.1.0-alpha"
+  version "0.1.0-beta.0"
 
   depends_on "openjdk@25"
 

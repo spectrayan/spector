@@ -1,9 +1,9 @@
 apiVersion: v2
 name: spector
-description: Lightweight, agent-ready AI memory backbone and vector search engine with cognitive tiers
+description: Cognitive memory engine for AI agents
 type: application
-version: 0.1.0-alpha
-appVersion: "0.1.0-alpha"
+version: 0.1.0-beta.0
+appVersion: "0.1.0-beta.0"
 keywords:
   - ai-memory
   - vector-search
