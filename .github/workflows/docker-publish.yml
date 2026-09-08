@@ -5,6 +5,12 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Docker image tag (e.g. 0.1.0-beta.0 or latest). Leave empty to use latest'
+        required: false
+        default: 'latest'
+        type: string
 
 permissions:
   contents: read
@@ -42,6 +48,8 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' }}
+            type=ref,event=branch,enable=${{ github.ref != 'refs/heads/main' && github.event_name != 'workflow_dispatch' }}
 
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v5
@@ -57,7 +65,9 @@ jobs:
 
       - name: Smoke test Docker image on amd64
         run: |
-          docker run -d --name spector-smoke -p 7070:7070 ghcr.io/spectrayan/spector:latest || true
+          PRIMARY_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n 1)
+          echo "Smoke testing image: $PRIMARY_TAG"
+          docker run -d --name spector-smoke -p 7070:7070 "$PRIMARY_TAG" || true
           for i in {1..30}; do
             if curl -sf http://127.0.0.1:7070/actuator/health >/dev/null 2>&1; then
               echo "Healthcheck /actuator/health passed!"
