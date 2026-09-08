@@ -633,9 +633,45 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
     }
 
     /**
-     * Checks if the record at the given relative byte offset is tombstoned.
+     * Returns true if this store is backed by a fixed-stride record layout (e.g. legacy COG layout).
+     */
+    public boolean isFixedRecordLayout() {
+        MemorySegment seg = segment();
+        return seg != null && RegionPreamble.isValid(seg, 0L)
+                && (RegionPreamble.readShape(seg, 0L) == MemoryShape.RECORD
+                    || RegionPreamble.readLayoutId(seg, 0L) == com.spectrayan.spector.memory.kernel.layout.EngramLayout.LAYOUT_ID);
+    }
+
+    /**
+     * Reads the INT8 quantized vector from a fixed-stride record at the given record offset.
+     */
+    public byte[] readVector(long offset) {
+        if (!isFixedRecordLayout()) return null;
+        MemorySegment seg = segment();
+        if (seg == null) return null;
+        int stride = RegionPreamble.readRecordStride(seg, 0L);
+        int vecBytes = stride > com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout.HEADER_BYTES
+                ? stride - com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout.HEADER_BYTES : 0;
+        if (vecBytes <= 0 || offset + com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout.HEADER_BYTES + vecBytes > seg.byteSize()) {
+            return null;
+        }
+        byte[] vec = new byte[vecBytes];
+        MemorySegment.copy(seg, ValueLayout.JAVA_BYTE, offset + com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout.HEADER_BYTES,
+                MemorySegment.ofArray(vec), ValueLayout.JAVA_BYTE, 0, vecBytes);
+        return vec;
+    }
+
+    /**
+     * Checks if the record at the given byte offset is tombstoned.
      */
     public boolean isTombstoned(long offset) {
+        if (isFixedRecordLayout()) {
+            if (offset >= 0 && offset + com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout.HEADER_BYTES <= segment().byteSize()) {
+                byte flags = segment().get(ValueLayout.JAVA_BYTE, offset + com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.OFFSET_FLAGS);
+                return EncodingHeaderFields.isTombstoned(flags);
+            }
+            return false;
+        }
         long absoluteOffset = dataOffset() + offset;
         var headerLayout = layout().headerLayout();
         if (headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
@@ -646,9 +682,16 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
     }
 
     /**
-     * Reads the 64-byte encoding header of a record at the given relative byte offset.
+     * Reads the 64-byte encoding header of a record at the given byte offset.
+     * Supports both fixed-stride records (direct offset) and append-log records (relative to dataOffset).
      */
     public EncodingHeader readHeader(long offset) {
+        if (isFixedRecordLayout()) {
+            if (offset >= 0 && offset + com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout.HEADER_BYTES <= segment().byteSize()) {
+                return com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout.INSTANCE.readHeader(segment(), offset);
+            }
+            return null;
+        }
         long absoluteOffset = dataOffset() + offset;
         var headerLayout = layout().headerLayout();
         if (headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
