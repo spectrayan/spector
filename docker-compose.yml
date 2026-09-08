@@ -38,6 +38,14 @@ services:
       - SPECTOR_NODE_ID=spector-docker
       - SPECTOR_DIMS=384
       - SPECTOR_DATA_DIR=/data
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_started
+        required: false
+      ollama-gpu:
+        condition: service_started
+        required: false
     volumes:
       - spector-data:/data
     healthcheck:

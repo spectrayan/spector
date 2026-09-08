@@ -107,7 +107,7 @@ ENV JAVA_OPTS="-Xms512m -Xmx1536m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 \
 
 # Prepare filesystem permissions for non-root execution (UID 1000)
 RUN mkdir -p /data/index /data/memory /data/tmp /tmp/nginx /var/log/nginx /var/lib/nginx \
-    && chown -R 1000:1000 /data /app /usr/share/nginx/html /etc/nginx /var/log/nginx /var/lib/nginx /tmp
+    && chown -R 1000:1000 /data /app /usr/share/nginx/html /etc/nginx /var/log/nginx /var/lib/nginx /tmp/nginx
 
 USER 1000:1000
 
