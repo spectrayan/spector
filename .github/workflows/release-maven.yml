@@ -11,6 +11,16 @@ on:
         required: false
         default: false
         type: boolean
+      version:
+        description: 'Override version (e.g. 0.1.0-beta.1). Leave empty to use tag or pom.xml revision'
+        required: false
+        default: ''
+        type: string
+      modules:
+        description: 'Maven modules to deploy (default: :spector,sdks/java/spector-client)'
+        required: false
+        default: ':spector,sdks/java/spector-client'
+        type: string
       channel:
         description: 'Release channel (release, rc, milestone)'
         required: false
@@ -35,7 +45,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '25'
           distribution: 'temurin'
@@ -78,6 +88,26 @@ jobs:
             GOAL="verify"
           fi
           CHANNEL="${{ github.event.inputs.channel || 'rc' }}"
+          MODULES="${{ github.event.inputs.modules || ':spector,sdks/java/spector-client' }}"
+
+          DEPLOY_VERSION="${{ github.event.inputs.version }}"
+          if [ -z "$DEPLOY_VERSION" ] && [[ "$GITHUB_REF_NAME" =~ ^v?[0-9] ]]; then
+            DEPLOY_VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          if [ -z "$DEPLOY_VERSION" ]; then
+            DEPLOY_VERSION=$(sed -n 's/.*<revision>\(.*\)<\/revision>.*/\1/p' pom.xml | head -n 1)
+          fi
+
+          echo "Target deployment version: ${DEPLOY_VERSION}"
+
+          # Maven Central Portal is immutable; check if artifact already exists to avoid fatal 400 rejection
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://repo1.maven.org/maven2/com/spectrayan/spector/${DEPLOY_VERSION}/spector-${DEPLOY_VERSION}.pom" || true)
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "::warning::Version ${DEPLOY_VERSION} is already published on Maven Central. Skipping deployment."
+            exit 0
+          fi
+
           mvn -B $GOAL -P $CHANNEL -DskipTests \
-            -pl :spector,sdks/java/spector-client \
+            -Drevision="${DEPLOY_VERSION}" \
+            -pl "$MODULES" \
             --no-transfer-progress

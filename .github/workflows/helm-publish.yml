@@ -5,6 +5,12 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Chart version override (e.g. 0.1.0-beta.0). Leave empty to use tag or Chart.yaml'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -28,9 +34,18 @@ jobs:
 
       - name: Package Chart
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -z "$VERSION" ] && [[ "$GITHUB_REF_NAME" =~ ^v?[0-9] ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+
+          EXTRA_ARGS=""
+          if [ -n "$VERSION" ]; then
+            EXTRA_ARGS="--version $VERSION --app-version $VERSION"
+          fi
+
           mkdir -p .cr-release-packages
-          helm package deploy/helm/spector --version "$VERSION" --app-version "$VERSION" --destination .cr-release-packages
+          helm package deploy/helm/spector $EXTRA_ARGS --destination .cr-release-packages
 
       - name: Log in to GHCR
         run: |

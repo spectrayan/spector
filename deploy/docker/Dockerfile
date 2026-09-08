@@ -6,7 +6,7 @@
 # ═══════════════════════════════════════════════════════════════════
 
 # ── Stage 1: Build Angular Cortex Dashboard ───────────────────────────
-FROM node:22-alpine AS builder-cortex
+FROM --platform=$BUILDPLATFORM node:22-alpine AS builder-cortex
 
 WORKDIR /build
 COPY cortex/spector-cortex/package*.json ./
@@ -16,50 +16,21 @@ COPY cortex/spector-cortex/ ./
 RUN npm run build -- --configuration production
 
 # ── Stage 2: Build Java Synapse Backend ───────────────────────────────
-FROM maven:3.9-eclipse-temurin-25 AS builder-synapse
+FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-25 AS builder-synapse
 
 WORKDIR /build
 
-# Copy root and all module POMs to leverage Docker layer caching
+# Copy Maven reactor modules
 COPY pom.xml .
-COPY nucleus/pom.xml nucleus/
-COPY nucleus/spector-core/pom.xml nucleus/spector-core/
-COPY nucleus/spector-events/pom.xml nucleus/spector-events/
-COPY nucleus/spector-index/pom.xml nucleus/spector-index/
-COPY nucleus/spector-metrics/pom.xml nucleus/spector-metrics/
-COPY nucleus/spector-simd/pom.xml nucleus/spector-simd/
-COPY nucleus/spector-config/pom.xml nucleus/spector-config/
-COPY nucleus/spector-benchmark/pom.xml nucleus/spector-benchmark/
-COPY memory/pom.xml memory/
-COPY memory/spector-memory/pom.xml memory/spector-memory/
-COPY memory/spector-providers/pom.xml memory/spector-providers/
-COPY cortex/pom.xml cortex/
-COPY synapse/pom.xml synapse/
-COPY synapse/spector-spring/pom.xml synapse/spector-spring/
-COPY synapse/spector-synapse/pom.xml synapse/spector-synapse/
-COPY synapse/spector-cli/pom.xml synapse/spector-cli/
-COPY synapse/spector-mcp/pom.xml synapse/spector-mcp/
-COPY synapse/spector-connectors/pom.xml synapse/spector-connectors/
-COPY sdks/pom.xml sdks/
-COPY sdks/java/pom.xml sdks/java/
-COPY sdks/java/spector-client/pom.xml sdks/java/spector-client/
-COPY tools/pom.xml tools/
-COPY tools/spector-analyzer/pom.xml tools/spector-analyzer/
-COPY plugins/pom.xml plugins/
-COPY plugins/odysseus/pom.xml plugins/odysseus/
-COPY plugins/odysseus/odysseus-core/pom.xml plugins/odysseus/odysseus-core/
-COPY plugins/odysseus/odysseus-spring/pom.xml plugins/odysseus/odysseus-spring/
-
-# Copy sources
 COPY nucleus/ nucleus/
 COPY memory/ memory/
 COPY synapse/ synapse/
-COPY sdks/ sdks/
-COPY tools/ tools/
-COPY plugins/ plugins/
+COPY sdks/java/ sdks/java/
+COPY bench/ bench/
 
 # Package Synapse executable fat JAR
-RUN mvn -B package -pl synapse/spector-synapse -am -DskipTests --no-transfer-progress
+RUN mvn -B package -pl synapse/spector-synapse -am -DskipTests --no-transfer-progress && \
+    cp /build/synapse/spector-synapse/target/spector-synapse-*-exec.jar /build/spector-synapse.jar
 
 # ── Stage 3: Runtime (glibc Debian Bookworm base) ─────────────────────
 FROM eclipse-temurin:25-jre AS runtime
@@ -81,13 +52,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user spector (UID/GID 1000)
-RUN groupadd -g 1000 spector && \
-    useradd -u 1000 -g spector -m -s /bin/bash spector
+RUN (userdel -r ubuntu 2>/dev/null || true) && \
+    (groupdel ubuntu 2>/dev/null || true) && \
+    (groupadd -g 1000 spector 2>/dev/null || true) && \
+    (id -u 1000 >/dev/null 2>&1 || useradd -u 1000 -g 1000 -m -s /bin/bash spector)
 
 WORKDIR /app
 
 # Copy backend fat JAR from Stage 2
-COPY --from=builder-synapse /build/synapse/spector-synapse/target/spector-synapse-*-exec.jar /app/spector-synapse.jar
+COPY --from=builder-synapse /build/spector-synapse.jar /app/spector-synapse.jar
 
 # Copy frontend distribution from Stage 1
 COPY --from=builder-cortex /build/dist/spector-cortex/browser/ /usr/share/nginx/html/

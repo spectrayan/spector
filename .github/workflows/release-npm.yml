@@ -58,7 +58,12 @@ jobs:
           if [ "${{ github.event.inputs.dryRun }}" = "true" ]; then
             EXTRA_FLAGS="--dry-run"
           fi
-          npm publish --access public $EXTRA_FLAGS
+          CURRENT_VER=$(node -p "require('./package.json').version")
+          if [ "${{ github.event.inputs.dryRun }}" != "true" ] && npm view "@spectrayan/spector-client@$CURRENT_VER" version >/dev/null 2>&1; then
+            echo "Version $CURRENT_VER of @spectrayan/spector-client is already published on npm. Skipping publish."
+          else
+            npm publish --access public $EXTRA_FLAGS
+          fi
 
       # 2. Publish Zero-Install MCP Runner (@spectrayan/spector)
       - name: Publish @spectrayan/spector (NPX Runner)
@@ -80,4 +85,9 @@ jobs:
           if [ "${{ github.event.inputs.dryRun }}" = "true" ]; then
             EXTRA_FLAGS="--dry-run"
           fi
-          npm publish --access public $EXTRA_FLAGS
+          CURRENT_VER=$(node -p "require('./package.json').version")
+          if [ "${{ github.event.inputs.dryRun }}" != "true" ] && npm view "@spectrayan/spector@$CURRENT_VER" version >/dev/null 2>&1; then
+            echo "Version $CURRENT_VER of @spectrayan/spector is already published on npm. Skipping publish."
+          else
+            npm publish --access public $EXTRA_FLAGS
+          fi
