@@ -139,6 +139,44 @@ class MemoryControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    @DisplayName("POST /memory/remember — accepts tags as comma-separated string matching OpenAPI specification")
+    void remember_withTags_accepted() throws Exception {
+        var accepted = AcceptedResponse.forRemember("task-xyz", "mem-tags-1");
+        when(memoryService.remember(any())).thenReturn(accepted);
+
+        mvc.perform(post("/api/v1/memory/remember")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"text\":\"Memory with string tags\",\"tags\":\"tag1,tag2\"}"))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.id", is("mem-tags-1")));
+    }
+
+    // ═══════════════════════════════════════════════════
+    // POST /api/v1/memory and /api/v1/memory/store
+    // ═══════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("POST /memory and POST /memory/store — synchronous store returns 201 Created")
+    void store_bothEndpoints_return201() throws Exception {
+        var response = new MemoryDto.StoreResponse("mem-sync-1", "Test store", "SEMANTIC", 0.9, "Stored");
+        when(memoryService.store(any())).thenReturn(response);
+
+        // POST /api/v1/memory (OpenAPI canonical)
+        mvc.perform(post("/api/v1/memory")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"text\":\"Test store\",\"tags\":[\"sync\"]}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id", is("mem-sync-1")));
+
+        // POST /api/v1/memory/store (backward compatible alias)
+        mvc.perform(post("/api/v1/memory/store")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"text\":\"Test store\",\"tags\":[\"sync\"]}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id", is("mem-sync-1")));
+    }
+
     // ═══════════════════════════════════════════════════
     // POST /api/v1/memory/{id}/reinforce
     // ═══════════════════════════════════════════════════

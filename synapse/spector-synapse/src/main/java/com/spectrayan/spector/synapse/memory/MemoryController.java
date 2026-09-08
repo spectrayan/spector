@@ -144,7 +144,7 @@ public class MemoryController {
      *
      * <p>{@code POST /api/v1/memory}</p>
      */
-    @PostMapping
+    @PostMapping({"", "/store"})
     @Operation(operationId = "storeMemory", summary = "Store a cognitive memory synchronously")
     public ResponseEntity<StoreResponse> store(@RequestBody StoreRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(memoryService.store(request));

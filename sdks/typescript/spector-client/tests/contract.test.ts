@@ -170,5 +170,66 @@ describe('TypeScript SDK HTTP Contract & Dual Package', () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  it('should verify exact wire payload shapes for remember and store against OpenAPI specification', async () => {
+    const originalFetch = globalThis.fetch;
+    const recordedCalls: { url: string; body: any }[] = [];
+    try {
+      globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const body = init?.body ? JSON.parse(String(init.body)) : null;
+        recordedCalls.push({ url, body });
+
+        if (url.includes('/api/v1/memory/remember')) {
+          return new Response(JSON.stringify({ status: 'ACCEPTED', message: 'Queued' }), {
+            status: 202,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        if (url.includes('/api/v1/memory')) {
+          return new Response(JSON.stringify({ id: 'mem-101', status: 'STORED' }), {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        return new Response('Not Found', { status: 404 });
+      };
+
+      const client = SpectorClient.createDefault('http://localhost:7070');
+
+      // 1. remember verb: wire body tags must be string (comma-separated), matching RememberRequest in OpenAPI
+      await client.memory.remember({
+        text: 'Neural memory consolidation',
+        tier: MemoryTier.EPISODIC,
+        tags: ['synapse', 'hebbian'],
+        interest: 0.8,
+        urgency: 0.5,
+        challenge: 0.2,
+        valence: 10,
+        arousal: 20,
+      });
+
+      const rememberCall = recordedCalls.find((c) => c.url.includes('/api/v1/memory/remember'));
+      assert.ok(rememberCall);
+      assert.equal(rememberCall.body.text, 'Neural memory consolidation');
+      assert.equal(rememberCall.body.tier, 'EPISODIC');
+      assert.equal(rememberCall.body.tags, 'synapse,hebbian');
+      assert.equal(rememberCall.body.interest, 0.8);
+      assert.equal(rememberCall.body.urgency, 0.5);
+      assert.equal(rememberCall.body.challenge, 0.2);
+      assert.equal(rememberCall.body.valence, 10);
+      assert.equal(rememberCall.body.arousal, 20);
+
+      // 2. store verb: wire body tags must be string array, matching StoreRequest in OpenAPI
+      await client.memory.store('Fast synchronous note', ['quick', 'sync']);
+
+      const storeCall = recordedCalls.find((c) => c.url.endsWith('/api/v1/memory'));
+      assert.ok(storeCall);
+      assert.equal(storeCall.body.text, 'Fast synchronous note');
+      assert.deepEqual(storeCall.body.tags, ['quick', 'sync']);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
 

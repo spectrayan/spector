@@ -56,7 +56,7 @@ class MemoryClient:
             "text": text,
             "tags": tags or [],
         }
-        return self._transport.request("POST", "/api/v1/memory/store", body=body)
+        return self._transport.request("POST", "/api/v1/memory", body=body)
 
     def recall(
         self,
@@ -285,7 +285,7 @@ class AsyncMemoryClient:
 
     async def store(self, text: str, tags: Optional[List[str]] = None) -> Dict[str, Any]:
         body = {"text": text, "tags": tags or []}
-        return await self._transport.request("POST", "/api/v1/memory/store", body=body)
+        return await self._transport.request("POST", "/api/v1/memory", body=body)
 
     async def recall(
         self,

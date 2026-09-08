@@ -38,7 +38,7 @@ class MockSpectorHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({"status": "ACCEPTED", "message": "Memory queued"}).encode("utf-8"))
-        elif path == "/api/v1/memory/store":
+        elif path in ("/api/v1/memory", "/api/v1/memory/store"):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
@@ -224,15 +224,26 @@ class TestHttpContract(unittest.TestCase):
         self.assertEqual(headers.get("x-namespace"), "team_spec")
 
     def test_remember_and_store_verbs(self):
+        # 1. remember verb: wire body tags must be string (comma-separated), matching RememberRequest in OpenAPI
         rem_res = self.client.memory.remember(
             "SIMD acceleration in Java 25",
             tier=MemoryTier.SEMANTIC,
             tags=["java25", "vector"],
         )
         self.assertEqual(rem_res.get("status"), "ACCEPTED")
+        rem_req = [r for r in MockSpectorHandler.recorded_requests if "/remember" in r["path"]][-1]
+        self.assertEqual(rem_req["path"], "/api/v1/memory/remember")
+        self.assertEqual(rem_req["body"]["text"], "SIMD acceleration in Java 25")
+        self.assertEqual(rem_req["body"]["tier"], "SEMANTIC")
+        self.assertEqual(rem_req["body"]["tags"], "java25,vector")  # OpenAPI: string
 
+        # 2. store verb: wire body tags must be list, matching StoreRequest in OpenAPI
         store_res = self.client.memory.store("Synchronous item", tags=["sync"])
         self.assertEqual(store_res.get("id"), "mem-101")
+        store_req = [r for r in MockSpectorHandler.recorded_requests if r["path"] in ("/api/v1/memory", "/api/v1/memory/store")][-1]
+        self.assertEqual(store_req["path"], "/api/v1/memory")
+        self.assertEqual(store_req["body"]["text"], "Synchronous item")
+        self.assertEqual(store_req["body"]["tags"], ["sync"])  # OpenAPI: array of string
 
     def test_recall_raw_list_and_wrapped_envelope(self):
         # 1. Raw list recall

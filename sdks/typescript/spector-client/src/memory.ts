@@ -65,7 +65,7 @@ export class MemoryClient {
    */
   async store(text: string, tags?: string[]): Promise<{ id: string; status?: string }> {
     const body = { text, tags: tags ?? [] };
-    return this.transport.request('POST', '/api/v1/memory/store', { body });
+    return this.transport.request('POST', '/api/v1/memory', { body });
   }
 
   /**
