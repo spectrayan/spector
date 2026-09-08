@@ -163,7 +163,14 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     public static HebbianGraphMemory fromBundle(Arena arena, MemorySegment regionSlice,
                                                  int capacity, int edgeCapacity, int maxDegree,
                                                  EdgeImportance edgeImportance, Path bundlePath, boolean isNew) {
-        return new HebbianGraphMemory(arena, regionSlice, capacity, edgeCapacity, maxDegree, edgeImportance, bundlePath, isNew);
+        int resolvedCap = capacity;
+        if (!isNew) {
+            int preambleCap = (int) RegionPreamble.readCapacity(regionSlice, 0L);
+            if (preambleCap > 0) {
+                resolvedCap = preambleCap;
+            }
+        }
+        return new HebbianGraphMemory(arena, regionSlice, resolvedCap, edgeCapacity, maxDegree, edgeImportance, bundlePath, isNew);
     }
 
     private HebbianGraphMemory(Arena arena, MemorySegment regionSlice,

@@ -165,7 +165,19 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     public static EntityDirectory fromBundle(Arena arena, MemorySegment entityRegionSlice, MemorySegment adjacencyRegionSlice,
                                              int entityCapacity, TypeRegistryMemory entityTypeRegistry,
                                              Path bundlePath, boolean isNew) {
-        return new EntityDirectory(arena, entityRegionSlice, adjacencyRegionSlice, entityCapacity, entityTypeRegistry, bundlePath, isNew);
+        long availableBytes = Math.max(0L, entityRegionSlice.byteSize() - DATA_START);
+        int maxCapFromRegion = (int) (availableBytes / ENTITY_NODE_BYTES);
+        int resolvedCap;
+        if (isNew) {
+            resolvedCap = Math.min(entityCapacity, maxCapFromRegion);
+        } else {
+            int preambleCap = (int) RegionPreamble.readCapacity(entityRegionSlice, 0L);
+            resolvedCap = preambleCap > 0 ? Math.min(preambleCap, maxCapFromRegion) : Math.min(entityCapacity, maxCapFromRegion);
+            if (resolvedCap <= 0) {
+                resolvedCap = maxCapFromRegion;
+            }
+        }
+        return new EntityDirectory(arena, entityRegionSlice, adjacencyRegionSlice, resolvedCap, entityTypeRegistry, bundlePath, isNew);
     }
 
     private EntityDirectory(Arena arena, MemorySegment entityRegionSlice, MemorySegment adjacencyRegionSlice,
@@ -176,9 +188,11 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
               true, bundlePath, null, true); // bundleManaged=true
         this.bundleManaged = true;
         this.rawAdjacencyRegion = adjacencyRegionSlice;
-        this.entityCapacity = entityCapacity;
+        long availableBytes = Math.max(0L, entityRegionSlice.byteSize() - DATA_START);
+        int maxCapFromRegion = (int) (availableBytes / ENTITY_NODE_BYTES);
+        this.entityCapacity = Math.min(entityCapacity, maxCapFromRegion);
         this.headerSegment = entityRegionSlice.asSlice(0, DATA_START);
-        this.entitySegment = entityRegionSlice.asSlice(DATA_START, (long) ENTITY_NODE_BYTES * entityCapacity);
+        this.entitySegment = entityRegionSlice.asSlice(DATA_START, (long) ENTITY_NODE_BYTES * this.entityCapacity);
         this.fileBacked = true;
         this.mmapFilePath = bundlePath;
         this.memoryId = MEMORY_ID;
@@ -187,13 +201,15 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         long headerStart = RegionPreamble.PREAMBLE_BYTES;
         int initialAdjCap = adjacencyRegionSlice.get(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_CAPACITY);
         int adjHwm = adjacencyRegionSlice.get(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_HWM);
+        long availableAdjBytes = Math.max(0L, adjacencyRegionSlice.byteSize() - DATA_START);
+        int maxAdjCap = (int) (availableAdjBytes / ADJ_ENTRY_BYTES);
 
         if (isNew) {
             this.entityCount = 0;
-            writeSmkmHeaderToSegment(this.headerSegment, entityCapacity, 0, 0, 0);
+            writeSmkmHeaderToSegment(this.headerSegment, this.entityCapacity, 0, 0, 0);
             writeSmkmHeaderToSegment(adjacencyRegionSlice.asSlice(0, DATA_START), 0, 0, 0, 0);
 
-            long reservedForNames = 32L * entityCapacity;
+            long reservedForNames = 32L * this.entityCapacity;
             long availableForAdj = Math.max(0, adjacencyRegionSlice.byteSize() - DATA_START - reservedForNames);
             int adjCap = (int) (availableForAdj / ADJ_ENTRY_BYTES);
             adjacencyRegionSlice.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_CAPACITY, adjCap);
@@ -205,7 +221,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
             this.adjacencySegment.fill((byte) 0);
         } else {
             this.entityCount = (int) RegionPreamble.readCount(entityRegionSlice, 0L);
-            this.adjSegmentCapacity = initialAdjCap;
+            this.adjSegmentCapacity = Math.min(initialAdjCap, maxAdjCap);
             this.adjHighWaterMark = adjHwm;
             this.adjacencySegment = adjacencyRegionSlice.asSlice(DATA_START, (long) ADJ_ENTRY_BYTES * this.adjSegmentCapacity);
         }

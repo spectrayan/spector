@@ -139,7 +139,14 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
      * Creates a bundle-backed TemporalChainMemory from a pre-sliced region segment.
      */
     public static TemporalChainMemory fromBundle(Arena arena, MemorySegment regionSlice, int capacity, Path bundlePath, boolean isNew) {
-        return new TemporalChainMemory(arena, regionSlice, capacity, bundlePath, isNew);
+        int resolvedCap = capacity;
+        if (!isNew) {
+            int preambleCap = (int) RegionPreamble.readCapacity(regionSlice, 0L);
+            if (preambleCap > 0) {
+                resolvedCap = preambleCap;
+            }
+        }
+        return new TemporalChainMemory(arena, regionSlice, resolvedCap, bundlePath, isNew);
     }
 
     private TemporalChainMemory(Arena arena, MemorySegment regionSlice, int capacity, Path bundlePath, boolean isNew) {

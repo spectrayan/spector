@@ -161,4 +161,48 @@ class EntityDirectoryTest {
             dir.close();
         }
     }
+
+    @Test
+    @DisplayName("fromBundle gracefully clamps capacity when reopened with larger requested capacity than physical region")
+    void fromBundle_gracefullyClampsToPhysicalRegion(@TempDir Path tmp) {
+        Path bundlePath = tmp.resolve("runtime.bundle");
+        java.util.List<com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec> specs = java.util.List.of(
+                new com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec(
+                        com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_DIRECTORY,
+                        8192, 100, 64, 0x45444952, 1, false),
+                new com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec(
+                        com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_NAMES,
+                        16384, 1, 8, 0x45444952, 1, true)
+        );
+
+        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+
+        // First pass: create the bundle with 100 entity capacity
+        try (com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle bundle =
+                     com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.mmap(bundlePath, specs)) {
+            java.lang.foreign.MemorySegment entitySlice = bundle.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_DIRECTORY);
+            java.lang.foreign.MemorySegment adjSlice = bundle.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_NAMES);
+
+            EntityDirectory dir = EntityDirectory.fromBundle(bundle.arena(), entitySlice, adjSlice, 100, reg, bundlePath, true);
+            dir.intern("Alice", "PERSON");
+            dir.intern("Bob", "PERSON");
+            assertThat(dir.entityCount()).isEqualTo(2);
+            dir.save(bundlePath);
+            dir.close();
+        }
+
+        // Second pass: reopen the bundle but request 50,000 capacity (as if upgraded in properties)
+        try (com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle reopened =
+                     com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.open(bundlePath)) {
+            java.lang.foreign.MemorySegment entitySlice = reopened.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_DIRECTORY);
+            java.lang.foreign.MemorySegment adjSlice = reopened.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_NAMES);
+
+            EntityDirectory dir = EntityDirectory.fromBundle(reopened.arena(), entitySlice, adjSlice, 50_000, reg, bundlePath, false);
+            assertThat(dir.entityCount()).isEqualTo(2);
+            assertThat(dir.findEntity("Alice")).isEqualTo(0);
+            assertThat(dir.findEntity("Bob")).isEqualTo(1);
+            assertThat(dir.capacity()).isLessThanOrEqualTo((int) ((8192 - com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.DATA_START) / com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.ENTITY_NODE_BYTES));
+            dir.close();
+        }
+    }
 }
