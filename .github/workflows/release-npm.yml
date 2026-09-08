@@ -5,6 +5,17 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      dryRun:
+        description: 'Dry run — build and package only (do not publish to registry)'
+        required: false
+        default: false
+        type: boolean
+      version:
+        description: 'Override version (e.g. 0.1.0-beta.0). Leave empty to use tag or package.json'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -31,15 +42,23 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+          if [ "${{ github.event.inputs.dryRun }}" != "true" ] && [ -z "${NODE_AUTH_TOKEN}" ]; then
             echo "Error: NPM_TOKEN secret is not configured." >&2
             exit 1
           fi
-          VERSION="${GITHUB_REF_NAME#v}"
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            npm version "${{ github.event.inputs.version }}" --no-git-tag-version --allow-same-version
+          elif [[ "$GITHUB_REF_NAME" =~ ^v?[0-9] ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            npm version "$VERSION" --no-git-tag-version --allow-same-version
+          fi
           npm ci
           npm run build
-          npm publish --access public
+          EXTRA_FLAGS=""
+          if [ "${{ github.event.inputs.dryRun }}" = "true" ]; then
+            EXTRA_FLAGS="--dry-run"
+          fi
+          npm publish --access public $EXTRA_FLAGS
 
       # 2. Publish Zero-Install MCP Runner (@spectrayan/spector)
       - name: Publish @spectrayan/spector (NPX Runner)
@@ -47,10 +66,18 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+          if [ "${{ github.event.inputs.dryRun }}" != "true" ] && [ -z "${NODE_AUTH_TOKEN}" ]; then
             echo "Error: NPM_TOKEN secret is not configured." >&2
             exit 1
           fi
-          VERSION="${GITHUB_REF_NAME#v}"
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
-          npm publish --access public
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            npm version "${{ github.event.inputs.version }}" --no-git-tag-version --allow-same-version
+          elif [[ "$GITHUB_REF_NAME" =~ ^v?[0-9] ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            npm version "$VERSION" --no-git-tag-version --allow-same-version
+          fi
+          EXTRA_FLAGS=""
+          if [ "${{ github.event.inputs.dryRun }}" = "true" ]; then
+            EXTRA_FLAGS="--dry-run"
+          fi
+          npm publish --access public $EXTRA_FLAGS
