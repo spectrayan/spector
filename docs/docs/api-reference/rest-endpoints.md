@@ -237,6 +237,6 @@ Memory tier counts, partition info, and persistence status.
 
 - [Java SDK Guide](../sdk-usage/java-client.md) — Type-safe programmatic access
 
-- [CLI Reference](../cli-reference/spectorctl.md) — Command-line access to the API
+- [CLI Reference](../cli-reference/spector.md) — Command-line access to the API
 
 - [Configuration Guide](../configuration/parameters.md) — Server and auth configuration

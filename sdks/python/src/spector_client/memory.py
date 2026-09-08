@@ -35,7 +35,7 @@ class MemoryClient:
         arousal: int = 0,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Stores a memory asynchronously with cognitive scoring hints."""
+        """Stores a memory with cognitive scoring hints."""
         tier_str = tier.value if isinstance(tier, MemoryTier) else str(tier)
         body = {
             "text": text,
@@ -56,7 +56,7 @@ class MemoryClient:
             "text": text,
             "tags": tags or [],
         }
-        return self._transport.request("POST", "/api/v1/memory/store", body=body)
+        return self._transport.request("POST", "/api/v1/memory", body=body)
 
     def recall(
         self,
@@ -75,15 +75,21 @@ class MemoryClient:
             "tags": tags or [],
         }
         res = self._transport.request("POST", "/api/v1/memory/recall", body=body)
+        items = res
+        if isinstance(res, dict):
+            items = res.get("results") or res.get("memories") or res.get("data") or []
         records: List[RecallRecord] = []
-        if isinstance(res, list):
-            for item in res:
+        if isinstance(items, list):
+            for item in items:
                 tier_val = item.get("tier", "SEMANTIC")
+                score_val = item.get("score") if item.get("score") is not None else item.get("cognitiveScore", 0.0)
+                age_days_val = item.get("ageDays") if item.get("ageDays") is not None else item.get("age_days", 0.0)
+                decay_factor_val = item.get("decayFactor") if item.get("decayFactor") is not None else item.get("decay_factor", 1.0)
                 records.append(
                     RecallRecord(
                         id=str(item.get("id", "")),
                         text=item.get("text", ""),
-                        score=float(item.get("score", 0.0)),
+                        score=float(score_val or 0.0),
                         tier=MemoryTier(tier_val) if tier_val in MemoryTier.__members__ else MemoryTier.SEMANTIC,
                         tags=item.get("tags") or [],
                         valence=int(item.get("valence", 0)),
@@ -91,8 +97,8 @@ class MemoryClient:
                         importance=float(item.get("importance", 0.0)),
                         metadata=item.get("metadata") or {},
                         similarity=float(item.get("similarity", 0.0)),
-                        age_days=float(item.get("ageDays", 0.0)),
-                        decay_factor=float(item.get("decayFactor", 1.0)),
+                        age_days=float(age_days_val or 0.0),
+                        decay_factor=float(decay_factor_val or 1.0),
                     )
                 )
         return records
@@ -279,7 +285,7 @@ class AsyncMemoryClient:
 
     async def store(self, text: str, tags: Optional[List[str]] = None) -> Dict[str, Any]:
         body = {"text": text, "tags": tags or []}
-        return await self._transport.request("POST", "/api/v1/memory/store", body=body)
+        return await self._transport.request("POST", "/api/v1/memory", body=body)
 
     async def recall(
         self,
@@ -297,15 +303,21 @@ class AsyncMemoryClient:
             "tags": tags or [],
         }
         res = await self._transport.request("POST", "/api/v1/memory/recall", body=body)
+        items = res
+        if isinstance(res, dict):
+            items = res.get("results") or res.get("memories") or res.get("data") or []
         records: List[RecallRecord] = []
-        if isinstance(res, list):
-            for item in res:
+        if isinstance(items, list):
+            for item in items:
                 tier_val = item.get("tier", "SEMANTIC")
+                score_val = item.get("score") if item.get("score") is not None else item.get("cognitiveScore", 0.0)
+                age_days_val = item.get("ageDays") if item.get("ageDays") is not None else item.get("age_days", 0.0)
+                decay_factor_val = item.get("decayFactor") if item.get("decayFactor") is not None else item.get("decay_factor", 1.0)
                 records.append(
                     RecallRecord(
                         id=str(item.get("id", "")),
                         text=item.get("text", ""),
-                        score=float(item.get("score", 0.0)),
+                        score=float(score_val or 0.0),
                         tier=MemoryTier(tier_val) if tier_val in MemoryTier.__members__ else MemoryTier.SEMANTIC,
                         tags=item.get("tags") or [],
                         valence=int(item.get("valence", 0)),
@@ -313,8 +325,8 @@ class AsyncMemoryClient:
                         importance=float(item.get("importance", 0.0)),
                         metadata=item.get("metadata") or {},
                         similarity=float(item.get("similarity", 0.0)),
-                        age_days=float(item.get("ageDays", 0.0)),
-                        decay_factor=float(item.get("decayFactor", 1.0)),
+                        age_days=float(age_days_val or 0.0),
+                        decay_factor=float(decay_factor_val or 1.0),
                     )
                 )
         return records

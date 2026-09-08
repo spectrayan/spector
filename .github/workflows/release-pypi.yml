@@ -5,6 +5,17 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      dryRun:
+        description: 'Dry run — build and check only (do not publish)'
+        required: false
+        default: false
+        type: boolean
+      version:
+        description: 'Override version (e.g. 0.1.0b0). Leave empty to use tag or pyproject.toml'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -30,14 +41,23 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install build
+          pip install build twine
 
       - name: Build sdist and wheel
         run: |
           cd sdks/python
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            sed -i -E "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
+          elif [[ "$GITHUB_REF_NAME" =~ ^v?[0-9] ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            sed -i -E "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
+          fi
           python -m build
+          twine check dist/*
 
       - name: Publish to PyPI
+        if: ${{ github.event.inputs.dryRun != true }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: sdks/python/dist/

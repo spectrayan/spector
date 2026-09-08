@@ -27,9 +27,13 @@ Lightweight, modern Java Client SDK for the **Spector Cognitive Memory & Search*
 <dependency>
     <groupId>com.spectrayan</groupId>
     <artifactId>spector-client</artifactId>
-    <version>0.1.0-alpha</version>
+    <version>0.1.0-beta</version>
 </dependency>
 ```
+
+> [!IMPORTANT]
+> **Java Embed Dependency**: For embedding Spector client access in JVM applications, depend **only** on `com.spectrayan:spector-client`.
+> The root coordinate `com.spectrayan:spector` is the multi-module reactor parent POM and does not provide client SDK classes.
 
 ---
 

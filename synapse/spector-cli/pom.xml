@@ -12,7 +12,7 @@
     </parent>
 
     <artifactId>spector-cli</artifactId>
-    <name>Spector CLI (spectorctl)</name>
+    <name>Spector CLI (spector)</name>
     <description>Command-line tool for managing Spector instances and running standalone MCP server.</description>
 
     <properties>
@@ -68,6 +68,13 @@
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-mcp</artifactId>
+        </dependency>
+
+        <!-- ── Spector Synapse (Daemon REST/SSE/Armeria server for spector serve) ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-synapse</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
         <dependency>

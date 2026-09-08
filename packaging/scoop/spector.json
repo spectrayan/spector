@@ -1,19 +1,14 @@
 {
-  "version": "0.1.0-alpha",
-  "description": "Zero-overhead, agent-ready AI memory backbone and search engine with Java Vector API acceleration",
+  "version": "0.1.0-beta.0",
+  "description": "Cognitive memory engine for AI agents (Requires OpenJDK 25+)",
   "homepage": "https://github.com/spectrayan/spector",
   "license": "Apache-2.0",
   "suggest": {
     "JDK 25": "java/openjdk25"
   },
-  "url": "https://github.com/spectrayan/spector/releases/download/v0.1.0-alpha/spector.jar",
+  "url": "https://github.com/spectrayan/spector/releases/download/v0.1.0-beta.0/spector.jar",
   "hash": "0000000000000000000000000000000000000000000000000000000000000000",
-  "bin": [
-    [
-      "spector.cmd",
-      "spector"
-    ]
-  ],
+  "bin": "spector.cmd",
   "pre_install": [
     "$cmdPath = \"$dir\\spector.cmd\"",
     "$content = \"@echo off`r`njava --enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED -jar `\"$dir\\spector.jar`\" %*\"",
@@ -23,6 +18,9 @@
     "github": "https://github.com/spectrayan/spector"
   },
   "autoupdate": {
-    "url": "https://github.com/spectrayan/spector/releases/download/v$version/spector.jar"
+    "url": "https://github.com/spectrayan/spector/releases/download/v$version/spector.jar",
+    "hash": {
+      "url": "$url.sha256"
+    }
   }
 }

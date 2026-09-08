@@ -11,17 +11,137 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge" alt="License" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0%20%2F%20BSL_1.1-blue.svg?style=for-the-badge" alt="License" /></a>
   <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-25-orange.svg?style=for-the-badge" alt="Java" /></a>
+  <a href="https://pypi.org/project/spector-client/"><img src="https://img.shields.io/pypi/v/spector-client?color=3776AB&style=for-the-badge&logo=pypi&logoColor=white" alt="PyPI" /></a>
+  <a href="https://www.npmjs.com/package/@spectrayan/spector-client"><img src="https://img.shields.io/npm/v/@spectrayan/spector-client?color=CB3837&style=for-the-badge&logo=npm&logoColor=white" alt="npm" /></a>
+  <a href="https://github.com/spectrayan/spector/pkgs/container/spector"><img src="https://img.shields.io/badge/Docker-GHCR-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" /></a>
   <a href="https://github.com/spectrayan/spector/actions"><img src="https://img.shields.io/github/actions/workflow/status/spectrayan/spector/ci.yml?branch=main&style=for-the-badge" alt="Build" /></a>
-  <a href="spector-mcp/"><img src="https://img.shields.io/badge/MCP-Agent_Ready-blueviolet.svg?style=for-the-badge" alt="MCP" /></a>
   <a href="https://spectrayan.github.io/spector/"><img src="https://img.shields.io/badge/Docs-MkDocs-blue?logo=materialformkdocs&style=for-the-badge" alt="Docs" /></a>
-  <a href="https://deepwiki.com/spectrayan/spector"><img src="https://img.shields.io/badge/DeepWiki-spectrayan%2Fspector-blue?style=for-the-badge" alt="DeepWiki" /></a>
 </p>
 
 ---
 
-Legacy AI stacks bolt memory onto stateless vector databases — storage without cognition. **Spector** is a cognitive memory backbone for modern AI agents: it remembers, forgets, consolidates, and **forms associations** across a biologically-inspired memory graph — Hebbian co-activation, temporal chains, and event-episode hyperedges — then retrieves with fused semantic and hybrid scoring at sub-millisecond latency. Connect any AI agent through the built-in **MCP server**, call it over **REST/gRPC**, drive it from the **Python SDK**, or embed it directly in the JVM. Every user, agent, or tenant is physically isolated in its own on-disk namespace — true data separation, not a shared-store filter. Under the hood, Java Project Panama and the Vector API deliver C++-class SIMD speed with zero garbage-collection pressure.
+Legacy AI stacks bolt memory onto stateless vector databases — storage without cognition. **Spector** is a cognitive memory backbone for modern AI agents: it remembers, forgets, consolidates, and **forms associations** across a biologically-inspired memory graph — Hebbian co-activation, temporal chains, and event-episode hyperedges — then retrieves with fused semantic and hybrid scoring at sub-millisecond latency. Connect any AI agent through the built-in **MCP server**, call it over **REST/gRPC**, drive it from the **Python or TypeScript SDKs**, or embed it directly in the JVM. Every user, agent, or tenant is physically isolated in its own on-disk namespace — true data separation, not a shared-store filter. Under the hood, Java Project Panama and the Vector API deliver C++-class SIMD speed with zero garbage-collection pressure.
+
+---
+
+## ⚡ 30-Second Quickstart
+
+Connect an agent, install an SDK, or launch a local node in seconds:
+
+### 1. Zero-Install MCP Server (for AI Agents)
+Run instantly via NPX — connects to a running local Synapse daemon on `:7070` if healthy, or runs an embedded memory kernel (requires OpenJDK 25+):
+```bash
+# Agent runner: connects to local daemon or launches in-process MCP kernel
+npx -y @spectrayan/spector mcp
+
+# Or build and launch from source:
+mvn clean package -pl synapse/spector-cli -am -DskipTests
+java --enable-preview --add-modules=jdk.incubator.vector -jar synapse/spector-cli/target/spector.jar mcp
+```
+
+### 2. Client SDKs (Zero Java Required)
+Interact with Spector over HTTP / SSE from your language of choice:
+
+**Python:**
+```bash
+pip install spector-client
+```
+```python
+from spector_client import SpectorClient, MemoryTier
+
+client = SpectorClient.builder().with_rest("http://localhost:7070").build()
+client.memory.remember(
+    text="User prefers concise answers and dark mode",
+    tier=MemoryTier.SEMANTIC,
+    tags=["preferences", "ui"],
+)
+memories = client.memory.recall("user preferences", top_k=3)
+```
+
+**TypeScript / Node.js:**
+```bash
+npm install @spectrayan/spector-client
+```
+```typescript
+import { SpectorClient, MemoryTier } from '@spectrayan/spector-client';
+
+const client = SpectorClient.createDefault('http://localhost:7070');
+await client.memory.remember({
+  text: 'User prefers concise answers and dark mode',
+  tier: MemoryTier.SEMANTIC,
+  tags: ['preferences', 'ui'],
+});
+const memories = await client.memory.recall('user preferences', { topK: 3 });
+```
+
+### 3. Instant Local Server (Docker Compose)
+```bash
+docker compose up -d                        # Core engine (:7070) + Cortex Neural Dashboard (:7700)
+docker compose --profile embeddings up -d   # Adds local Ollama container for embeddings
+```
+
+### 4. Standalone One-Line Installers
+```bash
+# Linux / macOS (POSIX)
+curl -fsSL https://raw.githubusercontent.com/spectrayan/spector/main/scripts/install.sh | sh
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/spectrayan/spector/main/scripts/install.ps1 | iex
+```
+
+*(For Homebrew, Scoop, Helm, and Java embed instructions, see the [Installation Guide](https://spectrayan.github.io/spector/getting-started/installation/)).*
+
+---
+
+## 🤖 Instant AI Agent Setup
+
+Connect Spector to your favorite AI coding assistant or desktop agent in seconds:
+
+### Claude Desktop
+Add to `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "spector": {
+      "command": "npx",
+      "args": ["-y", "@spectrayan/spector", "mcp"]
+    }
+  }
+}
+```
+
+### Cursor
+Add to `.cursor/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "spector": {
+      "command": "npx",
+      "args": ["-y", "@spectrayan/spector", "mcp"]
+    }
+  }
+}
+```
+
+### Windsurf
+Add to `~/.codeium/windsurf/mcp_config.json`:
+```json
+{
+  "mcpServers": {
+    "spector": {
+      "command": "npx",
+      "args": ["-y", "@spectrayan/spector", "mcp"]
+    }
+  }
+}
+```
+
+### Claude Code CLI
+```bash
+claude mcp add spector -- npx -y @spectrayan/spector mcp
+```
 
 ---
 
@@ -155,47 +275,25 @@ Identity, cognitive state (importance/valence/arousal), synaptic tags, and full 
 
 ---
 
-## 🚀 Quick Start
+## 🛠️ Building From Source (Engine Contributors)
 
-**Prerequisites:** JDK 25+, Maven 3.9+
+**Prerequisites:** OpenJDK 25+, Maven 3.9+
 
 ```bash
 git clone https://github.com/spectrayan/spector.git
 cd spector
-mvn clean test                                             # Build & run tests
-mvn package -pl synapse/spector-cli -am -DskipTests        # Build the standalone spector.jar
+mvn clean test                                             # Build reactor & run tests
+mvn package -pl synapse/spector-cli -am -DskipTests        # Package standalone spector.jar
 ```
 
-**Start the MCP server** (for AI agents):
-
+**Launch the standalone engine:**
 ```bash
 java --add-modules jdk.incubator.vector \
   --enable-native-access=ALL-UNNAMED --enable-preview \
-  -jar synapse/spector-cli/target/spector.jar mcp \
-  --config spector.yml
+  -jar synapse/spector-cli/target/spector.jar doctor
 ```
 
-**Claude Desktop config** — add to `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "spector": {
-      "command": "java",
-      "args": [
-        "--add-modules", "jdk.incubator.vector",
-        "--enable-native-access=ALL-UNNAMED",
-        "--enable-preview",
-        "-jar", "/path/to/synapse/spector-cli/target/spector.jar",
-        "mcp",
-        "--config", "/path/to/spector.yml"
-      ]
-    }
-  }
-}
-```
-
-> 📖 **[Full Quick Start Guide →](https://spectrayan.github.io/spector/getting-started/quickstart/)** · **[Configuration Reference →](https://spectrayan.github.io/spector/configuration/parameters/)**
+> 📖 **[Full Developer Guide →](https://spectrayan.github.io/spector/getting-started/developer-guide/)** · **[Configuration Reference →](https://spectrayan.github.io/spector/configuration/parameters/)**
 
 ---
 
@@ -219,14 +317,14 @@ All numbers measured on Intel Core Ultra 9 285K, Java 25, AVX2 256-bit.
 
 | I want to... | Start here |
 |:---|:---|
-| **Use Spector** | [Quick Start](https://spectrayan.github.io/spector/getting-started/quickstart/) · [Installation](https://spectrayan.github.io/spector/getting-started/installation/) · [Configuration](https://spectrayan.github.io/spector/configuration/parameters/) |
-| **Contribute to Spector** | [Developer Guide](https://spectrayan.github.io/spector/getting-started/developer-guide/) · [Contributing](CONTRIBUTING.md) |
-| **Connect an AI agent** | [MCP Server Guide](https://spectrayan.github.io/spector/sdk-usage/mcp-server/) · [Claude Desktop Config](#claude-desktop-config) |
-| **Add cognitive memory** | [Memory Overview](https://spectrayan.github.io/spector/memory/) · [Getting Started](https://spectrayan.github.io/spector/memory/getting-started/) · [Use Cases](https://spectrayan.github.io/spector/memory/use-cases/) |
-| **Use the Java SDK** | [Java SDK Guide](https://spectrayan.github.io/spector/sdk-usage/java-client/) · [Spring AI Integration](https://spectrayan.github.io/spector/sdk-usage/spring-ai/) |
-| **Deploy to production** | [Docker Deployment](deploy/docker/) · [Performance Tuning](https://spectrayan.github.io/spector/operations/performance-tuning/) |
+| **Get started in 30 seconds** | [Quick Start](https://spectrayan.github.io/spector/getting-started/quickstart/) · [Installation Guide](https://spectrayan.github.io/spector/getting-started/installation/) |
+| **Connect an AI agent** | [MCP Server Setup](https://spectrayan.github.io/spector/sdk-usage/mcp-server/) · [Claude & Cursor Guide](#-instant-ai-agent-setup) |
+| **Use client SDKs** | [TypeScript SDK](https://spectrayan.github.io/spector/sdk-usage/typescript-sdk/) · [Python SDK](https://spectrayan.github.io/spector/sdk-usage/python-sdk/) · [Java SDK](https://spectrayan.github.io/spector/sdk-usage/java-client/) · [Spring AI](https://spectrayan.github.io/spector/sdk-usage/spring-ai/) |
+| **Explore cognitive memory** | [Memory Overview](https://spectrayan.github.io/spector/memory/) · [Cognitive Profiles](https://spectrayan.github.io/spector/memory/cognitive-profiles/) · [Scoring Pipeline](https://spectrayan.github.io/spector/memory/scoring-pipeline/) |
+| **Deploy to production** | [Docker & Compose](https://spectrayan.github.io/spector/deployment/docker/) · [Kubernetes Helm](https://spectrayan.github.io/spector/deployment/helm/) · [Terraform Cloud](https://spectrayan.github.io/spector/deployment/terraform/) |
+| **Contribute to Spector** | [Developer Guide](https://spectrayan.github.io/spector/getting-started/developer-guide/) · [Contributing Guide](CONTRIBUTING.md) |
 
-> 📖 **[Full Documentation →](https://spectrayan.github.io/spector/)**
+> 📖 **[Full Documentation Portal →](https://spectrayan.github.io/spector/)**
 
 ---
 
@@ -254,7 +352,14 @@ This repository uses a **split licensing model**:
 - **`spector-memory`** — [Business Source License 1.1](memory/spector-memory/LICENSE) (transitions to Apache 2.0 on May 27, 2030)
 - **`spector-cortex`** — [Business Source License 1.1](cortex/spector-cortex/LICENSE) (transitions to Apache 2.0 on July 6, 2030)
 - **`spector-synapse`** — [Business Source License 1.1](synapse/spector-synapse/LICENSE) (transitions to Apache 2.0 on July 6, 2030)
-- **All other modules** — [Apache License 2.0](LICENSE)
+- **Client SDKs, Tooling & Connectors** — [Apache License 2.0](LICENSE) (`spector-client` for Python, `@spectrayan/spector-client` for TypeScript/Node.js, Java client SDK, Spring AI starter, Helm chart, Terraform modules, and CLI)
+
+> [!NOTE]
+> **Plain-English Licensing Summary**:
+> - **100% Free**: Free for testing, education, personal projects, internal business workflows, and agent development.
+> - **Client Libraries & Connectors**: Client SDKs and integration libraries are **100% Apache 2.0**.
+> - **Source Available**: Full source code for the core cognitive memory engine and UI is open and auditable under BSL 1.1, automatically converting to Apache 2.0.
+> - **Commercial SaaS**: Only offering Spector as a managed, competitive commercial database-as-a-service requires a commercial license. Using Spector as the memory backend for your own agents, applications, or company products is completely free.
 
 
 For branding and trademark guidelines, see the [NOTICE](NOTICE) file.

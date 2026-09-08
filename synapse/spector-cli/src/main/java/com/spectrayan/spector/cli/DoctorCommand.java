@@ -26,6 +26,7 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 import org.springframework.stereotype.Component;
 import picocli.CommandLine.Command;
@@ -33,8 +34,8 @@ import picocli.CommandLine.Option;
 
 /**
  * Diagnostic command inspecting the local runtime environment, Java 25 & Panama Vector API,
- * CPU SIMD acceleration, directory permissions, Synapse daemon health, Ollama availability,
- * and generating AI agent integration snippets.
+ * CPU SIMD acceleration, directory permissions, Synapse daemon health, ONNX model loading,
+ * and generating AI agent integration configurations.
  */
 @Component
 @Command(
@@ -42,13 +43,19 @@ import picocli.CommandLine.Option;
         description = "Diagnose the local environment, SIMD hardware acceleration, and runtime dependencies.",
         mixinStandardHelpOptions = true
 )
-public class DoctorCommand extends BaseCommand {
+public class DoctorCommand extends BaseCommand implements Callable<Integer> {
 
     @Option(names = {"--data-dir"}, description = "Target data directory to inspect (default: ~/.spector/data).")
     private String dataDir;
 
     @Option(names = {"--snippets"}, description = "Print copy-pasteable AI agent MCP config snippets.", defaultValue = "true")
     private boolean snippets = true;
+
+    @Option(names = {"--verbose", "-v"}, description = "Show verbose debugging output and raw JVM execution blocks.")
+    private boolean verbose = false;
+
+    @Option(names = {"--print-config"}, description = "Output clean JSON configuration for an AI agent (claude or cursor).")
+    private String printConfig;
 
     private enum Status {
         OK("OK"),
@@ -70,14 +77,43 @@ public class DoctorCommand extends BaseCommand {
 
     @Override
     public void run() {
+        call();
+    }
+
+    @Override
+    public Integer call() {
+        // Handle --print-config directly if requested
+        if (printConfig != null && !printConfig.isBlank()) {
+            return handlePrintConfig(printConfig.trim().toLowerCase());
+        }
+
+        boolean hasFailures = false;
         Map<String, Object> report = new LinkedHashMap<>();
 
-        // 1. Java Runtime Diagnosis
+        // 1. Environment & Paths
+        String spectorHome = System.getenv(String.join("_", "SPECTOR", "HOME"));
+        if (spectorHome == null || spectorHome.isBlank()) {
+            spectorHome = System.getProperty("user.home") + File.separator + ".spector";
+        }
+        String resolvedJarPath = "unknown (classpath execution)";
+        try {
+            resolvedJarPath = new File(DoctorCommand.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getAbsolutePath();
+        } catch (Exception ignored) {}
+
+        Map<String, Object> envInfo = new LinkedHashMap<>();
+        envInfo.put("spectorHome", spectorHome);
+        envInfo.put("jarPath", resolvedJarPath);
+        report.put("environment", envInfo);
+
+        // 2. Java Runtime Diagnosis (Strict requirement: JDK 25+)
         int javaFeature = Runtime.version().feature();
         String javaVersion = System.getProperty("java.version");
         String javaVendor = System.getProperty("java.vendor");
         String javaHome = System.getProperty("java.home");
         boolean java25OrHigher = javaFeature >= 25;
+        if (!java25OrHigher) {
+            hasFailures = true;
+        }
 
         Map<String, Object> javaInfo = new LinkedHashMap<>();
         javaInfo.put("version", javaVersion);
@@ -87,7 +123,7 @@ public class DoctorCommand extends BaseCommand {
         javaInfo.put("supported", java25OrHigher);
         report.put("java", javaInfo);
 
-        // 2. SIMD & Vector API Diagnosis
+        // 3. SIMD & Vector API Diagnosis
         boolean panamaVectorAvailable = false;
         int vectorBitSize = 0;
         int laneCount = 0;
@@ -113,10 +149,10 @@ public class DoctorCommand extends BaseCommand {
         simdInfo.put("instructionSet", simdInstructionSet);
         report.put("simd", simdInfo);
 
-        // 3. Storage & Permissions Diagnosis
+        // 4. Storage & Permissions Diagnosis (Must be writable)
         String resolvedDataDir = dataDir != null && !dataDir.isBlank()
                 ? dataDir
-                : System.getProperty("user.home") + File.separator + ".spector" + File.separator + "data";
+                : spectorHome + File.separator + "data";
         Path storagePath = Paths.get(resolvedDataDir);
         boolean dirExists = Files.exists(storagePath);
         boolean canWrite = false;
@@ -133,6 +169,10 @@ public class DoctorCommand extends BaseCommand {
             usableSpaceMb = storagePath.toFile().getUsableSpace() / (1024 * 1024);
         } catch (Exception ignored) {}
 
+        if (!canWrite) {
+            hasFailures = true;
+        }
+
         Map<String, Object> storageInfo = new LinkedHashMap<>();
         storageInfo.put("path", resolvedDataDir);
         storageInfo.put("exists", dirExists);
@@ -140,20 +180,29 @@ public class DoctorCommand extends BaseCommand {
         storageInfo.put("usableSpaceMb", usableSpaceMb);
         report.put("storage", storageInfo);
 
-        // 4. In-Process ONNX Fallback Diagnosis
-        boolean onnxAvailable = false;
+        // 5. In-Process ONNX Model Loading Diagnosis
+        boolean onnxLoaded = false;
+        String onnxDetail = "Not loaded";
         try {
-            Class.forName("dev.langchain4j.model.embedding.onnx.allminilml6v2q.AllMiniLmL6V2QuantizedEmbeddingModel");
-            onnxAvailable = true;
-        } catch (Throwable ignored) {}
+            Class<?> clazz = Class.forName("dev.langchain4j.model.embedding.onnx.allminilml6v2q.AllMiniLmL6V2QuantizedEmbeddingModel");
+            var ctor = clazz.getConstructor();
+            var instance = ctor.newInstance();
+            if (instance != null) {
+                onnxLoaded = true;
+                onnxDetail = "all-MiniLM-L6-v2 (quantized, 384 dims, verified in-process)";
+            }
+        } catch (Throwable e) {
+            onnxDetail = "Model load failed: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+        }
 
         Map<String, Object> onnxInfo = new LinkedHashMap<>();
-        onnxInfo.put("available", onnxAvailable);
+        onnxInfo.put("loaded", onnxLoaded);
         onnxInfo.put("model", "all-MiniLM-L6-v2 (quantized)");
         onnxInfo.put("dimensions", 384);
+        onnxInfo.put("detail", onnxDetail);
         report.put("onnx", onnxInfo);
 
-        // 5. Synapse Daemon Reachability
+        // 6. Synapse Daemon Reachability (Probing /actuator/health)
         String synapseUrl = "http://" + getHost() + ":" + getPort();
         boolean synapseOnline = false;
         String synapseStatus = "OFFLINE";
@@ -179,7 +228,7 @@ public class DoctorCommand extends BaseCommand {
         synapseInfo.put("status", synapseStatus);
         report.put("synapse", synapseInfo);
 
-        // 6. Ollama Reachability (Optional)
+        // 7. Ollama Reachability (Optional)
         String ollamaUrl = "http://localhost:11434";
         boolean ollamaOnline = false;
         try {
@@ -202,10 +251,12 @@ public class DoctorCommand extends BaseCommand {
         ollamaInfo.put("online", ollamaOnline);
         report.put("ollama", ollamaInfo);
 
-        // 7. Output Formatting
+        report.put("status", hasFailures ? "FAIL" : "OK");
+
+        // 8. Output Formatting
         if (isJson()) {
             OutputFormatter.printJson(out(), report);
-            return;
+            return hasFailures ? 1 : 0;
         }
 
         // Pretty Terminal Output
@@ -214,8 +265,11 @@ public class DoctorCommand extends BaseCommand {
         out().println("                     Spector System Diagnostics (Doctor)                        ");
         out().println("================================================================================");
         out().println();
+        out().println("  SPECTOR_HOME         : " + spectorHome);
+        out().println("  Binary JAR Location  : " + resolvedJarPath);
+        out().println();
 
-        printCheck("Java Runtime", java25OrHigher ? Status.OK : Status.WARN,
+        printCheck("Java Runtime", java25OrHigher ? Status.OK : Status.FAIL,
                 javaVersion + " (" + javaVendor + ") [Requires JDK 25+]");
 
         printCheck("SIMD Vector API", panamaVectorAvailable ? Status.OK : Status.WARN,
@@ -224,46 +278,94 @@ public class DoctorCommand extends BaseCommand {
         printCheck("Storage Permissions", (dirExists && canWrite) ? Status.OK : Status.FAIL,
                 resolvedDataDir + " (" + usableSpaceMb + " MB available, writable=" + canWrite + ")");
 
-        printCheck("In-Process ONNX", onnxAvailable ? Status.OK : Status.WARN,
-                onnxAvailable ? "all-MiniLM-L6-v2 (384 dims, zero external dependencies)" : "Model not found on classpath");
+        printCheck("In-Process ONNX", onnxLoaded ? Status.OK : Status.WARN, onnxDetail);
 
         printCheck("Synapse Daemon", synapseOnline ? Status.OK : Status.INFO,
-                synapseOnline ? "ONLINE at " + synapseUrl + " (" + synapseStatus + ")" : "OFFLINE at " + synapseUrl + " (Run 'spector-synapse' to start)");
+                synapseOnline ? "ONLINE at " + synapseUrl + " (" + synapseStatus + ")" : "OFFLINE at " + synapseUrl + " (Run 'spector serve' to start)");
 
         printCheck("Ollama Daemon", ollamaOnline ? Status.OK : Status.INFO,
-                ollamaOnline ? "ONLINE at " + ollamaUrl : "OFFLINE (Optional - fallback to ONNX active)");
+                ollamaOnline ? "ONLINE at " + ollamaUrl : "OFFLINE (Optional - in-process ONNX active)");
 
         out().println();
         out().println("--------------------------------------------------------------------------------");
 
         if (snippets) {
-            printSnippets();
+            printSnippets(synapseOnline, synapseUrl);
         }
+
+        if (verbose) {
+            printVerbose(resolvedJarPath);
+        }
+
+        return hasFailures ? 1 : 0;
     }
 
     private void printCheck(String label, Status status, String detail) {
         out().printf("  [%-4s]  %-22s : %s%n", status, label, detail);
     }
 
-    private void printSnippets() {
+    private void printSnippets(boolean synapseOnline, String synapseUrl) {
         out().println();
         out().println("  [AI Agent Integration Configuration]");
         out().println();
-        out().println("  Add to Claude Desktop (claude_desktop_config.json) or Cursor (.cursor/mcp.json):");
+        out().println("  Option 1: Zero-Install NPX MCP Runner (Preferred):");
+        out().println("    npx -y @spectrayan/spector mcp");
         out().println();
+        out().println("  Option 2: Standalone Local Binary (Installed):");
+        out().println("    spector mcp");
+        out().println();
+        if (synapseOnline) {
+            out().println("  Option 3: Active Daemon HTTP Endpoint (Online):");
+            out().println("    " + synapseUrl + "/mcp");
+            out().println();
+        }
+        out().println("  Claude Desktop / Cursor MCP JSON Configuration:");
         out().println("  {");
         out().println("    \"mcpServers\": {");
         out().println("      \"spector\": {");
-        out().println("        \"command\": \"java\",");
-        out().println("        \"args\": [");
-        out().println("          \"--add-modules\", \"jdk.incubator.vector\",");
-        out().println("          \"--enable-preview\",");
-        out().println("          \"-jar\", \"<path-to-spector-cli.jar>\",");
-        out().println("          \"mcp\"");
-        out().println("        ]");
+        out().println("        \"command\": \"npx\",");
+        out().println("        \"args\": [\"-y\", \"@spectrayan/spector\", \"mcp\"]");
         out().println("      }");
         out().println("    }");
         out().println("  }");
         out().println();
+    }
+
+    private void printVerbose(String jarPath) {
+        out().println("  [Verbose Developer Execution]");
+        out().println("  Raw JVM invocation with preview flags:");
+        out().println("    java --add-modules jdk.incubator.vector \\");
+        out().println("         --enable-native-access=ALL-UNNAMED \\");
+        out().println("         --enable-preview \\");
+        out().println("         -jar \"" + jarPath + "\" mcp");
+        out().println();
+    }
+
+    private int handlePrintConfig(String target) {
+        if ("claude".equals(target) || "cursor".equals(target) || "windsurf".equals(target)) {
+            out().println("""
+                    {
+                      "mcpServers": {
+                        "spector": {
+                          "command": "npx",
+                          "args": ["-y", "@spectrayan/spector", "mcp"]
+                        }
+                      }
+                    }""");
+            return 0;
+        } else if ("http".equals(target)) {
+            out().println("""
+                    {
+                      "mcpServers": {
+                        "spector": {
+                          "url": "http://127.0.0.1:7070/mcp"
+                        }
+                      }
+                    }""");
+            return 0;
+        } else {
+            err().println("Error: Unknown config target '" + target + "'. Supported: claude, cursor, windsurf, http");
+            return 1;
+        }
     }
 }

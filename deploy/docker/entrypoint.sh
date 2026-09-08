@@ -12,18 +12,18 @@
 
 set -e
 
-# Ensure data directories exist
-mkdir -p /data/index /data/memory /data/tmp
+# Ensure data directories exist (if writable)
+mkdir -p /data/index /data/memory /data/tmp 2>/dev/null || true
 
-# Start Nginx in background (serves dashboard + proxies API)
-echo "[Spector] Starting Nginx..."
-nginx
+# Start Nginx in background (serves dashboard + proxies API on port 8080)
+echo "[Spector] Starting Nginx on port 8080..."
+nginx -c /etc/nginx/spector-nginx.conf
 
 # Trap signals for graceful shutdown
 cleanup() {
     echo "[Spector] Received shutdown signal, draining..."
     # Stop accepting new HTTP connections
-    nginx -s quit 2>/dev/null || true
+    nginx -c /etc/nginx/spector-nginx.conf -s quit 2>/dev/null || true
     # Forward SIGTERM to Java (triggers JVM shutdown hook)
     if [ -n "$JAVA_PID" ]; then
         kill -TERM "$JAVA_PID" 2>/dev/null || true
@@ -37,7 +37,7 @@ trap cleanup TERM INT
 
 # Start Spector Synapse in background so trap can catch signals
 echo "[Spector] Starting Spector Synapse..."
-echo "[Spector] Dashboard → http://localhost:3000"
+echo "[Spector] Dashboard → http://localhost:8080"
 echo "[Spector] API Backend → http://localhost:7070"
 java \
     ${JAVA_OPTS:---enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED} \

@@ -141,13 +141,13 @@ public class InitCommand extends BaseCommand {
         out().println();
         out().println("Next Steps:");
         out().println("  1. Run diagnostics:");
-        out().println("     spectorctl doctor");
+        out().println("     spector doctor");
         out().println();
         out().println("  2. Start stdio MCP server for Claude Desktop / Cursor:");
-        out().println("     spectorctl mcp");
+        out().println("     spector mcp");
         out().println();
         out().println("  3. Start the Synapse daemon server:");
-        out().println("     java -jar spector-synapse.jar");
+        out().println("     spector serve");
         out().println();
     }
 }

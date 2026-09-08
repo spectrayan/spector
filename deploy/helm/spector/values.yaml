@@ -6,7 +6,8 @@ replicaCount: 1
 image:
   repository: ghcr.io/spectrayan/spector
   pullPolicy: IfNotPresent
-  tag: "latest"
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
 
 imagePullSecrets: []
 nameOverride: ""
@@ -25,6 +26,7 @@ podSecurityContext:
 securityContext:
   runAsNonRoot: true
   runAsUser: 1000
+  runAsGroup: 1000
 
 service:
   type: ClusterIP

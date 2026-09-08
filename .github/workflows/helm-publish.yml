@@ -2,8 +2,6 @@ name: Publish Helm Chart to GHCR
 
 on:
   push:
-    paths:
-      - 'deploy/helm/**'
     tags:
       - 'v*'
   workflow_dispatch:
@@ -30,8 +28,9 @@ jobs:
 
       - name: Package Chart
         run: |
+          VERSION="${GITHUB_REF_NAME#v}"
           mkdir -p .cr-release-packages
-          helm package deploy/helm/spector --destination .cr-release-packages
+          helm package deploy/helm/spector --version "$VERSION" --app-version "$VERSION" --destination .cr-release-packages
 
       - name: Log in to GHCR
         run: |

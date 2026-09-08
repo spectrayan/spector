@@ -24,6 +24,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      serviceAccountName: {{ include "spector.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -34,7 +35,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: dashboard
-              containerPort: 80
+              containerPort: 8080
               protocol: TCP
             - name: api
               containerPort: 7070
@@ -50,6 +51,12 @@ spec:
             - name: config
               mountPath: /app/spector.yml
               subPath: spector.yml
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 7070
+            failureThreshold: 30
+            periodSeconds: 2
           livenessProbe:
             httpGet:
               path: /actuator/health
@@ -59,9 +66,9 @@ spec:
             timeoutSeconds: 5
           readinessProbe:
             httpGet:
-              path: /api/v1/engine/status
+              path: /actuator/health
               port: 7070
-            initialDelaySeconds: 15
+            initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5
           resources:
@@ -70,6 +77,10 @@ spec:
         - name: config
           configMap:
             name: {{ include "spector.fullname" . }}-config
+        {{- if not .Values.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
   {{- if .Values.persistence.enabled }}
   volumeClaimTemplates:
     - metadata:
@@ -85,8 +96,4 @@ spec:
         resources:
           requests:
             storage: {{ .Values.persistence.size | quote }}
-  {{- else }}
-      volumes:
-        - name: data
-          emptyDir: {}
   {{- end }}

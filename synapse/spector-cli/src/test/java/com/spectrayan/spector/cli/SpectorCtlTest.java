@@ -60,13 +60,14 @@ class SpectorCtlTest {
         cli.execute();
 
         String output = sw.toString();
-        assertThat(output).contains("spectorctl");
+        assertThat(output).contains("Usage: spector");
         assertThat(output).contains("index");
         assertThat(output).contains("remember");
         assertThat(output).contains("recall");
         assertThat(output).contains("status");
         assertThat(output).contains("mcp");
         assertThat(output).contains("doctor");
+        assertThat(output).contains("serve");
         assertThat(output).contains("init");
     }
 
@@ -80,7 +81,8 @@ class SpectorCtlTest {
 
         assertThat(exitCode).isEqualTo(0);
         String output = sw.toString();
-        assertThat(output).contains("Command-line tool for managing Spector");
+        assertThat(output).contains("Usage: spector");
+        assertThat(output).contains("Command-line tool and local runtime for Spector Cognitive Memory");
         assertThat(output).contains("--host");
         assertThat(output).contains("--port");
         assertThat(output).contains("--json");

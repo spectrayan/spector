@@ -10,7 +10,7 @@
     <packaging>pom</packaging>
 
     <name>Spector</name>
-    <description>Ultra-fast, SIMD-accelerated semantic search engine built on Java Vector API + modern JVM technologies.</description>
+    <description>Spector — Cognitive memory engine for AI agents</description>
     <url>https://github.com/spectrayan/spector</url>
 
     <licenses>
@@ -89,10 +89,10 @@
         <!-- ── Synapse: Nervous system — API, agents, wiring ── -->
         <module>synapse/spector-connector</module>
         <module>synapse/spector-mcp</module>
-        <module>synapse/spector-cli</module>
         <module>synapse/spector-spring</module>
         <module>synapse/spector-batch</module>
         <module>synapse/spector-synapse</module>
+        <module>synapse/spector-cli</module>
 
         <!-- ── Bench: Benchmarks ── -->
         <module>bench/spector-bench</module>
@@ -106,7 +106,7 @@
     <!-- ───────────────────────── Properties ───────────────────────── -->
     <properties>
         <!-- CI-friendly version (single source of truth) -->
-        <revision>0.1.0-alpha</revision>
+        <revision>0.1.0-beta</revision>
         <changelist></changelist>
 
         <!-- Java -->

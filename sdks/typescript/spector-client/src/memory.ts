@@ -42,7 +42,7 @@ export class MemoryClient {
   constructor(private readonly transport: Transport) {}
 
   /**
-   * Asynchronously stores a memory with cognitive tier hints.
+   * Stores a memory with cognitive tier hints.
    */
   async remember(params: RememberParams): Promise<Record<string, unknown>> {
     const tierStr = typeof params.tier === 'string' ? params.tier : (params.tier ?? MemoryTier.SEMANTIC);
@@ -65,7 +65,7 @@ export class MemoryClient {
    */
   async store(text: string, tags?: string[]): Promise<{ id: string; status?: string }> {
     const body = { text, tags: tags ?? [] };
-    return this.transport.request('POST', '/api/v1/memory/store', { body });
+    return this.transport.request('POST', '/api/v1/memory', { body });
   }
 
   /**
@@ -79,13 +79,15 @@ export class MemoryClient {
       minSalience: options.minSalience ?? 0.0,
       tags: options.tags ?? [],
     };
-    const res = await this.transport.request<any[]>('POST', '/api/v1/memory/recall', { body });
-    if (!Array.isArray(res)) return [];
+    const res = await this.transport.request<any>('POST', '/api/v1/memory/recall', { body });
+    const items: any[] = Array.isArray(res)
+      ? res
+      : (res?.results ?? res?.memories ?? res?.data ?? []);
 
-    return res.map((item) => ({
+    return items.map((item) => ({
       id: String(item.id ?? ''),
       text: String(item.text ?? ''),
-      score: Number(item.score ?? 0),
+      score: Number(item.score ?? item.cognitiveScore ?? 0),
       tier: (item.tier as MemoryTier) ?? MemoryTier.SEMANTIC,
       tags: Array.isArray(item.tags) ? item.tags : [],
       valence: Number(item.valence ?? 0),
@@ -93,8 +95,8 @@ export class MemoryClient {
       importance: Number(item.importance ?? 0),
       metadata: item.metadata ?? {},
       similarity: Number(item.similarity ?? 0),
-      ageDays: Number(item.ageDays ?? 0),
-      decayFactor: Number(item.decayFactor ?? 1),
+      ageDays: Number(item.ageDays ?? item.age_days ?? 0),
+      decayFactor: Number(item.decayFactor ?? item.decay_factor ?? 1),
     }));
   }
 
@@ -103,10 +105,12 @@ export class MemoryClient {
    */
   async search(query: string, topK: number = 5): Promise<SearchRecord[]> {
     const body = { query, topK };
-    const res = await this.transport.request<any[]>('POST', '/api/v1/memory/search', { body });
-    if (!Array.isArray(res)) return [];
+    const res = await this.transport.request<any>('POST', '/api/v1/memory/search', { body });
+    const items: any[] = Array.isArray(res)
+      ? res
+      : (res?.results ?? res?.hits ?? res?.data ?? []);
 
-    return res.map((item) => ({
+    return items.map((item) => ({
       id: String(item.id ?? ''),
       text: String(item.text ?? ''),
       score: Number(item.score ?? 0),

@@ -1,10 +1,10 @@
 # spector-cli 🖥️
 
-> **Multi-function Command-line interface (`spectorctl`) and standalone MCP server runner for Spector.**
+> **Multi-function Command-line interface (`spector`) and standalone MCP server runner for Spector.**
 
-`spector-cli` implements **`spectorctl`**, a unified CLI packaged as the standalone runnable `spector.jar` that supports:
-- **MCP server** — run the Model Context Protocol server over STDIO (`spectorctl mcp`)
-- **Local batch mode** — discover and ingest files directly into `SpectorMemory` (`spectorctl ingest --root`)
+`spector-cli` implements **`spector`**, a unified CLI packaged as the standalone runnable `spector.jar` that supports:
+- **MCP server** — run the Model Context Protocol server over STDIO (`spector mcp`)
+- **Local batch mode** — discover and ingest files directly into `SpectorMemory` (`spector ingest --root`)
 - **Remote mode** — manage a running Spector server via REST API (search, status, memory inspect/recall)
 
 ---
@@ -30,10 +30,10 @@ java --enable-preview --add-modules jdk.incubator.vector \
 
 ```bash
 # Start MCP server with configuration file
-spectorctl mcp --config spector.yml
+spector mcp --config spector.yml
 
 # Start MCP server with custom data directory and dimensions
-spectorctl mcp --dims 4096 --data-dir ~/.spector/data --ollama-model qwen3-embedding:latest
+spector mcp --dims 4096 --data-dir ~/.spector/data --ollama-model qwen3-embedding:latest
 ```
 
 ---
@@ -48,14 +48,14 @@ Discovers and ingests files directly into `SpectorMemory` via Spring Boot auto-c
 
 ```bash
 # Remember from config (root-directory from spector.yml)
-spectorctl remember --config spector.yml
+spector remember --config spector.yml
 
 # Remember with explicit root directory (or using 'ingest' alias)
-spectorctl remember --root /path/to/docs --pattern "**/*.md"
-spectorctl ingest --root /path/to/docs --pattern "**/*.md"
+spector remember --root /path/to/docs --pattern "**/*.md"
+spector ingest --root /path/to/docs --pattern "**/*.md"
 
 # Override chunk size
-spectorctl remember --config spector.yml --root . --chunk-size 1200
+spector remember --config spector.yml --root . --chunk-size 1200
 ```
 
 ### Remote Mode (via HTTP)
@@ -64,10 +64,10 @@ Sends a single document or memory to a running Spector server.
 
 ```bash
 # Remember text content
-spectorctl remember --content "Hello world" --id doc-1
+spector remember --content "Hello world" --id doc-1
 
 # Remember from a file
-spectorctl remember --file README.md --title "Project README"
+spector remember --file README.md --title "Project README"
 ```
 
 ---
@@ -76,13 +76,13 @@ spectorctl remember --file README.md --title "Project README"
 
 ```bash
 # Store a memory
-spectorctl memory remember --text "Spector uses 4-tier cognitive memory" --tier SEMANTIC
+spector memory remember --text "Spector uses 4-tier cognitive memory" --tier SEMANTIC
 
 # Recall memories
-spectorctl memory recall "cognitive memory" --top-k 5
+spector memory recall "cognitive memory" --top-k 5
 
 # View memory status
-spectorctl memory status
+spector memory status
 ```
 
 ---
@@ -93,13 +93,13 @@ The `recall` command (with backward-compatible alias `search`) queries Spector f
 
 ```bash
 # Recall with default settings
-spectorctl recall "vector databases" --top-k 5
+spector recall "vector databases" --top-k 5
 
 # Recall using 'search' alias
-spectorctl search "vector databases" --top-k 5
+spector search "vector databases" --top-k 5
 
 # Output as JSON (machine-parseable)
-spectorctl recall "HNSW algorithm" --json
+spector recall "HNSW algorithm" --json
 ```
 
 ---
@@ -108,10 +108,10 @@ spectorctl recall "HNSW algorithm" --json
 
 ```bash
 # Show engine status
-spectorctl status
+spector status
 
 # JSON output
-spectorctl status --json
+spector status --json
 ```
 
 ---

@@ -61,8 +61,8 @@ COPY plugins/ plugins/
 # Package Synapse executable fat JAR
 RUN mvn -B package -pl synapse/spector-synapse -am -DskipTests --no-transfer-progress
 
-# ── Stage 3: Runtime ──────────────────────────────────────────────────
-FROM eclipse-temurin:25-jre-alpine AS runtime
+# ── Stage 3: Runtime (glibc Debian Bookworm base) ─────────────────────
+FROM eclipse-temurin:25-jre AS runtime
 
 LABEL maintainer="Spectrayan <team@spectrayan.com>"
 LABEL org.opencontainers.image.title="Spector"
@@ -71,24 +71,30 @@ LABEL org.opencontainers.image.url="https://github.com/spectrayan/spector"
 LABEL org.opencontainers.image.source="https://github.com/spectrayan/spector"
 LABEL org.opencontainers.image.licenses="Apache-2.0 AND BSL-1.1"
 
-# Install Nginx and tini for proper signal handling
-RUN apk add --no-cache nginx tini
+# Install Nginx, tini, and network utilities
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nginx \
+    tini \
+    curl \
+    wget \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN addgroup -S spector && adduser -S spector -G spector
+# Create non-root user spector (UID/GID 1000)
+RUN groupadd -g 1000 spector && \
+    useradd -u 1000 -g spector -m -s /bin/bash spector
 
 WORKDIR /app
 
 # Copy backend fat JAR from Stage 2
-COPY --from=builder-synapse /build/synapse/spector-synapse/target/spector-synapse-*.jar /app/spector-synapse.jar
+COPY --from=builder-synapse /build/synapse/spector-synapse/target/spector-synapse-*-exec.jar /app/spector-synapse.jar
 
 # Copy frontend distribution from Stage 1
 COPY --from=builder-cortex /build/dist/spector-cortex/browser/ /usr/share/nginx/html/
 
 # Copy configuration and scripts
 COPY deploy/docker/spector-docker.yml /app/spector.yml
-RUN rm -f /etc/nginx/http.d/default.conf
-COPY deploy/docker/nginx.conf /etc/nginx/http.d/spector.conf
+COPY deploy/docker/nginx.conf /etc/nginx/spector-nginx.conf
 COPY deploy/docker/entrypoint.sh /app/entrypoint.sh
 RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
@@ -99,13 +105,16 @@ ENV JAVA_OPTS="-Xms512m -Xmx1536m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 \
 --enable-preview --add-modules=jdk.incubator.vector \
 --enable-native-access=ALL-UNNAMED -Djava.io.tmpdir=/data/tmp"
 
-# Prepare filesystem permissions
-RUN mkdir -p /data/index /data/memory /data/tmp /run/nginx \
-    && chown -R spector:spector /data /app /run/nginx
+# Prepare filesystem permissions for non-root execution (UID 1000)
+RUN mkdir -p /data/index /data/memory /data/tmp /tmp/nginx /var/log/nginx /var/lib/nginx \
+    && chown -R 1000:1000 /data /app /usr/share/nginx/html /etc/nginx /var/log/nginx /var/lib/nginx /tmp/nginx
 
-EXPOSE 80 7070
+USER 1000:1000
 
-HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
-    CMD wget -qO- http://localhost:7070/actuator/health || exit 1
+EXPOSE 8080 7070
 
-ENTRYPOINT ["/sbin/tini", "--", "/app/entrypoint.sh"]
+HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=3 \
+    CMD curl -sf http://127.0.0.1:7070/actuator/health || exit 1
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/entrypoint.sh"]
+
