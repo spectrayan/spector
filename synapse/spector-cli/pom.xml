@@ -12,7 +12,7 @@
     </parent>
 
     <artifactId>spector-cli</artifactId>
-    <name>Spector CLI (spectorctl)</name>
+    <name>Spector CLI (spector)</name>
     <description>Command-line tool for managing Spector instances and running standalone MCP server.</description>
 
     <properties>

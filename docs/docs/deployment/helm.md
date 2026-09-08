@@ -41,7 +41,7 @@ kubectl port-forward svc/spector 7070:7070 -n spector
 
 The Helm chart provisions:
 - **`StatefulSet`**: Ensures persistent node identity and guarantees safe storage unmounting during rolling upgrades.
-- **`PersistentVolumeClaim`**: Dedicated block or network storage mounted at `/var/lib/spector` for WAL and off-heap memory segments.
+- **`PersistentVolumeClaim`**: Dedicated block or network storage mounted at `/data` for WAL and off-heap memory segments.
 - **`Service`**: Internal `ClusterIP` on port `:7070` with readiness and liveness HTTP probes.
 - **`ConfigMap`**: Application properties configuring embedders, storage paths, and logging.
 

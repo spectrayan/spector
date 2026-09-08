@@ -23,8 +23,8 @@ Exported archives are compressed `.smb` (`tar.zst` / zip) bundles containing:
 - `POST /api/v1/migration/import?bundlePath=/tmp/backup.smb&targetNamespace=migrated_ns`
 - `GET /api/v1/migration/jobs/{executionId}`
 
-### CLI Integration (`spectorctl`)
-- Remote export: `spectorctl memory export --namespace=default --output=/tmp/backup.smb`
-- Offline export: `spectorctl memory export --namespace=default --output=/tmp/backup.smb --offline`
-- Remote import: `spectorctl memory import --input=/tmp/backup.smb --target-namespace=migrated_ns`
-- Offline import: `spectorctl memory import --input=/tmp/backup.smb --target-namespace=migrated_ns --offline`
+### CLI Integration (`spector`)
+- Remote export: `spector memory export --namespace=default --output=/tmp/backup.smb`
+- Offline export: `spector memory export --namespace=default --output=/tmp/backup.smb --offline`
+- Remote import: `spector memory import --input=/tmp/backup.smb --target-namespace=migrated_ns`
+- Offline import: `spector memory import --input=/tmp/backup.smb --target-namespace=migrated_ns --offline`

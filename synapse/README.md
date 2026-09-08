@@ -4,7 +4,7 @@ This directory contains the runtime coordinator, endpoint adapters, client SDKs,
 
 ## Modules
 
-* **[`spector-cli`](/synapse/spector-cli)**: Command-line interface (`spectorctl`) for administration, diagnostic control, and standalone MCP server runner (packaged as `spector.jar`).
+* **[`spector-cli`](/synapse/spector-cli)**: Command-line interface (`spector`) for administration, diagnostic control, and standalone MCP server runner (packaged as `spector.jar`).
 * **[`spector-connector`](/synapse/spector-connector)**: Apache Camel-based integration connector runtime with dynamic YAML route templates, PII scrubbing, row-level SQL splitting, and direct Spector Memory ingestion sinks.
 * **[`spector-mcp`](/synapse/spector-mcp)**: Model Context Protocol (MCP) server implementation allowing LLM agents to recall/remember memories directly over STDIO/SSE.
 * **[`spector-spring`](/synapse/spector-spring)**: Spring AI auto-configurations and embedded `SpectorVectorStore` integration.

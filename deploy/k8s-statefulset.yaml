@@ -73,8 +73,8 @@ spec:
               #   fully free for OS page-cache (madvise prefetching and zero-copy mmap mapped regions).
               # - Enable vector API, preview features, and compiler optimizations.
               value: "-Xms2G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:+UnlockDiagnosticVMOptions -XX:+UnlockExperimentalVMOptions --add-modules=jdk.incubator.vector --enable-preview -Djava.lang.foreign.restricted=permit"
-            - name: SPECTOR_MEMORY_DIR
-              value: "/var/lib/spector/data"
+            - name: SPECTOR_DATA_DIR
+              value: "/data"
           resources:
             requests:
               cpu: "4"
@@ -90,18 +90,18 @@ spec:
               memory: "16Gi"
           volumeMounts:
             - name: spector-offheap-store
-              mountPath: /var/lib/spector/data
+              mountPath: /data
           livenessProbe:
             httpGet:
-              path: /api/v2/memory/status
-              port: 8080
+              path: /actuator/health
+              port: 7070
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 3
           readinessProbe:
             httpGet:
-              path: /api/v2/memory/status
-              port: 8080
+              path: /actuator/health
+              port: 7070
             initialDelaySeconds: 15
             periodSeconds: 5
             timeoutSeconds: 2
