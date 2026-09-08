@@ -11,11 +11,12 @@
 .vscode
 *.iml
 
-# Node (cortex source not needed — we copy pre-built dist)
+# Node
 **/node_modules
 cortex/spector-cortex/.angular
-cortex/spector-cortex/src
-cortex/spector-cortex/public
+
+# Windows-specific Maven config
+.mvn/
 
 # Maven build output (rebuilt in container)
 **/target
