@@ -92,4 +92,58 @@ class CognitiveGraphFacadeTest {
         boolean hasEntityEdge = edges.stream().anyMatch(e -> e.type().equals("ENTITY"));
         assertThat(hasEntityEdge).isTrue();
     }
+
+    @Test
+    @DisplayName("neighborhood — discovers neighbors via EntityDirectory even when HyperEntityGraph is empty")
+    void neighborhoodDiscoversNeighborsViaEntityDirectoryWhenHyperGraphEmpty() {
+        var hebbianGraph = mock(HebbianGraph.class);
+        var temporalChain = mock(TemporalChainMemory.class);
+        var entityDirectory = mock(EntityDirectory.class);
+        var hyperEntityGraph = mock(HyperEntityGraphMemory.class);
+        var index = mock(MemoryIndex.class);
+
+        var facade = new CognitiveGraphFacade(
+                hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, index
+        );
+
+        String memA = "mem-A";
+        String memB = "mem-B";
+
+        doAnswer(invocation -> {
+            Map<Integer, String> slotToId = invocation.getArgument(0);
+            Map<String, Integer> idToSlot = invocation.getArgument(1);
+            slotToId.put(5, memA);
+            slotToId.put(9, memB);
+            idToSlot.put(memA, 5);
+            idToSlot.put(memB, 9);
+            return null;
+        }).when(index).buildGraphSlotMappings(anyMap(), anyMap());
+
+        Map<String, Integer> nameIndex = new LinkedHashMap<>();
+        nameIndex.put("Quantum", 20);
+        when(entityDirectory.nameIndex()).thenReturn(nameIndex);
+        when(entityDirectory.memoriesForEntity(20)).thenReturn(new int[]{5, 9});
+        when(entityDirectory.entityType(20)).thenReturn("PROJECT");
+
+        // HyperEntityGraph has NO edges for this entity (ADR-0003 bundle migration scenario)
+        when(hyperEntityGraph.findHyperedgesForEntity(20)).thenReturn(List.of());
+
+        var recA = mock(CognitiveRecord.class);
+        var recB = mock(CognitiveRecord.class);
+        when(recA.text()).thenReturn("Quantum architecture spec");
+        when(recB.text()).thenReturn("Quantum performance results");
+        Function<String, CognitiveRecord> inspector = id -> id.equals(memA) ? recA : recB;
+
+        // Act
+        GraphNeighborhood neighborhood = facade.neighborhood(memA, 1, inspector);
+
+        // Assert
+        assertThat(neighborhood).isNotNull();
+        assertThat(neighborhood.centerId()).isEqualTo(memA);
+        assertThat(neighborhood.nodes()).extracting("id").containsExactlyInAnyOrder(memA, memB);
+        assertThat(neighborhood.edges()).hasSize(1);
+        assertThat(neighborhood.edges().getFirst().type()).isEqualTo("ENTITY");
+        assertThat(neighborhood.edges().getFirst().sourceId()).isEqualTo(memA);
+        assertThat(neighborhood.edges().getFirst().targetId()).isEqualTo(memB);
+    }
 }

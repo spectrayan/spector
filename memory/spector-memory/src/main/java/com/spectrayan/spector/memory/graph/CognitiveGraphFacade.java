@@ -231,16 +231,8 @@ public final class CognitiveGraphFacade {
             // Entity edges
             collectEntityEdges(slotToId, allIdsSet, edges);
 
-            // Deduplicate edges to avoid rendering redundant lines in UI
-            List<GraphEdge> uniqueEdges = edges.stream().distinct().toList();
-
-            // Cap total edges in overview to keep WebGL rendering fluid (top 500 strongest edges)
-            if (uniqueEdges.size() > 500) {
-                uniqueEdges = uniqueEdges.stream()
-                        .sorted(java.util.Comparator.comparingDouble(GraphEdge::weight).reversed())
-                        .limit(500)
-                        .toList();
-            }
+            // Cap total edges in overview to keep WebGL rendering fluid while preserving layer representation
+            List<GraphEdge> uniqueEdges = capOverviewEdges(edges.stream().distinct().toList(), 500);
 
             return new GraphNeighborhood(null, nodes, uniqueEdges, null);
         } catch (Exception e) {
@@ -321,14 +313,8 @@ public final class CognitiveGraphFacade {
             // Collect any remaining entity edges between any visited nodes
             collectEntityEdges(slotToId, visitedIdsSet, edges);
 
-            // Deduplicate edges to avoid rendering redundant lines in UI
-            List<GraphEdge> uniqueEdges = edges.stream().distinct().toList();
-            if (uniqueEdges.size() > 500) {
-                uniqueEdges = uniqueEdges.stream()
-                        .sorted(java.util.Comparator.comparingDouble(GraphEdge::weight).reversed())
-                        .limit(500)
-                        .toList();
-            }
+            // Cap total edges to keep WebGL rendering fluid while preserving layer representation
+            List<GraphEdge> uniqueEdges = capOverviewEdges(edges.stream().distinct().toList(), 500);
 
             // Inspect and build nodes
             List<GraphNode> nodes = buildNodes(visitedIds, idToSlot, inspector);
@@ -982,6 +968,13 @@ public final class CognitiveGraphFacade {
                         validMemsForEntity.add(memId);
                     }
                 }
+                int[] identityMems = identityMemoriesForEntity(entityId);
+                for (int sm : identityMems) {
+                    String memId = slotToId.get(sm);
+                    if (memId != null && validIds.contains(memId) && !validMemsForEntity.contains(memId)) {
+                        validMemsForEntity.add(memId);
+                    }
+                }
 
                 for (int i = 0; i < validMemsForEntity.size(); i++) {
                     for (int j = i + 1; j < validMemsForEntity.size(); j++) {
@@ -1058,7 +1051,7 @@ public final class CognitiveGraphFacade {
                                       List<Integer> nextLevel, List<GraphEdge> edges) {
         if (temporalChain == null) return;
         try {
-            int[] forward = temporalChain.followForward(slot, 1);
+            int[] forward = temporalChain.followForward(slot, 2);
             for (int nSlot : forward) {
                 String nId = slotToId.get(nSlot);
                 if (nId != null) {
@@ -1070,7 +1063,7 @@ public final class CognitiveGraphFacade {
                     }
                 }
             }
-            int[] backward = temporalChain.followBackward(slot, 1);
+            int[] backward = temporalChain.followBackward(slot, 2);
             for (int nSlot : backward) {
                 String nId = slotToId.get(nSlot);
                 if (nId != null) {
@@ -1093,24 +1086,25 @@ public final class CognitiveGraphFacade {
                                     List<String> visitedIds, HashSet<String> visitedIdsSet,
                                     List<Integer> nextLevel, List<GraphEdge> edges,
                                     int maxNeighbors) {
-        if (hyperEntityGraph == null) return;
+        if (!hasIdentity() && hyperEntityGraph == null) return;
         List<Integer> entities = slotToEntities.get(slot);
         if (entities == null || entities.isEmpty()) return;
         try {
             int addedForNode = 0;
             for (int entityId : entities) {
-                if (visitedIds.size() >= maxNeighbors || addedForNode >= 10) break;
+                if (visitedIds.size() >= maxNeighbors || addedForNode >= 15) break;
                 String entityName = idToName.getOrDefault(entityId, "Entity");
                 String entityType = safeEntityType(entityId);
                 String relationLabel = (entityType != null && !entityType.equals("UNKNOWN") && !entityType.equals("ENTITY"))
                         ? entityType + ": " + entityName
                         : entityName;
 
-                var hEdges = hyperEntityGraph.findHyperedgesForEntity(entityId);
                 int countForEntity = 0;
-                for (var he : hEdges) {
-                    if (countForEntity >= 5 || visitedIds.size() >= maxNeighbors || addedForNode >= 10) break;
-                    int targetSlot = he.memoryIdx();
+
+                // 1. Traverse memories sharing this entity via EntityDirectory (ADR-0003)
+                int[] identityMems = identityMemoriesForEntity(entityId);
+                for (int targetSlot : identityMems) {
+                    if (countForEntity >= 5 || visitedIds.size() >= maxNeighbors || addedForNode >= 15) break;
                     if (targetSlot == slot || targetSlot < 0) continue;
                     String targetId = slotToId.get(targetSlot);
                     if (targetId != null) {
@@ -1123,6 +1117,64 @@ public final class CognitiveGraphFacade {
                             nextLevel.add(targetSlot);
                             addedForNode++;
                             countForEntity++;
+                        }
+                    }
+                }
+
+                // 2. Traverse HyperEntityGraph hyperedges (if present)
+                if (hyperEntityGraph != null) {
+                    var hEdges = hyperEntityGraph.findHyperedgesForEntity(entityId);
+                    for (var he : hEdges) {
+                        if (countForEntity >= 5 || visitedIds.size() >= maxNeighbors || addedForNode >= 15) break;
+                        int targetSlot = he.memoryIdx();
+                        if (targetSlot == slot || targetSlot < 0) continue;
+                        String targetId = slotToId.get(targetSlot);
+                        if (targetId != null) {
+                            edges.add(new GraphEdge(
+                                    currentId, targetId, "ENTITY", relationLabel,
+                                    0.5, entityType, entityType));
+                            if (!visitedIdsSet.contains(targetId)) {
+                                visitedIds.add(targetId);
+                                visitedIdsSet.add(targetId);
+                                nextLevel.add(targetSlot);
+                                addedForNode++;
+                                countForEntity++;
+                            }
+                        }
+                    }
+                }
+
+                // 3. Traverse structured facts from Temporal Knowledge Graph
+                if (temporalKnowledgeGraph != null && temporalKnowledgeGraph.predicateRegistry() != null) {
+                    var facts = temporalKnowledgeGraph.readFactsForEntity(entityId);
+                    if (facts != null) {
+                        var predRegistry = temporalKnowledgeGraph.predicateRegistry();
+                        Set<Integer> retractedIds = temporalKnowledgeGraph.retractedFactIds();
+                        long nowMs = System.currentTimeMillis();
+                        for (var fact : facts) {
+                            if (fact.isRetraction() || retractedIds.contains(fact.factId())) continue;
+                            if (fact.validTo() != Long.MAX_VALUE && fact.validTo() <= nowMs) continue;
+                            int objectId = fact.objectEntityId();
+                            String relName = predRegistry.nameOf((int) fact.predicateId());
+                            if (relName == null || relName.isBlank()) relName = "RELATED_TO";
+                            int[] targetMems = identityMemoriesForEntity(objectId);
+                            for (int targetSlot : targetMems) {
+                                if (countForEntity >= 5 || visitedIds.size() >= maxNeighbors || addedForNode >= 15) break;
+                                if (targetSlot == slot || targetSlot < 0) continue;
+                                String targetId = slotToId.get(targetSlot);
+                                if (targetId != null) {
+                                    edges.add(new GraphEdge(
+                                            currentId, targetId, "ENTITY", relName,
+                                            0.8, entityType, safeEntityType(objectId)));
+                                    if (!visitedIdsSet.contains(targetId)) {
+                                        visitedIds.add(targetId);
+                                        visitedIdsSet.add(targetId);
+                                        nextLevel.add(targetSlot);
+                                        addedForNode++;
+                                        countForEntity++;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1147,6 +1199,24 @@ public final class CognitiveGraphFacade {
         } catch (Exception e) {
             return "ENTITY";
         }
+    }
+
+    private static List<GraphEdge> capOverviewEdges(List<GraphEdge> edges, int maxEdges) {
+        if (edges.size() <= maxEdges) {
+            return edges;
+        }
+        // Ensure all 3 cognitive graph layers are represented fairly.
+        // Temporal chain forms the chronological backbone (at most N-1 edges) -> preserve all temporal edges first.
+        List<GraphEdge> temporal = edges.stream().filter(e -> "TEMPORAL".equals(e.type())).toList();
+        List<GraphEdge> nonTemporal = edges.stream().filter(e -> !"TEMPORAL".equals(e.type())).toList();
+        int remainingSlots = Math.max(0, maxEdges - temporal.size());
+        List<GraphEdge> topOther = nonTemporal.stream()
+                .sorted(java.util.Comparator.comparingDouble(GraphEdge::weight).reversed())
+                .limit(remainingSlots)
+                .toList();
+        List<GraphEdge> merged = new ArrayList<>(temporal);
+        merged.addAll(topOther);
+        return merged;
     }
 
     private static String truncate(String text, int max) {

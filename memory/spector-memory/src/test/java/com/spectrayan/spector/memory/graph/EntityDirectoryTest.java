@@ -205,4 +205,70 @@ class EntityDirectoryTest {
             dir.close();
         }
     }
+
+    @Test
+    @DisplayName("fromBundle links and rebuilds reverse index correctly across reopen")
+    void fromBundle_linksAndRebuildsReverseIndexCorrectly(@TempDir Path tmp) {
+        Path bundlePath = tmp.resolve("runtime.bundle");
+        java.util.List<com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec> specs = java.util.List.of(
+                new com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec(
+                        com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_DIRECTORY,
+                        8192, 100, 64, 0x45444952, 1, false),
+                new com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec(
+                        com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_NAMES,
+                        16384, 1, 8, 0x45444952, 1, true)
+        );
+
+        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+
+        // First pass: intern and link
+        try (com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle bundle =
+                     com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.mmap(bundlePath, specs)) {
+            java.lang.foreign.MemorySegment entitySlice = bundle.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_DIRECTORY);
+            java.lang.foreign.MemorySegment adjSlice = bundle.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_NAMES);
+
+            EntityDirectory dir = EntityDirectory.fromBundle(bundle.arena(), entitySlice, adjSlice, 100, reg, bundlePath, true);
+            int e1 = dir.intern("Quantum Engine", "PROJECT");
+            int e2 = dir.intern("DeepMind", "ORGANIZATION");
+
+            dir.linkEntityToMemory(e1, 42);
+            dir.linkEntityToMemory(e2, 42);
+            dir.linkEntityToMemory(e1, 99);
+
+            assertThat(dir.entitiesForMemory(42)).containsEntry(e1, "quantum engine");
+            assertThat(dir.entitiesForMemory(42)).containsEntry(e2, "deepmind");
+            assertThat(dir.memoriesForEntity(e1)).contains(42, 99);
+
+            dir.save(bundlePath);
+            dir.close();
+        }
+
+        // Second pass: reopen from existing bundle and verify reverse index is restored
+        try (com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle reopened =
+                     com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.open(bundlePath)) {
+            java.lang.foreign.MemorySegment entitySlice = reopened.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_DIRECTORY);
+            java.lang.foreign.MemorySegment adjSlice = reopened.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_NAMES);
+
+            EntityDirectory dir = EntityDirectory.fromBundle(reopened.arena(), entitySlice, adjSlice, 100, reg, bundlePath, false);
+            assertThat(dir.entityCount()).isEqualTo(2);
+
+            int e1 = dir.findEntity("quantum engine");
+            int e2 = dir.findEntity("deepmind");
+            assertThat(e1).isGreaterThanOrEqualTo(0);
+            assertThat(e2).isGreaterThanOrEqualTo(0);
+
+            // Verify entitiesForMemory works via rebuildReverseIndex
+            var mem42Entities = dir.entitiesForMemory(42);
+            assertThat(mem42Entities).containsEntry(e1, "quantum engine");
+            assertThat(mem42Entities).containsEntry(e2, "deepmind");
+
+            var mem99Entities = dir.entitiesForMemory(99);
+            assertThat(mem99Entities).containsEntry(e1, "quantum engine");
+
+            assertThat(dir.memoriesForEntity(e1)).contains(42, 99);
+            assertThat(dir.memoriesForEntity(e2)).contains(42);
+
+            dir.close();
+        }
+    }
 }

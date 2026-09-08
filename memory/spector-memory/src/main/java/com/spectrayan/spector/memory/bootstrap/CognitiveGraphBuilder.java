@@ -32,26 +32,10 @@ import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.bundle.RegionId;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
-
-import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
-import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.EntityExtractionMode;
-import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
-import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
-import com.spectrayan.spector.memory.graph.OntologyConfig;
-import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
-import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.SystemMemoryId;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
-import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
-
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -243,7 +227,16 @@ public final class CognitiveGraphBuilder {
             temporalKnowledgeGraph = new TemporalKnowledgeGraph(predRegistry);
         }
 
-        //  Cognitive Graph Facade 
+        // Auto-heal temporal chain if historical memories exist but chain is unlinked
+        if (temporalChain != null && temporalChain.chainLength() == 0 && index != null && index.size() > 1) {
+            try {
+                backfillTemporalChain(temporalChain, index);
+            } catch (Exception e) {
+                log.warn("[CognitiveGraphBuilder] Failed to backfill temporal causal chain: {}", e.getMessage(), e);
+            }
+        }
+
+        // ── Cognitive Graph Facade ──
         CognitiveGraphFacade graphFacade = new CognitiveGraphFacade(
                 hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph,
                 temporalKnowledgeGraph, ontConfig, index, builder.cacheManager());
@@ -251,5 +244,35 @@ public final class CognitiveGraphBuilder {
         return new CognitiveGraphs(
                 hebbianGraph, temporalChain, entityExtractor, entityDirectory,
                 hyperEntityGraph, temporalKnowledgeGraph, graphFacade);
+    }
+
+    private static void backfillTemporalChain(TemporalChainMemory temporalChain, MemoryIndex index) {
+        List<String> orderedIds = index.orderedIds();
+        if (orderedIds.size() <= 1) return;
+
+        Map<String, Integer> idToSlot = new LinkedHashMap<>();
+        Map<Integer, String> slotToId = new LinkedHashMap<>();
+        index.buildGraphSlotMappings(slotToId, idToSlot);
+
+        int prevSlot = -1;
+        int linkedCount = 0;
+        int nowSec = (int) (System.currentTimeMillis() / 1000);
+
+        for (String id : orderedIds) {
+            int slot = idToSlot.getOrDefault(id, -1);
+            if (slot < 0 || slot >= temporalChain.capacity()) continue;
+
+            if (prevSlot >= 0 && prevSlot < temporalChain.capacity()) {
+                temporalChain.linkNodes(prevSlot, slot, 0, nowSec);
+                linkedCount++;
+            }
+            prevSlot = slot;
+        }
+
+        if (linkedCount > 0) {
+            temporalChain.flush();
+            log.info("[CognitiveGraphBuilder] Backfilled {} temporal chain links across {} indexed memories",
+                    linkedCount, orderedIds.size());
+        }
     }
 }

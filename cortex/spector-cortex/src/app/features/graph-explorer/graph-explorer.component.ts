@@ -215,7 +215,8 @@ export class GraphExplorerComponent implements AfterViewInit, OnDestroy {
   // ── Neighborhood Expansion ───────────────────────────────
   readonly isExpanding = signal(false);
   readonly expansionDepth = signal(1);
-  private isOverviewMode = true;
+  readonly isOverviewMode = signal(true);
+  readonly expansionStatus = signal<string | null>(null);
 
   // ── Query-Driven Graph Animation ─────────────────────────
   readonly queryAnimationMode = signal(false);
@@ -490,6 +491,8 @@ export class GraphExplorerComponent implements AfterViewInit, OnDestroy {
     this.selectedNode.set(null);
     this.selectedEdge.set(null);
     this.clearEdgeHighlight();
+    this.restoreAllNodeOpacities();
+    this.expansionStatus.set(null);
   }
 
   /** Capture the current graph view as a branded PNG screenshot */
@@ -754,7 +757,8 @@ export class GraphExplorerComponent implements AfterViewInit, OnDestroy {
   expandNodeNeighbors(nodeId: string): void {
     if (this.isExpanding()) return;
     this.isExpanding.set(true);
-    this.isOverviewMode = false;
+    this.isOverviewMode.set(false);
+    this.expansionStatus.set(null);
     const depth = this.expansionDepth();
 
     this.pushDebugLine('QRY', `Expanding neighborhood: ${nodeId} (depth=${depth})`);
@@ -764,12 +768,16 @@ export class GraphExplorerComponent implements AfterViewInit, OnDestroy {
         const existingIds = new Set(this.nodes.map(n => n.id));
         const newNodes = response.nodes.filter(n => !existingIds.has(n.id));
         const newEdges = response.edges.filter(e =>
-          !this.edges.some(ex => ex.from === e.fromId && ex.to === e.toId && ex.type === e.type)
+          !this.edges.some(ex =>
+            (ex.from === e.fromId && ex.to === e.toId && ex.type === e.type) ||
+            (ex.from === e.toId && ex.to === e.fromId && ex.type === e.type)
+          )
         );
+
+        const parentNode = this.nodes.find(n => n.id === nodeId);
 
         if (newNodes.length > 0) {
           // Position new nodes in a radial burst around the parent
-          const parentNode = this.nodes.find(n => n.id === nodeId);
           if (parentNode) {
             this.addNodesToSceneAroundParent(newNodes, parentNode);
           } else {
@@ -783,15 +791,40 @@ export class GraphExplorerComponent implements AfterViewInit, OnDestroy {
           this.updateTimestampRange();
 
           // Fire a burst to celebrate
-          this.fireBurst(Math.min(newNodes.length * 2, 20));
+          this.fireBurst(Math.min(newNodes.length * 2, 25));
           this.pushDebugLine('SYS', `Expanded: +${newNodes.length} nodes, +${newEdges.length} edges`);
+          this.expansionStatus.set(`+${newNodes.length} node${newNodes.length > 1 ? 's' : ''}, +${newEdges.length} edge${newEdges.length > 1 ? 's' : ''} added`);
+        } else if (newEdges.length > 0) {
+          this.addEdgesToScene(newEdges);
+          this.edgeCount.set(this.edges.length);
+          this.computeGraphStats();
+          this.fireBurst(10);
+          this.pushDebugLine('SYS', `Expanded connections: +${newEdges.length} edges`);
+          this.expansionStatus.set(`+${newEdges.length} new connection${newEdges.length > 1 ? 's' : ''} revealed`);
         } else {
-          this.pushDebugLine('SYS', 'No new nodes to expand');
+          const totalNeighbors = Math.max(0, response.nodes.length - 1);
+          this.pushDebugLine('SYS', `Neighborhood mapped: ${totalNeighbors} neighbors in scene`);
+          this.expansionStatus.set(
+            totalNeighbors > 0
+              ? `${totalNeighbors} neighbor${totalNeighbors > 1 ? 's' : ''} illuminated in scene`
+              : 'Isolated node (no direct connections)'
+          );
         }
+
+        // Highlight the neighborhood cluster in the 3D scene
+        const clusterIds = response.nodes.map(n => n.id);
+        this.highlightNeighborhood(nodeId, clusterIds);
+
+        // Focus camera on parent node
+        if (parentNode) {
+          this.flyToNode(parentNode);
+        }
+
         this.isExpanding.set(false);
       },
       error: (err) => {
         this.pushDebugLine('ERR', `Expansion failed: ${err.message || 'unknown error'}`);
+        this.expansionStatus.set(`Expansion failed: ${err.message || 'server error'}`);
         this.isExpanding.set(false);
       },
     });
@@ -808,9 +841,45 @@ export class GraphExplorerComponent implements AfterViewInit, OnDestroy {
     this.nodes.push(...newNodes);
   }
 
+  /** Highlight an expanded neighborhood cluster in the 3D scene */
+  private highlightNeighborhood(centerId: string, memberIds: string[]): void {
+    const clusterIds = new Set([centerId, ...memberIds]);
+
+    // Ghost non-cluster nodes, illuminate cluster nodes
+    for (const node of this.nodes) {
+      if (clusterIds.has(node.id)) {
+        node.targetOpacity = 1.0;
+        node.visible = true;
+      } else {
+        node.targetOpacity = 0.12;
+      }
+    }
+
+    // Highlight incident and connecting edges
+    for (const e of this.edges) {
+      const isBoth = clusterIds.has(e.from) && clusterIds.has(e.to);
+      const isIncident = clusterIds.has(e.from) || clusterIds.has(e.to);
+      const mat = e.line.material as THREE.LineBasicMaterial;
+      if (mat) {
+        mat.opacity = isBoth ? 0.85 : (isIncident ? 0.4 : 0.05);
+        mat.linewidth = isBoth ? 2 : 1;
+      }
+    }
+  }
+
+  restoreAllNodeOpacities(): void {
+    for (const node of this.nodes) {
+      node.targetOpacity = 1.0;
+      node.visible = true;
+    }
+  }
+
   /** Collapse back to the overview graph — clear expansion nodes */
   collapseToOverview(): void {
-    this.isOverviewMode = true;
+    this.isOverviewMode.set(true);
+    this.expansionStatus.set(null);
+    this.restoreAllNodeOpacities();
+    this.clearEdgeHighlight();
     this.clearScene();
     this.lookAtTarget.set(0, 0, 0);
     this.flyToPos = null;
@@ -1002,7 +1071,7 @@ export class GraphExplorerComponent implements AfterViewInit, OnDestroy {
     this.flyToPos = null;
     this.flyProgress = 1;
     this.currentPage = 0;
-    this.isOverviewMode = true;
+    this.isOverviewMode.set(true);
     this.loadGraphData();
     if (this.showTopologyStats()) {
       this.loadTopologyStats();
