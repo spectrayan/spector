@@ -17,6 +17,7 @@
 [CmdletBinding()]
 param (
     [switch]$DryRun,
+    [switch]$Force,
     [string]$Version = "latest",
     [string]$InstallDir = "$HOME\.spector"
 )
@@ -63,6 +64,10 @@ if (-not $HasJava25) {
     Write-Host "Recommended installation via WinGet or Scoop:"
     Write-Host "  winget install Microsoft.OpenJDK.25" -ForegroundColor Green
     Write-Host "  scoop install openjdk25" -ForegroundColor Green
+    if (-not $Force) {
+        Write-Error "OpenJDK 25+ with Vector API is required to install and run Spector. Install Java 25 or pass -Force to bypass this check."
+        exit 1
+    }
 }
 
 # 3. Query Release Metadata

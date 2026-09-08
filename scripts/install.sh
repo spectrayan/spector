@@ -17,12 +17,17 @@ REPO="spectrayan/spector"
 SPECTOR_HOME="${HOME}/.spector"
 TARGET_VERSION="latest"
 DRY_RUN=0
+FORCE=0
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run)
       DRY_RUN=1
+      shift
+      ;;
+    --force|-f)
+      FORCE=1
       shift
       ;;
     --version)
@@ -73,7 +78,10 @@ if [[ ${HAS_JAVA25} -eq 0 ]]; then
     echo "     sudo apt install openjdk-25-jdk  # Ubuntu/Debian"
     echo "     sudo dnf install java-25-openjdk # Fedora/RHEL"
   fi
-  echo "   (Installation will continue, but ensure JDK 25 is installed before execution.)"
+  if [[ ${FORCE} -eq 0 ]]; then
+    echo "❌ Error: OpenJDK 25+ is required to install and run Spector. Install Java 25 or pass --force to bypass this check." >&2
+    exit 1
+  fi
 fi
 
 # 4. Fetch Release Asset
