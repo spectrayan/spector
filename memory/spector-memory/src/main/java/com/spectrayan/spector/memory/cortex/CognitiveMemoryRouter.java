@@ -241,7 +241,11 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
             if (episodicStore == null) return null;
             EncodingHeader h = episodicStore.readHeader(loc.offset());
             if (h == null) return null;
-            return new CognitiveRecordBody(h, null, 0, (byte) 0);
+            byte[] quantizedVec = null;
+            if (includeVector && episodicStore.isFixedRecordLayout()) {
+                quantizedVec = episodicStore.readVector(loc.offset());
+            }
+            return new CognitiveRecordBody(h, quantizedVec, 0, (byte) 0);
         }
         FixedEngramLayout layout = layoutFor(loc.type());
         MemorySegment segment = segmentFor(loc.type());

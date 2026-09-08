@@ -460,12 +460,28 @@
                           (click)="expansionDepth.set(d)">{{ d }}</button>
                 }
               </div>
-              <button class="expand-btn" 
-                      (click)="expandNodeNeighbors(node.id)"
-                      [disabled]="isExpanding()">
-                <mat-icon>{{ isExpanding() ? 'hourglass_top' : 'scatter_plot' }}</mat-icon>
-                {{ isExpanding() ? 'EXPANDING...' : 'EXPAND NEIGHBORHOOD' }}
-              </button>
+              <div class="expand-action-row">
+                <button class="expand-btn" 
+                        (click)="expandNodeNeighbors(node.id)"
+                        [disabled]="isExpanding()">
+                  <mat-icon>{{ isExpanding() ? 'hourglass_top' : 'scatter_plot' }}</mat-icon>
+                  {{ isExpanding() ? 'EXPANDING...' : 'EXPAND NEIGHBORHOOD' }}
+                </button>
+                @if (!isOverviewMode()) {
+                  <button class="collapse-btn" 
+                          (click)="collapseToOverview()"
+                          matTooltip="Reset to overview graph">
+                    <mat-icon>restart_alt</mat-icon>
+                    RESET
+                  </button>
+                }
+              </div>
+              @if (expansionStatus()) {
+                <div class="expansion-status-badge">
+                  <mat-icon>hub</mat-icon>
+                  <span>{{ expansionStatus() }}</span>
+                </div>
+              }
             </div>
           </mat-card-content>
         </mat-card>

@@ -56,7 +56,12 @@
           }
           <div class="identity-row">
             <span class="label">Created</span>
-            <span class="value">{{ ageLabel() }}</span>
+            <span class="value" [matTooltip]="mem.createdAt || ''">
+              {{ createdDateFormatted() }}
+              @if (ageLabel()) {
+                <span class="created-age">({{ ageLabel() }})</span>
+              }
+            </span>
           </div>
           <div class="identity-row">
             <span class="label">Status</span>

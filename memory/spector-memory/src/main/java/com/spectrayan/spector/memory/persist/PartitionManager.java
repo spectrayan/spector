@@ -255,7 +255,23 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                 if (!Files.isDirectory(dir)) continue;
                 String name = dir.getFileName().toString();
                 if (StorageLayout.isPartitionDir(name)) {
-                    bySeq.put(StorageLayout.parsePartitionSeqNo(name), dir);
+                    int seq = StorageLayout.parsePartitionSeqNo(name);
+                    if (bySeq.containsKey(seq)) {
+                        Path existing = bySeq.get(seq);
+                        log.warn("Sequence collision detected for partition seq {}: '{}' vs '{}'", seq, existing.getFileName(), name);
+                        long existingSize = getPartitionPayloadSize(existing);
+                        long candidateSize = getPartitionPayloadSize(dir);
+                        if (candidateSize > existingSize) {
+                            log.warn("Choosing larger bundle partition '{}' ({} bytes) over '{}' ({} bytes) for seq {}",
+                                    name, candidateSize, existing.getFileName(), existingSize, seq);
+                            bySeq.put(seq, dir);
+                        } else {
+                            log.warn("Retaining partition '{}' ({} bytes) over '{}' ({} bytes) for seq {}",
+                                    existing.getFileName(), existingSize, name, candidateSize, seq);
+                        }
+                    } else {
+                        bySeq.put(seq, dir);
+                    }
                 }
             }
         }
@@ -271,6 +287,27 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
 
         log.info("Discovered {} partition(s) on load: {}", bySeq.size(), bySeq.keySet());
         return new ArrayList<>(bySeq.values()); // ascending by seq (last = newest/active)
+    }
+
+    private static long getPartitionPayloadSize(Path dir) {
+        Path bundle = StorageLayout.partitionBundleFile(dir);
+        if (Files.exists(bundle)) {
+            try {
+                return Files.size(bundle);
+            } catch (IOException ignored) {
+            }
+        }
+        try (var s = Files.newDirectoryStream(dir)) {
+            long total = 0;
+            for (Path p : s) {
+                if (Files.isRegularFile(p)) {
+                    total += Files.size(p);
+                }
+            }
+            return total;
+        } catch (IOException ignored) {
+            return 0;
+        }
     }
 
     /**

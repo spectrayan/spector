@@ -149,15 +149,45 @@ export class MemoryDetailComponent implements OnInit, OnDestroy, AfterViewChecke
     return 'Neutral';
   });
 
+  readonly createdDateFormatted = computed(() => {
+    const mem = this.memory();
+    if (!mem) return '';
+    if (mem.createdAt) {
+      const d = new Date(mem.createdAt);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      }
+    }
+    if (mem.timestampMs && mem.timestampMs > 946684800000 && mem.timestampMs < 4102444800000) {
+      return new Date(mem.timestampMs).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    }
+    return 'Unknown';
+  });
+
   readonly ageLabel = computed(() => {
     const mem = this.memory();
     if (!mem?.createdAt) return '';
     const ms = Date.now() - new Date(mem.createdAt).getTime();
+    if (ms < 0) return '';
     const hours = Math.floor(ms / 3_600_000);
     if (hours < 1) return 'Just now';
     if (hours < 24) return `${hours}h ago`;
     const days = Math.floor(hours / 24);
-    return `${days}d ago`;
+    if (days < 30) return `${days}d ago`;
+    const months = Math.floor(days / 30);
+    return `${months}mo ago`;
   });
 
   readonly preConsolidatedText = computed(() => {
@@ -359,15 +389,16 @@ export class MemoryDetailComponent implements OnInit, OnDestroy, AfterViewChecke
     this.memoryService.getMemoryById(id).subscribe({
       next: (row) => {
         // The backend returns full text in textPreview for the /{id} endpoint
-        // Validate header values — encrypted/stale headers produce garbage
         const validTs = row.timestampMs && row.timestampMs > 946684800000 && row.timestampMs < 4102444800000;
+        const validIso = row.createdAt && !isNaN(new Date(row.createdAt).getTime())
+          && new Date(row.createdAt).getTime() > 946684800000 && new Date(row.createdAt).getTime() < 4102444800000;
         const recallCount = row.agentRecallCount != null && row.agentRecallCount >= 0 && row.agentRecallCount < 1000000
           ? row.agentRecallCount : 0;
         const detail = {
           ...row,
           text: row.textPreview,
           recallCount,
-          createdAt: validTs ? new Date(row.timestampMs).toISOString() : null,
+          createdAt: validTs ? new Date(row.timestampMs).toISOString() : (validIso ? row.createdAt : null),
         };
         this.memory.set(detail);
         this.loading.set(false);

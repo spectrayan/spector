@@ -1917,6 +1917,69 @@ $text-muted: var(--mat-sys-outline);
   }
 }
 
+.expand-action-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+
+  .expand-btn {
+    flex: 1;
+  }
+}
+
+.collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 10px;
+  background: rgba(255, 170, 0, 0.08);
+  border: 1px solid rgba(255, 170, 0, 0.25);
+  border-radius: 4px;
+  color: #ffaa00;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover {
+    background: rgba(255, 170, 0, 0.16);
+    border-color: #ffaa00;
+    box-shadow: 0 0 10px rgba(255, 170, 0, 0.2);
+  }
+}
+
+.expansion-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 255, 204, 0.08);
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  color: $cyan-primary;
+  animation: fadeIn 0.2s ease-out;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+}
+
+
 // ═══════════════════════════════════════════════════════════════
 // QUERY ANIMATION TIMELINE BAR
 // ═══════════════════════════════════════════════════════════════
