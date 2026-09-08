@@ -1,6 +1,6 @@
 {
   "version": "0.1.0-alpha",
-  "description": "Zero-overhead, agent-ready AI memory backbone and search engine (Requires OpenJDK 25+)",
+  "description": "Cognitive memory engine for AI agents (Requires OpenJDK 25+)",
   "homepage": "https://github.com/spectrayan/spector",
   "license": "Apache-2.0",
   "suggest": {

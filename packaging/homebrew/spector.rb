@@ -5,7 +5,7 @@
 # Spector Homebrew Formula (spectrayan/homebrew-spector)
 # ═══════════════════════════════════════════════════════════════════
 class Spector < Formula
-  desc "Zero-overhead, agent-ready AI memory backbone and search engine"
+  desc "Cognitive memory engine for AI agents"
   homepage "https://github.com/spectrayan/spector"
   url "https://github.com/spectrayan/spector/releases/download/v0.1.0-alpha/spector.jar"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000" # Placeholder updated on release
