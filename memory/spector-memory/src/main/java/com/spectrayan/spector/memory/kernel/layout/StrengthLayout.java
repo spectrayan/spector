@@ -28,7 +28,7 @@ import java.lang.invoke.VarHandle;
  * <h3>Design &amp; Architecture (ADR-0028)</h3>
  * <p>Separates mutable recall telemetry, Long-Term Potentiation (LTP) counters, Two-Factor
  * storage strength, and ACT-R recall timestamp ring buffers from the read-mostly 64-byte
- * {@link HeaderLayout64 synaptic header}. This eliminates false sharing and CPU cache
+ * {@link EncodingHeaderLayout synaptic header}. This eliminates false sharing and CPU cache
  * invalidation on the sequential SIMD scoring hot path.</p>
  *
  * <h3>Audit Record Layout (96 bytes — 32-byte aligned)</h3>
@@ -52,7 +52,7 @@ import java.lang.invoke.VarHandle;
  *   ── 96B total stride ────────────────────────────────────────────────────────────────────────
  * </pre>
  *
- * @see HeaderLayout64
+ * @see EncodingHeaderLayout
  * @see RegionLayout
  */
 public final class StrengthLayout implements RegionLayout {

@@ -41,7 +41,7 @@ import java.util.List;
  * <p>Result is clamped to [0.5, 2.0] by HebbianGraph. A modifier of 1.5 means
  * edges to this memory decay 33% slower than the base rate.</p>
  *
- * <p><b>Usage:</b> Created once before each decay cycle by {@link com.spectrayan.spector.memory.pathway.reflect.ReflectionOrchestrator},
+ * <p><b>Usage:</b> Created once before each decay cycle by {@code ReflectionOrchestrator},
  * then discarded. Captures a snapshot of the partition state at creation time.</p>
  *
  * @see DecayModulator

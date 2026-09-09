@@ -47,6 +47,7 @@ import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_BYT
 import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_OFF_BRIDGE_SCORE;
 import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_OFF_EDGE_FLAGS;
 import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_OFF_LAST_CYCLE;
+import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.DATA_START;
 import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_OFF_NEIGHBOR;
 import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_OFF_WEIGHT;
 import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.SUB_OFF_CURRENT_CYCLE;
@@ -573,7 +574,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
 
     /**
      * Writes the SMKM 64-byte kernel header plus the 16-byte Hebbian graph sub-header
-     * into the first {@link #DATA_START} bytes of {@code head}. Shared by {@link #save}
+     * into the first {@link HebbianLayout#DATA_START} bytes of {@code head}. Shared by {@link #save}
      * and the {@code HcsrToSmkmStep} codec.
      */
     static void writeSmkmHeader(MemorySegment head, int capacity, int edgeCapacity,

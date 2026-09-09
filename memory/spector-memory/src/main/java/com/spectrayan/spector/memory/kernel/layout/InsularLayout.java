@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
+import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
 import com.spectrayan.spector.memory.kernel.RegionLayout;
 
 /**

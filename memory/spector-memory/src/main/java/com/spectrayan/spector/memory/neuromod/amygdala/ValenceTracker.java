@@ -32,7 +32,7 @@ import java.lang.foreign.MemorySegment;
  *
  * <h3>Design: Outcome-Driven, Not LLM-Guessed</h3>
  * <p>Valence is NOT assigned at ingestion time. It's updated via
- * {@link #reinforce(MemorySegment, long, EngramLayout, byte)} after
+ * {@link #reinforce(MemorySegment, long, FixedEngramLayout, byte)} after
  * the agent observes whether using a memory led to success or failure.
  * This gives ground-truth reinforcement, not hallucinated importance.</p>
  *

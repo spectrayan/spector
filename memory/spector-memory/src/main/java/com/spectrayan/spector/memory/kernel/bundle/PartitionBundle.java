@@ -203,7 +203,7 @@ public final class PartitionBundle implements AutoCloseable {
          * Creates an in-memory (heap) partition bundle for testing.
          *
          * @param semanticCapacity   max records for semantic region
-         * @param episodicCapacity   max records for episodic region
+         * @param episodicBytes      allocated bytes for episodic region
          * @param proceduralCapacity max records for procedural region
          * @param textBytes          allocated bytes for the text append region
          * @param quantizedVecBytes  bytes per quantized vector
