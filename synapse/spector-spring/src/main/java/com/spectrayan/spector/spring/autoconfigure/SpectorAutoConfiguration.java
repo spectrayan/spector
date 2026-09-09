@@ -165,8 +165,9 @@ public class SpectorAutoConfiguration {
     public SpectorExecutorProvider spectorExecutorProvider(
             @Qualifier("spectorSharedPool") ThreadPoolTaskExecutor shared,
             @Qualifier("spectorWriterPool") ThreadPoolTaskExecutor writer,
-            @Qualifier("spectorVirtualExecutor") AsyncTaskExecutor virtual) {
-        var provider = new SpringExecutorProvider(shared, writer, virtual);
+            @Qualifier("spectorVirtualExecutor") AsyncTaskExecutor virtual,
+            @org.springframework.beans.factory.annotation.Value("${spector.threads.writer-per-namespace:false}") boolean writerPerNamespace) {
+        var provider = new SpringExecutorProvider(shared, writer, virtual, writerPerNamespace);
         SpectorExecutors.install(provider);
         log.info("[Spector] Installed SpringExecutorProvider: {}", provider.describe());
         return provider;

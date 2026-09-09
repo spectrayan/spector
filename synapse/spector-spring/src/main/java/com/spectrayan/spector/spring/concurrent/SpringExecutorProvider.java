@@ -51,8 +51,7 @@ public class SpringExecutorProvider extends AbstractExecutorProvider implements 
             ThreadPoolTaskExecutor sharedPool,
             ThreadPoolTaskExecutor writerPool,
             AsyncTaskExecutor virtualExecutor) {
-        this(sharedPool, writerPool, virtualExecutor,
-                Boolean.parseBoolean(System.getProperty("spector.threads.writer-per-namespace", "false")));
+        this(sharedPool, writerPool, virtualExecutor, false);
     }
 
     public SpringExecutorProvider(
