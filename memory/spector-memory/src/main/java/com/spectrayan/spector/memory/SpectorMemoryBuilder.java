@@ -125,8 +125,8 @@ public final class SpectorMemoryBuilder {
     private List<SoulContext> soulContexts;
     private IcnuWeights icnuWeights;
     private com.spectrayan.spector.config.properties.AismeProperties aismeConfig;
-    private com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig dreamConfig;
-    private com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy circadianPolicy;
+    private com.spectrayan.spector.config.properties.DreamProperties dreamConfig;
+    private com.spectrayan.spector.config.properties.CircadianProperties circadianPolicy;
     private com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig;
     private com.spectrayan.spector.memory.graph.EntityExtractionMode entityExtractionMode = com.spectrayan.spector.memory.graph.EntityExtractionMode.NONE;
     private com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor reflectSweepExecutor;
@@ -337,7 +337,7 @@ public final class SpectorMemoryBuilder {
      */
     @Deprecated(forRemoval = true)
     public SpectorMemoryBuilder circadianPolicy(com.spectrayan.spector.config.properties.CircadianProperties policy) {
-        this.circadianPolicy = com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy.from(policy);
+        this.circadianPolicy = policy;
         if (policy != null && this.properties != null && this.properties.memory() != null) {
             this.properties.memory().setCircadian(policy);
         }
@@ -349,7 +349,7 @@ public final class SpectorMemoryBuilder {
      * @deprecated Configure on {@code props.memory().setDream(...)} instead.
      */
     @Deprecated(forRemoval = true)
-    public SpectorMemoryBuilder dreamConfig(com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig config) {
+    public SpectorMemoryBuilder dreamConfig(com.spectrayan.spector.config.properties.DreamProperties config) {
         this.dreamConfig = config;
         return this;
     }
@@ -684,15 +684,13 @@ public final class SpectorMemoryBuilder {
         return properties != null && properties.memory() != null && properties.memory().getAisme() != null
                 ? com.spectrayan.spector.config.properties.AismeProperties.fromProperties(properties.memory().getAisme()) : null;
     }
-    public com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy circadianPolicy() {
+    public com.spectrayan.spector.config.properties.CircadianProperties circadianPolicy() {
         if (circadianPolicy != null) return circadianPolicy;
-        return properties != null && properties.memory() != null && properties.memory().getCircadian() != null
-                ? com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy.from(properties.memory().getCircadian()) : null;
+        return properties != null && properties.memory() != null ? properties.memory().getCircadian() : null;
     }
-    public com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig dreamConfig() {
+    public com.spectrayan.spector.config.properties.DreamProperties dreamConfig() {
         if (dreamConfig != null) return dreamConfig;
-        return properties != null && properties.memory() != null && properties.memory().getDream() != null
-                ? com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig.from(properties.memory().getDream()) : null;
+        return properties != null && properties.memory() != null ? properties.memory().getDream() : null;
     }
     public com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig() {
         if (twoFactorConfig != null) return twoFactorConfig;

@@ -17,7 +17,6 @@ import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.pathway.reflect.ReflectPathway;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;

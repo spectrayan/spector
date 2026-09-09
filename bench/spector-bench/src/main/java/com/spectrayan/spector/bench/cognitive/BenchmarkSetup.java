@@ -234,7 +234,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                 .usePathwayEngine(true)
                 .embeddingProvider(embedder)
                 .chunkConfig(com.spectrayan.spector.commons.chunker.ChunkConfig.plainText(100_000, 0))
-                .circadianPolicy(com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy.builder()
+                .circadianPolicy(com.spectrayan.spector.config.properties.CircadianProperties.builder()
                         .volumeTrigger(Integer.MAX_VALUE)
                         .build());
 

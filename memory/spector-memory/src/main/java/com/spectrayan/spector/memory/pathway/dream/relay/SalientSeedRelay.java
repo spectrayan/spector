@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.core.spi.AcceleratorRegistry;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.cortex.EngramMemory;
@@ -80,7 +81,7 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
 
         SoulContext soul = signal.primarySoul();
         SalienceProfile salience = signal.salienceProfile();
-        DreamConfig config = signal.config();
+        DreamProperties config = signal.config();
 
         for (PartitionHandle handle : handles) {
             if (handle.router() == null || candidates.size() >= candidatePoolLimit) {
@@ -118,7 +119,7 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
             String prefix,
             SoulContext soul,
             SalienceProfile salience,
-            DreamConfig config) {
+            DreamProperties config) {
         if (store == null || store.segment() == null) return;
 
         FixedEngramLayout layout = store.cognitiveLayout();

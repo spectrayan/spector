@@ -13,9 +13,9 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.config.properties.AismeProperties;
+import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamSignal;
@@ -32,7 +32,7 @@ class DreamPathwayTest {
     @Test
     void testFullDreamPathwayExecution() throws Exception {
         int dim = 8;
-        DreamConfig dreamConfig = DreamConfig.builder()
+        DreamProperties dreamConfig = DreamProperties.builder()
                 .enabled(true)
                 .dreamNoiseScale(0.15f)
                 .journalEnabled(true)
@@ -85,7 +85,7 @@ class DreamPathwayTest {
     @Test
     void testThoughtExperimentModeExecution() throws Exception {
         int dim = 8;
-        DreamConfig dreamConfig = DreamConfig.builder()
+        DreamProperties dreamConfig = DreamProperties.builder()
                 .enabled(true)
                 .dreamTemperatureThought(0.5f)
                 .build();
@@ -115,7 +115,7 @@ class DreamPathwayTest {
 
     @Test
     void testDreamPathwayConvenienceMethod() throws Exception {
-        DreamConfig dreamConfig = DreamConfig.builder()
+        DreamProperties dreamConfig = DreamProperties.builder()
                 .enabled(true)
                 .build();
 
@@ -131,7 +131,7 @@ class DreamPathwayTest {
 
     @Test
     void testCustomMemoryIdGeneratorPropagation() throws Exception {
-        DreamConfig dreamConfig = DreamConfig.builder()
+        DreamProperties dreamConfig = DreamProperties.builder()
                 .enabled(true)
                 .build();
 
@@ -165,7 +165,7 @@ class DreamPathwayTest {
     @Test
     void testSoulConditionedDreamPathwayExecution() throws Exception {
         int dim = 8;
-        DreamConfig dreamConfig = DreamConfig.builder()
+        DreamProperties dreamConfig = DreamProperties.builder()
                 .enabled(true)
                 .identityResonanceThreshold(0.70f)
                 .build();

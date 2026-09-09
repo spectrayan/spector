@@ -16,8 +16,6 @@ import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.config.properties.ProviderProperties;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig;
-import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
 import com.spectrayan.spector.memory.synapse.DecayConfig;
 import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -113,8 +111,6 @@ class DuplicateConfigBanTest {
     @DisplayName("Legacy data twin classes must remain marked with @Deprecated(forRemoval = true)")
     void testLegacyDataTwinsAreDeprecatedAndMarkedForRemoval() {
         List<Class<?>> dataTwins = List.of(
-                DreamConfig.class,
-                CircadianPolicy.class,
                 TwoFactorConfig.class,
                 DecayConfig.class
         );

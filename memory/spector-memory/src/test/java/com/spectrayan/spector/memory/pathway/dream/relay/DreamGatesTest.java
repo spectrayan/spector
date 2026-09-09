@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
+import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
 import org.junit.jupiter.api.Test;
 
@@ -23,13 +24,13 @@ class DreamGatesTest {
 
     @Test
     void testDreamingEnabledGate() {
-        DreamConfig enabledConfig = DreamConfig.defaultConfig();
+        DreamProperties enabledConfig = DreamProperties.defaultConfig();
         DreamSignal signalEnabled = DreamSignal.builder()
                 .config(enabledConfig)
                 .build();
         assertThat(DreamGates.DREAMING_ENABLED.isSatisfiedBy(signalEnabled)).isTrue();
 
-        DreamConfig disabledConfig = DreamConfig.disabled();
+        DreamProperties disabledConfig = DreamProperties.disabled();
         DreamSignal signalDisabled = DreamSignal.builder()
                 .config(disabledConfig)
                 .build();
@@ -39,7 +40,7 @@ class DreamGatesTest {
     @Test
     void testHasSeedsAndFragmentsGate() {
         DreamSignal signal = DreamSignal.builder()
-                .config(DreamConfig.defaultConfig())
+                .config(DreamProperties.defaultConfig())
                 .seedMemoryIds(List.of("seed-1", "seed-2"))
                 .build();
 
@@ -53,13 +54,13 @@ class DreamGatesTest {
     @Test
     void testLangevinEnabledGate() {
         DreamSignal signalWithoutDmt = DreamSignal.builder()
-                .config(DreamConfig.defaultConfig())
+                .config(DreamProperties.defaultConfig())
                 .build();
         assertThat(DreamGates.LANGEVIN_ENABLED.isSatisfiedBy(signalWithoutDmt)).isFalse();
 
         try (DistributedMemoryTensor dmt = new DistributedMemoryTensor(8)) {
             DreamSignal signalWithDmt = DreamSignal.builder()
-                    .config(DreamConfig.defaultConfig())
+                    .config(DreamProperties.defaultConfig())
                     .distributedMemoryTensor(dmt)
                     .build();
             assertThat(DreamGates.LANGEVIN_ENABLED.isSatisfiedBy(signalWithDmt)).isTrue();

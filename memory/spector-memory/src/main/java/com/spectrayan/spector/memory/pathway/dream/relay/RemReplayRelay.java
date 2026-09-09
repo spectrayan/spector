@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.SoulContext;
@@ -94,7 +95,7 @@ public final class RemReplayRelay implements SynapticRelay<DreamSignal> {
         return true;
     }
 
-    public static float computeHartmannBoundary(SoulContext soul, DreamConfig config) {
+    public static float computeHartmannBoundary(SoulContext soul, DreamProperties config) {
         if (soul == null || config == null) return 1.0f;
         if (soul instanceof AgentSoul agentSoul) {
             String personality = agentSoul.personality() != null ? agentSoul.personality().toLowerCase() : "";

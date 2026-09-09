@@ -20,7 +20,6 @@ import com.spectrayan.spector.memory.neuromod.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
-import com.spectrayan.spector.memory.pathway.reflect.daemon.ReflectDaemon;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
@@ -41,7 +40,6 @@ import com.spectrayan.spector.memory.neuromod.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
-import com.spectrayan.spector.memory.pathway.reflect.daemon.ReflectDaemon;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
@@ -79,9 +77,7 @@ public final class BiologicalSubsystemsBuilder {
             HabituationPenalty habituationPenalty,
             ProspectiveScheduler prospectiveScheduler,
             MemoryIntrospector introspector,
-            LateralEvaluator lateralEvaluator,
-            ReflectDaemon reflectDaemon
-    ) {}
+            LateralEvaluator lateralEvaluator) {}
 
     public static BiologicalSubsystems build(SpectorMemoryBuilder builder,
                                       EmbeddingProvider embeddingProvider,
@@ -120,18 +116,9 @@ public final class BiologicalSubsystemsBuilder {
         MemoryIntrospector introspector = new MemoryIntrospector(coActivationTracker);
         LateralEvaluator lateralEvaluator = new LateralEvaluator();
 
-        ReflectDaemon reflectDaemon = new ReflectDaemon(
-                com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy.from(circProps),
-                memProps.getDimensions() > 0 ? new CentroidRouter(memProps.getDimensions()) : null,
-                builder.llmProvider(),
-                embeddingProvider,
-                5, // minClusterSize
-                remProps.isPinSourceEpisodes(),
-                remProps.getPinnedQuota());
-
         return new BiologicalSubsystems(
                 surpriseDetector, icnuWeights, flashbulbPolicy, valenceTracker,
                 coActivationTracker, suppressionSet, habituationPenalty,
-                prospectiveScheduler, introspector, lateralEvaluator, reflectDaemon);
+                prospectiveScheduler, introspector, lateralEvaluator);
     }
 }

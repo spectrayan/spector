@@ -154,7 +154,11 @@ public class DreamProperties implements Serializable {
     public float hartmannOpennessMultiplier() { return getHartmannOpennessMultiplier(); }
     public float hartmannVigilanceMultiplier() { return getHartmannVigilanceMultiplier(); }
 
-    public static DreamProperties defaultConfig() { return new DreamProperties(); }
+    public static DreamProperties defaultConfig() {
+        DreamProperties props = new DreamProperties();
+        props.setEnabled(true);
+        return props;
+    }
     public static DreamProperties disabled() {
         DreamProperties props = new DreamProperties();
         props.setEnabled(false);

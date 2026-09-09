@@ -64,7 +64,6 @@ import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.pathway.pipeline.AttachmentProcessor;
 import com.spectrayan.spector.memory.pathway.pipeline.HebbianCoActivationListener;
 import com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler;
-import com.spectrayan.spector.memory.pathway.reflect.ReflectionOrchestrator;
 import com.spectrayan.spector.memory.pathway.reflect.ReinforcementHandler;
 import com.spectrayan.spector.memory.scheduler.jobs.HomeostaticDecayJob;
 import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
@@ -145,7 +144,6 @@ public final class SpectorMemoryFactory {
             ScalarQuantizer quantizer,
             PartitionManager partitionManager,
             ImportanceProvider importanceProvider,
-            ReflectionOrchestrator reflectionOrchestrator,
             ReinforcementHandler reinforcementHandler,
             ValenceTracker valenceTracker,
             CoActivationMemory coActivationTracker,
@@ -390,7 +388,7 @@ public final class SpectorMemoryFactory {
         }
 
         if (builder.semanticIndex() != null && !builder.semanticIndex().isReadOnly() && builder.semanticIndex().size() == 0) {
-            RecallPipelineBuilder.rebuildHnswIfNeeded(builder, partitionManager, index, cortex.quantizer());
+            rebuildHnswIfNeeded(builder, partitionManager, index, cortex.quantizer());
         }
 
         //  ID Generator (moved up so ReflectPathway can use it)
@@ -431,13 +429,6 @@ public final class SpectorMemoryFactory {
 
         // Express Pathway (#602)
         ExpressPathway expressPathway = ExpressPathway.builder().build();
-
-        //  Extracted Components (Deprecated, retained for backward compatibility)
-        ReflectionOrchestrator reflectionOrchestrator = new ReflectionOrchestrator(
-                bio.reflectDaemon(), graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityDirectory(),
-                graphs.hyperEntityGraph(), wal, entityProps.getRetentionDays(),
-                embeddingProvider, builder.llmProvider(),
-                entityProps.isResolutionEnabled(), entityProps.isShadowMode(), entityProps.getCosineThreshold(), typeNormalizer);
 
         ReinforcementHandler reinforcementHandler = new ReinforcementHandler(
                 bio.valenceTracker(), graphs.hebbianGraph(), bio.lateralEvaluator(), recallPathway,
@@ -544,7 +535,7 @@ public final class SpectorMemoryFactory {
 
         return new SubsystemBundle(
                 rememberPathway, embeddingProvider, recallPathway, reflectPathway, expressPathway, index, cortex.quantizer(),
-                partitionManager, importanceProvider, reflectionOrchestrator,
+                partitionManager, importanceProvider,
                 reinforcementHandler, bio.valenceTracker(), bio.coActivationTracker(),
                 bio.suppressionSet(), bio.habituationPenalty(), bio.prospectiveScheduler(),
                 bio.introspector(), bio.lateralEvaluator(), wal, graphs.hebbianGraph(), graphs.temporalChain(),
@@ -556,5 +547,55 @@ public final class SpectorMemoryFactory {
                 wanderPathway, cortex.continuityMemory(), decidePathway, dreamPathway, aismeBundle,
                 cortex.provenanceMemory()
         );
+    }
+    private static void rebuildHnswIfNeeded(SpectorMemoryBuilder builder, PartitionManager partitionManager, MemoryIndex index, ScalarQuantizer quantizer) {
+        if (builder.semanticIndex() == null || builder.semanticIndex().isReadOnly() || builder.semanticIndex().size() > 0) {
+            return;
+        }
+        var partitions = partitionManager.snapshot();
+        int totalRebuilt = 0;
+        long startMs = System.currentTimeMillis();
+
+        for (var handle : partitions) {
+            int partitionSeq = handle.seq();
+            var semStore = handle.router() != null ? handle.router().semantic() : null;
+            if (semStore == null || semStore.size() == 0) continue;
+
+            int storeSize = semStore.size();
+            var seg = semStore.primarySegment();
+            var recLayout = semStore.layout();
+            int stride = recLayout.stride();
+            int vecBytes = recLayout.quantizedVecBytes();
+            long baseOffset = semStore.dataOffset();
+
+            for (int i = 0; i < storeSize; i++) {
+                long recordOff = baseOffset + (long) i * stride;
+                byte flags = recLayout.readFlags(seg, recordOff);
+                if (com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isTombstoned(flags)) {
+                    continue;
+                }
+
+                String id = index.findIdByOffset(partitionSeq, com.spectrayan.spector.memory.model.MemoryType.SEMANTIC, recordOff);
+                if (id != null) {
+                    byte[] quantized = new byte[vecBytes];
+                    java.lang.foreign.MemorySegment.copy(
+                            seg, java.lang.foreign.ValueLayout.JAVA_BYTE,
+                            recLayout.vectorOffset(recordOff),
+                            java.lang.foreign.MemorySegment.ofArray(quantized),
+                            java.lang.foreign.ValueLayout.JAVA_BYTE, 0, vecBytes);
+
+                    float[] vector = quantizer.decode(quantized);
+                    var loc = index.location(id);
+                    int graphSlot = (loc != null) ? loc.graphSlot() : i;
+                    builder.semanticIndex().add(id, graphSlot, vector);
+                    totalRebuilt++;
+                }
+            }
+        }
+        if (totalRebuilt > 0) {
+            long elapsed = System.currentTimeMillis() - startMs;
+            log.info("HNSW multi-partition rebuild complete: {} vectors indexed across {} partitions in {}ms",
+                    totalRebuilt, partitions.size(), elapsed);
+        }
     }
 }

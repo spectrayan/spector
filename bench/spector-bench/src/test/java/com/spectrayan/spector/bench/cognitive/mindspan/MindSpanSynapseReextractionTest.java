@@ -26,7 +26,7 @@ import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
-import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
+import com.spectrayan.spector.config.properties.CircadianProperties;
 import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
@@ -107,7 +107,7 @@ public class MindSpanSynapseReextractionTest {
                 .setDimensions(768)
                 .setEpisodicPartitionCapacity(35_000)
                 .setSemanticCapacity(20_000)
-                .setCircadian(CircadianPolicy.builder().volumeTrigger(Integer.MAX_VALUE).build());
+                .setCircadian(CircadianProperties.builder().volumeTrigger(Integer.MAX_VALUE).build());
 
         SpectorMemory memory = SpectorMemory.builder(memProps)
                 .embeddingProvider(embedder)

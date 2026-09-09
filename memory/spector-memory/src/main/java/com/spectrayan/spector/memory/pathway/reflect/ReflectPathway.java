@@ -33,7 +33,6 @@ import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
 import com.spectrayan.spector.memory.pathway.reflect.relay.CrossLayerPromotionRelay;
 import com.spectrayan.spector.memory.pathway.reflect.relay.EntityMaintenanceRelay;
 import com.spectrayan.spector.memory.pathway.reflect.relay.EpisodicLogConsolidationRelay;
@@ -329,7 +328,6 @@ public final class ReflectPathway implements AutoCloseable {
         public Builder textGenerator(LlmProvider tg) { this.textGenerator = tg; return this; }
         public Builder importanceProvider(ImportanceProvider ip) { this.importanceProvider = ip; return this; }
         public Builder policy(CircadianProperties p) { this.policy = p; return this; }
-        public Builder policy(CircadianPolicy p) { this.policy = p; return this; }
         public Builder centroidRouter(CentroidRouter cr) { this.centroidRouter = cr; return this; }
         public Builder templateEngine(TemplateEngine te) { this.templateEngine = te; return this; }
         public Builder episodicSessionIndex(EpisodicSessionIndex esi) { this.episodicSessionIndex = esi; return this; }

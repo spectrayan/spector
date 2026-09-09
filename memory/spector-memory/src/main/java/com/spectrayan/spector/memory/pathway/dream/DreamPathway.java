@@ -28,7 +28,6 @@ import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
 import com.spectrayan.spector.memory.pathway.dream.relay.ConceptExtractRelay;
 import com.spectrayan.spector.memory.pathway.dream.relay.CounterfactualProbeRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamGateRelay;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamGates;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamIngestionRelay;
@@ -69,7 +68,6 @@ public final class DreamPathway implements AutoCloseable {
 
     private final CognitivePathway<DreamSignal> pathway;
     private final DreamProperties dreamProperties;
-    private final DreamConfig dreamConfig;
     private final PartitionManager partitionManager;
     private final AismeProperties aismeConfig;
     private final SoulContext primarySoul;
@@ -85,39 +83,7 @@ public final class DreamPathway implements AutoCloseable {
     private final MemoryIdGenerator idGenerator;
 
     private DreamPathway(final Builder builder) {
-        if (builder.dreamProperties != null) {
-            this.dreamProperties = builder.dreamProperties;
-            this.dreamConfig = builder.dreamConfig != null ? builder.dreamConfig : DreamConfig.from(this.dreamProperties);
-        } else if (builder.dreamConfig != null) {
-            this.dreamConfig = builder.dreamConfig;
-            this.dreamProperties = new DreamProperties();
-            this.dreamProperties.setEnabled(this.dreamConfig.enabled());
-            this.dreamProperties.setNoiseScale(this.dreamConfig.dreamNoiseScale());
-            this.dreamProperties.setTemperatureRem(this.dreamConfig.dreamTemperatureRem());
-            this.dreamProperties.setTemperatureDaydream(this.dreamConfig.dreamTemperatureDaydream());
-            this.dreamProperties.setTemperatureThought(this.dreamConfig.dreamTemperatureThought());
-            this.dreamProperties.setMaxDreamsPerCycle(this.dreamConfig.maxDreamsPerCycle());
-            this.dreamProperties.setMaxCounterfactualsPerSeed(this.dreamConfig.maxCounterfactualsPerSeed());
-            this.dreamProperties.setPersistenceThreshold(this.dreamConfig.persistenceThreshold());
-            this.dreamProperties.setLangevinStepSize(this.dreamConfig.langevinStepSize());
-            this.dreamProperties.setLangevinSteps(this.dreamConfig.langevinSteps());
-            this.dreamProperties.setNoveltyRadius(this.dreamConfig.noveltyRadius());
-            this.dreamProperties.setHebbianInhibitionDelta(this.dreamConfig.hebbianInhibitionDelta());
-            this.dreamProperties.setJournalEnabled(this.dreamConfig.journalEnabled());
-            this.dreamProperties.setCycleFrequency(this.dreamConfig.dreamCycleFrequency());
-            this.dreamProperties.setSeedWeightRecency(this.dreamConfig.seedWeightRecency());
-            this.dreamProperties.setSeedWeightNovelty(this.dreamConfig.seedWeightNovelty());
-            this.dreamProperties.setSeedWeightSoul(this.dreamConfig.seedWeightSoul());
-            this.dreamProperties.setSeedWeightSalience(this.dreamConfig.seedWeightSalience());
-            this.dreamProperties.setIdentityResonanceThreshold(this.dreamConfig.identityResonanceThreshold());
-            this.dreamProperties.setEthicalViolationThreshold(this.dreamConfig.ethicalViolationThreshold());
-            this.dreamProperties.setLangevinSoulAttractorLambda(this.dreamConfig.langevinSoulAttractorLambda());
-            this.dreamProperties.setHartmannOpennessMultiplier(this.dreamConfig.hartmannOpennessMultiplier());
-            this.dreamProperties.setHartmannVigilanceMultiplier(this.dreamConfig.hartmannVigilanceMultiplier());
-        } else {
-            this.dreamProperties = new DreamProperties();
-            this.dreamConfig = DreamConfig.defaultConfig();
-        }
+        this.dreamProperties = builder.dreamProperties != null ? builder.dreamProperties : new DreamProperties();
         this.partitionManager = builder.partitionManager;
         this.aismeConfig = builder.aismeConfig;
         this.primarySoul = builder.primarySoul;
@@ -187,12 +153,8 @@ public final class DreamPathway implements AutoCloseable {
         return dreamProperties;
     }
 
-    /**
-     * @deprecated Use {@link #properties()} instead.
-     */
-    @Deprecated(since = "1.4.0", forRemoval = true)
-    public DreamConfig config() {
-        return dreamConfig;
+    public DreamProperties config() {
+        return dreamProperties;
     }
 
     public SoulContext primarySoul() {
@@ -242,7 +204,7 @@ public final class DreamPathway implements AutoCloseable {
             SalienceProfile salienceProfile) {
         DreamSignal signal = DreamSignal.builder()
                 .mode(mode)
-                .config(dreamConfig)
+                .config(dreamProperties)
                 .partitionManager(pm != null ? pm : partitionManager)
                 .aismeConfig(aismeConfig != null ? aismeConfig : this.aismeConfig)
                 .primarySoul(primarySoul != null ? primarySoul : this.primarySoul)
@@ -278,7 +240,6 @@ public final class DreamPathway implements AutoCloseable {
      */
     public static final class Builder {
         private DreamProperties dreamProperties;
-        private DreamConfig dreamConfig;
         private PartitionManager partitionManager;
         private AismeProperties aismeConfig = AismeProperties.defaultConfig();
         private SoulContext primarySoul;
@@ -296,7 +257,6 @@ public final class DreamPathway implements AutoCloseable {
 
         public Builder dreamProperties(DreamProperties dp) {
             this.dreamProperties = dp;
-            this.dreamConfig = dp != null ? DreamConfig.from(dp) : null;
             return this;
         }
 
@@ -304,10 +264,7 @@ public final class DreamPathway implements AutoCloseable {
             return dreamProperties(dp);
         }
 
-        public Builder dreamConfig(DreamConfig dc) {
-            this.dreamConfig = dc;
-            return this;
-        }
+        
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
         public Builder aismeConfig(AismeProperties ac) { this.aismeConfig = ac; return this; }
         public Builder primarySoul(SoulContext soul) { this.primarySoul = soul; return this; }

@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.pathway.dream.relay;
 
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.config.properties.AismeProperties;
+import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
@@ -61,7 +62,7 @@ public final class DreamSignal {
     ) {}
 
     private final DreamMode mode;
-    private final DreamConfig config;
+    private final DreamProperties config;
     private final float temperature;
     private final PartitionManager partitionManager;
     private final AismeProperties aismeConfig;
@@ -105,7 +106,7 @@ public final class DreamSignal {
 
     private DreamSignal(Builder builder) {
         this.mode = builder.mode;
-        this.config = builder.config != null ? builder.config : DreamConfig.defaultConfig();
+        this.config = builder.config != null ? builder.config : DreamProperties.defaultConfig();
         
         if (builder.temperature > 0.0f) {
             this.temperature = builder.temperature;
@@ -186,7 +187,7 @@ public final class DreamSignal {
     }
 
     public DreamMode mode() { return mode; }
-    public DreamConfig config() { return config; }
+    public DreamProperties config() { return config; }
     public float temperature() { return temperature; }
     public PartitionManager partitionManager() { return partitionManager; }
     public AismeProperties aismeConfig() { return aismeConfig; }
@@ -288,7 +289,7 @@ public final class DreamSignal {
 
     public static final class Builder {
         private DreamMode mode;
-        private DreamConfig config;
+        private DreamProperties config;
         private float temperature;
         private PartitionManager partitionManager;
         private AismeProperties aismeConfig;
@@ -316,7 +317,7 @@ public final class DreamSignal {
         private List<com.spectrayan.spector.memory.model.CognitiveResult> candidateSeeds = null;
 
         public Builder mode(DreamMode mode) { this.mode = mode; return this; }
-        public Builder config(DreamConfig config) { this.config = config; return this; }
+        public Builder config(DreamProperties config) { this.config = config; return this; }
         public Builder temperature(float temperature) { this.temperature = temperature; return this; }
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
         public Builder aismeConfig(AismeProperties config) { this.aismeConfig = config; return this; }

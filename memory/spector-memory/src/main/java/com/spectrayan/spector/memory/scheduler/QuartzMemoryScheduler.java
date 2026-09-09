@@ -23,7 +23,7 @@ import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.graph.GraphEnrichmentEngine;
-import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
+import com.spectrayan.spector.config.properties.CircadianProperties;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.scheduler.jobs.CheckpointJob;
 import com.spectrayan.spector.memory.scheduler.jobs.DmnWanderingJob;
@@ -82,7 +82,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
     public QuartzMemoryScheduler(
             String namespaceId,
             Supplier<ReflectReport> reflectAction,
-            CircadianPolicy circadianPolicy,
+            CircadianProperties circadianPolicy,
             DreamPathway dreamPathway,
             PartitionManager partitionManager,
             AismeProperties aismeConfig,
@@ -168,7 +168,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
 
     private void registerTasks(
             Supplier<ReflectReport> reflectAction,
-            CircadianPolicy circadianPolicy,
+            CircadianProperties circadianPolicy,
             DreamPathway dreamPathway,
             PartitionManager partitionManager,
             AismeProperties aismeConfig,
@@ -511,7 +511,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
     public static final class Builder {
         private String namespaceId = "default";
         private Supplier<ReflectReport> reflectAction;
-        private CircadianPolicy circadianPolicy;
+        private CircadianProperties circadianPolicy;
         private DreamPathway dreamPathway;
         private PartitionManager partitionManager;
         private AismeProperties aismeConfig;
@@ -533,7 +533,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             return this;
         }
 
-        public Builder circadianPolicy(CircadianPolicy circadianPolicy) {
+        public Builder circadianPolicy(CircadianProperties circadianPolicy) {
             this.circadianPolicy = circadianPolicy;
             return this;
         }
