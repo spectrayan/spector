@@ -26,7 +26,7 @@ import java.nio.file.Path;
  *
  * <p>Unlike the earlier draft (which merely re-wrapped the legacy bytes in an SMKM header
  * and produced a file the loader could not read — the #432 data-loss bug), this step
- * actually decodes the legacy graph via {@link HebbianGraph} and re-serializes it through
+ * actually decodes the legacy graph via {@code HebbianGraph} and re-serializes it through
  * {@link HebbianGraphMemory#save} so the output is a valid SMKM CSR file that
  * {@code HebbianGraphMemory.load} can read.</p>
  *

@@ -68,6 +68,7 @@ public class RecallCandidateGatherer {
     /**
      * Fuses BM25 text search candidates with existing vector recall results using Reciprocal Rank Fusion (RRF).
      */
+    @SuppressWarnings("deprecation")
     public void fuseBM25Candidates(List<CognitiveResult> vectorResults,
                                    List<BM25Candidate> bm25Hits,
                                    RecallOptions options,
