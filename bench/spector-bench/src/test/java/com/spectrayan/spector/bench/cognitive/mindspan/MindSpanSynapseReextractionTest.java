@@ -108,11 +108,11 @@ public class MindSpanSynapseReextractionTest {
                 .setEpisodicPartitionCapacity(35_000)
                 .setSemanticCapacity(20_000)
                 .setCircadian(CircadianProperties.builder().volumeTrigger(Integer.MAX_VALUE).build());
+        memProps.getGraph().getEntity().setExtractionMode("LLM");
 
         SpectorMemory memory = SpectorMemory.builder(memProps)
                 .embeddingProvider(embedder)
                 .llmProvider(llm)
-                .entityExtractionMode(EntityExtractionMode.LLM)
                 .persistence(naturalMemoryDir)
                 .persistenceMode(MemoryPersistenceMode.DISK)
                 .bundleMode(true)

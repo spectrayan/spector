@@ -127,14 +127,8 @@ class DuplicateConfigBanTest {
 
         SpectorMemoryBuilder builder = SpectorMemoryBuilder.createEmpty()
                 .fromProperties(original)
-                .embedBatchSize(64) // Deprecated fluent setter should not mutate caller's props
                 .embeddingProvider(new MockEmbeddingProvider(768))
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY);
-
-        // Verify embedBatchSize didn't mutate original snapshot
-        assertThat(original.provider().getEmbedding().getBatchSize())
-                .as("embedBatchSize() must not mutate caller's ProviderProperties")
-                .isEqualTo(initialBatchSize);
 
         // Call build() which infers dimensions from embeddingProvider (768)
         try (SpectorMemory memory = builder.build()) {

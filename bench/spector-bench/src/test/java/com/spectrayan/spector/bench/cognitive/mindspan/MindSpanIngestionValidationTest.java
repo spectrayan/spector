@@ -125,10 +125,10 @@ public class MindSpanIngestionValidationTest {
                 .setEpisodicPartitionCapacity(35_000)
                 .setSemanticCapacity(20_000)
                 .setCircadian(CircadianProperties.builder().volumeTrigger(Integer.MAX_VALUE).build());
+        memProps.getGraph().getEntity().setExtractionMode("CUSTOM");
 
         SpectorMemory memory = SpectorMemory.builder(memProps)
                 .embeddingProvider(embedder)
-                .entityExtractionMode(com.spectrayan.spector.memory.graph.EntityExtractionMode.CUSTOM)
                 .entityExtractor(com.spectrayan.spector.memory.graph.NoOpEntityExtractor.INSTANCE)
                 .persistence(naturalMemoryDir)
                 .persistenceMode(MemoryPersistenceMode.DISK)

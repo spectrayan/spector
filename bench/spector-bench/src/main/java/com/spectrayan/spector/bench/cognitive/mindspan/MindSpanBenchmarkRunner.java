@@ -260,11 +260,11 @@ public final class MindSpanBenchmarkRunner {
                 .setEntityExtractionParallelism(4)
                 .setEntityExtractionQueueCapacity(2000)
                 .setCircadian(CircadianProperties.builder().volumeTrigger(Integer.MAX_VALUE).build());
+        memoryProps.getGraph().getEntity().setExtractionMode(extMode.name());
 
         SpectorMemoryBuilder builder = SpectorMemory.builder(memoryProps)
                 .embeddingProvider(embedder)
                 .llmProvider(llm)
-                .entityExtractionMode(extMode)
                 .persistence(naturalMemoryDir)
                 .persistenceMode(MemoryPersistenceMode.DISK)
                 .bundleMode(true);

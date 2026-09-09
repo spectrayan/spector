@@ -231,11 +231,13 @@ public final class NaturalIngestionRunner {
             }
 
             // Re-open memory instance in DISK mode to verify persistent reload and export query candidates
+            MemoryProperties reloadProps = new MemoryProperties();
+            reloadProps.getGraph().getEntity().setExtractionMode(EntityExtractionMode.CUSTOM.name());
             try (SpectorMemory queryMemory = SpectorMemoryBuilder.create()
+                    .fromProperties(reloadProps)
                     .embeddingProvider(embedder)
                     .persistence(naturalMemoryDir)
                     .persistenceMode(MemoryPersistenceMode.DISK)
-                    .entityExtractionMode(EntityExtractionMode.CUSTOM)
                     .build()) {
 
                 if (dataset.persona() != null && dataset.persona().hasSalienceProfile()) {

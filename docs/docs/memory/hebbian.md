@@ -192,9 +192,11 @@ Entities are extracted at ingestion time via the `EntityExtractor` SPI:
 **Enable LLM entity extraction:**
 
 ```java
-SpectorMemory.builder()
-    .entityExtractionMode(EntityExtractionMode.LLM)
-    .textGenerationProvider(provider)
+MemoryProperties props = new MemoryProperties();
+props.getGraph().getEntity().setExtractionMode("LLM");
+
+SpectorMemory.builder(props)
+    .llmProvider(provider)
     .build();
 ```
 
