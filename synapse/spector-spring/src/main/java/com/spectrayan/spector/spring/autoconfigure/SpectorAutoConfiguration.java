@@ -29,7 +29,6 @@ import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
-import com.spectrayan.spector.metrics.MeteredSpectorMemory;
 import com.spectrayan.spector.metrics.SpectorMetrics;
 
 import com.spectrayan.spector.provider.langchain4j.LangChain4jHelper;
