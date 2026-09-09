@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.scheduler.jobs;
 
 import com.spectrayan.spector.commons.concurrent.OnPlane;
 import com.spectrayan.spector.commons.concurrent.ThreadPlane;
-import com.spectrayan.spector.memory.sync.CheckpointDaemon;
+import com.spectrayan.spector.memory.sync.CheckpointEngine;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
@@ -34,17 +34,21 @@ public final class CheckpointJob implements Job {
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
         var dataMap = context.getMergedJobDataMap();
-        CheckpointDaemon daemon = (CheckpointDaemon) dataMap.get("checkpointDaemon");
+        Object engineObj = dataMap.get("checkpointEngine");
+        if (engineObj == null) {
+            engineObj = dataMap.get("checkpointDaemon");
+        }
+        CheckpointEngine engine = (CheckpointEngine) engineObj;
 
-        if (daemon == null) {
-            log.debug("CheckpointJob: checkpointDaemon missing from JobDataMap — skipping");
+        if (engine == null) {
+            log.debug("CheckpointJob: checkpointEngine missing from JobDataMap — skipping");
             return;
         }
 
         try {
             String ns = dataMap.getString("namespaceId");
             log.debug("CheckpointJob: running storage checkpoint for namespace [{}]", ns);
-            daemon.checkpoint();
+            engine.checkpoint();
         } catch (Exception e) {
             throw new JobExecutionException("Storage checkpoint failed: " + e.getMessage(), e);
         }

@@ -21,8 +21,6 @@ import org.quartz.SchedulerConfigException;
 import org.quartz.spi.ThreadPool;
 import org.quartz.spi.TriggerFiredBundle;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -42,20 +40,30 @@ public final class SpectorQuartzThreadPool implements ThreadPool {
 
     public static final String JOB_DATA_PLANE = "spector.threadPlane";
     public static final String JOB_DATA_POOL = "spector.poolName";
+    private static final int DEFAULT_CAPACITY = 256;
 
-    private static final VarHandle FIRED_BUNDLE_HANDLE;
+    private static final Field FIRED_BUNDLE_FIELD;
+    private static final Field JEC_FIELD;
 
     static {
-        VarHandle handle = null;
+        Field bundleField = null;
+        Field jecField = null;
         try {
             Class<?> shellClass = Class.forName("org.quartz.core.JobRunShell");
-            Field bundleField = shellClass.getDeclaredField("firedTriggerBundle");
+            bundleField = shellClass.getDeclaredField("firedTriggerBundle");
             bundleField.setAccessible(true);
-            handle = MethodHandles.lookup().unreflectVarHandle(bundleField);
         } catch (Throwable t) {
             log.log(System.Logger.Level.DEBUG, "Could not reflect firedTriggerBundle from JobRunShell: {0}", t.getMessage());
         }
-        FIRED_BUNDLE_HANDLE = handle;
+        try {
+            Class<?> shellClass = Class.forName("org.quartz.core.JobRunShell");
+            jecField = shellClass.getDeclaredField("jec");
+            jecField.setAccessible(true);
+        } catch (Throwable t) {
+            log.log(System.Logger.Level.DEBUG, "Could not reflect jec from JobRunShell: {0}", t.getMessage());
+        }
+        FIRED_BUNDLE_FIELD = bundleField;
+        JEC_FIELD = jecField;
     }
 
     private final SpectorExecutorProvider provider;
@@ -114,6 +122,11 @@ public final class SpectorQuartzThreadPool implements ThreadPool {
                     pool = annotation.pool();
                 }
 
+                String group = detail.getKey() != null ? detail.getKey().getGroup() : null;
+                if (group != null && !group.isBlank() && !group.equals(org.quartz.Scheduler.DEFAULT_GROUP)) {
+                    pool = (plane == ThreadPlane.PLATFORM_WRITER ? "quartz-writer-" : "quartz-") + group;
+                }
+
                 if (detail.getJobDataMap() != null && detail.getJobDataMap().containsKey(JOB_DATA_POOL)) {
                     String customPool = detail.getJobDataMap().getString(JOB_DATA_POOL);
                     if (customPool != null && !customPool.isBlank()) {
@@ -143,11 +156,22 @@ public final class SpectorQuartzThreadPool implements ThreadPool {
     }
 
     private JobDetail extractJobDetail(Runnable runnable) {
-        if (FIRED_BUNDLE_HANDLE != null && runnable != null) {
+        if (runnable == null) {
+            return null;
+        }
+        if (FIRED_BUNDLE_FIELD != null) {
             try {
-                Object bundleObj = FIRED_BUNDLE_HANDLE.get(runnable);
+                Object bundleObj = FIRED_BUNDLE_FIELD.get(runnable);
                 if (bundleObj instanceof TriggerFiredBundle bundle) {
                     return bundle.getJobDetail();
+                }
+            } catch (Throwable ignored) {}
+        }
+        if (JEC_FIELD != null) {
+            try {
+                Object jecObj = JEC_FIELD.get(runnable);
+                if (jecObj instanceof org.quartz.JobExecutionContext jec) {
+                    return jec.getJobDetail();
                 }
             } catch (Throwable ignored) {}
         }
@@ -156,13 +180,12 @@ public final class SpectorQuartzThreadPool implements ThreadPool {
 
     @Override
     public int blockForAvailableThreads() {
-        // Writer plane is single-threaded; report 1 so Quartz throttles misfires appropriately
-        return 1;
+        return Math.max(1, DEFAULT_CAPACITY - inFlight.get());
     }
 
     @Override
     public int getPoolSize() {
-        return Math.max(1, inFlight.get() + 1);
+        return DEFAULT_CAPACITY;
     }
 
     @Override

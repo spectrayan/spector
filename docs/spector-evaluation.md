@@ -136,7 +136,7 @@ To make MindSpan a legitimate, publication-grade benchmark equivalent in rigor t
    - Replace the 5 repeating questions in `queries.jsonl` with 500 distinct, non-overlapping queries systematically sampled from the 1,095 days of daily life (enterprise PRDs, medical chronology, counterfactual decisions, state mutations).
 2. **Remove Hardcoded Seeding from Test Harness**:
    - Strip lines 1245–1350 of `MindSpanBenchmarkRunner.java` that manually assert `Boeing 737`, `Bourgeois Pig`, and hardcoded `linkIfPresent` slots.
-   - Graph entities and relations must be extracted 100% autonomously by `GraphEnrichmentDaemon` and `LlmEntityExtractor` during natural ingestion.
+   - Graph entities and relations must be extracted 100% autonomously by `GraphEnrichmentEngine` and `LlmEntityExtractor` during natural ingestion.
 3. **Implement Lineage Audit Region (Issue #731)**:
    - Build the bidirectional `(sourceEpisodicId, turnOffset) <-> consolidatedSemanticId` table in `AuditRecordMemory`.
    - Update `resolveRetrievedDocIds` to consult the audit table so that synthesized semantic memories are properly scored against episodic ground truth in `qrels.tsv`.

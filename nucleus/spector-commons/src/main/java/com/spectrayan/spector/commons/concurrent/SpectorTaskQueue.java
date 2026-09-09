@@ -180,9 +180,11 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
         // Register in central manager
         TaskQueueManager.register(this.name, this);
 
-        // Submit worker loops onto workerExecutor (Model B: submit, do not start)
+        // Submit worker loops onto VIRTUAL plane (Model B: submit, do not start)
+        // Polling loop runs on virtual threads so queue.poll() never occupies PLATFORM_WRITER
+        Executor loopExecutor = SpectorExecutors.executor(ThreadPlane.VIRTUAL, "tq-worker-" + this.name);
         for (int i = 0; i < this.config.parallelism(); i++) {
-            this.workerExecutor.execute(this::workerLoop);
+            loopExecutor.execute(this::workerLoop);
         }
 
         log.log(System.Logger.Level.INFO,
@@ -333,13 +335,13 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
                         batch.add(first);
                         queue.drainTo(batch, config.batchDrainSize() - 1);
                         signalNotFull();
-                        executeBatchWithRetries(batch);
+                        dispatchBatch(batch);
                     } else {
                         signalNotFull();
                         if (batchHandler != null) {
-                            executeBatchWithRetries(List.of(first));
+                            dispatchBatch(List.of(first));
                         } else {
-                            executeDirectWithRetries(first);
+                            dispatchDirect(first);
                         }
                     }
                 }
@@ -350,6 +352,30 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
             } catch (Exception e) {
                 log.log(System.Logger.Level.WARNING, "[{0}] Unexpected error in worker loop: {1}", name, e.getMessage());
             }
+        }
+    }
+
+    private void dispatchBatch(List<ScopedTask<T>> batch) {
+        if (config.plane() == ThreadPlane.PLATFORM_WRITER) {
+            try {
+                java.util.concurrent.CompletableFuture.runAsync(() -> executeBatchWithRetries(batch), workerExecutor).join();
+            } catch (java.util.concurrent.CompletionException ce) {
+                log.log(System.Logger.Level.WARNING, "[{0}] Batch execution dispatch failed: {1}", name, ce.getMessage());
+            }
+        } else {
+            executeBatchWithRetries(batch);
+        }
+    }
+
+    private void dispatchDirect(ScopedTask<T> task) {
+        if (config.plane() == ThreadPlane.PLATFORM_WRITER) {
+            try {
+                java.util.concurrent.CompletableFuture.runAsync(() -> executeDirectWithRetries(task), workerExecutor).join();
+            } catch (java.util.concurrent.CompletionException ce) {
+                log.log(System.Logger.Level.WARNING, "[{0}] Direct execution dispatch failed: {1}", name, ce.getMessage());
+            }
+        } else {
+            executeDirectWithRetries(task);
         }
     }
 

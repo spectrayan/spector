@@ -31,7 +31,7 @@ import com.spectrayan.spector.memory.kernel.shape.AppendMemory;
 import com.spectrayan.spector.memory.kernel.shape.RecordMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
-import com.spectrayan.spector.memory.sync.CheckpointDaemon;
+import com.spectrayan.spector.memory.sync.CheckpointEngine;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.memory.sync.WalRecoveryDispatcher;
@@ -54,7 +54,7 @@ import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
-import com.spectrayan.spector.memory.sync.CheckpointDaemon;
+import com.spectrayan.spector.memory.sync.CheckpointEngine;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.memory.sync.WalRecoveryDispatcher;
@@ -107,7 +107,7 @@ public final class MemoryWalRecovery {
 
         long checkpointHwm = 0;
         if (checkpointRegion != null) {
-            long hwm = CheckpointDaemon.readCheckpointHwm(checkpointRegion);
+            long hwm = CheckpointEngine.readCheckpointHwm(checkpointRegion);
             if (hwm > 0) {
                 checkpointHwm = hwm;
                 log.info("WAL recovery: loaded checkpoint HWM {} from bundle region", checkpointHwm);
@@ -116,7 +116,7 @@ public final class MemoryWalRecovery {
         if (checkpointHwm == 0 && basePath != null) {
             Path metaPath = StorageLayout.runtimeDir(basePath).resolve("checkpoint.meta");
             if (Files.exists(metaPath)) {
-                checkpointHwm = CheckpointDaemon.readCheckpointHwm(metaPath);
+                checkpointHwm = CheckpointEngine.readCheckpointHwm(metaPath);
                 log.info("WAL recovery: loaded checkpoint HWM {}", checkpointHwm);
             }
         }

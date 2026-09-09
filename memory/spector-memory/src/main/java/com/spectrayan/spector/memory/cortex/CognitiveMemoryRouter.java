@@ -338,7 +338,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
 
     /**
      * Forces all persistent, non-frozen memory store segments to be written to disk.
-     * Used by {@code CheckpointDaemon} before recording a WAL checkpoint.
+     * Used by {@code CheckpointEngine} before recording a WAL checkpoint.
      */
     public void forceAll() {
         for (EngramMemory store : stores.values()) {

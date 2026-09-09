@@ -21,7 +21,7 @@ import com.spectrayan.spector.commons.concurrent.spi.AbstractExecutorProvider;
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
-import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
+import com.spectrayan.spector.memory.graph.GraphEnrichmentEngine;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.scheduler.jobs.CheckpointJob;
@@ -31,7 +31,7 @@ import com.spectrayan.spector.memory.scheduler.jobs.HomeostaticDecayJob;
 import com.spectrayan.spector.memory.scheduler.jobs.RemDreamJob;
 import com.spectrayan.spector.memory.scheduler.jobs.SleepConsolidationJob;
 import com.spectrayan.spector.memory.error.SpectorSchedulerException;
-import com.spectrayan.spector.memory.sync.CheckpointDaemon;
+import com.spectrayan.spector.memory.sync.CheckpointEngine;
 import org.quartz.*;
 import org.quartz.impl.DirectSchedulerFactory;
 import org.quartz.impl.matchers.GroupMatcher;
@@ -85,8 +85,8 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             DreamPathway dreamPathway,
             PartitionManager partitionManager,
             AismeConfig aismeConfig,
-            CheckpointDaemon checkpointDaemon,
-            GraphEnrichmentDaemon graphEnrichmentDaemon,
+            CheckpointEngine checkpointEngine,
+            GraphEnrichmentEngine graphEnrichmentEngine,
             Runnable dmnDaemon,
             Runnable decayDaemon,
             long checkpointIntervalSeconds,
@@ -110,7 +110,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
 
             // Register core memory tasks under group = namespaceId
             registerTasks(reflectAction, circadianPolicy, dreamPathway, partitionManager, aismeConfig,
-                    checkpointDaemon, graphEnrichmentDaemon, dmnDaemon, decayDaemon, checkpointIntervalSeconds);
+                    checkpointEngine, graphEnrichmentEngine, dmnDaemon, decayDaemon, checkpointIntervalSeconds);
 
             this.active.set(true);
             log.info("QuartzMemoryScheduler initialized for namespace [{}]", this.namespaceId);
@@ -171,8 +171,8 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             DreamPathway dreamPathway,
             PartitionManager partitionManager,
             AismeConfig aismeConfig,
-            CheckpointDaemon checkpointDaemon,
-            GraphEnrichmentDaemon graphEnrichmentDaemon,
+            CheckpointEngine checkpointEngine,
+            GraphEnrichmentEngine graphEnrichmentEngine,
             Runnable dmnDaemon,
             Runnable decayDaemon,
             long checkpointIntervalSeconds) throws SchedulerException {
@@ -209,9 +209,10 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
         }
 
         // 3. Storage Checkpointing (DISK mode)
-        if (checkpointDaemon != null && checkpointIntervalSeconds > 0) {
+        if (checkpointEngine != null && checkpointIntervalSeconds > 0) {
             JobDataMap map = new JobDataMap();
-            map.put("checkpointDaemon", checkpointDaemon);
+            map.put("checkpointEngine", checkpointEngine);
+            map.put("checkpointDaemon", checkpointEngine);
             map.put("namespaceId", namespaceId);
 
             scheduleJobInternal(TASK_CHECKPOINT,
@@ -250,9 +251,10 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
         }
 
         // 6. Graph Enrichment
-        if (graphEnrichmentDaemon != null) {
+        if (graphEnrichmentEngine != null) {
             JobDataMap map = new JobDataMap();
-            map.put("graphEnrichmentDaemon", graphEnrichmentDaemon);
+            map.put("graphEnrichmentEngine", graphEnrichmentEngine);
+            map.put("graphEnrichmentDaemon", graphEnrichmentEngine);
             map.put("namespaceId", namespaceId);
 
             scheduleJobInternal(TASK_GRAPH_ENRICHMENT,
@@ -512,8 +514,8 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
         private DreamPathway dreamPathway;
         private PartitionManager partitionManager;
         private AismeConfig aismeConfig;
-        private CheckpointDaemon checkpointDaemon;
-        private GraphEnrichmentDaemon graphEnrichmentDaemon;
+        private CheckpointEngine checkpointEngine;
+        private GraphEnrichmentEngine graphEnrichmentEngine;
         private Runnable dmnDaemon;
         private Runnable decayDaemon;
         private long checkpointIntervalSeconds;
@@ -550,14 +552,22 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             return this;
         }
 
-        public Builder checkpointDaemon(CheckpointDaemon checkpointDaemon) {
-            this.checkpointDaemon = checkpointDaemon;
+        public Builder checkpointEngine(CheckpointEngine checkpointEngine) {
+            this.checkpointEngine = checkpointEngine;
             return this;
         }
 
-        public Builder graphEnrichmentDaemon(GraphEnrichmentDaemon graphEnrichmentDaemon) {
-            this.graphEnrichmentDaemon = graphEnrichmentDaemon;
+        public Builder checkpointDaemon(CheckpointEngine checkpointEngine) {
+            return checkpointEngine(checkpointEngine);
+        }
+
+        public Builder graphEnrichmentEngine(GraphEnrichmentEngine graphEnrichmentEngine) {
+            this.graphEnrichmentEngine = graphEnrichmentEngine;
             return this;
+        }
+
+        public Builder graphEnrichmentDaemon(GraphEnrichmentEngine graphEnrichmentEngine) {
+            return graphEnrichmentEngine(graphEnrichmentEngine);
         }
 
         public Builder dmnDaemon(Runnable dmnDaemon) {
@@ -588,7 +598,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
         public QuartzMemoryScheduler build() {
             return new QuartzMemoryScheduler(
                     namespaceId, reflectAction, circadianPolicy, dreamPathway, partitionManager,
-                    aismeConfig, checkpointDaemon, graphEnrichmentDaemon, dmnDaemon, decayDaemon,
+                    aismeConfig, checkpointEngine, graphEnrichmentEngine, dmnDaemon, decayDaemon,
                     checkpointIntervalSeconds, suppliedExecutor, quartzScheduler
             );
         }

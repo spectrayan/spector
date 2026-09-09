@@ -29,21 +29,21 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Supervised background daemon for asynchronous graph enrichment and entity extraction.
+ * Engine for asynchronous graph enrichment and entity extraction.
  *
  * <h3>Motivation</h3>
  * <p>Extracting structured entities and causal/topological relationships via LLMs
- * takes 300ms–2000ms per memory. Running this synchronously during high-throughput
- * ingestion causes queue saturation and connection timeouts. {@code GraphEnrichmentDaemon}
- * acts as an offline, background worker (analogous to {@code CheckpointDaemon} and
+ * takes 300msâ€“2000ms per memory. Running this synchronously during high-throughput
+ * ingestion causes queue saturation and connection timeouts. {@code GraphEnrichmentEngine}
+ * acts as an offline, background worker (analogous to {@code CheckpointEngine} and
  * {@code ReflectDaemon}) that continuously inspects unenriched memories and populates
  * the entity directory, hypergraph, and temporal knowledge graph asynchronously.</p>
  *
  * @since 1.1.0
  */
-public final class GraphEnrichmentDaemon {
+public final class GraphEnrichmentEngine {
 
-    private static final Logger log = LoggerFactory.getLogger(GraphEnrichmentDaemon.class);
+    private static final Logger log = LoggerFactory.getLogger(GraphEnrichmentEngine.class);
 
     private final MemoryIndex index;
     private final EntityExtractor entityExtractor;
@@ -77,7 +77,7 @@ public final class GraphEnrichmentDaemon {
             String lastError
     ) {}
 
-    public GraphEnrichmentDaemon(
+    public GraphEnrichmentEngine(
             MemoryIndex index,
             EntityExtractor entityExtractor,
             EntityDirectory entityDirectory,
@@ -119,7 +119,7 @@ public final class GraphEnrichmentDaemon {
     }
 
     /**
-     * Scheduled callback invoked by {@code DaemonSupervisor}.
+     * Scheduled callback invoked by Quartz {@code GraphEnrichmentJob}.
      * Enriches up to 25 unenriched memories per cycle.
      */
     public void enrichPending() {

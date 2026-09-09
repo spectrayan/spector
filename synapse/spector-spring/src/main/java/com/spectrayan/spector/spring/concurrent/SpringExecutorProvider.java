@@ -17,13 +17,10 @@ package com.spectrayan.spector.spring.concurrent;
 
 import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import com.spectrayan.spector.commons.concurrent.spi.AbstractExecutorProvider;
-import com.spectrayan.spector.commons.concurrent.spi.DrainResult;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
-import java.time.Duration;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -75,14 +72,7 @@ public class SpringExecutorProvider extends AbstractExecutorProvider implements 
                     ex.setVirtualThreads(true);
                     yield ex;
                 }
-                yield task -> {
-                    try {
-                        virtualExecutor.execute(task);
-                    } catch (Exception e) {
-                        // Fallback to virtual thread if container executor is shut down or inactive
-                        Thread.ofVirtual().name("spector-vt-fallback-", 0).start(task);
-                    }
-                };
+                yield virtualExecutor;
             }
             case PLATFORM_SHARED -> sharedPool;
             case PLATFORM_WRITER -> {
@@ -97,43 +87,7 @@ public class SpringExecutorProvider extends AbstractExecutorProvider implements 
     }
 
     @Override
-    public DrainResult drain(String poolFilter, Duration budget) {
-        long startNanos = System.nanoTime();
-        long budgetNanos = budget.toNanos();
-        boolean allCompleted = true;
-        int remaining = 0;
-
-        for (Map.Entry<String, Executor> entry : executors.entrySet()) {
-            if (poolFilter != null && !poolFilter.isBlank() && !entry.getKey().contains(poolFilter)) {
-                continue;
-            }
-            Executor executor = entry.getValue();
-            ThreadPoolExecutor tpe = extractThreadPoolExecutor(executor);
-            if (tpe != null) {
-                while (tpe.getActiveCount() > 0 || !tpe.getQueue().isEmpty()) {
-                    long elapsedNanos = System.nanoTime() - startNanos;
-                    if (elapsedNanos >= budgetNanos) {
-                        allCompleted = false;
-                        remaining += tpe.getActiveCount() + tpe.getQueue().size();
-                        break;
-                    }
-                    try {
-                        Thread.sleep(10);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        allCompleted = false;
-                        remaining += tpe.getActiveCount() + tpe.getQueue().size();
-                        break;
-                    }
-                }
-            }
-        }
-
-        Duration waited = Duration.ofNanos(System.nanoTime() - startNanos);
-        return new DrainResult(allCompleted, remaining, waited);
-    }
-
-    private ThreadPoolExecutor extractThreadPoolExecutor(Executor executor) {
+    protected ThreadPoolExecutor extractThreadPoolExecutor(Executor executor) {
         if (executor instanceof ThreadPoolExecutor tpe) {
             return tpe;
         }

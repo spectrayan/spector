@@ -32,17 +32,54 @@ public abstract class AbstractExecutorProvider implements SpectorExecutorProvide
 
     private static final System.Logger log = System.getLogger(AbstractExecutorProvider.class.getName());
 
-    protected final ConcurrentHashMap<String, Executor> executors = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<String, TrackedExecutor> executors = new ConcurrentHashMap<>();
+
+    /**
+     * Decorator that tracks in-flight tasks for cooperative draining across any underlying executor type.
+     */
+    public static final class TrackedExecutor implements Executor {
+        private final Executor delegate;
+        private final java.util.concurrent.atomic.AtomicInteger inFlight = new java.util.concurrent.atomic.AtomicInteger(0);
+
+        public TrackedExecutor(Executor delegate) {
+            this.delegate = java.util.Objects.requireNonNull(delegate, "delegate");
+        }
+
+        public Executor delegate() {
+            return delegate;
+        }
+
+        public int inFlight() {
+            return inFlight.get();
+        }
+
+        @Override
+        public void execute(Runnable command) {
+            inFlight.incrementAndGet();
+            try {
+                delegate.execute(() -> {
+                    try {
+                        command.run();
+                    } finally {
+                        inFlight.decrementAndGet();
+                    }
+                });
+            } catch (Throwable t) {
+                inFlight.decrementAndGet();
+                throw t;
+            }
+        }
+    }
 
     @Override
     public Executor executor(ThreadPlane plane, String name) {
         String poolName = name != null && !name.isBlank() ? name : "default";
         String key = plane.name() + ":" + poolName;
         return executors.compute(key, (k, existing) -> {
-            if (existing instanceof ExecutorService service && service.isShutdown()) {
-                return createExecutor(plane, poolName);
+            if (existing != null && existing.delegate() instanceof ExecutorService service && service.isShutdown()) {
+                return new TrackedExecutor(createExecutor(plane, poolName));
             }
-            return existing != null ? existing : createExecutor(plane, poolName);
+            return existing != null ? existing : new TrackedExecutor(createExecutor(plane, poolName));
         });
     }
 
@@ -54,6 +91,19 @@ public abstract class AbstractExecutorProvider implements SpectorExecutorProvide
      * @return newly created executor
      */
     protected abstract Executor createExecutor(ThreadPlane plane, String name);
+
+    /**
+     * Extracts underlying {@link ThreadPoolExecutor} if supported by the executor implementation.
+     *
+     * @param executor delegate executor
+     * @return underlying ThreadPoolExecutor or null
+     */
+    protected ThreadPoolExecutor extractThreadPoolExecutor(Executor executor) {
+        if (executor instanceof ThreadPoolExecutor tpe) {
+            return tpe;
+        }
+        return null;
+    }
 
     @Override
     public DrainResult drain(Duration budget) {
@@ -67,27 +117,27 @@ public abstract class AbstractExecutorProvider implements SpectorExecutorProvide
         boolean allCompleted = true;
         int remaining = 0;
 
-        for (java.util.Map.Entry<String, Executor> entry : executors.entrySet()) {
+        for (java.util.Map.Entry<String, TrackedExecutor> entry : executors.entrySet()) {
             if (poolFilter != null && !poolFilter.isBlank() && !entry.getKey().contains(poolFilter)) {
                 continue;
             }
-            Executor executor = entry.getValue();
-            if (executor instanceof ThreadPoolExecutor tpe) {
-                while (tpe.getActiveCount() > 0 || !tpe.getQueue().isEmpty()) {
-                    long elapsedNanos = System.nanoTime() - startNanos;
-                    if (elapsedNanos >= budgetNanos) {
-                        allCompleted = false;
-                        remaining += tpe.getActiveCount() + tpe.getQueue().size();
-                        break;
-                    }
-                    try {
-                        Thread.sleep(10);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        allCompleted = false;
-                        remaining += tpe.getActiveCount() + tpe.getQueue().size();
-                        break;
-                    }
+            TrackedExecutor tracked = entry.getValue();
+            ThreadPoolExecutor tpe = extractThreadPoolExecutor(tracked.delegate());
+
+            while (tracked.inFlight() > 0 || (tpe != null && (tpe.getActiveCount() > 0 || !tpe.getQueue().isEmpty()))) {
+                long elapsedNanos = System.nanoTime() - startNanos;
+                if (elapsedNanos >= budgetNanos) {
+                    allCompleted = false;
+                    remaining += tracked.inFlight() + (tpe != null ? tpe.getQueue().size() : 0);
+                    break;
+                }
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    allCompleted = false;
+                    remaining += tracked.inFlight() + (tpe != null ? tpe.getQueue().size() : 0);
+                    break;
                 }
             }
         }
@@ -98,7 +148,8 @@ public abstract class AbstractExecutorProvider implements SpectorExecutorProvide
 
     @Override
     public void close() {
-        for (Executor executor : executors.values()) {
+        for (TrackedExecutor tracked : executors.values()) {
+            Executor executor = tracked.delegate();
             if (executor instanceof ExecutorService service && !service.isShutdown()) {
                 service.shutdown();
                 try {

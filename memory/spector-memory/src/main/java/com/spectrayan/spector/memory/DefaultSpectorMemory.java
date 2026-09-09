@@ -45,7 +45,7 @@ import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
+import com.spectrayan.spector.memory.graph.GraphEnrichmentEngine;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
@@ -121,7 +121,7 @@ import com.spectrayan.spector.memory.scheduler.QuartzMemoryScheduler;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 import com.spectrayan.spector.memory.session.SessionWriteBuffer;
 import com.spectrayan.spector.memory.synapse.ActRActivation;
-import com.spectrayan.spector.memory.sync.CheckpointDaemon;
+import com.spectrayan.spector.memory.sync.CheckpointEngine;
 import com.spectrayan.spector.memory.sync.CompactionResult;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.VacuumCompactor;
@@ -217,11 +217,6 @@ import com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.cortex.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
-import com.spectrayan.spector.memory.sync.CheckpointDaemon;
-import com.spectrayan.spector.memory.sync.CompactionResult;
-import com.spectrayan.spector.memory.sync.VacuumCompactor;
-import com.spectrayan.spector.commons.concurrent.DaemonSupervisor;
-import com.spectrayan.spector.commons.concurrent.DaemonPolicy;
 import com.spectrayan.spector.memory.synapse.ActRActivation;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
@@ -350,9 +345,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final AtomicInteger episodicIngestCount = new AtomicInteger(0);
 
     //  Automatic Checkpointing & Graph Enrichment
-    private final CheckpointDaemon checkpointDaemon;
-    private final com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon graphEnrichmentDaemon;
-    private final DaemonSupervisor daemonSupervisor;
+    private final CheckpointEngine checkpointEngine;
+    private final GraphEnrichmentEngine graphEnrichmentEngine;
 
     //  Shutdown Hook (auto-registered for DISK mode) 
     private final Thread shutdownHook;
@@ -475,12 +469,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.namespaceManager = bundle.namespaceManager();
         this.namespaceId = builder.namespaceId();
         this.idGenerator = bundle.idGenerator();
-        this.checkpointDaemon = bundle.checkpointDaemon();
-        if (this.checkpointDaemon != null) {
-            this.checkpointDaemon.setRouterSupplier(partitionManager::cognitiveRouter);
+        this.checkpointEngine = bundle.checkpointEngine();
+        if (this.checkpointEngine != null) {
+            this.checkpointEngine.setRouterSupplier(partitionManager::cognitiveRouter);
         }
-        this.graphEnrichmentDaemon = bundle.graphEnrichmentDaemon();
-        this.daemonSupervisor = bundle.daemonSupervisor();
+        this.graphEnrichmentEngine = bundle.graphEnrichmentEngine();
         this.bm25Index = bundle.bm25Index();
         this.chunker = builder.chunker();
         this.chunkConfig = builder.chunkConfig();
@@ -510,8 +503,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     .dreamPathway(this.dreamPathway)
                     .partitionManager(this.partitionManager)
                     .aismeConfig(aismeConfig)
-                    .checkpointDaemon(this.checkpointDaemon)
-                    .graphEnrichmentDaemon(this.graphEnrichmentDaemon)
+                    .checkpointEngine(this.checkpointEngine)
+                    .graphEnrichmentEngine(this.graphEnrichmentEngine)
                     .dmnDaemon((this.wanderPathway != null && aismeConfig != null && aismeConfig.enabled() && aismeConfig.enableDmnSpontaneous())
                             ? new com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon(this.wanderPathway, this.partitionManager, System::currentTimeMillis) : null)
                     .decayDaemon((bundle.aismeBundle() != null && aismeConfig != null && aismeConfig.backgroundDecayEnabled())
@@ -1778,8 +1771,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     @Override
-    public com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon graphEnricher() {
-        return graphEnrichmentDaemon;
+    public GraphEnrichmentEngine graphEnricher() {
+        return graphEnrichmentEngine;
     }
 
     /** Returns the namespace manager (null if IN_MEMORY mode). */
@@ -1991,16 +1984,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
         }
 
-        // 2. Stop daemon supervisor (terminates supervisor loops)
-        if (daemonSupervisor != null) {
-            try {
-                daemonSupervisor.close();
-            } catch (Exception e) {
-                log.warn("Failed to close daemonSupervisor on close", e);
-            }
-        }
-
-        // 3. Close task queues & consolidators
+        // 2. Close task queues & consolidators
         if (batchConsolidator != null) {
             try {
                 batchConsolidator.close();
@@ -2045,7 +2029,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
         }
 
-        // 4. Cooperative drain of SPI executors BEFORE touching off-heap arenas (ADR-0026 Section 10)
+        // 3. Cooperative drain of SPI executors BEFORE touching off-heap arenas (ADR-0026 Section 10)
         long remainingMs = Math.max(100L, deadline - System.currentTimeMillis());
         try {
             var drainResult = SpectorExecutors.drain(namespaceId, Duration.ofMillis(remainingMs));
@@ -2057,14 +2041,14 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             log.warn("Exception while draining SpectorExecutors on close", e);
         }
 
-        // 5. Final checkpoint flush before closing storage (while memory segments remain mapped)
-        if (checkpointDaemon != null) {
+        // 4. Final checkpoint flush before closing storage (while memory segments remain mapped)
+        if (checkpointEngine != null) {
             try {
                 // Snapshot ProfileAdaptor bandit stats to CoActivationTracker before checkpoint
                 if (profileAdaptor != null && coActivationTracker != null) {
                     coActivationTracker.updateBanditStats(profileAdaptor.statsSnapshot());
                 }
-                checkpointDaemon.checkpoint();
+                checkpointEngine.checkpoint();
             } catch (Exception e) {
                 log.warn("Final checkpoint on close failed", e);
             }
