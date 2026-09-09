@@ -867,4 +867,104 @@ public class AismeProperties implements Serializable {
         cp.lifespanFlashbulbProtect = this.lifespanFlashbulbProtect;
         return cp;
     }
+
+    // ── Factory & Builder Methods ──
+
+    public static AismeProperties disabled() {
+        AismeProperties props = new AismeProperties();
+        props.setEnabled(false);
+        return props;
+    }
+
+    public static AismeProperties defaultConfig() {
+        return new AismeProperties();
+    }
+
+    public static AismeProperties defaultProperties() {
+        return new AismeProperties();
+    }
+
+    public static AismeProperties fromProperties(AismeProperties properties) {
+        return properties != null ? properties.copy() : defaultConfig();
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private final AismeProperties properties = new AismeProperties();
+
+        public Builder enabled(boolean v) { properties.setEnabled(v); return this; }
+        public Builder enableHomeostasis(boolean v) { properties.setEnableHomeostasis(v); return this; }
+        public Builder enableFreeEnergy(boolean v) { properties.setEnableFreeEnergy(v); return this; }
+        public Builder enableHopfield(boolean v) { properties.setEnableHopfield(v); return this; }
+        public Builder enableManifold(boolean v) { properties.setEnableManifold(v); return this; }
+        public Builder enablePredictiveCoding(boolean v) { properties.setEnablePredictiveCoding(v); return this; }
+        public Builder enableConsciousnessContinuity(boolean v) { properties.setEnableConsciousnessContinuity(v); return this; }
+        public Builder enableGlobalWorkspace(boolean v) { properties.setEnableGlobalWorkspace(v); return this; }
+        public Builder globalWorkspaceCapacity(int v) { properties.setGlobalWorkspaceCapacity(v); return this; }
+        public Builder hopfieldTemperature(float v) { properties.setHopfieldTemperature(v); return this; }
+        public Builder manifoldSigma(float v) { properties.setManifoldSigma(v); return this; }
+        public Builder phiCohesionThreshold(float v) { properties.setPhiCohesionThreshold(v); return this; }
+        public Builder enableDmnSpontaneous(boolean v) { properties.setEnableDmnSpontaneous(v); return this; }
+        public Builder dmnIdleIntervalSeconds(int v) { properties.setDmnIdleIntervalSeconds(v); return this; }
+        public Builder enableLongitudinalContinuity(boolean v) { properties.setEnableLongitudinalContinuity(v); return this; }
+        public Builder longitudinalSnapshotIntervalMinutes(int v) { properties.setLongitudinalSnapshotIntervalMinutes(v); return this; }
+        public Builder enableExpectedFreeEnergy(boolean v) { properties.setEnableExpectedFreeEnergy(v); return this; }
+        public Builder efePolicyPrecision(float v) { properties.setEfePolicyPrecision(v); return this; }
+        public Builder efeEpistemicWeight(float v) { properties.setEfeEpistemicWeight(v); return this; }
+        public Builder efePragmaticWeight(float v) { properties.setEfePragmaticWeight(v); return this; }
+        public Builder efeSoulWeightAgent(float v) { properties.setEfeSoulWeightAgent(v); return this; }
+        public Builder efeSoulWeightUser(float v) { properties.setEfeSoulWeightUser(v); return this; }
+        public Builder efeSoulWeightTenant(float v) { properties.setEfeSoulWeightTenant(v); return this; }
+        public Builder efeSoulWeightOrgUnit(float v) { properties.setEfeSoulWeightOrgUnit(v); return this; }
+        public Builder constructivePersistenceEnabled(boolean v) { properties.setConstructivePersistenceEnabled(v); return this; }
+        public Builder constructivePersistenceThreshold(float v) { properties.setConstructivePersistenceThreshold(v); return this; }
+        public Builder backgroundDecayEnabled(boolean v) { properties.setBackgroundDecayEnabled(v); return this; }
+        public Builder backgroundDecayFactor(float v) { properties.setBackgroundDecayFactor(v); return this; }
+        public Builder backgroundDecayIntervalSeconds(int v) { properties.setBackgroundDecayIntervalSeconds(v); return this; }
+        public Builder enableSoftIdentityAnchor(boolean v) { properties.setEnableSoftIdentityAnchor(v); return this; }
+        public Builder identityAnchorEta(float v) { properties.setIdentityAnchorEta(v); return this; }
+        public Builder identityLyapunovThreshold(float v) { properties.setIdentityLyapunovThreshold(v); return this; }
+        public Builder identityCoreSnapshotEpochs(int v) { properties.setIdentityCoreSnapshotEpochs(v); return this; }
+        public Builder enableEventDensity(boolean v) { properties.setEnableEventDensity(v); return this; }
+        public Builder eventDensityThreshold(float v) { properties.setEventDensityThreshold(v); return this; }
+        public Builder eventDensityAlphaKl(float v) { properties.setEventDensityAlphaKl(v); return this; }
+        public Builder eventDensityBetaGradient(float v) { properties.setEventDensityBetaGradient(v); return this; }
+        public Builder eventDensityGammaSurprise(float v) { properties.setEventDensityGammaSurprise(v); return this; }
+        public Builder eventDensitySamplingMinHz(float v) { properties.setEventDensitySamplingMinHz(v); return this; }
+        public Builder eventDensitySamplingMaxHz(float v) { properties.setEventDensitySamplingMaxHz(v); return this; }
+        public Builder enableBocpd(boolean v) { properties.setEnableBocpd(v); return this; }
+        public Builder bocpdHazardLambda(float v) { properties.setBocpdHazardLambda(v); return this; }
+        public Builder bocpdChangePointThreshold(float v) { properties.setBocpdChangePointThreshold(v); return this; }
+        public Builder bocpdSurprisalCutThreshold(float v) { properties.setBocpdSurprisalCutThreshold(v); return this; }
+        public Builder bocpdMaxEpisodeFrames(int v) { properties.setBocpdMaxEpisodeFrames(v); return this; }
+        public Builder bocpdMaxRunLength(int v) { properties.setBocpdMaxRunLength(v); return this; }
+        public Builder enablePrivacy(boolean v) { properties.setEnablePrivacy(v); return this; }
+        public Builder privacyEpsilon(float v) { properties.setPrivacyEpsilon(v); return this; }
+        public Builder privacyDelta(float v) { properties.setPrivacyDelta(v); return this; }
+        public Builder privacyClippingNorm(float v) { properties.setPrivacyClippingNorm(v); return this; }
+        public Builder privacyAnonymizePii(boolean v) { properties.setPrivacyAnonymizePii(v); return this; }
+        public Builder privacyPseudonymizationSalt(String v) { properties.setPrivacyPseudonymizationSalt(v); return this; }
+        public Builder enableImportance(boolean v) { properties.setEnableImportance(v); return this; }
+        public Builder importanceWeightSurprise(float v) { properties.setImportanceWeightSurprise(v); return this; }
+        public Builder importanceWeightAffect(float v) { properties.setImportanceWeightAffect(v); return this; }
+        public Builder importanceWeightGoal(float v) { properties.setImportanceWeightGoal(v); return this; }
+        public Builder importanceWeightSocial(float v) { properties.setImportanceWeightSocial(v); return this; }
+        public Builder importanceWeightNovelty(float v) { properties.setImportanceWeightNovelty(v); return this; }
+        public Builder importanceFlashbulbThreshold(float v) { properties.setImportanceFlashbulbThreshold(v); return this; }
+        public Builder enableLifespan(boolean v) { properties.setEnableLifespan(v); return this; }
+        public Builder lifespanTau0(float v) { properties.setLifespanTau0(v); return this; }
+        public Builder lifespanK(float v) { properties.setLifespanK(v); return this; }
+        public Builder lifespanT0Epochs(long v) { properties.setLifespanT0Epochs(v); return this; }
+        public Builder lifespanVTarget(long v) { properties.setLifespanVTarget(v); return this; }
+        public Builder lifespanGamma(float v) { properties.setLifespanGamma(v); return this; }
+        public Builder lifespanFlashbulbProtect(boolean v) { properties.setLifespanFlashbulbProtect(v); return this; }
+
+        public AismeProperties build() {
+            return properties.copy();
+        }
+    }
 }
+

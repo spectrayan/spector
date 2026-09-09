@@ -228,4 +228,46 @@ public class DreamProperties implements Serializable {
         cp.setHartmannVigilanceMultiplier(this.hartmannVigilanceMultiplier);
         return cp;
     }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private final DreamProperties properties = new DreamProperties();
+
+        public Builder enabled(boolean v) { properties.setEnabled(v); return this; }
+        public Builder noiseScale(float v) { properties.setNoiseScale(v); return this; }
+        public Builder dreamNoiseScale(float v) { properties.setNoiseScale(v); return this; }
+        public Builder temperatureRem(float v) { properties.setTemperatureRem(v); return this; }
+        public Builder dreamTemperatureRem(float v) { properties.setTemperatureRem(v); return this; }
+        public Builder temperatureDaydream(float v) { properties.setTemperatureDaydream(v); return this; }
+        public Builder dreamTemperatureDaydream(float v) { properties.setTemperatureDaydream(v); return this; }
+        public Builder temperatureThought(float v) { properties.setTemperatureThought(v); return this; }
+        public Builder dreamTemperatureThought(float v) { properties.setTemperatureThought(v); return this; }
+        public Builder maxDreamsPerCycle(int v) { properties.setMaxDreamsPerCycle(v); return this; }
+        public Builder maxCounterfactualsPerSeed(int v) { properties.setMaxCounterfactualsPerSeed(v); return this; }
+        public Builder persistenceThreshold(float v) { properties.setPersistenceThreshold(v); return this; }
+        public Builder langevinStepSize(float v) { properties.setLangevinStepSize(v); return this; }
+        public Builder langevinSteps(int v) { properties.setLangevinSteps(v); return this; }
+        public Builder noveltyRadius(float v) { properties.setNoveltyRadius(v); return this; }
+        public Builder hebbianInhibitionDelta(float v) { properties.setHebbianInhibitionDelta(v); return this; }
+        public Builder journalEnabled(boolean v) { properties.setJournalEnabled(v); return this; }
+        public Builder cycleFrequency(int v) { properties.setCycleFrequency(v); return this; }
+        public Builder dreamCycleFrequency(int v) { properties.setCycleFrequency(v); return this; }
+        public Builder seedWeightRecency(float v) { properties.setSeedWeightRecency(v); return this; }
+        public Builder seedWeightNovelty(float v) { properties.setSeedWeightNovelty(v); return this; }
+        public Builder seedWeightSoul(float v) { properties.setSeedWeightSoul(v); return this; }
+        public Builder seedWeightSalience(float v) { properties.setSeedWeightSalience(v); return this; }
+        public Builder identityResonanceThreshold(float v) { properties.setIdentityResonanceThreshold(v); return this; }
+        public Builder ethicalViolationThreshold(float v) { properties.setEthicalViolationThreshold(v); return this; }
+        public Builder langevinSoulAttractorLambda(float v) { properties.setLangevinSoulAttractorLambda(v); return this; }
+        public Builder hartmannOpennessMultiplier(float v) { properties.setHartmannOpennessMultiplier(v); return this; }
+        public Builder hartmannVigilanceMultiplier(float v) { properties.setHartmannVigilanceMultiplier(v); return this; }
+
+        public DreamProperties build() {
+            return properties.copy();
+        }
+    }
 }
+
