@@ -53,6 +53,13 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
             long timestampSeconds
     ) {}
 
+    public record MutationPayload(
+            List<ExtractedEntity> entities,
+            int memoryIdx,
+            String memoryId,
+            long timestampSeconds
+    ) {}
+
     public record QueueStats(
             int queueSize,
             int queueCapacity,
@@ -65,7 +72,8 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
             boolean isRunning
     ) {}
 
-    private final SpectorTaskQueue<EntityPayload> taskQueue;
+    private final SpectorTaskQueue<EntityPayload> extractQueue;
+    private final SpectorTaskQueue<MutationPayload> mutationQueue;
     private final EntityExtractor entityExtractor;
     private final PostIngestSync postIngestSync;
     private final AtomicLong totalEntitiesExtracted = new AtomicLong(0);
@@ -89,16 +97,48 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
             TaskQueueConfig config) {
         this.entityExtractor = entityExtractor;
         this.postIngestSync = Objects.requireNonNull(postIngestSync, "postIngestSync");
-        this.taskQueue = new SpectorTaskQueue<>(
+
+        TaskQueueConfig extractConfig = config != null ? config : TaskQueueConfig.ofDefaults();
+        TaskQueueConfig resolvedExtractConfig = new TaskQueueConfig(
+                extractConfig.capacity(),
+                extractConfig.parallelism(),
+                extractConfig.pollTimeoutMs(),
+                extractConfig.drainTimeoutMs(),
+                extractConfig.maxRetries(),
+                extractConfig.retryBackoffMs(),
+                extractConfig.backpressurePolicy(),
+                com.spectrayan.spector.commons.concurrent.ThreadPlane.VIRTUAL,
+                extractConfig.batchDrainSize()
+        );
+        this.extractQueue = new SpectorTaskQueue<>(
                 "entity-extraction",
-                config != null ? config : TaskQueueConfig.ofDefaults(),
-                this::processTask
+                resolvedExtractConfig,
+                this::processExtractTask,
+                null,
+                com.spectrayan.spector.commons.concurrent.SpectorExecutors.executor(com.spectrayan.spector.commons.concurrent.ThreadPlane.VIRTUAL, "entity-extract")
         );
 
-        log.info("[AsyncEntityExtractionQueue] Initialized SpectorTaskQueue: parallelism={}, capacity={}, retries={}",
-                this.taskQueue.metrics().parallelism(),
-                this.taskQueue.metrics().capacity(),
-                config != null ? config.maxRetries() : TaskQueueConfig.DEFAULT_MAX_RETRIES);
+        TaskQueueConfig mutationConfig = new TaskQueueConfig(
+                extractConfig.capacity(),
+                1,
+                extractConfig.pollTimeoutMs(),
+                extractConfig.drainTimeoutMs(),
+                extractConfig.maxRetries(),
+                extractConfig.retryBackoffMs(),
+                com.spectrayan.spector.commons.concurrent.BackpressurePolicy.BLOCK,
+                com.spectrayan.spector.commons.concurrent.ThreadPlane.PLATFORM_WRITER,
+                1
+        );
+        this.mutationQueue = new SpectorTaskQueue<>(
+                "entity-graph-mutation",
+                mutationConfig,
+                this::processMutationTask,
+                null,
+                com.spectrayan.spector.commons.concurrent.SpectorExecutors.executor(com.spectrayan.spector.commons.concurrent.ThreadPlane.PLATFORM_WRITER, "graph-writer")
+        );
+
+        log.info("[AsyncEntityExtractionQueue] Initialized dual-plane queues: extractQueue (VIRTUAL, par={}) and mutationQueue (PLATFORM_WRITER, par=1)",
+                resolvedExtractConfig.parallelism());
     }
 
     /**
@@ -132,7 +172,7 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
         ScopedTask<EntityPayload> task = ScopedTask.of(
                 memoryId, payload, effectiveSessionId, effectiveNamespaceId, TaskPriority.NORMAL);
 
-        return taskQueue.submit(task);
+        return extractQueue.submit(task);
     }
 
     /**
@@ -143,7 +183,7 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
         return submit(memoryId, text, memoryIdx, timestampSeconds, sessionId, MemoryScope.namespaceId());
     }
 
-    private void processTask(ScopedTask<EntityPayload> task) throws Exception {
+    private void processExtractTask(ScopedTask<EntityPayload> task) throws Exception {
         if (entityExtractor == null || !entityExtractor.isAvailable()) {
             return;
         }
@@ -154,45 +194,71 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
             entityExtractor.extract(payload.memoryId(), payload.text())
         );
         if (entities != null && !entities.isEmpty()) {
-            hook.observe(GRAPH_SYNC, java.util.Map.of(TAG_MEMORY_ID, payload.memoryId()), () -> {
-                postIngestSync.syncPreExtractedEntities(entities, payload.memoryIdx(), payload.memoryId());
-                postIngestSync.syncTemporalFacts(entities, payload.memoryIdx(), payload.memoryId(), payload.timestampSeconds());
-            });
-            totalEntitiesExtracted.addAndGet(entities.size());
+            MutationPayload mutationPayload = new MutationPayload(entities, payload.memoryIdx(), payload.memoryId(), payload.timestampSeconds());
+            ScopedTask<MutationPayload> mutationTask = new ScopedTask<>(
+                    task.taskId() + "-sync",
+                    mutationPayload,
+                    task.sessionId(),
+                    task.namespaceId(),
+                    task.priority(),
+                    System.currentTimeMillis(),
+                    task.traceContext()
+            );
+            mutationQueue.submit(mutationTask);
         }
 
         long duration = System.currentTimeMillis() - start;
-        log.debug("[AsyncEntityExtractionQueue] Extracted {} entities for '{}' in {} ms (queueDepth={})",
-                entities != null ? entities.size() : 0, payload.memoryId(), duration, taskQueue.size());
+        log.debug("[AsyncEntityExtractionQueue] Extracted {} entities for '{}' in {} ms (extractQueueDepth={}, mutationQueueDepth={})",
+                entities != null ? entities.size() : 0, payload.memoryId(), duration, extractQueue.size(), mutationQueue.size());
+    }
+
+    private void processMutationTask(ScopedTask<MutationPayload> task) throws Exception {
+        MutationPayload payload = task.payload();
+        hook.observe(GRAPH_SYNC, java.util.Map.of(TAG_MEMORY_ID, payload.memoryId()), () -> {
+            postIngestSync.syncPreExtractedEntities(payload.entities(), payload.memoryIdx(), payload.memoryId());
+            postIngestSync.syncTemporalFacts(payload.entities(), payload.memoryIdx(), payload.memoryId(), payload.timestampSeconds());
+        });
+        totalEntitiesExtracted.addAndGet(payload.entities().size());
     }
 
     /**
      * Returns an immutable snapshot of queue operational statistics.
      */
     public QueueStats stats() {
-        var m = taskQueue.metrics();
+        var m = extractQueue.metrics();
         return new QueueStats(
-                m.size(),
+                m.size() + mutationQueue.size(),
                 m.capacity(),
                 m.parallelism(),
                 m.submitted(),
-                m.processed(),
-                m.failed(),
+                mutationQueue.metrics().processed(),
+                m.failed() + mutationQueue.metrics().failed(),
                 totalEntitiesExtracted.get(),
                 m.avgLatencyMs(),
-                m.isRunning()
+                m.isRunning() && mutationQueue.metrics().isRunning()
         );
     }
 
     /**
-     * Returns the underlying generic task queue.
+     * Returns the underlying extraction task queue (on VIRTUAL plane).
      */
     public SpectorTaskQueue<EntityPayload> taskQueue() {
-        return taskQueue;
+        return extractQueue;
+    }
+
+    /**
+     * Returns the underlying mutation task queue (on PLATFORM_WRITER plane).
+     */
+    public SpectorTaskQueue<MutationPayload> mutationQueue() {
+        return mutationQueue;
     }
 
     @Override
     public void close() {
-        taskQueue.close();
+        try {
+            extractQueue.close();
+        } finally {
+            mutationQueue.close();
+        }
     }
 }

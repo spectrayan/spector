@@ -13,7 +13,11 @@
 package com.spectrayan.spector.memory.scheduler;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
-import com.spectrayan.spector.commons.concurrent.VirtualThreadPool;
+import com.spectrayan.spector.commons.concurrent.OnPlane;
+import com.spectrayan.spector.commons.concurrent.SpectorExecutors;
+import com.spectrayan.spector.commons.concurrent.SpectorQuartzThreadPool;
+import com.spectrayan.spector.commons.concurrent.ThreadPlane;
+import com.spectrayan.spector.commons.concurrent.spi.AbstractExecutorProvider;
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
@@ -52,7 +56,7 @@ import java.util.function.Supplier;
  *   <li><b>Configurable JobStore</b>: Uses standalone {@link RAMJobStore} by default, or consumes any custom/injected {@link Scheduler} (e.g. from Spring Boot Synapse with JDBC/RAM).</li>
  *   <li><b>JobStore as Single Source of Truth</b>: Task schedules and descriptions are stored in Quartz {@link JobDetail} and {@link Trigger} metadata without redundant in-memory maps or listeners.</li>
  *   <li><b>Decoupled & Non-Cyclic</b>: Consumes discrete pathway actions (e.g. {@code Supplier<ReflectReport>}) rather than the whole {@code SpectorMemory} god-object.</li>
- *   <li><b>Virtual Thread Concurrency</b>: Powered by {@link VirtualThreadPool} delegating directly to Java 25 virtual threads.</li>
+ *   <li><b>Virtual & Platform Thread Routing</b>: Powered by {@link SpectorQuartzThreadPool} routing jobs onto designated {@link ThreadPlane} execution planes via {@link SpectorExecutors}.</li>
  * </ul>
  *
  * @since 1.4.0
@@ -131,8 +135,21 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
                 return existing;
             }
 
-            Executor targetExecutor = suppliedExecutor != null ? suppliedExecutor : ConcurrentTasks.virtualExecutor();
-            VirtualThreadPool threadPool = new VirtualThreadPool(targetExecutor);
+            SpectorQuartzThreadPool threadPool;
+            if (suppliedExecutor != null) {
+                threadPool = new SpectorQuartzThreadPool(new AbstractExecutorProvider() {
+                    @Override
+                    protected Executor createExecutor(ThreadPlane plane, String poolName) {
+                        return suppliedExecutor;
+                    }
+                    @Override
+                    public String describe() {
+                        return "supplied-executor";
+                    }
+                });
+            } else {
+                threadPool = new SpectorQuartzThreadPool(SpectorExecutors.current());
+            }
             threadPool.setInstanceName(DEFAULT_STANDALONE_SCHEDULER_NAME);
             threadPool.initialize();
 
@@ -253,6 +270,16 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             JobDataMap dataMap,
             ScheduleBuilder<?> scheduleBuilder,
             long initialDelayMs) throws SchedulerException {
+
+        if (!dataMap.containsKey(SpectorQuartzThreadPool.JOB_DATA_PLANE)) {
+            OnPlane onPlane = jobClass.getAnnotation(OnPlane.class);
+            if (onPlane != null) {
+                dataMap.put(SpectorQuartzThreadPool.JOB_DATA_PLANE, onPlane.value().name());
+                if (!onPlane.pool().isBlank() && !dataMap.containsKey(SpectorQuartzThreadPool.JOB_DATA_POOL)) {
+                    dataMap.put(SpectorQuartzThreadPool.JOB_DATA_POOL, onPlane.pool());
+                }
+            }
+        }
 
         JobDetail job = JobBuilder.newJob(jobClass)
                 .withIdentity(taskId, namespaceId)

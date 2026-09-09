@@ -146,8 +146,10 @@ import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
+import com.spectrayan.spector.commons.concurrent.SpectorExecutors;
 import com.spectrayan.spector.memory.session.SessionWriteBuffer;
 import com.spectrayan.spector.commons.observation.MemoryObservationHook;
+import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
@@ -1977,12 +1979,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         log.info("SpectorMemory closing ({} total memories, mode={})",
                 totalMemories(), persistenceMode);
 
-        // Stop daemon supervisor (stops all managed daemons)
-        if (daemonSupervisor != null) {
-            daemonSupervisor.close();
-        }
+        long shutdownBudgetMs = 10_000L;
+        long deadline = System.currentTimeMillis() + shutdownBudgetMs;
 
-        // Stop memory scheduler (drains Quartz jobs)
+        // 1. Stop memory scheduler (stops accepting and drains Quartz jobs)
         if (memoryScheduler != null) {
             try {
                 memoryScheduler.close();
@@ -1991,7 +1991,16 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
         }
 
-        // Close consolidators
+        // 2. Stop daemon supervisor (terminates supervisor loops)
+        if (daemonSupervisor != null) {
+            try {
+                daemonSupervisor.close();
+            } catch (Exception e) {
+                log.warn("Failed to close daemonSupervisor on close", e);
+            }
+        }
+
+        // 3. Close task queues & consolidators
         if (batchConsolidator != null) {
             try {
                 batchConsolidator.close();
@@ -2036,7 +2045,19 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
         }
 
-        // Final checkpoint flush before closing storage
+        // 4. Cooperative drain of SPI executors BEFORE touching off-heap arenas (ADR-0026 Section 10)
+        long remainingMs = Math.max(100L, deadline - System.currentTimeMillis());
+        try {
+            var drainResult = SpectorExecutors.drain(namespaceId, Duration.ofMillis(remainingMs));
+            if (!drainResult.completed()) {
+                log.warn("SpectorExecutors drain incomplete after {} ms (remaining tasks={})",
+                        remainingMs, drainResult.remainingTasks());
+            }
+        } catch (Exception e) {
+            log.warn("Exception while draining SpectorExecutors on close", e);
+        }
+
+        // 5. Final checkpoint flush before closing storage (while memory segments remain mapped)
         if (checkpointDaemon != null) {
             try {
                 // Snapshot ProfileAdaptor bandit stats to CoActivationTracker before checkpoint

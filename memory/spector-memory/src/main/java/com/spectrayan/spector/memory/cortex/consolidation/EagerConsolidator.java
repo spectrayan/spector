@@ -20,11 +20,14 @@ import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.spectrayan.spector.commons.concurrent.BackpressurePolicy;
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.commons.concurrent.ScopedTask;
+import com.spectrayan.spector.commons.concurrent.SpectorExecutors;
 import com.spectrayan.spector.commons.concurrent.SpectorTaskQueue;
 import com.spectrayan.spector.commons.concurrent.TaskPriority;
 import com.spectrayan.spector.commons.concurrent.TaskQueueConfig;
+import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
@@ -80,7 +83,16 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
                              int queueCapacity) {
         this(cognitiveRouter, index, quantizer, entityDirectory, hyperEntityGraph,
                 temporalKnowledgeGraph, textGenerator, embeddingProvider, inspectFunction,
-                distanceThreshold, TaskQueueConfig.of(queueCapacity, 1));
+                distanceThreshold, new TaskQueueConfig(
+                        Math.max(16, queueCapacity),
+                        1,
+                        TaskQueueConfig.DEFAULT_POLL_TIMEOUT_MS,
+                        TaskQueueConfig.DEFAULT_DRAIN_TIMEOUT_MS,
+                        TaskQueueConfig.DEFAULT_MAX_RETRIES,
+                        TaskQueueConfig.DEFAULT_RETRY_BACKOFF_MS,
+                        BackpressurePolicy.BLOCK,
+                        ThreadPlane.PLATFORM_WRITER,
+                        1));
     }
 
     public EagerConsolidator(CognitiveMemoryRouter cognitiveRouter,
@@ -103,10 +115,40 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
         this.temporalKnowledgeGraph = temporalKnowledgeGraph;
         this.inspectFunction = Objects.requireNonNull(inspectFunction, "inspectFunction");
         this.distanceThreshold = distanceThreshold;
+
+        TaskQueueConfig effectiveConfig = config != null ? config : new TaskQueueConfig(
+                TaskQueueConfig.DEFAULT_CAPACITY,
+                1,
+                TaskQueueConfig.DEFAULT_POLL_TIMEOUT_MS,
+                TaskQueueConfig.DEFAULT_DRAIN_TIMEOUT_MS,
+                TaskQueueConfig.DEFAULT_MAX_RETRIES,
+                TaskQueueConfig.DEFAULT_RETRY_BACKOFF_MS,
+                BackpressurePolicy.BLOCK,
+                ThreadPlane.PLATFORM_WRITER,
+                1
+        );
+        if (effectiveConfig.plane() != ThreadPlane.PLATFORM_WRITER || effectiveConfig.parallelism() != 1
+                || effectiveConfig.backpressurePolicy() == BackpressurePolicy.CALLER_RUNS) {
+            effectiveConfig = new TaskQueueConfig(
+                    effectiveConfig.capacity(),
+                    1,
+                    effectiveConfig.pollTimeoutMs(),
+                    effectiveConfig.drainTimeoutMs(),
+                    effectiveConfig.maxRetries(),
+                    effectiveConfig.retryBackoffMs(),
+                    effectiveConfig.backpressurePolicy() == BackpressurePolicy.CALLER_RUNS
+                            ? BackpressurePolicy.BLOCK : effectiveConfig.backpressurePolicy(),
+                    ThreadPlane.PLATFORM_WRITER,
+                    effectiveConfig.batchDrainSize()
+            );
+        }
+
         this.taskQueue = new SpectorTaskQueue<>(
                 "eager-consolidation",
-                config != null ? config : TaskQueueConfig.ofDefaults(),
-                this::processTask
+                effectiveConfig,
+                this::processTask,
+                null,
+                SpectorExecutors.executor(ThreadPlane.PLATFORM_WRITER, "writer-consolidation")
         );
     }
 

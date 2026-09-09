@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.scheduler.jobs;
 
+import com.spectrayan.spector.commons.concurrent.OnPlane;
+import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
@@ -23,6 +25,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Quartz Job for executing background entity graph extraction and hypergraph relation enrichment.
  */
+@OnPlane(value = ThreadPlane.PLATFORM_WRITER, pool = "quartz-writer")
 @DisallowConcurrentExecution
 public final class GraphEnrichmentJob implements Job {
 
