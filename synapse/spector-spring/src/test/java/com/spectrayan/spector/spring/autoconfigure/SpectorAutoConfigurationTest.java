@@ -78,6 +78,12 @@ class SpectorAutoConfigurationTest {
         }
 
     }
+
+    @org.junit.jupiter.api.AfterEach
+    void tearDown() {
+        com.spectrayan.spector.commons.concurrent.SpectorExecutors.reset();
+    }
+
     @Test
     void defaultConfiguration_createsMemoryBean() {
         this.contextRunner
@@ -339,6 +345,31 @@ class SpectorAutoConfigurationTest {
         contextRunner.withUserConfiguration(TestOfflineEmbeddingProviderConfiguration.class)
                 .run(context -> {
                     assertThat(context).hasSingleBean(SpectorMemory.class);
+                });
+    }
+
+    @Test
+    void dualPlaneExecutors_configuredAndInstalled() {
+        this.contextRunner
+                .withPropertyValues("spector.memory.dimensions=384")
+                .withUserConfiguration(TestDependenciesConfiguration.class)
+                .run(context -> {
+                    assertThat(context).hasBean("spectorSharedPool");
+                    assertThat(context).hasBean("spectorWriterPool");
+                    assertThat(context).hasBean("spectorVirtualExecutor");
+                    assertThat(context).hasSingleBean(com.spectrayan.spector.commons.concurrent.spi.SpectorExecutorProvider.class);
+
+                    var provider = context.getBean(com.spectrayan.spector.commons.concurrent.spi.SpectorExecutorProvider.class);
+                    assertThat(provider).isInstanceOf(com.spectrayan.spector.spring.concurrent.SpringExecutorProvider.class);
+                    assertThat(com.spectrayan.spector.commons.concurrent.SpectorExecutors.current()).isSameAs(provider);
+
+                    var shared = provider.executor(com.spectrayan.spector.commons.concurrent.ThreadPlane.PLATFORM_SHARED, "test-shared");
+                    var writer = provider.executor(com.spectrayan.spector.commons.concurrent.ThreadPlane.PLATFORM_WRITER, "test-writer");
+                    var virtual = provider.executor(com.spectrayan.spector.commons.concurrent.ThreadPlane.VIRTUAL, "test-virtual");
+
+                    assertThat(shared).isNotNull();
+                    assertThat(writer).isNotNull();
+                    assertThat(virtual).isNotNull();
                 });
     }
 }

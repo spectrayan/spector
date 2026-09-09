@@ -18,7 +18,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
+import com.spectrayan.spector.commons.concurrent.SpectorExecutors;
+import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -711,7 +712,7 @@ public class MemoryAccessObject {
         }
         return CompletableFuture.supplyAsync(
                 () -> enricher.enrichBatch(limit, targetType),
-                Executors.newVirtualThreadPerTaskExecutor()
+                SpectorExecutors.executor(ThreadPlane.VIRTUAL, "graph-enrich")
         );
     }
 
@@ -735,7 +736,7 @@ public class MemoryAccessObject {
         }
         return CompletableFuture.supplyAsync(
                 () -> enricher.reextractBatch(limit, targetType),
-                Executors.newVirtualThreadPerTaskExecutor()
+                SpectorExecutors.executor(ThreadPlane.VIRTUAL, "graph-enrich")
         );
     }
 

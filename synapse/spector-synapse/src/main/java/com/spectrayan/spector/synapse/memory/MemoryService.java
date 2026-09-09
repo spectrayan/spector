@@ -23,9 +23,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import com.spectrayan.spector.commons.concurrent.SpectorExecutors;
+import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -91,8 +91,6 @@ import com.spectrayan.spector.synapse.platform.events.EventPublisher;
 public class MemoryService {
 
     private static final Logger log = LoggerFactory.getLogger(MemoryService.class);
-    private final ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor();
-
     private final MemoryAccessObject mao;
     private final EventPublisher eventPublisher;
     private final TsidGenerator tsid;
@@ -141,21 +139,6 @@ public class MemoryService {
 
     private final VectorSpaceProjectionService projectionService;
     private final com.spectrayan.spector.synapse.platform.events.TelemetryBroadcasterService telemetryBroadcasterService;
-
-    @jakarta.annotation.PreDestroy
-    void shutdown() {
-        log.info("[MemoryService] Shutting down virtual thread executor...");
-        virtualThreadExecutor.shutdown();
-        try {
-            if (!virtualThreadExecutor.awaitTermination(10, java.util.concurrent.TimeUnit.SECONDS)) {
-                log.warn("[MemoryService] Virtual thread executor did not terminate within 10s; forcing shutdown");
-                virtualThreadExecutor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            virtualThreadExecutor.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
-    }
 
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid) {
         this(mao, eventPublisher, tsid, null, null, null, null, null, null);
@@ -341,7 +324,7 @@ public class MemoryService {
             } catch (Exception e) {
                 log.error("[MemoryService] Remember failed for id={}: {}", finalId, e.getMessage(), e);
             }
-        }, virtualThreadExecutor);
+        }, SpectorExecutors.executor(ThreadPlane.VIRTUAL, "synapse-io"));
 
         return AcceptedResponse.forRemember(taskId, effectiveId);
     }
@@ -355,7 +338,7 @@ public class MemoryService {
             log.warn("[MemoryService] Consolidate called but engine is not available");
             return;
         }
-        virtualThreadExecutor.submit(() -> {
+        SpectorExecutors.executor(ThreadPlane.PLATFORM_WRITER, "synapse-writer").execute(() -> {
             try {
                 log.info("[MemoryService] Starting manual memory consolidation...");
                 eventPublisher.broadcast("consolidation.start", Map.of("status", "in_progress"));
@@ -814,7 +797,7 @@ public class MemoryService {
                 } catch (Exception e) {
                     log.error("[MemoryService] Async file ingestion failed: name={}: {}", originalName, e.getMessage(), e);
                 }
-            }, virtualThreadExecutor);
+            }, SpectorExecutors.executor(ThreadPlane.VIRTUAL, "synapse-io"));
 
             return AcceptedResponse.forFileIngest(taskId, originalName, documentId);
         } catch (IOException e) {
