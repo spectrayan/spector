@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  * <pre>{@code
  *   var registry = ChunkerRegistry.discover();
  *   TextChunker chunker = registry.forContentType("text/markdown")
- *       .orElseGet(SentenceChunker::new);
+ *       .orElseGet(MarkdownChunker::new);
  *   List<Chunk> chunks = chunker.chunk("doc-1", content, ChunkConfig.markdown(800, 100));
  * }</pre>
  *

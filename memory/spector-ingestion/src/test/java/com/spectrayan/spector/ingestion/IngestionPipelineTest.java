@@ -30,7 +30,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.spectrayan.spector.commons.chunker.ChunkConfig;
-import com.spectrayan.spector.commons.chunker.SentenceChunker;
+import com.spectrayan.spector.commons.chunker.MarkdownChunker;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
@@ -89,7 +89,7 @@ class IngestionPipelineTest {
             var pipeline = IngestionPipeline.builder()
                     .target(mockTarget)
                     .embeddingProvider(mockEmbedder)
-                    .chunker(new SentenceChunker())
+                    .chunker(new MarkdownChunker())
                     .chunkConfig(new ChunkConfig(500, 50, "text/plain", null, false, false, false))
                     .chunkThreshold(500)
                     .build();
@@ -120,7 +120,7 @@ class IngestionPipelineTest {
             var pipeline = IngestionPipeline.builder()
                     .target(mockTarget)
                     .embeddingProvider(mockEmbedder)
-                    .chunker(new SentenceChunker())
+                    .chunker(new MarkdownChunker())
                     .chunkConfig(new ChunkConfig(500, 50, "text/plain", null, false, false, false))
                     .chunkThreshold(500)
                     .build();
@@ -192,7 +192,7 @@ class IngestionPipelineTest {
             var pipeline = IngestionPipeline.builder()
                     .target(mockTarget)
                     .embeddingProvider(mockEmbedder)
-                    .chunker(new SentenceChunker())
+                    .chunker(new MarkdownChunker())
                     .chunkConfig(new ChunkConfig(200, 20, "text/plain", null, false, false, false))
                     .chunkThreshold(10)
                     .build();
@@ -220,7 +220,7 @@ class IngestionPipelineTest {
             var pipeline = IngestionPipeline.builder()
                     .target(mockTarget)
                     .embeddingProvider(mockEmbedder)
-                    .chunker(new SentenceChunker())
+                    .chunker(new MarkdownChunker())
                     .chunkConfig(new ChunkConfig(200, 20, "text/plain", null, false, false, false))
                     .chunkThreshold(20)
                     .build();

@@ -115,6 +115,7 @@ class SpectorConfigFactoryTest {
     }
 
     @Test
+    @SuppressWarnings("removal")
     void recallProperties_legacyRecallMmrFallback() {
         SpectorConfigSource props = SpectorConfigSource.builder()
                 .override("spector.recall.mmr.enabled", "true")
@@ -131,6 +132,7 @@ class SpectorConfigFactoryTest {
     }
 
     @Test
+    @SuppressWarnings("removal")
     void recallProperties_legacyRetrievalMmrFallback() {
         SpectorConfigSource props = SpectorConfigSource.builder()
                 .override("spector.memory.retrieval.enable-mmr", "true")

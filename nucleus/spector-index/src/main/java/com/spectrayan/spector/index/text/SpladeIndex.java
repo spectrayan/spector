@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.index;
+package com.spectrayan.spector.index.text;
+
+import com.spectrayan.spector.index.ScoredResult;
+import com.spectrayan.spector.index.hnsw.NeighborQueue;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
@@ -36,7 +39,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * <h3>Architecture</h3>
  * <p>Unlike {@link BM25Index} which computes term weights from corpus statistics
  * (TF-IDF), SpladeIndex accepts pre-computed neural term weights from a
- * {@link com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider}. This enables
+ * {@code SparseEmbeddingProvider}. This enables
  * <b>learned term expansion</b>  --  the model discovers that "car" should also
  * match "vehicle" and "automobile", capturing semantic relationships that
  * BM25 misses entirely.</p>
@@ -198,7 +201,7 @@ public class SpladeIndex implements KeywordIndex {
      *
      * <p><b>Note:</b> This text-based index method is a compatibility shim.
      * For SPLADE, use {@link #indexSparse(String, Map)} with pre-computed
-     * sparse vectors from a {@link com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider}.</p>
+     * sparse vectors from a {@code SparseEmbeddingProvider}.</p>
      */
     @Override
     public void index(String id, String content) {

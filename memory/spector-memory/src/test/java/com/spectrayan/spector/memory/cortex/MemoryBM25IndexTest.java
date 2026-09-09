@@ -217,7 +217,7 @@ class MemoryBM25IndexTest {
 
         // Reopen bundle and load BM25 index
         try (var reopenedBundle = com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.open(bundlePath)) {
-            com.spectrayan.spector.index.BM25Index loaded = MemoryBM25Index.loadFromBundle(reopenedBundle);
+            com.spectrayan.spector.index.text.BM25Index loaded = MemoryBM25Index.loadFromBundle(reopenedBundle);
             assertThat(loaded).isNotNull();
             assertThat(loaded.size()).isEqualTo(200);
 

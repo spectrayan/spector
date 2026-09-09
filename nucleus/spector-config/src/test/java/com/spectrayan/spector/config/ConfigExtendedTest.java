@@ -56,6 +56,7 @@ class ConfigExtendedTest {
 
         @Test
         @DisplayName("fromSystemProperties returns defaults when no props set")
+        @SuppressWarnings("removal")
         void fromSystemPropsDefaults() {
             var cfg = TelemetryProperties.fromSystemProperties();
             assertThat(cfg.enabled()).isTrue();

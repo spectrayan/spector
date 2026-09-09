@@ -381,13 +381,7 @@ class MarkdownChunkerTest {
                     "MarkdownChunker should be discoverable");
         }
 
-        @Test
-        @DisplayName("SentenceChunker is discoverable via ServiceLoader")
-        void sentenceChunkerDiscovery() {
-            ChunkerRegistry registry = ChunkerRegistry.discover();
-            assertTrue(registry.byName("sentence").isPresent(),
-                    "SentenceChunker should be discoverable");
-        }
+
 
         @Test
         @DisplayName("forContentType selects MarkdownChunker for text/markdown")

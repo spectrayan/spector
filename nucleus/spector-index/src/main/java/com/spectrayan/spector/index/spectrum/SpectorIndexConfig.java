@@ -44,7 +44,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * @param oversamplingFactor HNSW oversampling for SVASQ re-ranking (default: 3)
  * @param kMeansIterations   K-Means++ iterations for centroid training (default: 25)
  * @param similarityFunction distance metric to use throughout
- * @param HnswProperties         HNSW construction/search params for promoted shards
+ * @param hnswProperties     HNSW construction/search params for promoted shards
  */
 public record SpectorIndexConfig(
         int nCentroids,

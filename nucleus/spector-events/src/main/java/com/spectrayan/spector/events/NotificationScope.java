@@ -18,7 +18,7 @@ package com.spectrayan.spector.events;
 /**
  * Defines the audience scope for event/notification delivery.
  *
- * <p>Each {@link com.spectrayan.spector.node.event.SpectorEvent} declares a scope
+ * <p>Each {@link SpectorEvent} declares a scope
  * that determines which subscribers receive it. The {@link NotificationTransport}
  * uses scope matching to filter delivery — e.g., a {@link User}-scoped event
  * only reaches SSE connections authenticated as that user.</p>

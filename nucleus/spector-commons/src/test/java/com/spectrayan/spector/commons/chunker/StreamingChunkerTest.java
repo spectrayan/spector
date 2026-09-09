@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.commons;
+package com.spectrayan.spector.commons.chunker;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,8 +39,8 @@ class StreamingChunkerTest {
                 "Fourth sentence here. Fifth sentence here.";
         Reader reader = new StringReader(text);
 
-        List<TextChunker.Chunk> chunks = new ArrayList<>();
-        Iterator<TextChunker.Chunk> iter = StreamingChunker.chunkIterator(reader, "doc", 40, 10);
+        List<Chunk> chunks = new ArrayList<>();
+        Iterator<Chunk> iter = StreamingChunker.chunkIterator(reader, "doc", 40, 10);
         while (iter.hasNext()) chunks.add(iter.next());
 
         assertThat(chunks).hasSizeGreaterThan(1);
@@ -60,8 +60,8 @@ class StreamingChunkerTest {
         }
         Files.writeString(file, content.toString());
 
-        List<TextChunker.Chunk> chunks = new ArrayList<>();
-        try (Stream<TextChunker.Chunk> stream = StreamingChunker.chunkFile(file, "file-doc", 200, 40)) {
+        List<Chunk> chunks = new ArrayList<>();
+        try (Stream<Chunk> stream = StreamingChunker.chunkFile(file, "file-doc", 200, 40)) {
             stream.forEach(chunks::add);
         }
 
@@ -83,8 +83,8 @@ class StreamingChunkerTest {
                 "And for large files that cannot fit in memory.";
         InputStream is = new ByteArrayInputStream(text.getBytes());
 
-        List<TextChunker.Chunk> chunks;
-        try (Stream<TextChunker.Chunk> stream = StreamingChunker.chunkStream(is, "stream-doc", 50, 10)) {
+        List<Chunk> chunks;
+        try (Stream<Chunk> stream = StreamingChunker.chunkStream(is, "stream-doc", 50, 10)) {
             chunks = stream.toList();
         }
 
@@ -98,7 +98,7 @@ class StreamingChunkerTest {
     @Test
     void shortContentProducesSingleChunk() {
         Reader reader = new StringReader("Short text.");
-        List<TextChunker.Chunk> chunks = new ArrayList<>();
+        List<Chunk> chunks = new ArrayList<>();
         var iter = StreamingChunker.chunkIterator(reader, "doc", 200, 20);
         while (iter.hasNext()) chunks.add(iter.next());
 
@@ -119,8 +119,8 @@ class StreamingChunkerTest {
         String content = "AAAA. BBBB. CCCC. DDDD. EEEE. FFFF. GGGG. HHHH. ";
         Files.writeString(file, content);
 
-        List<TextChunker.Chunk> chunks;
-        try (Stream<TextChunker.Chunk> stream = StreamingChunker.chunkFile(file, "doc", 20, 5)) {
+        List<Chunk> chunks;
+        try (Stream<Chunk> stream = StreamingChunker.chunkFile(file, "doc", 20, 5)) {
             chunks = stream.toList();
         }
 
@@ -143,8 +143,8 @@ class StreamingChunkerTest {
         assertThat(fileSize).isGreaterThan(100_000);
 
         // Stream with small chunk size — proves we don't OOM
-        List<TextChunker.Chunk> chunks;
-        try (Stream<TextChunker.Chunk> stream = StreamingChunker.chunkFile(file, "big", 500, 50)) {
+        List<Chunk> chunks;
+        try (Stream<Chunk> stream = StreamingChunker.chunkFile(file, "big", 500, 50)) {
             chunks = stream.toList();
         }
 

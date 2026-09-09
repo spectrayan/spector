@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.cortex;
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.index.ScoredResult;
-import com.spectrayan.spector.index.SpladeIndex;
+import com.spectrayan.spector.index.text.SpladeIndex;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

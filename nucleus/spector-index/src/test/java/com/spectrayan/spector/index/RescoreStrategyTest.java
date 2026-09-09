@@ -15,6 +15,9 @@
  */
 package com.spectrayan.spector.index;
 
+import com.spectrayan.spector.index.hnsw.*;
+import com.spectrayan.spector.index.text.*;
+
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 
 import java.util.ArrayList;

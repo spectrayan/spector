@@ -43,7 +43,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * (M × ksub float distances). Then each database vector (M bytes) can be scored
  * with M table lookups + additions — no float decompression needed.</p>
  *
- * @see PqDistanceTable
+ * @see #computeDistanceTable(float[])
  */
 public final class ProductQuantizer {
 

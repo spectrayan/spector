@@ -170,6 +170,7 @@ class ConcurrentTasksTest {
     // ══════════════════════════════════════════════════════════════
 
     @Test @DisplayName("virtualExecutor returns non-null executor")
+    @SuppressWarnings("removal")
     void virtualExecutor() {
         assertThat(ConcurrentTasks.virtualExecutor()).isNotNull();
     }

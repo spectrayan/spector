@@ -13,7 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.index;
+package com.spectrayan.spector.index.hnsw;
+
+import com.spectrayan.spector.index.ScoredResult;
+import com.spectrayan.spector.index.VectorIndex;
+import com.spectrayan.spector.index.RescoreStrategy;
 
 
 import com.spectrayan.spector.config.properties.HnswProperties;
@@ -182,7 +186,7 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
      * <p>Unlike {@link #svasq} (which auto-calibrates on the first
      * {@link #CALIBRATION_SAMPLE_SIZE} inserted vectors), this variant accepts a
      * {@link SvasqStrategy} calibrated externally — typically on the full residual buffer
-     * of a {@link com.spectrayan.spector.index.spectrum.SpectorShard} at promotion time.
+     * of a {@code SpectorShard} at promotion time.
      * This gives tighter quantization bounds because all residuals participate in
      * calibration, not just the first 10K.</p>
      *
@@ -400,7 +404,7 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
      * skipping the defensive {@link Arrays#copyOf} that {@link #add} performs.
      *
      * <p><b>Ownership contract</b>: the caller must NOT mutate or reuse {@code vector}
-     * after this call returns. {@link com.spectrayan.spector.index.spectrum.SpectorShard#promote}
+     * after this call returns. {@code SpectorShard#promote}
      * satisfies this contract — it extracts sub-arrays from its flat buffer and nulls the
      * buffer immediately after the bulk insert completes.</p>
      *

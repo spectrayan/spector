@@ -17,7 +17,7 @@ package com.spectrayan.spector.index.ivf;
 
 import com.spectrayan.spector.core.cluster.KMeans;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.index.NeighborQueue;
+import com.spectrayan.spector.index.hnsw.NeighborQueue;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.index.pq.ProductQuantizer;
