@@ -16,18 +16,21 @@
 package com.spectrayan.spector.commons.concurrent;
 
 /**
- * Strategy applied when a {@link SpectorTaskQueue} reaches maximum capacity.
+ * Interface implemented by runnables or tasks that explicitly declare their execution {@link ThreadPlane} and pool name.
  */
-public enum BackpressurePolicy {
-    /** Rejects submission immediately, returning false and incrementing failure counters. */
-    REJECT_FAST,
+public interface PlaneAware {
 
-    /** Discards the oldest task in the queue (by enqueue sequence order) to make room for the new task. */
-    DROP_OLDEST,
+    /**
+     * The intended execution plane.
+     *
+     * @return thread plane
+     */
+    ThreadPlane plane();
 
-    /** Executes the task synchronously on the caller's thread if queue is saturated. Forbidden on PLATFORM_WRITER. */
-    CALLER_RUNS,
-
-    /** Blocks the submitting thread until queue capacity becomes available or the queue is closed. */
-    BLOCK
+    /**
+     * The logical pool name suggestion.
+     *
+     * @return pool name
+     */
+    String poolName();
 }

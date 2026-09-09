@@ -15,72 +15,91 @@
  */
 package com.spectrayan.spector.commons.concurrent;
 
+import com.spectrayan.spector.commons.concurrent.spi.SpectorExecutorProvider;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
 
 /**
- * Supervises long-running periodic virtual threads with auto-restart and watchdog.
+ * Supervises long-running background daemon loops with restart policies,
+ * failure backoff, and watchdog health tracking.
  *
- * <h3>Purpose</h3>
- * <p>{@link ConcurrentTasks} handles short-lived concurrent work (fork-join,
- * fire-and-forget). This class fills the gap for <b>long-running daemon loops</b>
- * — periodic background tasks that must survive failures and be observable.</p>
+ * <p>Adheres to ADR-0026 Model B: daemons are scheduled onto host-injected executors
+ * for the declared {@link ThreadPlane} rather than creating raw threads directly.</p>
  *
- * <h3>Features</h3>
+ * <h3>Key Capabilities</h3>
  * <ul>
- *   <li><b>Auto-restart</b> — restarts dead daemons with exponential backoff</li>
- *   <li><b>Watchdog</b> — logs WARNING if a cycle exceeds the configured timeout</li>
- *   <li><b>Named threads</b> — all daemons get descriptive names for thread dumps</li>
- *   <li><b>Observability</b> — {@link #status()} returns live snapshots of all daemons</li>
- *   <li><b>Graceful shutdown</b> — {@link #close()} interrupts all daemons and waits</li>
+ *   <li><b>Supervised Execution:</b> Each daemon runs on a designated executor plane with cycle interval timing.</li>
+ *   <li><b>Restart on Failure:</b> Automatic recovery per {@link DaemonPolicy#maxRestarts()} and backoff.</li>
+ *   <li><b>Watchdog:</b> Warns when a cycle exceeds {@link DaemonPolicy#watchdogTimeout()}.</li>
+ *   <li><b>Status Visibility:</b> Live {@link DaemonStatus} snapshots for health endpoints and telemetry.</li>
+ *   <li><b>Coordinated Stop:</b> Graceful interruption and cycle completion join on shutdown.</li>
  * </ul>
- *
- * <h3>Usage</h3>
- * <pre>{@code
- * var supervisor = new DaemonSupervisor("memory");
- * supervisor.schedule("checkpoint", () -> checkpoint(), Duration.ofSeconds(30),
- *         DaemonPolicy.CRITICAL);
- * // ... later ...
- * supervisor.close(); // stops all daemons
- * }</pre>
  *
  * @see DaemonPolicy
  * @see DaemonStatus
- * @see ConcurrentTasks
+ * @see SpectorExecutors
  */
 public final class DaemonSupervisor implements AutoCloseable {
 
     private static final System.Logger log = System.getLogger(DaemonSupervisor.class.getName());
 
     private final String prefix;
+    private final SpectorExecutorProvider executorProvider;
     private final CopyOnWriteArrayList<ManagedDaemon> daemons = new CopyOnWriteArrayList<>();
     private volatile boolean closed = false;
 
     /**
-     * Creates a supervisor with a name prefix for all managed threads.
+     * Creates a supervisor with a name prefix defaulting to {@link SpectorExecutors#current()}.
      *
-     * @param prefix thread name prefix (e.g., "memory" → "spector-memory-checkpoint")
+     * @param prefix thread/pool name prefix (e.g., "memory" → "spector-daemon-memory-checkpoint")
      */
     public DaemonSupervisor(String prefix) {
-        this.prefix = prefix;
+        this(prefix, null);
     }
 
     /**
-     * Registers and starts a periodic daemon.
+     * Creates a supervisor with a name prefix and explicit {@link SpectorExecutorProvider}.
      *
-     * <p>The task is invoked once per {@code interval}. If it throws, the
-     * supervisor applies the restart policy. The daemon sleeps between cycles.</p>
+     * @param prefix           thread/pool name prefix
+     * @param executorProvider provider for resolving executors (nullable, falls back to locator)
+     */
+    public DaemonSupervisor(String prefix, SpectorExecutorProvider executorProvider) {
+        this.prefix = prefix != null ? prefix : "default";
+        this.executorProvider = executorProvider;
+    }
+
+    private SpectorExecutorProvider activeProvider() {
+        return executorProvider != null ? executorProvider : SpectorExecutors.current();
+    }
+
+    /**
+     * Registers and starts a periodic daemon defaulting to {@link ThreadPlane#PLATFORM_WRITER}.
      *
-     * @param name     daemon name (must be unique within this supervisor)
-     * @param task     the work to execute each cycle (must not block indefinitely)
+     * @param name     daemon name
+     * @param task     the work to execute each cycle
      * @param interval sleep duration between cycles
      * @param policy   restart and watchdog policy
+     */
+    public void schedule(String name, Runnable task, Duration interval, DaemonPolicy policy) {
+        schedule(name, task, interval, policy, ThreadPlane.PLATFORM_WRITER);
+    }
+
+    /**
+     * Registers and starts a periodic daemon on the declared {@link ThreadPlane}.
+     *
+     * @param name     daemon name (must be unique within this supervisor)
+     * @param task     the work to execute each cycle
+     * @param interval sleep duration between cycles
+     * @param policy   restart and watchdog policy
+     * @param plane    target thread execution plane
      * @throws IllegalStateException if the supervisor is closed
      * @throws IllegalArgumentException if a daemon with this name already exists
      */
-    public void schedule(String name, Runnable task, Duration interval, DaemonPolicy policy) {
+    public void schedule(String name, Runnable task, Duration interval, DaemonPolicy policy, ThreadPlane plane) {
         if (closed) throw new IllegalStateException("Supervisor is closed");
         for (ManagedDaemon d : daemons) {
             if (d.name.equals(name)) {
@@ -88,7 +107,7 @@ public final class DaemonSupervisor implements AutoCloseable {
             }
         }
 
-        ManagedDaemon daemon = new ManagedDaemon(name, task, interval, policy);
+        ManagedDaemon daemon = new ManagedDaemon(name, task, interval, policy, plane != null ? plane : ThreadPlane.PLATFORM_WRITER);
         daemons.add(daemon);
         daemon.start();
     }
@@ -118,56 +137,39 @@ public final class DaemonSupervisor implements AutoCloseable {
     }
 
     /**
-     * Cancels a specific daemon by name.
-     *
-     * @param name the daemon name
-     * @return true if the daemon was found and cancelled
+     * Returns the number of registered daemons.
      */
-    public boolean cancel(String name) {
-        for (ManagedDaemon d : daemons) {
-            if (d.name.equals(name)) {
-                d.stop();
-                return true;
-            }
-        }
-        return false;
+    public int size() {
+        return daemons.size();
     }
 
     /**
-     * Shuts down all managed daemons gracefully.
-     *
-     * <p>Interrupts all daemon threads and waits up to 5 seconds for each.
-     * After this method returns, no daemon threads are running.</p>
+     * Shuts down all managed daemons: signals stop, interrupts sleep, and waits for current cycles.
      */
     @Override
     public void close() {
-        if (closed) return;
         closed = true;
-
-        log.log(System.Logger.Level.INFO, "DaemonSupervisor[{0}] shutting down {1} daemons",
-                prefix, daemons.size());
-
-        for (ManagedDaemon daemon : daemons) {
-            daemon.stop();
+        for (ManagedDaemon d : daemons) {
+            d.stop();
         }
-
-        // Wait for all to finish
-        for (ManagedDaemon daemon : daemons) {
-            daemon.join(5_000);
+        for (ManagedDaemon d : daemons) {
+            d.join(5000);
         }
-
-        log.log(System.Logger.Level.INFO, "DaemonSupervisor[{0}] shutdown complete", prefix);
+        daemons.clear();
+        log.log(System.Logger.Level.INFO, "DaemonSupervisor[{0}] closed", prefix);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    //  ManagedDaemon — internal supervised thread wrapper
-    // ═══════════════════════════════════════════════════════════════════════
+    // ─────────────────────────────────────────────────────────────────
+    // Internal managed daemon instance
+    // ─────────────────────────────────────────────────────────────────
 
     private final class ManagedDaemon {
+
         final String name;
         final Runnable task;
         final Duration interval;
         final DaemonPolicy policy;
+        final ThreadPlane plane;
 
         // ── Mutable state (accessed from daemon thread + status() calls) ──
         volatile DaemonStatus.State state = DaemonStatus.State.IDLE;
@@ -178,25 +180,22 @@ public final class DaemonSupervisor implements AutoCloseable {
         volatile Thread thread;
         volatile boolean running = true;
 
-        ManagedDaemon(String name, Runnable task, Duration interval, DaemonPolicy policy) {
+        ManagedDaemon(String name, Runnable task, Duration interval, DaemonPolicy policy, ThreadPlane plane) {
             this.name = name;
             this.task = task;
             this.interval = interval;
             this.policy = policy;
+            this.plane = plane;
         }
 
         void start() {
-            String threadName = "spector-" + prefix + "-" + name;
-            thread = Thread.ofVirtual()
-                    .name(threadName)
-                    .uncaughtExceptionHandler((t, e) ->
-                            log.log(System.Logger.Level.ERROR,
-                                    "Uncaught error in daemon {0}: {1}", threadName, e.getMessage()))
-                    .start(this::loop);
+            String poolName = "daemon-" + prefix + "-" + name;
+            Executor executor = activeProvider().executor(plane, poolName);
+            executor.execute(this::loop);
 
             log.log(System.Logger.Level.INFO,
-                    "Daemon[{0}] started: interval={1}s, maxRestarts={2}, watchdog={3}s",
-                    threadName, interval.toSeconds(), policy.maxRestarts(),
+                    "Daemon[{0}] scheduled on plane [{1}]: interval={2}s, maxRestarts={3}, watchdog={4}s",
+                    poolName, plane, interval.toSeconds(), policy.maxRestarts(),
                     policy.watchdogTimeout().toSeconds());
         }
 
@@ -229,6 +228,7 @@ public final class DaemonSupervisor implements AutoCloseable {
          * Main supervised loop: sleep → execute → watchdog check → restart on failure.
          */
         private void loop() {
+            thread = Thread.currentThread();
             while (running) {
                 // ── Sleep phase ──
                 state = DaemonStatus.State.SLEEPING;
@@ -293,36 +293,28 @@ public final class DaemonSupervisor implements AutoCloseable {
             log.log(System.Logger.Level.INFO, "Daemon[{0}] exited: state={1}", name, state);
         }
 
-        /**
-         * Handles a failure: increments restart count, applies backoff.
-         *
-         * @return true if the daemon should continue (restart), false if max restarts exceeded
-         */
         private boolean handleFailure() {
             restartCount++;
             if (restartCount > policy.maxRestarts()) {
                 state = DaemonStatus.State.DEAD;
                 log.log(System.Logger.Level.ERROR,
-                        "Daemon[{0}] DEAD — exceeded max restarts ({1})",
-                        name, policy.maxRestarts());
+                        "Daemon[{0}] DEAD — exceeded max restarts ({1})", name, policy.maxRestarts());
                 return false;
             }
 
-            // Exponential backoff: base * 2^(attempt-1)
             state = DaemonStatus.State.RESTARTING;
-            long backoffMs = policy.restartBackoff().toMillis() * (1L << (restartCount - 1));
-            log.log(System.Logger.Level.WARNING,
+            long backoffMs = policy.backoffFor(restartCount).toMillis();
+            log.log(System.Logger.Level.INFO,
                     "Daemon[{0}] restarting in {1}ms (attempt {2}/{3})",
                     name, backoffMs, restartCount, policy.maxRestarts());
-
             try {
                 Thread.sleep(backoffMs);
-            } catch (InterruptedException e) {
+            } catch (InterruptedException ie) {
                 Thread.currentThread().interrupt();
+                state = DaemonStatus.State.STOPPED;
                 return false;
             }
-
-            return running; // only continue if not stopped during backoff
+            return running;
         }
     }
 }

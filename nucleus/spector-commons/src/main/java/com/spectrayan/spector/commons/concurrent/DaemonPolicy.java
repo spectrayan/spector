@@ -57,4 +57,13 @@ public record DaemonPolicy(
         if (restartBackoff == null) throw new IllegalArgumentException("restartBackoff must not be null");
         if (watchdogTimeout == null) throw new IllegalArgumentException("watchdogTimeout must not be null");
     }
+
+    /**
+     * Calculates the backoff duration for a given restart attempt (1-indexed).
+     * Backoff doubles for each subsequent attempt: {@code restartBackoff * 2^(attempt - 1)}.
+     */
+    public Duration backoffFor(int attempt) {
+        long multiplier = 1L << Math.min(Math.max(0, attempt - 1), 30);
+        return restartBackoff.multipliedBy(multiplier);
+    }
 }

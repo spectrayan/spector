@@ -22,7 +22,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -107,35 +109,32 @@ public final class ConcurrentTasks {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    //  Fire-and-Forget: non-blocking dispatch on virtual threads
+    //  Fire-and-Forget: non-blocking dispatch routed via SpectorExecutors
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * Shared virtual thread executor for fire-and-forget tasks.
-     *
-     * <p>Unlike the fork-join methods, this executor is long-lived and never
-     * closed — tasks are submitted without waiting for results. Used by
-     * {@code SpectorEventBus} in async mode to prevent slow SSE subscribers
-     * from blocking the search hot path.</p>
-     */
-    private static final ExecutorService FIRE_FORGET_EXECUTOR =
-            Executors.newVirtualThreadPerTaskExecutor();
-
-    /**
-     * Submits a task for asynchronous execution on a virtual thread.
+     * Submits a task for asynchronous execution on the VIRTUAL thread plane.
      * The caller returns immediately — no result, no blocking, no joining.
      *
      * <p>Exceptions thrown by the task are caught and logged to prevent
-     * silent failures. This is intentionally not structured — there is no
-     * parent scope to propagate cancellation to.</p>
-     *
-     * <p>Use this for event dispatch, audit logging, metrics emission, and
-     * any other work that must not block the caller.</p>
+     * silent failures.</p>
      *
      * @param task the work to execute asynchronously
      */
     public static void fireAndForget(Runnable task) {
-        FIRE_FORGET_EXECUTOR.submit(() -> {
+        fireAndForget(ThreadPlane.VIRTUAL, "fire-forget", task);
+    }
+
+    /**
+     * Submits a task for asynchronous execution on the declared {@link ThreadPlane} and pool.
+     *
+     * @param plane target execution plane
+     * @param pool  logical pool name
+     * @param task  the work to execute asynchronously
+     */
+    public static void fireAndForget(ThreadPlane plane, String pool, Runnable task) {
+        if (task == null) return;
+        SpectorExecutors.executor(plane != null ? plane : ThreadPlane.VIRTUAL, pool).execute(() -> {
             try {
                 task.run();
             } catch (Exception e) {
@@ -153,82 +152,102 @@ public final class ConcurrentTasks {
      * @param task        the work to execute asynchronously
      */
     public static void fireAndForget(String sessionId, String namespaceId, Runnable task) {
-        FIRE_FORGET_EXECUTOR.submit(() -> {
-            try {
-                MemoryScope.runWithScope(sessionId, namespaceId, task);
-            } catch (Exception e) {
-                log.log(System.Logger.Level.WARNING, "Scoped fire-and-forget task failed: " + e.getMessage(), e);
-            }
-        });
+        fireAndForget(ThreadPlane.VIRTUAL, "fire-forget", sessionId, namespaceId, task);
     }
 
-
     /**
-     * Returns the shared {@link java.util.concurrent.Executor} for virtual threads.
+     * Submits a task for asynchronous execution on the declared plane with bound
+     * {@link MemoryScope} session and namespace contexts.
      *
-     * <p>Note: Returns {@link java.util.concurrent.Executor} (not {@link ExecutorService})
-     * to prevent static analysis resource-leak warnings and to prevent external callers
-     * from accidentally closing the shared JVM executor.</p>
-     *
-     * @return the shared virtual thread executor
+     * @param plane       target execution plane
+     * @param pool        logical pool name
+     * @param sessionId   scoped session ID (nullable)
+     * @param namespaceId scoped namespace ID (nullable)
+     * @param task        the work to execute asynchronously
      */
-    public static java.util.concurrent.Executor virtualExecutor() {
-        return FIRE_FORGET_EXECUTOR;
+    public static void fireAndForget(ThreadPlane plane, String pool, String sessionId, String namespaceId, Runnable task) {
+        if (task == null) return;
+        fireAndForget(plane, pool, () -> MemoryScope.runWithScope(sessionId, namespaceId, task));
     }
 
     /**
-     * Submits a runnable task to the shared virtual thread executor.
+     * Returns the shared virtual thread {@link java.util.concurrent.Executor} from {@link SpectorExecutors}.
+     *
+     * @return virtual thread executor
+     * @deprecated Use {@link SpectorExecutors#executor(ThreadPlane, String)} directly.
+     */
+    @Deprecated(since = "0.1.0-beta", forRemoval = true)
+    public static java.util.concurrent.Executor virtualExecutor() {
+        return SpectorExecutors.executor(ThreadPlane.VIRTUAL, "virtual");
+    }
+
+    /**
+     * Submits a runnable task to the virtual thread executor.
      *
      * @param task the work to execute
      * @return a Future representing pending completion
      */
     public static Future<?> submit(Runnable task) {
-        return FIRE_FORGET_EXECUTOR.submit(task);
+        Executor exec = SpectorExecutors.executor(ThreadPlane.VIRTUAL, "submit");
+        if (exec instanceof ExecutorService es) {
+            return es.submit(task);
+        }
+        return CompletableFuture.runAsync(task, exec);
     }
 
     /**
-     * Submits a value-returning task to the shared virtual thread executor.
+     * Submits a value-returning task to the virtual thread executor.
      *
      * @param task the work to execute
      * @param <T>  result type
      * @return a Future representing pending completion
      */
     public static <T> Future<T> submit(Callable<T> task) {
-        return FIRE_FORGET_EXECUTOR.submit(task);
+        Executor exec = SpectorExecutors.executor(ThreadPlane.VIRTUAL, "submit");
+        if (exec instanceof ExecutorService es) {
+            return es.submit(task);
+        }
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return task.call();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }, exec);
     }
 
     /**
-     * Creates a named {@link java.util.concurrent.ThreadFactory} for queue-specific virtual threads.
+     * Creates a named {@link java.util.concurrent.ThreadFactory} for virtual threads.
      *
      * @param prefix name prefix (e.g. "entity-extraction" -> "spector-tq-entity-extraction-0")
      * @return a virtual thread factory
+     * @deprecated Handled by host-provided {@link com.spectrayan.spector.commons.concurrent.spi.SpectorExecutorProvider}.
      */
+    @Deprecated(since = "0.1.0-beta", forRemoval = true)
     public static java.util.concurrent.ThreadFactory namedVirtualThreadFactory(String prefix) {
         return Thread.ofVirtual().name("spector-tq-" + prefix + "-", 0).factory();
     }
 
     /**
-     * Gracefully shuts down the global virtual thread executor, waiting up to the specified timeout.
+     * Drains all managed executors via the active {@link com.spectrayan.spector.commons.concurrent.spi.SpectorExecutorProvider}.
      *
      * @param timeout maximum time to wait for completion
      * @return true if terminated cleanly, false if timeout elapsed
+     * @deprecated Use {@link com.spectrayan.spector.commons.concurrent.spi.SpectorExecutorProvider#drain(Duration)}.
      */
+    @Deprecated(since = "0.1.0-beta", forRemoval = true)
     public static boolean shutdown(Duration timeout) {
-        FIRE_FORGET_EXECUTOR.shutdown();
-        try {
-            return FIRE_FORGET_EXECUTOR.awaitTermination(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            FIRE_FORGET_EXECUTOR.shutdownNow();
-            Thread.currentThread().interrupt();
-            return false;
-        }
+        return SpectorExecutors.current().drain(timeout).completed();
     }
 
     /**
-     * Emergency termination of the global virtual thread executor.
+     * Emergency termination of all managed executors via the active provider.
+     *
+     * @deprecated Use {@link com.spectrayan.spector.commons.concurrent.spi.SpectorExecutorProvider#drain(Duration)}.
      */
+    @Deprecated(since = "0.1.0-beta", forRemoval = true)
     public static void shutdownNow() {
-        FIRE_FORGET_EXECUTOR.shutdownNow();
+        SpectorExecutors.current().drain(Duration.ofMillis(100));
     }
 
     /**
@@ -238,8 +257,18 @@ public final class ConcurrentTasks {
      * @param tasks the tasks to execute asynchronously
      */
     public static void fireAndForgetAll(List<Runnable> tasks) {
+        if (tasks == null || tasks.isEmpty()) {
+            return;
+        }
+        Executor exec = SpectorExecutors.executor(ThreadPlane.VIRTUAL, "fire-forget");
         for (Runnable task : tasks) {
-            fireAndForget(task);
+            exec.execute(() -> {
+                try {
+                    task.run();
+                } catch (Exception e) {
+                    log.log(System.Logger.Level.WARNING, "Batched fire-and-forget task failed: " + e.getMessage(), e);
+                }
+            });
         }
     }
 
