@@ -30,12 +30,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Name-index sidecar codec for {@link EntityDirectory}. The byte format is identical to the
- * {@code entity-names.idx} codec used by {@code EntityGraphSerializer} (a leading encryption-flag
- * byte followed by either an AES-256-GCM blob or the plaintext {@code count + (len + name + id)}
- * entries), so the P3 migration can reuse it. The directory writes its sidecar as
- * {@value EntityDirectory#NAME_INDEX_SIDECAR} to avoid colliding with the legacy graph's
- * {@code entity-names.idx} while both coexist during the graduation.
+ * Name-index sidecar codec for {@link EntityDirectory}. The byte format is a leading
+ * encryption-flag byte followed by either an AES-256-GCM blob or the plaintext
+ * {@code count + (len + name + id)} entries. The directory writes its sidecar as
+ * {@value EntityDirectory#NAME_INDEX_SIDECAR}.
  */
 final class EntityDirectorySerializer {
 
@@ -85,7 +83,7 @@ final class EntityDirectorySerializer {
         }
     }
 
-    // ── Name-index byte codec (mirror of EntityGraphSerializer) ──
+    // ── Name-index byte codec ──
 
     private static void writeNameIndex(FileChannel ch, ConcurrentHashMap<String, Integer> nameIndex,
                                        boolean encrypt, DataEncryptor encryptor) throws IOException {

@@ -20,7 +20,6 @@ import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
 import com.spectrayan.spector.memory.kernel.layout.ContinuityLayout;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout;
-import com.spectrayan.spector.memory.kernel.layout.EntityLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodeLayout;
 import com.spectrayan.spector.memory.kernel.layout.HebbianLayout;
 import com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout;
@@ -186,7 +185,6 @@ class PersistedIdentityPinTest {
             actual.put("IndexEntryLayout", hex(new IndexEntryLayout().layoutId()));
             actual.put("CoActivationLayout", hex(new CoActivationLayout().layoutId()));
             actual.put("HebbianLayout", hex(new HebbianLayout().layoutId()));
-            actual.put("EntityLayout", hex(new EntityLayout().layoutId()));
             actual.put("EntityDirectoryLayout", hex(new EntityDirectoryLayout().layoutId()));
             actual.put("HyperEntityLayout", hex(new HyperEntityLayout().layoutId()));
             actual.put("TemporalLayout", hex(new TemporalLayout().layoutId()));
@@ -206,7 +204,6 @@ class PersistedIdentityPinTest {
             expected.put("IndexEntryLayout", "0x4D494458 'MIDX'");
             expected.put("CoActivationLayout", "0x434F4158 'COAX'");
             expected.put("HebbianLayout", "0x48435352 'HCSR'");
-            expected.put("EntityLayout", "0x45474D4D 'EGMM'");
             expected.put("EntityDirectoryLayout", "0x45444952 'EDIR'");
             expected.put("HyperEntityLayout", "0x48594547 'HYEG'");
             expected.put("TemporalLayout", "0x54504348 'TPCH'");
@@ -272,8 +269,6 @@ class PersistedIdentityPinTest {
                     .as("temporal fact stride").isEqualTo(64);
             assertThat(new HyperEntityLayout().recordStride())
                     .as("hyperedge stride").isEqualTo(32);
-            assertThat(new EntityLayout().recordStride())
-                    .as("entity node stride").isEqualTo(64);
             assertThat(new EntityDirectoryLayout().recordStride())
                     .as("entity directory node stride").isEqualTo(64);
             assertThat(new HebbianLayout().recordStride())

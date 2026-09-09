@@ -69,9 +69,9 @@ import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.
  * identity: the name&harr;id index, per-entity type, and the entity&rarr;memory adjacency
  * (crucially including <b>single-entity</b> memories, which never produce a hyperedge because
  * {@code addHyperedge} requires &ge;2 vertices) all lived only in the legacy
- * EntityGraphMemory. {@code EntityDirectory} absorbs exactly that identity surface —
- * it is {@code EntityGraphMemory} minus the binary edge / traversal machinery — so the binary
- * graph can eventually be retired without losing identity or single-entity adjacency.</p>
+ * entity graph. {@code EntityDirectory} absorbs exactly that identity surface —
+ * it provides identity minus the binary edge / traversal machinery — so the binary
+ * graph can be retired without losing identity or single-entity adjacency.</p>
  *
  * <h3>Ownership split</h3>
  * <ul>
@@ -89,7 +89,7 @@ import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.
  *
  * <h3>Reuse</h3>
  * <p>The region-doubling entity&rarr;memory adjacency mechanics ({@code ADJ_OFF_*}, block-doubling,
- * {@code compactAdjacency}) are the well-tested parts of {@link EntityGraphMemory}, reproduced here over the
+ * {@code compactAdjacency}) are reproduced here over the
  * identity-only {@link EntityDirectoryLayout}. The name-index codec is shared via
  * {@link EntityDirectorySerializer}.</p>
  *
@@ -425,7 +425,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
                 return -1;
             }
             int entityId = entityCount;
-            // Write-ahead: log the mutation before applying it (matches EntityGraphMemory).
+            // Write-ahead: log the mutation before applying it.
             if (wal != null && !bypassWal) {
                 wal.appendGraphAddNode(memoryId.toString(), entityId, normalized, type);
             }
@@ -796,8 +796,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
 
     /**
      * Returns the ACT-R fan-effect attenuation factor {@code 1/sqrt(refCount)} for an entity.
-     * Reproduces {@link EntityGraphMemory#fanFactor(int)} exactly (degree-derived) so expansion
-     * scoring is unchanged.
+     * Calculates the degree-derived factor so expansion scoring is unchanged.
      */
     public float fanFactor(int entityId) {
         int refCnt = memoryRefCount(entityId);
@@ -863,8 +862,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     // ══════════════════════════════════════════════════════════════
 
     /**
-     * Decays all entity→memory adjacency weights and prunes weak links (LTD). Mirrors
-     * the legacy EntityGraphMemory#decayAdjacencyWeights(float, float).
+     * Decays all entity→memory adjacency weights and prunes weak links (LTD).
      *
      * @param decayFactor    multiplicative factor per cycle
      * @param pruneThreshold links with weight below this after decay are removed
@@ -910,8 +908,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     }
 
     /**
-     * Compacts the adjacency segment by defragmenting per-entity blocks. Mirrors
-     * the legacy EntityGraphMemory#compactAdjacency().
+     * Compacts the adjacency segment by defragmenting per-entity blocks.
      *
      * @return bytes reclaimed by compaction
      */
@@ -1001,9 +998,8 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     }
 
     /**
-     * Merges entities with similar names using Levenshtein distance (identity-level dedup). Moved
-     * verbatim from the legacy EntityGraphMemory#mergeSimilarEntities(int) (the directory now owns
-     * identity). Only entity&rarr;memory adjacency is redirected — the directory has no binary edges.
+     * Merges entities with similar names using Levenshtein distance (identity-level dedup).
+     * Only entity&rarr;memory adjacency is redirected — the directory has no binary edges.
      *
      * @param maxEditDistance maximum Levenshtein distance for merge
      * @return number of entities merged
@@ -1247,71 +1243,6 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
             adjHighWaterMark = 0;
             persistCount();
             log.info("EntityDirectory reset: {} entities cleared", entitiesBefore);
-        } finally {
-            lock.unlockWrite(stamp);
-        }
-    }
-
-    // ══════════════════════════════════════════════════════════════
-    // DERIVE-ON-LOAD (P1 transition — mirror an existing EntityGraphMemory)
-    // ══════════════════════════════════════════════════════════════
-
-    /**
-     * Derives directory contents from a loaded legacy EntityGraphMemory, preserving the exact
-     * entity-id&harr;name alignment (so hyperedge vertex ids stay valid) and the entity&rarr;memory
-     * adjacency including single-entity memories.
-     *
-     * <p>Used during the P1 transition (ADR-0003) when {@code entity-directory.edir} is absent: the
-     * directory is a read-through mirror of the still-present binary graph. Entities are written at
-     * their original ids (0..entityCount-1) so {@link #findEntity(String)} returns the same id the
-     * hypergraph was built with.</p>
-     *
-     * @param source the loaded legacy entity graph
-     * @return the number of entities derived
-     */
-    public int deriveFrom(EntityGraphMemory source) {
-        if (source == null) return 0;
-        long stamp = lock.writeLock();
-        try {
-            int srcCount = source.entityCount();
-            if (srcCount > entityCapacity) {
-                log.warn("EntityDirectory capacity {} < source entities {} — deriving a prefix",
-                        entityCapacity, srcCount);
-                srcCount = entityCapacity;
-            }
-            // Reverse the name index: entityId -> normalized name.
-            String[] idToName = new String[srcCount];
-            for (Map.Entry<String, Integer> e : source.nameIndex().entrySet()) {
-                int id = e.getValue();
-                if (id >= 0 && id < srcCount) {
-                    idToName[id] = e.getKey();
-                }
-            }
-            // Establish the id space: write every node at its original id, then populate adjacency.
-            entityCount = srcCount;
-            persistCount();
-            for (int id = 0; id < srcCount; id++) {
-                String name = idToName[id];
-                if (name == null) {
-                    // No name recorded for this id — write an empty node to keep the id slot aligned.
-                    writeEntityNode(id, "", "OTHER");
-                    continue;
-                }
-                nameIndex.put(name, id);
-                writeEntityNode(id, name, source.entityType(id));
-            }
-            for (int id = 0; id < srcCount; id++) {
-                int refCount = source.memoryRefCount(id);
-                for (int r = 0; r < refCount; r++) {
-                    int memIdx = source.memoryRefAt(id, r);
-                    if (memIdx < 0) continue;
-                    float w = source.memoryRefWeight(id, r);
-                    linkEntityToMemoryLocked(id, memIdx, w, false);
-                }
-            }
-            log.info("EntityDirectory derived from EntityGraph: {} entities, {} adj entries",
-                    entityCount, adjHighWaterMark);
-            return entityCount;
         } finally {
             lock.unlockWrite(stamp);
         }

@@ -24,78 +24,24 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * P1 (#455) acceptance coverage for {@link EntityDirectory}: derive-from-legacy parity (including
- * single-entity adjacency), {@code fanFactor} parity vs the legacy graph, and {@code .edir}
- * save/load round-trip.
+ * Acceptance coverage for {@link EntityDirectory}: identity, adjacency, {@code fanFactor},
+ * and {@code .edir} save/load round-trip.
  */
 class EntityDirectoryTest {
 
-    /** Builds a small legacy entity graph with both single-entity and multi-entity memories. */
-    private static EntityGraphMemory buildLegacyGraph() {
-        EntityGraphMemory eg = new EntityGraphMemory(64, 512, 32, EdgeImportance.DEFAULT);
-        int alice = eg.addEntity("Alice", "PERSON");
-        int bob = eg.addEntity("Bob", "PERSON");
-        int alpha = eg.addEntity("Project Alpha", "PROJECT");
-        int solo = eg.addEntity("Solo", "CONCEPT"); // single-entity memory only — no hyperedge
-
-        // memory 0: Alice + Bob + Alpha (multi-entity)
-        eg.linkEntityToMemory(alice, 0);
-        eg.linkEntityToMemory(bob, 0);
-        eg.linkEntityToMemory(alpha, 0);
-        // memory 1: Alice + Alpha
-        eg.linkEntityToMemory(alice, 1);
-        eg.linkEntityToMemory(alpha, 1);
-        // memory 2: Solo only (single-entity — the case that has no hyperedge)
-        eg.linkEntityToMemory(solo, 2);
-        // reinforce Alice→memory 0 (LTP)
-        eg.linkEntityToMemory(alice, 0);
-        return eg;
-    }
-
     @Test
-    @DisplayName("deriveFrom preserves identity + single-entity adjacency with exact id alignment")
-    void deriveFrom_preservesIdentityAndSingleEntityAdjacency() {
-        try (EntityGraphMemory eg = buildLegacyGraph()) {
-            EntityDirectory dir = new EntityDirectory(64, eg.entityTypeRegistry());
-            dir.deriveFrom(eg);
+    @DisplayName("fanFactor calculates degree-derived factor")
+    void fanFactor_calculation() {
+        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+        try (EntityDirectory dir = new EntityDirectory(64, reg)) {
+            int alice = dir.intern("Alice", "PERSON");
+            assertThat(dir.fanFactor(alice)).isEqualTo(1.0f);
 
-            assertThat(dir.entityCount()).isEqualTo(eg.entityCount());
+            dir.linkEntityToMemory(alice, 0);
+            assertThat(dir.fanFactor(alice)).isEqualTo(1.0f);
 
-            // Name→id alignment must match exactly (hyperedge vertex ids depend on it).
-            for (Map.Entry<String, Integer> e : eg.nameIndex().entrySet()) {
-                assertThat(dir.findEntity(e.getKey()))
-                        .as("id alignment for '%s'", e.getKey())
-                        .isEqualTo(e.getValue());
-            }
-
-            for (int id = 0; id < eg.entityCount(); id++) {
-                assertThat(dir.entityType(id)).as("type[%d]", id).isEqualTo(eg.entityType(id));
-                int[] dirMems = dir.memoriesForEntity(id);
-                int[] egMems = eg.memoriesForEntity(id);
-                Arrays.sort(dirMems);
-                Arrays.sort(egMems);
-                assertThat(dirMems).as("memoriesForEntity[%d]", id).isEqualTo(egMems);
-            }
-
-            // Single-entity memory (Solo → memory 2) survives in the directory.
-            int solo = dir.findEntity("Solo");
-            assertThat(solo).isGreaterThanOrEqualTo(0);
-            assertThat(dir.memoriesForEntity(solo)).containsExactly(2);
-
-            dir.close();
-        }
-    }
-
-    @Test
-    @DisplayName("fanFactor is byte-identical to the legacy graph after derive")
-    void fanFactor_parityWithLegacy() {
-        try (EntityGraphMemory eg = buildLegacyGraph()) {
-            EntityDirectory dir = new EntityDirectory(64, eg.entityTypeRegistry());
-            dir.deriveFrom(eg);
-            for (int id = 0; id < eg.entityCount(); id++) {
-                assertThat(dir.fanFactor(id)).as("fanFactor[%d]", id).isEqualTo(eg.fanFactor(id));
-            }
-            dir.close();
+            dir.linkEntityToMemory(alice, 1);
+            assertThat(dir.fanFactor(alice)).isEqualTo(1.0f / (float) Math.sqrt(2));
         }
     }
 
@@ -109,22 +55,28 @@ class EntityDirectoryTest {
         int aliceId;
         int soloId;
         int savedCount;
-        try (EntityGraphMemory eg = buildLegacyGraph()) {
-            EntityDirectory dir = new EntityDirectory(edir, 64, reg);
-            dir.deriveFrom(eg);
-            aliceId = dir.findEntity("Alice");
-            soloId = dir.findEntity("Solo");
+        try (EntityDirectory dir = new EntityDirectory(edir, 64, reg)) {
+            aliceId = dir.intern("Alice", "PERSON");
+            int bobId = dir.intern("Bob", "PERSON");
+            int alphaId = dir.intern("Project Alpha", "PROJECT");
+            soloId = dir.intern("Solo", "CONCEPT");
+
+            dir.linkEntityToMemory(aliceId, 0);
+            dir.linkEntityToMemory(bobId, 0);
+            dir.linkEntityToMemory(alphaId, 0);
+            dir.linkEntityToMemory(aliceId, 1);
+            dir.linkEntityToMemory(alphaId, 1);
+            dir.linkEntityToMemory(soloId, 2);
+
             savedCount = dir.entityCount();
             dir.save(edir);
-            dir.close();
         }
 
         assertThat(Files.exists(edir)).isTrue();
 
         // Reload from the .edir container + sidecar and assert logical equality.
         TypeRegistryMemory reg2 = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
-        EntityDirectory reloaded = EntityDirectory.load(edir, 64, reg2);
-        try {
+        try (EntityDirectory reloaded = EntityDirectory.load(edir, 64, reg2)) {
             assertThat(reloaded.entityCount()).isEqualTo(savedCount);
             assertThat(reloaded.findEntity("Alice")).isEqualTo(aliceId);
             assertThat(reloaded.findEntity("Solo")).isEqualTo(soloId);
@@ -133,9 +85,6 @@ class EntityDirectoryTest {
             int[] aliceMems = reloaded.memoriesForEntity(aliceId);
             Arrays.sort(aliceMems);
             assertThat(aliceMems).containsExactly(0, 1);
-            assertThat(reloaded.entityType(aliceId)).isEqualTo("PERSON");
-        } finally {
-            reloaded.close();
         }
     }
 

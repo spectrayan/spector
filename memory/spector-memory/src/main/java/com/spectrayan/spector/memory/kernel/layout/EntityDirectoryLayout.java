@@ -22,14 +22,11 @@ import com.spectrayan.spector.memory.kernel.RegionLayout;
  * hypergraph graduation (ADR-0003, #455): {@code HyperEntityGraphMemory} stays a pure hyperedge
  * store over an externally-owned dense entity-id space, and this directory owns that id space.
  *
- * <h3>Reuse of {@code EntityLayout}</h3>
- * <p>The node record deliberately keeps {@code EntityLayout}'s 64-byte stride and the exact
+ * <h3>Binary Compatibility</h3>
+ * <p>The node record maintains a 64-byte stride and the exact
  * identity/adjacency field offsets ({@code ENT_OFF_TYPE}, {@code ENT_OFF_NAME_HASH},
  * {@code ENT_OFF_ADJ_OFFSET/COUNT/CAPACITY}) and the 8-byte adjacency entry
- * ({@code memIdx:4}{@code weight:4}). The binary-edge fields ({@code ENT_OFF_DEGREE},
- * {@code ENT_OFF_EDGE_START}) are simply left unused — the directory has no entity&rarr;entity
- * edges. Keeping the layout identical makes the P3 {@code entity.graph}&rarr;{@code entity-directory.edir}
- * migration a straight byte-copy of the node/adjacency slabs.</p>
+ * ({@code memIdx:4}{@code weight:4}).</p>
  *
  * <h3>Record layouts</h3>
  * <pre>
@@ -66,7 +63,7 @@ public final class EntityDirectoryLayout implements RegionLayout {
     /** Byte offset where the entity node slab begins in an SMKM file (64 + 16). */
     public static final long DATA_START = RegionPreamble.PREAMBLE_BYTES + GRAPH_SUBHEADER_BYTES;
 
-    // ── Entity Node record (64 bytes, 8-byte aligned — identity-only subset of EntityLayout) ──
+    // ── Entity Node record (64 bytes, 8-byte aligned) ──
     /** Bytes per entity-node record; also the substrate record stride. */
     public static final int ENTITY_NODE_BYTES = 64;
     /** Node field: entity type id (int). */

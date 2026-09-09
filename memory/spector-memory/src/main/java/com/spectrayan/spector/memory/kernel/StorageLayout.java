@@ -199,8 +199,7 @@ public final class StorageLayout {
 
     /**
      * Legacy entity knowledge graph file name.
-     * @deprecated Retained only for {@link com.spectrayan.spector.memory.graph.EntityGraphMigrationCli}
-     *             reads. New code must use {@link #FILE_ENTITY_DIRECTORY} or {@link #FILE_RUNTIME_BUNDLE}.
+     * @deprecated Retained for legacy reads. New code must use {@link #FILE_ENTITY_DIRECTORY} or {@link #FILE_RUNTIME_BUNDLE}.
      */
     @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_ENTITY = "entity.graph";

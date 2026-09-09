@@ -16,7 +16,7 @@ package com.spectrayan.spector.memory.kernel.layout;
  * Canonical byte-layout constants for the adjacency-list graph wiring shared by every
  * {@code AdjacencyListGraphMemory} subclass (#435, TD-14).
  *
- * <p>Unlike {@link HebbianLayout}/{@link EntityLayout}/{@link HyperEntityLayout}, this is
+ * <p>Unlike {@link HebbianLayout}/{@link HyperEntityLayout}, this is
  * <b>not</b> a pluggable per-record {@link com.spectrayan.spector.memory.kernel.RegionLayout}:
  * the per-edge record stride and payload are defined by the subclass's own {@code RegionLayout}
  * ({@code recordStride()}), while these constants describe the <em>fixed structural wiring</em>

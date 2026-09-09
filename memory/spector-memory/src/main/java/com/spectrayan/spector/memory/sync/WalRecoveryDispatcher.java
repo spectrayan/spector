@@ -126,7 +126,7 @@ public final class WalRecoveryDispatcher {
                             String name = new String(event.payload(), 8, nameLen, StandardCharsets.UTF_8);
                             int typeLen = payload.getInt(8 + nameLen);
                             String type = new String(event.payload(), 8 + nameLen + 4, typeLen, StandardCharsets.UTF_8);
-                            // Repointed EntityGraphMemory → EntityDirectory (ADR-0003 #456). intern()
+                            // Replays node addition into EntityDirectory (ADR-0003 #456). intern()
                             // reassigns ids by replay order, matching the original ingest allocation.
                             if (target instanceof EntityDirectory dir) {
                                 dir.intern(name, type);
