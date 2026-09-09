@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.graph;
 
+import com.spectrayan.spector.commons.concurrent.SpectorExecutors;
+import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -22,11 +24,14 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Engine for asynchronous graph enrichment and entity extraction.
@@ -45,6 +50,7 @@ public final class GraphEnrichmentEngine {
 
     private static final Logger log = LoggerFactory.getLogger(GraphEnrichmentEngine.class);
 
+    private final String namespaceId;
     private final MemoryIndex index;
     private final EntityExtractor entityExtractor;
     private final EntityDirectory entityDirectory;
@@ -78,16 +84,27 @@ public final class GraphEnrichmentEngine {
     ) {}
 
     public GraphEnrichmentEngine(
+            String namespaceId,
             MemoryIndex index,
             EntityExtractor entityExtractor,
             EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
             TemporalKnowledgeGraph temporalKnowledgeGraph) {
+        this.namespaceId = namespaceId;
         this.index = index;
         this.entityExtractor = entityExtractor;
         this.entityDirectory = entityDirectory;
         this.hyperEntityGraph = hyperEntityGraph;
         this.temporalKnowledgeGraph = temporalKnowledgeGraph;
+    }
+
+    public GraphEnrichmentEngine(
+            MemoryIndex index,
+            EntityExtractor entityExtractor,
+            EntityDirectory entityDirectory,
+            HyperEntityGraphMemory hyperEntityGraph,
+            TemporalKnowledgeGraph temporalKnowledgeGraph) {
+        this(null, index, entityExtractor, entityDirectory, hyperEntityGraph, temporalKnowledgeGraph);
     }
 
     /**
@@ -218,6 +235,37 @@ public final class GraphEnrichmentEngine {
         return count;
     }
 
+    private void dispatchMutation(Runnable mutation) throws Exception {
+        String poolName = (namespaceId != null && !namespaceId.isBlank())
+                ? "graph-writer-" + namespaceId
+                : "graph-writer";
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Throwable> errorRef = new AtomicReference<>();
+        try {
+            SpectorExecutors.executor(ThreadPlane.PLATFORM_WRITER, poolName).execute(() -> {
+                try {
+                    mutation.run();
+                } catch (Throwable t) {
+                    errorRef.set(t);
+                } finally {
+                    latch.countDown();
+                }
+            });
+        } catch (RejectedExecutionException ree) {
+            errorRef.set(ree);
+            latch.countDown();
+        }
+
+        latch.await();
+        if (errorRef.get() != null) {
+            Throwable t = errorRef.get();
+            if (t instanceof Exception ex) {
+                throw ex;
+            }
+            throw new RuntimeException(t);
+        }
+    }
+
     private void processCandidate(String id, AtomicInteger enrichedCount) {
         var loc = index.locate(id);
         if (loc == null) return;
@@ -227,10 +275,15 @@ public final class GraphEnrichmentEngine {
         int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
 
         try {
+            // LLM extraction runs asynchronously on VIRTUAL plane
             List<ExtractedEntity> entities = entityExtractor.extract(id, text);
             if (entities != null && !entities.isEmpty()) {
-                populateEntities(entities, slot, id);
-                syncTemporalFacts(entities, slot, id, System.currentTimeMillis() / 1000L);
+                // Discrete graph mutations dispatched to PLATFORM_WRITER
+                long nowSeconds = System.currentTimeMillis() / 1000L;
+                dispatchMutation(() -> {
+                    populateEntities(entities, slot, id);
+                    syncTemporalFacts(entities, slot, id, nowSeconds);
+                });
                 enrichedCount.incrementAndGet();
             }
         } catch (Exception e) {
@@ -356,27 +409,29 @@ public final class GraphEnrichmentEngine {
         int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
 
         try {
-            // 1. Unlink existing entity references for this memory
-            entityDirectory.unlinkMemory(slot);
-
-            // 2. TKG cleanup if possible
-            if (temporalKnowledgeGraph != null) {
-                try {
-                    var retractMethod = temporalKnowledgeGraph.getClass().getMethod("retractFactsForMemory", int.class);
-                    retractMethod.invoke(temporalKnowledgeGraph, slot);
-                } catch (NoSuchMethodException e) {
-                    // Skip TKG cleanup
-                } catch (Exception e) {
-                    log.debug("Failed to retract facts via reflection", e);
+            // 1. Unlink existing entity references for this memory on writer
+            dispatchMutation(() -> {
+                entityDirectory.unlinkMemory(slot);
+                if (temporalKnowledgeGraph != null) {
+                    try {
+                        var retractMethod = temporalKnowledgeGraph.getClass().getMethod("retractFactsForMemory", int.class);
+                        retractMethod.invoke(temporalKnowledgeGraph, slot);
+                    } catch (NoSuchMethodException ignored) {
+                    } catch (Exception e) {
+                        log.debug("Failed to retract facts via reflection", e);
+                    }
                 }
-            }
+            });
 
-            // 3. Re-extract entities
+            // 2. Re-extract entities on VIRTUAL plane
             List<ExtractedEntity> entities = entityExtractor.extract(id, text);
             if (entities != null && !entities.isEmpty()) {
-                // 4. Repopulate
-                populateEntities(entities, slot, id);
-                syncTemporalFacts(entities, slot, id, System.currentTimeMillis() / 1000L);
+                // 3. Repopulate on writer
+                long nowSeconds = System.currentTimeMillis() / 1000L;
+                dispatchMutation(() -> {
+                    populateEntities(entities, slot, id);
+                    syncTemporalFacts(entities, slot, id, nowSeconds);
+                });
                 reextractedCount.incrementAndGet();
             }
         } catch (Exception e) {

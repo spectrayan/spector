@@ -88,10 +88,27 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
             PostIngestSync postIngestSync,
             int parallelism,
             int queueCapacity) {
-        this(entityExtractor, postIngestSync, TaskQueueConfig.of(queueCapacity, parallelism));
+        this(null, entityExtractor, postIngestSync, TaskQueueConfig.of(queueCapacity, parallelism));
     }
 
     public AsyncEntityExtractionQueue(
+            String namespaceId,
+            EntityExtractor entityExtractor,
+            PostIngestSync postIngestSync,
+            int parallelism,
+            int queueCapacity) {
+        this(namespaceId, entityExtractor, postIngestSync, TaskQueueConfig.of(queueCapacity, parallelism));
+    }
+
+    public AsyncEntityExtractionQueue(
+            EntityExtractor entityExtractor,
+            PostIngestSync postIngestSync,
+            TaskQueueConfig config) {
+        this(null, entityExtractor, postIngestSync, config);
+    }
+
+    public AsyncEntityExtractionQueue(
+            String namespaceId,
             EntityExtractor entityExtractor,
             PostIngestSync postIngestSync,
             TaskQueueConfig config) {
@@ -110,12 +127,26 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
                 com.spectrayan.spector.commons.concurrent.ThreadPlane.VIRTUAL,
                 extractConfig.batchDrainSize()
         );
+
+        String extractQueueName = (namespaceId != null && !namespaceId.isBlank())
+                ? "entity-extraction-" + namespaceId
+                : "entity-extraction";
+        String extractPoolName = (namespaceId != null && !namespaceId.isBlank())
+                ? "entity-extract-" + namespaceId
+                : "entity-extract";
+        String mutationQueueName = (namespaceId != null && !namespaceId.isBlank())
+                ? "entity-graph-mutation-" + namespaceId
+                : "entity-graph-mutation";
+        String mutationPoolName = (namespaceId != null && !namespaceId.isBlank())
+                ? "graph-writer-" + namespaceId
+                : "graph-writer";
+
         this.extractQueue = new SpectorTaskQueue<>(
-                "entity-extraction",
+                extractQueueName,
                 resolvedExtractConfig,
                 this::processExtractTask,
                 null,
-                com.spectrayan.spector.commons.concurrent.SpectorExecutors.executor(com.spectrayan.spector.commons.concurrent.ThreadPlane.VIRTUAL, "entity-extract")
+                com.spectrayan.spector.commons.concurrent.SpectorExecutors.executor(com.spectrayan.spector.commons.concurrent.ThreadPlane.VIRTUAL, extractPoolName)
         );
 
         TaskQueueConfig mutationConfig = new TaskQueueConfig(
@@ -130,15 +161,15 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
                 1
         );
         this.mutationQueue = new SpectorTaskQueue<>(
-                "entity-graph-mutation",
+                mutationQueueName,
                 mutationConfig,
                 this::processMutationTask,
                 null,
-                com.spectrayan.spector.commons.concurrent.SpectorExecutors.executor(com.spectrayan.spector.commons.concurrent.ThreadPlane.PLATFORM_WRITER, "graph-writer")
+                com.spectrayan.spector.commons.concurrent.SpectorExecutors.executor(com.spectrayan.spector.commons.concurrent.ThreadPlane.PLATFORM_WRITER, mutationPoolName)
         );
 
-        log.info("[AsyncEntityExtractionQueue] Initialized dual-plane queues: extractQueue (VIRTUAL, par={}) and mutationQueue (PLATFORM_WRITER, par=1)",
-                resolvedExtractConfig.parallelism());
+        log.info("[AsyncEntityExtractionQueue] Initialized dual-plane queues for namespace [{}]: extractQueue (VIRTUAL, par={}) and mutationQueue (PLATFORM_WRITER, par=1)",
+                namespaceId, resolvedExtractConfig.parallelism());
     }
 
     /**

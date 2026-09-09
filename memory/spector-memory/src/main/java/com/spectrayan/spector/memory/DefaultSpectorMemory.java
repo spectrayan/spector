@@ -22,6 +22,7 @@ import com.spectrayan.spector.memory.api.ImportanceEstimator;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.bootstrap.SpectorMemoryFactory;
 import com.spectrayan.spector.memory.cortex.consolidation.BatchConsolidator;
+import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import com.spectrayan.spector.memory.cortex.consolidation.EagerConsolidator;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
@@ -414,6 +415,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
  
         this.batchConsolidator = new BatchConsolidator(builder.llmProvider(), this.embeddingProvider);
         this.eagerConsolidator = new com.spectrayan.spector.memory.cortex.consolidation.EagerConsolidator(
+                builder.namespaceId(),
                 bundle.partitionManager().cognitiveRouter(),
                 bundle.index(),
                 bundle.quantizer(),
@@ -690,7 +692,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             int count = episodicIngestCount.incrementAndGet();
             if (count >= circadianPolicy.volumeTrigger()) {
                 episodicIngestCount.set(0);
-                ConcurrentTasks.fireAndForget(() -> {
+                ConcurrentTasks.fireAndForget(ThreadPlane.PLATFORM_WRITER, "writer-reflect-" + namespaceId, null, namespaceId, () -> {
                     log.info("Circadian volume trigger: {} episodic memories  ->  auto-reflect", count);
                     reflect();
                 });

@@ -16,6 +16,7 @@ import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.concurrent.OnPlane;
 import com.spectrayan.spector.commons.concurrent.SpectorExecutors;
 import com.spectrayan.spector.commons.concurrent.SpectorQuartzThreadPool;
+import com.spectrayan.spector.commons.concurrent.SpectorSchedulerFactory;
 import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import com.spectrayan.spector.commons.concurrent.spi.AbstractExecutorProvider;
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
@@ -150,12 +151,12 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             } else {
                 threadPool = new SpectorQuartzThreadPool(SpectorExecutors.current());
             }
-            threadPool.setInstanceName(DEFAULT_STANDALONE_SCHEDULER_NAME);
-            threadPool.initialize();
-
-            factory.createScheduler(DEFAULT_STANDALONE_SCHEDULER_NAME, "STANDALONE_PRIMARY",
-                    threadPool, new RAMJobStore());
-            Scheduler scheduler = factory.getScheduler(DEFAULT_STANDALONE_SCHEDULER_NAME);
+            Scheduler scheduler = SpectorSchedulerFactory.createScheduler(
+                    DEFAULT_STANDALONE_SCHEDULER_NAME,
+                    "STANDALONE_PRIMARY",
+                    threadPool,
+                    new RAMJobStore()
+            );
             scheduler.start();
             return scheduler;
         } catch (SchedulerException e) {

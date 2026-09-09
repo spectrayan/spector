@@ -27,6 +27,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -95,6 +96,7 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
     // Concurrency control for strictly bounded capacity and BLOCK backpressure
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition notFull = lock.newCondition();
+    private final AtomicInteger inFlightWorkers = new AtomicInteger(0);
 
     // Telemetry counters
     private final AtomicLong submittedCount = new AtomicLong(0);
@@ -244,18 +246,25 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
                         return false;
                     }
                     case DROP_OLDEST -> {
-                        // Evict task with minimum submittedAtMs (oldest enqueue order), NOT the priority head
+                        // Evict task with minimum submittedAtMs (oldest enqueue order) over snapshot,
+                        // eliminating racy iterator traversal over PriorityBlockingQueue while workers poll
+                        Object[] snapshot = queue.toArray();
                         ScopedTask<T> oldest = null;
-                        for (ScopedTask<T> candidate : queue) {
-                            if (oldest == null || candidate.submittedAtMs() < oldest.submittedAtMs()) {
-                                oldest = candidate;
+                        for (Object elem : snapshot) {
+                            if (elem instanceof ScopedTask<?> candidate) {
+                                @SuppressWarnings("unchecked")
+                                ScopedTask<T> typed = (ScopedTask<T>) candidate;
+                                if (oldest == null || typed.submittedAtMs() < oldest.submittedAtMs()) {
+                                    oldest = typed;
+                                }
                             }
                         }
                         if (oldest != null && queue.remove(oldest)) {
                             failedCount.incrementAndGet();
                             log.log(System.Logger.Level.WARNING,
-                                    "[{0}] Queue full ({1}/{2}) - dropped oldest task ''{3}'' (submittedAt={4})",
-                                    name, queue.size(), config.capacity(), oldest.taskId(), oldest.submittedAtMs());
+                                    "[{0}] Queue full ({1}/{2}) - dropped oldest task ''{3}'' (priority={4}, submittedAt={5})",
+                                    name, queue.size(), config.capacity(), oldest.taskId(),
+                                    oldest.priority(), oldest.submittedAtMs());
                         }
                     }
                     case CALLER_RUNS -> {
@@ -268,9 +277,16 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
                         }
                         lock.unlock();
                         try {
-                            executeDirectWithRetries(task);
+                            executeSingleTask(task);
                             submittedCount.incrementAndGet();
+                            processedCount.incrementAndGet();
                             return true;
+                        } catch (Exception e) {
+                            failedCount.incrementAndGet();
+                            log.log(System.Logger.Level.ERROR,
+                                    "[{0}] CALLER_RUNS task ''{1}'' failed: {2}",
+                                    name, task.taskId(), e.getMessage(), e);
+                            return false;
                         } finally {
                             lock.lock();
                         }
@@ -330,19 +346,24 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
             try {
                 ScopedTask<T> first = queue.poll(config.pollTimeoutMs(), TimeUnit.MILLISECONDS);
                 if (first != null) {
-                    if (batchHandler != null && config.batchDrainSize() > 1) {
-                        List<ScopedTask<T>> batch = new ArrayList<>(config.batchDrainSize());
-                        batch.add(first);
-                        queue.drainTo(batch, config.batchDrainSize() - 1);
-                        signalNotFull();
-                        dispatchBatch(batch);
-                    } else {
-                        signalNotFull();
-                        if (batchHandler != null) {
-                            dispatchBatch(List.of(first));
+                    inFlightWorkers.incrementAndGet();
+                    try {
+                        if (batchHandler != null && config.batchDrainSize() > 1) {
+                            List<ScopedTask<T>> batch = new ArrayList<>(config.batchDrainSize());
+                            batch.add(first);
+                            queue.drainTo(batch, config.batchDrainSize() - 1);
+                            signalNotFull();
+                            dispatchBatch(batch);
                         } else {
-                            dispatchDirect(first);
+                            signalNotFull();
+                            if (batchHandler != null) {
+                                dispatchBatch(List.of(first));
+                            } else {
+                                dispatchDirect(first);
+                            }
                         }
+                    } finally {
+                        inFlightWorkers.decrementAndGet();
                     }
                 }
             } catch (InterruptedException e) {
@@ -356,30 +377,6 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
     }
 
     private void dispatchBatch(List<ScopedTask<T>> batch) {
-        if (config.plane() == ThreadPlane.PLATFORM_WRITER) {
-            try {
-                java.util.concurrent.CompletableFuture.runAsync(() -> executeBatchWithRetries(batch), workerExecutor).join();
-            } catch (java.util.concurrent.CompletionException ce) {
-                log.log(System.Logger.Level.WARNING, "[{0}] Batch execution dispatch failed: {1}", name, ce.getMessage());
-            }
-        } else {
-            executeBatchWithRetries(batch);
-        }
-    }
-
-    private void dispatchDirect(ScopedTask<T> task) {
-        if (config.plane() == ThreadPlane.PLATFORM_WRITER) {
-            try {
-                java.util.concurrent.CompletableFuture.runAsync(() -> executeDirectWithRetries(task), workerExecutor).join();
-            } catch (java.util.concurrent.CompletionException ce) {
-                log.log(System.Logger.Level.WARNING, "[{0}] Direct execution dispatch failed: {1}", name, ce.getMessage());
-            }
-        } else {
-            executeDirectWithRetries(task);
-        }
-    }
-
-    private void executeBatchWithRetries(List<ScopedTask<T>> batch) {
         List<ScopedTask<T>> activeTasks = new ArrayList<>(batch.size());
         for (ScopedTask<T> task : batch) {
             if (cancellationCheck != null && cancellationCheck.test(task)) {
@@ -395,20 +392,42 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
 
         int attempts = 0;
         int maxAttempts = 1 + Math.max(0, config.maxRetries());
-        Exception lastException = null;
+        Throwable lastException = null;
 
         while (attempts < maxAttempts) {
             attempts++;
             long start = System.currentTimeMillis();
             try {
-                ScopedTask<T> primary = activeTasks.getFirst();
-                MemoryScope.runWithScope(primary.sessionId(), primary.namespaceId(), () -> {
+                if (config.plane() == ThreadPlane.PLATFORM_WRITER) {
+                    java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+                    java.util.concurrent.atomic.AtomicReference<Throwable> errorRef = new java.util.concurrent.atomic.AtomicReference<>();
                     try {
-                        batchHandler.handleBatch(activeTasks);
-                    } catch (Exception e) {
-                        throw new SpectorServerException(ErrorCode.TASK_EXECUTION_FAILED, e, primary.taskId(), name, e.getMessage());
+                        workerExecutor.execute(() -> {
+                            try {
+                                executeSingleBatch(activeTasks);
+                            } catch (Throwable t) {
+                                errorRef.set(t);
+                            } finally {
+                                latch.countDown();
+                            }
+                        });
+                    } catch (java.util.concurrent.RejectedExecutionException ree) {
+                        errorRef.set(ree);
+                        latch.countDown();
                     }
-                });
+                    try {
+                        latch.await();
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw ie;
+                    }
+                    if (errorRef.get() != null) {
+                        throw errorRef.get();
+                    }
+                } else {
+                    executeSingleBatch(activeTasks);
+                }
+
                 long duration = System.currentTimeMillis() - start;
                 totalDurationMs.addAndGet(duration);
                 processedCount.addAndGet(activeTasks.size());
@@ -416,12 +435,16 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
                         "[{0}] Processed batch of {1} tasks in {2} ms (attempts={3}, backlog={4})",
                         name, activeTasks.size(), duration, attempts, queue.size());
                 return;
-            } catch (Exception e) {
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                lastException = ie;
+                break;
+            } catch (Throwable e) {
                 lastException = e;
                 if (attempts < maxAttempts) {
                     retriedCount.incrementAndGet();
                     log.log(System.Logger.Level.WARNING,
-                            "[{0}] Batch execution failed on attempt {1}/{2}, retrying in {3} ms: {4}",
+                            "[{0}] Batch execution failed on attempt {1}/{2}, retrying on worker loop in {3} ms: {4}",
                             name, attempts, maxAttempts, config.retryBackoffMs(), e.getMessage());
                     try {
                         Thread.sleep(config.retryBackoffMs());
@@ -439,7 +462,18 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
                 name, activeTasks.size(), maxAttempts, lastException != null ? lastException.getMessage() : "unknown", lastException);
     }
 
-    private void executeDirectWithRetries(ScopedTask<T> task) {
+    private void executeSingleBatch(List<ScopedTask<T>> activeTasks) {
+        ScopedTask<T> primary = activeTasks.getFirst();
+        MemoryScope.runWithScope(primary.sessionId(), primary.namespaceId(), () -> {
+            try {
+                batchHandler.handleBatch(activeTasks);
+            } catch (Exception e) {
+                throw new SpectorServerException(ErrorCode.TASK_EXECUTION_FAILED, e, primary.taskId(), name, e.getMessage());
+            }
+        });
+    }
+
+    private void dispatchDirect(ScopedTask<T> task) {
         if (cancellationCheck != null && cancellationCheck.test(task)) {
             log.log(System.Logger.Level.DEBUG, "[{0}] Skipped cancelled/tombstoned task ''{1}''", name, task.taskId());
             processedCount.incrementAndGet();
@@ -448,19 +482,42 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
 
         int attempts = 0;
         int maxAttempts = 1 + Math.max(0, config.maxRetries());
-        Exception lastException = null;
+        Throwable lastException = null;
 
         while (attempts < maxAttempts) {
             attempts++;
             long start = System.currentTimeMillis();
             try {
-                MemoryScope.runWithScope(task.sessionId(), task.namespaceId(), () -> {
+                if (config.plane() == ThreadPlane.PLATFORM_WRITER) {
+                    java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+                    java.util.concurrent.atomic.AtomicReference<Throwable> errorRef = new java.util.concurrent.atomic.AtomicReference<>();
                     try {
-                        handler.handle(task);
-                    } catch (Exception e) {
-                        throw new SpectorServerException(ErrorCode.TASK_EXECUTION_FAILED, e, task.taskId(), name, e.getMessage());
+                        workerExecutor.execute(() -> {
+                            try {
+                                executeSingleTask(task);
+                            } catch (Throwable t) {
+                                errorRef.set(t);
+                            } finally {
+                                latch.countDown();
+                            }
+                        });
+                    } catch (java.util.concurrent.RejectedExecutionException ree) {
+                        errorRef.set(ree);
+                        latch.countDown();
                     }
-                });
+                    try {
+                        latch.await();
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw ie;
+                    }
+                    if (errorRef.get() != null) {
+                        throw errorRef.get();
+                    }
+                } else {
+                    executeSingleTask(task);
+                }
+
                 long duration = System.currentTimeMillis() - start;
                 totalDurationMs.addAndGet(duration);
                 processedCount.incrementAndGet();
@@ -468,12 +525,16 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
                         "[{0}] Processed task ''{1}'' in {2} ms (attempts={3}, backlog={4})",
                         name, task.taskId(), duration, attempts, queue.size());
                 return;
-            } catch (Exception e) {
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                lastException = ie;
+                break;
+            } catch (Throwable e) {
                 lastException = e;
                 if (attempts < maxAttempts) {
                     retriedCount.incrementAndGet();
                     log.log(System.Logger.Level.WARNING,
-                            "[{0}] Task ''{1}'' failed attempt {2}/{3} ({4}), retrying in {5} ms...",
+                            "[{0}] Task ''{1}'' failed attempt {2}/{3} ({4}), retrying on worker loop in {5} ms...",
                             name, task.taskId(), attempts, maxAttempts, e.getMessage(), config.retryBackoffMs());
                     try {
                         Thread.sleep(config.retryBackoffMs());
@@ -489,6 +550,16 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
         log.log(System.Logger.Level.ERROR,
                 "[{0}] Task ''{1}'' permanently failed after {2} attempts: {3}",
                 name, task.taskId(), attempts, lastException != null ? lastException.getMessage() : "unknown", lastException);
+    }
+
+    private void executeSingleTask(ScopedTask<T> task) {
+        MemoryScope.runWithScope(task.sessionId(), task.namespaceId(), () -> {
+            try {
+                handler.handle(task);
+            } catch (Exception e) {
+                throw new SpectorServerException(ErrorCode.TASK_EXECUTION_FAILED, e, task.taskId(), name, e.getMessage());
+            }
+        });
     }
 
     /**
@@ -511,6 +582,10 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
         );
     }
 
+    public int inFlightCount() {
+        return inFlightWorkers.get();
+    }
+
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
@@ -518,12 +593,12 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
             signalNotFull();
 
             log.log(System.Logger.Level.INFO,
-                    "[{0}] Draining queue (backlog={1}) with {2} ms timeout...",
-                    name, queue.size(), config.drainTimeoutMs());
+                    "[{0}] Draining queue (backlog={1}, inFlight={2}) with {3} ms timeout...",
+                    name, queue.size(), inFlightWorkers.get(), config.drainTimeoutMs());
             long deadline = System.currentTimeMillis() + config.drainTimeoutMs();
-            while (!queue.isEmpty() && System.currentTimeMillis() < deadline) {
+            while ((!queue.isEmpty() || inFlightWorkers.get() > 0) && System.currentTimeMillis() < deadline) {
                 try {
-                    Thread.sleep(50);
+                    Thread.sleep(20);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     log.log(System.Logger.Level.WARNING, "[{0}] Interrupted while draining queue", name);

@@ -271,6 +271,7 @@ public final class SpectorMemoryFactory {
         //  Ingestion target (RememberPathway) 
         int activePartitionIndex = 0;
         RememberPathway rememberPathway = new RememberPathway.Builder()
+                .namespaceId(builder.namespaceId())
                 .cortex(cortex)
                 .bio(bio)
                 .graphs(graphs)
@@ -519,6 +520,7 @@ public final class SpectorMemoryFactory {
                 && !(graphs.entityExtractor() instanceof com.spectrayan.spector.memory.graph.NoOpEntityExtractor)
                 && graphs.entityDirectory() != null) {
             graphEnrichmentEngine = new GraphEnrichmentEngine(
+                    builder.namespaceId(),
                     index,
                     graphs.entityExtractor(),
                     graphs.entityDirectory(),

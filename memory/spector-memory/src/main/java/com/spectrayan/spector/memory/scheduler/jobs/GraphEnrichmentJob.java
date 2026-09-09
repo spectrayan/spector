@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Quartz Job for executing background entity graph extraction and hypergraph relation enrichment.
  */
-@OnPlane(value = ThreadPlane.PLATFORM_WRITER, pool = "quartz-writer")
+@OnPlane(value = ThreadPlane.VIRTUAL, pool = "quartz")
 @DisallowConcurrentExecution
 public final class GraphEnrichmentJob implements Job {
 

@@ -81,7 +81,24 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
                              Function<String, CognitiveRecord> inspectFunction,
                              float distanceThreshold,
                              int queueCapacity) {
-        this(cognitiveRouter, index, quantizer, entityDirectory, hyperEntityGraph,
+        this(null, cognitiveRouter, index, quantizer, entityDirectory, hyperEntityGraph,
+                temporalKnowledgeGraph, textGenerator, embeddingProvider, inspectFunction,
+                distanceThreshold, queueCapacity);
+    }
+
+    public EagerConsolidator(String namespaceId,
+                             CognitiveMemoryRouter cognitiveRouter,
+                             MemoryIndex index,
+                             ScalarQuantizer quantizer,
+                             EntityDirectory entityDirectory,
+                             HyperEntityGraphMemory hyperEntityGraph,
+                             TemporalKnowledgeGraph temporalKnowledgeGraph,
+                             LlmProvider textGenerator,
+                             EmbeddingProvider embeddingProvider,
+                             Function<String, CognitiveRecord> inspectFunction,
+                             float distanceThreshold,
+                             int queueCapacity) {
+        this(namespaceId, cognitiveRouter, index, quantizer, entityDirectory, hyperEntityGraph,
                 temporalKnowledgeGraph, textGenerator, embeddingProvider, inspectFunction,
                 distanceThreshold, new TaskQueueConfig(
                         Math.max(16, queueCapacity),
@@ -96,6 +113,23 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
     }
 
     public EagerConsolidator(CognitiveMemoryRouter cognitiveRouter,
+                             MemoryIndex index,
+                             ScalarQuantizer quantizer,
+                             EntityDirectory entityDirectory,
+                             HyperEntityGraphMemory hyperEntityGraph,
+                             TemporalKnowledgeGraph temporalKnowledgeGraph,
+                             LlmProvider textGenerator,
+                             EmbeddingProvider embeddingProvider,
+                             Function<String, CognitiveRecord> inspectFunction,
+                             float distanceThreshold,
+                             TaskQueueConfig config) {
+        this(null, cognitiveRouter, index, quantizer, entityDirectory, hyperEntityGraph,
+                temporalKnowledgeGraph, textGenerator, embeddingProvider, inspectFunction,
+                distanceThreshold, config);
+    }
+
+    public EagerConsolidator(String namespaceId,
+                             CognitiveMemoryRouter cognitiveRouter,
                              MemoryIndex index,
                              ScalarQuantizer quantizer,
                              EntityDirectory entityDirectory,
@@ -143,12 +177,19 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
             );
         }
 
+        String queueName = (namespaceId != null && !namespaceId.isBlank())
+                ? "eager-consolidation-" + namespaceId
+                : "eager-consolidation";
+        String poolName = (namespaceId != null && !namespaceId.isBlank())
+                ? "writer-consolidation-" + namespaceId
+                : "writer-consolidation";
+
         this.taskQueue = new SpectorTaskQueue<>(
-                "eager-consolidation",
+                queueName,
                 effectiveConfig,
                 this::processTask,
                 null,
-                SpectorExecutors.executor(ThreadPlane.PLATFORM_WRITER, "writer-consolidation")
+                SpectorExecutors.executor(ThreadPlane.PLATFORM_WRITER, poolName)
         );
     }
 
