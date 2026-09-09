@@ -101,6 +101,9 @@ public class TaskQueueProperties implements Serializable {
 
     public String getPlane() { return plane; }
     public void setPlane(String plane) { this.plane = plane; }
+    public void setPlane(com.spectrayan.spector.commons.concurrent.ThreadPlane plane) {
+        this.plane = plane != null ? plane.name() : null;
+    }
     public String plane() { return getPlane(); }
 
     public int getBatchDrainSize() { return batchDrainSize; }

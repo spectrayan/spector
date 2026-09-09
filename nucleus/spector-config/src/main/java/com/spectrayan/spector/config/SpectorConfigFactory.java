@@ -17,6 +17,7 @@ package com.spectrayan.spector.config;
 
 import static com.spectrayan.spector.config.SpectorPropertyConstants.*;
 
+import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import com.spectrayan.spector.config.model.*;
 import com.spectrayan.spector.config.properties.*;
 
@@ -205,7 +206,7 @@ public final class SpectorConfigFactory {
         consolQueue.setRetryBackoffMs(taskQueue.getRetryBackoffMs());
         consolQueue.setBackpressurePolicy(taskQueue.getBackpressurePolicy());
         consolQueue.setBatchDrainSize(taskQueue.getBatchDrainSize());
-        consolQueue.setPlane("PLATFORM_WRITER");
+        consolQueue.setPlane(ThreadPlane.PLATFORM_WRITER);
 
         var llm = new LlmProperties(
                 props.getFloat(MEMORY_LLM_TEMPERATURE, DEFAULT_MEMORY_LLM_TEMPERATURE),

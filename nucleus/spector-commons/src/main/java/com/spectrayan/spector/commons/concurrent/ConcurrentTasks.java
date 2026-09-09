@@ -387,7 +387,8 @@ public final class ConcurrentTasks {
     private static <T> List<T> forkJoinAllStructured(List<Callable<T>> tasks)
             throws ConcurrentExecutionException, InterruptedException {
         try (var scope = StructuredTaskScope.open(
-                StructuredTaskScope.Joiner.<T>awaitAllSuccessfulOrThrow())) {
+                StructuredTaskScope.Joiner.<T>awaitAllSuccessfulOrThrow(),
+                cf -> cf.withThreadFactory(Thread.ofVirtual().name("spector-vt-concurrent-", 0).factory()))) {
             List<Subtask<T>> subtasks = new ArrayList<>(tasks.size());
             for (Callable<T> task : tasks) {
                 subtasks.add(scope.fork(task::call));
@@ -409,7 +410,8 @@ public final class ConcurrentTasks {
     private static void forkRunAllStructured(List<Runnable> tasks)
             throws ConcurrentExecutionException, InterruptedException {
         try (var scope = StructuredTaskScope.open(
-                StructuredTaskScope.Joiner.awaitAllSuccessfulOrThrow())) {
+                StructuredTaskScope.Joiner.awaitAllSuccessfulOrThrow(),
+                cf -> cf.withThreadFactory(Thread.ofVirtual().name("spector-vt-concurrent-", 0).factory()))) {
             for (Runnable task : tasks) {
                 scope.fork(() -> { task.run(); return null; });
             }
@@ -423,7 +425,8 @@ public final class ConcurrentTasks {
     private static <A, B> Pair<A, B> forkJoin2Structured(Callable<A> taskA, Callable<B> taskB)
             throws ConcurrentExecutionException, InterruptedException {
         try (var scope = StructuredTaskScope.open(
-                StructuredTaskScope.Joiner.awaitAllSuccessfulOrThrow())) {
+                StructuredTaskScope.Joiner.awaitAllSuccessfulOrThrow(),
+                cf -> cf.withThreadFactory(Thread.ofVirtual().name("spector-vt-concurrent-", 0).factory()))) {
             Subtask<A> a = scope.fork(taskA::call);
             Subtask<B> b = scope.fork(taskB::call);
             scope.join();
@@ -435,7 +438,8 @@ public final class ConcurrentTasks {
 
     private static <A, B> Pair<A, B> forkJoin2Classic(Callable<A> taskA, Callable<B> taskB)
             throws ConcurrentExecutionException, InterruptedException {
-        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        try (ExecutorService executor = Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name("spector-vt-concurrent-", 0).factory())) {
             Future<A> futureA = executor.submit(taskA);
             Future<B> futureB = executor.submit(taskB);
             try {
@@ -452,7 +456,8 @@ public final class ConcurrentTasks {
 
     private static <T> List<T> forkJoinAllClassic(List<Callable<T>> tasks)
             throws ConcurrentExecutionException, InterruptedException {
-        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        try (ExecutorService executor = Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name("spector-vt-concurrent-", 0).factory())) {
             List<Future<T>> futures = new ArrayList<>(tasks.size());
             for (Callable<T> task : tasks) {
                 futures.add(executor.submit(task));
@@ -488,7 +493,8 @@ public final class ConcurrentTasks {
 
     private static void forkRunAllClassic(List<Runnable> tasks)
             throws ConcurrentExecutionException, InterruptedException {
-        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        try (ExecutorService executor = Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name("spector-vt-concurrent-", 0).factory())) {
             List<Future<?>> futures = new ArrayList<>(tasks.size());
             for (Runnable task : tasks) {
                 futures.add(executor.submit(task));
@@ -551,7 +557,8 @@ public final class ConcurrentTasks {
         // Use awaitAll() joiner (never auto-cancels) + Configuration.withTimeout()
         try (var scope = StructuredTaskScope.open(
                 StructuredTaskScope.Joiner.<T>awaitAll(),
-                cf -> cf.withTimeout(timeout))) {
+                cf -> cf.withThreadFactory(Thread.ofVirtual().name("spector-vt-concurrent-", 0).factory())
+                        .withTimeout(timeout))) {
 
             List<Subtask<T>> subtasks = new ArrayList<>(tasks.size());
             for (LabeledTask<T> task : tasks) {
@@ -587,7 +594,8 @@ public final class ConcurrentTasks {
 
     private static <T> PartialResult<T> forkJoinPartialClassic(
             List<LabeledTask<T>> tasks, Duration timeout) throws InterruptedException {
-        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        try (ExecutorService executor = Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name("spector-vt-concurrent-", 0).factory())) {
             record FutureEntry<T>(String label, Future<T> future) {}
             List<FutureEntry<T>> entries = new ArrayList<>(tasks.size());
 

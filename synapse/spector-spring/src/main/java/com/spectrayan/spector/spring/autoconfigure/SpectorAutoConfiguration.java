@@ -74,6 +74,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import java.util.concurrent.ThreadPoolExecutor;
 
 /**
@@ -154,10 +155,21 @@ public class SpectorAutoConfiguration {
     @Bean(name = "spectorVirtualExecutor")
     @ConditionalOnMissingBean(name = "spectorVirtualExecutor")
     public AsyncTaskExecutor spectorVirtualExecutor() {
-        var ex = new SimpleAsyncTaskExecutor("spector-vt-");
+        var ex = new SimpleAsyncTaskExecutor("spector-vt-default-");
         ex.setVirtualThreads(true);
         ex.setTaskTerminationTimeout(Duration.ofSeconds(10).toMillis());
         return ex;
+    }
+
+    @Bean(name = "taskScheduler")
+    @ConditionalOnMissingBean(name = "taskScheduler")
+    public ThreadPoolTaskScheduler spectorTaskScheduler() {
+        var scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors() / 2)));
+        scheduler.setThreadNamePrefix("spector-scheduler-");
+        scheduler.setWaitForTasksToCompleteOnShutdown(true);
+        scheduler.setAwaitTerminationSeconds(10);
+        return scheduler;
     }
 
     @Bean

@@ -19,6 +19,7 @@ import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import com.spectrayan.spector.commons.concurrent.spi.AbstractExecutorProvider;
 import com.spectrayan.spector.commons.concurrent.spi.DrainResult;
 import org.springframework.core.task.AsyncTaskExecutor;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.time.Duration;
@@ -68,14 +69,21 @@ public class SpringExecutorProvider extends AbstractExecutorProvider implements 
     @Override
     protected Executor createExecutor(ThreadPlane plane, String name) {
         return switch (plane) {
-            case VIRTUAL -> task -> {
-                try {
-                    virtualExecutor.execute(task);
-                } catch (Exception e) {
-                    // Fallback to virtual thread if container executor is shut down or inactive
-                    Thread.ofVirtual().name("spector-vt-fallback-", 0).start(task);
+            case VIRTUAL -> {
+                if (name != null && !name.isBlank() && !"default".equalsIgnoreCase(name)) {
+                    var ex = new SimpleAsyncTaskExecutor("spector-vt-" + name + "-");
+                    ex.setVirtualThreads(true);
+                    yield ex;
                 }
-            };
+                yield task -> {
+                    try {
+                        virtualExecutor.execute(task);
+                    } catch (Exception e) {
+                        // Fallback to virtual thread if container executor is shut down or inactive
+                        Thread.ofVirtual().name("spector-vt-fallback-", 0).start(task);
+                    }
+                };
+            }
             case PLATFORM_SHARED -> sharedPool;
             case PLATFORM_WRITER -> {
                 if (writerPerNamespace && name != null && !name.isBlank() && !"default".equalsIgnoreCase(name)) {

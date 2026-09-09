@@ -73,7 +73,8 @@ public class OllamaDetector {
         String baseUrl = properties.getProvider().getGeneration().baseUrl();
         String healthUrl = baseUrl + "/api/tags";
 
-        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        try (var executor = Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name("spector-vt-ollama-detector-", 0).factory())) {
             var client = HttpClient.newBuilder()
                     .connectTimeout(CONNECT_TIMEOUT)
                     .executor(executor)
