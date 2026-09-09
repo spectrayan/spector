@@ -74,15 +74,14 @@ spector-memory/
 │     └── HebbianGraph.java             (associative memory network)
 │
 ├── graph/                          ← "Entity-Relationship Graph" + temporal
-│     ├── EntityGraph.java              (LLM-powered knowledge graph)
+│     ├── HyperEntityGraphMemory.java   (hypergraph entity storage)
 │     ├── EntityType.java               (21 well-known entity types)
-│     ├── RelationType.java             (21 well-known relation types)
-│     ├── TypeRegistry.java             (open-schema string ↔ int registry)
-│     ├── TemporalChain.java            (session-linked causal sequences)
+│     ├── TypeRegistryMemory.java       (open-schema string ↔ int registry)
+│     ├── TemporalChainMemory.java      (session-linked causal sequences)
 │     └── LlmEntityExtractor.java       (LLM entity extraction SPI impl)
 │
 ├── hippocampus/                    ← "Hippocampus" — consolidation & cleanup
-│     ├── ReflectDaemon.java            (sleep consolidation K-Means)
+│     ├── ReflectPathway.java           (sleep consolidation & reflection)
 │     └── TombstoneCompactor.java       (partition rebuild)
 │
 ├── habituation/                    ← "Habituation" — anti-filter bubble
