@@ -16,7 +16,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.cognitive.CompositeImportanceKernel;
 import com.spectrayan.spector.core.similarity.CosineSimilarity;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;
@@ -39,11 +39,11 @@ public final class CompositeImportanceScorer {
 
     private static final Logger log = LoggerFactory.getLogger(CompositeImportanceScorer.class);
 
-    private final AismeConfig config;
+    private final AismeProperties config;
     private final float[] baseWeights;
     private final List<float[]> activeGoalEmbeddings = new CopyOnWriteArrayList<>();
 
-    public CompositeImportanceScorer(AismeConfig config) {
+    public CompositeImportanceScorer(AismeProperties config) {
         if (config == null) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "config must not be null");
         }
@@ -237,7 +237,7 @@ public final class CompositeImportanceScorer {
         return importanceScore >= config.importanceFlashbulbThreshold();
     }
 
-    public AismeConfig config() {
+    public AismeProperties config() {
         return config;
     }
 }

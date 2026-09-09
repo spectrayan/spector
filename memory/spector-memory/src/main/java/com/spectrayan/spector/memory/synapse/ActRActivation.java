@@ -43,7 +43,7 @@ import java.lang.foreign.ValueLayout;
  * Total: ~35 CPU cycles for 8 recall slots.</p>
  *
  * @see DecayStrategy
- * @see DecayConfig
+ * @see com.spectrayan.spector.config.properties.DecayProperties
  * @see StrengthLayout
  * @see com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout
  */

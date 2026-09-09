@@ -16,6 +16,7 @@ import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.codec.FormatId;
 import com.spectrayan.spector.memory.kernel.codec.InPlaceHeaderStep;
 import com.spectrayan.spector.memory.kernel.codec.MigrationContext;
+import com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;

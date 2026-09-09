@@ -87,7 +87,6 @@ public final class SpectorMemoryBuilder {
     private String namespaceId;
     private boolean managedByRegistry = false;
     private boolean useBundleMode = true;   // V4 bundle architecture (ADR-0004)
-    private boolean usePathwayEngine = true;
 
     // ── Collaborators & SPI Providers ───────────────────────────
     private EmbeddingProvider embeddingProvider;
@@ -124,11 +123,7 @@ public final class SpectorMemoryBuilder {
     private AgentSoul agentSoul;
     private List<SoulContext> soulContexts;
     private IcnuWeights icnuWeights;
-    private com.spectrayan.spector.memory.aisme.config.AismeConfig aismeConfig;
-    private com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig dreamConfig;
-    private com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy circadianPolicy;
-    private com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig;
-    private com.spectrayan.spector.memory.graph.EntityExtractionMode entityExtractionMode = com.spectrayan.spector.memory.graph.EntityExtractionMode.NONE;
+    private com.spectrayan.spector.config.properties.AismeProperties aismeConfig;
     private com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor reflectSweepExecutor;
 
     // ==============================================================
@@ -287,83 +282,12 @@ public final class SpectorMemoryBuilder {
     }
 
     /**
-     * Sets embedding batch size on the provider configuration.
-     * @deprecated Configure on {@code props.provider().getEmbedding().setBatchSize(...)} instead.
-     */
-    @Deprecated(forRemoval = true)
-    public SpectorMemoryBuilder embedBatchSize(int size) {
-        if (size > 0) {
-            if (this.properties != null) {
-                this.properties = this.properties.copy();
-            } else {
-                this.properties = SpectorProperties.builder().build();
-            }
-            if (this.properties.provider() != null && this.properties.provider().getEmbedding() != null) {
-                this.properties.provider().getEmbedding().setBatchSize(size);
-            }
-        }
-        return this;
-    }
-
-    /**
-     * Compatibility setter for entity extraction mode.
-     * @deprecated Configure on {@code props.memory().getGraph().getEntity()} instead.
-     */
-    @Deprecated(forRemoval = true)
-    public SpectorMemoryBuilder entityExtractionMode(com.spectrayan.spector.memory.graph.EntityExtractionMode mode) {
-        this.entityExtractionMode = mode != null ? mode : com.spectrayan.spector.memory.graph.EntityExtractionMode.NONE;
-        if (mode != null && this.properties != null && this.properties.memory() != null) {
-            var graph = this.properties.memory().getGraph();
-            if (graph != null && graph.getEntity() != null) {
-                graph.getEntity().setExtractionMode(mode.name());
-            }
-        }
-        return this;
-    }
-
-    /**
      * Compatibility setter for AISME configuration.
      * @deprecated Configure on {@code props.memory().setAisme(...)} instead.
      */
     @Deprecated(forRemoval = true)
-    public SpectorMemoryBuilder aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig config) {
+    public SpectorMemoryBuilder aismeConfig(com.spectrayan.spector.config.properties.AismeProperties config) {
         this.aismeConfig = config;
-        return this;
-    }
-
-    /**
-     * Compatibility setter for circadian policy.
-     * @deprecated Configure on {@code props.memory().setCircadian(...)} instead.
-     */
-    @Deprecated(forRemoval = true)
-    public SpectorMemoryBuilder circadianPolicy(com.spectrayan.spector.config.properties.CircadianProperties policy) {
-        this.circadianPolicy = com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy.from(policy);
-        if (policy != null && this.properties != null && this.properties.memory() != null) {
-            this.properties.memory().setCircadian(policy);
-        }
-        return this;
-    }
-
-    /**
-     * Compatibility setter for dream configuration.
-     * @deprecated Configure on {@code props.memory().setDream(...)} instead.
-     */
-    @Deprecated(forRemoval = true)
-    public SpectorMemoryBuilder dreamConfig(com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig config) {
-        this.dreamConfig = config;
-        return this;
-    }
-
-    /**
-     * Compatibility setter for two-factor configuration.
-     * @deprecated Configure on {@code props.memory().setTwofactor(...)} instead.
-     */
-    @Deprecated(forRemoval = true)
-    public SpectorMemoryBuilder twoFactorConfig(com.spectrayan.spector.config.properties.TwoFactorProperties config) {
-        this.twoFactorConfig = com.spectrayan.spector.memory.synapse.TwoFactorConfig.from(config);
-        if (config != null && this.properties != null && this.properties.memory() != null) {
-            this.properties.memory().setTwofactor(config);
-        }
         return this;
     }
 
@@ -409,18 +333,6 @@ public final class SpectorMemoryBuilder {
         return this;
     }
 
-    /**
-     * Sets whether to use the Cognitive Pathway Engine.
-     * @deprecated Since 1.4.0. The pathway engine is the sole default memory execution engine.
-     */
-    @Deprecated
-    public SpectorMemoryBuilder usePathwayEngine(boolean enable) {
-        this.usePathwayEngine = enable;
-        if (this.properties != null && this.properties.memory() != null) {
-            this.properties.memory().setPathwayEnabled(enable);
-        }
-        return this;
-    }
 
     public SpectorMemoryBuilder embeddingProvider(EmbeddingProvider p) {
         this.embeddingProvider = p;
@@ -644,7 +556,6 @@ public final class SpectorMemoryBuilder {
     }
     public boolean managedByRegistry() { return managedByRegistry; }
     public boolean useBundleMode() { return useBundleMode; }
-    public boolean usePathwayEngine() { return usePathwayEngine; }
     public EmbeddingProvider embeddingProvider() { return embeddingProvider; }
     public LlmProvider llmProvider() { return llmProvider; }
     public LlmProvider LlmProvider() { return llmProvider; }
@@ -679,40 +590,10 @@ public final class SpectorMemoryBuilder {
     public GenerationOptions llmGenerationOptions() { return llmGenerationOptions; }
     public IcnuWeights icnuWeights() { return icnuWeights; }
     public RecallOptions defaultRecallOptions() { return defaultRecallOptions; }
-    public com.spectrayan.spector.memory.aisme.config.AismeConfig aismeConfig() {
+    public com.spectrayan.spector.config.properties.AismeProperties aismeConfig() {
         if (aismeConfig != null) return aismeConfig;
         return properties != null && properties.memory() != null && properties.memory().getAisme() != null
-                ? com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(properties.memory().getAisme()) : null;
-    }
-    public com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy circadianPolicy() {
-        if (circadianPolicy != null) return circadianPolicy;
-        return properties != null && properties.memory() != null && properties.memory().getCircadian() != null
-                ? com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy.from(properties.memory().getCircadian()) : null;
-    }
-    public com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig dreamConfig() {
-        if (dreamConfig != null) return dreamConfig;
-        return properties != null && properties.memory() != null && properties.memory().getDream() != null
-                ? com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig.from(properties.memory().getDream()) : null;
-    }
-    public com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig() {
-        if (twoFactorConfig != null) return twoFactorConfig;
-        return properties != null && properties.memory() != null && properties.memory().getTwofactor() != null
-                ? com.spectrayan.spector.memory.synapse.TwoFactorConfig.from(properties.memory().getTwofactor()) : null;
-    }
-    public com.spectrayan.spector.memory.graph.EntityExtractionMode entityExtractionMode() {
-        if (entityExtractionMode != null && entityExtractionMode != com.spectrayan.spector.memory.graph.EntityExtractionMode.NONE) {
-            return entityExtractionMode;
-        }
-        if (entityExtractor != null) return com.spectrayan.spector.memory.graph.EntityExtractionMode.CUSTOM;
-        if (properties != null && properties.memory() != null && properties.memory().getGraph() != null
-                && properties.memory().getGraph().getEntity() != null
-                && properties.memory().getGraph().getEntity().getExtractionMode() != null) {
-            try {
-                return com.spectrayan.spector.memory.graph.EntityExtractionMode.valueOf(
-                        properties.memory().getGraph().getEntity().getExtractionMode().toUpperCase(java.util.Locale.ROOT));
-            } catch (Exception ignored) {}
-        }
-        return com.spectrayan.spector.memory.graph.EntityExtractionMode.NONE;
+                ? com.spectrayan.spector.config.properties.AismeProperties.fromProperties(properties.memory().getAisme()) : null;
     }
     public com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor reflectSweepExecutor() {
         return reflectSweepExecutor;

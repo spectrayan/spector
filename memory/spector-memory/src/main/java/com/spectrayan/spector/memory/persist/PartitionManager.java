@@ -27,6 +27,7 @@ import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.bundle.BundleMigrationCli;
+import com.spectrayan.spector.memory.kernel.bundle.LegacyV3Layout;
 import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
 import com.spectrayan.spector.memory.kernel.bundle.RegionId;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
@@ -571,9 +572,10 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
      * <p>Called before a partition roll to ensure global structures are
      * persisted. Entity graph flush is included (was missing in V2).</p>
      */
+    @SuppressWarnings("removal")
     private void flushGlobalState() {
         if (basePath == null) return;
-        Path targetPath = useBundleMode ? StorageLayout.runtimeBundleFile(basePath) : StorageLayout.indexMidxRuntime(basePath);
+        Path targetPath = useBundleMode ? StorageLayout.runtimeBundleFile(basePath) : LegacyV3Layout.indexMidxRuntime(basePath);
         try {
             index.save(targetPath);
             log.info("Flushed MemoryIndex during partition roll");
@@ -582,13 +584,13 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                     e.getMessage(), e);
         }
         try {
-            hebbianGraph.save(useBundleMode ? targetPath : StorageLayout.hebbianGraphRuntime(basePath));
+            hebbianGraph.save(useBundleMode ? targetPath : LegacyV3Layout.hebbianGraphRuntime(basePath));
         } catch (Exception e) {
             log.error("Failed to flush HebbianGraph during partition roll: {}",
                     e.getMessage(), e);
         }
         try {
-            temporalChain.save(useBundleMode ? targetPath : StorageLayout.temporalChainRuntime(basePath));
+            temporalChain.save(useBundleMode ? targetPath : LegacyV3Layout.temporalChainRuntime(basePath));
         } catch (Exception e) {
             log.error("Failed to flush TemporalChain during partition roll: {}",
                     e.getMessage(), e);

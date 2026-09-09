@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.pathway.wander.relay;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
 import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
@@ -55,7 +55,7 @@ public final class WanderSignal {
     private final HebbianGraphBase hebbianGraph;
     private final HomeostaticCore homeostaticCore;
     private final ContinuityMemory continuityMemory;
-    private final AismeConfig aismeConfig;
+    private final AismeProperties aismeConfig;
 
     private final long lastActivityTimestampMs;
     private final int idleThresholdSeconds;
@@ -138,7 +138,7 @@ public final class WanderSignal {
     public HebbianGraphBase hebbianGraph() { return hebbianGraph; }
     public HomeostaticCore homeostaticCore() { return homeostaticCore; }
     public ContinuityMemory continuityMemory() { return continuityMemory; }
-    public AismeConfig aismeConfig() { return aismeConfig; }
+    public AismeProperties aismeConfig() { return aismeConfig; }
 
     public long lastActivityTimestampMs() { return lastActivityTimestampMs; }
     public int idleThresholdSeconds() { return idleThresholdSeconds; }
@@ -211,7 +211,7 @@ public final class WanderSignal {
         private HebbianGraphBase hebbianGraph;
         private HomeostaticCore homeostaticCore;
         private ContinuityMemory continuityMemory;
-        private AismeConfig aismeConfig;
+        private AismeProperties aismeConfig;
 
         private long lastActivityTimestampMs = System.currentTimeMillis();
         private int idleThresholdSeconds = 60;
@@ -236,7 +236,7 @@ public final class WanderSignal {
         public Builder hebbianGraph(HebbianGraphBase hg) { this.hebbianGraph = hg; return this; }
         public Builder homeostaticCore(HomeostaticCore hc) { this.homeostaticCore = hc; return this; }
         public Builder continuityMemory(ContinuityMemory crm) { this.continuityMemory = crm; return this; }
-        public Builder aismeConfig(AismeConfig cfg) { this.aismeConfig = cfg; return this; }
+        public Builder aismeConfig(AismeProperties cfg) { this.aismeConfig = cfg; return this; }
 
         public Builder lastActivityTimestampMs(long ts) { this.lastActivityTimestampMs = ts; return this; }
         public Builder idleThresholdSeconds(int sec) { this.idleThresholdSeconds = sec; return this; }

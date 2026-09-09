@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.pathway.reflect.relay;
 
-import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
+import com.spectrayan.spector.config.properties.CircadianProperties;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +25,7 @@ class SynapticPruningRelayTest {
     @DisplayName("transmit returns true")
     void testPruningRelayTransmit() {
         ReflectSignal signal = ReflectSignal.builder()
-                .policy(CircadianPolicy.builder().decayPruneThreshold(0.05f).build())
+                .policy(CircadianProperties.builder().decayPruneThreshold(0.05f).build())
                 .build();
 
         SynapticPruningRelay relay = new SynapticPruningRelay();

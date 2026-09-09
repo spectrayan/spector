@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.aisme.importance;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
@@ -41,12 +41,12 @@ import java.util.List;
  */
 class CompositeImportanceBenchmarkTest {
 
-    private AismeConfig config;
+    private AismeProperties config;
     private CompositeImportanceScorer scorer;
 
     @BeforeEach
     void setUp() {
-        config = AismeConfig.builder()
+        config = AismeProperties.builder()
                 .enabled(true)
                 .enableImportance(true)
                 .importanceWeightSurprise(0.20f)

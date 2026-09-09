@@ -568,13 +568,13 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
             if (factsNode != null && factsNode.isArray()) {
                 List<ConsolidatedFact> list = new ArrayList<>();
                 for (JsonNode node : factsNode) {
-                    String text = node.has("text") ? node.get("text").asText("").trim() : "";
+                    String text = node.has("text") ? node.get("text").asString("").trim() : "";
                     if (text.isBlank() || text.length() < 10) continue;
 
                     List<String> tags = new ArrayList<>();
                     if (node.has("synapticTags") && node.get("synapticTags").isArray()) {
                         for (JsonNode tNode : node.get("synapticTags")) {
-                            String t = tNode.asText("").trim().toLowerCase(Locale.ROOT);
+                            String t = tNode.asString("").trim().toLowerCase(Locale.ROOT);
                             if (!t.isBlank()) tags.add(t);
                         }
                     }

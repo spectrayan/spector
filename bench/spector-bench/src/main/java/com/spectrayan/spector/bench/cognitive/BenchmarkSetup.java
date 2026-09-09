@@ -50,7 +50,6 @@ import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityType;
-import com.spectrayan.spector.memory.graph.RelationType;
 import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
@@ -99,7 +98,7 @@ public final class BenchmarkSetup implements AutoCloseable {
     public SpectorMemory createMemoryInstance(DatasetLoader.LoadedDataset dataset,
                                               EmbeddingProvider embedder,
                                               Path datasetDir,
-                                              com.spectrayan.spector.memory.aisme.config.AismeConfig aismeConfig) {
+                                              com.spectrayan.spector.config.properties.AismeProperties aismeConfig) {
         List<BenchmarkCorpusRecord> corpus = dataset.corpus();
         int corpusSize = corpus.size();
 
@@ -227,16 +226,16 @@ public final class BenchmarkSetup implements AutoCloseable {
         memoryProperties.setEpisodicPartitionCapacity(corpusSize + 100);
         memoryProperties.setProceduralCapacity(Math.max(50, corpusSize / 5));
 
+        memoryProperties.setCircadian(com.spectrayan.spector.config.properties.CircadianProperties.builder()
+                .volumeTrigger(Integer.MAX_VALUE)
+                .build());
+
         com.spectrayan.spector.memory.SpectorMemoryBuilder builder =
                 com.spectrayan.spector.memory.config.SpectorMemoryConfigurator.builder(datasetProps)
                 .fromProperties(memoryProperties)
                 .bundleMode(true)
-                .usePathwayEngine(true)
                 .embeddingProvider(embedder)
-                .chunkConfig(com.spectrayan.spector.commons.chunker.ChunkConfig.plainText(100_000, 0))
-                .circadianPolicy(com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy.builder()
-                        .volumeTrigger(Integer.MAX_VALUE)
-                        .build());
+                .chunkConfig(com.spectrayan.spector.commons.chunker.ChunkConfig.plainText(100_000, 0));
 
         // Resolve Entity Extraction Mode from configuration
         EntityExtractionMode extractionMode = EntityExtractionMode.CUSTOM;
@@ -253,7 +252,9 @@ public final class BenchmarkSetup implements AutoCloseable {
             }
         }
 
-        builder.entityExtractionMode(extractionMode);
+        if (memoryProperties.getGraph() != null && memoryProperties.getGraph().getEntity() != null) {
+            memoryProperties.getGraph().getEntity().setExtractionMode(extractionMode.name());
+        }
         if (extractionMode == EntityExtractionMode.CUSTOM) {
             builder.entityExtractor(customExtractor);
         }
@@ -261,7 +262,7 @@ public final class BenchmarkSetup implements AutoCloseable {
         if (aismeConfig != null) {
             builder.aismeConfig(aismeConfig);
         } else if (memoryProperties.getAisme() != null) {
-            builder.aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(memoryProperties.getAisme()));
+            builder.aismeConfig(memoryProperties.getAisme());
         }
 
         float threshold = memoryProperties.getGraphExpansionThreshold();

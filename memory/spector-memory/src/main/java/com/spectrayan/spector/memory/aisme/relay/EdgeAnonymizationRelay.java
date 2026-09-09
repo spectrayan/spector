@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.aisme.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.privacy.EdgeAnonymizer;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;
@@ -31,10 +31,10 @@ public final class EdgeAnonymizationRelay implements SynapticRelay<RememberSigna
 
     private static final Logger log = LoggerFactory.getLogger(EdgeAnonymizationRelay.class);
 
-    private final AismeConfig config;
+    private final AismeProperties config;
     private final EdgeAnonymizer anonymizer;
 
-    public EdgeAnonymizationRelay(AismeConfig config, EdgeAnonymizer anonymizer) {
+    public EdgeAnonymizationRelay(AismeProperties config, EdgeAnonymizer anonymizer) {
         this.config = config;
         this.anonymizer = anonymizer;
     }

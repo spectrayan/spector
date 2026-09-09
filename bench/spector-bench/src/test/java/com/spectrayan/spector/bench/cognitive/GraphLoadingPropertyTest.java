@@ -19,7 +19,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.spectrayan.spector.memory.graph.EntityType;
-import com.spectrayan.spector.memory.graph.RelationType;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 
@@ -124,8 +123,19 @@ class GraphLoadingPropertyTest {
     // Generators
     // ══════════════════════════════════════════════════════════════
 
+    private static final String[] RELATION_TYPES = {
+        "MANAGES", "REPORTS_TO", "KNOWS", "ASSIGNED_TO", "AUTHORED",
+        "WORKS_ON", "CREATED_BY", "OWNS", "IMPLEMENTS",
+        "PART_OF", "CONTAINS", "DEPENDS_ON", "USES",
+        "CAUSES", "BLOCKS", "SUPERSEDES", "PRECEDES", "FOLLOWS",
+        "LOCATED_AT",
+        "GREAT_GRANDPARENT_OF", "GRANDPARENT_OF", "PARENT_OF", "CHILD_OF",
+        "SPOUSE_OF", "SIBLING_OF", "COUSIN_OF", "RELATIVE_OF",
+        "RELATED_TO", "OTHER"
+    };
+
     @Provide
     Arbitrary<String> relationTypes() {
-        return Arbitraries.of(RelationType.SEED);
+        return Arbitraries.of(RELATION_TYPES);
     }
 }

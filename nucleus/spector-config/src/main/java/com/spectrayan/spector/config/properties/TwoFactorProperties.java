@@ -69,6 +69,10 @@ public class TwoFactorProperties implements Serializable {
     public static final TwoFactorProperties DISABLED = new TwoFactorProperties(
             DEFAULT_MEMORY_TWOFACTOR_S_GAIN, DEFAULT_MEMORY_TWOFACTOR_S_MAX, DEFAULT_MEMORY_TWOFACTOR_S_EXPONENT, false);
 
+    public static TwoFactorProperties from(TwoFactorProperties props) {
+        return props != null ? props.copy() : DEFAULT;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

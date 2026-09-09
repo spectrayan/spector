@@ -54,8 +54,7 @@ import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
-import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
-import com.spectrayan.spector.memory.pathway.reflect.daemon.ReflectDaemon;
+import com.spectrayan.spector.config.properties.CircadianProperties;
 import com.spectrayan.spector.memory.kernel.id.IdStrategy;
 import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory;
@@ -104,18 +103,15 @@ import com.spectrayan.spector.memory.pathway.wander.WanderPathway;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.persist.PersistenceManager;
 import com.spectrayan.spector.memory.pathway.pipeline.AttachmentProcessor;
-import com.spectrayan.spector.memory.pathway.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.pathway.pipeline.ContentTagExtractor;
 import com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy;
 import com.spectrayan.spector.memory.pathway.pipeline.HebbianCoActivationListener;
 import com.spectrayan.spector.memory.pathway.pipeline.LtpReconsolidationListener;
-import com.spectrayan.spector.memory.pathway.pipeline.RecallPipeline;
 import com.spectrayan.spector.memory.pathway.pipeline.TagExtractor;
 import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTReranker;
 import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTTokenCache;
 import com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.cortex.prospective.Reminder;
-import com.spectrayan.spector.memory.pathway.reflect.ReflectionOrchestrator;
 import com.spectrayan.spector.memory.pathway.reflect.ReinforcementHandler;
 import com.spectrayan.spector.memory.scheduler.MemoryScheduler;
 import com.spectrayan.spector.memory.scheduler.QuartzMemoryScheduler;
@@ -135,7 +131,6 @@ import com.spectrayan.spector.memory.pathway.wander.relay.WanderReport;
 import com.spectrayan.spector.memory.bootstrap.SpectorMemoryFactory;
 import com.spectrayan.spector.memory.persist.PersistenceManager;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.pathway.reflect.ReflectionOrchestrator;
 import com.spectrayan.spector.memory.pathway.reflect.ReinforcementHandler;
 
 import com.spectrayan.spector.memory.cortex.adaptor.ProfileAdaptor;
@@ -185,8 +180,7 @@ import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
-import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
-import com.spectrayan.spector.memory.pathway.reflect.daemon.ReflectDaemon;
+import com.spectrayan.spector.config.properties.CircadianProperties;
 import com.spectrayan.spector.memory.cortex.consolidation.BatchConsolidator;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
@@ -260,11 +254,11 @@ import com.spectrayan.spector.memory.model.CognitiveRecord;
  * <h3>Design Pattern: FaÃ§ade</h3>
  * <p>{@code DefaultSpectorMemory} is a thin faÃ§ade that composes and delegates to focused subsystems:</p>
  * <ul>
- *   <li>{@link CognitiveIngestionTarget}  --  10-step ingest (embed  ->  quantize  ->  route  ->  WAL)</li>
- *   <li>{@link RecallPipeline}  --  8-step recall (embed  ->  score  ->  filter  ->  sort)</li>
+ *   <li>{@link RememberPathway}  --  multi-stage ingest (embed  ->  quantize  ->  route  ->  WAL)</li>
+ *   <li>{@link RecallPathway}  --  multi-stage recall (embed  ->  score  ->  filter  ->  sort)</li>
  *   <li>{@link PartitionManager}  --  DISK partition discovery, creation, and rolling</li>
  *   <li>{@link ImportanceEstimator}  --  read-only novelty/ICNU/flashbulb pipeline</li>
- *   <li>{@link ReflectionOrchestrator}  --  sleep consolidation, graph decay, cross-layer promotion</li>
+ *   <li>{@link ReflectPathway}  --  sleep consolidation, graph decay, cross-layer promotion</li>
  *   <li>{@link ReinforcementHandler}  --  valence, LTP, ACT-R, Two-Factor, ICNU re-fusion</li>
  *   <li>{@link PersistenceManager}  --  flush-on-close and resource cleanup</li>
  * </ul>
@@ -301,7 +295,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     //  Extracted Strategy/Handler Components 
     private final PartitionManager partitionManager;     // owns volatile cognitiveRouter
     private final ImportanceProvider importanceProvider;
-    private final ReflectionOrchestrator reflectionOrchestrator;
     private final ReinforcementHandler reinforcementHandler;
     private final BatchConsolidator batchConsolidator;
     private final com.spectrayan.spector.memory.cortex.consolidation.EagerConsolidator eagerConsolidator;
@@ -329,7 +322,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final int dimensions;
     private final MemoryPersistenceMode persistenceMode;
     private final Path persistencePath;
-    private final CircadianPolicy circadianPolicy;
+    private final CircadianProperties circadianPolicy;
     private final com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor reflectSweepExecutor;
     private final CognitiveProfileConfig profileConfig;
     private final RecallOptions defaultRecallOptions;
@@ -399,7 +392,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.quantizer = bundle.quantizer();
         this.partitionManager = bundle.partitionManager();
         this.importanceProvider = bundle.importanceProvider();
-        this.reflectionOrchestrator = bundle.reflectionOrchestrator();
         this.reinforcementHandler = bundle.reinforcementHandler();
         var memProps = builder.properties() != null && builder.properties().memory() != null
                 ? builder.properties().memory()
@@ -410,7 +402,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         var consProps = memProps.getConsolidation() != null
                 ? memProps.getConsolidation()
                 : new com.spectrayan.spector.config.properties.ConsolidationProperties();
-        var aismeConfig = com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(
+        var aismeConfig = com.spectrayan.spector.config.properties.AismeProperties.fromProperties(
                 memProps.getAisme());
  
         this.batchConsolidator = new BatchConsolidator(builder.llmProvider(), this.embeddingProvider);
@@ -460,8 +452,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.dimensions = memProps.getDimensions();
         this.persistenceMode = builder.persistenceMode();
         this.persistencePath = builder.persistencePath();
-        this.circadianPolicy = com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy.from(
-                memProps.getCircadian());
+        this.circadianPolicy = memProps.getCircadian() != null ? memProps.getCircadian() : new CircadianProperties();
         String orchestratorName = memProps.getCircadian() != null ? memProps.getCircadian().getOrchestrator() : null;
         this.reflectSweepExecutor = builder.reflectSweepExecutor() != null
                 ? builder.reflectSweepExecutor()
@@ -1175,7 +1166,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             if (reflectPathway != null) {
                 return reflectPathway.reflect(partitionManager, index, rememberPathway, salienceProfile(), episodicSessionIndex, spec, null);
             }
-            return reflectionOrchestrator != null ? reflectionOrchestrator.reflect(partitionManager, index, rememberPathway) : ReflectReport.empty();
+            return ReflectReport.empty();
         } finally {
             releaseLease();
         }

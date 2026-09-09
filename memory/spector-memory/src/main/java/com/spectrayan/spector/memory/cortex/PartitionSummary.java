@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.cortex;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EpisodeLayout;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -162,13 +162,13 @@ public record PartitionSummary(
                     break;
                 }
                 int magic = router.episodic().segment().get(ValueLayout.JAVA_INT_UNALIGNED, current);
-                if (magic == EpisodeLayout.MAGIC) {
+                if (magic == EpisodicLayout.MAGIC) {
                     // Option B record
                     int payloadBytes = router.episodic().segment().get(ValueLayout.JAVA_INT_UNALIGNED, current + 4);
-                    if (payloadBytes < 0 || current + EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {
+                    if (payloadBytes < 0 || current + EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {
                         break;
                     }
-                    long headerOffset = current + EpisodeLayout.PREFIX_BYTES;
+                    long headerOffset = current + EpisodicLayout.PREFIX_BYTES;
                     byte flags = router.episodic().segment().get(EncodingHeaderFields.LAYOUT_FLAGS, headerOffset + EncodingHeaderFields.OFFSET_FLAGS);
                     if (!EncodingHeaderFields.isTombstoned(flags)) {
                         epiCount++;
@@ -178,7 +178,7 @@ public record PartitionSummary(
                             maxTs = Math.max(maxTs, ts);
                         }
                     }
-                    current += EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
+                    current += EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
                 } else {
                     // Legacy punned turn (64B header + body)
                     if (current + EncodingHeaderFields.HEADER_BYTES > limit) {

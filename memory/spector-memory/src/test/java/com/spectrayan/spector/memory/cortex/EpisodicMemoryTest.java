@@ -15,8 +15,7 @@ package com.spectrayan.spector.memory.cortex;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.EpisodeCodec;
-import com.spectrayan.spector.memory.kernel.layout.EpisodeLayout;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
 import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.EngramSource;
@@ -85,9 +84,9 @@ class EpisodicMemoryTest {
 
         // Verify Option B framing
         long absoluteOffset = episodicMemory.dataOffset() + offset;
-        assertTrue(EpisodicHeaderAccessor.isOptionBRecord(episodicMemory.segment(), absoluteOffset));
-        assertEquals(EpisodeLayout.MAGIC, EpisodicHeaderAccessor.readMagic(episodicMemory.segment(), absoluteOffset));
-        assertEquals(0.85f, EpisodicHeaderAccessor.readImportance(episodicMemory.segment(), absoluteOffset), 0.001f);
+        assertTrue(EpisodicHeaderLayout.INSTANCE.isOptionBRecord(episodicMemory.segment(), absoluteOffset));
+        assertEquals(EpisodicLayout.MAGIC, EpisodicHeaderLayout.INSTANCE.readMagic(episodicMemory.segment(), absoluteOffset));
+        assertEquals(0.85f, EpisodicHeaderLayout.INSTANCE.readImportanceRecord(episodicMemory.segment(), absoluteOffset), 0.001f);
     }
 
     @Test
@@ -216,46 +215,7 @@ class EpisodicMemoryTest {
         assertNull(rec2.body());
     }
 
-    @Test
-    @DisplayName("Should support dual-read of legacy punned records (R4.4)")
-    void shouldSupportDualRead_ofLegacyPunnedRecords() {
-        // Option B turn first
-        long optBOffset = episodicMemory.appendTurn(ConversationRole.USER, 1, 1000L, 123L,
-                "Option B message".getBytes(), (short) 1, 10, 5, 50, 777L, (short) 1, SourceModality.TEXT,
-                0.9f, (byte) 10, (byte) 5, EngramSource.EXPERIENCED);
 
-        EpisodeRecord optBRec = episodicMemory.readTurn(optBOffset, true);
-        assertEquals("Option B message", new String(optBRec.body()));
-        assertEquals(0.9f, optBRec.importance(), 0.001f);
-        assertEquals(EngramSource.EXPERIENCED, optBRec.source());
-
-        // Now simulate a legacy punned record manually in the buffer
-        long legacyOffset = episodicMemory.writePosition();
-        long legacyAbs = episodicMemory.dataOffset() + legacyOffset;
-        byte[] legacyBody = "Legacy message".getBytes();
-
-        var seg = episodicMemory.segment();
-        seg.set(ValueLayout.JAVA_BYTE, legacyAbs + EncodingHeaderFields.OFFSET_VERSION, (byte) 1);
-        seg.set(ValueLayout.JAVA_BYTE, legacyAbs + EncodingHeaderFields.OFFSET_VALENCE, (byte) ConversationRole.ASSISTANT.ordinal());
-        seg.set(ValueLayout.JAVA_INT_UNALIGNED, legacyAbs + EncodingHeaderFields.OFFSET_IMPORTANCE, 2); // sequenceId
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, legacyAbs + EncodingHeaderFields.OFFSET_TIMESTAMP, 2000L);
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, legacyAbs + EncodingHeaderFields.OFFSET_SYNAPTIC_TAGS, 123L); // sessionId
-        seg.set(ValueLayout.JAVA_INT_UNALIGNED, legacyAbs + EncodingHeaderFields.OFFSET_ENCODING_SURPRISE, legacyBody.length);
-        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, legacyAbs + EncodingHeaderFields.OFFSET_CENTROID_ID, (short) 2);
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, legacyAbs + EncodingHeaderFields.OFFSET_LAST_AUTO_LTP, 888L); // userId
-        // write body immediately after 64B legacy header
-        seg.asSlice(legacyAbs + 64, legacyBody.length).copyFrom(java.lang.foreign.MemorySegment.ofArray(legacyBody));
-
-        // Dual-read verification
-        assertFalse(EpisodicHeaderAccessor.isOptionBRecord(seg, legacyAbs));
-        EpisodeRecord legacyRec = episodicMemory.readTurn(legacyOffset, true);
-        assertEquals(ConversationRole.ASSISTANT, legacyRec.role());
-        assertEquals(2, legacyRec.sequenceId());
-        assertEquals(2000L, legacyRec.timestampMs());
-        assertEquals(123L, legacyRec.sessionId());
-        assertEquals("Legacy message", new String(legacyRec.body()));
-        assertEquals(888L, legacyRec.userId());
-    }
 
     @Test
     @DisplayName("EpisodicMemory satisfies EngramMemory contract")

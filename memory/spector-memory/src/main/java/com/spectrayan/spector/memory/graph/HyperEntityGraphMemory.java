@@ -99,7 +99,7 @@ import static com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout.SUB_
  * <p>Per-entity hyperedge cap (HyperEntityLayout.MAX_HYPEREDGES_PER_ENTITY=64). When exceeded,
  * the weakest hyperedge (by weight) is evicted.</p>
  *
- * @see EntityGraphMemory
+ * @see EntityDirectory
  */
 public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntityLayout> {
 
@@ -748,8 +748,7 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
      *
      * <p>Scans hyperedges incident to {@code entityA} for 2-vertex edges that also contain
      * {@code entityB}. For each match, the weight is increased by {@code boost} (capped at
-     * the maximum float value). This replaces the legacy {@code EntityGraphMemory.boostEdgeWeight}
-     * for the STC cross-capture use case in reflection.</p>
+     * the maximum float value). Used for the STC cross-capture use case in reflection.</p>
      *
      * @param entityA first entity id
      * @param entityB second entity id
@@ -757,18 +756,16 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
      * @return {@code true} if at least one matching hyperedge was boosted
      */
     public boolean boostHyperedgeWeight(int entityA, int entityB, float boost) {
+        if (boost <= 0.0f || entityA == entityB || entityA < 0 || entityA >= entityCapacity
+                || entityB < 0 || entityB >= entityCapacity) {
+            return false;
+        }
         long stamp = lock.writeLock();
         try {
             boolean boosted = false;
             // Walk the incidence list for entityA
-            if (entityA < 0 || entityA >= entityCapacity) return false;
-            long idxOff = (long) entityA * 2L * HyperEntityLayout.INCIDENCE_ENTRY_BYTES;
-            int start = incidenceIndex.get(ValueLayout.JAVA_INT, idxOff);
-            int count = incidenceIndex.get(ValueLayout.JAVA_INT, idxOff + HyperEntityLayout.INCIDENCE_ENTRY_BYTES);
-
-            for (int i = start; i < start + count; i++) {
-                int edgeId = incidenceList.get(ValueLayout.JAVA_INT,
-                        (long) i * HyperEntityLayout.INCIDENCE_ENTRY_BYTES);
+            List<Integer> edgeIds = incidenceHeap.get(entityA);
+            for (int edgeId : edgeIds) {
                 long hedgeOff = (long) edgeId * HyperEntityLayout.HEDGE_BYTES;
                 int vc = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_COUNT);
                 if (vc != 2) continue; // only boost binary (2-vertex) relationship edges

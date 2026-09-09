@@ -29,7 +29,6 @@ import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
-import com.spectrayan.spector.metrics.MeteredSpectorMemory;
 import com.spectrayan.spector.metrics.SpectorMetrics;
 
 import com.spectrayan.spector.provider.langchain4j.LangChain4jHelper;
@@ -245,17 +244,23 @@ public class SpectorAutoConfiguration {
                         spectorProps.memory().getCircadian().getOrchestrator());
             }
 
+            // ── Entity extraction (LLM if LlmProvider is present) ─────
+            LlmProvider textGen = textGenProvider.getIfAvailable();
+            if (spectorProps.memory() != null && spectorProps.memory().getGraph() != null
+                    && spectorProps.memory().getGraph().getEntity() != null) {
+                if (textGen != null) {
+                    spectorProps.memory().getGraph().getEntity().setExtractionMode(EntityExtractionMode.LLM.name());
+                } else {
+                    spectorProps.memory().getGraph().getEntity().setExtractionMode(EntityExtractionMode.NONE.name());
+                }
+            }
+
             var builder = SpectorMemoryBuilder.createEmpty()
                     .fromProperties(spectorProps)
                     .embeddingProvider(embedder);
 
-            //  Entity extraction (LLM if LlmProvider is present)
-            LlmProvider textGen = textGenProvider.getIfAvailable();
             if (textGen != null) {
-                builder.entityExtractionMode(EntityExtractionMode.LLM);
-                builder.LlmProvider(textGen);
-            } else {
-                builder.entityExtractionMode(EntityExtractionMode.NONE);
+                builder.llmProvider(textGen);
             }
 
             //  Salience profile provider (user-driven importance modulation)

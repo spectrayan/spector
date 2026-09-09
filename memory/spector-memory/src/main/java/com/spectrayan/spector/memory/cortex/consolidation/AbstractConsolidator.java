@@ -236,7 +236,7 @@ public abstract class AbstractConsolidator implements Consolidator {
             }
         } else if (fallbackStore != null) {
             MemorySegment segment = fallbackStore.segment();
-            FixedEngramLayout layout = fallbackStore.cognitiveLayout();
+            FixedEngramLayout layout = (FixedEngramLayout) fallbackStore.layout();
             layout.tombstone(segment, record.byteOffset());
         }
 

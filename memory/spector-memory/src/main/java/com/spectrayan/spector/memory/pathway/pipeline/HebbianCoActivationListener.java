@@ -36,7 +36,7 @@ import java.util.List;
  *
  * <h3>Design Pattern: Observer</h3>
  * <p>Previously hardcoded in SpectorMemory.recall() Step 8, now a standalone
- * listener registered with {@link RecallPipeline#addListener}.</p>
+ * listener registered with {@code RecallPipeline#addListener}.</p>
  */
 public final class HebbianCoActivationListener implements RecallListener {
 

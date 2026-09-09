@@ -18,9 +18,8 @@ import com.spectrayan.spector.memory.cortex.MemoryBM25Index.BM25Candidate;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -69,6 +68,7 @@ public class RecallCandidateGatherer {
     /**
      * Fuses BM25 text search candidates with existing vector recall results using Reciprocal Rank Fusion (RRF).
      */
+    @SuppressWarnings("deprecation")
     public void fuseBM25Candidates(List<CognitiveResult> vectorResults,
                                    List<BM25Candidate> bm25Hits,
                                    RecallOptions options,

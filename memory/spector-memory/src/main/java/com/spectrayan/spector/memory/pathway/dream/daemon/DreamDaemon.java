@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.pathway.dream.daemon;
 
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
 import org.slf4j.Logger;
@@ -40,7 +40,7 @@ public final class DreamDaemon implements Runnable {
 
     private final DreamPathway dreamPathway;
     private final PartitionManager partitionManager;
-    private final AismeConfig aismeConfig;
+    private final AismeProperties aismeConfig;
     private final LongSupplier lastActivitySupplier;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicInteger cycleCounter = new AtomicInteger(0);
@@ -48,7 +48,7 @@ public final class DreamDaemon implements Runnable {
     public DreamDaemon(
             DreamPathway dreamPathway,
             PartitionManager partitionManager,
-            AismeConfig aismeConfig,
+            AismeProperties aismeConfig,
             LongSupplier lastActivitySupplier) {
         this.dreamPathway = Objects.requireNonNull(dreamPathway, "DreamPathway must not be null");
         this.partitionManager = partitionManager;

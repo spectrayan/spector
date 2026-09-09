@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.dream.daemon;
 
+import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.Executors;
@@ -26,7 +26,7 @@ class DreamDaemonTest {
 
     @Test
     void testDreamDaemonBackgroundExecution() throws Exception {
-        DreamConfig config = DreamConfig.builder()
+        DreamProperties config = DreamProperties.builder()
                 .enabled(true)
                 .dreamCycleFrequency(1) // run every cycle for test
                 .build();

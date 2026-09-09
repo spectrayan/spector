@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.aisme.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.importance.CompositeImportanceScorer;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.pathway.RelayNames;
@@ -34,15 +34,15 @@ public final class CompositeImportanceRelay implements SynapticRelay<RememberSig
 
     private static final Logger log = LoggerFactory.getLogger(CompositeImportanceRelay.class);
 
-    private final AismeConfig config;
+    private final AismeProperties config;
     private final CompositeImportanceScorer scorer;
     private final CognitiveProfile profile;
 
-    public CompositeImportanceRelay(AismeConfig config, CompositeImportanceScorer scorer) {
+    public CompositeImportanceRelay(AismeProperties config, CompositeImportanceScorer scorer) {
         this(config, scorer, CognitiveProfile.BALANCED);
     }
 
-    public CompositeImportanceRelay(AismeConfig config, CompositeImportanceScorer scorer, CognitiveProfile profile) {
+    public CompositeImportanceRelay(AismeProperties config, CompositeImportanceScorer scorer, CognitiveProfile profile) {
         this.config = config;
         this.scorer = scorer;
         this.profile = profile != null ? profile : CognitiveProfile.BALANCED;

@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
 import com.spectrayan.spector.core.similarity.VectorOps;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,7 +31,7 @@ class DifferentialPrivacyEngineTest {
     @Test
     @DisplayName("perturbVector perturbs embedding and increments consumed budget")
     void perturbVector_perturbsAndTracksBudget() {
-        AismeConfig config = AismeConfig.builder()
+        AismeProperties config = AismeProperties.builder()
                 .enablePrivacy(true)
                 .privacyEpsilon(2.0f)
                 .privacyDelta(1e-5f)
@@ -57,7 +57,7 @@ class DifferentialPrivacyEngineTest {
     @Test
     @DisplayName("Disabled privacy returns original vector clone with zero budget consumption")
     void disabledPrivacy_returnsOriginalVector() {
-        AismeConfig config = AismeConfig.builder()
+        AismeProperties config = AismeProperties.builder()
                 .enablePrivacy(false)
                 .build();
 
@@ -74,7 +74,7 @@ class DifferentialPrivacyEngineTest {
     @Test
     @DisplayName("resetBudget clears budget counters")
     void resetBudget_clearsCounters() {
-        AismeConfig config = AismeConfig.builder()
+        AismeProperties config = AismeProperties.builder()
                 .enablePrivacy(true)
                 .privacyEpsilon(1.5f)
                 .build();
@@ -91,7 +91,7 @@ class DifferentialPrivacyEngineTest {
     @Test
     @DisplayName("perturbScalar applies Laplace noise to scalar metric")
     void perturbScalar_appliesLaplaceNoise() {
-        AismeConfig config = AismeConfig.builder()
+        AismeProperties config = AismeProperties.builder()
                 .enablePrivacy(true)
                 .privacyEpsilon(2.0f)
                 .build();

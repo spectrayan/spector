@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.memory.pathway.wander.WanderPathway;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.fegr.GenerativeSelfModel;
 import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
 import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;
@@ -60,7 +60,7 @@ class WanderPathwayTest {
         HebbianGraphMemory hebbianGraph = new HebbianGraphMemory(50);
         ContinuityMemory continuityMemory = ContinuityMemory.heap(100);
 
-        AismeConfig config = AismeConfig.defaultConfig();
+        AismeProperties config = AismeProperties.defaultConfig();
 
         try (WanderPathway pathway = WanderPathway.builder()
                 .quantizer(quantizer)

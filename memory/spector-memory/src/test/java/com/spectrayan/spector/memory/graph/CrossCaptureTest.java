@@ -19,20 +19,20 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for STC Cross-Capture: {@link EntityGraphMemory#boostEdgeWeight} and
+ * Tests for STC Cross-Capture: {@link HyperEntityGraphMemory#boostHyperedgeWeight} and
  * {@link GraphHealthMetrics#recordCrossCapture}.
  *
  * <p>Verifies that the Synaptic Tagging and Capture mechanism correctly
- * propagates Hebbian co-activation strength to existing entity edges
+ * propagates Hebbian co-activation strength to existing hyperedges
  * without creating new relations.</p>
  */
 class CrossCaptureTest {
 
-    private EntityGraphMemory graph;
+    private HyperEntityGraphMemory graph;
 
     @BeforeEach
     void setUp() {
-        graph = new EntityGraphMemory(100, 500);
+        graph = new HyperEntityGraphMemory(100, 500);
     }
 
     @AfterEach
@@ -41,76 +41,49 @@ class CrossCaptureTest {
     }
 
     @Test
-    void boostEdgeWeight_boostsExistingEntityEdge() {
-        // Setup: two entities with a relation
-        int alice = graph.addEntity("Alice", "PERSON");
-        int bob = graph.addEntity("Bob", "PERSON");
-        graph.addRelation(alice, bob, "WORKS_WITH");
+    void boostHyperedgeWeight_boostsExistingEdge() {
+        int alice = 1;
+        int bob = 2;
+        graph.addHyperedge(new int[]{alice, bob}, new int[]{1, 2}, 1, 1.0f, 0, System.currentTimeMillis());
 
-        // Read initial weight (should be 1.0)
-        var edges = graph.edges(alice);
-        assertThat(edges).hasSize(1);
-        float initialWeight = edges.getFirst().weight();
-        assertThat(initialWeight).isEqualTo(1.0f);
-
-        // Cross-capture boost
-        boolean boosted = graph.boostEdgeWeight(alice, bob, 0.2f);
+        boolean boosted = graph.boostHyperedgeWeight(alice, bob, 0.2f);
         assertThat(boosted).isTrue();
 
-        // Verify weight increased
-        edges = graph.edges(alice);
+        var edges = graph.findHyperedgesForEntity(alice);
+        assertThat(edges).hasSize(1);
         assertThat(edges.getFirst().weight()).isEqualTo(1.2f);
     }
 
     @Test
-    void boostEdgeWeight_doesNotCreateNewEdges() {
-        // Setup: two entities WITHOUT a relation
-        int alice = graph.addEntity("Alice", "PERSON");
-        int bob = graph.addEntity("Bob", "PERSON");
+    void boostHyperedgeWeight_doesNotCreateNewEdges() {
+        int alice = 1;
+        int bob = 2;
 
-        // Attempt cross-capture boost — should return false
-        boolean boosted = graph.boostEdgeWeight(alice, bob, 0.5f);
+        boolean boosted = graph.boostHyperedgeWeight(alice, bob, 0.5f);
         assertThat(boosted).isFalse();
 
-        // Verify no edges were created
-        var edges = graph.edges(alice);
+        var edges = graph.findHyperedgesForEntity(alice);
         assertThat(edges).isEmpty();
     }
 
     @Test
-    void boostEdgeWeight_cappedAtMaxWeight() {
-        // Setup: two entities with a relation
-        int alice = graph.addEntity("Alice", "PERSON");
-        int bob = graph.addEntity("Bob", "PERSON");
-        graph.addRelation(alice, bob, "WORKS_WITH");
-
-        // Boost repeatedly — should cap at MAX_EDGE_WEIGHT
-        for (int i = 0; i < 100; i++) {
-            graph.boostEdgeWeight(alice, bob, 1.0f);
-        }
-
-        var edges = graph.edges(alice);
-        assertThat(edges.getFirst().weight()).isEqualTo(EntityGraphMemory.MAX_EDGE_WEIGHT);
-    }
-
-    @Test
-    void boostEdgeWeight_rejectsInvalidInputs() {
-        int alice = graph.addEntity("Alice", "PERSON");
-        int bob = graph.addEntity("Bob", "PERSON");
-        graph.addRelation(alice, bob, "WORKS_WITH");
+    void boostHyperedgeWeight_rejectsInvalidInputs() {
+        int alice = 1;
+        int bob = 2;
+        graph.addHyperedge(new int[]{alice, bob}, new int[]{1, 2}, 1, 1.0f, 0, System.currentTimeMillis());
 
         // Negative boost
-        assertThat(graph.boostEdgeWeight(alice, bob, -0.5f)).isFalse();
+        assertThat(graph.boostHyperedgeWeight(alice, bob, -0.5f)).isFalse();
 
         // Zero boost
-        assertThat(graph.boostEdgeWeight(alice, bob, 0.0f)).isFalse();
+        assertThat(graph.boostHyperedgeWeight(alice, bob, 0.0f)).isFalse();
 
         // Self-loop
-        assertThat(graph.boostEdgeWeight(alice, alice, 0.5f)).isFalse();
+        assertThat(graph.boostHyperedgeWeight(alice, alice, 0.5f)).isFalse();
 
         // Out-of-range entity IDs
-        assertThat(graph.boostEdgeWeight(-1, bob, 0.5f)).isFalse();
-        assertThat(graph.boostEdgeWeight(alice, 9999, 0.5f)).isFalse();
+        assertThat(graph.boostHyperedgeWeight(-1, bob, 0.5f)).isFalse();
+        assertThat(graph.boostHyperedgeWeight(alice, 9999, 0.5f)).isFalse();
     }
 
     @Test
@@ -124,26 +97,5 @@ class CrossCaptureTest {
         metrics.recordCrossCapture();
 
         assertThat(metrics.crossCapturedEdges()).isEqualTo(3);
-    }
-
-    @Test
-    void boostEdgeWeight_updatesRecency() {
-        // Setup: two entities with a relation
-        int alice = graph.addEntity("Alice", "PERSON");
-        int bob = graph.addEntity("Bob", "PERSON");
-        graph.addRelation(alice, bob, "WORKS_WITH");
-
-        // Run a decay cycle to advance currentCycle
-        var metrics = new GraphHealthMetrics();
-        graph.decayEdges(0.95f, 0.5f, metrics);
-
-        // Now boost — the lastCycle should be updated to currentCycle
-        boolean boosted = graph.boostEdgeWeight(alice, bob, 0.1f);
-        assertThat(boosted).isTrue();
-
-        // Edge should still exist after another decay (recency refreshed)
-        graph.decayEdges(0.95f, 0.5f, null);
-        var edges = graph.edges(alice);
-        assertThat(edges).isNotEmpty();
     }
 }

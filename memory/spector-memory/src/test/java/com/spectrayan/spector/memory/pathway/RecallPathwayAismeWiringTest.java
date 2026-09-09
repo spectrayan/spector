@@ -18,7 +18,7 @@ import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.pathway.ConsolidationRelay;
 import com.spectrayan.spector.memory.aisme.AismeBuilder;
 import com.spectrayan.spector.memory.aisme.AismeBundle;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -57,7 +57,7 @@ class RecallPathwayAismeWiringTest {
                 .purposeEmbedding(new float[]{1.0f, 0.0f, 0.0f, 0.0f})
                 .build();
 
-        AismeConfig config = AismeConfig.builder()
+        AismeProperties config = AismeProperties.builder()
                 .enabled(true)
                 .globalWorkspaceCapacity(2)
                 .build();
@@ -110,7 +110,7 @@ class RecallPathwayAismeWiringTest {
     @Test
     void pathway_withAismeEnabled_appliesRelaysAndRestrictsToWorkspaceCapacity() {
         RecallOptions options = RecallOptions.builder()
-                .aismeConfig(AismeConfig.builder().globalWorkspaceCapacity(2).build())
+                .aismeConfig(AismeProperties.builder().globalWorkspaceCapacity(2).build())
                 .build();
 
         RecallSignal signal = RecallSignal.forTextQuery("query", options);

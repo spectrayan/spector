@@ -44,7 +44,7 @@ import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
  * <p>Writes are guarded by a {@link ReentrantLock}. Reads are lock-free
  * (may see slightly stale data — acceptable for soft-scoring signals).</p>
  *
- * @see CoActivationTracker
+ * @see CoActivationMemory
  */
 final class OffHeapPairTable {
 

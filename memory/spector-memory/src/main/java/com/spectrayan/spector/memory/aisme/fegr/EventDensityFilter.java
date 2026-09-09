@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.aisme.fegr;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.cognitive.FreeEnergyKernel;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +57,7 @@ public final class EventDensityFilter {
         this.rateController = new DynamicSamplingRateController(minSamplingRateHz, maxSamplingRateHz, threshold);
     }
 
-    public static EventDensityFilter fromConfig(AismeConfig config) {
+    public static EventDensityFilter fromConfig(AismeProperties config) {
         if (config == null) {
             return new EventDensityFilter(0.50f, 0.40f, 0.30f, 0.30f, 0.10f, 30.0f);
         }

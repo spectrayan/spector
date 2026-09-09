@@ -21,20 +21,21 @@ import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.pathway.recall.RecallPathway;
 import com.spectrayan.spector.memory.synapse.ActRActivation;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
-import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
 import com.spectrayan.spector.memory.sync.MemoryWal;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 
 import com.spectrayan.spector.memory.cortex.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.neuromod.amygdala.ValenceTracker;
@@ -43,16 +44,6 @@ import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.pathway.recall.RecallPathway;
-import com.spectrayan.spector.memory.synapse.ActRActivation;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.synapse.DecayStrategy;
-import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
-import com.spectrayan.spector.memory.sync.MemoryWal;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
@@ -135,9 +126,9 @@ public final class ReinforcementHandler {
         MemorySegment segment = cognitiveRouter.segmentFor(loc.type());
         if (segment != null) {
             if (loc.type() == MemoryType.EPISODIC) {
-                byte currentValence = EpisodicHeaderAccessor.readValence(segment, loc.offset());
+                byte currentValence = EpisodicHeaderLayout.INSTANCE.readValenceRecord(segment, loc.offset());
                 byte blended = Valence.blend(currentValence, valence, valenceTracker.learningRate());
-                EpisodicHeaderAccessor.writeValence(segment, loc.offset(), blended);
+                EpisodicHeaderLayout.INSTANCE.writeValenceRecord(segment, loc.offset(), blended);
             } else {
                 FixedEngramLayout layout = cognitiveRouter.layoutFor(loc.type());
 
@@ -261,7 +252,7 @@ public final class ReinforcementHandler {
         if (segment == null) return;
 
         if (loc.type() == MemoryType.EPISODIC) {
-            float oldImportance = EpisodicHeaderAccessor.readImportance(segment, loc.offset());
+            float oldImportance = EpisodicHeaderLayout.INSTANCE.readImportanceRecord(segment, loc.offset());
             float newImportance;
             if (updatedHints != null && !updatedHints.isEmpty()) {
                 float noveltyApprox = Math.min(1.0f, oldImportance / 5.0f);
@@ -270,7 +261,7 @@ public final class ReinforcementHandler {
             } else {
                 newImportance = oldImportance;
             }
-            EpisodicHeaderAccessor.writeImportance(segment, loc.offset(), newImportance);
+            EpisodicHeaderLayout.INSTANCE.writeImportanceRecord(segment, loc.offset(), newImportance);
             return;
         }
 

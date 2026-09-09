@@ -95,6 +95,10 @@ public class CircadianProperties implements Serializable {
 
     public static final CircadianProperties DEFAULT = new CircadianProperties();
 
+    public static CircadianProperties from(CircadianProperties p) {
+        return p != null ? p.copy() : DEFAULT;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -104,6 +108,7 @@ public class CircadianProperties implements Serializable {
 
         public Builder volumeTrigger(int v) { props.setVolumeTrigger(v); return this; }
         public Builder timeTrigger(java.time.Duration d) { props.setTimeTrigger(d); return this; }
+        public Builder timeTriggerSeconds(long s) { props.setTimeTriggerSeconds(s); return this; }
         public Builder tombstoneThreshold(float t) { props.setTombstoneThreshold(t); return this; }
         public Builder decayPruneThreshold(float d) { props.setDecayPruneThreshold(d); return this; }
         public Builder interferenceThreshold(float i) { props.setInterferenceThreshold(i); return this; }
@@ -111,7 +116,8 @@ public class CircadianProperties implements Serializable {
         public Builder orchestrator(String o) { props.setOrchestrator(o); return this; }
 
         public CircadianProperties build() {
-            return props;
+            return props.copy();
         }
     }
 }
+

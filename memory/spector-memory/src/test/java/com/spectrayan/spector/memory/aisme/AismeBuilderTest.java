@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.aisme;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.PersonaContext;
 import com.spectrayan.spector.memory.model.SoulContext;
@@ -32,14 +32,14 @@ class AismeBuilderTest {
 
     @Test
     void build_disabledConfig_returnsNull() {
-        AismeBundle bundle = AismeBuilder.build(AismeConfig.disabled(), (SoulContext) null, 4, id -> null);
+        AismeBundle bundle = AismeBuilder.build(AismeProperties.disabled(), (SoulContext) null, 4, id -> null);
         assertThat(bundle).isNull();
     }
 
     @Test
     void build_withAgentSoul_createsBundle() {
         AgentSoul soul = AgentSoul.builder().id("agent-1").name("Jarvis").build();
-        AismeConfig config = AismeConfig.defaultConfig();
+        AismeProperties config = AismeProperties.defaultConfig();
 
         AismeBundle bundle = AismeBuilder.build(config, soul, 4, id -> null);
         assertThat(bundle).isNotNull();
@@ -53,7 +53,7 @@ class AismeBuilderTest {
     void build_withUserSoul_createsBundle() {
         PersonaContext persona = PersonaContext.builder().aboutEmbedding(new float[]{0.1f, 0.2f, 0.3f, 0.4f}).build();
         UserSoul userSoul = new UserSoul("user-1", "Bharat", "CEO", persona, null);
-        AismeConfig config = AismeConfig.defaultConfig();
+        AismeProperties config = AismeProperties.defaultConfig();
 
         AismeBundle bundle = AismeBuilder.build(config, userSoul, 4, id -> null);
         assertThat(bundle).isNotNull();
@@ -70,7 +70,7 @@ class AismeBuilderTest {
         AgentSoul soul1 = AgentSoul.builder().id("agent-1").purposeEmbedding(emb1).build();
         TenantSoul soul2 = new TenantSoul("tenant-1", "Enterprise", "Compliance", null, null, emb2, (short) 1, null, null);
 
-        AismeConfig config = AismeConfig.defaultConfig();
+        AismeProperties config = AismeProperties.defaultConfig();
         AismeBundle bundle = AismeBuilder.build(config, soul1, 2, null, id -> null, List.of(soul1, soul2));
 
         assertThat(bundle).isNotNull();

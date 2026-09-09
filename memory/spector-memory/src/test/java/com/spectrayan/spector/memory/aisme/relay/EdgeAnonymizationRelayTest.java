@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.aisme.relay;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.privacy.EdgeAnonymizer;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -32,7 +32,7 @@ class EdgeAnonymizationRelayTest {
     @Test
     @DisplayName("transmit sanitizes text and tags when privacy is enabled")
     void transmit_sanitizesSignal() {
-        AismeConfig config = AismeConfig.builder()
+        AismeProperties config = AismeProperties.builder()
                 .enablePrivacy(true)
                 .privacyAnonymizePii(true)
                 .privacyPseudonymizationSalt("test-salt")
@@ -69,7 +69,7 @@ class EdgeAnonymizationRelayTest {
     @Test
     @DisplayName("transmit preserves original text when privacy is disabled")
     void transmit_preservesOriginalWhenDisabled() {
-        AismeConfig config = AismeConfig.builder()
+        AismeProperties config = AismeProperties.builder()
                 .enablePrivacy(false)
                 .build();
 

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.model;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.config.model.TextSearchMode;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
@@ -85,7 +85,7 @@ public record RecallOptions(
         byte queryValence,
         boolean enableValenceAlignment,
         //  Two-Factor Memory (Bjork & Bjork) 
-        com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig,
+        com.spectrayan.spector.config.properties.TwoFactorProperties twoFactorConfig,
         //  Recall Mode (Statefulness Control) 
         RecallMode recallMode,
         //  Text Search (BM25 Hybrid) 
@@ -130,7 +130,7 @@ public record RecallOptions(
         float minTrustScore,
         String personaId,
         //  Active Inference Self-Model Engine (AISME)
-        AismeConfig aismeConfig,
+        AismeProperties aismeConfig,
         //  Score Fusion Mode (MR-02)
         ScoreFusionMode scoreFusionMode,
         //  Lateral Inhibition & Retrieval Interference (MR-04)
@@ -189,8 +189,8 @@ public record RecallOptions(
     }
 
     /** Returns the effective AISME configuration, or disabled if null. */
-    public AismeConfig aismeConfig() {
-        return aismeConfig != null ? aismeConfig : AismeConfig.disabled();
+    public AismeProperties aismeConfig() {
+        return aismeConfig != null ? aismeConfig : AismeProperties.disabled();
     }
 
     /** Returns whether the Active Inference Self-Model Engine is enabled. */
@@ -345,8 +345,8 @@ public record RecallOptions(
         private boolean enableValenceAlignment = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_VALENCE_ALIGNMENT_ENABLED;
 
         // ─── Two-Factor Memory (Bjork & Bjork) ───
-        private com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig
-                = com.spectrayan.spector.memory.synapse.TwoFactorConfig.DEFAULT;
+        private com.spectrayan.spector.config.properties.TwoFactorProperties twoFactorConfig
+                = com.spectrayan.spector.config.properties.TwoFactorProperties.DEFAULT;
 
         // ─── Recall Mode ───
         private RecallMode recallMode = RecallMode.valueOf(
@@ -708,6 +708,14 @@ public record RecallOptions(
             return this;
         }
 
+        /**
+         * Sets the two-factor memory configuration (Bjork &amp; Bjork).
+         */
+        public Builder twoFactorConfig(com.spectrayan.spector.config.properties.TwoFactorProperties config) {
+            this.twoFactorConfig = config != null ? config : com.spectrayan.spector.config.properties.TwoFactorProperties.DEFAULT;
+            return this;
+        }
+
         //  Recall Mode 
 
         /**
@@ -1028,12 +1036,12 @@ public record RecallOptions(
             return this;
         }
 
-        private AismeConfig aismeConfig;
+        private AismeProperties aismeConfig;
 
         /**
          * Sets the Active Inference Self-Model Engine (AISME) configuration.
          */
-        public Builder aismeConfig(AismeConfig config) {
+        public Builder aismeConfig(AismeProperties config) {
             this.aismeConfig = config;
             return this;
         }
@@ -1042,7 +1050,7 @@ public record RecallOptions(
          * Enables or disables AISME with default configuration.
          */
         public Builder enableAisme(boolean enable) {
-            this.aismeConfig = enable ? AismeConfig.defaultConfig() : AismeConfig.disabled();
+            this.aismeConfig = enable ? AismeProperties.defaultConfig() : AismeProperties.disabled();
             return this;
         }
 
@@ -1152,7 +1160,7 @@ public record RecallOptions(
                     conflictMode,
                     minTrustScore,
                     personaId,
-                    aismeConfig != null ? aismeConfig : AismeConfig.disabled(),
+                    aismeConfig != null ? aismeConfig : AismeProperties.disabled(),
                     scoreFusionMode != null ? scoreFusionMode : ScoreFusionMode.MULTIPLICATIVE,
                     enableLateralInhibition,
                     lateralInhibitionThreshold,

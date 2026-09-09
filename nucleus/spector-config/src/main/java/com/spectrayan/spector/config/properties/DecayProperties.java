@@ -38,6 +38,10 @@ public class DecayProperties implements Serializable {
     public static final DecayProperties SLOW_FORGET = new DecayProperties(0.08f, 0.15f, null);
     public static final DecayProperties FAST_FORGET = new DecayProperties(0.30f, 0.05f, null);
 
+    public static DecayProperties from(DecayProperties p) {
+        return p != null ? p.copy() : DEFAULT;
+    }
+
     public DecayProperties() {}
 
     public DecayProperties(double minThreshold, double baselineHalfLifeDays) {

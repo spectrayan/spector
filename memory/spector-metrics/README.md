@@ -14,7 +14,7 @@ graph TD
         SM["SpectorMetrics<br/><i>Global MeterRegistry holder</i>"]
         JVM["SpectorJvmMetrics<br/><i>JVM + system binders</i>"]
         ME["MeteredSpectorEngine<br/><i>Decorator — Micrometer + TelemetryBus</i>"]
-        MM["MeteredSpectorMemory<br/><i>Decorator — memory recall timers</i>"]
+        OM["ObservedSpectorMemory<br/><i>Decorator — memory recall timers & observation</i>"]
     end
 
     subgraph "spector-events"
@@ -91,9 +91,9 @@ SpectorEngine metered = new MeteredSpectorEngine(engine, registry, telemetryBus)
 
 **TelemetryScope integration:** When a `TelemetryBus` is provided, each search/ingest call opens a `TelemetryScope` that accumulates SIMD kernel events, query traces, and GPU kernel data, then flushes the batch on completion. This unified decorator avoids the overhead of two separate wrapper layers.
 
-### `MeteredSpectorMemory`
+### `ObservedSpectorMemory`
 
-Decorator wrapping `SpectorMemory` with timers and counters for cognitive memory operations (recall, store, reinforce, forget).
+Decorator wrapping `SpectorMemory` with timers, counters, and observation hooks for cognitive memory operations (recall, store, reinforce, forget).
 
 ---
 

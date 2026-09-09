@@ -1046,25 +1046,6 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
-  /api/v1/memory:
-    post:
-      tags:
-      - Memory
-      summary: Store a cognitive memory synchronously
-      operationId: storeMemory
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/StoreRequest"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/StoreResponse"
   /api/v1/memory/{id}/suppress:
     post:
       tags:
@@ -1159,6 +1140,44 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/CompactionResult"
+  /api/v1/memory/store:
+    post:
+      tags:
+      - Memory
+      summary: Store a cognitive memory synchronously
+      operationId: storeMemory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/StoreResponse"
+  /api/v1/memory:
+    post:
+      tags:
+      - Memory
+      summary: Store a cognitive memory synchronously
+      operationId: storeMemory_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/StoreResponse"
   /api/v1/memory/search:
     post:
       tags:
@@ -4350,36 +4369,6 @@ components:
           format: date-time
         constraints:
           $ref: "#/components/schemas/GrantConstraints"
-    StoreRequest:
-      type: object
-      properties:
-        text:
-          type: string
-        tags:
-          type: array
-          items:
-            type: string
-        importance:
-          type: number
-          format: double
-        metadata:
-          type: object
-          additionalProperties:
-            type: string
-    StoreResponse:
-      type: object
-      properties:
-        id:
-          type: string
-        text:
-          type: string
-        tier:
-          type: string
-        score:
-          type: number
-          format: double
-        message:
-          type: string
     SuppressRequest:
       type: object
       properties:
@@ -4427,6 +4416,36 @@ components:
         durationMs:
           type: integer
           format: int64
+    StoreRequest:
+      type: object
+      properties:
+        text:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        importance:
+          type: number
+          format: double
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    StoreResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        tier:
+          type: string
+        score:
+          type: number
+          format: double
+        message:
+          type: string
     SearchRequest:
       type: object
       properties:
@@ -4713,19 +4732,19 @@ components:
         timestampMs:
           type: integer
           format: int64
-        lateral:
-          type: boolean
-        dreamed:
+        hyperfocused:
           type: boolean
         simulated:
           type: boolean
-        multimodal:
-          type: boolean
         positivelyReinforced:
           type: boolean
-        hyperfocused:
-          type: boolean
         negativeOutcome:
+          type: boolean
+        multimodal:
+          type: boolean
+        lateral:
+          type: boolean
+        dreamed:
           type: boolean
     FederatedRecallHit:
       type: object

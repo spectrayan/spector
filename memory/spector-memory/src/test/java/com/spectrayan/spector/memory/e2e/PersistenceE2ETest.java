@@ -119,9 +119,8 @@ class PersistenceE2ETest extends AbstractE2ETest {
             diskMemory.close();
 
             // 3. Verify persistence files exist
-            assertThat(Files.exists(StorageLayout.runtimeBundleFile(testDataDir))
-                    || Files.exists(StorageLayout.indexMidxRuntime(testDataDir)))
-                    .as("Runtime storage bundle/index should exist").isTrue();
+            assertThat(Files.exists(StorageLayout.runtimeBundleFile(testDataDir)))
+                    .as("Runtime storage bundle should exist").isTrue();
 
             // 4. Reload from disk
             var reloadProps = new com.spectrayan.spector.config.properties.MemoryProperties()

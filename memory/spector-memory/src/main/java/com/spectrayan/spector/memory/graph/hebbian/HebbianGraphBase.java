@@ -19,7 +19,7 @@ import java.util.List;
 
 /**
  * Common interface for Hebbian graph implementations — both the legacy fixed-width
- * layout ({@link HebbianGraph}, V2) and the sparse CSR layout ({@link HebbianGraphMemory}, V3).
+ * layout ({@code HebbianGraph}, V2) and the sparse CSR layout ({@link HebbianGraphMemory}, V3).
  *
  * <h3>Biological Analog</h3>
  * <p>In the cortex, neurons form association networks where activating one memory
@@ -31,6 +31,7 @@ import java.util.List;
  *
  * @see HebbianGraphMemory The CSR V3 sparse implementation (preferred)
  */
+@SuppressWarnings("deprecation")
 public sealed interface HebbianGraphBase extends AutoCloseable
         permits HebbianGraph, HebbianGraphMemory {
 

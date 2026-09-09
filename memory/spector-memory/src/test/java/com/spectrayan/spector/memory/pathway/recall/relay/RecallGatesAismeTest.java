@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.pathway.recall.relay;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.model.RecallOptions;
 
 import org.junit.jupiter.api.Test;
@@ -56,7 +56,7 @@ class RecallGatesAismeTest {
 
     @Test
     void gates_granularTogglesEvaluatedCorrectly() {
-        AismeConfig config = AismeConfig.builder()
+        AismeProperties config = AismeProperties.builder()
                 .enabled(true)
                 .enableHomeostasis(true)
                 .enableFreeEnergy(false)

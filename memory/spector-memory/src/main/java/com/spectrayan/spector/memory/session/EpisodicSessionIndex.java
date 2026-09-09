@@ -14,11 +14,8 @@ package com.spectrayan.spector.memory.session;
 
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.EpisodeCodec;
-import com.spectrayan.spector.memory.kernel.layout.EpisodeLayout;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
-import com.spectrayan.spector.memory.kernel.layout.compat.LegacyEpisodeHeaderReader;
 import java.lang.foreign.ValueLayout;
 
 import org.slf4j.Logger;
@@ -59,7 +56,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * all sessions, this costs ~800 KB of heap. At 1M turns, ~8 MB.</p>
  *
  * @since 1.3.0
- * @see com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor
+ * @see com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout
  */
 public final class EpisodicSessionIndex {
 
@@ -210,47 +207,31 @@ public final class EpisodicSessionIndex {
         int tombstoneCount = 0;
         long cursor = dataOffset;
 
-        while (cursor + EncodingHeaderFields.HEADER_BYTES <= writePosition) {
-            byte flags;
+        while (cursor + EpisodicLayout.FIXED_OVERHEAD_BYTES <= writePosition) {
+            if (!EpisodicHeaderLayout.INSTANCE.isOptionBRecord(segment, cursor)) {
+                break;
+            }
+            int payloadBytes = EpisodicHeaderLayout.INSTANCE.readPayloadBytes(segment, cursor);
+            if (payloadBytes < 0) {
+                log.warn("Negative payloadBytes {} at offset {} — stopping rebuild", payloadBytes, cursor);
+                break;
+            }
+            long recordEnd = cursor + EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
+            if (recordEnd > writePosition) {
+                log.warn("Record at offset {} extends beyond write position ({} > {}) — stopping rebuild",
+                        cursor, recordEnd, writePosition);
+                break;
+            }
+            byte flags = EpisodicHeaderLayout.INSTANCE.readFlagsRecord(segment, cursor);
+            long headerSessionId = EpisodicHeaderLayout.INSTANCE.readSessionIdRecord(segment, cursor);
             long sessionId;
-            long recordEnd;
-
-            if (EpisodicHeaderAccessor.isOptionBRecord(segment, cursor)) {
-                int payloadBytes = EpisodicHeaderAccessor.readPayloadBytes(segment, cursor);
-                if (payloadBytes < 0) {
-                    log.warn("Negative payloadBytes {} at offset {} — stopping rebuild", payloadBytes, cursor);
-                    break;
-                }
-                recordEnd = cursor + EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
-                if (recordEnd > writePosition) {
-                    log.warn("Record at offset {} extends beyond write position ({} > {}) — stopping rebuild",
-                            cursor, recordEnd, writePosition);
-                    break;
-                }
-                flags = EpisodicHeaderAccessor.readFlags(segment, cursor);
-                long headerSessionId = EpisodicHeaderLayout.INSTANCE.readSessionIdRecord(segment, cursor);
-                if (headerSessionId != 0L) {
-                    sessionId = headerSessionId;
-                } else {
-                    long payloadOffset = cursor + EpisodicLayout.FIXED_OVERHEAD_BYTES;
-                    sessionId = (payloadBytes >= EpisodeCodec.PAYLOAD_METADATA_BYTES)
-                            ? segment.get(ValueLayout.JAVA_LONG_UNALIGNED, payloadOffset + EpisodeCodec.OFFSET_SESSION_ID)
-                            : 0L;
-                }
+            if (headerSessionId != 0L) {
+                sessionId = headerSessionId;
             } else {
-                flags = LegacyEpisodeHeaderReader.readFlags(segment, cursor);
-                int bodyLength = LegacyEpisodeHeaderReader.readBodyLength(segment, cursor);
-                if (bodyLength < 0) {
-                    log.warn("Negative body_length {} at offset {} — stopping rebuild", bodyLength, cursor);
-                    break;
-                }
-                recordEnd = cursor + EncodingHeaderFields.HEADER_BYTES + bodyLength;
-                if (recordEnd > writePosition) {
-                    log.warn("Record at offset {} extends beyond write position ({} > {}) — stopping rebuild",
-                            cursor, recordEnd, writePosition);
-                    break;
-                }
-                sessionId = LegacyEpisodeHeaderReader.readSessionId(segment, cursor);
+                long payloadOffset = cursor + EpisodicLayout.FIXED_OVERHEAD_BYTES;
+                sessionId = (payloadBytes >= EpisodeCodec.PAYLOAD_METADATA_BYTES)
+                        ? segment.get(ValueLayout.JAVA_LONG_UNALIGNED, payloadOffset + EpisodeCodec.OFFSET_SESSION_ID)
+                        : 0L;
             }
 
             if (!EncodingHeaderFields.isTombstoned(flags)) {

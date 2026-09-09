@@ -71,34 +71,6 @@ class StorageLayoutTest {
         @Test void manifest() {
             assertThat(StorageLayout.manifest(BASE)).isEqualTo(BASE.resolve("manifest.json"));
         }
-
-        @Test void workingMem() {
-            assertThat(StorageLayout.workingMem(BASE)).isEqualTo(BASE.resolve("runtime/working.mem"));
-        }
-
-        @Test void coactivationTracker() {
-            assertThat(StorageLayout.coactivationTracker(BASE)).isEqualTo(BASE.resolve("runtime/coactivation.tracker"));
-        }
-
-        @Test void checkpointMeta() {
-            assertThat(StorageLayout.checkpointMeta(BASE)).isEqualTo(BASE.resolve("runtime/checkpoint.meta"));
-        }
-
-        @Test void indexMidxRuntime() {
-            assertThat(StorageLayout.indexMidxRuntime(BASE)).isEqualTo(BASE.resolve("runtime/index.midx"));
-        }
-
-        @Test void hebbianGraphRuntime() {
-            assertThat(StorageLayout.hebbianGraphRuntime(BASE)).isEqualTo(BASE.resolve("runtime/hebbian.graph"));
-        }
-
-        @Test void temporalChainRuntime() {
-            assertThat(StorageLayout.temporalChainRuntime(BASE)).isEqualTo(BASE.resolve("runtime/temporal.chain"));
-        }
-
-        @Test void entityGraphRuntime() {
-            assertThat(StorageLayout.entityGraphRuntime(BASE)).isEqualTo(BASE.resolve("runtime/entity.graph"));
-        }
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -156,10 +128,7 @@ class StorageLayoutTest {
 
         private final Path partDir = Path.of("/data/spector/partitions/000_1717430400");
 
-        @Test void semanticMem()   { assertThat(StorageLayout.semanticMem(partDir).getFileName().toString()).isEqualTo("semantic.mem"); }
-        @Test void episodicMem()   { assertThat(StorageLayout.episodicMem(partDir).getFileName().toString()).isEqualTo("episodic.mem"); }
-        @Test void proceduralMem() { assertThat(StorageLayout.proceduralMem(partDir).getFileName().toString()).isEqualTo("procedural.mem"); }
-        @Test void textDat()       { assertThat(StorageLayout.textDat(partDir).getFileName().toString()).isEqualTo("text.dat"); }
+        @Test void partitionFile() { assertThat(StorageLayout.partitionFile(partDir, "test.dat").getFileName().toString()).isEqualTo("test.dat"); }
     }
 
     // ══════════════════════════════════════════════════════════════

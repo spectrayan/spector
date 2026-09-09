@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.aisme.lifespan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.lifespan.LifespanEvaluationResult.LifespanRetentionDecision;
 import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;
 
@@ -27,12 +27,12 @@ import org.junit.jupiter.api.Test;
  */
 class LifespanRetentionControllerTest {
 
-    private AismeConfig defaultConfig;
+    private AismeProperties defaultConfig;
     private LifespanRetentionController controller;
 
     @BeforeEach
     void setUp() {
-        defaultConfig = AismeConfig.defaultConfig();
+        defaultConfig = AismeProperties.defaultConfig();
         controller = new LifespanRetentionController(defaultConfig);
     }
 
@@ -148,7 +148,7 @@ class LifespanRetentionControllerTest {
 
     @Test
     void disabledLifespan_returnsDefaultRetention() {
-        AismeConfig disabled = AismeConfig.builder().enableLifespan(false).build();
+        AismeProperties disabled = AismeProperties.builder().enableLifespan(false).build();
         LifespanRetentionController disabledController = new LifespanRetentionController(disabled);
 
         LifespanEvaluationResult res = disabledController.evaluate(0.20f, false, null);

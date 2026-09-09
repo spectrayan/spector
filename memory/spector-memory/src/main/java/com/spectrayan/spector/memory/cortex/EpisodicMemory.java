@@ -19,10 +19,7 @@ import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.EpisodeCodec;
-import com.spectrayan.spector.memory.kernel.layout.EpisodeLayout;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
-import com.spectrayan.spector.memory.kernel.layout.compat.LegacyEpisodeHeaderReader;
 import com.spectrayan.spector.memory.kernel.shape.AbstractAppendMemory;
 import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.EngramSource;
@@ -53,15 +50,9 @@ import java.util.concurrent.locks.ReentrantLock;
  *   next  = 80 + N
  * </pre>
  *
- * <h3>Dual-Read Backward Compatibility (R4.4)</h3>
- * <p>Supports reading legacy punned records (64B header + body) alongside new Option B
- * records via automatic format discrimination.</p>
- *
  * @since 1.4.0
  * @see EpisodicLayout
  * @see EpisodeCodec
- * @see EpisodicHeaderAccessor
- * @see LegacyEpisodeHeaderReader
  */
 public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> implements EngramMemory {
 
@@ -233,57 +224,56 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
     // ── Read path ──
 
     /**
-     * Reads an episodic record at the given byte offset (relative to dataOffset), with dual-read support.
+     * Reads an episodic record at the given byte offset (relative to dataOffset).
      */
     public EpisodeRecord readTurn(long offset, boolean includeBody) {
         long absoluteOffset = dataOffset() + offset;
         var headerLayout = layout().headerLayout();
-        if (headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
-            int payloadBytes = headerLayout.readPayloadBytes(segment(), absoluteOffset);
-            int sequenceId = headerLayout.readSequenceId(segment(), absoluteOffset);
-            EncodingHeader header = headerLayout.readHeaderRecord(segment(), absoluteOffset);
-
-            long payloadOffset = absoluteOffset + EpisodicLayout.FIXED_OVERHEAD_BYTES;
-            EpisodeCodec.DecodedPayload decoded = EpisodeCodec.decode(segment(), payloadOffset, payloadBytes, includeBody);
-
-            long headerSessionId = headerLayout.readSessionIdRecord(segment(), absoluteOffset);
-            short headerModelId = headerLayout.readModelIdRecord(segment(), absoluteOffset);
-
-            ConversationRole resolvedRole;
-            if (headerLayout.isLegacyPunnedHeader(segment(), absoluteOffset + EpisodicLayout.PREFIX_BYTES)) {
-                resolvedRole = decoded.role();
-            } else {
-                byte roleOrdinal = headerLayout.readRoleRecord(segment(), absoluteOffset);
-                resolvedRole = (roleOrdinal != 0 || decoded.role() == null)
-                        ? ConversationRole.fromOrdinal(roleOrdinal & 0xFF)
-                        : decoded.role();
-            }
-            long resolvedSessionId = (headerSessionId != 0L) ? headerSessionId : decoded.sessionId();
-            short resolvedModelId = (headerModelId != 0) ? headerModelId : decoded.modelId();
-
-            return new EpisodeRecord(
-                    resolvedRole,
-                    sequenceId,
-                    header.timestampMs(),
-                    resolvedSessionId,
-                    decoded.bodyLength(),
-                    decoded.body(),
-                    resolvedModelId,
-                    decoded.tokenIn(),
-                    decoded.tokenOut(),
-                    decoded.latencyMs(),
-                    decoded.userId(),
-                    header.soulVersion(),
-                    headerLayout.readModalityRecord(segment(), absoluteOffset),
-                    header.flags(),
-                    header.importance(),
-                    header.valence(),
-                    header.arousal(),
-                    header.source()
-            );
-        } else {
-            return LegacyEpisodeHeaderReader.readRecord(segment(), absoluteOffset, includeBody);
+        if (!headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
+            return null;
         }
+        int payloadBytes = headerLayout.readPayloadBytes(segment(), absoluteOffset);
+        int sequenceId = headerLayout.readSequenceId(segment(), absoluteOffset);
+        EncodingHeader header = headerLayout.readHeaderRecord(segment(), absoluteOffset);
+
+        long payloadOffset = absoluteOffset + EpisodicLayout.FIXED_OVERHEAD_BYTES;
+        EpisodeCodec.DecodedPayload decoded = EpisodeCodec.decode(segment(), payloadOffset, payloadBytes, includeBody);
+
+        long headerSessionId = headerLayout.readSessionIdRecord(segment(), absoluteOffset);
+        short headerModelId = headerLayout.readModelIdRecord(segment(), absoluteOffset);
+
+        ConversationRole resolvedRole;
+        if (headerLayout.isLegacyPunnedHeader(segment(), absoluteOffset + EpisodicLayout.PREFIX_BYTES)) {
+            resolvedRole = decoded.role();
+        } else {
+            byte roleOrdinal = headerLayout.readRoleRecord(segment(), absoluteOffset);
+            resolvedRole = (roleOrdinal != 0 || decoded.role() == null)
+                    ? ConversationRole.fromOrdinal(roleOrdinal & 0xFF)
+                    : decoded.role();
+        }
+        long resolvedSessionId = (headerSessionId != 0L) ? headerSessionId : decoded.sessionId();
+        short resolvedModelId = (headerModelId != 0) ? headerModelId : decoded.modelId();
+
+        return new EpisodeRecord(
+                resolvedRole,
+                sequenceId,
+                header.timestampMs(),
+                resolvedSessionId,
+                decoded.bodyLength(),
+                decoded.body(),
+                resolvedModelId,
+                decoded.tokenIn(),
+                decoded.tokenOut(),
+                decoded.latencyMs(),
+                decoded.userId(),
+                header.soulVersion(),
+                headerLayout.readModalityRecord(segment(), absoluteOffset),
+                header.flags(),
+                header.importance(),
+                header.valence(),
+                header.arousal(),
+                header.source()
+        );
     }
 
     /**
@@ -305,17 +295,9 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
      */
     public void tombstone(long offset) {
         long absoluteOffset = dataOffset() + offset;
-        boolean wasTombstoned;
         var headerLayout = layout().headerLayout();
-        if (headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
-            wasTombstoned = headerLayout.isTombstonedRecord(segment(), absoluteOffset);
-            headerLayout.tombstoneRecord(segment(), absoluteOffset);
-        } else {
-            byte flags = LegacyEpisodeHeaderReader.readFlags(segment(), absoluteOffset);
-            wasTombstoned = EncodingHeaderFields.isTombstoned(flags);
-            flags = (byte) (flags | EncodingHeaderFields.FLAG_TOMBSTONE);
-            segment().set(ValueLayout.JAVA_BYTE, absoluteOffset + EncodingHeaderFields.OFFSET_FLAGS, flags);
-        }
+        boolean wasTombstoned = headerLayout.isTombstonedRecord(segment(), absoluteOffset);
+        headerLayout.tombstoneRecord(segment(), absoluteOffset);
         if (!wasTombstoned) {
             liveTurnCount.decrementAndGet();
         }
@@ -326,14 +308,7 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
      */
     public void markConsolidated(long offset) {
         long absoluteOffset = dataOffset() + offset;
-        var headerLayout = layout().headerLayout();
-        if (headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
-            headerLayout.markConsolidatedRecord(segment(), absoluteOffset);
-        } else {
-            byte flags = LegacyEpisodeHeaderReader.readFlags(segment(), absoluteOffset);
-            flags = (byte) (flags | EncodingHeaderFields.FLAG_CONSOLIDATED);
-            segment().set(ValueLayout.JAVA_BYTE, absoluteOffset + EncodingHeaderFields.OFFSET_FLAGS, flags);
-        }
+        layout().headerLayout().markConsolidatedRecord(segment(), absoluteOffset);
     }
 
     /**
@@ -341,14 +316,7 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
      */
     public void markResolved(long offset) {
         long absoluteOffset = dataOffset() + offset;
-        var headerLayout = layout().headerLayout();
-        if (headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
-            headerLayout.markResolvedRecord(segment(), absoluteOffset);
-        } else {
-            byte flags = LegacyEpisodeHeaderReader.readFlags(segment(), absoluteOffset);
-            flags = (byte) (flags | EncodingHeaderFields.FLAG_RESOLVED);
-            segment().set(ValueLayout.JAVA_BYTE, absoluteOffset + EncodingHeaderFields.OFFSET_FLAGS, flags);
-        }
+        layout().headerLayout().markResolvedRecord(segment(), absoluteOffset);
     }
 
     /**
@@ -356,14 +324,7 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
      */
     public void markUnresolved(long offset) {
         long absoluteOffset = dataOffset() + offset;
-        var headerLayout = layout().headerLayout();
-        if (headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
-            headerLayout.markUnresolvedRecord(segment(), absoluteOffset);
-        } else {
-            byte flags = LegacyEpisodeHeaderReader.readFlags(segment(), absoluteOffset);
-            flags = (byte) (flags & ~EncodingHeaderFields.FLAG_RESOLVED);
-            segment().set(ValueLayout.JAVA_BYTE, absoluteOffset + EncodingHeaderFields.OFFSET_FLAGS, flags);
-        }
+        layout().headerLayout().markUnresolvedRecord(segment(), absoluteOffset);
     }
 
     /**
@@ -439,41 +400,28 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
         long current = base;
 
         var headerLayout = layout().headerLayout();
-        while (current + EncodingHeaderFields.HEADER_BYTES <= limit) {
-            byte flags;
+        while (current + EpisodicLayout.FIXED_OVERHEAD_BYTES <= limit) {
+            if (!headerLayout.isOptionBRecord(segment(), current)) {
+                break;
+            }
+            int payloadBytes = headerLayout.readPayloadBytes(segment(), current);
+            if (payloadBytes < 0) {
+                break;
+            }
+            long recordEnd = current + EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
+            if (recordEnd > limit) {
+                break;
+            }
+            byte flags = headerLayout.readFlagsRecord(segment(), current);
+            long headerSessionId = headerLayout.readSessionIdRecord(segment(), current);
             long recordSessionId;
-            long recordEnd;
-
-            if (headerLayout.isOptionBRecord(segment(), current)) {
-                int payloadBytes = headerLayout.readPayloadBytes(segment(), current);
-                if (payloadBytes < 0) {
-                    break;
-                }
-                recordEnd = current + EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
-                if (recordEnd > limit) {
-                    break;
-                }
-                flags = headerLayout.readFlagsRecord(segment(), current);
-                long headerSessionId = headerLayout.readSessionIdRecord(segment(), current);
-                if (headerSessionId != 0L) {
-                    recordSessionId = headerSessionId;
-                } else {
-                    long payloadOffset = current + EpisodicLayout.FIXED_OVERHEAD_BYTES;
-                    recordSessionId = (payloadBytes >= EpisodeCodec.PAYLOAD_METADATA_BYTES)
-                            ? segment().get(ValueLayout.JAVA_LONG_UNALIGNED, payloadOffset + EpisodeCodec.OFFSET_SESSION_ID)
-                            : 0L;
-                }
+            if (headerSessionId != 0L) {
+                recordSessionId = headerSessionId;
             } else {
-                flags = LegacyEpisodeHeaderReader.readFlags(segment(), current);
-                int bodyLength = LegacyEpisodeHeaderReader.readBodyLength(segment(), current);
-                if (bodyLength < 0) {
-                    break;
-                }
-                recordEnd = current + EncodingHeaderFields.HEADER_BYTES + bodyLength;
-                if (recordEnd > limit) {
-                    break;
-                }
-                recordSessionId = LegacyEpisodeHeaderReader.readSessionId(segment(), current);
+                long payloadOffset = current + EpisodicLayout.FIXED_OVERHEAD_BYTES;
+                recordSessionId = (payloadBytes >= EpisodeCodec.PAYLOAD_METADATA_BYTES)
+                        ? segment().get(ValueLayout.JAVA_LONG_UNALIGNED, payloadOffset + EpisodeCodec.OFFSET_SESSION_ID)
+                        : 0L;
             }
 
             if (recordSessionId == sessionId
@@ -564,29 +512,24 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
         long current = base;
 
         var headerLayout = layout().headerLayout();
-        while (current + EpisodicLayout.HEADER_BYTES <= limit) {
-            if (headerLayout.isOptionBRecord(segment(), current)) {
-                int payloadBytes = headerLayout.readPayloadBytes(segment(), current);
-                if (payloadBytes < 0 || current + EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {
-                    break;
-                }
-                byte flags = headerLayout.readFlagsRecord(segment(), current);
-                if (!EncodingHeaderFields.isTombstoned(flags)) {
-                    long ts = headerLayout.readTimestampRecord(segment(), current);
-                    if (ts < thresholdMs) {
-                        float oldImp = headerLayout.readImportanceRecord(segment(), current);
-                        headerLayout.writeImportanceRecord(segment(), current, oldImp * factor);
-                        decayed++;
-                    }
-                }
-                current += EpisodeLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
-            } else {
-                int bodyLength = segment().get(ValueLayout.JAVA_INT_UNALIGNED, current + 56);
-                if (bodyLength < 0 || current + EncodingHeaderFields.HEADER_BYTES + bodyLength > limit) {
-                    break;
-                }
-                current += EncodingHeaderFields.HEADER_BYTES + bodyLength;
+        while (current + EpisodicLayout.FIXED_OVERHEAD_BYTES <= limit) {
+            if (!headerLayout.isOptionBRecord(segment(), current)) {
+                break;
             }
+            int payloadBytes = headerLayout.readPayloadBytes(segment(), current);
+            if (payloadBytes < 0 || current + EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {
+                break;
+            }
+            byte flags = headerLayout.readFlagsRecord(segment(), current);
+            if (!EncodingHeaderFields.isTombstoned(flags)) {
+                long ts = headerLayout.readTimestampRecord(segment(), current);
+                if (ts < thresholdMs) {
+                    float oldImp = headerLayout.readImportanceRecord(segment(), current);
+                    headerLayout.writeImportanceRecord(segment(), current, oldImp * factor);
+                    decayed++;
+                }
+            }
+            current += EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
         }
         return decayed;
     }
@@ -674,11 +617,7 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
         }
         long absoluteOffset = dataOffset() + offset;
         var headerLayout = layout().headerLayout();
-        if (headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
-            return headerLayout.isTombstonedRecord(segment(), absoluteOffset);
-        } else {
-            return EncodingHeaderFields.isTombstoned(LegacyEpisodeHeaderReader.readFlags(segment(), absoluteOffset));
-        }
+        return headerLayout.isTombstonedRecord(segment(), absoluteOffset);
     }
 
     /**
@@ -693,16 +632,6 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
             return null;
         }
         long absoluteOffset = dataOffset() + offset;
-        var headerLayout = layout().headerLayout();
-        if (headerLayout.isOptionBRecord(segment(), absoluteOffset)) {
-            return headerLayout.readHeaderRecord(segment(), absoluteOffset);
-        } else {
-            var rec = LegacyEpisodeHeaderReader.readRecord(segment(), absoluteOffset, false);
-            return new EncodingHeader(
-                    rec.timestampMs(), rec.sessionId(), 0.0f, rec.importance(), 0, (short) 0,
-                    rec.valence(), rec.flags(), rec.arousal(), 1.0f, (byte) 0, (byte) 0, (byte) 0,
-                    rec.soulVersion(), 0.0f, (byte) 0, rec.source() != null ? rec.source() : EngramSource.EXPERIENCED
-            );
-        }
+        return layout().headerLayout().readHeaderRecord(segment(), absoluteOffset);
     }
 }

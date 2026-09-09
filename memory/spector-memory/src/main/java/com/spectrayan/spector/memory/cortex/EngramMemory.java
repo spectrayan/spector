@@ -151,17 +151,7 @@ public interface EngramMemory extends AutoCloseable {
         return dataOffset() + index * layout().recordStride();
     }
 
-    /**
-     * Returns the fixed engram layout if this store is fixed-stride.
-     *
-     * @return the layout as FixedEngramLayout, or null if variable-stride
-     * @deprecated Use {@link #layout()} instead.
-     */
-    @Deprecated(since = "1.5.0", forRemoval = true)
-    default FixedEngramLayout cognitiveLayout() {
-        RegionLayout l = layout();
-        return l instanceof FixedEngramLayout fel ? fel : null;
-    }
+
 
     /**
      * Closes the memory store and releases off-heap resources.

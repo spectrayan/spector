@@ -17,6 +17,7 @@ import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.config.properties.EmbeddingProperties;
 import com.spectrayan.spector.config.properties.GenerationProperties;
 import com.spectrayan.spector.config.properties.IngestionProperties;
+import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.config.properties.LlmProperties;
 import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.config.properties.ProviderProperties;
@@ -79,7 +80,7 @@ public final class SpectorMemoryConfigurator {
      * @return pre-configured SpectorMemoryBuilder
      */
     public static SpectorMemoryBuilder builder(SpectorConfigSource props) {
-        return builder(com.spectrayan.spector.config.SpectorProperties.from(props));
+        return builder(SpectorProperties.from(props));
     }
 
     /**
@@ -89,7 +90,7 @@ public final class SpectorMemoryConfigurator {
      * @param props the aggregate root configuration
      * @return a configured SpectorMemoryBuilder
      */
-    public static SpectorMemoryBuilder builder(com.spectrayan.spector.config.SpectorProperties props) {
+    public static SpectorMemoryBuilder builder(SpectorProperties props) {
         var builder = SpectorMemory.builder()
                 .fromProperties(props);
 

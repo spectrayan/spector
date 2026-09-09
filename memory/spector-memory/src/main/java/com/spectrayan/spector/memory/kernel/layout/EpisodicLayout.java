@@ -23,18 +23,17 @@ import com.spectrayan.spector.memory.kernel.RegionLayout;
  * @param headerLayout dedicated episodic encoding header layout
  * @since 1.5.0
  * @see EpisodicHeaderLayout
- * @see EpisodeLayout
  */
 public record EpisodicLayout(
         EpisodicHeaderLayout headerLayout
 ) implements RegionLayout {
 
-    public static final int LAYOUT_ID = EpisodeLayout.LAYOUT_ID; // 0x4550494C ('EPIL')
-    public static final int VERSION = EpisodeLayout.VERSION;     // 2
-    public static final int PREFIX_BYTES = EpisodeLayout.PREFIX_BYTES; // 16
-    public static final int HEADER_BYTES = EpisodeLayout.HEADER_BYTES; // 64
-    public static final int FIXED_OVERHEAD_BYTES = EpisodeLayout.FIXED_OVERHEAD_BYTES; // 80
-    public static final int MAGIC = EpisodeLayout.MAGIC; // 0x45504953 ('EPIS')
+    public static final int LAYOUT_ID = 0x4550494C; // 'EPIL'
+    public static final int VERSION = 2;
+    public static final int PREFIX_BYTES = 16;
+    public static final int HEADER_BYTES = 64;
+    public static final int FIXED_OVERHEAD_BYTES = PREFIX_BYTES + HEADER_BYTES; // 80
+    public static final int MAGIC = 0x45504953; // 'EPIS'
 
     public static final EpisodicLayout INSTANCE = new EpisodicLayout();
 

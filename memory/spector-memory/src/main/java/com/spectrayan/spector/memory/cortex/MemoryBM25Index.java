@@ -17,6 +17,11 @@ import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.index.text.BM25Index;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.text.StemmingAnalyzer;
+import com.spectrayan.spector.memory.kernel.bundle.BundleManager;
+import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
+
+import java.lang.foreign.MemorySegment;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -259,15 +264,13 @@ public final class MemoryBM25Index implements AutoCloseable {
      * @param bundleManager optional bundle manager for usage tracking (may be null)
      * @return number of bytes written to the bundle region, or -1 on error
      */
-    public int persistToBundle(com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle runtimeBundle,
-                               com.spectrayan.spector.memory.kernel.bundle.BundleManager bundleManager) {
+    public int persistToBundle(RuntimeBundle runtimeBundle, BundleManager bundleManager) {
         if (runtimeBundle == null || partitions.isEmpty() || totalDocuments() == 0) {
             return 0;
         }
 
         try {
-            java.lang.foreign.MemorySegment bm25Region = runtimeBundle.regionSegment(
-                    com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25);
+            MemorySegment bm25Region = runtimeBundle.regionSegment(RegionId.BM25);
             if (bm25Region == null) {
                 return -1;
             }
@@ -276,17 +279,15 @@ public final class MemoryBM25Index implements AutoCloseable {
             if (written == -1) {
                 // Payload exceeds current capacity -> dynamically grow BM25 region
                 log.info("BM25 index exceeded region capacity; triggering dynamic region growth");
-                runtimeBundle.growRegion(com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25);
+                runtimeBundle.growRegion(RegionId.BM25);
 
                 // Fetch new expanded slice and retry write
-                java.lang.foreign.MemorySegment grownRegion = runtimeBundle.regionSegment(
-                        com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25);
+                MemorySegment grownRegion = runtimeBundle.regionSegment(RegionId.BM25);
                 written = partition(0).saveToRegion(grownRegion);
             }
 
             if (written > 0) {
-                runtimeBundle.updateRegionUsedSize(
-                        com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25, written);
+                runtimeBundle.updateRegionUsedSize(RegionId.BM25, written);
             }
             return written;
         } catch (Exception e) {
@@ -301,13 +302,12 @@ public final class MemoryBM25Index implements AutoCloseable {
      * @param runtimeBundle the runtime bundle containing the BM25 region
      * @return the loaded BM25Index, or null if no valid data is found
      */
-    public static BM25Index loadFromBundle(com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle runtimeBundle) {
+    public static BM25Index loadFromBundle(RuntimeBundle runtimeBundle) {
         if (runtimeBundle == null) {
             return null;
         }
         try {
-            java.lang.foreign.MemorySegment bm25Region = runtimeBundle.regionSegment(
-                    com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25);
+            MemorySegment bm25Region = runtimeBundle.regionSegment(RegionId.BM25);
             if (bm25Region != null) {
                 return BM25Index.loadFromRegion(bm25Region);
             }

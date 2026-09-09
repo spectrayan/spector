@@ -33,7 +33,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
@@ -67,7 +67,7 @@ import java.util.Set;
  * <p>Cross-layer deduplication ensures each memory appears at most once,
  * keeping the highest score across all three layers.</p>
  *
- * @see RecallPipeline
+ * @see com.spectrayan.spector.memory.pathway.recall.RecallPathway
  * @see GraphScoringPolicy
  */
 public final class GraphExpansionStage {
@@ -773,8 +773,8 @@ public final class GraphExpansionStage {
                     MemorySegment seg = router.segmentFor(loc.type());
                     if (seg != null) {
                         if (loc.type() == MemoryType.EPISODIC) {
-                            ts = EpisodicHeaderAccessor.readTimestamp(seg, loc.offset());
-                            valence = EpisodicHeaderAccessor.readValence(seg, loc.offset());
+                            ts = EpisodicHeaderLayout.INSTANCE.readTimestampRecord(seg, loc.offset());
+                            valence = EpisodicHeaderLayout.INSTANCE.readValenceRecord(seg, loc.offset());
                         } else {
                             FixedEngramLayout layout = router.layoutFor(loc.type());
                             if (layout != null) {
@@ -866,14 +866,14 @@ public final class GraphExpansionStage {
         if (seg == null) return false;
 
         if (loc.type() == MemoryType.EPISODIC) {
-            if (EpisodicHeaderAccessor.isTombstoned(seg, loc.offset())) {
+            if (EpisodicHeaderLayout.INSTANCE.isTombstonedRecord(seg, loc.offset())) {
                 return false;
             }
-            byte valence = EpisodicHeaderAccessor.readValence(seg, loc.offset());
+            byte valence = EpisodicHeaderLayout.INSTANCE.readValenceRecord(seg, loc.offset());
             if (valence < options.minValence() || valence > options.maxValence()) {
                 return false;
             }
-            float importance = EpisodicHeaderAccessor.readImportance(seg, loc.offset());
+            float importance = EpisodicHeaderLayout.INSTANCE.readImportanceRecord(seg, loc.offset());
             if (importance < options.minImportance()) {
                 return false;
             }

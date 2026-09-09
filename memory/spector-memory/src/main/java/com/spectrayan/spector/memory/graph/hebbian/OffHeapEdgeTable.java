@@ -41,7 +41,7 @@ import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
  * <h3>Thread Safety</h3>
  * <p>Writes are guarded by a {@link ReentrantLock}. Reads are lock-free.</p>
  *
- * @see CoActivationTracker
+ * @see CoActivationMemory
  */
 final class OffHeapEdgeTable {
 

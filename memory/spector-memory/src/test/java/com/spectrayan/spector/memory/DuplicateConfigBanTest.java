@@ -15,12 +15,7 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.config.properties.ProviderProperties;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig;
-import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
-import com.spectrayan.spector.memory.synapse.DecayConfig;
-import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import org.junit.jupiter.api.DisplayName;
@@ -110,27 +105,6 @@ class DuplicateConfigBanTest {
                 .isEmpty();
     }
 
-    @Test
-    @DisplayName("Legacy data twin classes must remain marked with @Deprecated(forRemoval = true)")
-    void testLegacyDataTwinsAreDeprecatedAndMarkedForRemoval() {
-        List<Class<?>> dataTwins = List.of(
-                DreamConfig.class,
-                CircadianPolicy.class,
-                TwoFactorConfig.class,
-                AismeConfig.class,
-                DecayConfig.class
-        );
-
-        for (Class<?> clazz : dataTwins) {
-            Deprecated dep = clazz.getAnnotation(Deprecated.class);
-            assertThat(dep)
-                    .as("Data twin class %s must be annotated with @Deprecated", clazz.getName())
-                    .isNotNull();
-            assertThat(dep.forRemoval())
-                    .as("Data twin class %s must have forRemoval = true", clazz.getName())
-                    .isTrue();
-        }
-    }
 
     @Test
     @DisplayName("SpectorMemoryBuilder.build() and mutations must not mutate caller's SpectorProperties snapshot")
@@ -153,14 +127,8 @@ class DuplicateConfigBanTest {
 
         SpectorMemoryBuilder builder = SpectorMemoryBuilder.createEmpty()
                 .fromProperties(original)
-                .embedBatchSize(64) // Deprecated fluent setter should not mutate caller's props
                 .embeddingProvider(new MockEmbeddingProvider(768))
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY);
-
-        // Verify embedBatchSize didn't mutate original snapshot
-        assertThat(original.provider().getEmbedding().getBatchSize())
-                .as("embedBatchSize() must not mutate caller's ProviderProperties")
-                .isEqualTo(initialBatchSize);
 
         // Call build() which infers dimensions from embeddingProvider (768)
         try (SpectorMemory memory = builder.build()) {

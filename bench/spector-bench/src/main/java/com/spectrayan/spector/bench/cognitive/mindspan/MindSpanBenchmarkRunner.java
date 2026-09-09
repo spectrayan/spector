@@ -79,7 +79,7 @@ import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
-import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
+import com.spectrayan.spector.config.properties.CircadianProperties;
 import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
@@ -259,12 +259,12 @@ public final class MindSpanBenchmarkRunner {
                 .setSemanticCapacity(Math.max(30_000, corpus.size() + 100))
                 .setEntityExtractionParallelism(4)
                 .setEntityExtractionQueueCapacity(2000)
-                .setCircadian(CircadianPolicy.builder().volumeTrigger(Integer.MAX_VALUE).build());
+                .setCircadian(CircadianProperties.builder().volumeTrigger(Integer.MAX_VALUE).build());
+        memoryProps.getGraph().getEntity().setExtractionMode(extMode.name());
 
         SpectorMemoryBuilder builder = SpectorMemory.builder(memoryProps)
                 .embeddingProvider(embedder)
                 .llmProvider(llm)
-                .entityExtractionMode(extMode)
                 .persistence(naturalMemoryDir)
                 .persistenceMode(MemoryPersistenceMode.DISK)
                 .bundleMode(true);

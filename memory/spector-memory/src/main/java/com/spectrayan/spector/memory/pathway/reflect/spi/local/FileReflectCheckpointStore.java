@@ -170,7 +170,7 @@ public final class FileReflectCheckpointStore implements ReflectCheckpointStore 
     }
 
     private ReflectCheckpoint parseCheckpoint(JsonNode root, String fallbackSweepId) {
-        String sweepId = root.has("sweepId") ? root.get("sweepId").asText() : fallbackSweepId;
+        String sweepId = root.has("sweepId") ? root.get("sweepId").asString(fallbackSweepId) : fallbackSweepId;
         int partitionSeq = root.has("partitionSeq") ? root.get("partitionSeq").asInt() : 0;
         long lastCompletedSessionId = root.has("lastCompletedSessionId") ? root.get("lastCompletedSessionId").asLong() : 0L;
         long lastCompletedTurnOffset = root.has("lastCompletedTurnOffset") ? root.get("lastCompletedTurnOffset").asLong() : 0L;
@@ -182,7 +182,7 @@ public final class FileReflectCheckpointStore implements ReflectCheckpointStore 
         Instant updatedAt = Instant.now();
         if (root.has("updatedAt")) {
             try {
-                updatedAt = Instant.parse(root.get("updatedAt").asText());
+                updatedAt = Instant.parse(root.get("updatedAt").asString());
             } catch (Exception ignored) {
             }
         }
@@ -190,7 +190,7 @@ public final class FileReflectCheckpointStore implements ReflectCheckpointStore 
         ReflectSweepStatus status = ReflectSweepStatus.IDLE;
         if (root.has("status")) {
             try {
-                status = ReflectSweepStatus.valueOf(root.get("status").asText());
+                status = ReflectSweepStatus.valueOf(root.get("status").asString());
             } catch (Exception ignored) {
             }
         }

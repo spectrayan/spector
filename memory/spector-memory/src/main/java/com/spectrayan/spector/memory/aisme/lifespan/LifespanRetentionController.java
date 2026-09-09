@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.aisme.lifespan;
 
 import com.spectrayan.spector.core.similarity.LifespanThresholdKernel;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.lifespan.LifespanEvaluationResult.LifespanRetentionDecision;
 import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;
 
@@ -31,7 +31,7 @@ public final class LifespanRetentionController {
 
     private static final Logger log = LoggerFactory.getLogger(LifespanRetentionController.class);
 
-    private final AismeConfig config;
+    private final AismeProperties config;
     private final AtomicLong operationalEpoch = new AtomicLong(0L);
     private final AtomicLong activeVolumeSample = new AtomicLong(0L);
 
@@ -40,7 +40,7 @@ public final class LifespanRetentionController {
      *
      * @param config AISME configuration parameters
      */
-    public LifespanRetentionController(final AismeConfig config) {
+    public LifespanRetentionController(final AismeProperties config) {
         this.config = Objects.requireNonNull(config, "config must not be null");
         this.activeVolumeSample.set(config.lifespanVTarget());
         log.info("Initialized LifespanRetentionController: enabled={}, tau0={}, k={}, T0={}, V_target={}, gamma={}, flashbulbProtect={}",

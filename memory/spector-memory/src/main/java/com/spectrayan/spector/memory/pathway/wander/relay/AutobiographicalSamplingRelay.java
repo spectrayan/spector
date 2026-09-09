@@ -82,7 +82,7 @@ public final class AutobiographicalSamplingRelay implements SynapticRelay<Wander
             return 0;
         }
 
-        FixedEngramLayout layout = store.cognitiveLayout();
+        FixedEngramLayout layout = (FixedEngramLayout) store.layout();
         MemorySegment segment = store.segment();
         int size = store.size();
         if (size <= 0) {

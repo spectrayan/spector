@@ -162,8 +162,8 @@ public final class EpisodeCodec {
         crc.update(sequenceId & 0xFF);
 
         // 64B header
-        if (header != null && header.byteSize() >= EpisodeLayout.HEADER_BYTES) {
-            crc.update(header.asSlice(0, EpisodeLayout.HEADER_BYTES).asByteBuffer());
+        if (header != null && header.byteSize() >= EpisodicLayout.HEADER_BYTES) {
+            crc.update(header.asSlice(0, EpisodicLayout.HEADER_BYTES).asByteBuffer());
         }
 
         // payload bytes

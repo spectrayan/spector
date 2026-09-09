@@ -26,7 +26,6 @@ import com.spectrayan.spector.memory.graph.TypeNormalizer;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.config.properties.CircadianProperties;
-import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.SalienceProfile;
@@ -384,7 +383,6 @@ public final class ReflectSignal {
         public Builder importanceProvider(ImportanceProvider ip) { this.importanceProvider = ip; return this; }
         public Builder salienceProfile(SalienceProfile sp) { this.salienceProfile = sp; return this; }
         public Builder policy(CircadianProperties p) { this.policy = p; return this; }
-        public Builder policy(CircadianPolicy p) { this.policy = p; return this; }
         public Builder centroidRouter(CentroidRouter cr) { this.centroidRouter = cr; return this; }
         public Builder templateEngine(TemplateEngine te) { this.templateEngine = te; return this; }
         public Builder episodicSessionIndex(EpisodicSessionIndex esi) { this.episodicSessionIndex = esi; return this; }

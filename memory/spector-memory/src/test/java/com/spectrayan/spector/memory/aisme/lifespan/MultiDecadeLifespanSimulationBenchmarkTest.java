@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.aisme.lifespan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.lifespan.LifespanEvaluationResult.LifespanRetentionDecision;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -39,14 +39,14 @@ class MultiDecadeLifespanSimulationBenchmarkTest {
 
     private static final Logger log = LoggerFactory.getLogger(MultiDecadeLifespanSimulationBenchmarkTest.class);
 
-    private AismeConfig config;
+    private AismeProperties config;
     private LifespanRetentionController controller;
 
     record SyntheticMemory(float importance, boolean flashbulb, String[] tags, LifespanTier expectedTier) {}
 
     @BeforeEach
     void setUp() {
-        config = AismeConfig.builder()
+        config = AismeProperties.builder()
                 .enableLifespan(true)
                 .lifespanTau0(0.30f)
                 .lifespanK(0.15f)

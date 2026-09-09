@@ -34,7 +34,7 @@ import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
+import com.spectrayan.spector.config.properties.CircadianProperties;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -124,11 +124,11 @@ public class MindSpanIngestionValidationTest {
                 .setDimensions(768)
                 .setEpisodicPartitionCapacity(35_000)
                 .setSemanticCapacity(20_000)
-                .setCircadian(CircadianPolicy.builder().volumeTrigger(Integer.MAX_VALUE).build());
+                .setCircadian(CircadianProperties.builder().volumeTrigger(Integer.MAX_VALUE).build());
+        memProps.getGraph().getEntity().setExtractionMode("CUSTOM");
 
         SpectorMemory memory = SpectorMemory.builder(memProps)
                 .embeddingProvider(embedder)
-                .entityExtractionMode(com.spectrayan.spector.memory.graph.EntityExtractionMode.CUSTOM)
                 .entityExtractor(com.spectrayan.spector.memory.graph.NoOpEntityExtractor.INSTANCE)
                 .persistence(naturalMemoryDir)
                 .persistenceMode(MemoryPersistenceMode.DISK)

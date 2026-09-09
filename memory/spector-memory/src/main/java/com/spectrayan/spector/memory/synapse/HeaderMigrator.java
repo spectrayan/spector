@@ -71,7 +71,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
  *   <li>V2 (48B) → V1 (32B): ⚠️ lossy — arousal, storageStrength dropped</li>
  * </ul>
  *
- * @see HeaderLayout
+ * @see EncodingHeaderLayout
  */
 public final class HeaderMigrator {
 
