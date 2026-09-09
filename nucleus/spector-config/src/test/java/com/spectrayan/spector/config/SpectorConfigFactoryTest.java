@@ -223,4 +223,25 @@ class SpectorConfigFactoryTest {
         assertThat(props.events().isAsync()).isFalse();
         assertThat(props.concurrency().isStructured()).isTrue();
     }
+
+    @Test
+    void taskQueueProperties_planeAndBatchDrainSize_mapping() {
+        var source = SpectorConfigSource.builder()
+                .override("spector.memory.taskqueue.batch-drain-size", "8")
+                .override("spector.memory.taskqueue.plane", "PLATFORM_SHARED")
+                .override("spector.memory.taskqueue.backpressure-policy", "BLOCK")
+                .build();
+
+        var memory = SpectorConfigFactory.memoryProperties(source);
+        var tq = memory.getTaskQueue();
+
+        assertThat(tq.getBatchDrainSize()).isEqualTo(8);
+        assertThat(tq.getPlane()).isEqualTo("PLATFORM_SHARED");
+        assertThat(tq.getBackpressurePolicy()).isEqualTo("BLOCK");
+
+        var config = tq.toConfig();
+        assertThat(config.batchDrainSize()).isEqualTo(8);
+        assertThat(config.plane()).isEqualTo(com.spectrayan.spector.commons.concurrent.ThreadPlane.PLATFORM_SHARED);
+        assertThat(config.backpressurePolicy()).isEqualTo(com.spectrayan.spector.commons.concurrent.BackpressurePolicy.BLOCK);
+    }
 }

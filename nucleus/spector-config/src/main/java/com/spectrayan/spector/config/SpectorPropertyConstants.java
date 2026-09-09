@@ -878,6 +878,17 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_TASKQUEUE_BACKPRESSURE_POLICY = "spector.memory.taskqueue.backpressure-policy";
     public static final String DEFAULT_MEMORY_TASKQUEUE_BACKPRESSURE_POLICY = "REJECT_FAST";
 
+    public static final String MEMORY_TASKQUEUE_BATCH_DRAIN_SIZE = "spector.memory.taskqueue.batch-drain-size";
+    public static final int DEFAULT_MEMORY_TASKQUEUE_BATCH_DRAIN_SIZE = 1;
+
+    public static final String MEMORY_TASKQUEUE_PLANE = "spector.memory.taskqueue.plane";
+    public static final String DEFAULT_MEMORY_TASKQUEUE_PLANE = "VIRTUAL";
+
+    public static final String THREADS_WRITER_PER_NAMESPACE = "spector.threads.writer.per-namespace";
+    public static final int DEFAULT_THREADS_WRITER_PER_NAMESPACE = 1;
+
+    public static final String THREADS_SHARED_POOL_SIZE = "spector.threads.shared.pool-size";
+
     public static final String MEMORY_CONSOLIDATION_PARALLELISM = "spector.memory.consolidation.parallelism";
     public static final int DEFAULT_MEMORY_CONSOLIDATION_PARALLELISM = 1;
 
