@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig;
@@ -39,7 +39,7 @@ class DreamPathwayTest {
                 .langevinSteps(20)
                 .build();
 
-        AismeConfig aismeConfig = AismeConfig.defaultConfig();
+        AismeProperties aismeConfig = AismeProperties.defaultConfig();
         HebbianGraphMemory hebbianGraph = new HebbianGraphMemory(50);
 
         try (DistributedMemoryTensor dmt = new DistributedMemoryTensor(dim);

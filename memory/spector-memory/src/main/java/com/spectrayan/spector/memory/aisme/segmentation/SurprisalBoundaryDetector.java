@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.aisme.segmentation;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.cognitive.FreeEnergyKernel;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 
 /**
  * Dual-criteria episode boundary detector fusing Bayesian Online Change-Point Detection (BOCPD)
@@ -64,7 +64,7 @@ public final class SurprisalBoundaryDetector {
         this.maxEpisodeFrames = maxEpisodeFrames;
     }
 
-    public static SurprisalBoundaryDetector fromConfig(AismeConfig config, int dimensions, float[] priorMean, float[] obsPrecision) {
+    public static SurprisalBoundaryDetector fromConfig(AismeProperties config, int dimensions, float[] priorMean, float[] obsPrecision) {
         if (config == null) {
             BayesianOnlineChangePointDetector detector = new BayesianOnlineChangePointDetector(dimensions, 100.0f, 150, priorMean, obsPrecision);
             return new SurprisalBoundaryDetector(detector, 0.65f, 1.50f, 200);

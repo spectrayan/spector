@@ -26,7 +26,7 @@ import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
 import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -271,7 +271,7 @@ public class PersonaIsolatedEvaluationTest {
                         .persistence(memoryDir)
                         .persistenceMode(MemoryPersistenceMode.DISK);
 
-                AismeConfig aismeConfig = AismeConfig.builder()
+                AismeProperties aismeConfig = AismeProperties.builder()
                         .enabled(true)
                         .enableHomeostasis(true)
                         .enableFreeEnergy(true)

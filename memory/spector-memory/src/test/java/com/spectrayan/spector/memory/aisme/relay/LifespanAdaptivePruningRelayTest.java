@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.aisme.relay;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.lifespan.LifespanRetentionController;
 import com.spectrayan.spector.memory.pathway.reflect.relay.ReflectSignal;
 
@@ -32,7 +32,7 @@ class LifespanAdaptivePruningRelayTest {
     @BeforeEach
     void setUp() {
         relay = new LifespanAdaptivePruningRelay();
-        controller = new LifespanRetentionController(AismeConfig.defaultConfig());
+        controller = new LifespanRetentionController(AismeProperties.defaultConfig());
     }
 
     @Test

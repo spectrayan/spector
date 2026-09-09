@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.pathway.wander.relay;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.cortex.ContinuityMemory;
 import org.junit.jupiter.api.Test;
 
@@ -38,14 +38,14 @@ class WanderGatesTest {
 
     @Test
     void dmnAndManifoldGatesEvaluation() {
-        AismeConfig disabledConfig = AismeConfig.disabled();
+        AismeProperties disabledConfig = AismeProperties.disabled();
         WanderSignal disabledSignal = WanderSignal.builder()
                 .aismeConfig(disabledConfig)
                 .build();
         assertThat(WanderGates.DMN_ENABLED.isSatisfiedBy(disabledSignal)).isFalse();
         assertThat(WanderGates.MANIFOLD_ENABLED.isSatisfiedBy(disabledSignal)).isFalse();
 
-        AismeConfig enabledConfig = AismeConfig.defaultConfig();
+        AismeProperties enabledConfig = AismeProperties.defaultConfig();
         WanderSignal enabledSignal = WanderSignal.builder()
                 .aismeConfig(enabledConfig)
                 .build();
@@ -56,13 +56,13 @@ class WanderGatesTest {
     @Test
     void continuityGateEvaluation() {
         WanderSignal noMemorySignal = WanderSignal.builder()
-                .aismeConfig(AismeConfig.defaultConfig())
+                .aismeConfig(AismeProperties.defaultConfig())
                 .build();
         assertThat(WanderGates.CONTINUITY_ENABLED.isSatisfiedBy(noMemorySignal)).isFalse();
 
         try (ContinuityMemory memory = ContinuityMemory.heap(10)) {
             WanderSignal memorySignal = WanderSignal.builder()
-                    .aismeConfig(AismeConfig.defaultConfig())
+                    .aismeConfig(AismeProperties.defaultConfig())
                     .continuityMemory(memory)
                     .build();
             assertThat(WanderGates.CONTINUITY_ENABLED.isSatisfiedBy(memorySignal)).isTrue();

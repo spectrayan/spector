@@ -193,8 +193,8 @@ public class LongMemEvalSingleProfileBenchmarkTest {
              EmbeddingProvider rawEmbedder = OllamaEmbeddingProvider.createDefault();
              CachedEmbeddingProvider embedder = new CachedEmbeddingProvider(rawEmbedder, datasetDir.resolve("embeddings.bin"))) {
 
-            com.spectrayan.spector.memory.aisme.config.AismeConfig aismeConfig =
-                    com.spectrayan.spector.memory.aisme.config.AismeConfig.builder()
+            com.spectrayan.spector.config.properties.AismeProperties aismeConfig =
+                    com.spectrayan.spector.config.properties.AismeProperties.builder()
                             .enabled(true)
                             .globalWorkspaceCapacity(30)
                             .build();

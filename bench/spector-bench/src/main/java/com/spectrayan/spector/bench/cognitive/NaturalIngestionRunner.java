@@ -38,7 +38,7 @@ import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
 import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
@@ -260,7 +260,7 @@ public final class NaturalIngestionRunner {
     private void exportCandidates(SpectorMemory memory, List<BenchmarkQuery> queries, Map<String, String> goldAnswerMap, Path outputFile) {
         log.info("Exporting candidate sets for {} queries to {} (topK={})", queries.size(), outputFile, topK);
 
-        AismeConfig aismeConfig = AismeConfig.builder()
+        AismeProperties aismeConfig = AismeProperties.builder()
                 .enabled(true)
                 .enableHomeostasis(true)
                 .enableFreeEnergy(true)

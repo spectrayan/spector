@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.pathway.wander;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
 import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
@@ -69,7 +69,7 @@ public final class WanderPathway implements AutoCloseable {
     private final HebbianGraphBase hebbianGraph;
     private final HomeostaticCore homeostaticCore;
     private final ContinuityMemory continuityMemory;
-    private final AismeConfig aismeConfig;
+    private final AismeProperties aismeConfig;
     private final float[] soulPriorPreference;
 
     private WanderPathway(final Builder builder) {
@@ -188,7 +188,7 @@ public final class WanderPathway implements AutoCloseable {
         private HebbianGraphBase hebbianGraph;
         private HomeostaticCore homeostaticCore;
         private ContinuityMemory continuityMemory;
-        private AismeConfig aismeConfig = AismeConfig.defaultConfig();
+        private AismeProperties aismeConfig = AismeProperties.defaultConfig();
         private float[] soulPriorPreference;
         private Function<SynapticRelay<WanderSignal>, SynapticRelay<WanderSignal>> interceptor;
 
@@ -200,7 +200,7 @@ public final class WanderPathway implements AutoCloseable {
         public Builder hebbianGraph(HebbianGraphBase hg) { this.hebbianGraph = hg; return this; }
         public Builder homeostaticCore(HomeostaticCore hc) { this.homeostaticCore = hc; return this; }
         public Builder continuityMemory(ContinuityMemory crm) { this.continuityMemory = crm; return this; }
-        public Builder aismeConfig(AismeConfig cfg) { this.aismeConfig = cfg; return this; }
+        public Builder aismeConfig(AismeProperties cfg) { this.aismeConfig = cfg; return this; }
         public Builder soulPriorPreference(float[] prior) { this.soulPriorPreference = prior; return this; }
         public Builder interceptor(Function<SynapticRelay<WanderSignal>, SynapticRelay<WanderSignal>> inc) { this.interceptor = inc; return this; }
 

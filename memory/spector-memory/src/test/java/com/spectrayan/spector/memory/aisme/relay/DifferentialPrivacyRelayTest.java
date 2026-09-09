@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.aisme.relay;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.privacy.DifferentialPrivacyEngine;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -34,7 +34,7 @@ class DifferentialPrivacyRelayTest {
     @Test
     @DisplayName("transmit perturbs vector and scalar importance when privacy is enabled")
     void transmit_perturbsSignal() {
-        AismeConfig config = AismeConfig.builder()
+        AismeProperties config = AismeProperties.builder()
                 .enablePrivacy(true)
                 .privacyEpsilon(2.0f)
                 .privacyDelta(1e-5f)
@@ -71,7 +71,7 @@ class DifferentialPrivacyRelayTest {
     @Test
     @DisplayName("transmit leaves signal untouched when privacy is disabled")
     void transmit_leavesUntouchedWhenDisabled() {
-        AismeConfig config = AismeConfig.builder()
+        AismeProperties config = AismeProperties.builder()
                 .enablePrivacy(false)
                 .build();
 

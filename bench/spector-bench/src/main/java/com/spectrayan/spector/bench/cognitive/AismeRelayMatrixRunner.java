@@ -33,7 +33,7 @@ import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.ConflictMode;
@@ -58,7 +58,7 @@ public final class AismeRelayMatrixRunner {
             String id,
             String name,
             String phaseDescription,
-            AismeConfig config,
+            AismeProperties config,
             ConflictMode conflictMode,
             float minTrustScore
     ) {}
@@ -268,13 +268,13 @@ public final class AismeRelayMatrixRunner {
         list.add(new BenchmarkCondition(
                 "CONFIG_0", "Baseline (No AISME)",
                 "Standard Cognitive Pathway without active inference self-modeling",
-                AismeConfig.disabled(), null, 0.0f));
+                AismeProperties.disabled(), null, 0.0f));
 
         // 2. Full AISME (All 7 Phases)
         list.add(new BenchmarkCondition(
                 "CONFIG_1", "Full AISME (All 7 Phases)",
                 "Full generative self-model with homeostatic, free-energy, Hopfield, manifold, predictive coding, continuity, and workspace relays",
-                AismeConfig.builder()
+                AismeProperties.builder()
                         .enabled(true)
                         .enableHomeostasis(true)
                         .enableFreeEnergy(true)
@@ -289,7 +289,7 @@ public final class AismeRelayMatrixRunner {
         list.add(new BenchmarkCondition(
                 "CONFIG_2", "Phase 1 Only: Homeostatic Bias",
                 "Homeostatic Core & Affective Resonance Bias Relay",
-                AismeConfig.builder()
+                AismeProperties.builder()
                         .enabled(true)
                         .enableHomeostasis(true)
                         .enableFreeEnergy(false)
@@ -304,7 +304,7 @@ public final class AismeRelayMatrixRunner {
         list.add(new BenchmarkCondition(
                 "CONFIG_3", "Phase 2 Only: Free Energy Guided",
                 "Variational Free Energy Minimization (G = epistemic + pragmatic)",
-                AismeConfig.builder()
+                AismeProperties.builder()
                         .enabled(true)
                         .enableHomeostasis(false)
                         .enableFreeEnergy(true)
@@ -319,7 +319,7 @@ public final class AismeRelayMatrixRunner {
         list.add(new BenchmarkCondition(
                 "CONFIG_4", "Phase 3 Only: Hopfield Attractors",
                 "Dense Associative Hopfield Energy Dynamic & Memory Basins",
-                AismeConfig.builder()
+                AismeProperties.builder()
                         .enabled(true)
                         .enableHomeostasis(false)
                         .enableFreeEnergy(false)
@@ -334,7 +334,7 @@ public final class AismeRelayMatrixRunner {
         list.add(new BenchmarkCondition(
                 "CONFIG_5", "Phase 4 Only: Riemannian Manifold",
                 "Cognitive Manifold Geodesic Distance Rerank Relay",
-                AismeConfig.builder()
+                AismeProperties.builder()
                         .enabled(true)
                         .enableHomeostasis(false)
                         .enableFreeEnergy(false)
@@ -349,7 +349,7 @@ public final class AismeRelayMatrixRunner {
         list.add(new BenchmarkCondition(
                 "CONFIG_6", "Phase 5 Only: Predictive Coding",
                 "Hierarchical Predictive Coding & Constructive Simulation Relay",
-                AismeConfig.builder()
+                AismeProperties.builder()
                         .enabled(true)
                         .enableHomeostasis(false)
                         .enableFreeEnergy(false)
@@ -364,7 +364,7 @@ public final class AismeRelayMatrixRunner {
         list.add(new BenchmarkCondition(
                 "CONFIG_7", "Phase 6 Only: Consciousness Continuity",
                 "Temporal Consciousness Continuity Metric & Phi Evaluation",
-                AismeConfig.builder()
+                AismeProperties.builder()
                         .enabled(true)
                         .enableHomeostasis(false)
                         .enableFreeEnergy(false)
@@ -379,7 +379,7 @@ public final class AismeRelayMatrixRunner {
         list.add(new BenchmarkCondition(
                 "CONFIG_8", "Phase 7 Only: Global Workspace",
                 "Limited-Capacity Global Neuronal Workspace Conscious Access Gateway",
-                AismeConfig.builder()
+                AismeProperties.builder()
                         .enabled(true)
                         .enableHomeostasis(false)
                         .enableFreeEnergy(false)
@@ -394,7 +394,7 @@ public final class AismeRelayMatrixRunner {
         list.add(new BenchmarkCondition(
                 "CONFIG_9", "TANGLE + GPM Gate",
                 "Multi-Evidence Conflict Resolution + Fail-Closed Governed Release Gate",
-                AismeConfig.disabled(), ConflictMode.MULTI_EVIDENCE, 0.50f));
+                AismeProperties.disabled(), ConflictMode.MULTI_EVIDENCE, 0.50f));
 
         return list;
     }

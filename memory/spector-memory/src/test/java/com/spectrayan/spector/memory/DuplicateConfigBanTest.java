@@ -15,7 +15,6 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.config.properties.ProviderProperties;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
@@ -117,7 +116,6 @@ class DuplicateConfigBanTest {
                 DreamConfig.class,
                 CircadianPolicy.class,
                 TwoFactorConfig.class,
-                AismeConfig.class,
                 DecayConfig.class
         );
 

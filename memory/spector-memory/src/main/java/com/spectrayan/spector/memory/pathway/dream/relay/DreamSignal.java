@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
@@ -64,7 +64,7 @@ public final class DreamSignal {
     private final DreamConfig config;
     private final float temperature;
     private final PartitionManager partitionManager;
-    private final AismeConfig aismeConfig;
+    private final AismeProperties aismeConfig;
 
     private final SoulContext primarySoul;
     private final List<SoulContext> soulContexts;
@@ -189,7 +189,7 @@ public final class DreamSignal {
     public DreamConfig config() { return config; }
     public float temperature() { return temperature; }
     public PartitionManager partitionManager() { return partitionManager; }
-    public AismeConfig aismeConfig() { return aismeConfig; }
+    public AismeProperties aismeConfig() { return aismeConfig; }
 
     public SoulContext primarySoul() { return primarySoul; }
     public List<SoulContext> soulContexts() { return soulContexts; }
@@ -291,7 +291,7 @@ public final class DreamSignal {
         private DreamConfig config;
         private float temperature;
         private PartitionManager partitionManager;
-        private AismeConfig aismeConfig;
+        private AismeProperties aismeConfig;
         private SoulContext primarySoul;
         private List<SoulContext> soulContexts;
         private SalienceProfile salienceProfile;
@@ -319,7 +319,7 @@ public final class DreamSignal {
         public Builder config(DreamConfig config) { this.config = config; return this; }
         public Builder temperature(float temperature) { this.temperature = temperature; return this; }
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
-        public Builder aismeConfig(AismeConfig config) { this.aismeConfig = config; return this; }
+        public Builder aismeConfig(AismeProperties config) { this.aismeConfig = config; return this; }
         public Builder primarySoul(SoulContext soul) { this.primarySoul = soul; return this; }
         public Builder soulContexts(List<SoulContext> soulContexts) { this.soulContexts = soulContexts; return this; }
         public Builder salienceProfile(SalienceProfile profile) { this.salienceProfile = profile; return this; }

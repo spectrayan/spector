@@ -124,7 +124,7 @@ public final class SpectorMemoryBuilder {
     private AgentSoul agentSoul;
     private List<SoulContext> soulContexts;
     private IcnuWeights icnuWeights;
-    private com.spectrayan.spector.memory.aisme.config.AismeConfig aismeConfig;
+    private com.spectrayan.spector.config.properties.AismeProperties aismeConfig;
     private com.spectrayan.spector.memory.pathway.dream.relay.DreamConfig dreamConfig;
     private com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy circadianPolicy;
     private com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig;
@@ -326,7 +326,7 @@ public final class SpectorMemoryBuilder {
      * @deprecated Configure on {@code props.memory().setAisme(...)} instead.
      */
     @Deprecated(forRemoval = true)
-    public SpectorMemoryBuilder aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig config) {
+    public SpectorMemoryBuilder aismeConfig(com.spectrayan.spector.config.properties.AismeProperties config) {
         this.aismeConfig = config;
         return this;
     }
@@ -679,10 +679,10 @@ public final class SpectorMemoryBuilder {
     public GenerationOptions llmGenerationOptions() { return llmGenerationOptions; }
     public IcnuWeights icnuWeights() { return icnuWeights; }
     public RecallOptions defaultRecallOptions() { return defaultRecallOptions; }
-    public com.spectrayan.spector.memory.aisme.config.AismeConfig aismeConfig() {
+    public com.spectrayan.spector.config.properties.AismeProperties aismeConfig() {
         if (aismeConfig != null) return aismeConfig;
         return properties != null && properties.memory() != null && properties.memory().getAisme() != null
-                ? com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(properties.memory().getAisme()) : null;
+                ? com.spectrayan.spector.config.properties.AismeProperties.fromProperties(properties.memory().getAisme()) : null;
     }
     public com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy circadianPolicy() {
         if (circadianPolicy != null) return circadianPolicy;

@@ -877,7 +877,9 @@ public class AismeProperties implements Serializable {
     }
 
     public static AismeProperties defaultConfig() {
-        return new AismeProperties();
+        AismeProperties props = new AismeProperties();
+        props.setEnabled(true);
+        return props;
     }
 
     public static AismeProperties defaultProperties() {
@@ -893,7 +895,7 @@ public class AismeProperties implements Serializable {
     }
 
     public static class Builder {
-        private final AismeProperties properties = new AismeProperties();
+        private final AismeProperties properties = defaultConfig();
 
         public Builder enabled(boolean v) { properties.setEnabled(v); return this; }
         public Builder enableHomeostasis(boolean v) { properties.setEnableHomeostasis(v); return this; }

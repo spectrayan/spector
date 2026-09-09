@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.aisme;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.fegr.FreeEnergyCalculator;
 import com.spectrayan.spector.memory.aisme.fegr.GenerativeSelfModel;
 import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
@@ -61,7 +61,7 @@ public final class AismeBuilder {
      * @return the constructed AismeBundle, or null if disabled
      */
     public static AismeBundle build(
-            final AismeConfig config,
+            final AismeProperties config,
             final SoulContext soul,
             final int dimensions,
             final Function<String, float[]> vectorLookup
@@ -80,7 +80,7 @@ public final class AismeBuilder {
      * @return the constructed AismeBundle, or null if disabled
      */
     public static AismeBundle build(
-            final AismeConfig config,
+            final AismeProperties config,
             final SoulContext soul,
             final int dimensions,
             final Function<String, float[]> vectorLookup,
@@ -101,14 +101,14 @@ public final class AismeBuilder {
      * @return the constructed AismeBundle, or null if disabled
      */
     public static AismeBundle build(
-            final AismeConfig config,
+            final AismeProperties config,
             final SoulContext soul,
             final int dimensions,
             final RememberPathway rememberPathway,
             final Function<String, float[]> vectorLookup,
             final List<SoulContext> soulContexts
     ) {
-        final AismeConfig cfg = config != null ? config : AismeConfig.disabled();
+        final AismeProperties cfg = config != null ? config : AismeProperties.disabled();
         if (!cfg.enabled() || dimensions <= 0) {
             return null;
         }

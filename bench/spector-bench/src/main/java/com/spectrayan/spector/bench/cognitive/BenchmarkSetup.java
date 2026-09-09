@@ -99,7 +99,7 @@ public final class BenchmarkSetup implements AutoCloseable {
     public SpectorMemory createMemoryInstance(DatasetLoader.LoadedDataset dataset,
                                               EmbeddingProvider embedder,
                                               Path datasetDir,
-                                              com.spectrayan.spector.memory.aisme.config.AismeConfig aismeConfig) {
+                                              com.spectrayan.spector.config.properties.AismeProperties aismeConfig) {
         List<BenchmarkCorpusRecord> corpus = dataset.corpus();
         int corpusSize = corpus.size();
 
@@ -261,7 +261,7 @@ public final class BenchmarkSetup implements AutoCloseable {
         if (aismeConfig != null) {
             builder.aismeConfig(aismeConfig);
         } else if (memoryProperties.getAisme() != null) {
-            builder.aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(memoryProperties.getAisme()));
+            builder.aismeConfig(memoryProperties.getAisme());
         }
 
         float threshold = memoryProperties.getGraphExpansionThreshold();

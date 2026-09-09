@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.pathway.ConsolidationRelay;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -58,7 +58,7 @@ class AismeEndToEndIntegrationTest {
                 .expertiseEmbedding(new float[]{1.0f, 0.0f, 0.0f, 0.0f})
                 .build();
 
-        AismeConfig config = AismeConfig.builder()
+        AismeProperties config = AismeProperties.builder()
                 .enabled(true)
                 .globalWorkspaceCapacity(3)
                 .build();

@@ -48,7 +48,7 @@ import com.spectrayan.spector.bench.cognitive.model.PersonaDef;
 import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -411,7 +411,7 @@ public final class LongMemEvalNaturalRunner {
             exportMemory.setSalienceProfile(exportSalience);
         }
 
-        AismeConfig aismeConfig = AismeConfig.builder()
+        AismeProperties aismeConfig = AismeProperties.builder()
                 .enabled(true)
                 .enableHomeostasis(true)
                 .enableFreeEnergy(true)

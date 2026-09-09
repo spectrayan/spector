@@ -410,7 +410,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         var consProps = memProps.getConsolidation() != null
                 ? memProps.getConsolidation()
                 : new com.spectrayan.spector.config.properties.ConsolidationProperties();
-        var aismeConfig = com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(
+        var aismeConfig = com.spectrayan.spector.config.properties.AismeProperties.fromProperties(
                 memProps.getAisme());
  
         this.batchConsolidator = new BatchConsolidator(builder.llmProvider(), this.embeddingProvider);

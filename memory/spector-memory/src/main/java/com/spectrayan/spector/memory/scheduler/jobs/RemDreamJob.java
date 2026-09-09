@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.scheduler.jobs;
 
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
 import com.spectrayan.spector.commons.concurrent.OnPlane;
@@ -40,7 +40,7 @@ public final class RemDreamJob implements Job {
         var dataMap = context.getMergedJobDataMap();
         DreamPathway dreamPathway = (DreamPathway) dataMap.get("dreamPathway");
         PartitionManager partitionManager = (PartitionManager) dataMap.get("partitionManager");
-        AismeConfig aismeConfig = (AismeConfig) dataMap.get("aismeConfig");
+        AismeProperties aismeConfig = (AismeProperties) dataMap.get("aismeConfig");
 
         if (dreamPathway == null) {
             log.debug("RemDreamJob: dreamPathway missing from JobDataMap — skipping");

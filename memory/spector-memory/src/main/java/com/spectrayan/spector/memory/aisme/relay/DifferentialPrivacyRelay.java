@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.aisme.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.privacy.DifferentialPrivacyEngine;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;
@@ -32,10 +32,10 @@ public final class DifferentialPrivacyRelay implements SynapticRelay<RememberSig
 
     private static final Logger log = LoggerFactory.getLogger(DifferentialPrivacyRelay.class);
 
-    private final AismeConfig config;
+    private final AismeProperties config;
     private final DifferentialPrivacyEngine engine;
 
-    public DifferentialPrivacyRelay(AismeConfig config, DifferentialPrivacyEngine engine) {
+    public DifferentialPrivacyRelay(AismeProperties config, DifferentialPrivacyEngine engine) {
         this.config = config;
         this.engine = engine;
     }

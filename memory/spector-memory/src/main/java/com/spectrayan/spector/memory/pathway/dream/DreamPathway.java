@@ -16,7 +16,7 @@ import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.config.properties.DreamProperties;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
@@ -71,7 +71,7 @@ public final class DreamPathway implements AutoCloseable {
     private final DreamProperties dreamProperties;
     private final DreamConfig dreamConfig;
     private final PartitionManager partitionManager;
-    private final AismeConfig aismeConfig;
+    private final AismeProperties aismeConfig;
     private final SoulContext primarySoul;
     private final List<SoulContext> soulContexts;
     private final SalienceProfile salienceProfile;
@@ -236,7 +236,7 @@ public final class DreamPathway implements AutoCloseable {
     public DreamReport dream(
             DreamMode mode,
             PartitionManager pm,
-            AismeConfig aismeConfig,
+            AismeProperties aismeConfig,
             SoulContext primarySoul,
             List<SoulContext> soulContexts,
             SalienceProfile salienceProfile) {
@@ -264,7 +264,7 @@ public final class DreamPathway implements AutoCloseable {
     /**
      * Convenience method to execute a dream cycle using the instance defaults.
      */
-    public DreamReport dream(DreamMode mode, PartitionManager pm, AismeConfig aismeConfig) {
+    public DreamReport dream(DreamMode mode, PartitionManager pm, AismeProperties aismeConfig) {
         return dream(mode, pm, aismeConfig, primarySoul, soulContexts, salienceProfile);
     }
 
@@ -280,7 +280,7 @@ public final class DreamPathway implements AutoCloseable {
         private DreamProperties dreamProperties;
         private DreamConfig dreamConfig;
         private PartitionManager partitionManager;
-        private AismeConfig aismeConfig = AismeConfig.defaultConfig();
+        private AismeProperties aismeConfig = AismeProperties.defaultConfig();
         private SoulContext primarySoul;
         private List<SoulContext> soulContexts;
         private SalienceProfile salienceProfile;
@@ -309,7 +309,7 @@ public final class DreamPathway implements AutoCloseable {
             return this;
         }
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
-        public Builder aismeConfig(AismeConfig ac) { this.aismeConfig = ac; return this; }
+        public Builder aismeConfig(AismeProperties ac) { this.aismeConfig = ac; return this; }
         public Builder primarySoul(SoulContext soul) { this.primarySoul = soul; return this; }
         public Builder soulContexts(List<SoulContext> soulContexts) { this.soulContexts = soulContexts; return this; }
         public Builder salienceProfile(SalienceProfile profile) { this.salienceProfile = profile; return this; }

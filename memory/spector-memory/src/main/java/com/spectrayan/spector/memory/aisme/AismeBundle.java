@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.aisme;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.fegr.GenerativeSelfModel;
 import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
 import com.spectrayan.spector.memory.aisme.homeostasis.AffectiveResonanceScorer;
@@ -45,7 +45,7 @@ import java.util.List;
  * Immutable bundle holding all initialized Active Inference Self-Model Engine (AISME) subsystems and relays.
  */
 public record AismeBundle(
-        AismeConfig config,
+        AismeProperties config,
         SoulContext primarySoul,
         List<SoulContext> soulContexts,
         HomeostaticCore homeostaticCore,
@@ -80,7 +80,7 @@ public record AismeBundle(
      * Backward-compatible 24-arg constructor for code passing single AgentSoul.
      */
     public AismeBundle(
-            AismeConfig config,
+            AismeProperties config,
             AgentSoul agentSoul,
             HomeostaticCore homeostaticCore,
             AffectiveResonanceScorer affectiveScorer,

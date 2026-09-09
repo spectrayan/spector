@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.aisme.relay;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics;
 import com.spectrayan.spector.memory.aisme.importance.CompositeImportanceScorer;
 import com.spectrayan.spector.memory.cortex.MemorySource;
@@ -31,13 +31,13 @@ import org.junit.jupiter.api.Test;
  */
 class CompositeImportanceRelayTest {
 
-    private AismeConfig config;
+    private AismeProperties config;
     private CompositeImportanceScorer scorer;
     private CompositeImportanceRelay relay;
 
     @BeforeEach
     void setUp() {
-        config = AismeConfig.builder()
+        config = AismeProperties.builder()
                 .enabled(true)
                 .enableImportance(true)
                 .importanceFlashbulbThreshold(0.85f)
@@ -98,7 +98,7 @@ class CompositeImportanceRelayTest {
 
     @Test
     void transmit_disabledImportance_leavesOriginalImportance() {
-        AismeConfig disabledConfig = AismeConfig.builder()
+        AismeProperties disabledConfig = AismeProperties.builder()
                 .enabled(true)
                 .enableImportance(false)
                 .build();

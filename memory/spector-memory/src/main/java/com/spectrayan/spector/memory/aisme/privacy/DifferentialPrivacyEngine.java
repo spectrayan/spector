@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.aisme.privacy;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.privacy.DifferentialPrivacyKernel;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,18 +36,18 @@ public final class DifferentialPrivacyEngine {
 
     private static final Logger log = LoggerFactory.getLogger(DifferentialPrivacyEngine.class);
 
-    private final AismeConfig config;
+    private final AismeProperties config;
     private final float sigma;
     private final Random rng;
     private final DoubleAdder totalConsumedEpsilon = new DoubleAdder();
     private final AtomicLong perturbationCount = new AtomicLong();
     private final ReentrantLock lock = new ReentrantLock();
 
-    public DifferentialPrivacyEngine(AismeConfig config) {
+    public DifferentialPrivacyEngine(AismeProperties config) {
         this(config, new Random());
     }
 
-    public DifferentialPrivacyEngine(AismeConfig config, Random rng) {
+    public DifferentialPrivacyEngine(AismeProperties config, Random rng) {
         if (config == null) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "config must not be null");
         }

@@ -21,7 +21,7 @@ import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import com.spectrayan.spector.commons.concurrent.spi.AbstractExecutorProvider;
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.graph.GraphEnrichmentEngine;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
 import com.spectrayan.spector.memory.model.ReflectReport;
@@ -85,7 +85,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             CircadianPolicy circadianPolicy,
             DreamPathway dreamPathway,
             PartitionManager partitionManager,
-            AismeConfig aismeConfig,
+            AismeProperties aismeConfig,
             CheckpointEngine checkpointEngine,
             GraphEnrichmentEngine graphEnrichmentEngine,
             Runnable dmnDaemon,
@@ -171,7 +171,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             CircadianPolicy circadianPolicy,
             DreamPathway dreamPathway,
             PartitionManager partitionManager,
-            AismeConfig aismeConfig,
+            AismeProperties aismeConfig,
             CheckpointEngine checkpointEngine,
             GraphEnrichmentEngine graphEnrichmentEngine,
             Runnable dmnDaemon,
@@ -514,7 +514,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
         private CircadianPolicy circadianPolicy;
         private DreamPathway dreamPathway;
         private PartitionManager partitionManager;
-        private AismeConfig aismeConfig;
+        private AismeProperties aismeConfig;
         private CheckpointEngine checkpointEngine;
         private GraphEnrichmentEngine graphEnrichmentEngine;
         private Runnable dmnDaemon;
@@ -548,7 +548,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             return this;
         }
 
-        public Builder aismeConfig(AismeConfig aismeConfig) {
+        public Builder aismeConfig(AismeProperties aismeConfig) {
             this.aismeConfig = aismeConfig;
             return this;
         }

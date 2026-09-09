@@ -37,7 +37,7 @@ import com.spectrayan.spector.bench.cognitive.DatasetLoader.LoadedDataset;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallMode;
@@ -145,7 +145,7 @@ public final class ContextExportRunner {
 
             SpectorMemory memory = setup.createMemoryInstance(dataset, embedder, datasetDir);
 
-            AismeConfig aismeConfig = AismeConfig.builder()
+            AismeProperties aismeConfig = AismeProperties.builder()
                     .enabled(true)
                     .enableHomeostasis(true)
                     .enableFreeEnergy(true)

@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
 import com.spectrayan.spector.core.similarity.VectorOps;
-import com.spectrayan.spector.memory.aisme.config.AismeConfig;
+import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.privacy.DifferentialPrivacyEngine;
 import com.spectrayan.spector.memory.aisme.privacy.EdgeAnonymizer;
 import com.spectrayan.spector.memory.aisme.relay.DifferentialPrivacyRelay;
@@ -49,7 +49,7 @@ class PrivacyUtilityPreservationBenchmarkTest {
         int totalQueries = 1000;
         Random rng = new Random(2026L);
 
-        AismeConfig config = AismeConfig.builder()
+        AismeProperties config = AismeProperties.builder()
                 .enablePrivacy(true)
                 .privacyEpsilon(2.0f)
                 .privacyDelta(1e-5f)

@@ -201,7 +201,7 @@ public final class SpectorMemoryFactory {
         var remProps = memProps.getRemember() != null
                 ? memProps.getRemember()
                 : new com.spectrayan.spector.config.properties.RememberProperties();
-        var aismeConfig = com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(
+        var aismeConfig = com.spectrayan.spector.config.properties.AismeProperties.fromProperties(
                 memProps.getAisme());
         var twoFactorConfig = com.spectrayan.spector.memory.synapse.TwoFactorConfig.from(
                 memProps.getTwofactor());
