@@ -15,6 +15,7 @@ package com.spectrayan.spector.memory.pathway.pipeline.scan;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EngramMemory;
+import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
@@ -36,7 +37,7 @@ public interface TierScanStrategy {
             EngramMemory working = ctx.active().working();
             if (working.visibleCount() <= 0) return;
             emitter.emitSlabScan(working::segment, working::visibleCount,
-                    working.cognitiveLayout(), MemoryType.WORKING, 0L, ctx.activeSeq());
+                    (FixedEngramLayout) working.layout(), MemoryType.WORKING, 0L, ctx.activeSeq());
         }
     }
 
@@ -67,7 +68,7 @@ public interface TierScanStrategy {
                 EngramMemory semantic = handle.router().semantic();
                 if (semantic == null || semantic.visibleCount() <= 0) return;
                 emitter.emitSlabScan(semantic::segment, semantic::visibleCount,
-                        semantic.cognitiveLayout(), MemoryType.SEMANTIC,
+                        (FixedEngramLayout) semantic.layout(), MemoryType.SEMANTIC,
                         semantic.dataOffset(), handle.seq());
             }
         }
@@ -83,7 +84,7 @@ public interface TierScanStrategy {
             EngramMemory procedural = handle.router().procedural();
             if (procedural.visibleCount() <= 0) return;
             emitter.emitSlabScan(procedural::segment, procedural::visibleCount,
-                    procedural.cognitiveLayout(), MemoryType.PROCEDURAL,
+                    (FixedEngramLayout) procedural.layout(), MemoryType.PROCEDURAL,
                     procedural.dataOffset(), handle.seq());
         }
     }

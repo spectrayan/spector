@@ -77,7 +77,7 @@ public class FileDiscoveryService {
      * @return configured file discovery service
      */
     public static FileDiscoveryService fromProperties(SpectorConfigSource props, Path rootDir) {
-        var ingestion = SpectorConfigFactory.ingestionDefaults(props);
+        var ingestion = SpectorConfigFactory.ingestionProperties(props);
         return builder()
                 .rootDirectory(rootDir)
                 .filePattern(ingestion.filePattern())

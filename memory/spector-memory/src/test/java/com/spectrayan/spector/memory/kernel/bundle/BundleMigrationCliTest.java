@@ -40,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Tests for {@link BundleMigrationCli} — V3 → V4 partition migration.
  */
+@SuppressWarnings("removal")
 class BundleMigrationCliTest {
 
     private static final int VEC_BYTES = 16;

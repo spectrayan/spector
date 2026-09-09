@@ -85,7 +85,7 @@ public record RecallOptions(
         byte queryValence,
         boolean enableValenceAlignment,
         //  Two-Factor Memory (Bjork & Bjork) 
-        com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig,
+        com.spectrayan.spector.config.properties.TwoFactorProperties twoFactorConfig,
         //  Recall Mode (Statefulness Control) 
         RecallMode recallMode,
         //  Text Search (BM25 Hybrid) 
@@ -345,8 +345,8 @@ public record RecallOptions(
         private boolean enableValenceAlignment = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_VALENCE_ALIGNMENT_ENABLED;
 
         // ─── Two-Factor Memory (Bjork & Bjork) ───
-        private com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig
-                = com.spectrayan.spector.memory.synapse.TwoFactorConfig.DEFAULT;
+        private com.spectrayan.spector.config.properties.TwoFactorProperties twoFactorConfig
+                = com.spectrayan.spector.config.properties.TwoFactorProperties.DEFAULT;
 
         // ─── Recall Mode ───
         private RecallMode recallMode = RecallMode.valueOf(
@@ -705,6 +705,14 @@ public record RecallOptions(
          */
         public Builder enableValenceAlignment(boolean enabled) {
             this.enableValenceAlignment = enabled;
+            return this;
+        }
+
+        /**
+         * Sets the two-factor memory configuration (Bjork &amp; Bjork).
+         */
+        public Builder twoFactorConfig(com.spectrayan.spector.config.properties.TwoFactorProperties config) {
+            this.twoFactorConfig = config != null ? config : com.spectrayan.spector.config.properties.TwoFactorProperties.DEFAULT;
             return this;
         }
 

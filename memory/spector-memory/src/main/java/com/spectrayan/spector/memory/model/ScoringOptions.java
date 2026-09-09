@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.model;
 
-import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
+import com.spectrayan.spector.config.properties.TwoFactorProperties;
 
 /**
  * Scoring parameters for recall queries.
@@ -44,7 +44,7 @@ public record ScoringOptions(
         float strictnessCoefficient,
         byte queryValence,
         boolean enableValenceAlignment,
-        TwoFactorConfig twoFactorConfig,
+        TwoFactorProperties twoFactorConfig,
         ScoringMode scoringMode,
         ScoreFusionMode scoreFusionMode,
         boolean enableAssociativePrior,
@@ -72,7 +72,7 @@ public record ScoringOptions(
             float strictnessCoefficient,
             byte queryValence,
             boolean enableValenceAlignment,
-            TwoFactorConfig twoFactorConfig,
+            TwoFactorProperties twoFactorConfig,
             ScoringMode scoringMode,
             ScoreFusionMode scoreFusionMode
     ) {
@@ -95,7 +95,7 @@ public record ScoringOptions(
             float strictnessCoefficient,
             byte queryValence,
             boolean enableValenceAlignment,
-            TwoFactorConfig twoFactorConfig,
+            TwoFactorProperties twoFactorConfig,
             ScoringMode scoringMode
     ) {
         this(alpha, beta, tagRelevanceBoost, semanticCandidateMultiplier, strictnessCoefficient,
@@ -105,5 +105,5 @@ public record ScoringOptions(
     /** Default balanced cognitive scoring. */
     public static final ScoringOptions DEFAULT = new ScoringOptions(
             0.6f, 0.4f, 0.3f, 3, 1.0f,
-            (byte) 0, false, TwoFactorConfig.DEFAULT, ScoringMode.COGNITIVE, ScoreFusionMode.MULTIPLICATIVE);
+            (byte) 0, false, TwoFactorProperties.DEFAULT, ScoringMode.COGNITIVE, ScoreFusionMode.MULTIPLICATIVE);
 }

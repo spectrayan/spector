@@ -122,7 +122,7 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
             DreamProperties config) {
         if (store == null || store.segment() == null) return;
 
-        FixedEngramLayout layout = store.cognitiveLayout();
+        FixedEngramLayout layout = (FixedEngramLayout) store.layout();
         MemorySegment segment = store.segment();
         int size = store.size();
         if (size <= 0) return;

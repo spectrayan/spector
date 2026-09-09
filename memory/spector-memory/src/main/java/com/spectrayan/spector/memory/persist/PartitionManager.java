@@ -571,6 +571,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
      * <p>Called before a partition roll to ensure global structures are
      * persisted. Entity graph flush is included (was missing in V2).</p>
      */
+    @SuppressWarnings("removal")
     private void flushGlobalState() {
         if (basePath == null) return;
         Path targetPath = useBundleMode ? StorageLayout.runtimeBundleFile(basePath) : StorageLayout.indexMidxRuntime(basePath);

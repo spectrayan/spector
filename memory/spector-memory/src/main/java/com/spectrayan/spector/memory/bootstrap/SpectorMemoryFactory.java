@@ -66,7 +66,6 @@ import com.spectrayan.spector.memory.pathway.pipeline.HebbianCoActivationListene
 import com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.pathway.reflect.ReinforcementHandler;
 import com.spectrayan.spector.memory.scheduler.jobs.HomeostaticDecayJob;
-import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
 import com.spectrayan.spector.memory.sync.CheckpointEngine;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalRecoveryDispatcher;
@@ -108,7 +107,6 @@ import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
-import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
 import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
 
 import org.slf4j.Logger;
@@ -201,7 +199,7 @@ public final class SpectorMemoryFactory {
                 : new com.spectrayan.spector.config.properties.RememberProperties();
         var aismeConfig = com.spectrayan.spector.config.properties.AismeProperties.fromProperties(
                 memProps.getAisme());
-        var twoFactorConfig = com.spectrayan.spector.memory.synapse.TwoFactorConfig.from(
+        var twoFactorConfig = com.spectrayan.spector.config.properties.TwoFactorProperties.from(
                 memProps.getTwofactor());
 
         com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager = builder.cacheManager() != null

@@ -662,7 +662,7 @@ public final class CognitiveBenchmarkHarness {
             try {
                 EngramMemory store = cognitiveRouter.get(type);
                 if (store != null && store.size() > 0) {
-                    FixedEngramLayout layout = store.cognitiveLayout();
+                    FixedEngramLayout layout = store.layout() instanceof FixedEngramLayout fel ? fel : null;
                     if (layout == null) {
                         continue;
                     }

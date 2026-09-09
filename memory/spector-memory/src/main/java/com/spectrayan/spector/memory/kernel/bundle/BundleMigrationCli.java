@@ -104,6 +104,7 @@ public final class BundleMigrationCli {
      * @param dimensions embedding vector dimensions
      * @return migration result for runtime state
      */
+    @SuppressWarnings("removal")
     public static MigrationResult migrateRuntime(Path basePath, int dimensions) {
         Path runtimeDir = StorageLayout.runtimeDir(basePath);
         if (!Files.isDirectory(runtimeDir)) {
@@ -437,6 +438,7 @@ public final class BundleMigrationCli {
      * @return migration result for this partition
      * @throws MigrationException if migration or fidelity check fails
      */
+    @SuppressWarnings("removal")
     public static MigrationResult migratePartition(Path partitionDir, int dimensions) {
         Path bundleFile = StorageLayout.partitionBundleFile(partitionDir);
 
@@ -858,6 +860,7 @@ public final class BundleMigrationCli {
     /**
      * Dry-run report: lists partitions and their migration eligibility.
      */
+    @SuppressWarnings("removal")
     private static void dryRunReport(Path basePath, int dimensions) {
         Path partitionsDir = StorageLayout.partitionsDir(basePath);
         if (!Files.isDirectory(partitionsDir)) {

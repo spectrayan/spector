@@ -131,7 +131,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      */
     public FixedEngramLayout layoutFor(MemoryType type) {
         EngramMemory store = stores.get(type);
-        return store != null ? store.cognitiveLayout() : null;
+        return store != null && store.layout() instanceof FixedEngramLayout fel ? fel : null;
     }
 
     /**

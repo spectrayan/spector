@@ -116,7 +116,7 @@ public final class CadpContradictionResolver {
             }
         } else if (store != null) {
             MemorySegment segment = store.segment();
-            FixedEngramLayout layout = store.cognitiveLayout();
+            FixedEngramLayout layout = (FixedEngramLayout) store.layout();
             layout.markContradicted(segment, loser.byteOffset());
         }
         log.info("CADP resolved: winner='{}' corrects loser='{}'", winner.id(), loser.id());
@@ -142,8 +142,8 @@ public final class CadpContradictionResolver {
                 }
             }
         } else if (store != null) {
-            slotWinner = memorySlot(winner, store, store.cognitiveLayout());
-            slotLoser = memorySlot(loser, store, store.cognitiveLayout());
+            slotWinner = memorySlot(winner, store, (FixedEngramLayout) store.layout());
+            slotLoser = memorySlot(loser, store, (FixedEngramLayout) store.layout());
         }
 
         List<Integer> entitiesWinner = findEntitiesForRecord(entityDirectory, winner, slotWinner);

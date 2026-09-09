@@ -127,7 +127,7 @@ public final class SpectorMemoryBuilder {
     private com.spectrayan.spector.config.properties.AismeProperties aismeConfig;
     private com.spectrayan.spector.config.properties.DreamProperties dreamConfig;
     private com.spectrayan.spector.config.properties.CircadianProperties circadianPolicy;
-    private com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig;
+    private com.spectrayan.spector.config.properties.TwoFactorProperties twoFactorConfig;
     private com.spectrayan.spector.memory.graph.EntityExtractionMode entityExtractionMode = com.spectrayan.spector.memory.graph.EntityExtractionMode.NONE;
     private com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor reflectSweepExecutor;
 
@@ -360,7 +360,7 @@ public final class SpectorMemoryBuilder {
      */
     @Deprecated(forRemoval = true)
     public SpectorMemoryBuilder twoFactorConfig(com.spectrayan.spector.config.properties.TwoFactorProperties config) {
-        this.twoFactorConfig = com.spectrayan.spector.memory.synapse.TwoFactorConfig.from(config);
+        this.twoFactorConfig = config;
         if (config != null && this.properties != null && this.properties.memory() != null) {
             this.properties.memory().setTwofactor(config);
         }
@@ -692,10 +692,10 @@ public final class SpectorMemoryBuilder {
         if (dreamConfig != null) return dreamConfig;
         return properties != null && properties.memory() != null ? properties.memory().getDream() : null;
     }
-    public com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig() {
+    public com.spectrayan.spector.config.properties.TwoFactorProperties twoFactorConfig() {
         if (twoFactorConfig != null) return twoFactorConfig;
         return properties != null && properties.memory() != null && properties.memory().getTwofactor() != null
-                ? com.spectrayan.spector.memory.synapse.TwoFactorConfig.from(properties.memory().getTwofactor()) : null;
+                ? properties.memory().getTwofactor() : null;
     }
     public com.spectrayan.spector.memory.graph.EntityExtractionMode entityExtractionMode() {
         if (entityExtractionMode != null && entityExtractionMode != com.spectrayan.spector.memory.graph.EntityExtractionMode.NONE) {

@@ -16,8 +16,6 @@ import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.config.properties.ProviderProperties;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
-import com.spectrayan.spector.memory.synapse.DecayConfig;
-import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import org.junit.jupiter.api.DisplayName;
@@ -107,24 +105,6 @@ class DuplicateConfigBanTest {
                 .isEmpty();
     }
 
-    @Test
-    @DisplayName("Legacy data twin classes must remain marked with @Deprecated(forRemoval = true)")
-    void testLegacyDataTwinsAreDeprecatedAndMarkedForRemoval() {
-        List<Class<?>> dataTwins = List.of(
-                TwoFactorConfig.class,
-                DecayConfig.class
-        );
-
-        for (Class<?> clazz : dataTwins) {
-            Deprecated dep = clazz.getAnnotation(Deprecated.class);
-            assertThat(dep)
-                    .as("Data twin class %s must be annotated with @Deprecated", clazz.getName())
-                    .isNotNull();
-            assertThat(dep.forRemoval())
-                    .as("Data twin class %s must have forRemoval = true", clazz.getName())
-                    .isTrue();
-        }
-    }
 
     @Test
     @DisplayName("SpectorMemoryBuilder.build() and mutations must not mutate caller's SpectorProperties snapshot")

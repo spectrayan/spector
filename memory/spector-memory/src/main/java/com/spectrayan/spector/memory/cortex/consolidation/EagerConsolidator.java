@@ -235,7 +235,7 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
         }
 
         MemorySegment segment = store.segment();
-        FixedEngramLayout layout = store.cognitiveLayout();
+        FixedEngramLayout layout = (FixedEngramLayout) store.layout();
         long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0L;
         int stride = layout.stride();
         int vecBytes = layout.quantizedVecBytes();

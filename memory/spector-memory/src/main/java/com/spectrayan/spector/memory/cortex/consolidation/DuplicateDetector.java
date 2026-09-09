@@ -84,7 +84,7 @@ public final class DuplicateDetector {
             if (recordCount == 0) continue;
 
             MemorySegment segment = store.segment();
-            FixedEngramLayout layout = store.cognitiveLayout();
+            FixedEngramLayout layout = (FixedEngramLayout) store.layout();
             long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0L;
             int stride = layout.stride();
             int qVecBytes = layout.quantizedVecBytes();

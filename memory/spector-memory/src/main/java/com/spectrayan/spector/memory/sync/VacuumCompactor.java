@@ -79,7 +79,7 @@ public final class VacuumCompactor {
                                             MemoryIndex index) {
         long startMs = System.currentTimeMillis();
 
-        FixedEngramLayout layout = store.cognitiveLayout();
+        FixedEngramLayout layout = (FixedEngramLayout) store.layout();
         int totalRecords = store.size();
         long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0;
         int stride = layout.stride();

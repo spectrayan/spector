@@ -264,13 +264,7 @@ public abstract class AbstractEngramMemory<L extends FixedEngramLayout>
         return layout;
     }
 
-    /**
-     * @deprecated Use {@link #layout()} instead.
-     */
-    @Deprecated(since = "1.5.0", forRemoval = true)
-    public L cognitiveLayout() {
-        return layout;
-    }
+
 
     @Override
     public long recordOffset(long index) {
