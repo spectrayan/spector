@@ -321,7 +321,10 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
     }
 
     private void workerLoop() {
-        while (!closed.get() && !Thread.currentThread().isInterrupted()) {
+        while (!Thread.currentThread().isInterrupted()) {
+            if (closed.get() && queue.isEmpty()) {
+                break;
+            }
             try {
                 ScopedTask<T> first = queue.poll(config.pollTimeoutMs(), TimeUnit.MILLISECONDS);
                 if (first != null) {

@@ -51,6 +51,17 @@ public interface SpectorExecutorProvider {
     DrainResult drain(Duration budget);
 
     /**
+     * Cooperatively drains executors matching the specified pool filter up to the allocated budget.
+     *
+     * @param poolFilter substring/identifier filter (e.g. namespace or pool name), or null to drain all
+     * @param budget     maximum duration allocated for draining in-flight work
+     * @return drain result detailing completion status and duration
+     */
+    default DrainResult drain(String poolFilter, Duration budget) {
+        return drain(budget);
+    }
+
+    /**
      * Host-visible identity for logging, thread dumps, and JFR recordings.
      *
      * @return provider description

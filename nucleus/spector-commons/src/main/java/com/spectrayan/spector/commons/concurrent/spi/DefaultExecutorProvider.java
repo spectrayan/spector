@@ -49,7 +49,9 @@ public class DefaultExecutorProvider extends AbstractExecutorProvider {
             }
             case PLATFORM_WRITER -> {
                 ThreadFactory factory = Thread.ofPlatform().name("spector-pool-writer-" + poolName + "-", 0).factory();
-                yield Executors.newSingleThreadExecutor(factory);
+                yield new java.util.concurrent.ThreadPoolExecutor(
+                        1, 1, 0L, java.util.concurrent.TimeUnit.MILLISECONDS,
+                        new java.util.concurrent.LinkedBlockingQueue<>(), factory);
             }
         };
     }

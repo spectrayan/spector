@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -37,7 +38,12 @@ public abstract class AbstractExecutorProvider implements SpectorExecutorProvide
     public Executor executor(ThreadPlane plane, String name) {
         String poolName = name != null && !name.isBlank() ? name : "default";
         String key = plane.name() + ":" + poolName;
-        return executors.computeIfAbsent(key, k -> createExecutor(plane, poolName));
+        return executors.compute(key, (k, existing) -> {
+            if (existing instanceof ExecutorService service && service.isShutdown()) {
+                return createExecutor(plane, poolName);
+            }
+            return existing != null ? existing : createExecutor(plane, poolName);
+        });
     }
 
     /**
@@ -51,34 +57,37 @@ public abstract class AbstractExecutorProvider implements SpectorExecutorProvide
 
     @Override
     public DrainResult drain(Duration budget) {
+        return drain(null, budget);
+    }
+
+    @Override
+    public DrainResult drain(String poolFilter, Duration budget) {
         long startNanos = System.nanoTime();
         long budgetNanos = budget.toNanos();
         boolean allCompleted = true;
         int remaining = 0;
 
-        for (Executor executor : executors.values()) {
-            if (executor instanceof ExecutorService service && !service.isShutdown()) {
-                service.shutdown();
-                long elapsedNanos = System.nanoTime() - startNanos;
-                long remainingNanos = Math.max(0L, budgetNanos - elapsedNanos);
-                try {
-                    boolean terminated = service.awaitTermination(remainingNanos, TimeUnit.NANOSECONDS);
-                    if (!terminated) {
+        for (java.util.Map.Entry<String, Executor> entry : executors.entrySet()) {
+            if (poolFilter != null && !poolFilter.isBlank() && !entry.getKey().contains(poolFilter)) {
+                continue;
+            }
+            Executor executor = entry.getValue();
+            if (executor instanceof ThreadPoolExecutor tpe) {
+                while (tpe.getActiveCount() > 0 || !tpe.getQueue().isEmpty()) {
+                    long elapsedNanos = System.nanoTime() - startNanos;
+                    if (elapsedNanos >= budgetNanos) {
                         allCompleted = false;
-                        remaining++;
-                        service.shutdownNow();
-                        log.log(System.Logger.Level.WARNING,
-                                "[{0}] Executor failed to terminate within allocated budget; forced shutdownNow()",
-                                describe());
+                        remaining += tpe.getActiveCount() + tpe.getQueue().size();
+                        break;
                     }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    allCompleted = false;
-                    remaining++;
-                    service.shutdownNow();
-                    log.log(System.Logger.Level.WARNING,
-                            "[{0}] Drain interrupted; forced shutdownNow()", describe());
-                    break;
+                    try {
+                        Thread.sleep(10);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        allCompleted = false;
+                        remaining += tpe.getActiveCount() + tpe.getQueue().size();
+                        break;
+                    }
                 }
             }
         }
@@ -89,6 +98,19 @@ public abstract class AbstractExecutorProvider implements SpectorExecutorProvide
 
     @Override
     public void close() {
-        drain(Duration.ofSeconds(2));
+        for (Executor executor : executors.values()) {
+            if (executor instanceof ExecutorService service && !service.isShutdown()) {
+                service.shutdown();
+                try {
+                    if (!service.awaitTermination(2, TimeUnit.SECONDS)) {
+                        service.shutdownNow();
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    service.shutdownNow();
+                }
+            }
+        }
+        executors.clear();
     }
 }

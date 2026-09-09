@@ -102,4 +102,25 @@ public final class SpectorExecutors {
     public static Executor executor(ThreadPlane plane, String name) {
         return current().executor(plane, name);
     }
+
+    /**
+     * Cooperatively drains all active executors up to the specified budget.
+     *
+     * @param budget maximum duration allocated for draining
+     * @return drain result
+     */
+    public static com.spectrayan.spector.commons.concurrent.spi.DrainResult drain(java.time.Duration budget) {
+        return current().drain(budget);
+    }
+
+    /**
+     * Cooperatively drains executors matching the specified pool filter up to the allocated budget.
+     *
+     * @param poolFilter substring filter (e.g. namespace ID)
+     * @param budget     maximum duration allocated for draining
+     * @return drain result
+     */
+    public static com.spectrayan.spector.commons.concurrent.spi.DrainResult drain(String poolFilter, java.time.Duration budget) {
+        return current().drain(poolFilter, budget);
+    }
 }
