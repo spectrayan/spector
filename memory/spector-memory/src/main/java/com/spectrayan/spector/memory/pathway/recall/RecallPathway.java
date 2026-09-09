@@ -23,7 +23,7 @@ import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout;
 import com.spectrayan.spector.memory.model.EngramSource;
 import com.spectrayan.spector.memory.model.EpisodeRecord;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
@@ -710,24 +710,24 @@ public final class RecallPathway {
             final long absOffset = base + relOffset;
 
             // Phase 1: Tombstone check
-            final byte flags = EpisodicHeaderAccessor.readFlags(segment, absOffset);
+            final byte flags = EpisodicHeaderLayout.INSTANCE.readFlagsRecord(segment, absOffset);
             if (EncodingHeaderFields.isTombstoned(flags)) {
                 continue;
             }
 
             // Phase 1c: Simulation check
-            if (!allowSimulated && EpisodicHeaderAccessor.readSource(segment, absOffset) == EngramSource.SIMULATED) {
+            if (!allowSimulated && EpisodicHeaderLayout.INSTANCE.readSourceRecord(segment, absOffset) == EngramSource.SIMULATED) {
                 continue;
             }
 
             // Phase 1b: Temporal gating
-            final long timestamp = EpisodicHeaderAccessor.readTimestamp(segment, absOffset);
+            final long timestamp = EpisodicHeaderLayout.INSTANCE.readTimestampRecord(segment, absOffset);
             if (RecordGates.isTemporalGated(timestamp, minTimestamp, maxTimestamp, nowMs, allowFuture)) {
                 continue;
             }
 
             // Phase 2: Synaptic tag gating
-            final EncodingHeader header = EpisodicHeaderAccessor.readHeader(segment, absOffset);
+            final EncodingHeader header = EpisodicHeaderLayout.INSTANCE.readHeaderRecord(segment, absOffset);
             final long recordTags = header != null ? header.synapticTags() : 0L;
             if (hyperfocusMask != 0 || queryTagMask != 0) {
                 if (RecordGates.isTagGated(recordTags, queryTagMask, hyperfocusMask)) {
@@ -736,13 +736,13 @@ public final class RecallPathway {
             }
 
             // Phase 3: Valence filter
-            final byte valence = EpisodicHeaderAccessor.readValence(segment, absOffset);
+            final byte valence = EpisodicHeaderLayout.INSTANCE.readValenceRecord(segment, absOffset);
             if (RecordGates.isValenceGated(valence, minValence, maxValence)) {
                 continue;
             }
 
             // Phase 4: Importance filter
-            final float importance = EpisodicHeaderAccessor.readImportance(segment, absOffset);
+            final float importance = EpisodicHeaderLayout.INSTANCE.readImportanceRecord(segment, absOffset);
             if (importance < minImportance) {
                 continue;
             }
@@ -827,7 +827,7 @@ public final class RecallPathway {
                     score
             );
 
-            final SourceModality modality = EpisodicHeaderAccessor.readModality(segment, absOffset);
+            final SourceModality modality = EpisodicHeaderLayout.INSTANCE.readModalityRecord(segment, absOffset);
             final Map<String, String> metadata = index.metadata(id);
             final MemorySource source = index.source(id) != null ? index.source(id) : MemorySource.OBSERVED;
 

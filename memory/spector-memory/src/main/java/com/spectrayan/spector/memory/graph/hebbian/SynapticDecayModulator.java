@@ -16,10 +16,9 @@ import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout;
 
 import java.lang.foreign.MemorySegment;
 import java.util.List;
@@ -119,13 +118,13 @@ public final class SynapticDecayModulator implements DecayModulator {
         for (int i = 0; i < count; i++) {
             try {
                 long offset = base + offsets.get(i);
-                if (EpisodicHeaderAccessor.isOptionBRecord(segment, offset)) {
-                    byte flags = EpisodicHeaderAccessor.readFlags(segment, offset);
+                if (EpisodicHeaderLayout.INSTANCE.isOptionBRecord(segment, offset)) {
+                    byte flags = EpisodicHeaderLayout.INSTANCE.readFlagsRecord(segment, offset);
                     if (EncodingHeaderFields.isTombstoned(flags)) continue;
 
-                    float importance = EpisodicHeaderAccessor.readImportance(segment, offset);
-                    byte arousal = EpisodicHeaderAccessor.readArousal(segment, offset);
-                    byte valence = EpisodicHeaderAccessor.readValence(segment, offset);
+                    float importance = EpisodicHeaderLayout.INSTANCE.readImportanceRecord(segment, offset);
+                    byte arousal = EpisodicHeaderLayout.INSTANCE.readArousalRecord(segment, offset);
+                    byte valence = EpisodicHeaderLayout.INSTANCE.readValenceRecord(segment, offset);
 
                     float normArousal = (arousal & 0xFF) / 255.0f;
                     float normValence = Math.abs(valence) / 127.0f;

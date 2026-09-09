@@ -63,18 +63,18 @@ class PerTierHeaderLayoutTest {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment seg = arena.allocate(256, 64);
             long recordOff = 0L;
-            long headerOff = recordOff + EpisodeLayout.PREFIX_BYTES;
+            long headerOff = recordOff + EpisodicLayout.PREFIX_BYTES;
 
             // Prefix fields
             seg.set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, recordOff, 120);
             seg.set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, recordOff + 4, 7);
             seg.set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, recordOff + 8, 0xCAFEBABE);
-            seg.set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, recordOff + 12, EpisodeLayout.MAGIC);
+            seg.set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, recordOff + 12, EpisodicLayout.MAGIC);
 
             assertThat(episodic.readPayloadBytes(seg, recordOff)).isEqualTo(120);
             assertThat(episodic.readSequenceId(seg, recordOff)).isEqualTo(7);
             assertThat(episodic.readChecksum(seg, recordOff)).isEqualTo(0xCAFEBABE);
-            assertThat(episodic.readMagic(seg, recordOff)).isEqualTo(EpisodeLayout.MAGIC);
+            assertThat(episodic.readMagic(seg, recordOff)).isEqualTo(EpisodicLayout.MAGIC);
             assertThat(episodic.isOptionBRecord(seg, recordOff)).isTrue();
 
             // Honest episodic fields (at header offset)
@@ -167,7 +167,7 @@ class PerTierHeaderLayoutTest {
         assertThat(working.headerLayout()).isInstanceOf(WorkingHeaderLayout.class);
 
         // Episodic layout
-        assertThat(episodic.layoutId()).isEqualTo(EpisodeLayout.LAYOUT_ID);
+        assertThat(episodic.layoutId()).isEqualTo(EpisodicLayout.LAYOUT_ID);
         assertThat(episodic.recordStride()).isEqualTo(0);
         assertThat(episodic.crcEnabled()).isTrue();
         assertThat(episodic.headerLayout()).isInstanceOf(EpisodicHeaderLayout.class);

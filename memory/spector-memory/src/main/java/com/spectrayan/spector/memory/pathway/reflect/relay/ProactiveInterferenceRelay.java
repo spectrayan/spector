@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 /**
  * REM Sleep Proactive Interference Relay.
  *
- * <p>Legacy fixed-stride episodic partitions have been replaced by {@code EpisodeLayout} append logs.
+ * <p>Legacy fixed-stride episodic partitions have been replaced by {@code EpisodicLayout} append logs.
  * Episodic reflection and consolidation are handled via {@link EpisodicLogConsolidationRelay}.</p>
  */
 public final class ProactiveInterferenceRelay implements SynapticRelay<ReflectSignal> {

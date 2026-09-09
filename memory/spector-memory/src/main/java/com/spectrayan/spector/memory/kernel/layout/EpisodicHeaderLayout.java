@@ -31,7 +31,7 @@ import static com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderFields.*
  * @since 1.5.0
  * @see EncodingHeaderLayout
  * @see EpisodicHeaderFields
- * @see EpisodeLayout
+ * @see EpisodicLayout
  */
 public class EpisodicHeaderLayout extends EncodingHeaderLayout {
 
@@ -224,16 +224,16 @@ public class EpisodicHeaderLayout extends EncodingHeaderLayout {
     }
 
     public boolean isOptionBRecord(MemorySegment segment, long recordOffset) {
-        if (segment.byteSize() < recordOffset + EpisodeLayout.FIXED_OVERHEAD_BYTES) {
+        if (segment.byteSize() < recordOffset + EpisodicLayout.FIXED_OVERHEAD_BYTES) {
             return false;
         }
-        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, recordOffset + 12) == EpisodeLayout.MAGIC;
+        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, recordOffset + 12) == EpisodicLayout.MAGIC;
     }
 
     // ── Record-Level Convenience Methods (Translating recordOffset -> headerOffset) ──
 
     private static long headerOffset(long recordOffset) {
-        return recordOffset + EpisodeLayout.PREFIX_BYTES;
+        return recordOffset + EpisodicLayout.PREFIX_BYTES;
     }
 
     public EncodingHeader readHeaderRecord(MemorySegment segment, long recordOffset) {

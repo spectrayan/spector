@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
-import com.spectrayan.spector.memory.kernel.layout.EpisodeLayout;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
 
 /**
  * A V4 partition bundle — packs 4 cognitive tier regions (Semantic, Episodic,
@@ -130,8 +130,8 @@ public final class PartitionBundle implements AutoCloseable {
                     new RegionSizeSpec(
                             RegionId.EPISODIC,
                             RegionPreamble.PREAMBLE_BYTES + episodicBytes,
-                            0, 0, EpisodeLayout.INSTANCE.layoutId(),
-                            EpisodeLayout.INSTANCE.schemaVersion(), false),
+                            0, 0, EpisodicLayout.INSTANCE.layoutId(),
+                            EpisodicLayout.INSTANCE.schemaVersion(), false),
                     new RegionSizeSpec(
                             RegionId.PROCEDURAL,
                             RegionPreamble.PREAMBLE_BYTES + (long) proceduralCapacity * cogStride,
@@ -232,8 +232,8 @@ public final class PartitionBundle implements AutoCloseable {
                     new RegionSizeSpec(
                             RegionId.EPISODIC,
                             RegionPreamble.PREAMBLE_BYTES + episodicBytes,
-                            0, 0, EpisodeLayout.INSTANCE.layoutId(),
-                            EpisodeLayout.INSTANCE.schemaVersion(), false),
+                            0, 0, EpisodicLayout.INSTANCE.layoutId(),
+                            EpisodicLayout.INSTANCE.schemaVersion(), false),
                     new RegionSizeSpec(
                             RegionId.PROCEDURAL,
                             RegionPreamble.PREAMBLE_BYTES + (long) proceduralCapacity * cogStride,

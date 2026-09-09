@@ -20,8 +20,7 @@ import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.RelationType;
 import com.spectrayan.spector.memory.graph.TypeNormalizer;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.graph.hebbian.SynapticDecayModulator;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderAccessor;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.ReflectDaemon;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.Memory;
@@ -367,8 +366,8 @@ public final class ReflectionOrchestrator {
                             if (memIdx < 0 || memIdx >= offsets.size()) return 0f;
                             try {
                                 long absOffset = base + offsets.get(memIdx);
-                                if (EpisodicHeaderAccessor.isOptionBRecord(segment, absOffset)) {
-                                    return EpisodicHeaderAccessor.readImportance(segment, absOffset);
+                                if (EpisodicHeaderLayout.INSTANCE.isOptionBRecord(segment, absOffset)) {
+                                    return EpisodicHeaderLayout.INSTANCE.readImportanceRecord(segment, absOffset);
                                 }
                                 return 0f;
                             } catch (RuntimeException e) {
