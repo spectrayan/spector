@@ -67,7 +67,7 @@ import java.util.Set;
  * <p>Cross-layer deduplication ensures each memory appears at most once,
  * keeping the highest score across all three layers.</p>
  *
- * @see RecallPipeline
+ * @see com.spectrayan.spector.memory.pathway.recall.RecallPathway
  * @see GraphScoringPolicy
  */
 public final class GraphExpansionStage {

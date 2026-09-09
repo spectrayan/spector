@@ -256,10 +256,10 @@ import com.spectrayan.spector.memory.model.CognitiveRecord;
  * <p>{@code DefaultSpectorMemory} is a thin faÃ§ade that composes and delegates to focused subsystems:</p>
  * <ul>
  *   <li>{@link CognitiveIngestionTarget}  --  10-step ingest (embed  ->  quantize  ->  route  ->  WAL)</li>
- *   <li>{@link RecallPipeline}  --  8-step recall (embed  ->  score  ->  filter  ->  sort)</li>
+ *   <li>{@link RecallPathway}  --  multi-stage recall (embed  ->  score  ->  filter  ->  sort)</li>
  *   <li>{@link PartitionManager}  --  DISK partition discovery, creation, and rolling</li>
  *   <li>{@link ImportanceEstimator}  --  read-only novelty/ICNU/flashbulb pipeline</li>
- *   <li>{@link ReflectionOrchestrator}  --  sleep consolidation, graph decay, cross-layer promotion</li>
+ *   <li>{@link ReflectPathway}  --  sleep consolidation, graph decay, cross-layer promotion</li>
  *   <li>{@link ReinforcementHandler}  --  valence, LTP, ACT-R, Two-Factor, ICNU re-fusion</li>
  *   <li>{@link PersistenceManager}  --  flush-on-close and resource cleanup</li>
  * </ul>

@@ -35,9 +35,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
 /**
- * End-to-end parity test comparing legacy {@link com.spectrayan.spector.memory.pathway.pipeline.RecallPipeline}
+ * End-to-end parity test comparing legacy {@code RecallPipeline}
  * and {@link com.spectrayan.spector.memory.pathway.pipeline.CognitiveIngestionTarget} against the new
- * {@link com.spectrayan.spector.memory.RecallPathway} and {@link com.spectrayan.spector.memory.RememberPathway}.
+ * {@link com.spectrayan.spector.memory.pathway.recall.RecallPathway} and {@link com.spectrayan.spector.memory.pathway.remember.RememberPathway}.
  */
 @DisplayName("CognitivePathwayParityTest")
 class CognitivePathwayParityTest {

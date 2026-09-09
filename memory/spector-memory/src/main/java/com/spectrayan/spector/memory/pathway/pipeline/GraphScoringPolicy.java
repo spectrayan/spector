@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
  * Configurable weights and limits for the 3-Layer Cognitive Graph scoring steps.
  *
  * <p>Replaces the previously hardcoded attenuation factors in
- * {@link RecallPipeline} steps 5b–5e. Each parameter controls how strongly
+ * {@link com.spectrayan.spector.memory.pathway.recall.RecallPathway} steps 5b–5e. Each parameter controls how strongly
  * graph-derived signals (causal, Hebbian, temporal, entity) influence the
  * final recall score.</p>
  *
