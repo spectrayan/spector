@@ -117,6 +117,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
         final EntityExtractor entityExtractor = builder.graphs.entityExtractor();
         if (entityExtractor != null && entityExtractor.isAvailable() && builder.entityExtractionParallelism > 0) {
             this.asyncEntityExtractionQueue = new AsyncEntityExtractionQueue(
+                    builder.namespaceId,
                     entityExtractor,
                     postIngestSync,
                     builder.entityExtractionParallelism,
@@ -352,6 +353,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
         private TagExtractor tagExtractor;
         private VectorIndex semanticIndex;
         private SparseEmbeddingProvider sparseEmbeddingProvider;
+        private String namespaceId;
         private DataEncryptor dataEncryptor = DataEncryptor.NOOP;
         private int entityExtractionParallelism = 1;
         private int entityExtractionQueueCapacity = 1000;
@@ -359,6 +361,11 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
         private java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<RememberSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<RememberSignal>> interceptor;
 
         public Builder() {}
+
+        public Builder namespaceId(final String namespaceId) {
+            this.namespaceId = namespaceId;
+            return this;
+        }
 
         public Builder interceptor(
                 final java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<RememberSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<RememberSignal>> interceptor) {

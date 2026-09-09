@@ -27,7 +27,7 @@ import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.neuromod.dopamine.DefaultImportanceProvider;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
+import com.spectrayan.spector.memory.graph.GraphEnrichmentEngine;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.OntologyConfig;
@@ -68,7 +68,7 @@ import com.spectrayan.spector.memory.pathway.reflect.ReflectionOrchestrator;
 import com.spectrayan.spector.memory.pathway.reflect.ReinforcementHandler;
 import com.spectrayan.spector.memory.scheduler.jobs.HomeostaticDecayJob;
 import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
-import com.spectrayan.spector.memory.sync.CheckpointDaemon;
+import com.spectrayan.spector.memory.sync.CheckpointEngine;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalRecoveryDispatcher;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
@@ -76,7 +76,6 @@ import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 
-import com.spectrayan.spector.commons.concurrent.DaemonSupervisor;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
@@ -103,7 +102,6 @@ import com.spectrayan.spector.memory.cortex.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
 import com.spectrayan.spector.memory.pathway.pipeline.AttachmentProcessor;
 import com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler;
-import com.spectrayan.spector.memory.sync.CheckpointDaemon;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
@@ -127,8 +125,7 @@ import java.nio.file.Path;
  * All subsystem instantiation delegates to dedicated sub-builders (e.g. {@link CognitiveCortexBuilder},
  * {@link BiologicalSubsystemsBuilder}, {@link CognitiveGraphBuilder},
  * {@link RetrievalIndexBuilder},
- * {@link PartitionManagerBuilder},
- * {@link DaemonSupervisorBuilder}, {@link MigrationPathResolver} and
+ * {@link MigrationPathResolver} and
  * {@link MemoryWalRecovery}). {@link #assemble} is the orchestrator that invokes them in
  * the correct dependency order and collects the results into a {@link SubsystemBundle}.</p>
  *
@@ -165,9 +162,8 @@ public final class SpectorMemoryFactory {
             HyperEntityGraphMemory hyperEntityGraph,
             CognitiveGraphFacade graphFacade,
             MemoryIdGenerator idGenerator,
-            CheckpointDaemon checkpointDaemon,
-            com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon graphEnrichmentDaemon,
-            DaemonSupervisor daemonSupervisor,
+            CheckpointEngine checkpointEngine,
+            GraphEnrichmentEngine graphEnrichmentEngine,
             MemoryBM25Index bm25Index,
             AttachmentProcessor attachmentProcessor,
             ParallelEmbeddingPipeline parallelPipeline,
@@ -275,6 +271,7 @@ public final class SpectorMemoryFactory {
         //  Ingestion target (RememberPathway) 
         int activePartitionIndex = 0;
         RememberPathway rememberPathway = new RememberPathway.Builder()
+                .namespaceId(builder.namespaceId())
                 .cortex(cortex)
                 .bio(bio)
                 .graphs(graphs)
@@ -493,31 +490,50 @@ public final class SpectorMemoryFactory {
                 .idGenerator(idGenerator)
                 .build();
 
-        //  Daemon Supervisor + Checkpoint Daemon  (DISK mode only)
-        DaemonSupervisorBuilder.DaemonBundle daemons = DaemonSupervisorBuilder.build(
-                builder, cortex, bio, graphs, index, wal, wanderPathway, partitionManager);
-
-        //  Homeostatic Decay Daemon (#613 / AISME Phase 12 — Continuous Self-Dynamics)
-        if (daemons.daemonSupervisor() != null && aismeBundle != null
-                && aismeConfig != null && aismeConfig.backgroundDecayEnabled()) {
-            var decayDaemon = new com.spectrayan.spector.memory.aisme.dmn.HomeostaticDecayDaemon(
-                    aismeBundle.mentalStateTracker(),
-                    aismeBundle.homeostaticCore(),
-                    aismeConfig.backgroundDecayFactor());
-            // Deprecated: Homeostatic decay is now scheduled and managed exclusively by Quartz HomeostaticDecayJob (#683)
-            // daemons.daemonSupervisor().schedule(
-            //         "homeostatic-decay",
-            //         decayDaemon,
-            //         java.time.Duration.ofSeconds(Math.max(10, builder.aismeConfig().backgroundDecayIntervalSeconds())),
-            //         com.spectrayan.spector.commons.concurrent.DaemonPolicy.DEFAULT);
+        // ── Storage Checkpoint Engine (DISK mode only) ──
+        CheckpointEngine checkpointEngine;
+        if (cortex.isDisk() && cortex.basePath() != null) {
+            if (memProps.getCheckpointIntervalSeconds() > 0) {
+                Path bundlePath = cortex.runtimeBundle() != null ? cortex.runtimeBundle().bundlePath() : null;
+                checkpointEngine = new CheckpointEngine(
+                        cortex.cognitiveRouter(), wal,
+                        bundlePath,
+                        index, null,
+                        graphs.hebbianGraph(), graphs.temporalChain(),
+                        graphs.entityDirectory(), graphs.hyperEntityGraph(), bio.coActivationTracker(),
+                        graphs.temporalKnowledgeGraph(),
+                        cortex.resolvedPartitionDir(), cortex.basePath(), ckptSlice);
+                if (builder.spectorProperties() != null && builder.spectorProperties().events() != null) {
+                    checkpointEngine.setEventBus(com.spectrayan.spector.events.EventBus.broadcast(
+                            builder.spectorProperties().events().isAsync()));
+                }
+            } else {
+                checkpointEngine = null;
+            }
+        } else {
+            checkpointEngine = null;
         }
 
-        // Wire the graph facade into the enrichment daemon for cache invalidation
-        if (daemons.graphEnrichmentDaemon() != null && graphs.graphFacade() != null) {
-            daemons.graphEnrichmentDaemon().setGraphFacade(graphs.graphFacade());
+        // ── Graph Enrichment Engine ──
+        GraphEnrichmentEngine graphEnrichmentEngine;
+        if (graphs.entityExtractor() != null
+                && !(graphs.entityExtractor() instanceof com.spectrayan.spector.memory.graph.NoOpEntityExtractor)
+                && graphs.entityDirectory() != null) {
+            graphEnrichmentEngine = new GraphEnrichmentEngine(
+                    builder.namespaceId(),
+                    index,
+                    graphs.entityExtractor(),
+                    graphs.entityDirectory(),
+                    graphs.hyperEntityGraph(),
+                    graphs.temporalKnowledgeGraph());
+            if (graphs.graphFacade() != null) {
+                graphEnrichmentEngine.setGraphFacade(graphs.graphFacade());
+            }
+        } else {
+            graphEnrichmentEngine = null;
         }
 
-        //  Multimodal Attachment Processor 
+        // ── Multimodal Attachment Processor ──
         AttachmentProcessor attachmentProcessor;
         if (!builder.sensoryExtractors().isEmpty()) {
             attachmentProcessor = new AttachmentProcessor(builder.sensoryExtractors(), builder.assetStore());
@@ -534,7 +550,7 @@ public final class SpectorMemoryFactory {
                 bio.introspector(), bio.lateralEvaluator(), wal, graphs.hebbianGraph(), graphs.temporalChain(),
                 graphs.temporalKnowledgeGraph(),
                 graphs.entityDirectory(), graphs.hyperEntityGraph(), graphs.graphFacade(), idGenerator,
-                daemons.checkpointDaemon(), daemons.graphEnrichmentDaemon(), daemons.daemonSupervisor(), retrieval.bm25Index(), attachmentProcessor,
+                checkpointEngine, graphEnrichmentEngine, retrieval.bm25Index(), attachmentProcessor,
                 parallelPipeline, embedConfig, cortex.resolvedPartitionDir(), cortex.basePath(),
                 cortex.namespaceManager(), profileAdaptor, cortex.runtimeBundle(), cortex.insularCortex(),
                 wanderPathway, cortex.continuityMemory(), decidePathway, dreamPathway, aismeBundle,

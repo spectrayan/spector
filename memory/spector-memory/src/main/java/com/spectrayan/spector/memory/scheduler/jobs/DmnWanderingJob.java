@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.scheduler.jobs;
 
+import com.spectrayan.spector.commons.concurrent.OnPlane;
+import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
@@ -22,6 +24,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Quartz Job for executing Default Mode Network (DMN) spontaneous mind-wandering and prospective associations.
  */
+@OnPlane(value = ThreadPlane.PLATFORM_SHARED, pool = "quartz-shared")
 @DisallowConcurrentExecution
 public final class DmnWanderingJob implements Job {
 

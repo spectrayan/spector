@@ -17,6 +17,8 @@ import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
+import com.spectrayan.spector.commons.concurrent.OnPlane;
+import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
@@ -27,6 +29,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Quartz Job for executing periodic offline REM and creative dreaming cycles.
  */
+@OnPlane(value = ThreadPlane.VIRTUAL, pool = "quartz-io")
 @DisallowConcurrentExecution
 public final class RemDreamJob implements Job {
 

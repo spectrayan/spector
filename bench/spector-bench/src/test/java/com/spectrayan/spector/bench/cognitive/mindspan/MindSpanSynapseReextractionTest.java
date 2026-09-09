@@ -21,7 +21,7 @@ import com.spectrayan.spector.config.SpectorConfigFactory;
 import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
-import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
+import com.spectrayan.spector.memory.graph.GraphEnrichmentEngine;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SpectorMemory;
@@ -123,8 +123,8 @@ public class MindSpanSynapseReextractionTest {
             System.out.println("  🧠 SYNAPSE / GRAPH ENRICHMENT DAEMON RE-EXTRACTION PIPELINE TEST       ");
             System.out.println("==========================================================================");
 
-            GraphEnrichmentDaemon enricher = memory.admin().graphEnricher();
-            assertNotNull(enricher, "GraphEnrichmentDaemon must be wired when EntityExtractionMode.LLM is active");
+            GraphEnrichmentEngine enricher = memory.admin().graphEnricher();
+            assertNotNull(enricher, "GraphEnrichmentEngine must be wired when EntityExtractionMode.LLM is active");
 
             EntityDirectory dirBefore = memory.admin().entityDirectory();
             TemporalKnowledgeGraph tkgBefore = memory.admin().temporalKnowledgeGraph();

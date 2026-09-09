@@ -41,8 +41,11 @@ import java.util.concurrent.atomic.AtomicLong;
  * DirectSchedulerFactory.getInstance().createScheduler("sched", "ID", pool, new RAMJobStore());
  * }</pre>
  *
+ * @deprecated Superseded by {@link SpectorQuartzThreadPool} as part of ADR-0026 Dual-Plane Concurrency.
+ *             Will be removed in a future minor release.
  * @since 1.4.0
  */
+@Deprecated(since = "0.1.0-beta", forRemoval = true)
 public final class VirtualThreadPool implements ThreadPool {
 
     private static final System.Logger log = System.getLogger(VirtualThreadPool.class.getName());

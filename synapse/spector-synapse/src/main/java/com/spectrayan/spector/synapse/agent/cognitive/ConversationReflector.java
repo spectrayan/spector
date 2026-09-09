@@ -29,7 +29,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.Executors;
+import com.spectrayan.spector.commons.concurrent.SpectorExecutors;
+import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -109,7 +110,7 @@ public final class ConversationReflector {
             return; // Need at least a user message + assistant response
         }
 
-        Executors.newVirtualThreadPerTaskExecutor().submit(() -> {
+        SpectorExecutors.executor(ThreadPlane.VIRTUAL, "synapse-io").execute(() -> {
             try {
                 reflect(conversationMessages);
             } catch (Exception e) {

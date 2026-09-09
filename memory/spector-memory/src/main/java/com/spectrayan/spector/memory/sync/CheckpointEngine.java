@@ -47,17 +47,17 @@ import java.lang.foreign.ValueLayout;
  * <h3>Biological Analog: Sleep-Consolidation Flush</h3>
  * <p>During slow-wave sleep, the hippocampus replays recent events and
  * consolidates them into cortical storage. The checkpoint daemon is the
- * digital equivalent — periodically flushing dirty pages to disk and
+ * digital equivalent â€” periodically flushing dirty pages to disk and
  * pruning the replay buffer (WAL).</p>
  *
  * <h3>Algorithm</h3>
  * <ol>
  *   <li>Force all persistent tier store segments ({@code MemorySegment.force()})</li>
- *   <li>Save MemoryIndex (ID→offset, text, tags, source)</li>
+ *   <li>Save MemoryIndex (IDâ†’offset, text, tags, source)</li>
  *   <li>Save HebbianGraph, TemporalChain, EntityGraph, CoActivationTracker</li>
  *   <li>Read the WAL high-water mark ({@code wal.highWaterMark()})</li>
  *   <li>Write the HWM to {@code checkpoint.meta} (atomic via temp+rename)</li>
- *   <li>Truncate WAL events ≤ HWM ({@code wal.truncateBefore(hwm)})</li>
+ *   <li>Truncate WAL events â‰¤ HWM ({@code wal.truncateBefore(hwm)})</li>
  * </ol>
  *
  * <h3>checkpoint.meta Format (16 bytes)</h3>
@@ -69,17 +69,15 @@ import java.lang.foreign.ValueLayout;
  *
  * <h3>Threading</h3>
  * <p>This class is <b>not</b> responsible for its own thread lifecycle.
- * The {@link com.spectrayan.spector.commons.concurrent.DaemonSupervisor}
- * schedules periodic calls to {@link #checkpoint()} and handles restart,
- * watchdog, and shutdown. The {@code checkpoint()} method is safe to call
+ * Scheduled by Quartz Scheduler via {@code CheckpointJob}. The {@code checkpoint()} method is safe to call
  * from any thread.</p>
  *
  * @see MemoryWal#truncateBefore(long)
- * @see com.spectrayan.spector.commons.concurrent.DaemonSupervisor
+ * @see com.spectrayan.spector.memory.scheduler.jobs.CheckpointJob
  */
-public final class CheckpointDaemon {
+public final class CheckpointEngine {
 
-    private static final Logger log = LoggerFactory.getLogger(CheckpointDaemon.class);
+    private static final Logger log = LoggerFactory.getLogger(CheckpointEngine.class);
 
     /** checkpoint.meta magic: "CKPT" in ASCII. */
     static final int CKPT_MAGIC = 0x434B5054;
@@ -94,21 +92,21 @@ public final class CheckpointDaemon {
     private volatile java.util.function.Supplier<CognitiveMemoryRouter> routerSupplier;
     private final MemoryWal wal;
     private final Path checkpointMetaPath;
-    private final MemoryIndex index;   // nullable — only set for DISK mode
-    private final Path indexPath;      // nullable — where to save index.midx
+    private final MemoryIndex index;   // nullable â€” only set for DISK mode
+    private final Path indexPath;      // nullable â€” where to save index.midx
 
-    // ── 3-Layer Cognitive Graph + CoActivation ──
+    // â”€â”€ 3-Layer Cognitive Graph + CoActivation â”€â”€
     private final HebbianGraphBase hebbianGraph;           // nullable
     private final TemporalChainMemory temporalChain;         // nullable
     private final EntityDirectory entityDirectory;           // nullable (ADR-0003 #455)
     private final HyperEntityGraphMemory hyperEntityGraph; // nullable
     private final CoActivationMemory coActivationTracker; // nullable
     private final com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph; // nullable
-    private final Path partitionDir;                   // nullable — active partition dir for graph saves
-    private final Path basePath;                       // nullable — persistence root for coactivation
-    private final MemorySegment checkpointRegion;      // nullable — V4 bundle CHECKPOINT region slice
+    private final Path partitionDir;                   // nullable â€” active partition dir for graph saves
+    private final Path basePath;                       // nullable â€” persistence root for coactivation
+    private final MemorySegment checkpointRegion;      // nullable â€” V4 bundle CHECKPOINT region slice
 
-    // ── Event Bus (replaces CheckpointListener) ──
+    // â”€â”€ Event Bus (replaces CheckpointListener) â”€â”€
     private volatile EventBus<SpectorLifecycleEvent> eventBus;
     private volatile Map<String, String> eventContext = Map.of();
 
@@ -124,9 +122,7 @@ public final class CheckpointDaemon {
     /**
      * Creates a checkpoint daemon with full graph persistence.
      *
-     * <p>Does <b>not</b> start any threads. Use
-     * {@link com.spectrayan.spector.commons.concurrent.DaemonSupervisor#schedule}
-     * to drive periodic checkpoint calls.</p>
+     * <p>Does <b>not</b> start any threads. Driven periodically by Quartz CheckpointJob or synchronously on shutdown.</p>
      *
      * @param cognitiveRouter       the cognitive memory router (for forcing persistent segments)
      * @param wal                   the write-ahead log
@@ -142,7 +138,7 @@ public final class CheckpointDaemon {
      * @param partitionDir          active partition directory for graph saves (nullable)
      * @param basePath              persistence root for global files like coactivation (nullable)
      */
-    public CheckpointDaemon(CognitiveMemoryRouter cognitiveRouter, MemoryWal wal,
+    public CheckpointEngine(CognitiveMemoryRouter cognitiveRouter, MemoryWal wal,
                             Path checkpointMetaPath,
                             MemoryIndex index, Path indexPath,
                             HebbianGraphBase hebbianGraph,
@@ -158,7 +154,7 @@ public final class CheckpointDaemon {
     /**
      * Creates a checkpoint daemon with full graph persistence and bundle support.
      */
-    public CheckpointDaemon(CognitiveMemoryRouter cognitiveRouter, MemoryWal wal,
+    public CheckpointEngine(CognitiveMemoryRouter cognitiveRouter, MemoryWal wal,
                             Path checkpointMetaPath,
                             MemoryIndex index, Path indexPath,
                             HebbianGraphBase hebbianGraph,
@@ -188,7 +184,7 @@ public final class CheckpointDaemon {
     /**
      * Performs a single checkpoint cycle.
      *
-     * <p>Thread-safe. Called periodically by the {@code DaemonSupervisor},
+     * <p>Thread-safe. Called periodically by Quartz CheckpointJob,
      * and also called manually during shutdown for a final flush.</p>
      */
     public void checkpoint() {
@@ -200,8 +196,8 @@ public final class CheckpointDaemon {
             router.forceAll();
         }
 
-        // Step 2: Save MemoryIndex (ID→offset, text, tags, source)
-        // This is critical for crash recovery — without it, tier store
+        // Step 2: Save MemoryIndex (IDâ†’offset, text, tags, source)
+        // This is critical for crash recovery â€” without it, tier store
         // records survive (mmap) but become orphaned (no ID mapping).
         if (index != null && indexPath != null && index.size() > 0) {
             try {
@@ -267,7 +263,7 @@ public final class CheckpointDaemon {
         // Step 6: Write HWM to checkpoint.meta (atomic via temp+rename)
         writeCheckpointMeta(hwm);
 
-        // Step 7: Truncate WAL events ≤ HWM
+        // Step 7: Truncate WAL events â‰¤ HWM
         wal.truncateBefore(hwm);
 
         // Step 8: Notify replication layer (enterprise)

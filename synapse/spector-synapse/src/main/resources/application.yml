@@ -129,6 +129,11 @@ spring:
       enabled: false
   jmx:
     enabled: false
+  task:
+    scheduling:
+      thread-name-prefix: spector-scheduler-
+      pool:
+        size: 2
   cache:
     type: ${SPRING_CACHE_TYPE:${spector.cache.type}}
     cache-names:

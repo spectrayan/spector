@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.scheduler.jobs;
 
+import com.spectrayan.spector.commons.concurrent.OnPlane;
+import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
@@ -22,6 +24,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Quartz Job for executing periodic homeostatic synaptic decay and energetic stabilization.
  */
+@OnPlane(value = ThreadPlane.PLATFORM_WRITER, pool = "quartz-writer")
 @DisallowConcurrentExecution
 public final class HomeostaticDecayJob implements Job {
 

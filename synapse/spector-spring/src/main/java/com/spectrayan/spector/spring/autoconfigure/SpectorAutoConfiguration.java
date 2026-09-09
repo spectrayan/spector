@@ -65,8 +65,17 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
+import com.spectrayan.spector.commons.concurrent.SpectorExecutors;
+import com.spectrayan.spector.commons.concurrent.spi.SpectorExecutorProvider;
 import com.spectrayan.spector.core.spi.AcceleratorRegistry;
 import com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutors;
+import com.spectrayan.spector.spring.concurrent.SpringExecutorProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.AsyncTaskExecutor;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * Spring Boot auto-configuration for embedded Spector Cognitive Memory.
@@ -114,6 +123,68 @@ public class SpectorAutoConfiguration {
         return com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager();
     }
 
+    @Bean(name = "spectorSharedPool")
+    @ConditionalOnMissingBean(name = "spectorSharedPool")
+    public ThreadPoolTaskExecutor spectorSharedPool() {
+        var ex = new ThreadPoolTaskExecutor();
+        int n = Math.max(2, Math.min(8, Runtime.getRuntime().availableProcessors() - 1));
+        ex.setCorePoolSize(n);
+        ex.setMaxPoolSize(n);
+        ex.setQueueCapacity(256);
+        ex.setThreadNamePrefix("spector-pool-shared-");
+        ex.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        ex.setWaitForTasksToCompleteOnShutdown(true);
+        ex.setAwaitTerminationSeconds(10);
+        return ex;
+    }
+
+    @Bean(name = "spectorWriterPool")
+    @ConditionalOnMissingBean(name = "spectorWriterPool")
+    public ThreadPoolTaskExecutor spectorWriterPool() {
+        var ex = new ThreadPoolTaskExecutor();
+        ex.setCorePoolSize(1);
+        ex.setMaxPoolSize(1);
+        ex.setQueueCapacity(1024);
+        ex.setThreadNamePrefix("spector-pool-writer-");
+        ex.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        ex.setWaitForTasksToCompleteOnShutdown(true);
+        ex.setAwaitTerminationSeconds(15);
+        return ex;
+    }
+
+    @Bean(name = "spectorVirtualExecutor")
+    @ConditionalOnMissingBean(name = "spectorVirtualExecutor")
+    public AsyncTaskExecutor spectorVirtualExecutor() {
+        var ex = new SimpleAsyncTaskExecutor("spector-vt-default-");
+        ex.setVirtualThreads(true);
+        ex.setTaskTerminationTimeout(Duration.ofSeconds(10).toMillis());
+        return ex;
+    }
+
+    @Bean(name = "taskScheduler")
+    @ConditionalOnMissingBean(name = "taskScheduler")
+    public ThreadPoolTaskScheduler spectorTaskScheduler() {
+        var scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors() / 2)));
+        scheduler.setThreadNamePrefix("spector-scheduler-");
+        scheduler.setWaitForTasksToCompleteOnShutdown(true);
+        scheduler.setAwaitTerminationSeconds(10);
+        return scheduler;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(SpectorExecutorProvider.class)
+    public SpectorExecutorProvider spectorExecutorProvider(
+            @Qualifier("spectorSharedPool") ThreadPoolTaskExecutor shared,
+            @Qualifier("spectorWriterPool") ThreadPoolTaskExecutor writer,
+            @Qualifier("spectorVirtualExecutor") AsyncTaskExecutor virtual,
+            @org.springframework.beans.factory.annotation.Value("${spector.threads.writer-per-namespace:false}") boolean writerPerNamespace) {
+        var provider = new SpringExecutorProvider(shared, writer, virtual, writerPerNamespace);
+        SpectorExecutors.install(provider);
+        log.info("[Spector] Installed SpringExecutorProvider: {}", provider.describe());
+        return provider;
+    }
+
     /**
      * Creates the {@link SpectorMemory} bean when memory is enabled (default: true).
      */
@@ -128,7 +199,13 @@ public class SpectorAutoConfiguration {
                                      ObjectProvider<SalienceProfileProvider> salienceProvider,
                                      ObjectProvider<SpectorCacheManager> cacheManagerProvider,
                                      ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistryProvider,
-                                     ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider) {
+                                     ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider,
+                                     ObjectProvider<SpectorExecutorProvider> executorProvider) {
+
+            SpectorExecutorProvider execProvider = executorProvider.getIfAvailable();
+            if (execProvider != null) {
+                SpectorExecutors.install(execProvider);
+            }
 
             var spectorProps = props.toSpectorProperties();
             var memoryProps = spectorProps.memory();

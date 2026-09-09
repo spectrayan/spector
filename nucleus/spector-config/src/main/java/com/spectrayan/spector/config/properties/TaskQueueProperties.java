@@ -35,6 +35,8 @@ public class TaskQueueProperties implements Serializable {
     private int maxRetries = TaskQueueConfig.DEFAULT_MAX_RETRIES;
     private long retryBackoffMs = TaskQueueConfig.DEFAULT_RETRY_BACKOFF_MS;
     private String backpressurePolicy = TaskQueueConfig.DEFAULT_BACKPRESSURE_POLICY.name();
+    private String plane = TaskQueueConfig.DEFAULT_PLANE.name();
+    private int batchDrainSize = TaskQueueConfig.DEFAULT_BATCH_DRAIN_SIZE;
 
     public TaskQueueProperties() {}
 
@@ -50,14 +52,22 @@ public class TaskQueueProperties implements Serializable {
         } catch (Exception e) {
             policy = BackpressurePolicy.REJECT_FAST;
         }
+        com.spectrayan.spector.commons.concurrent.ThreadPlane resolvedPlane;
+        try {
+            resolvedPlane = com.spectrayan.spector.commons.concurrent.ThreadPlane.valueOf(plane.toUpperCase(Locale.ROOT).replace('-', '_'));
+        } catch (Exception e) {
+            resolvedPlane = TaskQueueConfig.DEFAULT_PLANE;
+        }
         return new TaskQueueConfig(
                 Math.max(16, capacity),
-                Math.max(1, parallelism),
+                resolvedPlane == com.spectrayan.spector.commons.concurrent.ThreadPlane.PLATFORM_WRITER ? 1 : Math.max(1, parallelism),
                 Math.max(10, pollTimeoutMs),
                 Math.max(50, drainTimeoutMs),
                 Math.max(0, maxRetries),
                 Math.max(0, retryBackoffMs),
-                policy
+                policy,
+                resolvedPlane,
+                Math.max(1, batchDrainSize)
         );
     }
 
@@ -89,6 +99,17 @@ public class TaskQueueProperties implements Serializable {
     public void setBackpressurePolicy(String backpressurePolicy) { this.backpressurePolicy = backpressurePolicy; }
     public String backpressurePolicy() { return getBackpressurePolicy(); }
 
+    public String getPlane() { return plane; }
+    public void setPlane(String plane) { this.plane = plane; }
+    public void setPlane(com.spectrayan.spector.commons.concurrent.ThreadPlane plane) {
+        this.plane = plane != null ? plane.name() : null;
+    }
+    public String plane() { return getPlane(); }
+
+    public int getBatchDrainSize() { return batchDrainSize; }
+    public void setBatchDrainSize(int batchDrainSize) { this.batchDrainSize = batchDrainSize; }
+    public int batchDrainSize() { return getBatchDrainSize(); }
+
     public TaskQueueProperties copy() {
         TaskQueueProperties cp = new TaskQueueProperties();
         cp.capacity = this.capacity;
@@ -98,6 +119,8 @@ public class TaskQueueProperties implements Serializable {
         cp.maxRetries = this.maxRetries;
         cp.retryBackoffMs = this.retryBackoffMs;
         cp.backpressurePolicy = this.backpressurePolicy;
+        cp.plane = this.plane;
+        cp.batchDrainSize = this.batchDrainSize;
         return cp;
     }
 }

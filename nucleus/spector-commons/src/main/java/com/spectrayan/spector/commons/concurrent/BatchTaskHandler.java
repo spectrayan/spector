@@ -15,19 +15,21 @@
  */
 package com.spectrayan.spector.commons.concurrent;
 
+import java.util.List;
+
 /**
- * Strategy applied when a {@link SpectorTaskQueue} reaches maximum capacity.
+ * Functional handler responsible for executing a batch of scoped task payloads under lock amortization.
+ *
+ * @param <T> payload type
  */
-public enum BackpressurePolicy {
-    /** Rejects submission immediately, returning false and incrementing failure counters. */
-    REJECT_FAST,
+@FunctionalInterface
+public interface BatchTaskHandler<T> {
 
-    /** Discards the oldest task in the queue (by enqueue sequence order) to make room for the new task. */
-    DROP_OLDEST,
-
-    /** Executes the task synchronously on the caller's thread if queue is saturated. Forbidden on PLATFORM_WRITER. */
-    CALLER_RUNS,
-
-    /** Blocks the submitting thread until queue capacity becomes available or the queue is closed. */
-    BLOCK
+    /**
+     * Processes a drained batch of scoped tasks.
+     *
+     * @param tasks list of scoped tasks in the drained batch
+     * @throws Exception if batch execution fails
+     */
+    void handleBatch(List<ScopedTask<T>> tasks) throws Exception;
 }

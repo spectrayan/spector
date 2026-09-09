@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.scheduler.jobs;
 
+import com.spectrayan.spector.commons.concurrent.OnPlane;
+import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
@@ -27,6 +29,7 @@ import java.util.function.Supplier;
  * <p>
  * Decoupled from the {@code SpectorMemory} god-object by taking a functional {@code reflectAction} supplier.
  */
+@OnPlane(value = ThreadPlane.PLATFORM_WRITER, pool = "quartz-writer")
 @DisallowConcurrentExecution
 public final class SleepConsolidationJob implements Job {
 

@@ -18,7 +18,7 @@ import java.util.Map;
 import com.spectrayan.spector.events.SpectorEvent;
 
 /**
- * Published when a {@link CheckpointDaemon} successfully completes a
+ * Published when a {@link CheckpointEngine} successfully completes a
  * checkpoint cycle — WAL entries are flushed and truncated.
  *
  * <p>This event drives checkpoint-driven replication in enterprise mode.
@@ -42,7 +42,7 @@ import com.spectrayan.spector.events.SpectorEvent;
  * @param elapsedMs        checkpoint duration in milliseconds
  * @param timestamp        when the checkpoint completed
  * @see SpectorLifecycleEvent
- * @see CheckpointDaemon
+ * @see CheckpointEngine
  */
 public record CheckpointCompletedEvent(
         Map<String, String> context,

@@ -13,11 +13,16 @@
 package com.spectrayan.spector.memory.scheduler;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
-import com.spectrayan.spector.commons.concurrent.VirtualThreadPool;
+import com.spectrayan.spector.commons.concurrent.OnPlane;
+import com.spectrayan.spector.commons.concurrent.SpectorExecutors;
+import com.spectrayan.spector.commons.concurrent.SpectorQuartzThreadPool;
+import com.spectrayan.spector.commons.concurrent.SpectorSchedulerFactory;
+import com.spectrayan.spector.commons.concurrent.ThreadPlane;
+import com.spectrayan.spector.commons.concurrent.spi.AbstractExecutorProvider;
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
-import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
+import com.spectrayan.spector.memory.graph.GraphEnrichmentEngine;
 import com.spectrayan.spector.memory.pathway.reflect.daemon.CircadianPolicy;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.scheduler.jobs.CheckpointJob;
@@ -27,7 +32,7 @@ import com.spectrayan.spector.memory.scheduler.jobs.HomeostaticDecayJob;
 import com.spectrayan.spector.memory.scheduler.jobs.RemDreamJob;
 import com.spectrayan.spector.memory.scheduler.jobs.SleepConsolidationJob;
 import com.spectrayan.spector.memory.error.SpectorSchedulerException;
-import com.spectrayan.spector.memory.sync.CheckpointDaemon;
+import com.spectrayan.spector.memory.sync.CheckpointEngine;
 import org.quartz.*;
 import org.quartz.impl.DirectSchedulerFactory;
 import org.quartz.impl.matchers.GroupMatcher;
@@ -52,7 +57,7 @@ import java.util.function.Supplier;
  *   <li><b>Configurable JobStore</b>: Uses standalone {@link RAMJobStore} by default, or consumes any custom/injected {@link Scheduler} (e.g. from Spring Boot Synapse with JDBC/RAM).</li>
  *   <li><b>JobStore as Single Source of Truth</b>: Task schedules and descriptions are stored in Quartz {@link JobDetail} and {@link Trigger} metadata without redundant in-memory maps or listeners.</li>
  *   <li><b>Decoupled & Non-Cyclic</b>: Consumes discrete pathway actions (e.g. {@code Supplier<ReflectReport>}) rather than the whole {@code SpectorMemory} god-object.</li>
- *   <li><b>Virtual Thread Concurrency</b>: Powered by {@link VirtualThreadPool} delegating directly to Java 25 virtual threads.</li>
+ *   <li><b>Virtual & Platform Thread Routing</b>: Powered by {@link SpectorQuartzThreadPool} routing jobs onto designated {@link ThreadPlane} execution planes via {@link SpectorExecutors}.</li>
  * </ul>
  *
  * @since 1.4.0
@@ -81,8 +86,8 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             DreamPathway dreamPathway,
             PartitionManager partitionManager,
             AismeConfig aismeConfig,
-            CheckpointDaemon checkpointDaemon,
-            GraphEnrichmentDaemon graphEnrichmentDaemon,
+            CheckpointEngine checkpointEngine,
+            GraphEnrichmentEngine graphEnrichmentEngine,
             Runnable dmnDaemon,
             Runnable decayDaemon,
             long checkpointIntervalSeconds,
@@ -106,7 +111,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
 
             // Register core memory tasks under group = namespaceId
             registerTasks(reflectAction, circadianPolicy, dreamPathway, partitionManager, aismeConfig,
-                    checkpointDaemon, graphEnrichmentDaemon, dmnDaemon, decayDaemon, checkpointIntervalSeconds);
+                    checkpointEngine, graphEnrichmentEngine, dmnDaemon, decayDaemon, checkpointIntervalSeconds);
 
             this.active.set(true);
             log.info("QuartzMemoryScheduler initialized for namespace [{}]", this.namespaceId);
@@ -131,14 +136,27 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
                 return existing;
             }
 
-            Executor targetExecutor = suppliedExecutor != null ? suppliedExecutor : ConcurrentTasks.virtualExecutor();
-            VirtualThreadPool threadPool = new VirtualThreadPool(targetExecutor);
-            threadPool.setInstanceName(DEFAULT_STANDALONE_SCHEDULER_NAME);
-            threadPool.initialize();
-
-            factory.createScheduler(DEFAULT_STANDALONE_SCHEDULER_NAME, "STANDALONE_PRIMARY",
-                    threadPool, new RAMJobStore());
-            Scheduler scheduler = factory.getScheduler(DEFAULT_STANDALONE_SCHEDULER_NAME);
+            SpectorQuartzThreadPool threadPool;
+            if (suppliedExecutor != null) {
+                threadPool = new SpectorQuartzThreadPool(new AbstractExecutorProvider() {
+                    @Override
+                    protected Executor createExecutor(ThreadPlane plane, String poolName) {
+                        return suppliedExecutor;
+                    }
+                    @Override
+                    public String describe() {
+                        return "supplied-executor";
+                    }
+                });
+            } else {
+                threadPool = new SpectorQuartzThreadPool(SpectorExecutors.current());
+            }
+            Scheduler scheduler = SpectorSchedulerFactory.createScheduler(
+                    DEFAULT_STANDALONE_SCHEDULER_NAME,
+                    "STANDALONE_PRIMARY",
+                    threadPool,
+                    new RAMJobStore()
+            );
             scheduler.start();
             return scheduler;
         } catch (SchedulerException e) {
@@ -154,8 +172,8 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             DreamPathway dreamPathway,
             PartitionManager partitionManager,
             AismeConfig aismeConfig,
-            CheckpointDaemon checkpointDaemon,
-            GraphEnrichmentDaemon graphEnrichmentDaemon,
+            CheckpointEngine checkpointEngine,
+            GraphEnrichmentEngine graphEnrichmentEngine,
             Runnable dmnDaemon,
             Runnable decayDaemon,
             long checkpointIntervalSeconds) throws SchedulerException {
@@ -192,9 +210,10 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
         }
 
         // 3. Storage Checkpointing (DISK mode)
-        if (checkpointDaemon != null && checkpointIntervalSeconds > 0) {
+        if (checkpointEngine != null && checkpointIntervalSeconds > 0) {
             JobDataMap map = new JobDataMap();
-            map.put("checkpointDaemon", checkpointDaemon);
+            map.put("checkpointEngine", checkpointEngine);
+            map.put("checkpointDaemon", checkpointEngine);
             map.put("namespaceId", namespaceId);
 
             scheduleJobInternal(TASK_CHECKPOINT,
@@ -233,9 +252,10 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
         }
 
         // 6. Graph Enrichment
-        if (graphEnrichmentDaemon != null) {
+        if (graphEnrichmentEngine != null) {
             JobDataMap map = new JobDataMap();
-            map.put("graphEnrichmentDaemon", graphEnrichmentDaemon);
+            map.put("graphEnrichmentEngine", graphEnrichmentEngine);
+            map.put("graphEnrichmentDaemon", graphEnrichmentEngine);
             map.put("namespaceId", namespaceId);
 
             scheduleJobInternal(TASK_GRAPH_ENRICHMENT,
@@ -253,6 +273,16 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             JobDataMap dataMap,
             ScheduleBuilder<?> scheduleBuilder,
             long initialDelayMs) throws SchedulerException {
+
+        if (!dataMap.containsKey(SpectorQuartzThreadPool.JOB_DATA_PLANE)) {
+            OnPlane onPlane = jobClass.getAnnotation(OnPlane.class);
+            if (onPlane != null) {
+                dataMap.put(SpectorQuartzThreadPool.JOB_DATA_PLANE, onPlane.value().name());
+                if (!onPlane.pool().isBlank() && !dataMap.containsKey(SpectorQuartzThreadPool.JOB_DATA_POOL)) {
+                    dataMap.put(SpectorQuartzThreadPool.JOB_DATA_POOL, onPlane.pool());
+                }
+            }
+        }
 
         JobDetail job = JobBuilder.newJob(jobClass)
                 .withIdentity(taskId, namespaceId)
@@ -485,8 +515,8 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
         private DreamPathway dreamPathway;
         private PartitionManager partitionManager;
         private AismeConfig aismeConfig;
-        private CheckpointDaemon checkpointDaemon;
-        private GraphEnrichmentDaemon graphEnrichmentDaemon;
+        private CheckpointEngine checkpointEngine;
+        private GraphEnrichmentEngine graphEnrichmentEngine;
         private Runnable dmnDaemon;
         private Runnable decayDaemon;
         private long checkpointIntervalSeconds;
@@ -523,14 +553,22 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             return this;
         }
 
-        public Builder checkpointDaemon(CheckpointDaemon checkpointDaemon) {
-            this.checkpointDaemon = checkpointDaemon;
+        public Builder checkpointEngine(CheckpointEngine checkpointEngine) {
+            this.checkpointEngine = checkpointEngine;
             return this;
         }
 
-        public Builder graphEnrichmentDaemon(GraphEnrichmentDaemon graphEnrichmentDaemon) {
-            this.graphEnrichmentDaemon = graphEnrichmentDaemon;
+        public Builder checkpointDaemon(CheckpointEngine checkpointEngine) {
+            return checkpointEngine(checkpointEngine);
+        }
+
+        public Builder graphEnrichmentEngine(GraphEnrichmentEngine graphEnrichmentEngine) {
+            this.graphEnrichmentEngine = graphEnrichmentEngine;
             return this;
+        }
+
+        public Builder graphEnrichmentDaemon(GraphEnrichmentEngine graphEnrichmentEngine) {
+            return graphEnrichmentEngine(graphEnrichmentEngine);
         }
 
         public Builder dmnDaemon(Runnable dmnDaemon) {
@@ -561,7 +599,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
         public QuartzMemoryScheduler build() {
             return new QuartzMemoryScheduler(
                     namespaceId, reflectAction, circadianPolicy, dreamPathway, partitionManager,
-                    aismeConfig, checkpointDaemon, graphEnrichmentDaemon, dmnDaemon, decayDaemon,
+                    aismeConfig, checkpointEngine, graphEnrichmentEngine, dmnDaemon, decayDaemon,
                     checkpointIntervalSeconds, suppliedExecutor, quartzScheduler
             );
         }

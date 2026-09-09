@@ -17,6 +17,7 @@ package com.spectrayan.spector.config;
 
 import static com.spectrayan.spector.config.SpectorPropertyConstants.*;
 
+import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import com.spectrayan.spector.config.model.*;
 import com.spectrayan.spector.config.properties.*;
 
@@ -182,6 +183,8 @@ public final class SpectorConfigFactory {
         taskQueue.setMaxRetries(props.getInt(MEMORY_TASKQUEUE_MAX_RETRIES, DEFAULT_MEMORY_TASKQUEUE_MAX_RETRIES));
         taskQueue.setRetryBackoffMs(props.getLong(MEMORY_TASKQUEUE_RETRY_BACKOFF_MS, DEFAULT_MEMORY_TASKQUEUE_RETRY_BACKOFF_MS));
         taskQueue.setBackpressurePolicy(props.getString(MEMORY_TASKQUEUE_BACKPRESSURE_POLICY, DEFAULT_MEMORY_TASKQUEUE_BACKPRESSURE_POLICY));
+        taskQueue.setBatchDrainSize(props.getInt(MEMORY_TASKQUEUE_BATCH_DRAIN_SIZE, DEFAULT_MEMORY_TASKQUEUE_BATCH_DRAIN_SIZE));
+        taskQueue.setPlane(props.getString(MEMORY_TASKQUEUE_PLANE, DEFAULT_MEMORY_TASKQUEUE_PLANE));
 
         var eeQueue = properties.getEntityExtractionTaskQueue();
         eeQueue.setParallelism(props.getInt(MEMORY_ENTITY_EXTRACTION_PARALLELISM, DEFAULT_MEMORY_ENTITY_EXTRACTION_PARALLELISM));
@@ -191,6 +194,8 @@ public final class SpectorConfigFactory {
         eeQueue.setMaxRetries(taskQueue.getMaxRetries());
         eeQueue.setRetryBackoffMs(taskQueue.getRetryBackoffMs());
         eeQueue.setBackpressurePolicy(taskQueue.getBackpressurePolicy());
+        eeQueue.setBatchDrainSize(taskQueue.getBatchDrainSize());
+        eeQueue.setPlane(taskQueue.getPlane());
 
         var consolQueue = properties.getConsolidationTaskQueue();
         consolQueue.setParallelism(props.getInt(MEMORY_CONSOLIDATION_PARALLELISM, DEFAULT_MEMORY_CONSOLIDATION_PARALLELISM));
@@ -200,6 +205,8 @@ public final class SpectorConfigFactory {
         consolQueue.setMaxRetries(taskQueue.getMaxRetries());
         consolQueue.setRetryBackoffMs(taskQueue.getRetryBackoffMs());
         consolQueue.setBackpressurePolicy(taskQueue.getBackpressurePolicy());
+        consolQueue.setBatchDrainSize(taskQueue.getBatchDrainSize());
+        consolQueue.setPlane(ThreadPlane.PLATFORM_WRITER);
 
         var llm = new LlmProperties(
                 props.getFloat(MEMORY_LLM_TEMPERATURE, DEFAULT_MEMORY_LLM_TEMPERATURE),

@@ -302,7 +302,7 @@ Each `DefaultSpectorMemory` instance allocates:
 | Resource | Per Instance | Notes |
 |----------|-------------|-------|
 | **mmap segments** | ~13 file descriptors | Episodic, Semantic, Procedural tiers + graphs + WAL + text.dat |
-| **DaemonSupervisor** | 1 virtual thread | Checkpoint scheduling (lightweight) |
+| **QuartzMemoryScheduler** | Shared Quartz thread pool | Checkpoints, sleep consolidation, DMN, graph enrichment |
 | **MemoryIndex metadata** | ~740 bytes/memory | On-heap structural metadata (text bodies are off-heap via mmap) |
 | **HNSW graph** | O(capacity × M × 4B) | Off-heap via Panama Arena |
 

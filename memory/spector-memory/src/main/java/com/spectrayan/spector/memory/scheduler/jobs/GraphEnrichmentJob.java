@@ -12,7 +12,9 @@
  */
 package com.spectrayan.spector.memory.scheduler.jobs;
 
-import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
+import com.spectrayan.spector.commons.concurrent.OnPlane;
+import com.spectrayan.spector.commons.concurrent.ThreadPlane;
+import com.spectrayan.spector.memory.graph.GraphEnrichmentEngine;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
@@ -23,6 +25,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Quartz Job for executing background entity graph extraction and hypergraph relation enrichment.
  */
+@OnPlane(value = ThreadPlane.VIRTUAL, pool = "quartz")
 @DisallowConcurrentExecution
 public final class GraphEnrichmentJob implements Job {
 
@@ -31,17 +34,21 @@ public final class GraphEnrichmentJob implements Job {
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
         var dataMap = context.getMergedJobDataMap();
-        GraphEnrichmentDaemon daemon = (GraphEnrichmentDaemon) dataMap.get("graphEnrichmentDaemon");
+        Object engineObj = dataMap.get("graphEnrichmentEngine");
+        if (engineObj == null) {
+            engineObj = dataMap.get("graphEnrichmentDaemon");
+        }
+        GraphEnrichmentEngine engine = (GraphEnrichmentEngine) engineObj;
 
-        if (daemon == null) {
-            log.debug("GraphEnrichmentJob: graphEnrichmentDaemon missing from JobDataMap — skipping");
+        if (engine == null) {
+            log.debug("GraphEnrichmentJob: graphEnrichmentEngine missing from JobDataMap — skipping");
             return;
         }
 
         try {
             String ns = dataMap.getString("namespaceId");
             log.debug("GraphEnrichmentJob: running graph enrichment for namespace [{}]", ns);
-            daemon.enrichPending();
+            engine.enrichPending();
         } catch (Exception e) {
             throw new JobExecutionException("Graph enrichment failed: " + e.getMessage(), e);
         }

@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
+import com.spectrayan.spector.memory.graph.GraphEnrichmentEngine;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.model.ReflectReport;
@@ -154,9 +154,9 @@ public interface SpectorMemoryAdmin {
     com.spectrayan.spector.memory.cortex.insula.InsularCortex insularCortex();
 
     /**
-     * Returns the background graph enrichment daemon (may be null if disabled).
+     * Returns the background graph enrichment engine (may be null if disabled).
      */
-    com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon graphEnricher();
+    GraphEnrichmentEngine graphEnricher();
 
     // ══════════════════════════════════════════════════════════════
     // OPERATIONAL
