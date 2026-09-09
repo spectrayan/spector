@@ -16,7 +16,7 @@
 package com.spectrayan.spector.bench;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.index.HnswIndex;
+import com.spectrayan.spector.index.hnsw.HnswIndex;
 import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.index.ScoredResult;
 

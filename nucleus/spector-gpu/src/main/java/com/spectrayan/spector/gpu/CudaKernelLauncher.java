@@ -98,7 +98,7 @@ public final class CudaKernelLauncher implements AutoCloseable {
      * <p>Requires the CUDA Toolkit to be installed (provides the PTX JIT compiler
      * in the driver). Without it, cuModuleLoadData will fail with error 218.</p>
      *
-     * @throws SpectorValidationException if CUDA initialization or PTX loading fails
+     * @throws SpectorServerException if CUDA initialization or PTX loading fails
      */
     public CudaKernelLauncher() {
         if (!GpuCapability.isAvailable()) {

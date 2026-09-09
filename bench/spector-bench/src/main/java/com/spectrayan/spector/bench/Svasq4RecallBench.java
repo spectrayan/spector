@@ -18,7 +18,7 @@ package com.spectrayan.spector.bench;
 import com.spectrayan.spector.core.quantization.QuantizationType;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.config.properties.HnswProperties;
-import com.spectrayan.spector.index.QuantizedHnswIndex;
+import com.spectrayan.spector.index.hnsw.QuantizedHnswIndex;
 import com.spectrayan.spector.index.ScoredResult;
 
 import java.io.*;

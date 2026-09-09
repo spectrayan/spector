@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.index;
+package com.spectrayan.spector.index.text;
+
+import com.spectrayan.spector.index.ScoredResult;
+import com.spectrayan.spector.index.hnsw.NeighborQueue;
 
 import java.util.ArrayList;
 import java.util.Arrays;

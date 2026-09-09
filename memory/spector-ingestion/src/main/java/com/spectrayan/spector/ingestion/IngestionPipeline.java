@@ -23,8 +23,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.commons.StreamingChunker;
-import com.spectrayan.spector.commons.TextChunker;
+import com.spectrayan.spector.commons.chunker.StreamingChunker;
 import com.spectrayan.spector.commons.chunker.Chunk;
 import com.spectrayan.spector.commons.chunker.ChunkConfig;
 import com.spectrayan.spector.commons.chunker.ChunkerRegistry;

@@ -140,7 +140,7 @@ public final class SvasqCalibrator {
      * first {@code n} rows. Avoids the {@code Arrays.copyOf} + {@code List} wrapper
      * required by the List overload.
      *
-     * <p>Used by {@link com.spectrayan.spector.index.QuantizedHnswIndex#calibrateSvasq()}
+     * <p>Used by {@code QuantizedHnswIndex#calibrateSvasq()}
      * to pass its {@code calibrationBuffer[0..calibrationCount-1]} directly.</p>
      *
      * @param samples     array of sample vectors (only indices [0, n) are used)
@@ -186,7 +186,7 @@ public final class SvasqCalibrator {
      *
      * <p>The buffer stores vectors consecutively: vector {@code i} occupies
      * {@code flatData[i × originalDim .. (i+1) × originalDim - 1]}. This is the
-     * layout used by {@link com.spectrayan.spector.index.spectrum.SpectorShard}'s
+     * layout used by {@code SpectorShard}'s
      * flat residual store, allowing calibration without copying into {@code float[][]}.</p>
      *
      * @param flatData    contiguous float buffer (length ≥ {@code n × originalDim})

@@ -42,8 +42,7 @@ import com.spectrayan.spector.commons.error.SpectorException;
  * <h3>Implementations</h3>
  * <ul>
  *   <li>{@link Int8Strategy} — linear INT8 quantization via {@code ScalarQuantizer}</li>
- *   <li>{@link Int4Strategy} — nibble-packed INT4 via {@code NonUniformQuantizer}</li>
- *   <li>{@link Int2Strategy} — crumb-packed INT2 via {@code NonUniformQuantizer}</li>
+ *   <li>{@link PackedBitStrategy} — bit-packed INT4/INT2/INT1 quantization via {@code NonUniformQuantizer}</li>
  *   <li>{@link TurboQuantStrategy} — turbo quantization via {@code TurboQuantizer}</li>
  *   <li>{@link SvasqStrategy} — FWHT-rotated INT8 with Panama SIMD kernel</li>
  * </ul>

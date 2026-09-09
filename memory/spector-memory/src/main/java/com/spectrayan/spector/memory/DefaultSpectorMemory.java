@@ -163,7 +163,7 @@ import com.spectrayan.spector.provider.embedding.PipelineEmbeddingResult;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.embedding.TokenEmbeddingProvider;
-import com.spectrayan.spector.index.BM25Index;
+import com.spectrayan.spector.index.text.BM25Index;
 import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTReranker;
 import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTTokenCache;
 import com.spectrayan.spector.memory.neuromod.amygdala.ValenceTracker;

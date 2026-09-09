@@ -16,7 +16,7 @@
 package com.spectrayan.spector.index.spectrum;
 
 import com.spectrayan.spector.config.properties.HnswProperties;
-import com.spectrayan.spector.index.QuantizedHnswIndex;
+import com.spectrayan.spector.index.hnsw.QuantizedHnswIndex;
 import com.spectrayan.spector.core.quantization.strategy.SvasqStrategy;
 import com.spectrayan.spector.core.quantization.svasq.SvasqCalibrator;
 import com.spectrayan.spector.core.quantization.svasq.SvasqParams;

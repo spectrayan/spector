@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.bootstrap;
 
-import com.spectrayan.spector.index.BM25Index;
+import com.spectrayan.spector.index.text.BM25Index;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;

@@ -28,7 +28,6 @@ import java.util.Set;
  * <h3>Implementations</h3>
  * <ul>
  *   <li>{@code MarkdownChunker} — markdown-aware, respects headings/tables/code blocks/mermaid</li>
- *   <li>{@code SentenceChunker} — sentence-boundary splitting via {@link java.text.BreakIterator}</li>
  * </ul>
  *
  * <h3>Discovery</h3>

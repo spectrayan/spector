@@ -327,7 +327,7 @@ public final class BundleMigrationCli {
 
             if (Files.exists(bm25File)) {
                 try {
-                    com.spectrayan.spector.index.BM25Index loaded = com.spectrayan.spector.index.BM25Index.load(bm25File);
+                    com.spectrayan.spector.index.text.BM25Index loaded = com.spectrayan.spector.index.text.BM25Index.load(bm25File);
                     if (loaded != null) {
                         MemorySegment bm25Slice = bundle.regionSegment(RegionId.BM25);
                         loaded.saveToRegion(bm25Slice);

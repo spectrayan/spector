@@ -13,7 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.index;
+package com.spectrayan.spector.index.hnsw;
+
+import com.spectrayan.spector.index.ScoredResult;
+import com.spectrayan.spector.index.VectorIndex;
+import com.spectrayan.spector.index.RescoreStrategy;
+
 
 import java.io.IOException;
 import java.io.RandomAccessFile;

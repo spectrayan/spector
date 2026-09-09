@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.gpu.kernel;
 
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 /**
  * Interface for batch similarity computation kernels.
  *

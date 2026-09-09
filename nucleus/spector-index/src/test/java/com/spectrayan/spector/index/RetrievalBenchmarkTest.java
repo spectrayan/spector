@@ -15,6 +15,9 @@
  */
 package com.spectrayan.spector.index;
 
+import com.spectrayan.spector.index.hnsw.*;
+import com.spectrayan.spector.index.text.*;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.*;

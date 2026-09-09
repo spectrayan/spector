@@ -149,6 +149,7 @@ public final class SpectorConfigFactory {
     /**
      * Loads memory properties POJO from configuration.
      */
+    @SuppressWarnings("removal")
     public static MemoryProperties memoryProperties(SpectorConfigSource props) {
         MemoryProperties properties = new MemoryProperties();
         properties.setEnabled(props.getBoolean(MEMORY_ENABLED, DEFAULT_MEMORY_ENABLED));

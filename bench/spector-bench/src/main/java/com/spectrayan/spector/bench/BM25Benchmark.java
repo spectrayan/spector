@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.bench;
 
-import com.spectrayan.spector.index.BM25Index;
+import com.spectrayan.spector.index.text.BM25Index;
 import com.spectrayan.spector.index.ScoredResult;
 
 import org.openjdk.jmh.annotations.*;

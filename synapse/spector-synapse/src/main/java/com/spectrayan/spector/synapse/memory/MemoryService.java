@@ -905,7 +905,7 @@ public class MemoryService {
                 var semanticIndex = memory.admin().semanticIndex();
                 if (semanticIndex != null) {
                     totalEntries = semanticIndex.size();
-                    if (semanticIndex instanceof com.spectrayan.spector.index.AbstractHnswIndex hnsw) {
+                    if (semanticIndex instanceof com.spectrayan.spector.index.hnsw.AbstractHnswIndex hnsw) {
                         levels = hnsw.maxLevel() + 1;
                         int efSearch = hnsw.params().efSearch();
                         int m = hnsw.params().m();

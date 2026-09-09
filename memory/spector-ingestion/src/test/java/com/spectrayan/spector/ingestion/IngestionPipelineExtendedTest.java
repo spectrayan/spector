@@ -23,7 +23,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import com.spectrayan.spector.commons.TextChunker;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
@@ -78,7 +77,7 @@ class IngestionPipelineExtendedTest {
             var pipeline = IngestionPipeline.builder()
                     .target(mockTarget)
                     .embeddingProvider(mockProvider)
-                    .chunker(new com.spectrayan.spector.commons.chunker.SentenceChunker())
+                    .chunker(new com.spectrayan.spector.commons.chunker.MarkdownChunker())
                     .chunkConfig(new com.spectrayan.spector.commons.chunker.ChunkConfig(500, 50, "text/plain", null, false, false, false))
                     .chunkThreshold(500)
                     .build();
@@ -138,7 +137,7 @@ class IngestionPipelineExtendedTest {
             var pipeline = IngestionPipeline.builder()
                     .target(mockTarget)
                     .embeddingProvider(mockProvider)
-                    .chunker(new com.spectrayan.spector.commons.chunker.SentenceChunker())
+                    .chunker(new com.spectrayan.spector.commons.chunker.MarkdownChunker())
                     .chunkConfig(new com.spectrayan.spector.commons.chunker.ChunkConfig(500, 50, "text/plain", null, false, false, false))
                     .chunkThreshold(500)
                     .build();

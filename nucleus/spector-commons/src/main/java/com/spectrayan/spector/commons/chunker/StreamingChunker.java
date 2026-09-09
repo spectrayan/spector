@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.commons;
+package com.spectrayan.spector.commons.chunker;
 
 import java.io.*;
 import java.nio.charset.Charset;
@@ -33,7 +33,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * Streaming chunker for very large files that cannot fit into memory.
  *
  * <p>Reads text from a {@link Reader} or file {@link Path} using a bounded
- * internal buffer, producing {@link TextChunker.Chunk} instances lazily
+ * internal buffer, producing {@link Chunk} instances lazily
  * via {@link Iterator} or {@link Stream}. Only the current read buffer
  * (~2× chunk size) is held in memory at any time.</p>
  *
@@ -62,7 +62,7 @@ public final class StreamingChunker {
      * @param overlap    overlap between chunks in characters
      * @return an iterator of chunks
      */
-    public static Iterator<TextChunker.Chunk> chunkIterator(
+    public static Iterator<Chunk> chunkIterator(
             Reader reader, String documentId, int chunkSize, int overlap) {
         if (chunkSize <= 0) throw new SpectorValidationException(ErrorCode.ARGUMENT_OUT_OF_RANGE, "chunkSize", 1, Integer.MAX_VALUE, 0);
         if (overlap < 0 || overlap >= chunkSize) throw new SpectorValidationException(ErrorCode.ARGUMENT_OUT_OF_RANGE, "overlap", 0, 0, 0);
@@ -80,7 +80,7 @@ public final class StreamingChunker {
      * @return a closeable stream of chunks
      * @throws IOException if the file cannot be opened
      */
-    public static Stream<TextChunker.Chunk> chunkFile(
+    public static Stream<Chunk> chunkFile(
             Path path, String documentId, int chunkSize, int overlap) throws IOException {
         return chunkFile(path, documentId, chunkSize, overlap, StandardCharsets.UTF_8);
     }
@@ -96,7 +96,7 @@ public final class StreamingChunker {
      * @return a closeable stream of chunks
      * @throws IOException if the file cannot be opened
      */
-    public static Stream<TextChunker.Chunk> chunkFile(
+    public static Stream<Chunk> chunkFile(
             Path path, String documentId, int chunkSize, int overlap, Charset charset) throws IOException {
         BufferedReader reader = Files.newBufferedReader(path, charset);
         var iterator = new StreamingChunkIterator(reader, documentId, chunkSize, overlap);
@@ -116,7 +116,7 @@ public final class StreamingChunker {
      * @param overlap     overlap in characters
      * @return a closeable stream of chunks
      */
-    public static Stream<TextChunker.Chunk> chunkStream(
+    public static Stream<Chunk> chunkStream(
             InputStream inputStream, String documentId, int chunkSize, int overlap) {
         var reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
         var iterator = new StreamingChunkIterator(reader, documentId, chunkSize, overlap);
@@ -129,7 +129,7 @@ public final class StreamingChunker {
 
     // ─────────────── Streaming Iterator ───────────────
 
-    private static class StreamingChunkIterator implements Iterator<TextChunker.Chunk> {
+    private static class StreamingChunkIterator implements Iterator<Chunk> {
 
         private final Reader reader;
         private final String documentId;
@@ -141,7 +141,7 @@ public final class StreamingChunker {
         private int chunkIndex = 0;
         private int globalCharOffset = 0;  // tracks position in original file
         private boolean readerExhausted = false;
-        private TextChunker.Chunk nextChunk;
+        private Chunk nextChunk;
 
         StreamingChunkIterator(Reader reader, String documentId, int chunkSize, int overlap) {
             this.reader = reader;
@@ -159,14 +159,14 @@ public final class StreamingChunker {
         }
 
         @Override
-        public TextChunker.Chunk next() {
+        public Chunk next() {
             if (!hasNext()) throw new NoSuchElementException();
             var result = nextChunk;
             nextChunk = null;
             return result;
         }
 
-        private TextChunker.Chunk readNextChunk() {
+        private Chunk readNextChunk() {
             // Fill window until we have enough data or reader is exhausted
             fillWindow();
 
@@ -197,7 +197,7 @@ public final class StreamingChunker {
             int startChar = globalCharOffset;
             int endChar = globalCharOffset + endPos;
 
-            var chunk = new TextChunker.Chunk(
+            var chunk = new Chunk(
                     documentId,
                     documentId + "::chunk-" + chunkIndex,
                     chunkIndex,

@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.index.HnswIndex;
+import com.spectrayan.spector.index.hnsw.HnswIndex;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.model.CognitiveResult;
