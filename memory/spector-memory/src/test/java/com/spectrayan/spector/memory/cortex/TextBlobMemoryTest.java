@@ -13,7 +13,6 @@
 package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.cortex.TextBlobMemory.TextEntry;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -37,7 +36,7 @@ class TextBlobMemoryTest {
 
     @BeforeEach
     void setUp() {
-        store = new TextBlobMemory(tempDir.resolve(StorageLayout.FILE_TEXT));
+        store = new TextBlobMemory(tempDir.resolve("text.dat"));
     }
 
     @Test

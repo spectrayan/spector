@@ -118,18 +118,18 @@ public final class BundleMigrationCli {
             return new MigrationResult(MigrationResult.Status.ALREADY_MIGRATED, 1, 0, 1, "runtime.bundle already present");
         }
 
-        Path workingFile = StorageLayout.workingMem(basePath);
-        Path coactFile = StorageLayout.coactivationTracker(basePath);
-        Path indexFile = StorageLayout.indexMidxRuntime(basePath);
-        Path hebbianFile = StorageLayout.hebbianGraphRuntime(basePath);
-        Path temporalFile = StorageLayout.temporalChainRuntime(basePath);
-        Path tfactsFile = StorageLayout.temporalFactsRuntime(basePath);
-        Path edirFile = StorageLayout.entityDirectoryRuntime(basePath);
-        Path hyegFile = StorageLayout.hyperEntityGraphRuntime(basePath);
-        Path etypesFile = StorageLayout.entityTypesRuntime(basePath);
-        Path rtypesFile = StorageLayout.relationTypesRuntime(basePath);
-        Path bm25File = StorageLayout.bm25BidxRuntime(basePath);
-        Path ckptFile = StorageLayout.checkpointMeta(basePath);
+        Path workingFile = LegacyV3Layout.workingMem(basePath);
+        Path coactFile = LegacyV3Layout.coactivationTracker(basePath);
+        Path indexFile = LegacyV3Layout.indexMidxRuntime(basePath);
+        Path hebbianFile = LegacyV3Layout.hebbianGraphRuntime(basePath);
+        Path temporalFile = LegacyV3Layout.temporalChainRuntime(basePath);
+        Path tfactsFile = LegacyV3Layout.temporalFactsRuntime(basePath);
+        Path edirFile = LegacyV3Layout.entityDirectoryRuntime(basePath);
+        Path hyegFile = LegacyV3Layout.hyperEntityGraphRuntime(basePath);
+        Path etypesFile = LegacyV3Layout.entityTypesRuntime(basePath);
+        Path rtypesFile = LegacyV3Layout.relationTypesRuntime(basePath);
+        Path bm25File = LegacyV3Layout.bm25BidxRuntime(basePath);
+        Path ckptFile = LegacyV3Layout.checkpointMeta(basePath);
 
         boolean hasAny = Files.exists(workingFile) || Files.exists(coactFile) || Files.exists(indexFile)
                 || Files.exists(hebbianFile) || Files.exists(temporalFile) || Files.exists(tfactsFile)
@@ -451,10 +451,10 @@ public final class BundleMigrationCli {
         }
 
         // V3 source files
-        Path semanticFile = StorageLayout.semanticMem(partitionDir);
-        Path episodicFile = StorageLayout.episodicMem(partitionDir);
-        Path proceduralFile = StorageLayout.proceduralMem(partitionDir);
-        Path textFile = StorageLayout.textDat(partitionDir);
+        Path semanticFile = LegacyV3Layout.semanticMem(partitionDir);
+        Path episodicFile = LegacyV3Layout.episodicMem(partitionDir);
+        Path proceduralFile = LegacyV3Layout.proceduralMem(partitionDir);
+        Path textFile = LegacyV3Layout.textDat(partitionDir);
 
         // Guard: no V3 files at all
         boolean hasAny = Files.exists(semanticFile) || Files.exists(episodicFile)
@@ -887,20 +887,20 @@ public final class BundleMigrationCli {
             if (Files.exists(bundleFile)) {
                 status = "MIGRATED";
             } else {
-                boolean hasAny = Files.exists(StorageLayout.semanticMem(dir))
-                        || Files.exists(StorageLayout.episodicMem(dir))
-                        || Files.exists(StorageLayout.proceduralMem(dir))
-                        || Files.exists(StorageLayout.textDat(dir));
+                boolean hasAny = Files.exists(LegacyV3Layout.semanticMem(dir))
+                        || Files.exists(LegacyV3Layout.episodicMem(dir))
+                        || Files.exists(LegacyV3Layout.proceduralMem(dir))
+                        || Files.exists(LegacyV3Layout.textDat(dir));
                 status = hasAny ? "PENDING" : "EMPTY";
             }
 
             System.out.printf("%-25s  %-10s  %-12s  %-12s  %-12s  %-12s%n",
                     dir.getFileName(),
                     status,
-                    fileSize(StorageLayout.semanticMem(dir)),
-                    fileSize(StorageLayout.episodicMem(dir)),
-                    fileSize(StorageLayout.proceduralMem(dir)),
-                    fileSize(StorageLayout.textDat(dir)));
+                    fileSize(LegacyV3Layout.semanticMem(dir)),
+                    fileSize(LegacyV3Layout.episodicMem(dir)),
+                    fileSize(LegacyV3Layout.proceduralMem(dir)),
+                    fileSize(LegacyV3Layout.textDat(dir)));
         }
     }
 

@@ -114,19 +114,19 @@ class BundleMigrationCliTest {
         assertTrue(Files.size(bundleFile) > 0, "partition.bundle should have content");
 
         // Assert V3 files were backed up
-        assertTrue(Files.exists(Path.of(StorageLayout.semanticMem(partDir) + ".v3bak")),
+        assertTrue(Files.exists(Path.of(LegacyV3Layout.semanticMem(partDir) + ".v3bak")),
                 "semantic.mem.v3bak should exist");
-        assertTrue(Files.exists(Path.of(StorageLayout.episodicMem(partDir) + ".v3bak")),
+        assertTrue(Files.exists(Path.of(LegacyV3Layout.episodicMem(partDir) + ".v3bak")),
                 "episodic.mem.v3bak should exist");
-        assertTrue(Files.exists(Path.of(StorageLayout.proceduralMem(partDir) + ".v3bak")),
+        assertTrue(Files.exists(Path.of(LegacyV3Layout.proceduralMem(partDir) + ".v3bak")),
                 "procedural.mem.v3bak should exist");
-        assertTrue(Files.exists(Path.of(StorageLayout.textDat(partDir) + ".v3bak")),
+        assertTrue(Files.exists(Path.of(LegacyV3Layout.textDat(partDir) + ".v3bak")),
                 "text.dat.v3bak should exist");
 
         // Assert original V3 files are gone (moved to backup)
-        assertFalse(Files.exists(StorageLayout.semanticMem(partDir)),
+        assertFalse(Files.exists(LegacyV3Layout.semanticMem(partDir)),
                 "semantic.mem should have been moved");
-        assertFalse(Files.exists(StorageLayout.episodicMem(partDir)),
+        assertFalse(Files.exists(LegacyV3Layout.episodicMem(partDir)),
                 "episodic.mem should have been moved");
 
         // Verify bundle can be reopened and record counts match
@@ -191,7 +191,7 @@ class BundleMigrationCliTest {
         Files.createDirectories(runtimeDir);
 
         // Create V3 working.mem with SMKM header
-        Path workingFile = StorageLayout.workingMem(tempDir);
+        Path workingFile = LegacyV3Layout.workingMem(tempDir);
         try (FileChannel fc = FileChannel.open(workingFile, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
             int stride = 128;
             long fileSize = RegionPreamble.PREAMBLE_BYTES + 100L * stride;
@@ -242,7 +242,7 @@ class BundleMigrationCliTest {
         Path runtimeDir = StorageLayout.runtimeDir(tempDir);
         Files.createDirectories(runtimeDir);
 
-        Path workingFile = StorageLayout.workingMem(tempDir);
+        Path workingFile = LegacyV3Layout.workingMem(tempDir);
         try (FileChannel fc = FileChannel.open(workingFile, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
             long fileSize = RegionPreamble.PREAMBLE_BYTES + 64;
             fc.write(java.nio.ByteBuffer.allocate(1), fileSize - 1);
@@ -281,9 +281,9 @@ class BundleMigrationCliTest {
     private void createV3StoreFiles(Path partDir, int recordCount) throws IOException {
         // Create cognitive stores using the real store constructors
         SemanticMemory semantic = new SemanticMemory(
-                VEC_BYTES, CAPACITY, StorageLayout.semanticMem(partDir));
+                VEC_BYTES, CAPACITY, LegacyV3Layout.semanticMem(partDir));
         ProceduralMemory procedural = new ProceduralMemory(
-                VEC_BYTES, CAPACITY, StorageLayout.proceduralMem(partDir));
+                VEC_BYTES, CAPACITY, LegacyV3Layout.proceduralMem(partDir));
 
         // Write some records using the store API
         byte[] vec = new byte[VEC_BYTES];
@@ -304,7 +304,7 @@ class BundleMigrationCliTest {
         // Create legacy V3 episodic.mem file directly
         int cogStride = 64 + VEC_BYTES;
         long totalBytes = RegionPreamble.PREAMBLE_BYTES + (long) CAPACITY * cogStride;
-        try (FileChannel ch = FileChannel.open(StorageLayout.episodicMem(partDir),
+        try (FileChannel ch = FileChannel.open(LegacyV3Layout.episodicMem(partDir),
                 StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
             ch.truncate(totalBytes);
             try (Arena arena = Arena.ofConfined()) {
@@ -322,7 +322,7 @@ class BundleMigrationCliTest {
 
         // Create text.dat with a minimal SMKM header
         TextBlobMemory text = new TextBlobMemory(
-                StorageLayout.textDat(partDir), DataEncryptor.NOOP);
+                LegacyV3Layout.textDat(partDir), DataEncryptor.NOOP);
         text.close();
     }
 }

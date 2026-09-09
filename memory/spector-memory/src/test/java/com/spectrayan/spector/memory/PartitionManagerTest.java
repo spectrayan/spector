@@ -25,6 +25,7 @@ import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.bundle.LegacyV3Layout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
@@ -111,9 +112,9 @@ class PartitionManagerTest {
     private CognitiveMemoryRouter newRouter(Path partitionDir) {
         WorkingMemory working = new WorkingMemory(VEC_BYTES, 64);
         SemanticMemory semantic = new SemanticMemory(
-                VEC_BYTES, SEMANTIC_CAP, StorageLayout.semanticMem(partitionDir));
+                VEC_BYTES, SEMANTIC_CAP, LegacyV3Layout.semanticMem(partitionDir));
         ProceduralMemory procedural = new ProceduralMemory(
-                VEC_BYTES, PROCEDURAL_CAP, StorageLayout.proceduralMem(partitionDir));
+                VEC_BYTES, PROCEDURAL_CAP, LegacyV3Layout.proceduralMem(partitionDir));
         EpisodicMemory episodicLog = EpisodicMemory.heap();
         CognitiveMemoryRouter router = new CognitiveMemoryRouter(working, semantic, procedural, episodicLog);
         routersToClose.add(router);
@@ -280,16 +281,16 @@ class PartitionManagerTest {
         // Link two nodes so the persistent backing has content to be copied to runtime/.
         temporal.link(0, 1);
 
-        assertThat(Files.exists(StorageLayout.indexMidxRuntime(basePath))).isFalse();
+        assertThat(Files.exists(LegacyV3Layout.indexMidxRuntime(basePath))).isFalse();
 
         pm.rollPartition();
         routersToClose.add(pm.cognitiveRouter());
 
-        assertThat(Files.exists(StorageLayout.indexMidxRuntime(basePath)))
+        assertThat(Files.exists(LegacyV3Layout.indexMidxRuntime(basePath)))
                 .as("MemoryIndex flushed to runtime/").isTrue();
-        assertThat(Files.exists(StorageLayout.hebbianGraphRuntime(basePath)))
+        assertThat(Files.exists(LegacyV3Layout.hebbianGraphRuntime(basePath)))
                 .as("Hebbian graph flushed to runtime/").isTrue();
-        assertThat(Files.exists(StorageLayout.temporalChainRuntime(basePath)))
+        assertThat(Files.exists(LegacyV3Layout.temporalChainRuntime(basePath)))
                 .as("Temporal chain flushed to runtime/").isTrue();
     }
 
