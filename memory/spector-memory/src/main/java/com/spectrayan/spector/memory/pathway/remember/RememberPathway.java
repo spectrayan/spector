@@ -33,7 +33,6 @@ import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.pathway.pipeline.AsyncEntityExtractionQueue;
-import com.spectrayan.spector.memory.pathway.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.pathway.pipeline.ContentTagExtractor;
 import com.spectrayan.spector.memory.pathway.pipeline.PostIngestSync;
 import com.spectrayan.spector.memory.pathway.pipeline.TagExtractor;
@@ -64,7 +63,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Orchestrates memory consolidation and ingestion using the composable Cognitive Pathway Engine architecture.
  *
- * <p>Replaces procedural ingestion in {@code CognitiveIngestionTarget} with a type-safe,
+ * <p>Executes memory ingestion with a type-safe,
  * observable synaptic relay chain.</p>
  */
 public final class RememberPathway implements IngestionTarget, AutoCloseable {

@@ -103,7 +103,6 @@ import com.spectrayan.spector.memory.pathway.wander.WanderPathway;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.persist.PersistenceManager;
 import com.spectrayan.spector.memory.pathway.pipeline.AttachmentProcessor;
-import com.spectrayan.spector.memory.pathway.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.pathway.pipeline.ContentTagExtractor;
 import com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy;
 import com.spectrayan.spector.memory.pathway.pipeline.HebbianCoActivationListener;
@@ -255,7 +254,7 @@ import com.spectrayan.spector.memory.model.CognitiveRecord;
  * <h3>Design Pattern: FaÃ§ade</h3>
  * <p>{@code DefaultSpectorMemory} is a thin faÃ§ade that composes and delegates to focused subsystems:</p>
  * <ul>
- *   <li>{@link CognitiveIngestionTarget}  --  10-step ingest (embed  ->  quantize  ->  route  ->  WAL)</li>
+ *   <li>{@link RememberPathway}  --  multi-stage ingest (embed  ->  quantize  ->  route  ->  WAL)</li>
  *   <li>{@link RecallPathway}  --  multi-stage recall (embed  ->  score  ->  filter  ->  sort)</li>
  *   <li>{@link PartitionManager}  --  DISK partition discovery, creation, and rolling</li>
  *   <li>{@link ImportanceEstimator}  --  read-only novelty/ICNU/flashbulb pipeline</li>

@@ -30,7 +30,7 @@ package com.spectrayan.spector.memory.pathway.pipeline;
  *       extract semantic tags via prompt</li>
  * </ul>
  *
- * @see CognitiveIngestionTarget
+ * @see com.spectrayan.spector.memory.pathway.remember.RememberPathway
  * @see com.spectrayan.spector.memory.synapse.SynapticTagEncoder
  */
 @FunctionalInterface

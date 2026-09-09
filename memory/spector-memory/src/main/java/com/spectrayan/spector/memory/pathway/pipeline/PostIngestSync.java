@@ -59,14 +59,11 @@ import java.util.Map;
  *   <li>Step 9c: Temporal chain linking (session-local sequence)</li>
  *   <li>Step 9d: Entity extraction and graph population</li>
  * </ul>
- *
- * <p>Extracted from {@link CognitiveIngestionTarget} to eliminate code duplication
- * across the three ingestion entry points (standard, migration, context-aware).</p>
+ * <p>Consolidates post-ingestion graph, WAL, and index synchronization
+ * across memory ingestion entry points.</p>
  *
  * <h3>Thread Safety</h3>
- * <p>Stateless except for the subsystem references (all thread-safe).
- * The session tracking ({@code lastIngestedMemoryIdx}, {@code currentSessionId})
- * remains in {@link CognitiveIngestionTarget} since it is cross-invocation state.</p>
+ * <p>Stateless except for the subsystem references (all thread-safe).</p>
  */
 public final class PostIngestSync {
 
