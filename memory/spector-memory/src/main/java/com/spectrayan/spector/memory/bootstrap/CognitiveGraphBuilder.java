@@ -143,19 +143,16 @@ public final class CognitiveGraphBuilder {
             entityExtractor = NoOpEntityExtractor.INSTANCE;
         }
 
-        boolean entityEnabled = extractionMode != EntityExtractionMode.NONE;
-
         HyperEntityGraphMemory hyperEntityGraph;
-        if (entityEnabled) {
-            int hyperCap = memProps.getEntityGraphCapacity();
-            int hyperEdgeCap = hyperCap * 2;
-            if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-                hyperEntityGraph = com.spectrayan.spector.kernel.store.HyperEntityGraphMemory.fromRegionRef(cortex.runtimeBundle().regionRef(RegionId.HYPERGRAPH), hyperCap, hyperEdgeCap, cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew());
-            } else {
-                hyperEntityGraph = new HyperEntityGraphMemory(hyperCap, hyperEdgeCap);
-            }
+        int hyperCap = memProps.getEntityGraphCapacity();
+        int hyperEdgeCap = hyperCap * 2;
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+            boolean isNew = cortex.runtimeBundle().isNew()
+                    || !com.spectrayan.spector.kernel.region.RegionPreamble.isValid(cortex.runtimeBundle().regionRef(RegionId.HYPERGRAPH).resolve(), 0L);
+            hyperEntityGraph = com.spectrayan.spector.kernel.store.HyperEntityGraphMemory.fromRegionRef(
+                    cortex.runtimeBundle().regionRef(RegionId.HYPERGRAPH), hyperCap, hyperEdgeCap, cortex.runtimeBundle().bundlePath(), isNew);
         } else {
-            hyperEntityGraph = null;
+            hyperEntityGraph = new HyperEntityGraphMemory(hyperCap, hyperEdgeCap);
         }
 
         OntologyConfig ontConfig = builder.ontologyConfig() != null
@@ -164,24 +161,25 @@ public final class CognitiveGraphBuilder {
         String[] entitySeedTypes = ontConfig.canonicalTypes().toArray(String[]::new);
 
         EntityDirectory entityDirectory;
-        if (entityEnabled) {
-            int dirCap = memProps.getEntityGraphCapacity();
-            TypeRegistryMemory entityTypeRegistry;
-            if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-                entityTypeRegistry = cortex.runtimeBundle().openRegistry(
-                        com.spectrayan.spector.kernel.region.RegionId.ENTITY_TYPES,
-                        SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
-            } else {
-                entityTypeRegistry = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
-            }
-
-            if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-                entityDirectory = com.spectrayan.spector.memory.graph.EntityDirectory.fromRegionRefs(cortex.runtimeBundle().regionRef(RegionId.ENTITY_DIRECTORY), cortex.runtimeBundle().regionRef(RegionId.ENTITY_NAMES), dirCap, entityTypeRegistry, cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew());
-            } else {
-                entityDirectory = new EntityDirectory(dirCap, entityTypeRegistry);
-            }
+        int dirCap = memProps.getEntityGraphCapacity();
+        TypeRegistryMemory entityTypeRegistry;
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+            entityTypeRegistry = cortex.runtimeBundle().openRegistry(
+                    com.spectrayan.spector.kernel.region.RegionId.ENTITY_TYPES,
+                    SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
         } else {
-            entityDirectory = null;
+            entityTypeRegistry = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
+        }
+
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+            boolean isNew = cortex.runtimeBundle().isNew()
+                    || !com.spectrayan.spector.kernel.region.RegionPreamble.isValid(cortex.runtimeBundle().regionRef(RegionId.ENTITY_DIRECTORY).resolve(), 0L);
+            entityDirectory = com.spectrayan.spector.memory.graph.EntityDirectory.fromRegionRefs(
+                    cortex.runtimeBundle().regionRef(RegionId.ENTITY_DIRECTORY),
+                    cortex.runtimeBundle().regionRef(RegionId.ENTITY_NAMES),
+                    dirCap, entityTypeRegistry, cortex.runtimeBundle().bundlePath(), isNew);
+        } else {
+            entityDirectory = new EntityDirectory(dirCap, entityTypeRegistry);
         }
 
         TemporalKnowledgeGraph temporalKnowledgeGraph;
@@ -195,7 +193,9 @@ public final class CognitiveGraphBuilder {
         }
 
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-            temporalKnowledgeGraph = com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph.fromRegionRef(predRegistry, cortex.runtimeBundle().regionRef(RegionId.TEMPORAL_FACTS), cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew());
+            boolean isNew = cortex.runtimeBundle().isNew()
+                    || !com.spectrayan.spector.kernel.region.RegionPreamble.isValid(cortex.runtimeBundle().regionRef(RegionId.TEMPORAL_FACTS).resolve(), 0L);
+            temporalKnowledgeGraph = com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph.fromRegionRef(predRegistry, cortex.runtimeBundle().regionRef(RegionId.TEMPORAL_FACTS), cortex.runtimeBundle().bundlePath(), isNew);
         } else {
             temporalKnowledgeGraph = new TemporalKnowledgeGraph(predRegistry);
         }
