@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.synapse;
+import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 import com.spectrayan.spector.kernel.store.StrengthMemory;
 
 import com.spectrayan.spector.kernel.engram.EncodingHeaderLayout;

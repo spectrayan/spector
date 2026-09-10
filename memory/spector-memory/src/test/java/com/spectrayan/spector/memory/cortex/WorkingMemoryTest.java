@@ -17,7 +17,7 @@ import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.kernel.layout.EngramLayout;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
-import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

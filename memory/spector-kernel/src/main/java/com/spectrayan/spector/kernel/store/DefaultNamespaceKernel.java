@@ -17,6 +17,7 @@ package com.spectrayan.spector.kernel.store;
 
 import com.spectrayan.spector.kernel.api.EngramMemory;
 import com.spectrayan.spector.kernel.api.KernelSpec;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.kernel.api.NamespaceKernel;
 import com.spectrayan.spector.kernel.bundle.PartitionBundle;
 import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
@@ -69,6 +70,7 @@ public class DefaultNamespaceKernel implements NamespaceKernel {
 
     private final EngramMemory engramMemory;
     private final EntityDirectoryMemory entityDirectoryMemory;
+    private final com.spectrayan.spector.kernel.scan.ScanService scanService;
 
     private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
@@ -158,6 +160,12 @@ public class DefaultNamespaceKernel implements NamespaceKernel {
 
         this.engramMemory = new DefaultEngramMemory(working, semantic, procedural, episodic, strength);
         this.entityDirectoryMemory = runtimeBundle.openEntityDirectory();
+
+        java.util.Map<MemoryType, EngramRegion> scanMap = new java.util.EnumMap<>(MemoryType.class);
+        if (working != null) scanMap.put(MemoryType.WORKING, working);
+        if (semantic != null) scanMap.put(MemoryType.SEMANTIC, semantic);
+        if (procedural != null) scanMap.put(MemoryType.PROCEDURAL, procedural);
+        this.scanService = new com.spectrayan.spector.kernel.scan.DefaultScanService(scanMap, strength, 0);
     }
 
     private static List<RegionSizeSpec> buildRuntimeSpecs(KernelSpec spec) {
@@ -271,6 +279,11 @@ public class DefaultNamespaceKernel implements NamespaceKernel {
     @Override
     public RecordMemory<ProvenanceLayout> provenanceMemory() {
         return runtimeBundle.openRecord(RegionId.PROVENANCE, ProvenanceLayout.INSTANCE);
+    }
+
+    @Override
+    public com.spectrayan.spector.kernel.scan.ScanService scan() {
+        return scanService;
     }
 
     @Override

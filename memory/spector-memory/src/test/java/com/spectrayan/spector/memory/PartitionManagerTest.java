@@ -112,10 +112,8 @@ class PartitionManagerTest {
     /** Builds a real router with fresh tier stores rooted in the given partition dir. */
     private CognitiveMemoryRouter newRouter(Path partitionDir) {
         WorkingMemory working = new WorkingMemory(VEC_BYTES, 64);
-        SemanticMemory semantic = new SemanticMemory(
-                VEC_BYTES, SEMANTIC_CAP, LegacyV3BundleFormat.semanticMem(partitionDir));
-        ProceduralMemory procedural = new ProceduralMemory(
-                VEC_BYTES, PROCEDURAL_CAP, LegacyV3BundleFormat.proceduralMem(partitionDir));
+        SemanticMemory semantic = new SemanticMemory(VEC_BYTES, SEMANTIC_CAP);
+        ProceduralMemory procedural = new ProceduralMemory(VEC_BYTES, PROCEDURAL_CAP);
         EpisodicMemory episodicLog = EpisodicMemory.heap();
         CognitiveMemoryRouter router = new CognitiveMemoryRouter(working, semantic, procedural, episodicLog);
         routersToClose.add(router);

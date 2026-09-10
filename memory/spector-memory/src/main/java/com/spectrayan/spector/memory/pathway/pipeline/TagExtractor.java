@@ -31,7 +31,7 @@ package com.spectrayan.spector.memory.pathway.pipeline;
  * </ul>
  *
  * @see com.spectrayan.spector.memory.pathway.remember.RememberPathway
- * @see com.spectrayan.spector.memory.synapse.SynapticTagEncoder
+ * @see com.spectrayan.spector.kernel.score.SynapticTagEncoder
  */
 @FunctionalInterface
 public interface TagExtractor {
@@ -40,7 +40,7 @@ public interface TagExtractor {
      * Extracts synaptic tags from a document's identity and content.
      *
      * <p>The returned tags are hashed into a 64-bit Bloom filter via
-     * {@link com.spectrayan.spector.memory.synapse.SynapticTagEncoder}.
+     * {@link com.spectrayan.spector.kernel.score.SynapticTagEncoder}.
      * Per the analysis doc §19, optimal performance is 5–10 tags per record
      * (FPR &lt; 0.2%). Up to 50 tags is acceptable (FPR ~12%).</p>
      *

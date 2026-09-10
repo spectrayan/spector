@@ -25,7 +25,7 @@ import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
-import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;

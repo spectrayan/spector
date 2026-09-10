@@ -17,21 +17,14 @@ package com.spectrayan.spector.kernel.store;
 
 import com.spectrayan.spector.kernel.store.EngramRegion;
 
-import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.commons.error.ErrorCode;
-import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.kernel.error.SpectorPartitionFrozenException;
 import com.spectrayan.spector.kernel.engram.FloatUnaryOperator;
 import com.spectrayan.spector.kernel.id.MemoryId;
@@ -79,45 +72,6 @@ public abstract class AbstractEngramMemory<L extends FixedEngramLayout>
      */
     public static final int METADATA_PREAMBLE_BYTES = RegionPreamble.PREAMBLE_BYTES;
 
-    private static final class MmapResult {
-        final Arena arena;
-        final MemorySegment segment;
-        final FileChannel fileChannel;
-        final boolean isNew;
-        MmapResult(Arena arena, MemorySegment segment, FileChannel fileChannel, boolean isNew) {
-            this.arena = arena;
-            this.segment = segment;
-            this.fileChannel = fileChannel;
-            this.isNew = isNew;
-        }
-    }
-
-    private static MmapResult mmapFile(Path filePath, long segmentBytes) {
-        Arena arena = Arena.ofShared();
-        try {
-            Path parent = filePath.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            long totalBytes = METADATA_PREAMBLE_BYTES + segmentBytes;
-            boolean isNew = !Files.exists(filePath) || Files.size(filePath) < METADATA_PREAMBLE_BYTES;
-            FileChannel fc = FileChannel.open(filePath,
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.READ,
-                    StandardOpenOption.WRITE);
-            if (isNew) {
-                fc.position(totalBytes - 1);
-                fc.write(ByteBuffer.wrap(new byte[]{0}));
-            }
-            long mapSize = Math.max(totalBytes, fc.size());
-            MemorySegment mapped = fc.map(FileChannel.MapMode.READ_WRITE, 0, mapSize, arena);
-            fc.close();
-            return new MmapResult(arena, mapped, null, isNew);
-        } catch (IOException e) {
-            throw new SpectorStorageException(ErrorCode.MMAP_FAILED, e, filePath);
-        }
-    }
-
     /**
      * Volatile constructor — allocates a single contiguous off-heap segment (no file).
      *
@@ -129,46 +83,10 @@ public abstract class AbstractEngramMemory<L extends FixedEngramLayout>
     }
 
     private AbstractEngramMemory(MemoryType type, L cogLayout, int capacity, long segmentBytes, Arena sharedArena) {
-        this(type, cogLayout,
-             capacity, sharedArena,
-             sharedArena.allocate(segmentBytes, EncodingHeaderFields.HEADER_BYTES),
-             0, false, null, null);
-    }
-
-    /**
-     * File-backed constructor — creates or opens a persistent mmap'd file.
-     *
-     * @param type the cognitive tier this store represents; used to derive the stable
-     *             {@link MemoryId} up-front so identity is final and lock-free.
-     */
-    protected AbstractEngramMemory(MemoryType type, L cogLayout, int capacity, long segmentBytes, Path filePath) {
-        this(type, cogLayout,
-             capacity, segmentBytes, filePath, mmapFile(filePath, segmentBytes));
-    }
-
-    private AbstractEngramMemory(MemoryType type, L cogLayout,
-                                  int capacity, long segmentBytes, Path filePath, MmapResult res) {
         super(tierId(type), cogLayout, capacity,
-              res.arena, res.segment, 0, true, filePath, res.fileChannel);
-        if (res.isNew) {
-            setCount(0);
-            writeMetadata();
-            log.info("{} created new persistent file: {} ({}KB)",
-                    getClass().getSimpleName(), filePath, (METADATA_PREAMBLE_BYTES + segmentBytes) / 1024);
-        } else {
-            readMetadata();
-            publishVisible();
-            log.info("{} loaded from persistent file: {} ({} records)",
-                    getClass().getSimpleName(), filePath, count);
-        }
-    }
-
-    private AbstractEngramMemory(MemoryType type, L cogLayout,
-                                  int capacity, Arena arena, MemorySegment segment, int count,
-                                  boolean persistent, Path filePath, FileChannel fileChannel) {
-        super(tierId(type), cogLayout, capacity,
-              arena, segment, count, persistent, filePath, fileChannel);
-        setCount(count);
+              sharedArena,
+              sharedArena.allocate(segmentBytes, EncodingHeaderFields.HEADER_BYTES),
+              0, false, null, null);
     }
 
     /**

@@ -82,36 +82,7 @@ public final class WorkingMemory extends AbstractEngramMemory<WorkingLayout> {
                 capacity, layout.stride(), (long) layout.stride() * capacity / 1024);
     }
 
-    /**
-     * Creates a persistent Working Memory store backed by an mmap file.
-     *
-     * <p>On restart, {@code count} and {@code writeIndex} are restored from
-     * the metadata header, allowing the circular buffer to resume exactly
-     * where it left off.</p>
-     *
-     * @param quantizedVecBytes bytes per quantized vector
-     * @param capacity          maximum number of records
-     * @param filePath          path to the backing mmap file
-     */
-    public WorkingMemory(int quantizedVecBytes, int capacity, Path filePath) {
-        this(new WorkingLayout(quantizedVecBytes), capacity, filePath);
-    }
 
-    /**
-     * Creates a persistent Working Memory store backed by an mmap file with dedicated layout.
-     */
-    public WorkingMemory(WorkingLayout layout, int capacity, Path filePath) {
-        super(MemoryType.WORKING, layout, capacity, (long) layout.stride() * capacity, filePath);
-
-        // Restore writeIndex from metadata header extra1 field
-        if (isPersistent() && getCount() > 0) {
-            this.writeIndex = segment().get(ValueLayout.JAVA_INT, META_EXTRA1);
-            log.info("WorkingMemory restored: writeIndex={}, count={}", writeIndex, getCount());
-        }
-
-        log.info("WorkingMemory initialized: capacity={}, stride={}B, persistent=true",
-                capacity(), layout.stride());
-    }
 
     /**
      * Creates a bundle-backed Working Memory store from a pre-sliced region segment.

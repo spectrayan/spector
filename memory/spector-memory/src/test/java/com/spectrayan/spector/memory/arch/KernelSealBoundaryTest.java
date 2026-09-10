@@ -62,7 +62,7 @@ class KernelSealBoundaryTest {
                         + "HeaderMigrator|"
                         // Group 6: Scan Pipeline scheduled conversions
                         + "CognitiveScorer|SemanticRecallStrategy|SemanticDeduplicator|MemoryBM25Index|"
-                        + "RecallPathway|GraphExpansionStage|RecallCandidateGatherer|ColBERTTokenCache|"
+                        + "GraphExpansionStage|RecallCandidateGatherer|ColBERTTokenCache|"
                         + "ParallelScanEmitter|ScanEmitter|SequentialScanEmitter|SlabScoreFunction|DreamJournalMemory|"
                         // Group 7: Graph & Table APIs scheduled conversions
                         + "IndexEntryMemory|EntityDirectory|HebbianGraph|SynapticDecayModulator|"

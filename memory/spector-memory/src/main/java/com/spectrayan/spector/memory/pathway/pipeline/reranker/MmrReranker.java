@@ -47,6 +47,9 @@ public class MmrReranker {
         List<CognitiveResult> unselected = new ArrayList<>(candidates);
         
         int k = Math.min(topK, candidates.size());
+        final int vecLen = calibrationMins != null ? calibrationMins.length : 0;
+        final byte[] scratch = new byte[vecLen];
+        final java.util.Map<String, float[]> vectorCache = new java.util.HashMap<>();
         
         while (S.size() < k && !unselected.isEmpty()) {
             CognitiveResult best = null;
@@ -59,11 +62,11 @@ public class MmrReranker {
                 
                 float maxSim2 = 0f;
                 if (!S.isEmpty()) {
-                    float[] diVector = decodeVector(di.id());
+                    float[] diVector = vectorCache.computeIfAbsent(di.id(), id -> decodeVector(id, scratch));
                     if (diVector != null) {
                         // Vector-based diversity (semantic/procedural/working memories)
                         for (CognitiveResult dj : S) {
-                            float sim2 = computeSimilarity(diVector, dj.id());
+                            float sim2 = computeSimilarity(diVector, dj.id(), scratch);
                             if (sim2 > maxSim2) {
                                 maxSim2 = sim2;
                             }
@@ -99,34 +102,32 @@ public class MmrReranker {
         return S;
     }
     
-    private float[] decodeVector(String memoryId) {
+    private float[] decodeVector(String memoryId, byte[] scratch) {
         if (calibrationMins == null) return null;
         int length = calibrationMins.length;
         MemoryLocation loc = index.locate(memoryId);
         if (loc == null) return null;
         CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
         if (router == null) return null;
-        byte[] quantized = router.readVector(loc);
-        if (quantized == null) return null;
+        router.readVector(loc, scratch);
         
         float[] vec = new float[length];
-        for (int i = 0; i < length && i < quantized.length; i++) {
-            int q = Byte.toUnsignedInt(quantized[i]);
+        for (int i = 0; i < length && i < scratch.length; i++) {
+            int q = Byte.toUnsignedInt(scratch[i]);
             vec[i] = calibrationMins[i] + (q / 255.0f) * calibrationScales[i];
         }
         return vec;
     }
     
-    private float computeSimilarity(float[] diVector, String memoryId) {
+    private float computeSimilarity(float[] diVector, String memoryId, byte[] scratch) {
         MemoryLocation loc = index.locate(memoryId);
         if (loc == null) return 0f;
         CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
         if (router == null) return 0f;
-        byte[] quantized = router.readVector(loc);
-        if (quantized == null) return 0f;
+        router.readVector(loc, scratch);
         
         float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantized(
-                diVector, quantized, calibrationMins, calibrationScales, calibrationMins.length);
+                diVector, scratch, calibrationMins, calibrationScales, calibrationMins.length);
         
         return 1.0f / (1.0f + l2dist);
     }

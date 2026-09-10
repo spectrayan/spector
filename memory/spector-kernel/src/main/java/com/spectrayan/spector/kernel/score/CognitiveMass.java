@@ -1,24 +1,26 @@
 /*
  * Copyright 2026 Spectrayan
  *
- * Licensed under the Business Source License 1.1 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     https://github.com/spectrayan/spector/blob/main/spector-memory/LICENSE
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Change Date: May 27, 2030
- * Change License: Apache License, Version 2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-package com.spectrayan.spector.memory.synapse.scan;
+package com.spectrayan.spector.kernel.score;
 
 /**
- * Precomputed lookup table for {@code storageStrength^0.3} in the hot scoring scan.
+ * Pure cognitive mass computation and storage boost math (R17.2).
  *
- * <p>Replaces {@code Math.pow(storageStrength, 0.3)} in the hot loop (~150 cycles → ~3 cycles).
- * Maps S ∈ [1.0, 5.0] to S^0.3 via 64-entry linear interpolation with < 0.2% error.</p>
+ * <p>Stateless primitive math extracted from CognitiveScoreFusion for pre-SIMD gating.</p>
  */
-public final class StorageBoostLut {
+public final class CognitiveMass {
 
     private static final int STORAGE_BOOST_LUT_SIZE = 64;
     private static final float STORAGE_BOOST_LUT_MIN = 1.0f;
@@ -33,17 +35,23 @@ public final class StorageBoostLut {
         }
     }
 
-    private StorageBoostLut() {
-        // utility class
+    private CognitiveMass() {}
+
+    /**
+     * Computes the dynamic Cognitive Mass M_i from L1 cache fields.
+     *
+     * <p>M_i = (I_i / 10) * (1 + (A_i mod 256) / 128) * S_i^0.3</p>
+     */
+    public static float computeCognitiveMass(
+            final float importance, final byte arousal, final float storageStrength) {
+        final float importanceNorm = importance / 10.0f;
+        final float arousalNorm = 1.0f + ((arousal & 0xFF) / 128.0f);
+        final float storageBoost = fastStorageBoost(storageStrength, 0.3f);
+        return importanceNorm * arousalNorm * storageBoost;
     }
 
     /**
      * Fast approximation of {@code S^exponent} using precomputed LUT.
-     * Falls back to {@link Math#pow} for exponents other than 0.3 or storage strengths outside [1.0, 5.0].
-     *
-     * @param storageStrength consolidated storage strength in [1.0, 5.0]
-     * @param exponent        power exponent (default 0.3)
-     * @return storage boost multiplier
      */
     public static float fastStorageBoost(final float storageStrength, final float exponent) {
         if (exponent == 0.3f && storageStrength >= STORAGE_BOOST_LUT_MIN && storageStrength <= STORAGE_BOOST_LUT_MAX) {

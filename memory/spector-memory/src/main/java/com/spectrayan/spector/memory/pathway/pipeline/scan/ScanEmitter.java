@@ -11,28 +11,25 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.pipeline.scan;
+
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.kernel.store.EpisodicMemory;
 
-import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.kernel.api.MemoryType;
-
-import java.lang.foreign.MemorySegment;
 import java.util.function.IntSupplier;
-import java.util.function.Supplier;
 
 /**
  * Turns a strategy's per-tier scan decision into actual work: either a deferred
  * parallel task or an immediate synchronous scan.
  */
 public interface ScanEmitter {
-    /** Emits a full-record slab scan of the given store slice. */
-    void emitSlabScan(Supplier<MemorySegment> segment, IntSupplier visibleCount,
-                      FixedEngramLayout layout, MemoryType type,
-                      long baseOffset, int partitionSeq);
+    /** Emits a full-record slab scan of the given store slice without exposing MemorySegment. */
+    void emitSlabScan(int partitionSeq, MemoryType type, FixedEngramLayout layout,
+                      IntSupplier visibleCount, long baseOffset);
 
     /** Emits the semantic HNSW fast-path recall across all partitions (ADR-0009). */
     void emitSemanticHnsw();
 
     /** Emits an episodic log scan of the given store. */
-    void emitEpisodicScan(com.spectrayan.spector.kernel.store.EpisodicMemory episodic, int partitionSeq);
+    void emitEpisodicScan(EpisodicMemory episodic, int partitionSeq);
 }

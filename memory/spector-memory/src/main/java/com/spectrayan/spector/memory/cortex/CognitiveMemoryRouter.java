@@ -561,6 +561,10 @@ public final class CognitiveMemoryRouter implements com.spectrayan.spector.kerne
         }
     }
 
+    public com.spectrayan.spector.kernel.scan.ScanService scan() {
+        return new com.spectrayan.spector.kernel.scan.DefaultScanService(stores, strengthMemory);
+    }
+
     @Override
     public void close() {
         stores.values().forEach(store -> {

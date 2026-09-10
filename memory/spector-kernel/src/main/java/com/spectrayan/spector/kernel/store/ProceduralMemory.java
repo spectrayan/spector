@@ -78,26 +78,7 @@ public final class ProceduralMemory extends AbstractEngramMemory<ProceduralLayou
                 capacity, layout.stride());
     }
 
-    /**
-     * Creates a persistent Procedural Memory store backed by an mmap file.
-     *
-     * @param quantizedVecBytes bytes per quantized vector
-     * @param capacity          maximum number of procedural memories
-     * @param filePath          path to the backing mmap file
-     */
-    public ProceduralMemory(int quantizedVecBytes, int capacity, Path filePath) {
-        this(new ProceduralLayout(quantizedVecBytes), capacity, filePath);
-    }
 
-    /**
-     * Creates a persistent Procedural Memory store backed by an mmap file with dedicated layout.
-     */
-    public ProceduralMemory(ProceduralLayout layout, int capacity, Path filePath) {
-        super(MemoryType.PROCEDURAL, layout, capacity, (long) layout.stride() * capacity, filePath);
-
-        log.info("ProceduralMemory initialized: capacity={}, stride={}B, persistent=true, count={}",
-                capacity(), layout.stride(), getCount());
-    }
 
     /**
      * Creates a volatile Procedural Memory store with default capacity (1000).

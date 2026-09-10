@@ -22,6 +22,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.spectrayan.spector.kernel.bundle.PartitionBundle;
+import com.spectrayan.spector.kernel.region.RegionId;
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,55 +47,81 @@ class AbstractEngramMemoryTest {
         }
     }
 
-    @Test
-    @DisplayName("Persistent store creates mmap file")
-    void persistentStoreCreatesMmapFile(@TempDir Path tempDir) {
-        Path file = tempDir.resolve("test.mem");
-        try (SemanticMemory store = new SemanticMemory(128, 100, file)) {
-            assertThat(store.isPersistent()).isTrue();
-            assertThat(store.filePath()).isEqualTo(file);
-            assertThat(file).exists();
+    private static MemorySegment mapSlice(Path file, long size, Arena arena) throws java.io.IOException {
+        try (var fc = java.nio.channels.FileChannel.open(file,
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.READ,
+                java.nio.file.StandardOpenOption.WRITE)) {
+            if (fc.size() < size) {
+                fc.position(size - 1);
+                fc.write(java.nio.ByteBuffer.wrap(new byte[]{0}));
+            }
+            return fc.map(java.nio.channels.FileChannel.MapMode.READ_WRITE, 0, size, arena);
         }
     }
 
     @Test
-    @DisplayName("Persistent store restores count on reopen")
-    void persistentStoreRestoresCountOnReopen(@TempDir Path tempDir) {
+    @DisplayName("Bundle-backed store is persistent")
+    void persistentStoreCreatesMmapFile(@TempDir Path tempDir) throws Exception {
         Path file = tempDir.resolve("test.mem");
-        try (SemanticMemory store = new SemanticMemory(128, 100, file)) {
-            store.write(createHeader(), new byte[128]);
-            store.write(createHeader(), new byte[128]);
-            store.force();
+        long size = RegionPreamble.PREAMBLE_BYTES + 100L * new com.spectrayan.spector.kernel.layout.SemanticLayout(128).stride();
+        try (Arena arena = Arena.ofShared()) {
+            MemorySegment slice = mapSlice(file, size, arena);
+            try (SemanticMemory store = SemanticMemory.fromBundle(arena, slice, 100, 128, file, true)) {
+                assertThat(store.isPersistent()).isTrue();
+                assertThat(store.filePath()).isEqualTo(file);
+                assertThat(file).exists();
+            }
         }
-        
-        try (SemanticMemory store = new SemanticMemory(128, 100, file)) {
-            assertThat(store.size()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Bundle-backed store restores count on reopen")
+    void persistentStoreRestoresCountOnReopen(@TempDir Path tempDir) throws Exception {
+        Path file = tempDir.resolve("test.mem");
+        long size = RegionPreamble.PREAMBLE_BYTES + 100L * new com.spectrayan.spector.kernel.layout.SemanticLayout(128).stride();
+        try (Arena arena = Arena.ofShared()) {
+            MemorySegment slice = mapSlice(file, size, arena);
+            try (SemanticMemory store = SemanticMemory.fromBundle(arena, slice, 100, 128, file, true)) {
+                store.write(createHeader(), new byte[128]);
+                store.write(createHeader(), new byte[128]);
+                store.force();
+            }
+        }
+
+        try (Arena arena = Arena.ofShared()) {
+            MemorySegment slice = mapSlice(file, size, arena);
+            try (SemanticMemory store = SemanticMemory.fromBundle(arena, slice, 100, 128, file, false)) {
+                assertThat(store.size()).isEqualTo(2);
+            }
         }
     }
 
     @Test
     @DisplayName("Metadata header contains magic and version")
-    void metadataHeaderContainsMagicAndVersion(@TempDir Path tempDir) {
+    void metadataHeaderContainsMagicAndVersion(@TempDir Path tempDir) throws Exception {
         Path file = tempDir.resolve("test.mem");
-        try (SemanticMemory store = new SemanticMemory(128, 100, file)) {
-            // SMKM magic is 0x534D4B4D
-            int magic = store.segment().get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
-            assertThat(magic).isEqualTo(com.spectrayan.spector.kernel.region.RegionPreamble.MAGIC);
-            int version = store.segment().get(java.lang.foreign.ValueLayout.JAVA_INT, 4);
-            assertThat(version).isEqualTo(1);
+        long size = RegionPreamble.PREAMBLE_BYTES + 100L * new com.spectrayan.spector.kernel.layout.SemanticLayout(128).stride();
+        try (Arena arena = Arena.ofShared()) {
+            MemorySegment slice = mapSlice(file, size, arena);
+            try (SemanticMemory store = SemanticMemory.fromBundle(arena, slice, 100, 128, file, true)) {
+                int magic = store.segment().get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
+                assertThat(magic).isEqualTo(com.spectrayan.spector.kernel.region.RegionPreamble.MAGIC);
+                int version = store.segment().get(java.lang.foreign.ValueLayout.JAVA_INT, 4);
+                assertThat(version).isEqualTo(1);
+            }
         }
     }
 
     @Test
     @DisplayName("tombstoneCount scans correctly")
-    void tombstoneCountScansCorrectly(@TempDir Path tempDir) {
-        Path file = tempDir.resolve("test.mem");
-        try (SemanticMemory store = new SemanticMemory(128, 100, file)) {
+    void tombstoneCountScansCorrectly() {
+        try (SemanticMemory store = new SemanticMemory(128, 100)) {
             long offset1 = store.write(createHeader(), new byte[128]);
             long offset2 = store.write(createHeader(), new byte[128]);
-            
+
             store.layout().tombstone(store.segment(), offset1);
-            
+
             assertThat(store.tombstoneCount()).isEqualTo(1);
             assertThat(store.tombstoneRatio()).isCloseTo(0.5f, within(0.01f));
         }

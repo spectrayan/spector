@@ -42,7 +42,7 @@ import com.spectrayan.spector.kernel.engram.EpisodicHeaderLayout;
 import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import static com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.*;
 

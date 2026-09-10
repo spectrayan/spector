@@ -11,13 +11,12 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.pipeline.scan;
-import com.spectrayan.spector.kernel.store.EpisodicMemory;
 
-import com.spectrayan.spector.memory.cortex.PartitionHandle;
-import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.kernel.store.EngramRegion;
-import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.cortex.PartitionHandle;
 
 /**
  * Produces the scan work for a single memory tier given a {@link PartitionHandle}.
@@ -37,8 +36,8 @@ public interface TierScanStrategy {
             if (!CognitiveMemoryRouter.shouldScan(MemoryType.WORKING, ctx.targetTypes())) return;
             var working = ctx.active().working();
             if (working.visibleCount() <= 0) return;
-            emitter.emitSlabScan(working::segment, working::visibleCount,
-                    (FixedEngramLayout) working.layout(), MemoryType.WORKING, 0L, ctx.activeSeq());
+            emitter.emitSlabScan(ctx.activeSeq(), MemoryType.WORKING,
+                    (FixedEngramLayout) working.layout(), working::visibleCount, 0L);
         }
     }
 
@@ -50,7 +49,7 @@ public interface TierScanStrategy {
         public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
             if (!CognitiveMemoryRouter.shouldScan(MemoryType.EPISODIC, ctx.targetTypes())) return;
             if (handle.router() == null || handle.router().episodic() == null) return;
-            com.spectrayan.spector.kernel.store.EpisodicMemory episodic = handle.router().episodic();
+            EpisodicMemory episodic = handle.router().episodic();
             if (episodic.unconsolidatedTurnOffsets().isEmpty()) return;
             emitter.emitEpisodicScan(episodic, handle.seq());
         }
@@ -63,14 +62,12 @@ public interface TierScanStrategy {
         @Override
         public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
             if (!CognitiveMemoryRouter.shouldScan(MemoryType.SEMANTIC, ctx.targetTypes())) return;
-            // When HNSW is available, global semantic recall is emitted once by RecallPipeline.
-            // When unindexed (fallback), scan this partition's slab.
             if (!ctx.semanticHnswAvailable()) {
                 var semantic = handle.router().semantic();
                 if (semantic == null || semantic.visibleCount() <= 0) return;
-                emitter.emitSlabScan(semantic::segment, semantic::visibleCount,
-                        (FixedEngramLayout) semantic.layout(), MemoryType.SEMANTIC,
-                        semantic.dataOffset(), handle.seq());
+                emitter.emitSlabScan(handle.seq(), MemoryType.SEMANTIC,
+                        (FixedEngramLayout) semantic.layout(), semantic::visibleCount,
+                        semantic.dataOffset());
             }
         }
     }
@@ -84,9 +81,9 @@ public interface TierScanStrategy {
             if (!CognitiveMemoryRouter.shouldScan(MemoryType.PROCEDURAL, ctx.targetTypes())) return;
             var procedural = handle.router().procedural();
             if (procedural.visibleCount() <= 0) return;
-            emitter.emitSlabScan(procedural::segment, procedural::visibleCount,
-                    (FixedEngramLayout) procedural.layout(), MemoryType.PROCEDURAL,
-                    procedural.dataOffset(), handle.seq());
+            emitter.emitSlabScan(handle.seq(), MemoryType.PROCEDURAL,
+                    (FixedEngramLayout) procedural.layout(), procedural::visibleCount,
+                    procedural.dataOffset());
         }
     }
 }

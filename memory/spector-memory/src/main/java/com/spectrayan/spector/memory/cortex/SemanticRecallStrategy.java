@@ -31,9 +31,9 @@ import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.kernel.api.SourceModality;
 import com.spectrayan.spector.kernel.score.DecayStrategy;
-import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 import com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion;
-import com.spectrayan.spector.memory.synapse.scan.RecordGates;
+import com.spectrayan.spector.kernel.score.RecordGates;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

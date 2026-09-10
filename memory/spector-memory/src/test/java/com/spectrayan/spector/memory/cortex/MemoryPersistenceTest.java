@@ -25,6 +25,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.spectrayan.spector.kernel.region.RegionPreamble;
+import com.spectrayan.spector.kernel.layout.WorkingLayout;
+import com.spectrayan.spector.kernel.layout.SemanticLayout;
+import com.spectrayan.spector.kernel.layout.ProceduralLayout;
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
+import java.nio.channels.FileChannel;
+import java.nio.ByteBuffer;
+import java.nio.file.StandardOpenOption;
+import java.io.IOException;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,55 +61,79 @@ class MemoryPersistenceTest {
         return vec;
     }
 
+    private static MemorySegment mapSlice(Path file, long size, Arena arena) throws IOException {
+        try (var fc = FileChannel.open(file,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.READ,
+                StandardOpenOption.WRITE)) {
+            if (fc.size() < size) {
+                fc.position(size - 1);
+                fc.write(ByteBuffer.wrap(new byte[]{0}));
+            }
+            return fc.map(FileChannel.MapMode.READ_WRITE, 0, size, arena);
+        }
+    }
+
     // ══════════════════════════════════════════════════════════════
     // WORKING MEMORY STORE — round-trip persistence
     // ══════════════════════════════════════════════════════════════
 
     @Test
-    void workingStore_persistsAndRecoversCircularBuffer() {
+    void workingStore_persistsAndRecoversCircularBuffer() throws Exception {
         Path file = tmpDir.resolve("working.mem");
+        long size = RegionPreamble.PREAMBLE_BYTES + (long) CAPACITY * new WorkingLayout(VEC_BYTES).stride();
 
-        // Write 5 records
-        try (var store = new WorkingMemory(VEC_BYTES, CAPACITY, file)) {
-            for (int i = 0; i < 5; i++) {
-                store.put(createHeader(1000L + i, 0.5f + i * 0.1f), dummyVec(VEC_BYTES, (byte) (i + 1)));
+        try (var arena = Arena.ofShared()) {
+            var slice = mapSlice(file, size, arena);
+            try (var store = WorkingMemory.fromBundle(arena, slice, CAPACITY, VEC_BYTES, file, true)) {
+                for (int i = 0; i < 5; i++) {
+                    store.put(createHeader(1000L + i, 0.5f + i * 0.1f), dummyVec(VEC_BYTES, (byte) (i + 1)));
+                }
+                assertThat(store.size()).isEqualTo(5);
+                assertThat(store.isPersistent()).isTrue();
             }
-            assertThat(store.size()).isEqualTo(5);
-            assertThat(store.isPersistent()).isTrue();
         }
 
-        // Reopen and verify count
-        try (var store = new WorkingMemory(VEC_BYTES, CAPACITY, file)) {
-            assertThat(store.size()).isEqualTo(5);
+        try (var arena = Arena.ofShared()) {
+            var slice = mapSlice(file, size, arena);
+            try (var store = WorkingMemory.fromBundle(arena, slice, CAPACITY, VEC_BYTES, file, false)) {
+                assertThat(store.size()).isEqualTo(5);
 
-            // Write 2 more and verify they stack correctly
-            store.put(createHeader(2000L, 0.9f), dummyVec(VEC_BYTES, (byte) 99));
-            store.put(createHeader(2001L, 0.95f), dummyVec(VEC_BYTES, (byte) 100));
-            assertThat(store.size()).isEqualTo(7);
+                store.put(createHeader(2000L, 0.9f), dummyVec(VEC_BYTES, (byte) 99));
+                store.put(createHeader(2001L, 0.95f), dummyVec(VEC_BYTES, (byte) 100));
+                assertThat(store.size()).isEqualTo(7);
+            }
         }
 
-        // Reopen again — count should be 7
-        try (var store = new WorkingMemory(VEC_BYTES, CAPACITY, file)) {
-            assertThat(store.size()).isEqualTo(7);
+        try (var arena = Arena.ofShared()) {
+            var slice = mapSlice(file, size, arena);
+            try (var store = WorkingMemory.fromBundle(arena, slice, CAPACITY, VEC_BYTES, file, false)) {
+                assertThat(store.size()).isEqualTo(7);
+            }
         }
     }
 
     @Test
-    void workingStore_circularBufferWraparound_survivesPersistence() {
+    void workingStore_circularBufferWraparound_survivesPersistence() throws Exception {
         Path file = tmpDir.resolve("working_wrap.mem");
         int smallCap = 5;
+        long size = RegionPreamble.PREAMBLE_BYTES + (long) smallCap * new WorkingLayout(VEC_BYTES).stride();
 
-        // Fill and wrap — write 8 records into a 5-slot buffer
-        try (var store = new WorkingMemory(VEC_BYTES, smallCap, file)) {
-            for (int i = 0; i < 8; i++) {
-                store.put(createHeader(1000L + i, 0.5f), dummyVec(VEC_BYTES, (byte) i));
+        try (var arena = Arena.ofShared()) {
+            var slice = mapSlice(file, size, arena);
+            try (var store = WorkingMemory.fromBundle(arena, slice, smallCap, VEC_BYTES, file, true)) {
+                for (int i = 0; i < 8; i++) {
+                    store.put(createHeader(1000L + i, 0.5f), dummyVec(VEC_BYTES, (byte) i));
+                }
+                assertThat(store.size()).isEqualTo(smallCap);
             }
-            assertThat(store.size()).isEqualTo(smallCap); // capped at capacity
         }
 
-        // Reopen — count should still be 5 (capacity)
-        try (var store = new WorkingMemory(VEC_BYTES, smallCap, file)) {
-            assertThat(store.size()).isEqualTo(smallCap);
+        try (var arena = Arena.ofShared()) {
+            var slice = mapSlice(file, size, arena);
+            try (var store = WorkingMemory.fromBundle(arena, slice, smallCap, VEC_BYTES, file, false)) {
+                assertThat(store.size()).isEqualTo(smallCap);
+            }
         }
     }
 
@@ -108,26 +142,29 @@ class MemoryPersistenceTest {
     // ══════════════════════════════════════════════════════════════
 
     @Test
-    void semanticStore_persistsAndRecoversHeaders() {
+    void semanticStore_persistsAndRecoversHeaders() throws Exception {
         Path file = tmpDir.resolve("semantic.mem");
+        long size = RegionPreamble.PREAMBLE_BYTES + (long) CAPACITY * new SemanticLayout(VEC_BYTES).stride();
 
-        // Write 3 headers
-        try (var store = new SemanticMemory(VEC_BYTES, CAPACITY, file)) {
-            for (int i = 0; i < 3; i++) {
-                var header = EncodingHeader.create(
-                        System.currentTimeMillis(), 0xBEEFL, 1.0f, 0.7f + i * 0.1f, (short) i, MemoryType.SEMANTIC);
-                store.store(header);
+        try (var arena = Arena.ofShared()) {
+            var slice = mapSlice(file, size, arena);
+            try (var store = SemanticMemory.fromBundle(arena, slice, CAPACITY, VEC_BYTES, file, true)) {
+                for (int i = 0; i < 3; i++) {
+                    var header = EncodingHeader.create(
+                            System.currentTimeMillis(), 0xBEEFL, 1.0f, 0.7f + i * 0.1f, (short) i, MemoryType.SEMANTIC);
+                    store.store(header);
+                }
+                assertThat(store.size()).isEqualTo(3);
             }
-            assertThat(store.size()).isEqualTo(3);
         }
 
-        // Reopen and verify
-        try (var store = new SemanticMemory(VEC_BYTES, CAPACITY, file)) {
-            assertThat(store.size()).isEqualTo(3);
-
-            // Read back first header and verify importance
-            var h0 = store.readHeader(0);
-            assertThat(h0.importance()).isCloseTo(0.7f, org.assertj.core.data.Offset.offset(0.01f));
+        try (var arena = Arena.ofShared()) {
+            var slice = mapSlice(file, size, arena);
+            try (var store = SemanticMemory.fromBundle(arena, slice, CAPACITY, VEC_BYTES, file, false)) {
+                assertThat(store.size()).isEqualTo(3);
+                var h0 = store.readHeader(0);
+                assertThat(h0.importance()).isCloseTo(0.7f, org.assertj.core.data.Offset.offset(0.01f));
+            }
         }
     }
 
@@ -136,18 +173,25 @@ class MemoryPersistenceTest {
     // ══════════════════════════════════════════════════════════════
 
     @Test
-    void proceduralStore_persistsAndRecoversRecords() {
+    void proceduralStore_persistsAndRecoversRecords() throws Exception {
         Path file = tmpDir.resolve("procedural.mem");
+        long size = RegionPreamble.PREAMBLE_BYTES + (long) CAPACITY * new ProceduralLayout(VEC_BYTES).stride();
 
-        try (var store = new ProceduralMemory(VEC_BYTES, CAPACITY, file)) {
-            for (int i = 0; i < 4; i++) {
-                store.append(createHeader(3000L + i, 1.0f), dummyVec(VEC_BYTES, (byte) (i + 10)));
+        try (var arena = Arena.ofShared()) {
+            var slice = mapSlice(file, size, arena);
+            try (var store = ProceduralMemory.fromBundle(arena, slice, CAPACITY, VEC_BYTES, file, true)) {
+                for (int i = 0; i < 4; i++) {
+                    store.append(createHeader(3000L + i, 1.0f), dummyVec(VEC_BYTES, (byte) (i + 10)));
+                }
+                assertThat(store.size()).isEqualTo(4);
             }
-            assertThat(store.size()).isEqualTo(4);
         }
 
-        try (var store = new ProceduralMemory(VEC_BYTES, CAPACITY, file)) {
-            assertThat(store.size()).isEqualTo(4);
+        try (var arena = Arena.ofShared()) {
+            var slice = mapSlice(file, size, arena);
+            try (var store = ProceduralMemory.fromBundle(arena, slice, CAPACITY, VEC_BYTES, file, false)) {
+                assertThat(store.size()).isEqualTo(4);
+            }
         }
     }
 

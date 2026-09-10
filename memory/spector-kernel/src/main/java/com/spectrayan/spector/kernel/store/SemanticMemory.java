@@ -80,26 +80,6 @@ public final class SemanticMemory extends AbstractEngramMemory<SemanticLayout> {
                 capacity, layout.stride(), layout.headerLayout().version());
     }
 
-    /**
-     * Creates a persistent Semantic Memory store backed by an mmap file.
-     *
-     * @param quantizedVecBytes bytes per quantized vector (for layout calculation)
-     * @param capacity          maximum number of semantic memories
-     * @param filePath          path to the backing mmap file
-     */
-    public SemanticMemory(int quantizedVecBytes, int capacity, Path filePath) {
-        this(new SemanticLayout(quantizedVecBytes), capacity, filePath);
-    }
-
-    /**
-     * Creates a persistent Semantic Memory store backed by an mmap file with dedicated layout.
-     */
-    public SemanticMemory(SemanticLayout layout, int capacity, Path filePath) {
-        super(MemoryType.SEMANTIC, layout, capacity, (long) layout.stride() * capacity, filePath);
-
-        log.info("SemanticMemory initialized: capacity={}, stride={}B, persistent=true, count={}, headerVersion=V{}",
-                capacity, layout.stride(), getCount(), layout.headerLayout().version());
-    }
 
     /**
      * Creates a bundle-backed Semantic Memory store from a pre-sliced region segment.

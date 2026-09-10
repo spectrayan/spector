@@ -90,6 +90,8 @@ public interface NamespaceKernel extends AutoCloseable {
     RecordMemory<ProvenanceLayout> provenanceMemory();
 
     // ── Operations ──
+    com.spectrayan.spector.kernel.scan.ScanService scan();
+
     boolean hasActiveLeases();
 
     void flush();

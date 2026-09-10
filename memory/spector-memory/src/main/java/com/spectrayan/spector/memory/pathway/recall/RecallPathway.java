@@ -33,9 +33,12 @@ import com.spectrayan.spector.memory.graph.hebbian.CoActivationAssociativePriorP
 import com.spectrayan.spector.kernel.store.CoActivationMemory;
 import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
-import com.spectrayan.spector.memory.synapse.scan.RecordGates;
+import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
+import com.spectrayan.spector.kernel.score.RecordGates;
+import com.spectrayan.spector.kernel.scan.ScanFilter;
+import com.spectrayan.spector.memory.synapse.scan.CognitiveScoreVisitor;
 import java.nio.charset.StandardCharsets;
+import java.util.EnumSet;
 import com.spectrayan.spector.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
@@ -142,7 +145,6 @@ import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -450,7 +452,6 @@ public final class RecallPathway {
                 if (loc == null) continue;
 
                 final long offset = loc.offset();
-                final MemorySegment seg = snapshot.arena().allocate(0);
 
                 try {
                     final String text = snapshot.index().text(memId);
@@ -459,7 +460,9 @@ public final class RecallPathway {
 
                     final float importance = 0.5f;
                     final byte valence = 0;
-                    final long ts = layout.readTimestamp(seg, offset);
+                    final com.spectrayan.spector.kernel.engram.EncodingHeader hdr =
+                            snapshot.cognitiveRouter() != null ? snapshot.cognitiveRouter().readHeader(loc) : null;
+                    final long ts = hdr != null ? hdr.timestampMs() : nowMs;
                     final float ageDays = (float) ((nowMs - ts) / (double) (24 * 60 * 60 * 1000));
 
                     final java.util.Map<String, String> rMeta = snapshot.index().metadata(memId);
@@ -643,23 +646,26 @@ public final class RecallPathway {
         }
     }
 
-    private List<CognitiveResult> scoreStoreToList(final MemorySegment segment, final int recordCount,
-                                                   final FixedEngramLayout layout, final float[] queryVector,
-                                                   final RecallOptions options, final long nowMs, final MemoryType type,
-                                                   final long baseOffset, final int partitionSeq) {
+    private List<CognitiveResult> scoreStoreToList(final int partitionSeq, final MemoryType type,
+                                                   final FixedEngramLayout layout, final int recordCount,
+                                                   final long baseOffset, final float[] queryVector,
+                                                   final RecallOptions options, final long nowMs) {
         com.spectrayan.spector.memory.synapse.QueryAssociativeContext priorContext = null;
         if (options.enableAssociativePrior()) {
             priorContext = new com.spectrayan.spector.memory.synapse.QueryAssociativeContext(List.of(), List.of(), nowMs);
         }
 
         var router = partitionRegistry != null ? partitionRegistry.routerFor(partitionSeq) : null;
-        var strengthStore = router != null ? router.strength() : null;
+        if (router == null) {
+            return List.of();
+        }
 
-        final List<ScoredRecord> scored = CognitiveScorer.score(
-                segment, recordCount, layout, queryVector, options, nowMs, baseOffset,
-                calibrationMins, calibrationScales, associativePriorProvider, priorContext,
-                strengthStore, type);
+        final ScanFilter filter = CognitiveScorer.createScanFilter(options, nowMs);
+        final CognitiveScoreVisitor visitor = new CognitiveScoreVisitor(options, nowMs, associativePriorProvider, priorContext);
 
+        router.scan().scan(EnumSet.of(type), queryVector, calibrationMins, calibrationScales, filter, visitor);
+
+        final List<ScoredRecord> scored = visitor.drain();
         final List<CognitiveResult> results = new ArrayList<>(scored.size());
         for (final ScoredRecord sr : scored) {
             final CognitiveResult cr = headerToResult(sr, sr.header(), type, partitionSeq);
@@ -689,8 +695,6 @@ public final class RecallPathway {
         final boolean allowSimulated = options.allowSimulated();
 
         final List<CognitiveResult> results = new ArrayList<>();
-        final MemorySegment segment = episodic.segment();
-        final long base = episodic.dataOffset();
 
         final List<String> queryTokens = new ArrayList<>();
         if (rawQuery != null && !rawQuery.isBlank()) {
@@ -699,46 +703,46 @@ public final class RecallPathway {
             }
         }
 
-        for (final long relOffset : offsets) {
-            final long absOffset = base + relOffset;
+        try (final var cur = episodic.cursor()) {
+            for (final long relOffset : offsets) {
+                cur.seekOffset(episodic.dataOffset() + relOffset);
 
-            // Phase 1: Tombstone check
-            final byte flags = EpisodicHeaderLayout.INSTANCE.readFlagsRecord(segment, absOffset);
-            if (EncodingHeaderFields.isTombstoned(flags)) {
-                continue;
-            }
-
-            // Phase 1c: Simulation check
-            if (!allowSimulated && EpisodicHeaderLayout.INSTANCE.readSourceRecord(segment, absOffset) == EngramSource.SIMULATED) {
-                continue;
-            }
-
-            // Phase 1b: Temporal gating
-            final long timestamp = EpisodicHeaderLayout.INSTANCE.readTimestampRecord(segment, absOffset);
-            if (RecordGates.isTemporalGated(timestamp, minTimestamp, maxTimestamp, nowMs, allowFuture)) {
-                continue;
-            }
-
-            // Phase 2: Synaptic tag gating
-            final EncodingHeader header = EpisodicHeaderLayout.INSTANCE.readHeaderRecord(segment, absOffset);
-            final long recordTags = header != null ? header.synapticTags() : 0L;
-            if (hyperfocusMask != 0 || queryTagMask != 0) {
-                if (RecordGates.isTagGated(recordTags, queryTagMask, hyperfocusMask)) {
+                // Phase 1: Tombstone check
+                final byte flags = cur.flags();
+                if (EncodingHeaderFields.isTombstoned(flags)) {
                     continue;
                 }
-            }
 
-            // Phase 3: Valence filter
-            final byte valence = EpisodicHeaderLayout.INSTANCE.readValenceRecord(segment, absOffset);
-            if (RecordGates.isValenceGated(valence, minValence, maxValence)) {
-                continue;
-            }
+                // Phase 1c: Simulation check
+                if (!allowSimulated && cur.sourceCode() == EncodingHeaderFields.SOURCE_SIMULATED) {
+                    continue;
+                }
 
-            // Phase 4: Importance filter
-            final float importance = EpisodicHeaderLayout.INSTANCE.readImportanceRecord(segment, absOffset);
-            if (importance < minImportance) {
-                continue;
-            }
+                // Phase 1b: Temporal gating
+                final long timestamp = cur.timestampMs();
+                if (RecordGates.isTemporalGated(timestamp, minTimestamp, maxTimestamp, nowMs, allowFuture)) {
+                    continue;
+                }
+
+                // Phase 2: Synaptic tag gating
+                final long recordTags = cur.synapticTagsLo();
+                if (hyperfocusMask != 0 || queryTagMask != 0) {
+                    if (RecordGates.isTagGated(recordTags, queryTagMask, hyperfocusMask)) {
+                        continue;
+                    }
+                }
+
+                // Phase 3: Valence filter
+                final byte valence = cur.valence();
+                if (RecordGates.isValenceGated(valence, minValence, maxValence)) {
+                    continue;
+                }
+
+                // Phase 4: Importance filter
+                final float importance = cur.importance();
+                if (importance < minImportance) {
+                    continue;
+                }
 
             // Phase 5: Resolve ID and text
             final String id = index.findIdByOffset(partitionSeq, MemoryType.EPISODIC, relOffset);
@@ -792,7 +796,7 @@ public final class RecallPathway {
             }
 
             final float ageDays = (nowMs - timestamp) / (1000f * 60f * 60f * 24f);
-            final int recallCount = header != null ? header.agentRecallCount() : 0;
+            final int recallCount = cur.activationCount();
             final int rawBucket = DecayStrategy.ageToBucket(timestamp, nowMs);
             final int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, recallCount);
             final float rawDecay = DecayStrategy.decay(rawBucket);
@@ -820,7 +824,7 @@ public final class RecallPathway {
                     score
             );
 
-            final SourceModality modality = EpisodicHeaderLayout.INSTANCE.readModalityRecord(segment, absOffset);
+            final SourceModality modality = SourceModality.fromOrdinal(EncodingHeaderFields.sourceModalityOrdinal(flags));
             final Map<String, String> metadata = index.metadata(id);
             final MemorySource source = index.source(id) != null ? index.source(id) : MemorySource.OBSERVED;
 
@@ -829,6 +833,7 @@ public final class RecallPathway {
                     recallCount, valence, MemoryType.EPISODIC, source, tags,
                     rawDecay, ltpDecay, mode, breakdown, null, modality, metadata,
                     (byte) 0, timestamp));
+            }
         }
 
         return results;
