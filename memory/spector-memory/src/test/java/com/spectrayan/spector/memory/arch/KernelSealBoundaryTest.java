@@ -58,17 +58,13 @@ class KernelSealBoundaryTest {
         ArchRule rule = noClasses()
                 .that().resideInAPackage("com.spectrayan.spector.memory..")
                 .and(not(nameMatching(".*("
-                        // Group 5: HeaderCursor scheduled conversions (ActRActivation, ValenceTracker, EpisodicSessionIndex converted!)
-                        + "HeaderMigrator|"
                         // Group 6: Scan Pipeline scheduled conversions
                         + "CognitiveScorer|SemanticRecallStrategy|SemanticDeduplicator|MemoryBM25Index|"
                         + "GraphExpansionStage|RecallCandidateGatherer|"
                         + "ParallelScanEmitter|ScanEmitter|SequentialScanEmitter|SlabScoreFunction|DreamJournalMemory|"
                         // Group 7: Graph & Table APIs scheduled conversions
                         + "IndexEntryMemory|EntityDirectory|HebbianGraph|SynapticDecayModulator|"
-                        + "TemporalFact|TemporalKnowledgeGraph|"
-                        // Group 8: WAL & Sync scheduled conversions
-                        + "CheckpointEngine|ReplaySnapshot|VacuumCompactor|WalRecoveryDispatcher|WalReplayer"
+                        + "TemporalFact|TemporalKnowledgeGraph"
                         + ").*")))
                 .should().dependOnClassesThat().resideInAnyPackage("java.lang.foreign..")
                 .because("Panama I/O is sealed inside spector-kernel (spec R3.5, R11.6)");
@@ -82,17 +78,13 @@ class KernelSealBoundaryTest {
         ArchRule rule = noClasses()
                 .that().resideInAPackage("com.spectrayan.spector.memory..")
                 .and(not(nameMatching(".*("
-                        // Group 5: HeaderCursor scheduled conversions
-                        + "HeaderMigrator|"
                         // Group 6: Scan Pipeline scheduled conversions
                         + "CognitiveScorer|SemanticRecallStrategy|SemanticDeduplicator|MemoryBM25Index|"
                         + "GraphExpansionStage|RecallCandidateGatherer|"
                         + "ParallelScanEmitter|ScanEmitter|SequentialScanEmitter|SlabScoreFunction|DreamJournalMemory|"
                         // Group 7: Graph & Table APIs scheduled conversions
                         + "IndexEntryMemory|EntityDirectory|HebbianGraph|SynapticDecayModulator|"
-                        + "TemporalFact|TemporalKnowledgeGraph|"
-                        // Group 8: WAL & Sync scheduled conversions
-                        + "CheckpointEngine|ReplaySnapshot|VacuumCompactor|WalRecoveryDispatcher|WalReplayer"
+                        + "TemporalFact|TemporalKnowledgeGraph"
                         + ").*")))
                 .should().callMethod(java.lang.foreign.Arena.class, "ofShared")
                 .orShould().callMethod(java.lang.foreign.Arena.class, "ofConfined")

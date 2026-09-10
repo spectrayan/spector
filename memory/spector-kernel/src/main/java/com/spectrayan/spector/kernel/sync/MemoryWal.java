@@ -25,4 +25,7 @@ public interface MemoryWal {
     Object appendChainLink(String memoryId, int fromIdx, int toIdx, int sessionId);
     default Object appendGraphAddNode(String memoryId, int entityId, String normalized, String type) { return null; }
     default Object appendGraphLinkMemory(String memoryId, int entityId, int memoryIdx) { return null; }
+
+    default void replay(WalVisitor visitor) {}
+    default void replay(long fromSeq, WalVisitor visitor) {}
 }

@@ -36,6 +36,16 @@ public interface RecordMemory<L extends RegionLayout> extends Memory<L> {
     long write(long recordId, MemorySegment recordBytes);
     
     /**
+     * Writes a record at the given slot index from a byte array.
+     * @param recordId slot index (0-based)
+     * @param recordBytes the record data to write
+     * @return the byte offset of the written record within the segment
+     */
+    default long write(long recordId, byte[] recordBytes) {
+        return write(recordId, MemorySegment.ofArray(recordBytes));
+    }
+    
+    /**
      * Reads a record at the given slot index into the destination segment.
      * @param recordId slot index (0-based)
      * @param dest destination segment to copy record data into

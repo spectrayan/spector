@@ -96,6 +96,34 @@ public final class RegionRef {
      *
      * @param requiredBytes minimum capacity in bytes
      */
+    /**
+     * Reads the checkpoint high-water mark if this region holds checkpoint metadata.
+     * @return the checkpoint HWM, or -1 if invalid or not set
+     */
+    public long readCheckpointHwm() {
+        MemorySegment slice = resolve();
+        if (slice == null || slice.byteSize() < 16) return -1;
+        int magic = slice.get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
+        if (magic != 0x434B5054) return -1;
+        int version = slice.get(java.lang.foreign.ValueLayout.JAVA_INT, 4);
+        if (version != 1) return -1;
+        return slice.get(java.lang.foreign.ValueLayout.JAVA_LONG, 8);
+    }
+
+    /**
+     * Writes the checkpoint high-water mark to this region.
+     * @param hwm WAL high-water mark
+     */
+    public void writeCheckpointHwm(long hwm) {
+        MemorySegment slice = resolve();
+        if (slice != null && slice.byteSize() >= 16) {
+            slice.set(java.lang.foreign.ValueLayout.JAVA_INT, 0, 0x434B5054);
+            slice.set(java.lang.foreign.ValueLayout.JAVA_INT, 4, 1);
+            slice.set(java.lang.foreign.ValueLayout.JAVA_LONG, 8, hwm);
+            slice.force();
+        }
+    }
+
     public void ensureCapacity(long requiredBytes) {
         bundle.ensureCapacity(id, requiredBytes);
     }

@@ -110,7 +110,7 @@ public final class MemoryWalRecovery {
 
         long checkpointHwm = 0;
         if (checkpointRef != null) {
-            long hwm = CheckpointEngine.readCheckpointHwm(checkpointRef.resolve());
+            long hwm = checkpointRef.readCheckpointHwm();
             if (hwm > 0) {
                 checkpointHwm = hwm;
                 log.info("WAL recovery: loaded checkpoint HWM {} from bundle region", checkpointHwm);

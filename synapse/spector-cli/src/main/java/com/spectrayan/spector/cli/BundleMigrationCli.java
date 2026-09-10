@@ -28,7 +28,7 @@ import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.kernel.layout.EngramLayout;
 import com.spectrayan.spector.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.kernel.api.MemoryType;
-import com.spectrayan.spector.memory.synapse.HeaderMigrator;
+import com.spectrayan.spector.kernel.sync.HeaderMigrator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

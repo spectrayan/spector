@@ -16,7 +16,6 @@ import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -101,10 +100,10 @@ public final class WalRecoveryDispatcher {
                             long recordId = payload.getLong();
                             byte[] recordBytes = new byte[event.payload().length - 8];
                             payload.get(recordBytes);
-                            ((RecordMemory<?>) target).write(recordId, MemorySegment.ofArray(recordBytes));
+                            ((RecordMemory<?>) target).write(recordId, recordBytes);
                         }
                         case APPEND -> {
-                            ((AppendMemory<?>) target).append(MemorySegment.ofArray(event.payload()));
+                            ((AppendMemory<?>) target).append(event.payload());
                         }
                         case REGISTRY_INTERN -> {
                             int id = payload.getInt();

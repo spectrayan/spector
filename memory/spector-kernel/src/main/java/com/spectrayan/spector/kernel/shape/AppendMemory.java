@@ -34,6 +34,21 @@ public interface AppendMemory<L extends RegionLayout> extends Memory<L> {
     long append(MemorySegment bytes);
     
     /**
+     * Appends bytes from a byte array.
+     * @param bytes the data to append
+     * @return the start offset of the appended data
+     */
+    default long append(byte[] bytes) {
+        return append(MemorySegment.ofArray(bytes));
+    }
+
+    /**
+     * Replays records using a decoded record visitor.
+     * @param visitor the WAL or log visitor
+     */
+    default void replay(com.spectrayan.spector.kernel.sync.WalVisitor visitor) {}
+    
+    /**
      * Reads data at the given offset.
      * @param offset byte offset from the start of the data region
      * @param length number of bytes to read

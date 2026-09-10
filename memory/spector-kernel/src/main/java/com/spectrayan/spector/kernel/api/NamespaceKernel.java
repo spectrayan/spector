@@ -98,6 +98,23 @@ public interface NamespaceKernel extends AutoCloseable {
 
     void flush();
 
+    // ── Bulk Operations (R9.1) ──
+    com.spectrayan.spector.kernel.sync.CheckpointResult checkpoint(com.spectrayan.spector.kernel.sync.CheckpointRequest request);
+
+    default com.spectrayan.spector.kernel.sync.CheckpointResult checkpoint() {
+        return checkpoint(com.spectrayan.spector.kernel.sync.CheckpointRequest.DEFAULT);
+    }
+
+    com.spectrayan.spector.kernel.sync.VacuumResult vacuum(com.spectrayan.spector.kernel.sync.VacuumPolicy policy);
+
+    default com.spectrayan.spector.kernel.sync.VacuumResult vacuum() {
+        return vacuum(com.spectrayan.spector.kernel.sync.VacuumPolicy.DEFAULT);
+    }
+
+    void walReplay(com.spectrayan.spector.kernel.sync.WalVisitor visitor);
+
+    com.spectrayan.spector.kernel.sync.MigrationReport migrateHeaders(int fromVersion, int toVersion);
+
     @Override
     void close();
 }

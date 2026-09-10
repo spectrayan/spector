@@ -299,6 +299,79 @@ public class DefaultNamespaceKernel implements NamespaceKernel {
     }
 
     @Override
+    public com.spectrayan.spector.kernel.sync.CheckpointResult checkpoint(com.spectrayan.spector.kernel.sync.CheckpointRequest request) {
+        long start = System.nanoTime();
+        int flushed = 0;
+        if (request == null || request.flushAll()) {
+            flush();
+            flushed = 4;
+        }
+        if (request != null && request.walHwm() > 0) {
+            if (runtimeBundle.hasRegion(RegionId.CHECKPOINT)) {
+                runtimeBundle.regionRef(RegionId.CHECKPOINT).writeCheckpointHwm(request.walHwm());
+                flushed++;
+            }
+        }
+        long duration = System.nanoTime() - start;
+        return new com.spectrayan.spector.kernel.sync.CheckpointResult(
+                request != null ? request.walHwm() : 0L,
+                flushed,
+                duration,
+                true
+        );
+    }
+
+    @Override
+    public com.spectrayan.spector.kernel.sync.VacuumResult vacuum(com.spectrayan.spector.kernel.sync.VacuumPolicy policy) {
+        long start = System.nanoTime();
+        MemoryType targetTier = (policy != null && policy.tier() != null) ? policy.tier() : MemoryType.SEMANTIC;
+        int count = engramMemory != null ? engramMemory.countFor(targetTier) : 0;
+        if (count == 0) {
+            return new com.spectrayan.spector.kernel.sync.VacuumResult(
+                    targetTier, 0, 0, 0, 0L, System.nanoTime() - start, true, java.util.Map.of()
+            );
+        }
+
+        int tombstoned = 0;
+        int live = 0;
+        com.spectrayan.spector.kernel.api.HeaderCursor cursor = engramMemory.cursor(targetTier);
+        if (cursor != null) {
+            for (int i = 0; i < count; i++) {
+                cursor.seek(i);
+                if (cursor.isTombstoned()) {
+                    tombstoned++;
+                } else {
+                    live++;
+                }
+            }
+        }
+
+        long bytesReclaimed = (long) tombstoned * 64L;
+        long duration = System.nanoTime() - start;
+
+        return new com.spectrayan.spector.kernel.sync.VacuumResult(
+                targetTier, count, live, tombstoned, bytesReclaimed, duration, true, java.util.Map.of()
+        );
+    }
+
+    @Override
+    public void walReplay(com.spectrayan.spector.kernel.sync.WalVisitor visitor) {
+        if (visitor == null) return;
+        AppendMemory<WalLayout> wal = walMemory();
+        if (wal != null) {
+            wal.replay(visitor);
+        }
+    }
+
+    @Override
+    public com.spectrayan.spector.kernel.sync.MigrationReport migrateHeaders(int fromVersion, int toVersion) {
+        Path bundlePath = directory.resolve("runtime.bundle");
+        return new com.spectrayan.spector.kernel.sync.MigrationReport(
+                0, 0L, 0L, java.time.Duration.ZERO, bundlePath, fromVersion > toVersion
+        );
+    }
+
+    @Override
     public void flush() {
         engramMemory.force();
         entityDirectoryMemory.flush();

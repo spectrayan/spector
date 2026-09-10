@@ -33,14 +33,10 @@ import java.time.Instant;
 import java.util.Map;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 
 /**
  * Performs periodic checkpoints of tier store segments, cognitive graphs, and WAL truncation.
@@ -105,7 +101,6 @@ public final class CheckpointEngine {
     private final com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph; // nullable
     private final Path partitionDir;                   // nullable â€” active partition dir for graph saves
     private final Path basePath;                       // nullable â€” persistence root for coactivation
-    private final MemorySegment checkpointRegion;      // nullable — V4 bundle CHECKPOINT region slice
     private final com.spectrayan.spector.kernel.bundle.RegionRef checkpointRef;
 
     // ── Event Bus (replaces CheckpointListener) ──
@@ -149,38 +144,7 @@ public final class CheckpointEngine {
                             CoActivationMemory coActivationTracker,
                             com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                             Path partitionDir, Path basePath) {
-        this(cognitiveRouter, wal, checkpointMetaPath, index, indexPath, hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, coActivationTracker, temporalKnowledgeGraph, partitionDir, basePath, (MemorySegment) null);
-    }
-
-    /**
-     * Creates a checkpoint daemon with full graph persistence and bundle support.
-     */
-    public CheckpointEngine(CognitiveMemoryRouter cognitiveRouter, MemoryWal wal,
-                            Path checkpointMetaPath,
-                            MemoryIndex index, Path indexPath,
-                            HebbianGraphBase hebbianGraph,
-                            TemporalChainMemory temporalChain,
-                            EntityDirectory entityDirectory,
-                            HyperEntityGraphMemory hyperEntityGraph,
-                            CoActivationMemory coActivationTracker,
-                            com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
-                            Path partitionDir, Path basePath,
-                            MemorySegment checkpointRegion) {
-        this.cognitiveRouter = cognitiveRouter;
-        this.wal = wal;
-        this.checkpointMetaPath = checkpointMetaPath;
-        this.index = index;
-        this.indexPath = indexPath;
-        this.hebbianGraph = hebbianGraph;
-        this.temporalChain = temporalChain;
-        this.entityDirectory = entityDirectory;
-        this.hyperEntityGraph = hyperEntityGraph;
-        this.coActivationTracker = coActivationTracker;
-        this.temporalKnowledgeGraph = temporalKnowledgeGraph;
-        this.partitionDir = partitionDir;
-        this.basePath = basePath;
-        this.checkpointRegion = checkpointRegion;
-        this.checkpointRef = null;
+        this(cognitiveRouter, wal, checkpointMetaPath, index, indexPath, hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, coActivationTracker, temporalKnowledgeGraph, partitionDir, basePath, (com.spectrayan.spector.kernel.bundle.RegionRef) null);
     }
 
     public CheckpointEngine(CognitiveMemoryRouter cognitiveRouter, MemoryWal wal,
@@ -208,7 +172,6 @@ public final class CheckpointEngine {
         this.partitionDir = partitionDir;
         this.basePath = basePath;
         this.checkpointRef = checkpointRef;
-        this.checkpointRegion = null;
     }
 
     /**
@@ -367,14 +330,10 @@ public final class CheckpointEngine {
      * Uses temp file + rename for crash safety.
      */
     private void writeCheckpointMeta(long hwm) {
-        // V4 bundle path: write directly to CHECKPOINT region slice
-        MemorySegment ckptSeg = checkpointRef != null ? checkpointRef.resolve() : checkpointRegion;
-        if (ckptSeg != null) {
+        // V4 bundle path: write directly to CHECKPOINT region via RegionRef
+        if (checkpointRef != null) {
             try {
-                ckptSeg.set(ValueLayout.JAVA_INT, 0, CKPT_MAGIC);
-                ckptSeg.set(ValueLayout.JAVA_INT, 4, CKPT_VERSION);
-                ckptSeg.set(ValueLayout.JAVA_LONG, 8, hwm);
-                ckptSeg.force();
+                checkpointRef.writeCheckpointHwm(hwm);
                 log.trace("Checkpoint meta written to bundle region: hwm={}", hwm);
                 return;
             } catch (Exception e) {
@@ -458,18 +417,5 @@ public final class CheckpointEngine {
         }
     }
 
-    /**
-     * Reads the checkpoint HWM from a V4 bundle CHECKPOINT region slice.
-     *
-     * @param region the CHECKPOINT region MemorySegment
-     * @return the high-water mark, or -1 if the region is null or invalid
-     */
-    public static long readCheckpointHwm(MemorySegment region) {
-        if (region == null || region.byteSize() < CKPT_SIZE) return -1;
-        int magic = region.get(ValueLayout.JAVA_INT, 0);
-        if (magic != CKPT_MAGIC) return -1;
-        int version = region.get(ValueLayout.JAVA_INT, 4);
-        if (version != CKPT_VERSION) return -1;
-        return region.get(ValueLayout.JAVA_LONG, 8);
-    }
+
 }

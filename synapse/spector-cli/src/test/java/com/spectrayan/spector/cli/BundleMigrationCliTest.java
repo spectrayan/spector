@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.cli;
 
+import com.spectrayan.spector.kernel.bundle.PartitionBundle;
+import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.kernel.bundle.compat.LegacyV3BundleFormat;
 
 import com.spectrayan.spector.kernel.region.RegionId;
@@ -138,15 +140,15 @@ class BundleMigrationCliTest {
 
         // Verify bundle can be reopened and record counts match
         PartitionBundle bundle = PartitionBundle.Init.open(bundleFile);
-        MemorySegment semSlice = bundle.regionSegment(RegionId.SEMANTIC);
+        MemorySegment semSlice = bundle.regionRef(RegionId.SEMANTIC).resolve();
         int semCount = (int) RegionPreamble.readCount(semSlice, 0);
         assertEquals(recordCount, semCount, "Semantic record count should match");
 
-        MemorySegment epiSlice = bundle.regionSegment(RegionId.EPISODIC);
+        MemorySegment epiSlice = bundle.regionRef(RegionId.EPISODIC).resolve();
         int epiCount = (int) RegionPreamble.readCount(epiSlice, 0);
         assertEquals(recordCount, epiCount, "Episodic record count should match");
 
-        MemorySegment strengthSlice = bundle.regionSegment(RegionId.STRENGTH);
+        MemorySegment strengthSlice = bundle.regionRef(RegionId.STRENGTH).resolve();
         int strengthCount = (int) RegionPreamble.readCount(strengthSlice, 0);
         assertEquals(recordCount * 3, strengthCount, "Strength record count should match total migrated engrams");
 
@@ -224,7 +226,7 @@ class BundleMigrationCliTest {
 
         // Verify runtime bundle can be opened and contains data
         try (RuntimeBundle bundle = RuntimeBundle.Init.open(runtimeBundleFile)) {
-            MemorySegment workingSlice = bundle.regionSegment(RegionId.WORKING);
+            MemorySegment workingSlice = bundle.regionRef(RegionId.WORKING).resolve();
             assertTrue(RegionPreamble.isValid(workingSlice, 0));
             assertEquals(15, RegionPreamble.readCount(workingSlice, 0));
         }
@@ -286,31 +288,44 @@ class BundleMigrationCliTest {
      * Creates V3 store files with real SMKM headers and record data.
      */
     private void createV3StoreFiles(Path partDir, int recordCount) throws IOException {
-        // Create cognitive stores using the real store constructors
-        SemanticMemory semantic = new SemanticMemory(
-                VEC_BYTES, CAPACITY, LegacyV3BundleFormat.semanticMem(partDir));
-        ProceduralMemory procedural = new ProceduralMemory(
-                VEC_BYTES, CAPACITY, LegacyV3BundleFormat.proceduralMem(partDir));
-
-        // Write some records using the store API
-        byte[] vec = new byte[VEC_BYTES];
-        for (int i = 0; i < recordCount; i++) {
-            long ts = System.currentTimeMillis();
-            var header = EncodingHeader.create(
-                    ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.SEMANTIC);
-            semantic.write(header, vec);
-
-            header = EncodingHeader.create(
-                    ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.PROCEDURAL);
-            procedural.write(header, vec);
-        }
-
-        semantic.close();
-        procedural.close();
-
-        // Create legacy V3 episodic.mem file directly
         int cogStride = 64 + VEC_BYTES;
         long totalBytes = RegionPreamble.PREAMBLE_BYTES + (long) CAPACITY * cogStride;
+
+        // semantic.mem
+        try (FileChannel ch = FileChannel.open(LegacyV3BundleFormat.semanticMem(partDir),
+                StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+            ch.truncate(totalBytes);
+            try (Arena arena = Arena.ofConfined()) {
+                MemorySegment seg = ch.map(FileChannel.MapMode.READ_WRITE, 0, totalBytes, arena);
+                RegionPreamble.write(seg, 0, 1, MemoryShape.RECORD, 1, CAPACITY, recordCount, cogStride,
+                        0x434F4700, System.currentTimeMillis(), System.currentTimeMillis());
+                for (int i = 0; i < recordCount; i++) {
+                    long ts = System.currentTimeMillis();
+                    var header = EncodingHeader.create(ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.SEMANTIC);
+                    long recOffset = RegionPreamble.PREAMBLE_BYTES + (long) i * cogStride;
+                    EncodingHeaderLayout.write(seg, recOffset, header);
+                }
+            }
+        }
+
+        // procedural.mem
+        try (FileChannel ch = FileChannel.open(LegacyV3BundleFormat.proceduralMem(partDir),
+                StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+            ch.truncate(totalBytes);
+            try (Arena arena = Arena.ofConfined()) {
+                MemorySegment seg = ch.map(FileChannel.MapMode.READ_WRITE, 0, totalBytes, arena);
+                RegionPreamble.write(seg, 0, 1, MemoryShape.RECORD, 1, CAPACITY, recordCount, cogStride,
+                        0x434F4700, System.currentTimeMillis(), System.currentTimeMillis());
+                for (int i = 0; i < recordCount; i++) {
+                    long ts = System.currentTimeMillis();
+                    var header = EncodingHeader.create(ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.PROCEDURAL);
+                    long recOffset = RegionPreamble.PREAMBLE_BYTES + (long) i * cogStride;
+                    EncodingHeaderLayout.write(seg, recOffset, header);
+                }
+            }
+        }
+
+        // Create legacy V3 episodic.mem file directly
         try (FileChannel ch = FileChannel.open(LegacyV3BundleFormat.episodicMem(partDir),
                 StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
             ch.truncate(totalBytes);
