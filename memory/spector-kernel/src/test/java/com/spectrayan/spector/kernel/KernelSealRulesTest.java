@@ -38,4 +38,16 @@ class KernelSealRulesTest {
     void kernelMustNotDependOnCognitiveTypes() {
         SealRules.KERNEL_HAS_NO_COGNITIVE_TYPES.check(kernelClasses);
     }
+
+    @Test
+    @DisplayName("Kernel API classes must never depend on internal store implementations (R4.6)")
+    void apiMustNotDependOnStore() {
+        SealRules.API_DOES_NOT_DEPEND_ON_STORE.check(kernelClasses);
+    }
+
+    @Test
+    @DisplayName("Kernel score package must be pure mathematics free of storage and config (Improvement 2)")
+    void scorePackageMustBePure() {
+        SealRules.SCORE_PACKAGE_IS_PURE.check(kernelClasses);
+    }
 }

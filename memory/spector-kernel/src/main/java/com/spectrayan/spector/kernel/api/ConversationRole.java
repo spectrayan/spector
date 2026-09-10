@@ -15,8 +15,6 @@
  */
 package com.spectrayan.spector.kernel.api;
 
-import com.spectrayan.spector.kernel.store.codec.EpisodeCodec;
-
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
@@ -38,7 +36,6 @@ import com.spectrayan.spector.kernel.engram.EncodingHeader;
  *
  * @since 1.3.0
  * @see MemoryType#EPISODIC
- * @see com.spectrayan.spector.kernel.store.codec.EpisodeCodec
  */
 public enum ConversationRole {
 

@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.synapse.scan;
 
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.kernel.engram.HeaderBits;
@@ -82,6 +83,7 @@ public class FilterThenScanVerificationTest {
                 acceptCount.incrementAndGet();
             };
 
+            SimilarityFunction.resetInvocationCount();
             float[] queryVector = new float[DIMS];
             SlabScanner.scan(
                     segment, recordCount, LAYOUT, queryVector,
@@ -92,6 +94,10 @@ public class FilterThenScanVerificationTest {
             // Exactly 100 survivors out of 1,000 records!
             assertThat(acceptCount.get())
                     .as("Anti-inversion gate: accept() invocations must equal gate survivors, not total records")
+                    .isEqualTo(100);
+
+            assertThat(SimilarityFunction.getInvocationCount())
+                    .as("Anti-inversion gate: SIMD distance computations must equal gate survivors, not total records (Task 6.17 / R7.11)")
                     .isEqualTo(100);
         }
     }

@@ -47,6 +47,9 @@ import com.spectrayan.spector.kernel.shape.RecordMemory;
 import com.spectrayan.spector.kernel.shape.RegistryMemory;
 import com.spectrayan.spector.kernel.storage.StoragePaths;
 
+import com.spectrayan.spector.kernel.api.NamespaceKernels;
+import com.spectrayan.spector.kernel.shape.EntityDirectoryMemory;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -59,7 +62,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Default package-private implementation of {@link NamespaceKernel}.
  */
-public class DefaultNamespaceKernel implements NamespaceKernel {
+class DefaultNamespaceKernel implements NamespaceKernel {
+
+    static {
+        NamespaceKernels.registerFactory(DefaultNamespaceKernel::new);
+    }
 
     private final Path directory;
     private final KernelSpec spec;
@@ -75,7 +82,7 @@ public class DefaultNamespaceKernel implements NamespaceKernel {
 
     private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
-    public DefaultNamespaceKernel(Path directory, KernelSpec spec) {
+    DefaultNamespaceKernel(Path directory, KernelSpec spec) {
         this.directory = Objects.requireNonNull(directory, "directory cannot be null");
         this.spec = Objects.requireNonNull(spec, "spec cannot be null");
         this.namespaceId = directory.getFileName() != null ? directory.getFileName().toString() : "default";

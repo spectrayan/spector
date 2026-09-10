@@ -690,10 +690,8 @@ public final class MfConformanceHarness {
                             case WORKING -> router.working();
                             default -> null;
                         };
-                        var segment = store != null ? store.primarySegment() : null;
-                        var layout = router.layoutFor(loc.type());
-                        if (segment != null && layout != null) {
-                            EncodingHeader existing = layout.readHeader(segment, loc.offset());
+                        if (store != null) {
+                            EncodingHeader existing = store.readHeader(loc.offset());
                             byte flags = existing.flags();
                             if (record.memoryType() != null) {
                                 flags = EncodingHeaderFields.withMemoryType(flags, record.memoryType().ordinal());
@@ -728,7 +726,7 @@ public final class MfConformanceHarness {
                                     cFlags,
                                     engSource
                             );
-                            layout.writeHeader(segment, loc.offset(), updated);
+                            store.writeHeader(loc.offset(), updated);
                         }
                     }
                 }

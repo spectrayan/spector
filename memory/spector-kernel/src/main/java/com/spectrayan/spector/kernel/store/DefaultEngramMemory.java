@@ -31,7 +31,7 @@ import java.util.Objects;
  *
  * <p>Private fields follow the D11 vocabulary rule: {@code *Memory}, not {@code *Store}.</p>
  */
-public class DefaultEngramMemory implements EngramMemory {
+class DefaultEngramMemory implements EngramMemory {
 
     protected final EnumMap<MemoryType, EngramRegion> memories = new EnumMap<>(MemoryType.class);
 
@@ -41,11 +41,11 @@ public class DefaultEngramMemory implements EngramMemory {
     protected final EpisodicMemory episodicMemory;
     protected final StrengthMemory strengthMemory;
 
-    public DefaultEngramMemory(WorkingMemory workingMemory,
-                               SemanticMemory semanticMemory,
-                               ProceduralMemory proceduralMemory,
-                               EpisodicMemory episodicMemory,
-                               StrengthMemory strengthMemory) {
+    DefaultEngramMemory(WorkingMemory workingMemory,
+                        SemanticMemory semanticMemory,
+                        ProceduralMemory proceduralMemory,
+                        EpisodicMemory episodicMemory,
+                        StrengthMemory strengthMemory) {
         this.workingMemory = workingMemory;
         this.semanticMemory = semanticMemory;
         this.proceduralMemory = proceduralMemory;
@@ -58,10 +58,10 @@ public class DefaultEngramMemory implements EngramMemory {
         if (episodicMemory != null) memories.put(MemoryType.EPISODIC, episodicMemory);
     }
 
-    public DefaultEngramMemory(WorkingMemory workingMemory,
-                               SemanticMemory semanticMemory,
-                               ProceduralMemory proceduralMemory,
-                               EpisodicMemory episodicMemory) {
+    DefaultEngramMemory(WorkingMemory workingMemory,
+                        SemanticMemory semanticMemory,
+                        ProceduralMemory proceduralMemory,
+                        EpisodicMemory episodicMemory) {
         this(workingMemory, semanticMemory, proceduralMemory, episodicMemory, null);
     }
 

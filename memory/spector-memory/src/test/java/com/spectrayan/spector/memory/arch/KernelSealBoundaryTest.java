@@ -13,15 +13,19 @@
 package com.spectrayan.spector.memory.arch;
 
 import com.spectrayan.spector.test.arch.SealRules;
+import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.lang.ArchRule;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.Set;
+
 import static com.tngtech.archunit.base.DescribedPredicate.not;
-import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.nameMatching;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Validates that memory/spector-memory adheres to kernel isolation boundaries (R3.5, R11.6).
@@ -33,6 +37,54 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 class KernelSealBoundaryTest {
 
     private static JavaClasses memoryClasses;
+
+    static final Set<String> DEFERRED_FOREIGN_CLASSES_FQN = Set.of(
+            // Group 6: Scan Pipeline scheduled conversions
+            "com.spectrayan.spector.memory.cortex.MemoryBM25Index",
+            "com.spectrayan.spector.memory.cortex.interference.SemanticDeduplicator",
+            "com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory",
+            "com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionStage",
+            "com.spectrayan.spector.memory.pathway.pipeline.gatherer.RecallCandidateGatherer",
+            "com.spectrayan.spector.memory.synapse.CognitiveScorer",
+            // Group 7: Graph & Table APIs scheduled conversions
+            "com.spectrayan.spector.memory.cortex.index.IndexEntryMemory",
+            "com.spectrayan.spector.memory.graph.EntityDirectory",
+            "com.spectrayan.spector.memory.graph.EntityDirectorySerializer",
+            "com.spectrayan.spector.memory.graph.hebbian.HebbianGraph",
+            "com.spectrayan.spector.memory.graph.hebbian.SynapticDecayModulator",
+            "com.spectrayan.spector.memory.graph.temporal.TemporalFact",
+            "com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph"
+    );
+
+    static final Set<String> DEFERRED_ARENA_CLASSES_FQN = Set.of(
+            "com.spectrayan.spector.memory.cortex.index.IndexEntryMemory",
+            "com.spectrayan.spector.memory.graph.EntityDirectory",
+            "com.spectrayan.spector.memory.graph.hebbian.HebbianGraph",
+            "com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph",
+            "com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory"
+    );
+
+    private static String topLevelClassName(JavaClass javaClass) {
+        String name = javaClass.getName();
+        int dollar = name.indexOf('$');
+        return dollar >= 0 ? name.substring(0, dollar) : name;
+    }
+
+    private static final DescribedPredicate<JavaClass> DEFERRED_FOREIGN_PREDICATE =
+            new DescribedPredicate<>("deferred scheduled foreign conversions") {
+                @Override
+                public boolean test(JavaClass javaClass) {
+                    return DEFERRED_FOREIGN_CLASSES_FQN.contains(topLevelClassName(javaClass));
+                }
+            };
+
+    private static final DescribedPredicate<JavaClass> DEFERRED_ARENA_PREDICATE =
+            new DescribedPredicate<>("deferred scheduled arena conversions") {
+                @Override
+                public boolean test(JavaClass javaClass) {
+                    return DEFERRED_ARENA_CLASSES_FQN.contains(topLevelClassName(javaClass));
+                }
+            };
 
     @BeforeAll
     static void importClasses() {
@@ -53,19 +105,21 @@ class KernelSealBoundaryTest {
     }
 
     @Test
+    @DisplayName("Spector memory must never access kernel.unsafe (R4.6, R11.6)")
+    void spectorMemoryMustNotAccessKernelUnsafe() {
+        SealRules.ONLY_PERMITTED_CALLERS_OF_UNSAFE.check(memoryClasses);
+    }
+
+    @Test
     @DisplayName("No foreign imports outside kernel, with explicit triage for scheduled conversions (R11.6)")
     void noForeignOutsideKernelWithTriage() {
+        assertThat(DEFERRED_FOREIGN_CLASSES_FQN)
+                .as("Ratchet: deferred foreign class count must only decrease over time")
+                .hasSizeLessThanOrEqualTo(13);
+
         ArchRule rule = noClasses()
                 .that().resideInAPackage("com.spectrayan.spector.memory..")
-                .and(not(nameMatching(".*("
-                        // Group 6: Scan Pipeline scheduled conversions
-                        + "CognitiveScorer|SemanticRecallStrategy|SemanticDeduplicator|MemoryBM25Index|"
-                        + "GraphExpansionStage|RecallCandidateGatherer|"
-                        + "ParallelScanEmitter|ScanEmitter|SequentialScanEmitter|SlabScoreFunction|DreamJournalMemory|"
-                        // Group 7: Graph & Table APIs scheduled conversions
-                        + "IndexEntryMemory|EntityDirectory|HebbianGraph|SynapticDecayModulator|"
-                        + "TemporalFact|TemporalKnowledgeGraph"
-                        + ").*")))
+                .and(not(DEFERRED_FOREIGN_PREDICATE))
                 .should().dependOnClassesThat().resideInAnyPackage("java.lang.foreign..")
                 .because("Panama I/O is sealed inside spector-kernel (spec R3.5, R11.6)");
 
@@ -75,17 +129,13 @@ class KernelSealBoundaryTest {
     @Test
     @DisplayName("No Arena is constructed outside the kernel, with explicit triage for scheduled conversions (R8.2)")
     void noArenaConstructedOutsideKernel() {
+        assertThat(DEFERRED_ARENA_CLASSES_FQN)
+                .as("Ratchet: deferred arena class count must only decrease over time")
+                .hasSizeLessThanOrEqualTo(5);
+
         ArchRule rule = noClasses()
                 .that().resideInAPackage("com.spectrayan.spector.memory..")
-                .and(not(nameMatching(".*("
-                        // Group 6: Scan Pipeline scheduled conversions
-                        + "CognitiveScorer|SemanticRecallStrategy|SemanticDeduplicator|MemoryBM25Index|"
-                        + "GraphExpansionStage|RecallCandidateGatherer|"
-                        + "ParallelScanEmitter|ScanEmitter|SequentialScanEmitter|SlabScoreFunction|DreamJournalMemory|"
-                        // Group 7: Graph & Table APIs scheduled conversions
-                        + "IndexEntryMemory|EntityDirectory|HebbianGraph|SynapticDecayModulator|"
-                        + "TemporalFact|TemporalKnowledgeGraph"
-                        + ").*")))
+                .and(not(DEFERRED_ARENA_PREDICATE))
                 .should().callMethod(java.lang.foreign.Arena.class, "ofShared")
                 .orShould().callMethod(java.lang.foreign.Arena.class, "ofConfined")
                 .orShould().callMethod(java.lang.foreign.Arena.class, "ofAuto")

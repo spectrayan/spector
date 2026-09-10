@@ -54,7 +54,7 @@ class CognitiveScorerStrengthAuthorityTest {
 
             // 1. Scoring without strengthStore reads header (storageStrength = 1.0f, agentRecallCount = 0)
             final List<CognitiveScorer.ScoredRecord> withoutStrength = CognitiveScorer.score(
-                    store.primarySegment(), 1, layout, queryVector, options, nowMs, 0L,
+                    store.segment(), 1, layout, queryVector, options, nowMs, 0L,
                     null, null, null, null, null, null);
             assertThat(withoutStrength).hasSize(1);
             float scoreWithout = withoutStrength.get(0).score();
@@ -64,7 +64,7 @@ class CognitiveScorerStrengthAuthorityTest {
             strengthStore.initializeDefault(MemoryType.SEMANTIC, 0, 6.0f, 3.0f, 5);
 
             final List<CognitiveScorer.ScoredRecord> withStrength = CognitiveScorer.score(
-                    store.primarySegment(), 1, layout, queryVector, options, nowMs, 0L,
+                    store.segment(), 1, layout, queryVector, options, nowMs, 0L,
                     null, null, null, null, strengthStore, MemoryType.SEMANTIC);
             assertThat(withStrength).hasSize(1);
             float scoreWith = withStrength.get(0).score();
@@ -103,7 +103,7 @@ class CognitiveScorerStrengthAuthorityTest {
 
             // Without strengthStore, record is filtered out because header importance is 2.0 < 5.0
             final List<CognitiveScorer.ScoredRecord> withoutStrength = CognitiveScorer.score(
-                    store.primarySegment(), 1, layout, queryVector, options, nowMs, 0L,
+                    store.segment(), 1, layout, queryVector, options, nowMs, 0L,
                     null, null, null, null, null, null);
             assertThat(withoutStrength).isEmpty();
 
@@ -112,7 +112,7 @@ class CognitiveScorerStrengthAuthorityTest {
             strengthStore.initializeDefault(MemoryType.SEMANTIC, 0, 8.0f, 1.0f, 0);
 
             final List<CognitiveScorer.ScoredRecord> withStrength = CognitiveScorer.score(
-                    store.primarySegment(), 1, layout, queryVector, options, nowMs, 0L,
+                    store.segment(), 1, layout, queryVector, options, nowMs, 0L,
                     null, null, null, null, strengthStore, MemoryType.SEMANTIC);
             assertThat(withStrength).hasSize(1);
         } finally {

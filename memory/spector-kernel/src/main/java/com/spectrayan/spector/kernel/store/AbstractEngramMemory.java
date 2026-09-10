@@ -234,8 +234,16 @@ public abstract class AbstractEngramMemory<L extends FixedEngramLayout>
         MemorySegment.copy(segment(), offset, dest, 0, Math.min(dest.byteSize(), layout.stride()));
     }
 
-    public MemorySegment primarySegment() {
-        return segment();
+    public byte readConsolidationFlags(long offset) {
+        return layout.readConsolidationFlags(segment(), offset);
+    }
+
+    public float readStorageStrength(long offset) {
+        return layout.readStorageStrength(segment(), offset);
+    }
+
+    public void writeHeader(long offset, EncodingHeader header) {
+        layout.writeHeader(segment(), offset, header);
     }
 
     @Override

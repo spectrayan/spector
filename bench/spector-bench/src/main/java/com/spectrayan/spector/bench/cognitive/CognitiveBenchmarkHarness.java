@@ -667,7 +667,7 @@ public final class CognitiveBenchmarkHarness {
                     if (layout == null || !(store instanceof com.spectrayan.spector.kernel.store.AbstractEngramMemory<?> aem)) {
                         continue;
                     }
-                    MemorySegment segment = aem.primarySegment();
+                    MemorySegment segment = aem.segment();
                     int recordCount = store.size();
                     long dataOffset = store.dataOffset();
 

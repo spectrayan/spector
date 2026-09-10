@@ -340,4 +340,34 @@ class RuntimeBundleTest {
             assertThat(mgr.fragmentationRatio()).isEqualTo(0f);
         }
     }
+
+    @Test
+    void compactionWaitsForActiveLeasesToDrain(@TempDir Path tempDir) throws Exception {
+        Path bundlePath = tempDir.resolve("runtime.bundle");
+        try (RuntimeBundle bundle = RuntimeBundle.Init.mmap(bundlePath, testSpecs())) {
+            bundle.growRegion(RegionId.HEBBIAN);
+            assertThat(bundle.hasDeadRegions()).isTrue();
+
+            // Acquire a lease in background thread and hold it briefly
+            RegionLease lease = bundle.lease(RegionId.HEBBIAN);
+            assertThat(bundle.hasActiveLeases()).isTrue();
+
+            java.util.concurrent.atomic.AtomicBoolean compacted = new java.util.concurrent.atomic.AtomicBoolean(false);
+            Thread compactor = new Thread(() -> {
+                bundle.compact();
+                compacted.set(true);
+            });
+            compactor.start();
+
+            // Give compactor a moment to hit awaitActiveLeasesDrained
+            Thread.sleep(100);
+            assertThat(compacted.get()).isFalse();
+
+            // Release lease
+            lease.close();
+            compactor.join(2000);
+            assertThat(compacted.get()).isTrue();
+            assertThat(bundle.hasDeadRegions()).isFalse();
+        }
+    }
 }

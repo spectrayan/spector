@@ -33,7 +33,7 @@ import com.spectrayan.spector.kernel.shape.GraphMemory;
 import com.spectrayan.spector.kernel.shape.HashTableMemory;
 import com.spectrayan.spector.kernel.shape.RecordMemory;
 import com.spectrayan.spector.kernel.shape.RegistryMemory;
-import com.spectrayan.spector.kernel.store.EntityDirectoryMemory;
+import com.spectrayan.spector.kernel.shape.EntityDirectoryMemory;
 
 import java.nio.file.Path;
 

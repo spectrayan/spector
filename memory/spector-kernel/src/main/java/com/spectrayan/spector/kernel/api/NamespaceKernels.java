@@ -15,14 +15,23 @@
  */
 package com.spectrayan.spector.kernel.api;
 
-import com.spectrayan.spector.kernel.store.DefaultNamespaceKernel;
-
 import java.nio.file.Path;
 
 /**
  * Factory and lifecycle manager for {@link NamespaceKernel} instances (R4.4).
  */
 public final class NamespaceKernels {
+
+    @FunctionalInterface
+    public interface Factory {
+        NamespaceKernel create(Path directory, KernelSpec spec);
+    }
+
+    private static volatile Factory factory;
+
+    public static void registerFactory(Factory f) {
+        factory = f;
+    }
 
     private NamespaceKernels() {}
 
@@ -34,6 +43,18 @@ public final class NamespaceKernels {
      * @return an open {@link NamespaceKernel} ready for memory operations
      */
     public static NamespaceKernel open(Path directory, KernelSpec spec) {
-        return new DefaultNamespaceKernel(directory, spec);
+        Factory f = factory;
+        if (f == null) {
+            try {
+                Class.forName("com.spectrayan.spector.kernel.store.DefaultNamespaceKernel", true,
+                        NamespaceKernels.class.getClassLoader());
+                f = factory;
+            } catch (ClassNotFoundException ignored) {
+            }
+        }
+        if (f != null) {
+            return f.create(directory, spec);
+        }
+        throw new IllegalStateException("No NamespaceKernel factory registered and DefaultNamespaceKernel could not be loaded");
     }
 }

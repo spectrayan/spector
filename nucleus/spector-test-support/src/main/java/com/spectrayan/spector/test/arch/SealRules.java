@@ -63,6 +63,27 @@ public final class SealRules {
                     "com.spectrayan.spector.config..")
             .because("kernel must not depend on policy, config, or crypto (spec R5)");
 
+    public static final ArchRule ONLY_PERMITTED_CALLERS_OF_UNSAFE = noClasses()
+            .that().resideOutsideOfPackage("com.spectrayan.spector.kernel..")
+            .and().resideOutsideOfPackage("com.spectrayan.spector.inspect..")
+            .and().resideOutsideOfPackage("com.spectrayan.spector.cli..")
+            .should().dependOnClassesThat().resideInAPackage("com.spectrayan.spector.kernel.unsafe..")
+            .because("only tooling packages in UNSAFE_ALLOWLIST may access kernel.unsafe (spec R4.6, R11.6)");
+
+    public static final ArchRule API_DOES_NOT_DEPEND_ON_STORE = noClasses()
+            .that().resideInAPackage("com.spectrayan.spector.kernel.api..")
+            .should().dependOnClassesThat().resideInAPackage("com.spectrayan.spector.kernel.store..")
+            .because("kernel.api must define public contracts without depending on internal store implementations (R4.6)");
+
+    public static final ArchRule SCORE_PACKAGE_IS_PURE = noClasses()
+            .that().resideInAPackage("com.spectrayan.spector.kernel.score..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                    "com.spectrayan.spector.config..",
+                    "com.spectrayan.spector.kernel.store..",
+                    "com.spectrayan.spector.kernel.storage..",
+                    "com.spectrayan.spector.kernel.bundle..")
+            .because("kernel.score contains pure scoring mathematics and must not depend on storage, store, bundle, or config");
+
     /**
      * Subject-count guard — guards against empty class imports (the #734 defect).
      * Must run before any rule assertion.

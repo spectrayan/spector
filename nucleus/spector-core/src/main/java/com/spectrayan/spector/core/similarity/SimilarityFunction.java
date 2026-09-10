@@ -25,6 +25,7 @@ import com.spectrayan.spector.core.spi.SimilarityKernel;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Enumerates the supported distance/similarity functions.
@@ -75,6 +76,7 @@ public enum SimilarityFunction {
         @Override
         public float computeQuantizedFromSegment(float[] query, MemorySegment segment, long offset,
                                                   float[] mins, float[] scales, int length) {
+            recordInvocation();
             return QuantizedCosineSimilarity.compute(query, segment, offset, mins, scales, length);
         }
 
@@ -119,6 +121,7 @@ public enum SimilarityFunction {
         @Override
         public float computeQuantizedFromSegment(float[] query, MemorySegment segment, long offset,
                                                   float[] mins, float[] scales, int length) {
+            recordInvocation();
             return QuantizedDotProduct.compute(query, segment, offset, mins, scales, length);
         }
 
@@ -163,6 +166,7 @@ public enum SimilarityFunction {
         @Override
         public float computeQuantizedFromSegment(float[] query, MemorySegment segment, long offset,
                                                   float[] mins, float[] scales, int length) {
+            recordInvocation();
             // SIMD-accelerated: processes laneCount dimensions per iteration via FloatVector FMA
             return QuantizedEuclideanDistance.compute(query, segment, offset, mins, scales, length);
         }
@@ -341,4 +345,29 @@ public enum SimilarityFunction {
      * @return true for similarity metrics (cosine, dot), false for distance metrics (euclidean)
      */
     public abstract boolean higherIsBetter();
+
+    // ── Diagnostic / Verification Invocation Counter (R7.11) ──
+
+    private static final AtomicLong INVOCATION_COUNT = new AtomicLong(0);
+
+    /**
+     * Returns the cumulative number of quantized vector similarity/distance computations executed.
+     */
+    public static long getInvocationCount() {
+        return INVOCATION_COUNT.get();
+    }
+
+    /**
+     * Resets the quantized vector invocation counter to zero.
+     */
+    public static void resetInvocationCount() {
+        INVOCATION_COUNT.set(0);
+    }
+
+    /**
+     * Records a single invocation of a quantized SIMD distance/similarity computation.
+     */
+    public static void recordInvocation() {
+        INVOCATION_COUNT.incrementAndGet();
+    }
 }

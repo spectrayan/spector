@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.kernel.store;
+package com.spectrayan.spector.kernel.shape;
 
 import com.spectrayan.spector.kernel.bundle.RegionRef;
 import com.spectrayan.spector.kernel.region.RegionPreamble;

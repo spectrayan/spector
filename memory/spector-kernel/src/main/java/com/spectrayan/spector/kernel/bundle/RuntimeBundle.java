@@ -297,16 +297,33 @@ public final class RuntimeBundle implements AbstractBundle {
         return activeLeases.get();
     }
 
+    private static final long LEASE_DRAIN_TIMEOUT_MS = 10_000L;
+
     private void awaitActiveLeasesDrained() {
         synchronized (leaseDrainLock) {
+            long deadline = System.currentTimeMillis() + LEASE_DRAIN_TIMEOUT_MS;
             while (activeLeases.get() > 0) {
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining <= 0) {
+                    int leaked = activeLeases.get();
+                    log.error("Timed out waiting {}ms for {} active region leases to drain on bundle {}",
+                            LEASE_DRAIN_TIMEOUT_MS, leaked, bundlePath);
+                    throw new IllegalStateException("Timed out waiting for " + leaked + " active region leases to drain on " + bundlePath);
+                }
                 try {
-                    leaseDrainLock.wait(50);
+                    leaseDrainLock.wait(Math.min(remaining, 50));
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    throw new IllegalStateException("Interrupted while awaiting active leases drain", e);
+                    throw new IllegalStateException("Interrupted while awaiting active leases drain on " + bundlePath, e);
                 }
             }
+        }
+    }
+
+    private void closeArenaAfterDrain() {
+        awaitActiveLeasesDrained();
+        if (arena != null && arena.scope().isAlive()) {
+            arena.close();
         }
     }
 
@@ -333,8 +350,8 @@ public final class RuntimeBundle implements AbstractBundle {
                 sysId, regionRef(id), bundlePath, isNew, seedTypes);
     }
 
-    public com.spectrayan.spector.kernel.store.EntityDirectoryMemory openEntityDirectory() {
-        return new com.spectrayan.spector.kernel.store.EntityDirectoryMemory(
+    public com.spectrayan.spector.kernel.shape.EntityDirectoryMemory openEntityDirectory() {
+        return new com.spectrayan.spector.kernel.shape.EntityDirectoryMemory(
                 regionRef(RegionId.ENTITY_DIRECTORY), regionRef(RegionId.ENTITY_NAMES));
     }
 
@@ -553,8 +570,6 @@ public final class RuntimeBundle implements AbstractBundle {
 
         long stamp = remapLock.writeLock();
         try {
-            awaitActiveLeasesDrained();
-
             RegionEntry oldEntry = directory.findRegion(regionId);
             if (oldEntry == null) {
                 throw new IllegalArgumentException("Region not found: " + regionId);
@@ -572,8 +587,8 @@ public final class RuntimeBundle implements AbstractBundle {
             MemorySegment.copy(masterSegment, oldEntry.offset(),
                     MemorySegment.ofArray(oldData), 0, oldEntry.allocatedSize());
 
-            // Close old arena — unmaps entire bundle
-            arena.close();
+            // Close old arena after draining active leases — unmaps entire bundle
+            closeArenaAfterDrain();
             log.debug("Unmapped bundle for growth: {} (region {})", bundlePath, regionId);
 
             try (FileChannel fc = FileChannel.open(bundlePath,
@@ -775,7 +790,7 @@ public final class RuntimeBundle implements AbstractBundle {
             long newTotalFileSize = BundleFileLayoutCalculator.alignToPage(currentOffset);
 
             // 2. Unmap old master segment
-            arena.close();
+            closeArenaAfterDrain();
             log.debug("Unmapped bundle for compaction: {}", bundlePath);
 
             // 3. Rebuild bundle file contiguously
@@ -857,14 +872,11 @@ public final class RuntimeBundle implements AbstractBundle {
         }
         long stamp = remapLock.writeLock();
         try {
-            awaitActiveLeasesDrained();
             if (bundlePath != null && arena != null && arena.scope().isAlive()) {
                 directory.write(masterSegment);
                 masterSegment.force();
             }
-            if (arena != null && arena.scope().isAlive()) {
-                arena.close();
-            }
+            closeArenaAfterDrain();
         } catch (Exception e) {
             log.debug("Error flushing/closing runtime bundle: {}", e.getMessage());
         } finally {
