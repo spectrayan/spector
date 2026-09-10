@@ -78,7 +78,7 @@ public class SpringExecutorProvider extends AbstractExecutorProvider implements 
             case PLATFORM_WRITER -> {
                 if (writerPerNamespace && name != null && !name.isBlank() && !"default".equalsIgnoreCase(name)) {
                     yield Executors.newSingleThreadExecutor(
-                            Thread.ofPlatform().name("spector-pool-writer-" + name + "-", 0).factory()
+                            Thread.ofPlatform().daemon().name("spector-pool-writer-" + name + "-", 0).factory()
                     );
                 }
                 yield writerPool;

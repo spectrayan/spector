@@ -59,7 +59,7 @@ public class MemoryAnalyticsScheduler {
     @Scheduled(fixedDelayString = "${spector.memory.analytics.interval:10000}", initialDelay = 5000)
     public void captureSnapshot() {
         var memory = memoryProvider != null ? memoryProvider.getIfAvailable() : null;
-        if (!mao.isAvailable(memory)) {
+        if (!mao.isAvailable(memory) || memory == null || memory.admin() == null || memory.admin().index() == null || memory.admin().graph() == null) {
             return;
         }
 

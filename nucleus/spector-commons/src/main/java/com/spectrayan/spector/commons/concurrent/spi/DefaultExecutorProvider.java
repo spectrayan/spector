@@ -44,11 +44,11 @@ public class DefaultExecutorProvider extends AbstractExecutorProvider {
             case PLATFORM_SHARED -> {
                 int nCores = Runtime.getRuntime().availableProcessors();
                 int poolSize = Math.max(2, Math.min(8, nCores - 1));
-                ThreadFactory factory = Thread.ofPlatform().name("spector-pool-shared-" + poolName + "-", 0).factory();
+                ThreadFactory factory = Thread.ofPlatform().daemon().name("spector-pool-shared-" + poolName + "-", 0).factory();
                 yield Executors.newFixedThreadPool(poolSize, factory);
             }
             case PLATFORM_WRITER -> {
-                ThreadFactory factory = Thread.ofPlatform().name("spector-pool-writer-" + poolName + "-", 0).factory();
+                ThreadFactory factory = Thread.ofPlatform().daemon().name("spector-pool-writer-" + poolName + "-", 0).factory();
                 yield new java.util.concurrent.ThreadPoolExecutor(
                         1, 1, 0L, java.util.concurrent.TimeUnit.MILLISECONDS,
                         new java.util.concurrent.LinkedBlockingQueue<>(), factory);

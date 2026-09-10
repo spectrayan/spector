@@ -67,23 +67,26 @@ class AgentApprovalServiceTest {
     }
 
     private void scheduleAction(Consumer<AgentActionApproval> action) {
-        var executor = Executors.newSingleThreadScheduledExecutor();
+        var executor = Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().daemon().factory());
         executor.submit(() -> {
-            for (int i = 0; i < 100; i++) {
-                var pending = repository.findPending();
-                if (!pending.isEmpty()) {
-                    action.accept(pending.getFirst());
-                    return;
+            try {
+                for (int i = 0; i < 100; i++) {
+                    var pending = repository.findPending();
+                    if (!pending.isEmpty()) {
+                        action.accept(pending.getFirst());
+                        return;
+                    }
+                    try {
+                        Thread.sleep(10);
+                    } catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
                 }
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException ignored) {
-                    Thread.currentThread().interrupt();
-                    return;
-                }
+            } finally {
+                executor.shutdown();
             }
         });
-        executor.shutdown();
     }
 
     @Test
