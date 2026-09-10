@@ -22,7 +22,7 @@ import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.kernel.store.ProceduralMemory;
 import com.spectrayan.spector.kernel.store.SemanticMemory;
 import com.spectrayan.spector.kernel.store.WorkingMemory;
-import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
+import com.spectrayan.spector.kernel.error.SpectorMemoryTierFullException;
 import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.kernel.storage.StoragePaths;

@@ -60,15 +60,16 @@ public final class SynapticTagEncoder {
         }
         byte[] bytes = tag.toLowerCase().getBytes(StandardCharsets.UTF_8);
         long h = hash64(bytes);
-        int h1 = (int) h;
-        int h2 = (int) (h >>> 32);
-        if (h2 == 0) {
-            h2 = 1;
-        }
+        long h1 = h;
+        long h2 = h * 0x9e3779b97f4a7c15L;
+        h2 ^= h2 >>> 33;
+        h2 *= 0xc4ceb9fe1a85ec53L;
+        h2 ^= h2 >>> 33;
+        h2 |= 1L; // Ensure step size is odd so that gcd(h2, 64) = 1 for power-of-two M
 
         long filter = 0L;
         for (int i = 0; i < K; i++) {
-            int bit = Math.floorMod(h1 + i * h2, M);
+            int bit = (int) ((h1 + (long) i * h2) & (M - 1));
             filter |= (1L << bit);
         }
         return filter;
@@ -87,16 +88,15 @@ public final class SynapticTagEncoder {
     }
 
     public static float overlapRatio(long recordTags, long queryTags) {
-        if (queryTags == 0L || recordTags == 0L) {
+        if (queryTags == 0L) {
+            return 1.0f;
+        }
+        if (recordTags == 0L) {
             return 0.0f;
         }
-        long intersection = recordTags & queryTags;
-        if (intersection == 0L) {
-            return 0.0f;
-        }
-        int interCount = Long.bitCount(intersection);
-        int queryCount = Long.bitCount(queryTags);
-        return (float) interCount / (float) queryCount;
+        int queryBits = Long.bitCount(queryTags);
+        int matchedBits = Long.bitCount(recordTags & queryTags);
+        return (float) matchedBits / queryBits;
     }
 
     public static long merge(long a, long b) {
@@ -128,6 +128,8 @@ public final class SynapticTagEncoder {
         }
         h ^= h >>> 33;
         h *= 0xFF51AFD7ED558CCDL;
+        h ^= h >>> 33;
+        h *= 0xC4CEB9FE1A85EC53L;
         h ^= h >>> 33;
         return h;
     }

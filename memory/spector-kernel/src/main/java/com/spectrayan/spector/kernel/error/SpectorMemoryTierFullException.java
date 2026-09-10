@@ -19,7 +19,27 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorMemoryException;
 
 public class SpectorMemoryTierFullException extends SpectorMemoryException {
-    public SpectorMemoryTierFullException(String tierName, int capacity) {
-        super(ErrorCode.MEMORY_TIER_FULL, tierName, capacity);
+
+    private final String tier;
+    private final int capacity;
+
+    public SpectorMemoryTierFullException(String tier, int capacity) {
+        super(ErrorCode.MEMORY_TIER_FULL, tier, capacity);
+        this.tier = tier;
+        this.capacity = capacity;
+    }
+
+    public SpectorMemoryTierFullException(String tier, int capacity, Throwable cause) {
+        super(ErrorCode.MEMORY_TIER_FULL, cause, tier, capacity);
+        this.tier = tier;
+        this.capacity = capacity;
+    }
+
+    public String getTier() {
+        return tier;
+    }
+
+    public int getCapacity() {
+        return capacity;
     }
 }

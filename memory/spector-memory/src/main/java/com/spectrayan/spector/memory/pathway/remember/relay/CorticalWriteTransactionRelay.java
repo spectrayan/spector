@@ -20,7 +20,7 @@ import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.kernel.store.EpisodicMemory;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
-import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
+import com.spectrayan.spector.kernel.error.SpectorMemoryTierFullException;
 import com.spectrayan.spector.memory.error.SpectorPartitionFrozenException;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;

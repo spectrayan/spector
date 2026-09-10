@@ -1074,6 +1074,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public List<CognitiveResult> recall(String queryText, RecallOptions options) {
+        if (queryText == null) {
+            throw new IllegalArgumentException("queryText cannot be null");
+        }
         acquireLease();
         try {
             if (options == null) {

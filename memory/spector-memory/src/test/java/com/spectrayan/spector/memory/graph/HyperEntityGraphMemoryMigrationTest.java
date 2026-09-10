@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.graph;
 import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 
-import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
+import com.spectrayan.spector.kernel.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory.HyperEdge;
 import com.spectrayan.spector.kernel.region.RegionPreamble;
 import com.spectrayan.spector.kernel.shape.MemoryShape;

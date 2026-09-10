@@ -100,7 +100,7 @@ public final class DecayStrategy {
         return b;
     }
 
-    public static final float[] DECAY_BUCKETS = computeBuckets(0.3f, 0.10f);
+    public static final float[] DECAY_BUCKETS = computeBuckets(0.15f, 0.10f);
 
     /** Maximum bucket index. */
     public static final int MAX_BUCKET = DECAY_BUCKETS.length - 1;

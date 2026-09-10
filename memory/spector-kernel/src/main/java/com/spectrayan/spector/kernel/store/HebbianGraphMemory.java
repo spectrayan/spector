@@ -90,7 +90,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     static final int BRIDGE_PROTECTION_THRESHOLD = 128;
 
     /** Minimum survivor weight for decayed edges (below this, edges are pruned unless bridge-protected). */
-    private static final float DECAY_FLOOR = 0.01f;
+    private static final float DECAY_FLOOR = 0.10f;
 
     /** Minimum compound weight for recursive spreading activation to continue. */
     private static final float ACTIVATION_CUTOFF = 0.1f;

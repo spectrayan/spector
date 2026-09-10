@@ -27,7 +27,7 @@ import static com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.is
  */
 public final class RecordGates {
 
-    public static final float FLASHBULB_MASS_FLOOR = 1.20f;
+    public static final float FLASHBULB_MASS_FLOOR = 0.30f;
     public static final int DEFAULT_STALE_BUCKET_THRESHOLD = 6;
     public static final float DEFAULT_WEAK_MASS_THRESHOLD = 0.15f;
 

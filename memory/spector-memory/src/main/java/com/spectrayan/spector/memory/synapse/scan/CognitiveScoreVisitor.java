@@ -113,7 +113,7 @@ public final class CognitiveScoreVisitor implements SlotVisitor {
         final float storageStrength = HeaderBits.storageStrength(headerBits);
 
         final float cognitiveMass = CognitiveMass.computeCognitiveMass(importance, arousal, storageStrength);
-        final float tagOverlap = SynapticTagEncoder.overlapRatio(tagsLo, queryTagMask);
+        final float tagOverlap = queryTagMask != 0L ? SynapticTagEncoder.overlapRatio(tagsLo, queryTagMask) : 0.0f;
 
         final int rawBucket = DecayStrategy.ageToBucket(timestampMs, nowMs);
         final int adjustedBucket = DecayStrategy.adjustForReconsolidation(rawBucket, agentRecallCount);

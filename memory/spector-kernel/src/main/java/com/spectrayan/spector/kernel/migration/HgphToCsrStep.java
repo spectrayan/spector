@@ -22,6 +22,7 @@ import com.spectrayan.spector.kernel.store.HebbianNeighborProvider;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -68,6 +69,7 @@ public final class HgphToCsrStep extends RewriteFileStep {
             long dataBytes = (long) nodeBytes * fileCapacity;
 
             ByteBuffer data = ByteBuffer.allocate((int) Math.min(dataBytes, ch.size() - 16));
+            data.order(ByteOrder.LITTLE_ENDIAN);
             ch.read(data);
             data.flip();
 

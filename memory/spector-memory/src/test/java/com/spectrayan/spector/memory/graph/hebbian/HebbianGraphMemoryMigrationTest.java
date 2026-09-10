@@ -16,7 +16,7 @@ import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 
 import com.spectrayan.spector.kernel.migration.FormatCodec;
 
-import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
+import com.spectrayan.spector.kernel.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.kernel.store.HebbianEdge;
 import com.spectrayan.spector.kernel.region.RegionPreamble;
 import com.spectrayan.spector.kernel.id.MemoryId;
