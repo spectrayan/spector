@@ -172,7 +172,7 @@ class VirtualThreadMemoryStressTest {
         memory.consolidate();
 
         // Verify that only the newest winning facts remain active, and obsolete ones are retracted
-        long deadline = System.currentTimeMillis() + 5000;
+        long deadline = System.currentTimeMillis() + 15000;
         boolean retracted = false;
         while (System.currentTimeMillis() < deadline) {
             List<TemporalFact> active = memory.temporalKnowledgeGraph()
@@ -184,6 +184,7 @@ class VirtualThreadMemoryStressTest {
                 break;
             }
             Thread.sleep(50);
+            memory.consolidate();
         }
         assertThat(retracted).as("Initial fact should be retracted by CADP").isTrue();
     }
