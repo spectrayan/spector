@@ -21,7 +21,7 @@ import com.spectrayan.spector.config.ObservabilityConfig;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryAdmin;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.model.EpisodeRecord;
+import com.spectrayan.spector.kernel.api.EpisodeRecord;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveRecord;

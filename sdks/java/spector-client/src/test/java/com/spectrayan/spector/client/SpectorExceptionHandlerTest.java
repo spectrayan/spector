@@ -15,8 +15,6 @@
  */
 package com.spectrayan.spector.client;
 
-import com.spectrayan.spector.kernel.id.MemoryId;
-
 import com.spectrayan.spector.client.exception.MemoryNotFoundException;
 import com.spectrayan.spector.client.exception.SpectorAuthException;
 import com.spectrayan.spector.client.exception.SpectorClientException;

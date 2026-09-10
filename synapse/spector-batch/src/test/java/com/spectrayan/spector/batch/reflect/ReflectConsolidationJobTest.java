@@ -20,7 +20,7 @@ import com.spectrayan.spector.batch.TestBatchConfig;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryAdmin;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicMemory;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
 import com.spectrayan.spector.kernel.api.ConversationRole;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.kernel.api.SourceModality;

@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.*;
 
 import com.spectrayan.spector.config.SpectorConfigFactory;
 import com.spectrayan.spector.config.SpectorConfigSource;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.*;
 import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.memory.cortex.MemorySource;

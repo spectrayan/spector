@@ -15,8 +15,6 @@
  */
 package com.spectrayan.spector.client.exception;
 
-import com.spectrayan.spector.kernel.id.MemoryId;
-
 /**
  * Exception thrown when a requested memory record or resource is not found (HTTP 404).
  */

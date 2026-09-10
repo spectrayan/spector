@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import static com.tngtech.archunit.base.DescribedPredicate.not;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.equivalentTo;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAnyPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
@@ -107,12 +108,14 @@ class ModuleBoundaryTest {
     }
 
     @Test
-    @DisplayName("MCP tools must not import memory.kernel.* internal classes")
+    @DisplayName("MCP tools must not import kernel internal classes")
     void mcpToolsMustNotImportKernelInternals() {
         ArchRule rule = noClasses()
                 .that().resideInAPackage("com.spectrayan.spector.mcp..")
-                .should().dependOnClassesThat()
-                .resideInAPackage("com.spectrayan.spector.kernel..")
+                .should().dependOnClassesThat(
+                        resideInAPackage("com.spectrayan.spector.kernel..")
+                                .and(not(resideInAPackage("com.spectrayan.spector.kernel.api..")))
+                )
                 .allowEmptyShould(true)
                 .because("MCP tools must not access low-level kernel memory layouts (see #581)");
 
