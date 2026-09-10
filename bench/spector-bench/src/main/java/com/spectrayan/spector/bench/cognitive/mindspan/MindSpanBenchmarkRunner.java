@@ -212,9 +212,12 @@ public final class MindSpanBenchmarkRunner {
         LlmProvider llm = googleFactory.createGenerationProvider(genConfig)
                 .orElseThrow(() -> new IllegalStateException("Failed to instantiate Google Gemini LLM Provider"));
 
-        Path cacheFile = datasetDir.resolve("embeddings.bin");
+        Path cacheFile = resolveDataFile(datasetDir, "embeddings.bin");
+        String memDirProp = System.getProperty("memoryDir");
         String memDirName = System.getProperty("memoryDirName", "v2-memory");
-        Path naturalMemoryDir = outputDir.resolve(memDirName);
+        Path naturalMemoryDir = (memDirProp != null && !memDirProp.isBlank())
+                ? Path.of(memDirProp).toAbsolutePath().normalize()
+                : outputDir.resolve(memDirName);
         Files.createDirectories(naturalMemoryDir);
 
         // 4. Memory Setup & Ingestion (with disk persistence & caching)
@@ -257,6 +260,7 @@ public final class MindSpanBenchmarkRunner {
 
         memoryProps.setEpisodicPartitionCapacity(Math.max(35_000, corpus.size() + 100))
                 .setSemanticCapacity(Math.max(30_000, corpus.size() + 100))
+                .setMaxNamespaces(1)
                 .setEntityExtractionParallelism(4)
                 .setEntityExtractionQueueCapacity(2000)
                 .setCircadian(CircadianProperties.builder().volumeTrigger(Integer.MAX_VALUE).build());

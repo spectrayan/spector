@@ -32,6 +32,7 @@ import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.config.properties.CircadianProperties;
@@ -145,15 +146,15 @@ public class MindSpanIngestionValidationTest {
             // 1. Total Memories & Index Fidelity
             int totalMemories = memory.totalMemories();
             int indexSize = memory.admin().index().size();
-            Map<String, MemoryIndex.MemoryLocation> locationMap = memory.admin().index().locationMap();
+            Map<String, MemoryLocation> locationMap = memory.admin().index().locationMap();
 
             Map<MemoryType, Integer> typeCounts = new EnumMap<>(MemoryType.class);
             int validTextCount = 0;
             int missingTextCount = 0;
 
-            for (Map.Entry<String, MemoryIndex.MemoryLocation> entry : locationMap.entrySet()) {
+            for (Map.Entry<String, MemoryLocation> entry : locationMap.entrySet()) {
                 String id = entry.getKey();
-                MemoryIndex.MemoryLocation loc = entry.getValue();
+                MemoryLocation loc = entry.getValue();
                 typeCounts.merge(loc.type(), 1, Integer::sum);
 
                 String text = memory.admin().index().text(id);

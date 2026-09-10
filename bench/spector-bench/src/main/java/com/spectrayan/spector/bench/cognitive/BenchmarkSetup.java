@@ -563,7 +563,7 @@ public final class BenchmarkSetup implements AutoCloseable {
         return memory;
     }
 
-    private static int offsetToRecordIndex(com.spectrayan.spector.memory.cortex.index.MemoryIndex.MemoryLocation loc, SpectorMemory memory) {
+    private static int offsetToRecordIndex(com.spectrayan.spector.kernel.api.MemoryLocation loc, SpectorMemory memory) {
         return loc.graphSlot();
     }
 

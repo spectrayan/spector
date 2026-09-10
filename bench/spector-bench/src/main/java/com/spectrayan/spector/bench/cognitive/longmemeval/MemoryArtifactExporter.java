@@ -17,6 +17,7 @@ package com.spectrayan.spector.bench.cognitive.longmemeval;
 import com.spectrayan.spector.kernel.store.HebbianEdge;
 import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.kernel.id.MemoryId;
 
 import java.io.BufferedWriter;
@@ -101,9 +102,9 @@ public final class MemoryArtifactExporter {
         }
 
         try (BufferedWriter writer = Files.newBufferedWriter(target)) {
-            for (Map.Entry<String, MemoryIndex.MemoryLocation> entry : memory.admin().index().locationMap().entrySet()) {
+            for (Map.Entry<String, MemoryLocation> entry : memory.admin().index().locationMap().entrySet()) {
                 String memId = entry.getKey();
-                MemoryIndex.MemoryLocation loc = entry.getValue();
+                MemoryLocation loc = entry.getValue();
                 BenchmarkCorpusRecord orig = corpusMap.get(memId);
 
                 Map<String, Object> out = new LinkedHashMap<>();

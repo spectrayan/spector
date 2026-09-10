@@ -47,6 +47,7 @@ import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
@@ -203,7 +204,7 @@ public class MindSpanSampleIngestionTest {
             assertEquals(5, episodic.visibleCount(), "Episodic visibleCount must be 5");
 
             for (BenchmarkCorpusRecord record : sampleRecords) {
-                MemoryIndex.MemoryLocation loc = index.locate(record.id());
+                MemoryLocation loc = index.locate(record.id());
                 assertNotNull(loc, "Memory ID " + record.id() + " must be located in index");
                 assertEquals(record.memoryType(), loc.type(), "Memory type must match for " + record.id());
 
