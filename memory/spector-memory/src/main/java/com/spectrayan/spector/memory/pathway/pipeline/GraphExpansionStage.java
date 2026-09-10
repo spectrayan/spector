@@ -38,6 +38,7 @@ import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.*;
 
 import org.slf4j.Logger;
@@ -770,18 +771,10 @@ public final class GraphExpansionStage {
                 CognitiveMemoryRouter router = partitionRegistry != null
                         ? partitionRegistry.routerFor(loc.colocatedPartition()) : null;
                 if (router != null) {
-                    MemorySegment seg = router.segmentFor(loc.type());
-                    if (seg != null) {
-                        if (loc.type() == MemoryType.EPISODIC) {
-                            ts = EpisodicHeaderLayout.INSTANCE.readTimestampRecord(seg, loc.offset());
-                            valence = EpisodicHeaderLayout.INSTANCE.readValenceRecord(seg, loc.offset());
-                        } else {
-                            FixedEngramLayout layout = router.layoutFor(loc.type());
-                            if (layout != null) {
-                                ts = layout.readTimestamp(seg, loc.offset());
-                                valence = layout.readValence(seg, loc.offset());
-                            }
-                        }
+                    EncodingHeader header = router.readHeader(loc);
+                    if (header != null) {
+                        ts = header.timestampMs();
+                        valence = header.valence();
                     }
                 }
             }
@@ -803,24 +796,19 @@ public final class GraphExpansionStage {
         if (queryVector == null) return 0f;
         try {
             MemoryIndex.MemoryLocation loc = index.locate(memoryId);
-            if (loc == null) return 0f;
+            if (loc == null || loc.type() == MemoryType.EPISODIC) return 0f;
 
-            // #443: resolve the neighbor's segment by the partition it actually lives in.
+            // #443: resolve the neighbor's vector by the partition it actually lives in.
             CognitiveMemoryRouter router = partitionRegistry != null
                     ? partitionRegistry.routerFor(loc.colocatedPartition()) : null;
             if (router == null) return 0f;
-            MemorySegment seg = router.segmentFor(loc.type());
-            if (seg == null) return 0f;
 
-            if (loc.type() == MemoryType.EPISODIC) {
-                return 0f;
-            }
+            byte[] quantized = router.readVector(loc);
+            if (quantized == null) return 0f;
 
-            FixedEngramLayout layout = router.layoutFor(loc.type());
-            if (layout == null) return 0f;
-            float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
-                    queryVector, seg, layout.vectorOffset(loc.offset()),
-                    calibrationMins, calibrationScales, layout.quantizedVecBytes());
+            float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantized(
+                    queryVector, quantized,
+                    calibrationMins, calibrationScales, quantized.length);
             return 1.0f / (1.0f + l2dist);
         } catch (RuntimeException e) {
             log.trace("Failed to compute neighbor similarity for '{}': {}", memoryId, e.getMessage());
@@ -862,45 +850,26 @@ public final class GraphExpansionStage {
         CognitiveMemoryRouter router = partitionRegistry != null
                 ? partitionRegistry.routerFor(loc.colocatedPartition()) : null;
         if (router == null) return false;
-        MemorySegment seg = router.segmentFor(loc.type());
-        if (seg == null) return false;
 
-        if (loc.type() == MemoryType.EPISODIC) {
-            if (EpisodicHeaderLayout.INSTANCE.isTombstonedRecord(seg, loc.offset())) {
-                return false;
-            }
-            byte valence = EpisodicHeaderLayout.INSTANCE.readValenceRecord(seg, loc.offset());
-            if (valence < options.minValence() || valence > options.maxValence()) {
-                return false;
-            }
-            float importance = EpisodicHeaderLayout.INSTANCE.readImportanceRecord(seg, loc.offset());
-            if (importance < options.minImportance()) {
-                return false;
-            }
-            return true;
-        }
+        EncodingHeader header = router.readHeader(loc);
+        if (header == null) return false;
 
-        FixedEngramLayout layout = router.layoutFor(loc.type());
-        if (layout == null) return false;
-
-        byte flags = layout.readFlags(seg, loc.offset());
-        if ((flags & FLAG_TOMBSTONE) != 0) {
+        if (EncodingHeaderFields.isTombstoned(header.flags())) {
             return false;
         }
 
         if (!options.includeContradictions()) {
-            byte cFlags = layout.readConsolidationFlags(seg, loc.offset());
-            if ((cFlags & FLAG_CONTRADICTED) != 0) {
+            if (EncodingHeaderFields.isContradicted(header.consolidationFlags())) {
                 return false;
             }
         }
 
-        byte valence = layout.readValence(seg, loc.offset());
+        byte valence = header.valence();
         if (valence < options.minValence() || valence > options.maxValence()) {
             return false;
         }
 
-        float importance = layout.readImportance(seg, loc.offset());
+        float importance = header.importance();
         if (importance < options.minImportance()) {
             return false;
         }

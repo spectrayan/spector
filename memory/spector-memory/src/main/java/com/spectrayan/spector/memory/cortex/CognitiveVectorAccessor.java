@@ -12,14 +12,11 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 import java.util.Objects;
 import java.util.function.Function;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
@@ -85,21 +82,15 @@ public final class CognitiveVectorAccessor implements Function<String, float[]> 
             return null;
         }
 
-        MemorySegment seg = router.segmentFor(loc.type());
-        if (seg == null) {
+        byte[] quantized = router.readVector(loc);
+        if (quantized == null) {
             return null;
         }
 
-        FixedEngramLayout layout = router.layoutFor(loc.type());
-        if (layout == null) {
-            return null;
-        }
-
-        long offset = layout.vectorOffset(loc.offset());
-        int length = mins.length;
+        int length = Math.min(mins.length, quantized.length);
         float[] vec = new float[length];
         for (int i = 0; i < length; i++) {
-            int q = Byte.toUnsignedInt(seg.get(ValueLayout.JAVA_BYTE, offset + i));
+            int q = Byte.toUnsignedInt(quantized[i]);
             vec[i] = mins[i] + (q / 255.0f) * scales[i];
         }
         return vec;

@@ -18,14 +18,16 @@ import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.model.EpisodeRecord;
 
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 import java.util.EnumMap;
 import java.util.Objects;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
+import com.spectrayan.spector.memory.kernel.FloatUnaryOperator;
+import com.spectrayan.spector.memory.synapse.DecayStrategy;
 
 /**
  * Cognitive record memory store registry and polymorphic routing — zero switch statements.
@@ -118,13 +120,6 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
         return offset;
     }
 
-    /**
-     * Returns the primary memory segment for a given memory type.
-     */
-    public MemorySegment segmentFor(MemoryType type) {
-        EngramMemory store = stores.get(type);
-        return store != null ? store.primarySegment() : null;
-    }
 
     /**
      * Returns the layout for a given memory type.
@@ -140,6 +135,17 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     public int countFor(MemoryType type) {
         EngramMemory store = stores.get(type);
         return store != null ? store.size() : 0;
+    }
+
+    /**
+     * Returns the nearest distance between the candidate vector and existing records in Working Memory,
+     * or -1.0f if working memory is unavailable or empty.
+     */
+    public float nearestWorkingDistance(float[] vector, float[] mins, float[] scales) {
+        if (workingStore != null && workingStore.visibleCount() > 0) {
+            return workingStore.nearestDistance(vector, mins, scales);
+        }
+        return -1.0f;
     }
 
     /**
@@ -176,21 +182,29 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
 
     /**
      * Sets the tombstone flag (logical deletion) for the record at the given location.
-     * No-op if the tier segment is unavailable.
      */
     public void tombstone(MemoryLocation loc) {
         if (loc.type() == MemoryType.EPISODIC) {
-            episodicStore.tombstone(loc.offset());
+            if (episodicStore != null) {
+                episodicStore.tombstone(loc.offset());
+            }
             return;
         }
-        MemorySegment segment = segmentFor(loc.type());
-        if (segment != null) {
-            layoutFor(loc.type()).tombstone(segment, loc.offset());
+        EngramMemory store = stores.get(loc.type());
+        if (store != null) {
+            store.tombstone(loc.offset());
         }
-        if (strengthStore != null && loc.type() != MemoryType.WORKING) {
-            int slotIndex = (int) ((loc.offset() - get(loc.type()).dataOffset()) / layoutFor(loc.type()).stride());
+        if (strengthStore != null && loc.type() != MemoryType.WORKING && layoutFor(loc.type()) != null && store != null) {
+            int slotIndex = (int) ((loc.offset() - store.dataOffset()) / layoutFor(loc.type()).stride());
             strengthStore.resetRecord(loc.type(), slotIndex);
         }
+    }
+
+    /**
+     * Sets the tombstone flag for a record identified by memory type and byte offset.
+     */
+    public void tombstone(MemoryType type, long offset) {
+        tombstone(new MemoryLocation(type, offset, 0));
     }
 
     /** Sets the resolved flag (Zeigarnik Effect) for the record at the given location. */
@@ -201,7 +215,10 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
             }
             return;
         }
-        layoutFor(loc.type()).markResolved(segmentFor(loc.type()), loc.offset());
+        EngramMemory store = stores.get(loc.type());
+        if (store != null) {
+            store.markResolved(loc.offset());
+        }
     }
 
     /** Clears the resolved flag (Zeigarnik Effect) for the record at the given location. */
@@ -212,29 +229,188 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
             }
             return;
         }
-        layoutFor(loc.type()).markUnresolved(segmentFor(loc.type()), loc.offset());
+        EngramMemory store = stores.get(loc.type());
+        if (store != null) {
+            store.markUnresolved(loc.offset());
+        }
+    }
+
+    /** Marks the record at the given location as contradicted. */
+    public void markContradicted(MemoryLocation loc) {
+        markContradicted(loc.type(), loc.offset());
+    }
+
+    /** Marks the record at the given memory type and byte offset as contradicted. */
+    public void markContradicted(MemoryType type, long offset) {
+        EngramMemory store = stores.get(type);
+        if (store != null) {
+            store.markContradicted(offset);
+        }
     }
 
     /**
      * Returns {@code true} if the record at the given location has the tombstone flag set.
-     * Returns {@code false} when the tier segment/layout is unavailable.
      */
     public boolean isTombstoned(MemoryLocation loc) {
         if (loc.type() == MemoryType.EPISODIC) {
             return episodicStore != null && episodicStore.isTombstoned(loc.offset());
         }
+        EngramMemory store = stores.get(loc.type());
+        return store != null && store.isTombstoned(loc.offset());
+    }
+
+    /**
+     * Reads the decoded encoding header for the record at the given location.
+     */
+    public EncodingHeader readHeader(MemoryLocation loc) {
+        CognitiveRecordBody body = readRecordBody(loc, false);
+        return body != null ? body.header() : null;
+    }
+
+    /**
+     * Reads the encoding header flags for the record at the given location.
+     */
+    public byte readFlags(MemoryLocation loc) {
+        if (loc.type() == MemoryType.EPISODIC) {
+            return episodicStore != null ? episodicStore.readFlags(loc.offset()) : 0;
+        }
+        EngramMemory store = stores.get(loc.type());
+        return store != null ? store.readFlags(loc.offset()) : 0;
+    }
+
+    /**
+     * Reads the quantized vector payload for the record at the given location,
+     * or null if not present or unsupported.
+     */
+    public byte[] readVector(MemoryLocation loc) {
+        if (loc.type() == MemoryType.EPISODIC) {
+            return (episodicStore != null && episodicStore.isFixedRecordLayout())
+                    ? episodicStore.readVector(loc.offset())
+                    : null;
+        }
+        EngramMemory store = stores.get(loc.type());
+        return store != null ? store.readVector(loc.offset()) : null;
+    }
+
+    /**
+     * Writes the last recall profile ordinal for the record at the given location.
+     */
+    public void writeLastRecallProfile(MemoryLocation loc, byte profileOrdinal) {
+        if (strengthStore != null && loc.type() != MemoryType.WORKING && layoutFor(loc.type()) != null) {
+            EngramMemory store = stores.get(loc.type());
+            if (store != null) {
+                int slotIndex = (int) ((loc.offset() - store.dataOffset()) / layoutFor(loc.type()).stride());
+                long strengthOff = strengthStore.strengthOffset(loc.type(), slotIndex);
+                StrengthLayout.INSTANCE.writeLastRecallProfile(strengthStore.segment(), strengthOff, profileOrdinal);
+            }
+        } else {
+            EngramMemory store = stores.get(loc.type());
+            if (store instanceof AbstractEngramMemory<?> aem) {
+                aem.writeLastRecallProfile(loc.offset(), profileOrdinal);
+            }
+        }
+    }
+
+    /**
+     * Reads the last recall profile ordinal for the record at the given location.
+     */
+    public byte readLastRecallProfile(MemoryLocation loc) {
+        if (loc.type() == MemoryType.EPISODIC) {
+            return -1;
+        }
+        if (strengthStore != null && loc.type() != MemoryType.WORKING && layoutFor(loc.type()) != null) {
+            EngramMemory store = stores.get(loc.type());
+            if (store != null) {
+                int slotIndex = (int) ((loc.offset() - store.dataOffset()) / layoutFor(loc.type()).stride());
+                return strengthStore.readLastRecallProfile(loc.type(), slotIndex);
+            }
+        }
+        EngramMemory store = stores.get(loc.type());
+        if (store instanceof AbstractEngramMemory<?> aem) {
+            return aem.readLastRecallProfile(loc.offset());
+        }
+        return -1;
+    }
+
+    /**
+     * Reinforces a cognitive memory record (valence, LTP, ACT-R, and two-factor storage strength).
+     */
+    public void reinforce(MemoryLocation loc, byte valence, float learningRate, float sGain, float sMax) {
+        if (loc.type() == MemoryType.EPISODIC) {
+            if (episodicStore != null) {
+                episodicStore.reinforceValence(loc.offset(), valence, learningRate);
+            }
+            return;
+        }
+        EngramMemory store = stores.get(loc.type());
+        if (store instanceof AbstractEngramMemory<?> abstractStore) {
+            FixedEngramLayout layout = layoutFor(loc.type());
+            if (layout == null) return;
+
+            abstractStore.reinforceValence(loc.offset(), valence, learningRate);
+
+            int slotIndex = (int) ((loc.offset() - abstractStore.dataOffset()) / layout.stride());
+            long creationTs = abstractStore.readTimestamp(loc.offset());
+            long nowMs = System.currentTimeMillis();
+
+            if (strengthStore != null && loc.type() != MemoryType.WORKING) {
+                strengthStore.incrementAgentRecallCount(loc.type(), slotIndex);
+                strengthStore.recordRecall(loc.type(), slotIndex, creationTs, nowMs, (byte) 0, 0);
+
+                int rawBucket = DecayStrategy.ageToBucket(creationTs, nowMs);
+                float currentR = DecayStrategy.decay(rawBucket);
+                float deltaS = sGain * (1.0f - currentR);
+                strengthStore.casStorageStrength(loc.type(), slotIndex,
+                        currentS -> Math.min(sMax,
+                                Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MIN, currentS + deltaS)));
+            } else {
+                abstractStore.reinforceInSitu(loc.offset(), creationTs, nowMs, sGain, sMax);
+            }
+        }
+    }
+
+    /**
+     * Reads the importance value for the record at the given location.
+     */
+    public float readImportance(MemoryLocation loc) {
+        if (loc.type() == MemoryType.EPISODIC) {
+            return episodicStore != null ? episodicStore.readImportance(loc.offset()) : 0f;
+        }
+        EngramMemory store = stores.get(loc.type());
+        return store instanceof AbstractEngramMemory<?> abstractStore ? abstractStore.readImportance(loc.offset()) : 0f;
+    }
+
+    /**
+     * Atomically updates importance for the record at the given location, updating
+     * effective importance in the strength store if present.
+     */
+    public float casImportance(MemoryLocation loc, FloatUnaryOperator updateOp) {
+        if (loc.type() == MemoryType.EPISODIC) {
+            if (episodicStore == null) return 0f;
+            float oldVal = episodicStore.readImportance(loc.offset());
+            float newVal = updateOp.applyAsFloat(oldVal);
+            episodicStore.writeImportance(loc.offset(), newVal);
+            return newVal;
+        }
+        EngramMemory store = stores.get(loc.type());
+        if (!(store instanceof AbstractEngramMemory<?> abstractStore)) return 0f;
         FixedEngramLayout layout = layoutFor(loc.type());
-        MemorySegment segment = segmentFor(loc.type());
-        if (layout == null || segment == null) return false;
-        byte flags = segment.get(EncodingHeaderFields.LAYOUT_FLAGS,
-                loc.offset() + EncodingHeaderFields.OFFSET_FLAGS);
-        return EncodingHeaderFields.isTombstoned(flags);
+        if (layout == null) return 0f;
+
+        float oldImportance = abstractStore.readImportance(loc.offset());
+        float finalImportance = abstractStore.casImportance(loc.offset(), updateOp);
+        if (Math.abs(finalImportance - oldImportance) > 0.001f) {
+            if (strengthStore != null && loc.type() != MemoryType.WORKING) {
+                int slotIndex = (int) ((loc.offset() - abstractStore.dataOffset()) / layout.stride());
+                strengthStore.casEffectiveImportance(loc.type(), slotIndex, current -> finalImportance);
+            }
+        }
+        return finalImportance;
     }
 
     /**
      * Reads the cognitive record body (header, extended fields, and optionally the
-     * quantized vector) for the record at the given location from a single segment
-     * snapshot. Returns {@code null} when the tier segment/layout is unavailable.
+     * quantized vector) for the record at the given location from a single store snapshot.
      */
     public CognitiveRecordBody readRecordBody(MemoryLocation loc, boolean includeVector) {
         if (loc.type() == MemoryType.EPISODIC) {
@@ -248,13 +424,15 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
             return new CognitiveRecordBody(h, quantizedVec, 0, (byte) 0);
         }
         FixedEngramLayout layout = layoutFor(loc.type());
-        MemorySegment segment = segmentFor(loc.type());
-        if (layout == null || segment == null) return null;
+        EngramMemory store = stores.get(loc.type());
+        if (layout == null || store == null) return null;
 
         long offset = loc.offset();
-        EncodingHeader header = layout.readHeader(segment, offset);
+        EncodingHeader header = store.readHeader(offset);
+        if (header == null) return null;
+
         if (strengthStore != null && loc.type() != MemoryType.WORKING) {
-            int slotIndex = (int) ((offset - get(loc.type()).dataOffset()) / layout.stride());
+            int slotIndex = (int) ((offset - store.dataOffset()) / layout.stride());
             header = new EncodingHeader(
                     header.timestampMs(),
                     header.synapticTags(),
@@ -277,19 +455,13 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
 
         byte[] quantizedVec = null;
         if (includeVector) {
-            int vecBytes = layout.quantizedVecBytes();
-            quantizedVec = new byte[vecBytes];
-            long vecOffset = layout.vectorOffset(offset);
-            MemorySegment.copy(
-                    segment, ValueLayout.JAVA_BYTE, vecOffset,
-                    MemorySegment.ofArray(quantizedVec),
-                    ValueLayout.JAVA_BYTE, 0, vecBytes);
+            quantizedVec = store.readVector(offset);
         }
 
         int spectorRecallCount = (strengthStore != null && loc.type() != MemoryType.WORKING)
-                ? strengthStore.readSpectorRecallCount(loc.type(), (int) ((offset - get(loc.type()).dataOffset()) / layout.stride()))
-                : layout.readSpectorRecallCount(segment, offset);
-        byte consolidationFlags = layout.readConsolidationFlags(segment, offset);
+                ? strengthStore.readSpectorRecallCount(loc.type(), (int) ((offset - store.dataOffset()) / layout.stride()))
+                : header.agentRecallCount();
+        byte consolidationFlags = header.consolidationFlags();
         return new CognitiveRecordBody(header, quantizedVec, spectorRecallCount, consolidationFlags);
     }
 

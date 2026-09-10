@@ -20,8 +20,6 @@ import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 import java.nio.file.Path;
 
 /**
@@ -132,96 +130,40 @@ public record PartitionSummary(
 
         // 1. Semantic store
         if (router.semantic() != null && router.semantic().visibleCount() > 0) {
-            MemorySegment segment = router.semantic().segment();
-            FixedEngramLayout layout = router.semantic().layout();
-            int count = router.semantic().visibleCount();
-            int stride = layout.stride();
-            long base = router.semantic().dataOffset();
-            for (int i = 0; i < count; i++) {
-                long offset = base + (long) i * stride;
-                byte flags = layout.headerLayout().readFlags(segment, offset);
-                if (EncodingHeaderFields.isTombstoned(flags)) continue;
-                semCount++;
-                long ts = layout.headerLayout().readTimestamp(segment, offset);
-                long tags = layout.headerLayout().readSynapticTags(segment, offset);
-                if (ts > 0) {
-                    minTs = Math.min(minTs, ts);
-                    maxTs = Math.max(maxTs, ts);
-                }
-                tagMask |= tags;
+            var stats = router.semantic().scanSummary();
+            semCount = stats.liveCount();
+            if (stats.minTimestampMs() > 0) {
+                minTs = Math.min(minTs, stats.minTimestampMs());
             }
+            if (stats.maxTimestampMs() > 0) {
+                maxTs = Math.max(maxTs, stats.maxTimestampMs());
+            }
+            tagMask |= stats.synapticTagMask();
         }
 
         // 2. Episodic store
         if (router.episodic() != null && router.episodic().writePosition() > 0) {
-            long base = router.episodic().dataOffset();
-            long limit = base + router.episodic().writePosition();
-            long current = base;
-            while (current < limit) {
-                if (current + 16 > limit) {
-                    break;
-                }
-                int magic = router.episodic().segment().get(ValueLayout.JAVA_INT_UNALIGNED, current);
-                if (magic == EpisodicLayout.MAGIC) {
-                    // Option B record
-                    int payloadBytes = router.episodic().segment().get(ValueLayout.JAVA_INT_UNALIGNED, current + 4);
-                    if (payloadBytes < 0 || current + EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {
-                        break;
-                    }
-                    long headerOffset = current + EpisodicLayout.PREFIX_BYTES;
-                    byte flags = router.episodic().segment().get(EncodingHeaderFields.LAYOUT_FLAGS, headerOffset + EncodingHeaderFields.OFFSET_FLAGS);
-                    if (!EncodingHeaderFields.isTombstoned(flags)) {
-                        epiCount++;
-                        long ts = router.episodic().segment().get(ValueLayout.JAVA_LONG_UNALIGNED, headerOffset + EncodingHeaderFields.OFFSET_TIMESTAMP_MS);
-                        if (ts > 0) {
-                            minTs = Math.min(minTs, ts);
-                            maxTs = Math.max(maxTs, ts);
-                        }
-                    }
-                    current += EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
-                } else {
-                    // Legacy punned turn (64B header + body)
-                    if (current + EncodingHeaderFields.HEADER_BYTES > limit) {
-                        break;
-                    }
-                    byte flags = router.episodic().segment().get(EncodingHeaderFields.LAYOUT_FLAGS, current + EncodingHeaderFields.OFFSET_FLAGS);
-                    int bodyLength = router.episodic().segment().get(ValueLayout.JAVA_INT_UNALIGNED, current + 56);
-                    if (bodyLength < 0 || current + EncodingHeaderFields.HEADER_BYTES + bodyLength > limit) {
-                        break;
-                    }
-                    if (!EncodingHeaderFields.isTombstoned(flags)) {
-                        epiCount++;
-                        long ts = router.episodic().segment().get(ValueLayout.JAVA_LONG_UNALIGNED, current + EncodingHeaderFields.OFFSET_TIMESTAMP_MS);
-                        if (ts > 0) {
-                            minTs = Math.min(minTs, ts);
-                            maxTs = Math.max(maxTs, ts);
-                        }
-                    }
-                    current += EncodingHeaderFields.HEADER_BYTES + bodyLength;
-                }
+            var stats = router.episodic().scanFraming();
+            epiCount = stats.liveCount();
+            if (stats.minTimestampMs() > 0) {
+                minTs = Math.min(minTs, stats.minTimestampMs());
+            }
+            if (stats.maxTimestampMs() > 0) {
+                maxTs = Math.max(maxTs, stats.maxTimestampMs());
             }
         }
 
         // 3. Procedural store
         if (router.procedural() != null && router.procedural().visibleCount() > 0) {
-            MemorySegment segment = router.procedural().segment();
-            FixedEngramLayout layout = router.procedural().layout();
-            int count = router.procedural().visibleCount();
-            int stride = layout.stride();
-            long base = router.procedural().dataOffset();
-            for (int i = 0; i < count; i++) {
-                long offset = base + (long) i * stride;
-                byte flags = layout.headerLayout().readFlags(segment, offset);
-                if (EncodingHeaderFields.isTombstoned(flags)) continue;
-                procCount++;
-                long ts = layout.headerLayout().readTimestamp(segment, offset);
-                long tags = layout.headerLayout().readSynapticTags(segment, offset);
-                if (ts > 0) {
-                    minTs = Math.min(minTs, ts);
-                    maxTs = Math.max(maxTs, ts);
-                }
-                tagMask |= tags;
+            var stats = router.procedural().scanSummary();
+            procCount = stats.liveCount();
+            if (stats.minTimestampMs() > 0) {
+                minTs = Math.min(minTs, stats.minTimestampMs());
             }
+            if (stats.maxTimestampMs() > 0) {
+                maxTs = Math.max(maxTs, stats.maxTimestampMs());
+            }
+            tagMask |= stats.synapticTagMask();
         }
 
         // Extract directory epoch bounds for fallback and consistency

@@ -75,6 +75,26 @@ public final class RegionRef {
         return bundle.bundlePath();
     }
 
+    /**
+     * Acquires an active lease on this region, preventing unmapping and arena closure
+     * during the lease's lifetime.
+     *
+     * @return an AutoCloseable RegionLease
+     */
+    public RegionLease lease() {
+        return bundle.lease(id);
+    }
+
+    /**
+     * Ensures that this region has at least the required capacity in bytes.
+     * If the current allocated capacity is less, the region is grown and remapped.
+     *
+     * @param requiredBytes minimum capacity in bytes
+     */
+    public void ensureCapacity(long requiredBytes) {
+        bundle.ensureCapacity(id, requiredBytes);
+    }
+
     @Override
     public String toString() {
         return "RegionRef[" + id + "@gen" + generation() + "]";

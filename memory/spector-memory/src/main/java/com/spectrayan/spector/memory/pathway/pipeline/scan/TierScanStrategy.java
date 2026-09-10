@@ -34,7 +34,7 @@ public interface TierScanStrategy {
         @Override
         public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
             if (!CognitiveMemoryRouter.shouldScan(MemoryType.WORKING, ctx.targetTypes())) return;
-            EngramMemory working = ctx.active().working();
+            var working = ctx.active().working();
             if (working.visibleCount() <= 0) return;
             emitter.emitSlabScan(working::segment, working::visibleCount,
                     (FixedEngramLayout) working.layout(), MemoryType.WORKING, 0L, ctx.activeSeq());
@@ -65,7 +65,7 @@ public interface TierScanStrategy {
             // When HNSW is available, global semantic recall is emitted once by RecallPipeline.
             // When unindexed (fallback), scan this partition's slab.
             if (!ctx.semanticHnswAvailable()) {
-                EngramMemory semantic = handle.router().semantic();
+                var semantic = handle.router().semantic();
                 if (semantic == null || semantic.visibleCount() <= 0) return;
                 emitter.emitSlabScan(semantic::segment, semantic::visibleCount,
                         (FixedEngramLayout) semantic.layout(), MemoryType.SEMANTIC,
@@ -81,7 +81,7 @@ public interface TierScanStrategy {
         @Override
         public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
             if (!CognitiveMemoryRouter.shouldScan(MemoryType.PROCEDURAL, ctx.targetTypes())) return;
-            EngramMemory procedural = handle.router().procedural();
+            var procedural = handle.router().procedural();
             if (procedural.visibleCount() <= 0) return;
             emitter.emitSlabScan(procedural::segment, procedural::visibleCount,
                     (FixedEngramLayout) procedural.layout(), MemoryType.PROCEDURAL,

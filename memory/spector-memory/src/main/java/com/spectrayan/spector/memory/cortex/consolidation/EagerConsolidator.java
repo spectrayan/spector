@@ -12,8 +12,6 @@
  */
 package com.spectrayan.spector.memory.cortex.consolidation;
 
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -234,21 +232,17 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
             return;
         }
 
-        MemorySegment segment = store.segment();
-        FixedEngramLayout layout = (FixedEngramLayout) store.layout();
-        long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0L;
-        int stride = layout.stride();
-        int vecBytes = layout.quantizedVecBytes();
-        float[] mins = quantizer.mins();
-        float[] scales = quantizer.scales();
-
+        byte[] quantizedBufA = store.readVector(recordA.byteOffset());
+        if (quantizedBufA == null) {
+            return;
+        }
         float[] decodedVectorA = new float[quantizer.dimensions()];
-        byte[] quantizedBufA = new byte[vecBytes];
-        long vecOffsetA = layout.vectorOffset(recordA.byteOffset());
-        MemorySegment.copy(segment, ValueLayout.JAVA_BYTE, vecOffsetA,
-                MemorySegment.ofArray(quantizedBufA), ValueLayout.JAVA_BYTE, 0, vecBytes);
         quantizer.decode(quantizedBufA, 0, decodedVectorA, 0);
 
+        long baseOffset = store.dataOffset();
+        int stride = store.layout().recordStride();
+        float[] mins = quantizer.mins();
+        float[] scales = quantizer.scales();
         int recordCount = store.visibleCount();
 
         for (int j = 0; j < recordCount; j++) {
@@ -258,8 +252,7 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
             }
 
             // Phase 1: Gated checks (tombstone, contradicted)
-            byte flagsJ = segment.get(EncodingHeaderFields.LAYOUT_FLAGS, offsetJ + EncodingHeaderFields.OFFSET_FLAGS);
-            if (EncodingHeaderFields.isTombstoned(flagsJ) || EncodingHeaderFields.isContradicted(flagsJ)) {
+            if (store.isTombstoned(offsetJ) || store.isContradicted(offsetJ)) {
                 continue;
             }
 
@@ -269,9 +262,12 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
             }
 
             // Phase 2: Vector distance check
-            float dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
-                    decodedVectorA, segment, layout.vectorOffset(offsetJ),
-                    mins, scales, vecBytes);
+            byte[] quantizedBufJ = store.readVector(offsetJ);
+            if (quantizedBufJ == null) {
+                continue;
+            }
+            float dist = SimilarityFunction.EUCLIDEAN.computeQuantized(
+                    decodedVectorA, quantizedBufJ, mins, scales, quantizedBufJ.length);
 
             if (dist <= distanceThreshold) {
                 CognitiveRecord recordB = inspectFunction.apply(idB);

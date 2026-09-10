@@ -96,12 +96,4 @@ class SemanticMemoryTest {
             assertThat(index).isEqualTo(0);
         }
     }
-
-    @Test
-    @DisplayName("headerSlab is same as primary segment")
-    void headerSlabIsSameAsPrimarySegment() {
-        try (SemanticMemory store = new SemanticMemory(128, 100)) {
-            assertThat(store.headerSlab()).isNotNull();
-        }
-    }
 }

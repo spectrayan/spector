@@ -621,17 +621,8 @@ public final class RecallPathway {
                     continue;
                 }
                 var router = partitionRegistry.routerFor(loc.colocatedPartition());
-                if (router.strength() != null && router.layoutFor(loc.type()) != null) {
-                    int slotIndex = (int) (loc.offset() / router.layoutFor(loc.type()).stride());
-                    long strengthOff = router.strength().strengthOffset(loc.type(), slotIndex);
-                    StrengthLayout.INSTANCE.writeLastRecallProfile(router.strength().segment(), strengthOff, profileOrdinal);
-                } else {
-                    final MemorySegment segment = router.segmentFor(loc.type());
-                    if (segment != null) {
-                        segment.set(java.lang.foreign.ValueLayout.JAVA_BYTE,
-                                loc.offset() + EncodingHeaderFields.OFFSET_LAST_RECALL_PROFILE,
-                                profileOrdinal);
-                    }
+                if (router != null) {
+                    router.writeLastRecallProfile(loc, profileOrdinal);
                 }
             } catch (final RuntimeException e) {
                 log.trace("Failed to write profile ordinal for '{}': {}", result.id(), e.getMessage());

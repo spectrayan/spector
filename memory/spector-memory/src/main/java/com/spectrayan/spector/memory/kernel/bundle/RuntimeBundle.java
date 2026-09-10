@@ -86,6 +86,10 @@ public final class RuntimeBundle implements AbstractBundle {
     private final StampedLock remapLock = new StampedLock();
     private final java.util.concurrent.ConcurrentHashMap<RegionId, java.util.concurrent.atomic.AtomicInteger> generations = new java.util.concurrent.ConcurrentHashMap<>();
 
+    private final java.util.concurrent.atomic.AtomicInteger activeLeases = new java.util.concurrent.atomic.AtomicInteger(0);
+    private final ThreadLocal<Integer> threadLeaseCount = ThreadLocal.withInitial(() -> 0);
+    private final Object leaseDrainLock = new Object();
+
     // Volatile fields — updated atomically under write lock during remap
     private volatile Arena arena;
     private volatile MemorySegment masterSegment;
@@ -222,6 +226,67 @@ public final class RuntimeBundle implements AbstractBundle {
     @Override
     public int generation(RegionId id) {
         return generations.computeIfAbsent(id, _ -> new java.util.concurrent.atomic.AtomicInteger(0)).get();
+    }
+
+    @Override
+    public RegionLease lease(RegionId id) {
+        int currentThreadLeases = threadLeaseCount.get();
+        MemorySegment slice;
+        if (currentThreadLeases > 0) {
+            slice = this.regionSlices.get(id);
+            if (slice == null) {
+                throw new IllegalArgumentException("Region not found in runtime bundle: " + id);
+            }
+            threadLeaseCount.set(currentThreadLeases + 1);
+            activeLeases.incrementAndGet();
+        } else {
+            long stamp = remapLock.readLock();
+            try {
+                slice = this.regionSlices.get(id);
+                if (slice == null) {
+                    throw new IllegalArgumentException("Region not found in runtime bundle: " + id);
+                }
+                threadLeaseCount.set(1);
+                activeLeases.incrementAndGet();
+            } finally {
+                remapLock.unlockRead(stamp);
+            }
+        }
+        return new RegionLease(slice, this::releaseLease);
+    }
+
+    private void releaseLease() {
+        int remaining = threadLeaseCount.get() - 1;
+        if (remaining <= 0) {
+            threadLeaseCount.remove();
+        } else {
+            threadLeaseCount.set(remaining);
+        }
+        if (activeLeases.decrementAndGet() == 0) {
+            synchronized (leaseDrainLock) {
+                leaseDrainLock.notifyAll();
+            }
+        }
+    }
+
+    /**
+     * Returns the count of currently outstanding active leases on this bundle.
+     */
+    public int activeLeases() {
+        return activeLeases.get();
+    }
+
+    private void awaitActiveLeasesDrained() {
+        synchronized (leaseDrainLock) {
+            while (activeLeases.get() > 0) {
+                try {
+                    leaseDrainLock.wait(50);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("Interrupted while awaiting active leases drain", e);
+                }
+            }
+        }
     }
 
     // ── Specialized Typed Region Openers ──
@@ -450,11 +515,27 @@ public final class RuntimeBundle implements AbstractBundle {
     // ── Region Growth ──
 
     /**
+     * Ensures that the specified region has at least the required capacity in bytes.
+     * If the current allocated capacity is less than requiredBytes, grows the region.
+     *
+     * @param regionId the region identifier
+     * @param requiredBytes the minimum required capacity in bytes
+     */
+    @Override
+    public void ensureCapacity(RegionId regionId, long requiredBytes) {
+        RegionEntry entry = directory.findRegion(regionId);
+        if (entry != null && entry.allocatedSize() >= requiredBytes) {
+            return;
+        }
+        growRegion(regionId, requiredBytes);
+    }
+
+    /**
      * Grows a region by relocating it to the tail of the file with doubled size.
      *
-     * <p>This operation acquires the write lock, unmaps the entire bundle,
-     * extends the file, copies old data to the tail, and remaps everything.
-     * All cached region slices are refreshed.</p>
+     * <p>This operation acquires the write lock, awaits draining of all active leases,
+     * unmaps the entire bundle, extends the file, copies old data to the tail, and
+     * remaps everything. All cached region slices are refreshed.</p>
      *
      * <p>For heap bundles, this operation is not supported and throws
      * {@link UnsupportedOperationException}.</p>
@@ -464,20 +545,38 @@ public final class RuntimeBundle implements AbstractBundle {
      * @throws UncheckedIOException if the file operations fail
      */
     public void growRegion(RegionId regionId) {
+        growRegion(regionId, 0);
+    }
+
+    /**
+     * Grows a region by relocating it to the tail of the file with at least
+     * the specified minimum capacity.
+     *
+     * @param regionId the region to grow
+     * @param minRequiredBytes the minimum required capacity in bytes (or 0 for default 2x growth)
+     * @throws UnsupportedOperationException if this is a heap bundle
+     * @throws UncheckedIOException if the file operations fail
+     */
+    public void growRegion(RegionId regionId, long minRequiredBytes) {
         if (bundlePath == null) {
             throw new UnsupportedOperationException("Cannot grow heap bundle regions");
         }
 
         long stamp = remapLock.writeLock();
         try {
+            awaitActiveLeasesDrained();
+
             RegionEntry oldEntry = directory.findRegion(regionId);
             if (oldEntry == null) {
                 throw new IllegalArgumentException("Region not found: " + regionId);
             }
 
-            // Compute new size: 2x old or minimum growth, whichever is larger
-            long newAllocatedSize = BundleLayoutCalculator.alignToPage(
-                    Math.max(oldEntry.allocatedSize() * 2, oldEntry.allocatedSize() + MIN_GROWTH_BYTES));
+            // Compute new size: 2x old or minimum growth, whichever is larger, or at least minRequiredBytes
+            long target = Math.max(oldEntry.allocatedSize() * 2, oldEntry.allocatedSize() + MIN_GROWTH_BYTES);
+            if (minRequiredBytes > target) {
+                target = minRequiredBytes;
+            }
+            long newAllocatedSize = BundleLayoutCalculator.alignToPage(target);
 
             // Read old region data before unmapping
             byte[] oldData = new byte[(int) oldEntry.allocatedSize()];
@@ -760,20 +859,20 @@ public final class RuntimeBundle implements AbstractBundle {
         if (!isClosed.compareAndSet(false, true)) {
             return;
         }
+        long stamp = remapLock.writeLock();
         try {
+            awaitActiveLeasesDrained();
             if (bundlePath != null && arena != null && arena.scope().isAlive()) {
                 directory.write(masterSegment);
                 masterSegment.force();
             }
-        } catch (Exception e) {
-            log.debug("Error flushing runtime bundle: {}", e.getMessage());
-        }
-        try {
             if (arena != null && arena.scope().isAlive()) {
                 arena.close();
             }
-        } catch (IllegalStateException e) {
-            log.debug("Runtime bundle arena already closed: {}", e.getMessage());
+        } catch (Exception e) {
+            log.debug("Error flushing/closing runtime bundle: {}", e.getMessage());
+        } finally {
+            remapLock.unlockWrite(stamp);
         }
         log.info("Closed runtime bundle: {}", bundlePath);
     }

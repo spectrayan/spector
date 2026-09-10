@@ -16,11 +16,8 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -108,15 +105,12 @@ public class MmrReranker {
         if (loc == null) return null;
         CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
         if (router == null) return null;
-        MemorySegment seg = router.segmentFor(loc.type());
-        if (seg == null) return null;
-        FixedEngramLayout layout = router.layoutFor(loc.type());
-        if (layout == null) return null;
-        long offset = layout.vectorOffset(loc.offset());
+        byte[] quantized = router.readVector(loc);
+        if (quantized == null) return null;
         
         float[] vec = new float[length];
-        for (int i = 0; i < length; i++) {
-            int q = Byte.toUnsignedInt(seg.get(ValueLayout.JAVA_BYTE, offset + i));
+        for (int i = 0; i < length && i < quantized.length; i++) {
+            int q = Byte.toUnsignedInt(quantized[i]);
             vec[i] = calibrationMins[i] + (q / 255.0f) * calibrationScales[i];
         }
         return vec;
@@ -127,14 +121,11 @@ public class MmrReranker {
         if (loc == null) return 0f;
         CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
         if (router == null) return 0f;
-        MemorySegment seg = router.segmentFor(loc.type());
-        if (seg == null) return 0f;
-        FixedEngramLayout layout = router.layoutFor(loc.type());
-        if (layout == null) return 0f;
-        long offset = layout.vectorOffset(loc.offset());
+        byte[] quantized = router.readVector(loc);
+        if (quantized == null) return 0f;
         
-        float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
-                diVector, seg, offset, calibrationMins, calibrationScales, calibrationMins.length);
+        float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantized(
+                diVector, quantized, calibrationMins, calibrationScales, calibrationMins.length);
         
         return 1.0f / (1.0f + l2dist);
     }

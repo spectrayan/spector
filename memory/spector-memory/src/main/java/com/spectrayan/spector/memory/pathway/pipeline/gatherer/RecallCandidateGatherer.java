@@ -148,13 +148,11 @@ public class RecallCandidateGatherer {
                                 }
                             }
                         } else {
-                            MemorySegment segment = router.segmentFor(type);
-                            if (segment != null) {
-                                FixedEngramLayout layout = router.layoutFor(type);
-                                byte cFlags = layout.readConsolidationFlags(segment, loc.offset());
-                                if (!options.includeContradictions() && EncodingHeaderFields.isContradicted(cFlags)) continue;
+                            var body = router.readRecordBody(loc, false);
+                            if (body != null) {
+                                if (!options.includeContradictions() && EncodingHeaderFields.isContradicted(body.consolidationFlags())) continue;
 
-                                var header = layout.readHeader(segment, loc.offset());
+                                var header = body.header();
                                 importance = header.importance();
                                 valence = header.valence();
                                 recallCount = (short) header.agentRecallCount();

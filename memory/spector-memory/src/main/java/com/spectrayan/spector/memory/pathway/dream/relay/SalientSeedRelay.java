@@ -28,7 +28,6 @@ import com.spectrayan.spector.memory.model.SoulContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -120,16 +119,14 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
             SoulContext soul,
             SalienceProfile salience,
             DreamProperties config) {
-        if (store == null || store.segment() == null) return;
+        if (store == null) return;
 
         FixedEngramLayout layout = (FixedEngramLayout) store.layout();
-        MemorySegment segment = store.segment();
         int size = store.size();
         if (size <= 0) return;
 
         int vecBytes = layout.quantizedVecBytes();
         int dim = vecBytes;
-        byte[] qBytes = new byte[vecBytes];
 
         float[] soulEmbedding = (soul != null && soul.identityEmbedding() != null && soul.identityEmbedding().length == dim)
                 ? soul.identityEmbedding() : null;
@@ -149,21 +146,26 @@ public final class SalientSeedRelay implements SynapticRelay<DreamSignal> {
         int stride = Math.max(1, size / limit);
         for (int i = 0; i < size && candidates.size() < limit; i += stride) {
             long offset = store.recordOffset(i);
-            byte flags = layout.readFlags(segment, offset);
-            if (EncodingHeaderFields.isTombstoned(flags)) {
+            if (store.isTombstoned(offset)) {
                 continue;
             }
 
-            // Read raw bytes and decode quantized vector
-            MemorySegment.copy(segment, layout.vectorOffset(offset), MemorySegment.ofArray(qBytes), 0, vecBytes);
+            byte[] qBytes = store.readVector(offset);
+            if (qBytes == null) {
+                continue;
+            }
             float[] vector = new float[dim];
             for (int d = 0; d < dim; d++) {
                 int byteIdx = d % vecBytes;
                 vector[d] = (qBytes[byteIdx] & 0xFF) / 255.0f * 2.0f - 1.0f;
             }
 
-            // Read metadata for composite salience score
-            long epochSecs = layout.readTimestamp(segment, offset);
+            EncodingHeader header = store.readHeader(offset);
+            if (header == null) {
+                continue;
+            }
+            byte flags = header.flags();
+            long epochSecs = header.timestampMs();
             boolean simulated = EncodingHeaderFields.isSimulated(flags);
             boolean dreamed = EncodingHeaderFields.isDreamed(flags);
 

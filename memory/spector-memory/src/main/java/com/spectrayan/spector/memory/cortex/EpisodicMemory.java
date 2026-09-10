@@ -20,6 +20,7 @@ import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.EpisodeCodec;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractAppendMemory;
 import com.spectrayan.spector.memory.model.ConversationRole;
@@ -578,9 +579,23 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
         return 0.0f;
     }
 
-    @Override
-    public MemorySegment headerSlab() {
-        return null;
+    /**
+     * Scans episodic framing records and returns summary statistics without leaking raw segments.
+     */
+    public EpisodicLayout.FramingStats scanFraming() {
+        if (writePosition() <= 0) {
+            return new EpisodicLayout.FramingStats(0, 0L, 0L);
+        }
+        long base = dataOffset();
+        long limit = base + writePosition();
+        return EpisodicLayout.walkFraming(segment(), base, limit);
+    }
+
+    /**
+     * Reads the encoding header flags for the record starting at the given offset.
+     */
+    public byte readFlags(long recordOffset) {
+        return layout().headerLayout().readFlagsRecord(segment(), recordOffset);
     }
 
     @Override
@@ -660,5 +675,29 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
         }
         long absoluteOffset = dataOffset() + offset;
         return layout().headerLayout().readHeaderRecord(segment(), absoluteOffset);
+    }
+
+    @Override
+    public boolean isContradicted(long offset) {
+        return false;
+    }
+
+    @Override
+    public void markContradicted(long offset) {
+        // Contradiction resolution is not applied to episodic records
+    }
+
+    public void reinforceValence(long offset, byte outcome, float learningRate) {
+        byte currentValence = EpisodicHeaderLayout.INSTANCE.readValenceRecord(segment(), offset);
+        byte blended = com.spectrayan.spector.memory.neuromod.amygdala.Valence.blend(currentValence, outcome, learningRate);
+        EpisodicHeaderLayout.INSTANCE.writeValenceRecord(segment(), offset, blended);
+    }
+
+    public float readImportance(long offset) {
+        return EpisodicHeaderLayout.INSTANCE.readImportanceRecord(segment(), offset);
+    }
+
+    public void writeImportance(long offset, float importance) {
+        EpisodicHeaderLayout.INSTANCE.writeImportanceRecord(segment(), offset, importance);
     }
 }

@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.cortex.consolidation;
 
-import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -83,18 +82,12 @@ public final class DuplicateDetector {
             int recordCount = store.visibleCount();
             if (recordCount == 0) continue;
 
-            MemorySegment segment = store.segment();
-            FixedEngramLayout layout = (FixedEngramLayout) store.layout();
-            long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0L;
-            int stride = layout.stride();
-            int qVecBytes = layout.quantizedVecBytes();
-            byte[] quantizedBuf = new byte[qVecBytes];
+            long baseOffset = store.dataOffset();
+            int stride = store.layout().recordStride();
 
             for (int i = 0; i < recordCount; i++) {
                 long offset = baseOffset + (long) i * stride;
-                byte flags = segment.get(EncodingHeaderFields.LAYOUT_FLAGS, offset + EncodingHeaderFields.OFFSET_FLAGS);
-
-                if (EncodingHeaderFields.isTombstoned(flags)) {
+                if (store.isTombstoned(offset)) {
                     continue;
                 }
 
@@ -103,9 +96,10 @@ public final class DuplicateDetector {
                     continue;
                 }
 
-                long vecOffset = layout.vectorOffset(offset);
-                MemorySegment.copy(segment, java.lang.foreign.ValueLayout.JAVA_BYTE, vecOffset,
-                        MemorySegment.ofArray(quantizedBuf), java.lang.foreign.ValueLayout.JAVA_BYTE, 0, qVecBytes);
+                byte[] quantizedBuf = store.readVector(offset);
+                if (quantizedBuf == null) {
+                    continue;
+                }
                 float[] decoded = new float[quantizer.dimensions()];
                 quantizer.decode(quantizedBuf, 0, decoded, 0);
 

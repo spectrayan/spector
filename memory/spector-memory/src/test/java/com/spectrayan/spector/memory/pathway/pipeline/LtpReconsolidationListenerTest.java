@@ -17,6 +17,7 @@ import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.StrengthMemory;
 import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -59,7 +60,8 @@ class LtpReconsolidationListenerTest {
             when(index.locate("test-mem-1")).thenReturn(new MemoryLocation(MemoryType.SEMANTIC, 0, 0, 0, -1L, -1));
             when(index.findIdByOffset(0, MemoryType.SEMANTIC, 0)).thenReturn("test-mem-1");
             when(partitionRegistry.routerFor(0)).thenReturn(router);
-            when(router.segmentFor(MemoryType.SEMANTIC)).thenReturn(engramSegment);
+            when(router.readHeader(any(MemoryLocation.class))).thenReturn(
+                    new EncodingHeader(creationTs, 0L, 1.0f, 1.0f, 0, (short) 0, (byte) 0, (byte) 0));
             when(router.layoutFor(MemoryType.SEMANTIC)).thenReturn(layout);
             when(router.strength()).thenReturn(strengthStore);
 

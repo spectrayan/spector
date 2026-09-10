@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.memory.error.SpectorPartitionFrozenException;
+import com.spectrayan.spector.memory.kernel.FloatUnaryOperator;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
@@ -39,6 +40,9 @@ import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.neuromod.amygdala.Valence;
+import com.spectrayan.spector.memory.synapse.ActRActivation;
+import com.spectrayan.spector.memory.synapse.DecayStrategy;
 
 /**
  * Base implementation for all engram memory stores in Spector Memory,
@@ -307,7 +311,6 @@ public abstract class AbstractEngramMemory<L extends FixedEngramLayout>
         MemorySegment.copy(segment(), offset, dest, 0, Math.min(dest.byteSize(), layout.stride()));
     }
 
-    @Override
     public MemorySegment primarySegment() {
         return segment();
     }
@@ -317,9 +320,160 @@ public abstract class AbstractEngramMemory<L extends FixedEngramLayout>
         return super.segment();
     }
 
-    @Override
-    public MemorySegment headerSlab() {
-        return segment();
+    /**
+     * Summary statistics collected from scanning engram record headers.
+     *
+     * @param liveCount number of non-tombstoned records
+     * @param minTimestampMs minimum record timestamp in epoch milliseconds (0 if none)
+     * @param maxTimestampMs maximum record timestamp in epoch milliseconds (0 if none)
+     * @param synapticTagMask cumulative bitwise-OR of synaptic tag masks
+     */
+    public record SummaryStats(int liveCount, long minTimestampMs, long maxTimestampMs, long synapticTagMask) {}
+
+    /**
+     * Scans record headers and returns summary statistics without leaking raw segments.
+     */
+    public SummaryStats scanSummary() {
+        int vCount = visibleCount();
+        if (vCount <= 0) {
+            return new SummaryStats(0, 0L, 0L, 0L);
+        }
+        MemorySegment seg = segment();
+        int stride = layout.stride();
+        long base = dataOffset();
+        int live = 0;
+        long minTs = Long.MAX_VALUE;
+        long maxTs = Long.MIN_VALUE;
+        long tagMask = 0L;
+        var headerLayout = layout.headerLayout();
+        for (int i = 0; i < vCount; i++) {
+            long offset = base + (long) i * stride;
+            byte flags = headerLayout.readFlags(seg, offset);
+            if (EncodingHeaderFields.isTombstoned(flags)) continue;
+            live++;
+            long ts = headerLayout.readTimestamp(seg, offset);
+            long tags = headerLayout.readSynapticTags(seg, offset);
+            if (ts > 0) {
+                minTs = Math.min(minTs, ts);
+                maxTs = Math.max(maxTs, ts);
+            }
+            tagMask |= tags;
+        }
+        return new SummaryStats(
+                live,
+                minTs == Long.MAX_VALUE ? 0L : minTs,
+                maxTs == Long.MIN_VALUE ? 0L : maxTs,
+                tagMask
+        );
+    }
+
+    public EncodingHeader readHeader(long offset) {
+        return layout.readHeader(segment(), offset);
+    }
+
+    public byte[] readVector(long offset) {
+        int vecBytes = layout.quantizedVecBytes();
+        byte[] quantizedVec = new byte[vecBytes];
+        long vecOffset = layout.vectorOffset(offset);
+        MemorySegment.copy(
+                segment(), ValueLayout.JAVA_BYTE, vecOffset,
+                MemorySegment.ofArray(quantizedVec),
+                ValueLayout.JAVA_BYTE, 0, vecBytes);
+        return quantizedVec;
+    }
+
+    public byte readFlags(long offset) {
+        return layout.headerLayout().readFlags(segment(), offset);
+    }
+
+    public boolean isTombstoned(long offset) {
+        return EncodingHeaderFields.isTombstoned(readFlags(offset));
+    }
+
+    public boolean isContradicted(long offset) {
+        return EncodingHeaderFields.isContradicted(layout.readConsolidationFlags(segment(), offset));
+    }
+
+    public void tombstone(long offset) {
+        layout.tombstone(segment(), offset);
+    }
+
+    public void markContradicted(long offset) {
+        layout.markContradicted(segment(), offset);
+    }
+
+    public void markResolved(long offset) {
+        layout.markResolved(segment(), offset);
+    }
+
+    public void markUnresolved(long offset) {
+        layout.markUnresolved(segment(), offset);
+    }
+
+    public void writeLastRecallProfile(long offset, byte profileOrdinal) {
+        segment().set(ValueLayout.JAVA_BYTE, offset + EncodingHeaderFields.OFFSET_LAST_RECALL_PROFILE, profileOrdinal);
+    }
+
+    public byte readLastRecallProfile(long offset) {
+        return segment().get(ValueLayout.JAVA_BYTE, offset + EncodingHeaderFields.OFFSET_LAST_RECALL_PROFILE);
+    }
+
+    public float readImportance(long offset) {
+        if (layout instanceof FixedEngramLayout fixedLayout) {
+            return fixedLayout.readImportance(segment(), offset);
+        }
+        return 0f;
+    }
+
+    public float casImportance(long offset, FloatUnaryOperator updateOp) {
+        if (layout instanceof FixedEngramLayout fixedLayout) {
+            return fixedLayout.headerLayout().casImportance(segment(), offset, updateOp);
+        }
+        return 0f;
+    }
+
+    public void writeImportance(long offset, float importance) {
+        if (layout instanceof FixedEngramLayout fixedLayout) {
+            fixedLayout.writeImportance(segment(), offset, importance);
+        }
+    }
+
+    public void writeSoulVersion(long offset, short soulVersion) {
+        if (layout instanceof FixedEngramLayout fixedLayout) {
+            fixedLayout.writeSoulVersion(segment(), offset, soulVersion);
+        }
+    }
+
+    public void reinforceValence(long offset, byte outcome, float learningRate) {
+        if (layout instanceof FixedEngramLayout fixedLayout) {
+            byte currentValence = fixedLayout.readValence(segment(), offset);
+            byte blended = Valence.blend(currentValence, outcome, learningRate);
+            segment().set(EncodingHeaderFields.LAYOUT_VALENCE, offset + EncodingHeaderFields.OFFSET_VALENCE, blended);
+        }
+    }
+
+    public void reinforceInSitu(long offset, long creationTs, long nowMs, float sGain, float sMax) {
+        if (layout instanceof FixedEngramLayout fixedLayout) {
+            fixedLayout.incrementAgentRecallCount(segment(), offset);
+            if (fixedLayout.headerLayout().version() >= 3) {
+                ActRActivation.recordRecall(segment(), offset, creationTs, nowMs);
+            }
+            var headerLayout = fixedLayout.headerLayout();
+            if (headerLayout.headerBytes() > 32) {
+                int rawBucket = DecayStrategy.ageToBucket(creationTs, nowMs);
+                float currentR = DecayStrategy.decay(rawBucket);
+                float deltaS = sGain * (1.0f - currentR);
+                headerLayout.casStorageStrength(segment(), offset,
+                        currentS -> Math.min(sMax, Math.max(0.01f, currentS + deltaS)));
+            }
+        }
+    }
+
+    public long readTimestamp(long offset) {
+        if (layout instanceof FixedEngramLayout fixedLayout) {
+            return fixedLayout.readTimestamp(segment(), offset);
+        }
+        return 0L;
     }
 
     @Override

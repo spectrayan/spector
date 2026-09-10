@@ -22,7 +22,7 @@ import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 
-import java.lang.foreign.MemorySegment;
+import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import java.util.List;
 
 /**
@@ -69,22 +69,23 @@ public final class LtpReconsolidationListener implements RecallListener {
             if (loc != null) {
                 // #443: resolve the header segment by the memory's colocated partition.
                 CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
-                MemorySegment segment = router.segmentFor(loc.type());
-                if (segment != null) {
+                if (router != null && router.strength() != null) {
                     FixedEngramLayout layout = router.layoutFor(loc.type());
+                    if (layout != null) {
+                        EncodingHeader header = router.readHeader(loc);
+                        if (header != null) {
+                            int slotIndex = (int) (loc.offset() / layout.stride());
+                            long creationMs = header.timestampMs();
+                            router.strength().recordRecall(loc.type(), slotIndex, creationMs, nowMs, (byte) 0, 0);
 
-                    if (router.strength() != null && layout != null) {
-                        int slotIndex = (int) (loc.offset() / layout.stride());
-                        long creationMs = layout.readTimestamp(segment, loc.offset());
-                        router.strength().recordRecall(loc.type(), slotIndex, creationMs, nowMs, (byte) 0, 0);
-
-                        long lastAutoLtp = router.strength().readStrengthState(loc.type(), slotIndex).lastAutoLtp();
-                        if (nowMs - lastAutoLtp >= AUTO_LTP_COOLDOWN_MS) {
-                            router.strength().incrementSpectorRecallCount(loc.type(), slotIndex);
-                            router.strength().casStorageStrength(loc.type(), slotIndex,
-                                    s -> Math.min(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MAX,
-                                            s + SpectorPropertyConstants.DEFAULT_MEMORY_AUTO_LTP_STORAGE_INCREMENT));
-                            router.strength().writeLastAutoLtp(loc.type(), slotIndex, nowMs);
+                            long lastAutoLtp = router.strength().readStrengthState(loc.type(), slotIndex).lastAutoLtp();
+                            if (nowMs - lastAutoLtp >= AUTO_LTP_COOLDOWN_MS) {
+                                router.strength().incrementSpectorRecallCount(loc.type(), slotIndex);
+                                router.strength().casStorageStrength(loc.type(), slotIndex,
+                                        s -> Math.min(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MAX,
+                                                s + SpectorPropertyConstants.DEFAULT_MEMORY_AUTO_LTP_STORAGE_INCREMENT));
+                                router.strength().writeLastAutoLtp(loc.type(), slotIndex, nowMs);
+                            }
                         }
                     }
                 }

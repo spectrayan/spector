@@ -672,15 +672,8 @@ public class MemoryAccessObject {
                 float combinedBoost = topicBoost * selfBoost;
                 if (Math.abs(combinedBoost - 1.0f) > 0.01f) {
                     var loc = entry.getValue();
-                    var segment = cognitiveRouter.segmentFor(loc.type());
-                    var layout = cognitiveRouter.layoutFor(loc.type());
-
-                    if (segment != null && layout != null) {
-                        float oldImportance = layout.readImportance(segment, loc.offset());
-                        float newImportance = Math.clamp(oldImportance * combinedBoost, 0.05f, 10.0f);
-                        layout.writeImportance(segment, loc.offset(), newImportance);
-                        rescored++;
-                    }
+                    cognitiveRouter.casImportance(loc, oldImportance -> Math.clamp(oldImportance * combinedBoost, 0.05f, 10.0f));
+                    rescored++;
                 }
             } catch (Exception e) {
                 errors++;

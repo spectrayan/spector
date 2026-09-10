@@ -663,10 +663,10 @@ public final class CognitiveBenchmarkHarness {
                 EngramMemory store = cognitiveRouter.get(type);
                 if (store != null && store.size() > 0) {
                     FixedEngramLayout layout = store.layout() instanceof FixedEngramLayout fel ? fel : null;
-                    if (layout == null) {
+                    if (layout == null || !(store instanceof com.spectrayan.spector.memory.cortex.AbstractEngramMemory<?> aem)) {
                         continue;
                     }
-                    MemorySegment segment = store.primarySegment();
+                    MemorySegment segment = aem.primarySegment();
                     int recordCount = store.size();
                     long dataOffset = store.dataOffset();
 

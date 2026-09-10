@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
-import java.lang.foreign.MemorySegment;
 import java.nio.file.Path;
 
 import com.spectrayan.spector.memory.kernel.RegionLayout;
@@ -58,15 +57,6 @@ public interface EngramMemory extends AutoCloseable {
     MemoryType type();
 
     /**
-     * Returns the primary memory segment.
-     *
-     * @return primary memory segment
-     */
-    default MemorySegment primarySegment() {
-        return segment();
-    }
-
-    /**
      * Returns the maximum record index readable by concurrent readers (SWMR barrier).
      *
      * @return the visible record count
@@ -95,18 +85,50 @@ public interface EngramMemory extends AutoCloseable {
     Path filePath();
 
     /**
-     * Returns the primary off-heap memory segment backing this store.
-     *
-     * @return the memory segment
+     * Reads the encoding header flags for the record at the given byte offset.
      */
-    MemorySegment segment();
+    byte readFlags(long offset);
 
     /**
-     * Returns the header slab segment used for vectorized scanning.
-     *
-     * @return the header slab segment
+     * Returns true if the record at the given byte offset is tombstoned.
      */
-    MemorySegment headerSlab();
+    boolean isTombstoned(long offset);
+
+    /**
+     * Returns true if the record at the given byte offset is marked contradicted.
+     */
+    boolean isContradicted(long offset);
+
+    /**
+     * Reads the decoded encoding header for the record at the given byte offset.
+     */
+    EncodingHeader readHeader(long offset);
+
+    /**
+     * Reads the quantized vector payload for the record at the given byte offset,
+     * or null if not present or unsupported.
+     */
+    byte[] readVector(long offset);
+
+    /**
+     * Marks the record at the given byte offset as tombstoned.
+     */
+    void tombstone(long offset);
+
+    /**
+     * Marks the record at the given byte offset as contradicted.
+     */
+    void markContradicted(long offset);
+
+    /**
+     * Marks the record at the given byte offset as resolved.
+     */
+    void markResolved(long offset);
+
+    /**
+     * Marks the record at the given byte offset as unresolved.
+     */
+    void markUnresolved(long offset);
 
     /**
      * Forces all pending writes to disk if persistent.

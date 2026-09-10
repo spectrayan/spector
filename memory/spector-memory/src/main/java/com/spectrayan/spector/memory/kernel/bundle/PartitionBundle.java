@@ -309,6 +309,14 @@ public final class PartitionBundle implements AbstractBundle {
         return generations.computeIfAbsent(id, _ -> new java.util.concurrent.atomic.AtomicInteger(0)).get();
     }
 
+    @Override
+    public RegionLease lease(RegionId id) {
+        if (canForward && rolledTo != null) {
+            return rolledTo.lease(id);
+        }
+        return new RegionLease(currentSlice(id), () -> {});
+    }
+
     // ── Specialized Typed Region Openers ──
 
     public com.spectrayan.spector.memory.cortex.SemanticMemory openSemantic(int semanticCapacity, int quantizedVecBytes) {

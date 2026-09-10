@@ -225,9 +225,7 @@ public class MindSpanSampleIngestionTest {
                     log.info("✔ EPISODIC [{}] verified: offset={}, timestamp={}, arousal={}, bodyLength={}",
                             record.id(), loc.offset(), header.timestampMs(), header.arousal(), turn.body().length);
                 } else if (loc.type() == MemoryType.SEMANTIC) {
-                    var segment = router.segmentFor(MemoryType.SEMANTIC);
-                    var layout = router.layoutFor(MemoryType.SEMANTIC);
-                    EncodingHeader header = layout.readHeader(segment, loc.offset());
+                    EncodingHeader header = router.readHeader(loc);
                     assertNotNull(header, "Semantic header must be readable for " + record.id());
                     assertEquals(record.timestampMs(), header.timestampMs(), "Timestamp must match for " + record.id());
                     assertEquals((byte) record.arousal(), header.arousal(), "Arousal must match for " + record.id());

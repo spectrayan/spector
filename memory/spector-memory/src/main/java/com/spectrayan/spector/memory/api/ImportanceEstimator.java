@@ -100,12 +100,10 @@ public final class ImportanceEstimator {
             }
 
             // Step 2: Compute nearest distance (read-only  --  don't update stats)
-            float nearestDist;
-            var workingStore = cognitiveRouter.working();
-            if (workingStore != null && workingStore.visibleCount() > 0) {
-                nearestDist = workingStore.nearestDistance(
-                        vector, quantizer.mins(), quantizer.scales());
-            } else {
+            float nearestDist = cognitiveRouter != null
+                    ? cognitiveRouter.nearestWorkingDistance(vector, quantizer.mins(), quantizer.scales())
+                    : -1.0f;
+            if (nearestDist < 0f) {
                 // Fallback: L2 norm of vector (high distance = novel)
                 nearestDist = VectorOps.magnitude(vector);
             }
@@ -136,8 +134,7 @@ public final class ImportanceEstimator {
             // Step 6: Find nearest existing memory ID
             String nearestMemoryId = null;
             float nearestMemoryDist = nearestDist;
-            var semanticStore = cognitiveRouter.semantic();
-            if (semanticStore != null && semanticStore.size() > 0) {
+            if (cognitiveRouter != null && cognitiveRouter.countFor(MemoryType.SEMANTIC) > 0) {
                 float bestDist = Float.MAX_VALUE;
                 for (var entry : index.locationMap().entrySet()) {
                     String candidateId = entry.getKey();

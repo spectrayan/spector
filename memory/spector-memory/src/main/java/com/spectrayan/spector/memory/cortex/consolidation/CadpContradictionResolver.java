@@ -22,7 +22,6 @@ import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -108,16 +107,10 @@ public final class CadpContradictionResolver {
         if (partitionManager != null) {
             var router = partitionManager.routerFor(loser.partitionIndex());
             if (router != null) {
-                var layout = router.layoutFor(loser.memoryType());
-                var segment = router.segmentFor(loser.memoryType());
-                if (layout != null && segment != null) {
-                    layout.markContradicted(segment, loser.byteOffset());
-                }
+                router.markContradicted(loser.memoryType(), loser.byteOffset());
             }
         } else if (store != null) {
-            MemorySegment segment = store.segment();
-            FixedEngramLayout layout = (FixedEngramLayout) store.layout();
-            layout.markContradicted(segment, loser.byteOffset());
+            store.markContradicted(loser.byteOffset());
         }
         log.info("CADP resolved: winner='{}' corrects loser='{}'", winner.id(), loser.id());
 

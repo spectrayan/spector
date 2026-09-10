@@ -77,6 +77,16 @@ public final class BundleManager {
     }
 
     /**
+     * Ensures that the specified region has at least the required capacity in bytes.
+     *
+     * @param regionId the region identifier
+     * @param requiredBytes the minimum required capacity in bytes
+     */
+    public void ensureCapacity(RegionId regionId, long requiredBytes) {
+        bundle.ensureCapacity(regionId, requiredBytes);
+    }
+
+    /**
      * Returns the usage ratio (usedSize / allocatedSize) for a region.
      *
      * @param regionId the region to check

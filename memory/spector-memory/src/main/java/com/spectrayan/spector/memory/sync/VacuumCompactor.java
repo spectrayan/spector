@@ -21,6 +21,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.spectrayan.spector.memory.cortex.AbstractEngramMemory;
 import com.spectrayan.spector.memory.cortex.EngramMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
@@ -77,19 +78,24 @@ public final class VacuumCompactor {
      */
     public static CompactionResult compact(EngramMemory store, MemoryType type,
                                             MemoryIndex index) {
+        if (!(store instanceof AbstractEngramMemory<?> aem)) {
+            log.warn("Vacuum: store for {} is not an AbstractEngramMemory, cannot compact", type);
+            return null;
+        }
         long startMs = System.currentTimeMillis();
 
         FixedEngramLayout layout = (FixedEngramLayout) store.layout();
         int totalRecords = store.size();
         long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0;
         int stride = layout.stride();
+        MemorySegment sourceSegment = aem.segment();
 
         // Phase 1: Count live and tombstoned records
         int liveCount = 0;
         int tombstoneCount = 0;
         for (int i = 0; i < totalRecords; i++) {
             long offset = baseOffset + (long) i * stride;
-            EncodingHeader header = layout.readHeader(store.segment(), offset);
+            EncodingHeader header = layout.readHeader(sourceSegment, offset);
             if (EncodingHeaderFields.isTombstoned(header.flags())) {
                 tombstoneCount++;
             } else {
@@ -118,7 +124,7 @@ public final class VacuumCompactor {
 
         for (int i = 0; i < totalRecords; i++) {
             long oldOffset = baseOffset + (long) i * stride;
-            EncodingHeader header = layout.readHeader(store.segment(), oldOffset);
+            EncodingHeader header = layout.readHeader(sourceSegment, oldOffset);
 
             if (EncodingHeaderFields.isTombstoned(header.flags())) {
                 continue; // skip tombstoned
@@ -127,7 +133,7 @@ public final class VacuumCompactor {
             long newOffset = baseOffset + (long) writeIndex * stride;
 
             // Copy entire record (header + vector) via MemorySegment.copy
-            MemorySegment.copy(store.segment(), ValueLayout.JAVA_BYTE, oldOffset,
+            MemorySegment.copy(sourceSegment, ValueLayout.JAVA_BYTE, oldOffset,
                     newSegment, ValueLayout.JAVA_BYTE, newOffset, stride);
 
             // Find the memory ID at the old offset for index relocation

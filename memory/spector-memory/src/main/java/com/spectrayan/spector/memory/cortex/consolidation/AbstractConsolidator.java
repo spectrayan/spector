@@ -228,16 +228,10 @@ public abstract class AbstractConsolidator implements Consolidator {
         if (partitionManager != null) {
             var router = partitionManager.routerFor(record.partitionIndex());
             if (router != null) {
-                var layout = router.layoutFor(record.memoryType());
-                var segment = router.segmentFor(record.memoryType());
-                if (layout != null && segment != null) {
-                    layout.tombstone(segment, record.byteOffset());
-                }
+                router.tombstone(record.memoryType(), record.byteOffset());
             }
         } else if (fallbackStore != null) {
-            MemorySegment segment = fallbackStore.segment();
-            FixedEngramLayout layout = (FixedEngramLayout) fallbackStore.layout();
-            layout.tombstone(segment, record.byteOffset());
+            fallbackStore.tombstone(record.byteOffset());
         }
 
         if (wal != null) {

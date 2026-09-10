@@ -171,9 +171,4 @@ public final class SemanticMemory extends AbstractEngramMemory<SemanticLayout> {
         return layout.readHeader(segment(), offset);
     }
 
-    @Override
-    public MemorySegment headerSlab() {
-        return segment();
-    }
-
 }

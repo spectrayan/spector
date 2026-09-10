@@ -52,4 +52,23 @@ public interface AbstractBundle extends RegionOpener, AutoCloseable {
     default RegionRef regionRef(RegionId id) {
         return new RegionRef(this, id);
     }
+
+    /**
+     * Acquires an active {@link RegionLease} on the specified region slice,
+     * ensuring the backing arena is not closed concurrently.
+     *
+     * @param id the region identifier
+     * @return an AutoCloseable RegionLease
+     */
+    RegionLease lease(RegionId id);
+
+    /**
+     * Ensures that the specified region has at least the required capacity in bytes.
+     *
+     * @param id the region identifier
+     * @param requiredBytes minimum capacity in bytes
+     */
+    default void ensureCapacity(RegionId id, long requiredBytes) {
+        // Default no-op for fixed bundles
+    }
 }

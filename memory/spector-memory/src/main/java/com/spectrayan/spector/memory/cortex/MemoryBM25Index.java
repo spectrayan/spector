@@ -258,7 +258,7 @@ public final class MemoryBM25Index implements AutoCloseable {
      * Persists the active BM25 index into a V4 {@link RuntimeBundle} with dynamic variable-slice growth.
      *
      * <p>If the serialized BM25 index payload exceeds the current {@link RegionId#BM25} region size,
-     * this method automatically grows the region via {@link RuntimeBundle#growRegion(RegionId)}
+     * this method automatically ensures capacity via {@link RegionRef#ensureCapacity(long)}
      * and retries the save into the expanded slice.</p>
      *
      * @param runtimeBundle the runtime bundle containing the BM25 region
@@ -278,11 +278,11 @@ public final class MemoryBM25Index implements AutoCloseable {
 
             int written = partition(0).saveToRegion(bm25Ref.resolve());
             if (written == -1) {
-                // Payload exceeds current capacity -> dynamically grow BM25 region
-                log.info("BM25 index exceeded region capacity; triggering dynamic region growth");
-                runtimeBundle.growRegion(RegionId.BM25);
+                // Payload exceeds current capacity -> dynamically ensure capacity
+                log.info("BM25 index exceeded region capacity; ensuring expanded capacity");
+                bm25Ref.ensureCapacity(bm25Ref.resolve().byteSize() + 1);
 
-                // Fetch new expanded slice and retry write
+                // Retry write into expanded slice
                 written = partition(0).saveToRegion(bm25Ref.resolve());
             }
 

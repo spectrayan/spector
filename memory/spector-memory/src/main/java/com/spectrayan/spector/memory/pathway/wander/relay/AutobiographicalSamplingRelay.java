@@ -25,7 +25,6 @@ import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 /**
@@ -78,30 +77,27 @@ public final class AutobiographicalSamplingRelay implements SynapticRelay<Wander
     }
 
     private int sampleFromStore(EngramMemory store, ScalarQuantizer quantizer, WanderSignal signal, int limit, String prefix) {
-        if (store == null || store.segment() == null) {
+        if (store == null) {
             return 0;
         }
 
-        FixedEngramLayout layout = (FixedEngramLayout) store.layout();
-        MemorySegment segment = store.segment();
         int size = store.size();
         if (size <= 0) {
             return 0;
         }
 
-        int vecBytes = layout.quantizedVecBytes();
-        byte[] qBytes = new byte[vecBytes];
         int count = 0;
-
         int strideStep = Math.max(1, size / limit);
         for (int i = 0; i < size && count < limit; i += strideStep) {
             long offset = store.recordOffset(i);
-            byte flags = layout.readFlags(segment, offset);
-            if (EncodingHeaderFields.isTombstoned(flags)) {
+            if (store.isTombstoned(offset)) {
                 continue;
             }
 
-            MemorySegment.copy(segment, layout.vectorOffset(offset), MemorySegment.ofArray(qBytes), 0, vecBytes);
+            byte[] qBytes = store.readVector(offset);
+            if (qBytes == null) {
+                continue;
+            }
             float[] vector = quantizer.decode(qBytes);
 
             if (signal.soulPriorPreference() != null) {

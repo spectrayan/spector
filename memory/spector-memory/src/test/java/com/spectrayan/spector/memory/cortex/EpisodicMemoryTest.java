@@ -223,7 +223,6 @@ class EpisodicMemoryTest {
         assertEquals(com.spectrayan.spector.memory.model.MemoryType.EPISODIC, episodicMemory.type());
         assertEquals(0, episodicMemory.visibleCount());
         assertEquals(0.0f, episodicMemory.tombstoneRatio());
-        assertNull(episodicMemory.headerSlab());
 
         long offset = episodicMemory.appendTurn(
                 ConversationRole.USER, 1, 1000L, 123L,

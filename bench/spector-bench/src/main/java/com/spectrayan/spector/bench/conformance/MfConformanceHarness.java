@@ -677,12 +677,18 @@ public final class MfConformanceHarness {
                                         engSource
                                 );
                                 com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout.INSTANCE.writeHeaderRecord(
-                                        episodic.primarySegment(), episodic.dataOffset() + loc.offset(), updated
+                                        episodic.segment(), episodic.dataOffset() + loc.offset(), updated
                                 );
                             }
                         }
                     } else {
-                        var segment = router.segmentFor(loc.type());
+                        var store = switch (loc.type()) {
+                            case SEMANTIC -> router.semantic();
+                            case PROCEDURAL -> router.procedural();
+                            case WORKING -> router.working();
+                            default -> null;
+                        };
+                        var segment = store != null ? store.primarySegment() : null;
                         var layout = router.layoutFor(loc.type());
                         if (segment != null && layout != null) {
                             EncodingHeader existing = layout.readHeader(segment, loc.offset());
