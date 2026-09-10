@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.dream;
 
+import com.spectrayan.spector.kernel.id.MemoryId;
+
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
@@ -19,10 +21,10 @@ import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
-import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
+import com.spectrayan.spector.kernel.id.MemoryIdGenerator;
+import com.spectrayan.spector.kernel.shape.DistributedMemoryTensor;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
@@ -32,7 +34,7 @@ import com.spectrayan.spector.memory.pathway.dream.relay.DreamGateRelay;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamGates;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamIngestionRelay;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamJournalRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
+import com.spectrayan.spector.kernel.api.DreamMode;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamSignal;
 import com.spectrayan.spector.memory.pathway.dream.relay.EfeTriageRelay;
@@ -193,16 +195,33 @@ public final class DreamPathway implements AutoCloseable {
     }
 
     /**
-     * Convenience method to execute a dream cycle with soul contexts and salience profile.
+     * Executes a dream cycle for an explicit namespace kernel and populated signal.
+     *
+     * @param kernel the namespace kernel
+     * @param signal the dream signal
+     * @return the dream report
      */
-    public DreamReport dream(
-            DreamMode mode,
-            PartitionManager pm,
-            AismeProperties aismeConfig,
-            SoulContext primarySoul,
-            List<SoulContext> soulContexts,
-            SalienceProfile salienceProfile) {
+    public DreamReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel, final DreamSignal signal) {
+        Objects.requireNonNull(signal, "signal cannot be null");
+        if (kernel != null) {
+            signal.kernel(kernel);
+        }
+        return conduct(signal);
+    }
+
+    /**
+     * Executes a dream cycle for an explicit namespace kernel with soul contexts and salience profile.
+     */
+    public DreamReport execute(
+            final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
+            final DreamMode mode,
+            final PartitionManager pm,
+            final AismeProperties aismeConfig,
+            final SoulContext primarySoul,
+            final List<SoulContext> soulContexts,
+            final SalienceProfile salienceProfile) {
         DreamSignal signal = DreamSignal.builder()
+                .kernel(kernel)
                 .mode(mode)
                 .config(dreamProperties)
                 .partitionManager(pm != null ? pm : partitionManager)
@@ -221,6 +240,19 @@ public final class DreamPathway implements AutoCloseable {
                 .build();
 
         return conduct(signal);
+    }
+
+    /**
+     * Convenience method to execute a dream cycle with soul contexts and salience profile.
+     */
+    public DreamReport dream(
+            DreamMode mode,
+            PartitionManager pm,
+            AismeProperties aismeConfig,
+            SoulContext primarySoul,
+            List<SoulContext> soulContexts,
+            SalienceProfile salienceProfile) {
+        return execute(null, mode, pm, aismeConfig, primarySoul, soulContexts, salienceProfile);
     }
 
     /**

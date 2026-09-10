@@ -11,6 +11,9 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.model;
+import com.spectrayan.spector.kernel.api.MemoryType;
+
+import com.spectrayan.spector.kernel.id.MemoryId;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -21,7 +24,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import com.spectrayan.spector.config.model.TextSearchMode;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 
 /**
  * Tests for memory model records, enums, and computed helpers:

@@ -18,7 +18,7 @@ import com.spectrayan.spector.core.spacetime.Time2VecProjector;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamSignal;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion;
-import com.spectrayan.spector.memory.synapse.scan.RecordGates;
+import com.spectrayan.spector.kernel.score.RecordGates;
 import com.spectrayan.spector.memory.pathway.wander.relay.WanderSignal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

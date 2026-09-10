@@ -11,6 +11,11 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.aisme.relay;
+import com.spectrayan.spector.kernel.api.MemoryType;
+
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.aisme.narrative.NarrativeSelfEngine;
@@ -163,7 +168,7 @@ public final class ConstructiveSimulationRelay implements SynapticRelay<RecallSi
 
                     if (alignSim > 0.3f) {
                         float simScore = (r1.score() + r2.score()) * 0.5f * (1.0f + narrativeWeight * alignSim);
-                        String simId = new com.spectrayan.spector.memory.kernel.id.TsidGenerator().generate();
+                        String simId = new com.spectrayan.spector.kernel.id.TsidGenerator().generate();
                         CognitiveResult simResult = new CognitiveResult(
                                 simId,
                                 "[Constructive Simulation: " + r1.id() + "+" + r2.id() + "] " + r1.text() + " | " + r2.text(),
@@ -172,20 +177,20 @@ public final class ConstructiveSimulationRelay implements SynapticRelay<RecallSi
                                 0.0f,
                                 0,
                                 (byte) ((r1.valence() + r2.valence()) / 2),
-                                com.spectrayan.spector.memory.model.MemoryType.EPISODIC,
-                                com.spectrayan.spector.memory.cortex.MemorySource.INFERRED,
+                                com.spectrayan.spector.kernel.api.MemoryType.EPISODIC,
+                                com.spectrayan.spector.kernel.api.MemorySource.INFERRED,
                                 new String[]{"simulated", "counterfactual", "constructive"},
                                 1.0f,
                                 1.0f,
                                 com.spectrayan.spector.memory.model.CognitiveResult.RetrievalMode.STANDARD,
                                 null,
                                 null,
-                                com.spectrayan.spector.memory.model.SourceModality.TEXT,
+                                com.spectrayan.spector.kernel.api.SourceModality.TEXT,
                                 java.util.Map.of(
                                         "simulation", "counterfactual_recombination",
                                         "alignSim", String.valueOf(alignSim)
                                 ),
-                                com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.FLAG_SIMULATED
+                                com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.FLAG_SIMULATED
                         );
                         candidates.add(simResult);
                         signal.attributes().put("simVec:" + simId, simVec);

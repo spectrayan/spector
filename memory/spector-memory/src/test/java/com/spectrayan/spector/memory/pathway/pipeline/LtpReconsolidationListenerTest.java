@@ -12,14 +12,16 @@
  */
 package com.spectrayan.spector.memory.pathway.pipeline;
 
+import com.spectrayan.spector.kernel.api.MemoryLocation;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.store.DefaultHeaderCursor;
+import com.spectrayan.spector.kernel.store.StrengthMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
-import com.spectrayan.spector.memory.cortex.StrengthMemory;
-import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
 import org.junit.jupiter.api.DisplayName;
@@ -59,9 +61,8 @@ class LtpReconsolidationListenerTest {
             when(index.locate("test-mem-1")).thenReturn(new MemoryLocation(MemoryType.SEMANTIC, 0, 0, 0, -1L, -1));
             when(index.findIdByOffset(0, MemoryType.SEMANTIC, 0)).thenReturn("test-mem-1");
             when(partitionRegistry.routerFor(0)).thenReturn(router);
-            when(router.segmentFor(MemoryType.SEMANTIC)).thenReturn(engramSegment);
-            when(router.layoutFor(MemoryType.SEMANTIC)).thenReturn(layout);
-            when(router.strength()).thenReturn(strengthStore);
+            when(router.cursor(MemoryType.SEMANTIC)).thenAnswer(
+                    inv -> new DefaultHeaderCursor(engramSegment, layout, MemoryType.SEMANTIC, 2, 0, strengthStore));
 
             LtpReconsolidationListener listener = new LtpReconsolidationListener(index, partitionRegistry, wal);
 

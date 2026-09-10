@@ -11,12 +11,13 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex;
+import com.spectrayan.spector.kernel.store.TextBlobMemory;
 
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.cortex.TextBlobMemory.TextEntry;
-import com.spectrayan.spector.memory.cortex.TextBlobMemory.TextPosition;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.store.TextBlobMemory.TextEntry;
+import com.spectrayan.spector.kernel.store.TextBlobMemory.TextPosition;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,8 +51,8 @@ class TextBlobMemoryPersistenceTest {
         try (FileChannel ch = FileChannel.open(textFile,
                 StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
             ByteBuffer header = ByteBuffer.allocate(16);
-            header.putInt(StorageLayout.TEXT_DAT_MAGIC); // 0x54585444
-            header.putInt(StorageLayout.TEXT_DAT_VERSION); // 2
+            header.putInt(StoragePaths.TEXT_DAT_MAGIC); // 0x54585444
+            header.putInt(StoragePaths.TEXT_DAT_VERSION); // 2
             header.putInt(2); // entry_count
             header.putInt(0); // reserved
             header.flip();

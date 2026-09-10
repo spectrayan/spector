@@ -63,7 +63,7 @@ import com.spectrayan.spector.memory.persist.DataLayoutVersion;
 import com.spectrayan.spector.memory.persist.LayoutMigrator;
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.spring.autoconfigure.SpectorConfigProperties;
@@ -92,7 +92,7 @@ import com.sun.net.httpserver.HttpServer;
  *       heavyweight and flaky in a unit/integration harness, and {@code MemoryRegistry} is a
  *       {@code final} class whose per-user instances are built by a private heavyweight builder.
  *       Instead we assert the two properties that <em>guarantee</em> "write as A → recall as B
- *       returns nothing": (1) {@link StorageLayout#namespaceDirSharded(Path, String)} resolves two
+ *       returns nothing": (1) {@link StoragePaths#namespaceDirSharded(Path, String)} resolves two
  *       distinct, non-overlapping directories for two distinct users so their on-disk state can
  *       never coincide, and (2) {@link MemoryRegistry} returns a distinct cached instance per
  *       authenticated principal and never crosses — so a write routed through A's instance is
@@ -159,8 +159,8 @@ class EndToEndIsolationIntegrationTest {
         @Test
         @DisplayName("Req 8.2: distinct users resolve distinct, non-overlapping sharded directories under the base")
         void distinctUsersResolveDistinctShardedDirectories() {
-            Path dirA = StorageLayout.namespaceDirSharded(dataRoot, USER_A);
-            Path dirB = StorageLayout.namespaceDirSharded(dataRoot, USER_B);
+            Path dirA = StoragePaths.namespaceDirSharded(dataRoot, USER_A);
+            Path dirB = StoragePaths.namespaceDirSharded(dataRoot, USER_B);
 
             assertThat(dirA).isNotEqualTo(dirB);
             // Neither path is an ancestor of the other — no user's tree contains another's.
@@ -357,7 +357,7 @@ class EndToEndIsolationIntegrationTest {
         }
 
         private Path defaultNamespaceRoot() {
-            return StorageLayout.namespaceDirSharded(dataRoot, DEFAULT_USER_ID);
+            return StoragePaths.namespaceDirSharded(dataRoot, DEFAULT_USER_ID);
         }
 
         @Test
@@ -403,7 +403,7 @@ class EndToEndIsolationIntegrationTest {
 
             // No per-user namespace directory is created; the flat layout and version are untouched.
             assertThat(defaultNamespaceRoot()).doesNotExist();
-            assertThat(StorageLayout.namespacesDir(dataRoot)).doesNotExist();
+            assertThat(StoragePaths.namespacesDir(dataRoot)).doesNotExist();
             assertThat(DataLayoutVersion.read(dataRoot)).isEqualTo(DataLayoutVersion.LEGACY_FLAT);
             // Disabled ⇒ no default-admin seeding either.
             verify(accountStore, never()).seedDefaultAdmin(org.mockito.ArgumentMatchers.any());

@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.bench.cognitive.generator;
 
+import com.spectrayan.spector.kernel.id.MemoryId;
+
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -27,7 +29,7 @@ import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
 import com.spectrayan.spector.bench.cognitive.model.EntityMention;
 import com.spectrayan.spector.bench.cognitive.model.PersonaDef;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 import tools.jackson.core.type.TypeReference;
 

@@ -11,25 +11,26 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicMemory;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
-import com.spectrayan.spector.memory.cortex.ProceduralMemory;
-import com.spectrayan.spector.memory.cortex.SemanticMemory;
-import com.spectrayan.spector.memory.cortex.WorkingMemory;
-import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.kernel.store.ProceduralMemory;
+import com.spectrayan.spector.kernel.store.SemanticMemory;
+import com.spectrayan.spector.kernel.store.WorkingMemory;
+import com.spectrayan.spector.kernel.error.SpectorMemoryTierFullException;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.bundle.LegacyV3Layout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.bundle.compat.LegacyV3BundleFormat;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -111,10 +112,8 @@ class PartitionManagerTest {
     /** Builds a real router with fresh tier stores rooted in the given partition dir. */
     private CognitiveMemoryRouter newRouter(Path partitionDir) {
         WorkingMemory working = new WorkingMemory(VEC_BYTES, 64);
-        SemanticMemory semantic = new SemanticMemory(
-                VEC_BYTES, SEMANTIC_CAP, LegacyV3Layout.semanticMem(partitionDir));
-        ProceduralMemory procedural = new ProceduralMemory(
-                VEC_BYTES, PROCEDURAL_CAP, LegacyV3Layout.proceduralMem(partitionDir));
+        SemanticMemory semantic = new SemanticMemory(VEC_BYTES, SEMANTIC_CAP);
+        ProceduralMemory procedural = new ProceduralMemory(VEC_BYTES, PROCEDURAL_CAP);
         EpisodicMemory episodicLog = EpisodicMemory.heap();
         CognitiveMemoryRouter router = new CognitiveMemoryRouter(working, semantic, procedural, episodicLog);
         routersToClose.add(router);
@@ -122,7 +121,7 @@ class PartitionManagerTest {
     }
 
     private PartitionManager newManager(CognitiveMemoryRouter router, Path activeDir) {
-        int seq = StorageLayout.parsePartitionSeqNo(activeDir.getFileName().toString());
+        int seq = StoragePaths.parsePartitionSeqNo(activeDir.getFileName().toString());
         return new PartitionManager(
                 basePath, VEC_BYTES, SEMANTIC_CAP, EPISODIC_CAP, PROCEDURAL_CAP,
                 router, activeDir, /* initialText */ null, seq,
@@ -156,9 +155,9 @@ class PartitionManagerTest {
     @Test
     @DisplayName("discovery: existing partition dirs are sorted ascending by seq on load")
     void existingPartitionDirsAreDiscoveredAscendingBySeq() throws Exception {
-        Files.createDirectories(StorageLayout.partitionDir(basePath, 0, 1_000L));
-        Files.createDirectories(StorageLayout.partitionDir(basePath, 2, 3_000L));
-        Files.createDirectories(StorageLayout.partitionDir(basePath, 1, 2_000L));
+        Files.createDirectories(StoragePaths.partitionDir(basePath, 0, 1_000L));
+        Files.createDirectories(StoragePaths.partitionDir(basePath, 2, 3_000L));
+        Files.createDirectories(StoragePaths.partitionDir(basePath, 1, 2_000L));
 
         List<Path> discovered = PartitionManager.discoverAllPartitions(basePath);
         assertThat(discovered).hasSize(3);
@@ -195,7 +194,7 @@ class PartitionManagerTest {
         // A new partition dir with the next sequence number exists and is now active.
         Path active = pm.activePartitionDir();
         assertThat(active).isNotEqualTo(p0);
-        assertThat(StorageLayout.parsePartitionSeqNo(active.getFileName().toString())).isEqualTo(1);
+        assertThat(StoragePaths.parsePartitionSeqNo(active.getFileName().toString())).isEqualTo(1);
         assertThat(Files.isDirectory(active)).isTrue();
 
         // Router was swapped to a brand-new instance backed by empty stores.
@@ -281,16 +280,16 @@ class PartitionManagerTest {
         // Link two nodes so the persistent backing has content to be copied to runtime/.
         temporal.link(0, 1);
 
-        assertThat(Files.exists(LegacyV3Layout.indexMidxRuntime(basePath))).isFalse();
+        assertThat(Files.exists(LegacyV3BundleFormat.indexMidxRuntime(basePath))).isFalse();
 
         pm.rollPartition();
         routersToClose.add(pm.cognitiveRouter());
 
-        assertThat(Files.exists(LegacyV3Layout.indexMidxRuntime(basePath)))
+        assertThat(Files.exists(LegacyV3BundleFormat.indexMidxRuntime(basePath)))
                 .as("MemoryIndex flushed to runtime/").isTrue();
-        assertThat(Files.exists(LegacyV3Layout.hebbianGraphRuntime(basePath)))
+        assertThat(Files.exists(LegacyV3BundleFormat.hebbianGraphRuntime(basePath)))
                 .as("Hebbian graph flushed to runtime/").isTrue();
-        assertThat(Files.exists(LegacyV3Layout.temporalChainRuntime(basePath)))
+        assertThat(Files.exists(LegacyV3BundleFormat.temporalChainRuntime(basePath)))
                 .as("Temporal chain flushed to runtime/").isTrue();
     }
 

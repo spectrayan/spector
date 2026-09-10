@@ -92,53 +92,59 @@ class ToolExecutionNodeApprovalTest {
     @Test
     @DisplayName("Write tool intercepts, awaits approval, and succeeds when approved")
     void testWriteToolApprovedExecution() {
-        var executor = Executors.newSingleThreadScheduledExecutor();
-        executor.schedule(() -> {
-            var pending = repository.findPending();
-            if (!pending.isEmpty()) {
-                approvalService.approve(pending.getFirst().id());
-            }
-        }, 100, TimeUnit.MILLISECONDS);
+        var executor = Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().daemon().factory());
+        try {
+            executor.schedule(() -> {
+                var pending = repository.findPending();
+                if (!pending.isEmpty()) {
+                    approvalService.approve(pending.getFirst().id());
+                }
+            }, 100, TimeUnit.MILLISECONDS);
 
-        CognitiveState state = new CognitiveState(Map.of(
-                "tool_calls", List.of("delete_file({\"path\": \"/tmp/test.txt\"})")
-        ));
+            CognitiveState state = new CognitiveState(Map.of(
+                    "tool_calls", List.of("delete_file({\"path\": \"/tmp/test.txt\"})")
+            ));
 
-        Map<String, Object> result = node.apply(state);
-        executor.shutdown();
+            Map<String, Object> result = node.apply(state);
 
-        @SuppressWarnings("unchecked")
-        List<String> toolResults = (List<String>) result.get("tool_results");
-        assertThat(toolResults).hasSize(1);
-        assertThat(toolResults.getFirst()).contains("Deleted: /tmp/test.txt");
+            @SuppressWarnings("unchecked")
+            List<String> toolResults = (List<String>) result.get("tool_results");
+            assertThat(toolResults).hasSize(1);
+            assertThat(toolResults.getFirst()).contains("Deleted: /tmp/test.txt");
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test
     @DisplayName("Write tool intercepts, returns DENIED in state when rejected by human")
     void testWriteToolRejectedExecution() {
-        var executor = Executors.newSingleThreadScheduledExecutor();
-        executor.schedule(() -> {
-            var pending = repository.findPending();
-            if (!pending.isEmpty()) {
-                approvalService.reject(pending.getFirst().id(), "File is protected");
-            }
-        }, 100, TimeUnit.MILLISECONDS);
+        var executor = Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().daemon().factory());
+        try {
+            executor.schedule(() -> {
+                var pending = repository.findPending();
+                if (!pending.isEmpty()) {
+                    approvalService.reject(pending.getFirst().id(), "File is protected");
+                }
+            }, 100, TimeUnit.MILLISECONDS);
 
-        CognitiveState state = new CognitiveState(Map.of(
-                "tool_calls", List.of("delete_file({\"path\": \"/etc/shadow\"})")
-        ));
+            CognitiveState state = new CognitiveState(Map.of(
+                    "tool_calls", List.of("delete_file({\"path\": \"/etc/shadow\"})")
+            ));
 
-        Map<String, Object> result = node.apply(state);
-        executor.shutdown();
+            Map<String, Object> result = node.apply(state);
 
-        @SuppressWarnings("unchecked")
-        List<String> toolResults = (List<String>) result.get("tool_results");
-        assertThat(toolResults).hasSize(1);
-        assertThat(toolResults.getFirst()).contains("[DENIED]").contains("File is protected");
+            @SuppressWarnings("unchecked")
+            List<String> toolResults = (List<String>) result.get("tool_results");
+            assertThat(toolResults).hasSize(1);
+            assertThat(toolResults.getFirst()).contains("[DENIED]").contains("File is protected");
 
-        @SuppressWarnings("unchecked")
-        List<String> context = (List<String>) result.get("context");
-        assertThat(context).hasSize(1);
-        assertThat(context.getFirst()).contains("DENIED");
+            @SuppressWarnings("unchecked")
+            List<String> context = (List<String>) result.get("context");
+            assertThat(context).hasSize(1);
+            assertThat(context.getFirst()).contains("DENIED");
+        } finally {
+            executor.shutdownNow();
+        }
     }
 }

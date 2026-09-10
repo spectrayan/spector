@@ -97,6 +97,7 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition notFull = lock.newCondition();
     private final AtomicInteger inFlightWorkers = new AtomicInteger(0);
+    private final java.util.Set<Thread> workerThreads = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     // Telemetry counters
     private final AtomicLong submittedCount = new AtomicLong(0);
@@ -339,40 +340,46 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
     }
 
     private void workerLoop() {
-        while (!Thread.currentThread().isInterrupted()) {
-            if (closed.get() && queue.isEmpty()) {
-                break;
-            }
-            try {
-                ScopedTask<T> first = queue.poll(config.pollTimeoutMs(), TimeUnit.MILLISECONDS);
-                if (first != null) {
-                    inFlightWorkers.incrementAndGet();
-                    try {
-                        if (batchHandler != null && config.batchDrainSize() > 1) {
-                            List<ScopedTask<T>> batch = new ArrayList<>(config.batchDrainSize());
-                            batch.add(first);
-                            queue.drainTo(batch, config.batchDrainSize() - 1);
-                            signalNotFull();
-                            dispatchBatch(batch);
-                        } else {
-                            signalNotFull();
-                            if (batchHandler != null) {
-                                dispatchBatch(List.of(first));
-                            } else {
-                                dispatchDirect(first);
-                            }
-                        }
-                    } finally {
-                        inFlightWorkers.decrementAndGet();
-                    }
+        Thread current = Thread.currentThread();
+        workerThreads.add(current);
+        try {
+            while (!current.isInterrupted()) {
+                if (closed.get() && queue.isEmpty()) {
+                    break;
                 }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.log(System.Logger.Level.DEBUG, "[{0}] Worker interrupted during poll, exiting loop", name);
-                break;
-            } catch (Exception e) {
-                log.log(System.Logger.Level.WARNING, "[{0}] Unexpected error in worker loop: {1}", name, e.getMessage());
+                try {
+                    ScopedTask<T> first = queue.poll(config.pollTimeoutMs(), TimeUnit.MILLISECONDS);
+                    if (first != null) {
+                        inFlightWorkers.incrementAndGet();
+                        try {
+                            if (batchHandler != null && config.batchDrainSize() > 1) {
+                                List<ScopedTask<T>> batch = new ArrayList<>(config.batchDrainSize());
+                                batch.add(first);
+                                queue.drainTo(batch, config.batchDrainSize() - 1);
+                                signalNotFull();
+                                dispatchBatch(batch);
+                            } else {
+                                signalNotFull();
+                                if (batchHandler != null) {
+                                    dispatchBatch(List.of(first));
+                                } else {
+                                    dispatchDirect(first);
+                                }
+                            }
+                        } finally {
+                            inFlightWorkers.decrementAndGet();
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    current.interrupt();
+                    log.log(System.Logger.Level.DEBUG, "[{0}] Worker interrupted during poll, exiting loop", name);
+                    break;
+                } catch (Exception e) {
+                    log.log(System.Logger.Level.WARNING, "[{0}] Unexpected error in worker loop: {1}", name, e.getMessage());
+                }
             }
+        } finally {
+            workerThreads.remove(current);
         }
     }
 
@@ -592,6 +599,12 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
             TaskQueueManager.unregister(this.name);
             signalNotFull();
 
+            if (queue.isEmpty() && inFlightWorkers.get() == 0) {
+                for (Thread worker : workerThreads) {
+                    worker.interrupt();
+                }
+            }
+
             log.log(System.Logger.Level.INFO,
                     "[{0}] Draining queue (backlog={1}, inFlight={2}) with {3} ms timeout...",
                     name, queue.size(), inFlightWorkers.get(), config.drainTimeoutMs());
@@ -604,6 +617,9 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
                     log.log(System.Logger.Level.WARNING, "[{0}] Interrupted while draining queue", name);
                     break;
                 }
+            }
+            for (Thread worker : workerThreads) {
+                worker.interrupt();
             }
             int remaining = queue.size();
             if (remaining > 0) {

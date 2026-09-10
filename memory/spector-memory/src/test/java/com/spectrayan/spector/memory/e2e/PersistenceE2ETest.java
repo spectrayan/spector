@@ -11,9 +11,10 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.e2e;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 import com.spectrayan.spector.memory.*;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.model.*;
 
 import org.junit.jupiter.api.*;
@@ -106,10 +107,10 @@ class PersistenceE2ETest extends AbstractE2ETest {
                     .build();
 
             diskMemory.remember("persist-001", "This is a test memory for persistence validation",
-                    MemoryType.EPISODIC, com.spectrayan.spector.memory.cortex.MemorySource.OBSERVED,
+                    MemoryType.EPISODIC, com.spectrayan.spector.kernel.api.MemorySource.OBSERVED,
                     "test", "persistence");
             diskMemory.remember("persist-002", "Second test memory for round-trip verification",
-                    MemoryType.SEMANTIC, com.spectrayan.spector.memory.cortex.MemorySource.REFLECTED,
+                    MemoryType.SEMANTIC, com.spectrayan.spector.kernel.api.MemorySource.REFLECTED,
                     "test", "verification");
 
             int countBefore = diskMemory.totalMemories();
@@ -119,7 +120,7 @@ class PersistenceE2ETest extends AbstractE2ETest {
             diskMemory.close();
 
             // 3. Verify persistence files exist
-            assertThat(Files.exists(StorageLayout.runtimeBundleFile(testDataDir)))
+            assertThat(Files.exists(StoragePaths.runtimeBundleFile(testDataDir)))
                     .as("Runtime storage bundle should exist").isTrue();
 
             // 4. Reload from disk

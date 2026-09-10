@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.remember.relay;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
@@ -50,7 +51,7 @@ public final class KnowledgeGraphEnrichmentRelay implements SynapticRelay<Rememb
         }
 
         // Episodic memories are raw event logs and should not generate entity graph links or KG extractions
-        if (signal.type() == com.spectrayan.spector.memory.model.MemoryType.EPISODIC) {
+        if (signal.type() == com.spectrayan.spector.kernel.api.MemoryType.EPISODIC) {
             return true;
         }
 

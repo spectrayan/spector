@@ -11,14 +11,15 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex.consolidation;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.SemanticMemory;
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.store.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.cortex.consolidation.DuplicateDetector.DuplicatePair;
 
 import org.junit.jupiter.api.AfterEach;
@@ -182,7 +183,7 @@ class DuplicateDetectorTest {
 
         long offset = store.write(header, vector);
         
-        MemoryIndex.MemoryLocation location = new MemoryIndex.MemoryLocation(MemoryType.SEMANTIC, offset, -1);
+        MemoryLocation location = new MemoryLocation(MemoryType.SEMANTIC, offset, -1);
         index.register(id, location, "test text", MemorySource.OBSERVED, new String[0]);
     }
 }

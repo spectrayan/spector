@@ -13,21 +13,21 @@
 package com.spectrayan.spector.memory.synapse;
 
 import com.spectrayan.spector.core.spacetime.Time2VecProjector;
-import com.spectrayan.spector.memory.cortex.SemanticMemory;
-import com.spectrayan.spector.memory.cortex.StrengthMemory;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.store.SemanticMemory;
+import com.spectrayan.spector.kernel.store.StrengthMemory;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.model.SourceModality;
+import com.spectrayan.spector.kernel.api.SourceModality;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal;
 import com.spectrayan.spector.memory.pathway.recall.relay.SpacetimeScoringRelay;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
 import com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion;
-import com.spectrayan.spector.memory.synapse.scan.RecordGates;
+import com.spectrayan.spector.kernel.score.RecordGates;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -72,7 +72,7 @@ class SpacetimeScoringFixtureTest {
                     .build();
 
             final List<ScoredRecord> results = CognitiveScorer.score(
-                    store.segment(), 2, layout, queryVec, optsDefault, now, 0L, null, null);
+                    store, queryVec, optsDefault, now);
 
             // Future memory MUST be rejected before entering heap
             assertThat(results).hasSize(1);
@@ -100,7 +100,7 @@ class SpacetimeScoringFixtureTest {
                     .build();
 
             final List<ScoredRecord> results = CognitiveScorer.score(
-                    store.segment(), 1, layout, queryVec, optsDmn, now, 0L, null, null);
+                    store, queryVec, optsDmn, now);
 
             assertThat(results).hasSize(1);
             assertThat(results.get(0).header().timestampMs()).isEqualTo(futureHeader.timestampMs());
@@ -151,7 +151,7 @@ class SpacetimeScoringFixtureTest {
                     .build();
 
             final List<ScoredRecord> results = CognitiveScorer.score(
-                    store.segment(), 2, layout, queryVec, opts, now, 0L, null, null, null, null, strengthStore, MemoryType.SEMANTIC);
+                    store, queryVec, opts, now, null, null, null, null, strengthStore);
 
             // Only the high-mass memory survives Phase 4 screening despite I < 1.0
             assertThat(results).hasSize(1);

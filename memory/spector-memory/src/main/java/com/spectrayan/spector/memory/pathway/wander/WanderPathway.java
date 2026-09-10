@@ -17,9 +17,9 @@ import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
 import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold;
-import com.spectrayan.spector.memory.cortex.ContinuityMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.kernel.Memory;
+import com.spectrayan.spector.kernel.store.ContinuityMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
+import com.spectrayan.spector.kernel.shape.Memory;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.pathway.simulation.relay.SpacetimeSeedRelay;
@@ -143,10 +143,28 @@ public final class WanderPathway implements AutoCloseable {
     }
 
     /**
-     * Convenience method to execute a mind-wandering cycle.
+     * Executes the wandering pathway for an explicit namespace kernel and populated signal.
+     *
+     * @param kernel the namespace kernel
+     * @param signal the wander execution signal
+     * @return resulting {@link WanderReport}
      */
-    public WanderReport wander(final PartitionManager partitionManager, final long lastActivityTimestampMs) {
+    public WanderReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel, final WanderSignal signal) {
+        Objects.requireNonNull(signal, "WanderSignal cannot be null");
+        if (kernel != null) {
+            signal.kernel(kernel);
+        }
+        return conduct(signal);
+    }
+
+    /**
+     * Executes a mind-wandering cycle for an explicit namespace kernel.
+     */
+    public WanderReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
+                                final PartitionManager partitionManager,
+                                final long lastActivityTimestampMs) {
         WanderSignal signal = WanderSignal.builder()
+                .kernel(kernel)
                 .partitionManager(partitionManager)
                 .quantizer(quantizer)
                 .embeddingProvider(embeddingProvider)
@@ -163,6 +181,13 @@ public final class WanderPathway implements AutoCloseable {
                 .build();
 
         return conduct(signal);
+    }
+
+    /**
+     * Convenience method to execute a mind-wandering cycle.
+     */
+    public WanderReport wander(final PartitionManager partitionManager, final long lastActivityTimestampMs) {
+        return execute(null, partitionManager, lastActivityTimestampMs);
     }
 
     public ContinuityMemory continuityMemory() {

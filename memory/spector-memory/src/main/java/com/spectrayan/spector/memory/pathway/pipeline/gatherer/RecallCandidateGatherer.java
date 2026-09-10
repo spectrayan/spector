@@ -11,28 +11,28 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.pipeline.gatherer;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index.BM25Candidate;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.memory.cortex.EpisodicMemory;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.model.SourceModality;
+import com.spectrayan.spector.kernel.api.SourceModality;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.config.model.TextSearchMode;
-import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 
-import java.lang.foreign.MemorySegment;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -73,9 +73,23 @@ public class RecallCandidateGatherer {
                                    List<BM25Candidate> bm25Hits,
                                    RecallOptions options,
                                    PartitionRegistry partitionRegistry) {
+        fuseBM25Candidates(vectorResults, bm25Hits, options, partitionRegistry, this.index);
+    }
+
+    /**
+     * Fuses BM25 text search candidates with existing vector recall results using Reciprocal Rank Fusion (RRF),
+     * supporting an explicit MemoryIndex override for multi-tenant engine sharing.
+     */
+    @SuppressWarnings("deprecation")
+    public void fuseBM25Candidates(List<CognitiveResult> vectorResults,
+                                   List<BM25Candidate> bm25Hits,
+                                   RecallOptions options,
+                                   PartitionRegistry partitionRegistry,
+                                   MemoryIndex overrideIndex) {
         if (bm25Hits == null || bm25Hits.isEmpty()) return;
         final int RRF_K = 60;
         final long nowMs = System.currentTimeMillis();
+        final MemoryIndex effectiveIndex = overrideIndex != null ? overrideIndex : this.index;
 
         Map<String, CognitiveResult> existingById = new LinkedHashMap<>(vectorResults.size());
         Map<String, Float> rrfScores = new LinkedHashMap<>(vectorResults.size() + bm25Hits.size());
@@ -114,8 +128,8 @@ public class RecallCandidateGatherer {
                 float provenanceBoost = isPureTextSearch ? 1.0f
                         : (existing.source() != null ? (0.8f + 0.2f * existing.source().confidenceWeight()) : 1.0f);
                 vectorResults.add(existing.withScore(rrfScore * tierBoost * provenanceBoost));
-            } else if (index != null) {
-                MemoryIndex.MemoryLocation loc = index.locate(id);
+            } else if (effectiveIndex != null) {
+                MemoryLocation loc = effectiveIndex.locate(id);
                 if (loc == null) continue;
 
                 MemoryType type = loc.type();
@@ -148,13 +162,11 @@ public class RecallCandidateGatherer {
                                 }
                             }
                         } else {
-                            MemorySegment segment = router.segmentFor(type);
-                            if (segment != null) {
-                                FixedEngramLayout layout = router.layoutFor(type);
-                                byte cFlags = layout.readConsolidationFlags(segment, loc.offset());
-                                if (!options.includeContradictions() && EncodingHeaderFields.isContradicted(cFlags)) continue;
+                            var body = router.readRecordBody(loc, false);
+                            if (body != null) {
+                                if (!options.includeContradictions() && EncodingHeaderFields.isContradicted(body.consolidationFlags())) continue;
 
-                                var header = layout.readHeader(segment, loc.offset());
+                                var header = body.header();
                                 importance = header.importance();
                                 valence = header.valence();
                                 recallCount = (short) header.agentRecallCount();

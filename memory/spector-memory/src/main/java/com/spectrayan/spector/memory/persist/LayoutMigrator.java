@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.persist;
 
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -25,7 +25,7 @@ import org.slf4j.Logger;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory;
  * <p>Before multi-user support, a memory data root held its state in a flat layout:
  * {@code runtime/} and {@code partitions/} directly beneath the data root. When
  * authentication is enabled, each user's data instead lives under a single-level sharded
- * per-user directory resolved by {@link StorageLayout#namespaceDirSharded(Path, String)}
+ * per-user directory resolved by {@link StoragePaths#namespaceDirSharded(Path, String)}
  * (i.e. {@code namespaces/AA/BB/{userId}/}). This migrator relocates the flat layout into
  * the {@code defaultUserId} namespace so an existing single-user deployment can be enabled
  * for multi-user without data loss.</p>
@@ -60,7 +60,7 @@ import org.slf4j.LoggerFactory;
  * {@link AutoCloseable}.</p>
  *
  * @see DataLayoutVersion
- * @see StorageLayout#namespaceDirSharded(Path, String)
+ * @see StoragePaths#namespaceDirSharded(Path, String)
  */
 public final class LayoutMigrator {
 
@@ -94,7 +94,7 @@ public final class LayoutMigrator {
      *                      this value is itself the namespace id (no {@code user-} prefix)
      * @throws NullPointerException       if {@code dataRoot} is {@code null}
      * @throws SpectorValidationException if {@code defaultUserId} is not a valid namespace id
-     *                                    (see {@link StorageLayout#namespaceDirSharded(Path, String)})
+     *                                    (see {@link StoragePaths#namespaceDirSharded(Path, String)})
      * @throws UncheckedIOException       if an I/O error prevents copying or verification
      * @throws SpectorStorageException    if the copied layout fails byte-for-byte verification
      */
@@ -109,12 +109,12 @@ public final class LayoutMigrator {
         }
 
         // Resolves and validates the namespace id; the id IS the defaultUserId (no prefix).
-        Path namespaceDir = StorageLayout.namespaceDirSharded(dataRoot, defaultUserId);
+        Path namespaceDir = StoragePaths.namespaceDirSharded(dataRoot, defaultUserId);
 
-        Path flatRuntime = StorageLayout.runtimeDir(dataRoot);
-        Path flatPartitions = StorageLayout.partitionsDir(dataRoot);
-        Path destRuntime = namespaceDir.resolve(StorageLayout.DIR_RUNTIME);
-        Path destPartitions = namespaceDir.resolve(StorageLayout.DIR_PARTITIONS);
+        Path flatRuntime = StoragePaths.runtimeDir(dataRoot);
+        Path flatPartitions = StoragePaths.partitionsDir(dataRoot);
+        Path destRuntime = namespaceDir.resolve(StoragePaths.DIR_RUNTIME);
+        Path destPartitions = namespaceDir.resolve(StoragePaths.DIR_PARTITIONS);
 
         log.info("Migrating flat layout at {} (version {}) into namespace {} for user {}",
                 dataRoot, currentVersion, namespaceDir, defaultUserId);

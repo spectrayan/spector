@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
+import com.spectrayan.spector.kernel.id.MemoryId;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +35,7 @@ import com.spectrayan.spector.bench.cognitive.model.HebbianEdgeDef;
 import com.spectrayan.spector.bench.cognitive.model.PersonaDef;
 import com.spectrayan.spector.bench.cognitive.model.TemporalChainDef;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
  * Unit tests for {@link DatasetLoader#loadCorpus(Path)} and {@link DatasetLoader#loadQueries(Path)}.

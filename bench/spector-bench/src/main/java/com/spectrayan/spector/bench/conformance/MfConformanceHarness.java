@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.bench.conformance;
 
+import com.spectrayan.spector.kernel.engram.EpisodicHeaderLayout;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -46,16 +48,16 @@ import com.spectrayan.spector.bench.conformance.model.MfValenceWindow;
 
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
-import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.BigFiveTraits;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.PersonaContext;
 import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -652,10 +654,10 @@ public final class MfConformanceHarness {
                                     flags = (byte) (flags & ~EncodingHeaderFields.FLAG_RESOLVED);
                                 }
                                 byte cFlags = existing.consolidationFlags();
-                                com.spectrayan.spector.memory.model.EngramSource engSource = existing.source();
+                                com.spectrayan.spector.kernel.api.EngramSource engSource = existing.source();
                                 if ("simulated".equalsIgnoreCase(record.source())) {
                                     cFlags = EncodingHeaderFields.withSimulated(cFlags, true);
-                                    engSource = com.spectrayan.spector.memory.model.EngramSource.SIMULATED;
+                                    engSource = com.spectrayan.spector.kernel.api.EngramSource.SIMULATED;
                                 }
                                 EncodingHeader updated = new EncodingHeader(
                                         record.timestampMs(),
@@ -676,16 +678,20 @@ public final class MfConformanceHarness {
                                         cFlags,
                                         engSource
                                 );
-                                com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout.INSTANCE.writeHeaderRecord(
-                                        episodic.primarySegment(), episodic.dataOffset() + loc.offset(), updated
+                                com.spectrayan.spector.kernel.engram.EpisodicHeaderLayout.INSTANCE.writeHeaderRecord(
+                                        episodic.segment(), episodic.dataOffset() + loc.offset(), updated
                                 );
                             }
                         }
                     } else {
-                        var segment = router.segmentFor(loc.type());
-                        var layout = router.layoutFor(loc.type());
-                        if (segment != null && layout != null) {
-                            EncodingHeader existing = layout.readHeader(segment, loc.offset());
+                        var store = switch (loc.type()) {
+                            case SEMANTIC -> router.semantic();
+                            case PROCEDURAL -> router.procedural();
+                            case WORKING -> router.working();
+                            default -> null;
+                        };
+                        if (store != null) {
+                            EncodingHeader existing = store.readHeader(loc.offset());
                             byte flags = existing.flags();
                             if (record.memoryType() != null) {
                                 flags = EncodingHeaderFields.withMemoryType(flags, record.memoryType().ordinal());
@@ -696,10 +702,10 @@ public final class MfConformanceHarness {
                                 flags = (byte) (flags & ~EncodingHeaderFields.FLAG_RESOLVED);
                             }
                             byte cFlags = existing.consolidationFlags();
-                            com.spectrayan.spector.memory.model.EngramSource engSource = existing.source();
+                            com.spectrayan.spector.kernel.api.EngramSource engSource = existing.source();
                             if ("simulated".equalsIgnoreCase(record.source())) {
                                 cFlags = EncodingHeaderFields.withSimulated(cFlags, true);
-                                engSource = com.spectrayan.spector.memory.model.EngramSource.SIMULATED;
+                                engSource = com.spectrayan.spector.kernel.api.EngramSource.SIMULATED;
                             }
                             EncodingHeader updated = new EncodingHeader(
                                     record.timestampMs(),
@@ -720,7 +726,7 @@ public final class MfConformanceHarness {
                                     cFlags,
                                     engSource
                             );
-                            layout.writeHeader(segment, loc.offset(), updated);
+                            store.writeHeader(loc.offset(), updated);
                         }
                     }
                 }

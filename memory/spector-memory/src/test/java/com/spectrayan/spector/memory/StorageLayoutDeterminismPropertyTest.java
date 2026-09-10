@@ -37,11 +37,11 @@ import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 import net.jqwik.api.lifecycle.AfterTry;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import net.jqwik.api.lifecycle.BeforeTry;
 
 /**
- * Property-based tests for {@link StorageLayout#namespaceDirSharded(Path, String)}
+ * Property-based tests for {@link StoragePaths#namespaceDirSharded(Path, String)}
  * <b>path determinism / purity</b> (jqwik).
  *
  * <p>This class is intentionally separate from the isolation/well-formedness
@@ -85,7 +85,7 @@ class StorageLayoutDeterminismPropertyTest {
      * Smart generator for valid User_Id (namespace) values.
      *
      * <p>Constrains to the input space accepted by
-     * {@link StorageLayout#validateNamespaceId(String)}: non-null, non-blank,
+     * {@link StoragePaths#validateNamespaceId(String)}: non-null, non-blank,
      * length 1..256, and free of {@code '/'}, {@code '\\'}, {@code '.'}, the null
      * byte, and any C0 control character (U+0000..U+001F). Produces both realistic
      * 13-char TSID-style identifiers (Crockford Base32) and longer arbitrary valid
@@ -115,9 +115,9 @@ class StorageLayoutDeterminismPropertyTest {
 
         Set<String> before = snapshotTree(base);
 
-        Path reference = StorageLayout.namespaceDirSharded(base, userId);
+        Path reference = StoragePaths.namespaceDirSharded(base, userId);
         for (int i = 0; i < 64; i++) {
-            Path again = StorageLayout.namespaceDirSharded(base, userId);
+            Path again = StoragePaths.namespaceDirSharded(base, userId);
             // byte-for-byte equality: object equality AND identical string form.
             assertThat(again).isEqualTo(reference);
             assertThat(again.toString()).isEqualTo(reference.toString());
@@ -137,7 +137,7 @@ class StorageLayoutDeterminismPropertyTest {
 
         Set<String> before = snapshotTree(base);
 
-        Path reference = StorageLayout.namespaceDirSharded(base, userId);
+        Path reference = StoragePaths.namespaceDirSharded(base, userId);
 
         final int threads = 8;
         final int callsPerThread = 32;
@@ -153,7 +153,7 @@ class StorageLayoutDeterminismPropertyTest {
                     try {
                         startGate.await();
                         for (int i = 0; i < callsPerThread; i++) {
-                            results.add(StorageLayout.namespaceDirSharded(base, userId));
+                            results.add(StoragePaths.namespaceDirSharded(base, userId));
                         }
                     } catch (Throwable e) {
                         failure.compareAndSet(null, e);

@@ -11,10 +11,14 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.e2e;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.api.SourceModality;
 
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.model.*;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
 import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
@@ -154,9 +158,7 @@ class ModalityDiagnosticE2ETest extends AbstractE2ETest {
         assertThat(loc).isNotNull();
 
         var cognitiveRouter = admin.cognitiveRouter();
-        var layout = cognitiveRouter.layoutFor(loc.type());
-        var segment = cognitiveRouter.segmentFor(loc.type());
-        byte flags = layout.readFlags(segment, loc.offset());
+        byte flags = cognitiveRouter.readFlags(loc);
 
         int modalityOrdinal = EncodingHeaderFields.sourceModalityOrdinal(flags);
         SourceModality readModality = SourceModality.fromOrdinal(modalityOrdinal);

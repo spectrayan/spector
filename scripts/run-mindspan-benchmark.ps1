@@ -3,6 +3,7 @@
 param(
     [string]$DatasetDir = "",
     [string]$OutputDir = "",
+    [string]$MemoryDir = "",
     [string]$GeminiApiKey = $(if ($env:GEMINI_API_KEY) { $env:GEMINI_API_KEY } else { "" }),
     [string]$GeminiModel = "gemini-3.1-flash-lite",
     [int]$TopK = 20,
@@ -61,6 +62,7 @@ mvn test -pl bench/spector-bench `
     "-DskipBenchTests=false" `
     "-DdatasetDir=$DatasetDir" `
     "-DoutputDir=$OutputDir" `
+    "-DmemoryDir=$MemoryDir" `
     "-DgeminiApiKey=$GeminiApiKey" `
     "-DgeminiModel=$GeminiModel" `
     "-DtopK=$TopK" `

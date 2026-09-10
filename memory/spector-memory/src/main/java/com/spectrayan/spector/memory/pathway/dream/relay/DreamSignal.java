@@ -12,17 +12,22 @@
  */
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
+import com.spectrayan.spector.kernel.api.DreamMode;
+import com.spectrayan.spector.kernel.api.TriageOutcome;
+
+import com.spectrayan.spector.kernel.id.MemoryId;
+
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
-import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
-import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
+import com.spectrayan.spector.kernel.id.MemoryIdGenerator;
+import com.spectrayan.spector.kernel.id.TsidGenerator;
+import com.spectrayan.spector.kernel.shape.DistributedMemoryTensor;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -47,9 +52,6 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public final class DreamSignal {
 
-    public enum TriageOutcome {
-        EPISTEMIC, PRAGMATIC, IDENTITY, NOISE
-    }
 
     public record DreamScene(
             String id,
@@ -103,6 +105,7 @@ public final class DreamSignal {
 
     private final Instant startTime;
     private final ReentrantLock sceneLock = new ReentrantLock();
+    private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
 
     private DreamSignal(Builder builder) {
         this.mode = builder.mode;
@@ -142,6 +145,7 @@ public final class DreamSignal {
         this.hyperEntityGraph = builder.hyperEntityGraph;
         this.embeddingProvider = builder.embeddingProvider;
         this.hopfieldNetwork = builder.hopfieldNetwork;
+        this.kernel = builder.kernel;
 
         final long now = System.currentTimeMillis();
         if (builder.simulationTimeMs > 0L) {
@@ -220,6 +224,8 @@ public final class DreamSignal {
     public HyperEntityGraphMemory hyperEntityGraph() { return hyperEntityGraph; }
     public EmbeddingProvider embeddingProvider() { return embeddingProvider; }
     public ContinuousHopfieldNetwork hopfieldNetwork() { return hopfieldNetwork; }
+    public com.spectrayan.spector.kernel.api.NamespaceKernel kernel() { return kernel; }
+    public void kernel(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel) { this.kernel = kernel; }
 
     public AtomicInteger dreamsGenerated() { return dreamsGenerated; }
     public AtomicInteger dreamsIngested() { return dreamsIngested; }
@@ -308,6 +314,7 @@ public final class DreamSignal {
         private EmbeddingProvider embeddingProvider;
         private ContinuousHopfieldNetwork hopfieldNetwork;
         private MemoryIdGenerator idGenerator;
+        private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
 
         private long simulationTimeMs = 0L;
         private float[] queryTau = null;
@@ -343,6 +350,7 @@ public final class DreamSignal {
         public Builder recencyLambda(float lambda) { this.recencyLambda = lambda; return this; }
         public Builder allowFuture(boolean allow) { this.allowFuture = allow; return this; }
         public Builder candidateSeeds(List<com.spectrayan.spector.memory.model.CognitiveResult> seeds) { this.candidateSeeds = seeds; return this; }
+        public Builder kernel(com.spectrayan.spector.kernel.api.NamespaceKernel kernel) { this.kernel = kernel; return this; }
 
         public DreamSignal build() {
             return new DreamSignal(this);

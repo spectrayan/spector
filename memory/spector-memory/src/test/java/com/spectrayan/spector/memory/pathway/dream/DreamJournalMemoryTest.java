@@ -12,9 +12,9 @@
  */
 package com.spectrayan.spector.memory.pathway.dream;
 
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
+import com.spectrayan.spector.kernel.api.DreamMode;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamSignal;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamSignal.TriageOutcome;
+import com.spectrayan.spector.kernel.api.TriageOutcome;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

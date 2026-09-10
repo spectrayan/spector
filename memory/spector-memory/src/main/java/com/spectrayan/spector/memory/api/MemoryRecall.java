@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.api;
 
-import com.spectrayan.spector.memory.model.EpisodeRecord;
+import com.spectrayan.spector.kernel.api.EpisodeRecord;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -22,7 +22,7 @@ import com.spectrayan.spector.memory.model.GraphTraversalResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.WhyNotExplanation;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
-import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
+import com.spectrayan.spector.kernel.store.TemporalFact;
 
 import java.time.Instant;
 import java.util.List;

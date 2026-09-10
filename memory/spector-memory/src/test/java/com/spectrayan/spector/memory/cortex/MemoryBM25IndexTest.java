@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
+import com.spectrayan.spector.kernel.region.RegionSizeSpec;
+
+import com.spectrayan.spector.kernel.region.RegionId;
+
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index.BM25Candidate;
 
 import org.junit.jupiter.api.AfterEach;
@@ -187,12 +191,12 @@ class MemoryBM25IndexTest {
     @Test
     void persistToBundle_and_loadFromBundle_with_growth(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) {
         java.nio.file.Path bundlePath = tempDir.resolve("runtime.bundle");
-        List<com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec> specs = List.of(
-                new com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec(
-                        com.spectrayan.spector.memory.kernel.bundle.RegionId.WORKING, 4096, 10, 64, 1, 1, false),
+        List<com.spectrayan.spector.kernel.region.RegionSizeSpec> specs = List.of(
+                new com.spectrayan.spector.kernel.region.RegionSizeSpec(
+                        com.spectrayan.spector.kernel.region.RegionId.WORKING, 4096, 10, 64, 1, 1, false),
                 // Start with a small BM25 region to trigger growth
-                new com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec(
-                        com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25, 4096, 1, 0, 0x42494458, 1, true)
+                new com.spectrayan.spector.kernel.region.RegionSizeSpec(
+                        com.spectrayan.spector.kernel.region.RegionId.BM25, 4096, 1, 0, 0x42494458, 1, true)
         );
 
         bm25Index.addPartition();
@@ -203,20 +207,20 @@ class MemoryBM25IndexTest {
                     " and multiple repeated tokens to increase payload volume significantly in the posting list.");
         }
 
-        try (var runtimeBundle = com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.mmap(bundlePath, specs)) {
-            com.spectrayan.spector.memory.kernel.bundle.BundleManager mgr =
-                    new com.spectrayan.spector.memory.kernel.bundle.BundleManager(runtimeBundle);
+        try (var runtimeBundle = com.spectrayan.spector.kernel.bundle.RuntimeBundle.Init.mmap(bundlePath, specs)) {
+            com.spectrayan.spector.kernel.bundle.BundleManager mgr =
+                    new com.spectrayan.spector.kernel.bundle.BundleManager(runtimeBundle);
 
             int written = bm25Index.persistToBundle(runtimeBundle, mgr);
             assertThat(written).isGreaterThan(4096);
 
             // Verify BM25 region grew
-            assertThat(runtimeBundle.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25).byteSize())
+            assertThat(runtimeBundle.regionRef(com.spectrayan.spector.kernel.region.RegionId.BM25).resolve().byteSize())
                     .isGreaterThan(4096);
         }
 
         // Reopen bundle and load BM25 index
-        try (var reopenedBundle = com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.open(bundlePath)) {
+        try (var reopenedBundle = com.spectrayan.spector.kernel.bundle.RuntimeBundle.Init.open(bundlePath)) {
             com.spectrayan.spector.index.text.BM25Index loaded = MemoryBM25Index.loadFromBundle(reopenedBundle);
             assertThat(loaded).isNotNull();
             assertThat(loaded.size()).isEqualTo(200);

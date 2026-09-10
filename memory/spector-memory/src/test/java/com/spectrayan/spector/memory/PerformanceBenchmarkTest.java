@@ -11,17 +11,24 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
+import com.spectrayan.spector.kernel.store.ProceduralMemory;
+import com.spectrayan.spector.kernel.store.SemanticMemory;
+import com.spectrayan.spector.kernel.store.EngramRegion;
+
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
 
 import com.spectrayan.spector.memory.model.*;
 
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
-import com.spectrayan.spector.memory.cortex.WorkingMemory;
+import com.spectrayan.spector.kernel.store.WorkingMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
@@ -213,9 +220,9 @@ class PerformanceBenchmarkTest {
     void p12_totalCountDirectSum() {
         int quantizedVecBytes = 32;
         var working = new WorkingMemory(quantizedVecBytes, 10);
-        var episodicLog = com.spectrayan.spector.memory.cortex.EpisodicMemory.heap(100 * 256L);
-        var semantic = new com.spectrayan.spector.memory.cortex.SemanticMemory(quantizedVecBytes, 10);
-        var procedural = new com.spectrayan.spector.memory.cortex.ProceduralMemory(quantizedVecBytes, 10);
+        var episodicLog = com.spectrayan.spector.kernel.store.EpisodicMemory.heap(100 * 256L);
+        var semantic = new com.spectrayan.spector.kernel.store.SemanticMemory(quantizedVecBytes, 10);
+        var procedural = new com.spectrayan.spector.kernel.store.ProceduralMemory(quantizedVecBytes, 10);
         var router = new CognitiveMemoryRouter(working, semantic, procedural, episodicLog);
 
         try {
@@ -285,17 +292,18 @@ class PerformanceBenchmarkTest {
 
             RecallOptions opts = RecallOptions.builder().topK(10).build();
 
+            EngramRegion region = EngramRegion.of(seg, count, layout);
             // Warm up
             for (int i = 0; i < 5; i++) {
-                CognitiveScorer.score(seg, count, layout, query, opts,
-                        System.currentTimeMillis(), 0L, mins, scales);
+                CognitiveScorer.score(region, query, opts,
+                        System.currentTimeMillis(), mins, scales);
             }
 
             // Benchmark
             long start = System.nanoTime();
             List<ScoredRecord> results = CognitiveScorer.score(
-                    seg, count, layout, query, opts,
-                    System.currentTimeMillis(), 0L, mins, scales);
+                    region, query, opts,
+                    System.currentTimeMillis(), mins, scales);
             long elapsed = System.nanoTime() - start;
 
             System.out.printf("CognitiveScorer: %d records x %d-dim in %,d us  ->  %d results%n",

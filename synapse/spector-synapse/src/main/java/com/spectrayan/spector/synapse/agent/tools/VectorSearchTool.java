@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.synapse.mcp.McpRequestMemory;
 

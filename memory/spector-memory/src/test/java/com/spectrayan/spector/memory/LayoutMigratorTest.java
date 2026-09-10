@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
@@ -79,7 +79,7 @@ class LayoutMigratorTest {
     }
 
     private Path namespaceRoot() {
-        return StorageLayout.namespaceDirSharded(dataRoot, DEFAULT_USER_ID);
+        return StoragePaths.namespaceDirSharded(dataRoot, DEFAULT_USER_ID);
     }
 
     // ── 17.7 / 17.6: successful migration copies byte-identical files ────────────────
@@ -127,8 +127,8 @@ class LayoutMigratorTest {
         LayoutMigrator.migrateIfNeeded(dataRoot, DEFAULT_USER_ID);
 
         // Originals are copied (not moved): the flat runtime/ + partitions/ remain intact.
-        assertThat(StorageLayout.runtimeDir(dataRoot)).isDirectory();
-        assertThat(StorageLayout.partitionsDir(dataRoot)).isDirectory();
+        assertThat(StoragePaths.runtimeDir(dataRoot)).isDirectory();
+        assertThat(StoragePaths.partitionsDir(dataRoot)).isDirectory();
         for (Map.Entry<String, byte[]> e : files.entrySet()) {
             Path source = dataRoot.resolve(e.getKey());
             assertThat(source)

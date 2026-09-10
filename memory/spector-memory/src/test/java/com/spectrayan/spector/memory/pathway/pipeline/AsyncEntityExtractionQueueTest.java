@@ -64,11 +64,13 @@ class AsyncEntityExtractionQueueTest {
             verify(postIngestSync, timeout(2000)).syncPreExtractedEntities(eq(entities), eq(42), eq("mem-1"));
             verify(postIngestSync, timeout(2000)).syncTemporalFacts(eq(entities), eq(42), eq("mem-1"), eq(1700000000L));
 
-            var stats = queue.stats();
-            assertThat(stats.totalSubmitted()).isEqualTo(1);
-            assertThat(stats.totalProcessed()).isEqualTo(1);
-            assertThat(stats.totalEntitiesExtracted()).isEqualTo(1);
-            assertThat(stats.totalFailed()).isEqualTo(0);
+            org.awaitility.Awaitility.await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
+                var stats = queue.stats();
+                assertThat(stats.totalSubmitted()).isEqualTo(1);
+                assertThat(stats.totalProcessed()).isEqualTo(1);
+                assertThat(stats.totalEntitiesExtracted()).isEqualTo(1);
+                assertThat(stats.totalFailed()).isEqualTo(0);
+            });
         }
     }
 
@@ -141,8 +143,9 @@ class AsyncEntityExtractionQueueTest {
 
             boolean completed = latch.await(3, TimeUnit.SECONDS);
             assertThat(completed).isTrue();
-            Thread.sleep(100);
-            assertThat(queue.stats().totalFailed()).isGreaterThanOrEqualTo(1);
+            org.awaitility.Awaitility.await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
+                    assertThat(queue.stats().totalFailed()).isGreaterThanOrEqualTo(1)
+            );
         }
     }
 }

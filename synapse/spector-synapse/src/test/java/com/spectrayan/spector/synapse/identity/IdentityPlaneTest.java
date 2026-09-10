@@ -31,7 +31,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryAdmin;
-import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
+import com.spectrayan.spector.kernel.store.InsulaMemory;
 import com.spectrayan.spector.memory.model.InsulaSelfModel;
 import com.spectrayan.spector.memory.model.InterestLevel;
 import com.spectrayan.spector.memory.model.PersonaContext;
@@ -122,7 +122,7 @@ class IdentityPlaneTest {
         InsulaSelfModel selfModel = new InsulaSelfModel("USER", legacySoul, legacySalience, null);
         byte[] insulaJsonBytes = mapper.writeValueAsBytes(selfModel);
 
-        InsularCortex insularCortex = mock(InsularCortex.class);
+        InsulaMemory insularCortex = mock(InsulaMemory.class);
         when(insularCortex.get()).thenReturn(Optional.of(insulaJsonBytes));
 
         SpectorMemoryAdmin admin = mock(SpectorMemoryAdmin.class);

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.kernel.id.MemoryId;
+
 /**
  * Provides a detailed breakdown of how the importance score was calculated.
  *

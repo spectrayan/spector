@@ -11,11 +11,12 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.graph.hebbian;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
 
 import static org.assertj.core.api.Assertions.*;
 
-import com.spectrayan.spector.memory.cortex.adaptor.RunningStats;
-import com.spectrayan.spector.memory.model.CognitiveProfile;
+import com.spectrayan.spector.kernel.score.ProfileSlot;
+import com.spectrayan.spector.kernel.store.BanditStats;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -48,7 +49,7 @@ class CoActivationMemoryBanditTest {
     @DisplayName("new tracker has empty bandit stats")
     void emptyBanditStatsOnFreshTracker() {
         try (var tracker = new CoActivationMemory(64)) {
-            Map<Long, EnumMap<CognitiveProfile, RunningStats>> stats = tracker.banditStats();
+            Map<Long, EnumMap<ProfileSlot, BanditStats>> stats = tracker.banditStats();
             assertThat(stats).isNotNull();
             assertThat(stats).isEmpty();
         }
@@ -62,20 +63,20 @@ class CoActivationMemoryBanditTest {
     @DisplayName("updateBanditStats() then banditStats() returns the data")
     void updateAndRetrieveBanditStats() {
         try (var tracker = new CoActivationMemory(64)) {
-            var bandit = new ConcurrentHashMap<Long, EnumMap<CognitiveProfile, RunningStats>>();
-            var profileStats = new EnumMap<CognitiveProfile, RunningStats>(CognitiveProfile.class);
-            profileStats.put(CognitiveProfile.DEBUGGING,
-                    new RunningStats(0.8f, 15, 12, System.currentTimeMillis()));
+            var bandit = new ConcurrentHashMap<Long, EnumMap<ProfileSlot, BanditStats>>();
+            var profileStats = new EnumMap<ProfileSlot, BanditStats>(ProfileSlot.class);
+            profileStats.put(ProfileSlot.DEBUGGING,
+                    new BanditStats(0.8f, 15, 12, System.currentTimeMillis()));
             bandit.put(42L, profileStats);
 
             tracker.updateBanditStats(bandit);
 
-            Map<Long, EnumMap<CognitiveProfile, RunningStats>> retrieved = tracker.banditStats();
+            Map<Long, EnumMap<ProfileSlot, BanditStats>> retrieved = tracker.banditStats();
             assertThat(retrieved).hasSize(1);
             assertThat(retrieved).containsKey(42L);
-            assertThat(retrieved.get(42L)).containsKey(CognitiveProfile.DEBUGGING);
+            assertThat(retrieved.get(42L)).containsKey(ProfileSlot.DEBUGGING);
 
-            RunningStats rs = retrieved.get(42L).get(CognitiveProfile.DEBUGGING);
+            BanditStats rs = retrieved.get(42L).get(ProfileSlot.DEBUGGING);
             assertThat(rs.ema()).isEqualTo(0.8f);
             assertThat(rs.totalSignals()).isEqualTo(15);
             assertThat(rs.positiveSignals()).isEqualTo(12);
@@ -103,10 +104,10 @@ class CoActivationMemoryBanditTest {
             tracker.recordCoActivation("java", "database");
 
             // Set bandit stats
-            var bandit = new ConcurrentHashMap<Long, EnumMap<CognitiveProfile, RunningStats>>();
-            var profileStats = new EnumMap<CognitiveProfile, RunningStats>(CognitiveProfile.class);
-            profileStats.put(CognitiveProfile.EXPLORING,
-                    new RunningStats(ema, totalSignals, positiveSignals, lastUpdatedMs));
+            var bandit = new ConcurrentHashMap<Long, EnumMap<ProfileSlot, BanditStats>>();
+            var profileStats = new EnumMap<ProfileSlot, BanditStats>(ProfileSlot.class);
+            profileStats.put(ProfileSlot.EXPLORING,
+                    new BanditStats(ema, totalSignals, positiveSignals, lastUpdatedMs));
             bandit.put(ctxHash, profileStats);
             tracker.updateBanditStats(bandit);
 
@@ -115,10 +116,10 @@ class CoActivationMemoryBanditTest {
 
         // Load and verify
         try (var loaded = CoActivationMemory.load(file, 64, 128)) {
-            Map<Long, EnumMap<CognitiveProfile, RunningStats>> banditStats = loaded.banditStats();
+            Map<Long, EnumMap<ProfileSlot, BanditStats>> banditStats = loaded.banditStats();
             assertThat(banditStats).containsKey(ctxHash);
 
-            RunningStats rs = banditStats.get(ctxHash).get(CognitiveProfile.EXPLORING);
+            BanditStats rs = banditStats.get(ctxHash).get(ProfileSlot.EXPLORING);
             assertThat(rs).isNotNull();
             assertThat(rs.ema()).isCloseTo(ema, within(1e-6f));
             assertThat(rs.totalSignals()).isEqualTo(totalSignals);
@@ -175,7 +176,7 @@ class CoActivationMemoryBanditTest {
         }
 
         try (var loaded = CoActivationMemory.load(v1File, 64, 128)) {
-            Map<Long, EnumMap<CognitiveProfile, RunningStats>> banditStats = loaded.banditStats();
+            Map<Long, EnumMap<ProfileSlot, BanditStats>> banditStats = loaded.banditStats();
             assertThat(banditStats).isNotNull();
             assertThat(banditStats).isEmpty();
         }
@@ -200,12 +201,12 @@ class CoActivationMemoryBanditTest {
         // Save tracker WITH bandit stats
         try (var tracker = new CoActivationMemory(64)) {
             tracker.recordCoActivation("alpha", "beta");
-            var bandit = new ConcurrentHashMap<Long, EnumMap<CognitiveProfile, RunningStats>>();
-            var profileStats = new EnumMap<CognitiveProfile, RunningStats>(CognitiveProfile.class);
-            profileStats.put(CognitiveProfile.DEBUGGING,
-                    new RunningStats(0.9f, 50, 45, System.currentTimeMillis()));
-            profileStats.put(CognitiveProfile.EXPLORING,
-                    new RunningStats(0.6f, 30, 18, System.currentTimeMillis()));
+            var bandit = new ConcurrentHashMap<Long, EnumMap<ProfileSlot, BanditStats>>();
+            var profileStats = new EnumMap<ProfileSlot, BanditStats>(ProfileSlot.class);
+            profileStats.put(ProfileSlot.DEBUGGING,
+                    new BanditStats(0.9f, 50, 45, System.currentTimeMillis()));
+            profileStats.put(ProfileSlot.EXPLORING,
+                    new BanditStats(0.6f, 30, 18, System.currentTimeMillis()));
             bandit.put(1L, profileStats);
             tracker.updateBanditStats(bandit);
             tracker.save(fileWithBandit);

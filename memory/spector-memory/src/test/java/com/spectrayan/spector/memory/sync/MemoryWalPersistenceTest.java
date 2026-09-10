@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.sync;
 
+import com.spectrayan.spector.kernel.id.MemoryId;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

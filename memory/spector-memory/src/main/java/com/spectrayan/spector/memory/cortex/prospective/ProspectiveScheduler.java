@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.cortex.prospective;
 
-import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
+import com.spectrayan.spector.kernel.id.MemoryId;
+
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.core.similarity.VectorOps;

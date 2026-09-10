@@ -12,8 +12,10 @@
  */
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
+import com.spectrayan.spector.kernel.api.TriageOutcome;
+
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,7 +64,7 @@ public final class DreamIngestionRelay implements SynapticRelay<DreamSignal> {
 
             // Weaken synaptic association edges for failed seed combinations
             for (DreamSignal.DreamScene scene : signal.constructedScenes()) {
-                if (scene.triageOutcome() == DreamSignal.TriageOutcome.NOISE && scene.sourceIds().size() >= 2) {
+                if (scene.triageOutcome() == TriageOutcome.NOISE && scene.sourceIds().size() >= 2) {
                     int nodeA = parseNodeIndex(scene.sourceIds().get(0));
                     int nodeB = parseNodeIndex(scene.sourceIds().get(1));
                     if (nodeA >= 0 && nodeB >= 0 && nodeA < graph.capacity() && nodeB < graph.capacity() && nodeA != nodeB) {

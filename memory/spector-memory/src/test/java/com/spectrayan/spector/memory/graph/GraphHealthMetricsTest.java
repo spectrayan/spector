@@ -11,9 +11,13 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.graph;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
+import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
+import com.spectrayan.spector.kernel.store.GraphStructureHealthSnapshot;
+import com.spectrayan.spector.kernel.id.MemoryId;
 
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
-import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
+import com.spectrayan.spector.kernel.id.SystemMemoryId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -57,7 +61,7 @@ class GraphHealthMetricsTest {
         hebbian.strengthen(1, 2, 1.5f);
         hebbian.strengthen(2, 3, 2.0f);
 
-        GraphStructureHealthSnapshot metrics = hebbian.structureHealthSnapshot();
+        var metrics = hebbian.structureHealthSnapshot();
         assertThat(metrics.structureName()).isEqualTo("hebbian-csr");
         assertThat(metrics.allocatedBytes()).isGreaterThan(0L);
         assertThat(metrics.liveBytes()).isGreaterThanOrEqualTo(0L);

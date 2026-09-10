@@ -11,10 +11,14 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
+import com.spectrayan.spector.kernel.store.ProceduralMemory;
+import com.spectrayan.spector.kernel.store.SemanticMemory;
+import com.spectrayan.spector.kernel.store.WorkingMemory;
 
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.shape.MemoryShape;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

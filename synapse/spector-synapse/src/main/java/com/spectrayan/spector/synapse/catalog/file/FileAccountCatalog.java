@@ -14,7 +14,7 @@ package com.spectrayan.spector.synapse.catalog.file;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.synapse.catalog.*;
 import com.spectrayan.spector.synapse.catalog.exception.*;
 import org.slf4j.Logger;
@@ -64,7 +64,7 @@ public class FileAccountCatalog implements AccountCatalog {
     // ══════════════════════════════════════════════════════════════
 
     private CatalogSnapshot loadSnapshot(String accountId) {
-        Path accountDir = StorageLayout.accountDir(basePath, accountId);
+        Path accountDir = StoragePaths.accountDir(basePath, accountId);
         Path accountFile = accountDir.resolve(FILE_ACCOUNT);
 
         if (!Files.exists(accountFile)) {
@@ -137,7 +137,7 @@ public class FileAccountCatalog implements AccountCatalog {
         ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
         jvmLock.lock();
         try {
-            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            Path accountDir = StoragePaths.accountDir(basePath, accountId);
             Path accountFile = accountDir.resolve(FILE_ACCOUNT);
 
             if (Files.exists(accountFile)) {
@@ -245,7 +245,7 @@ public class FileAccountCatalog implements AccountCatalog {
         ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
         jvmLock.lock();
         try {
-            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            Path accountDir = StoragePaths.accountDir(basePath, accountId);
             Path lockFile = accountDir.resolve(FILE_LOCK);
 
             try (FileChannel channel = FileChannel.open(lockFile,
@@ -294,7 +294,7 @@ public class FileAccountCatalog implements AccountCatalog {
                 atomicWrite(namespacesFile, namespaces);
 
                 // Create data-plane directory
-                Path namespaceDir = StorageLayout.namespaceDirSharded(basePath, newNamespaceId);
+                Path namespaceDir = StoragePaths.namespaceDirSharded(basePath, newNamespaceId);
                 Files.createDirectories(namespaceDir);
 
                 // Write implicit OWNER grant for new namespace
@@ -335,7 +335,7 @@ public class FileAccountCatalog implements AccountCatalog {
         ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
         jvmLock.lock();
         try {
-            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            Path accountDir = StoragePaths.accountDir(basePath, accountId);
             Path lockFile = accountDir.resolve(FILE_LOCK);
 
             try (FileChannel channel = FileChannel.open(lockFile,
@@ -404,7 +404,7 @@ public class FileAccountCatalog implements AccountCatalog {
         ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
         jvmLock.lock();
         try {
-            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            Path accountDir = StoragePaths.accountDir(basePath, accountId);
             Path lockFile = accountDir.resolve(FILE_LOCK);
 
             try (FileChannel channel = FileChannel.open(lockFile,
@@ -439,7 +439,7 @@ public class FileAccountCatalog implements AccountCatalog {
                 }
 
                 // Reset data-plane directory: delete bundle/index files and recreate
-                Path namespaceDir = StorageLayout.namespaceDirSharded(basePath, namespaceId);
+                Path namespaceDir = StoragePaths.namespaceDirSharded(basePath, namespaceId);
                 if (Files.exists(namespaceDir)) {
                     try (var stream = Files.walk(namespaceDir)) {
                         stream.sorted(Comparator.reverseOrder())
@@ -469,7 +469,7 @@ public class FileAccountCatalog implements AccountCatalog {
         ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
         jvmLock.lock();
         try {
-            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            Path accountDir = StoragePaths.accountDir(basePath, accountId);
             Path lockFile = accountDir.resolve(FILE_LOCK);
 
             try (FileChannel channel = FileChannel.open(lockFile,
@@ -550,7 +550,7 @@ public class FileAccountCatalog implements AccountCatalog {
         ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
         jvmLock.lock();
         try {
-            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            Path accountDir = StoragePaths.accountDir(basePath, accountId);
             Path lockFile = accountDir.resolve(FILE_LOCK);
             Path accountFile = accountDir.resolve(FILE_ACCOUNT);
 
@@ -585,7 +585,7 @@ public class FileAccountCatalog implements AccountCatalog {
         ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
         jvmLock.lock();
         try {
-            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            Path accountDir = StoragePaths.accountDir(basePath, accountId);
             if (!Files.exists(accountDir)) {
                 return;
             }
@@ -610,7 +610,7 @@ public class FileAccountCatalog implements AccountCatalog {
         ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
         jvmLock.lock();
         try {
-            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            Path accountDir = StoragePaths.accountDir(basePath, accountId);
             if (!Files.exists(accountDir)) {
                 return;
             }
@@ -682,7 +682,7 @@ public class FileAccountCatalog implements AccountCatalog {
         }
 
         Grant grant = new Grant(
-                new com.spectrayan.spector.memory.kernel.id.TsidGenerator().generate(),
+                new com.spectrayan.spector.kernel.id.TsidGenerator().generate(),
                 GrantObjectType.NAMESPACE,
                 record.namespaceId(),
                 granteeAccountId,
@@ -734,7 +734,7 @@ public class FileAccountCatalog implements AccountCatalog {
         ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
         jvmLock.lock();
         try {
-            Path accountDir = StorageLayout.accountDir(basePath, accountId);
+            Path accountDir = StoragePaths.accountDir(basePath, accountId);
             Path lockFile = accountDir.resolve(FILE_LOCK);
 
             try (FileChannel channel = FileChannel.open(lockFile,

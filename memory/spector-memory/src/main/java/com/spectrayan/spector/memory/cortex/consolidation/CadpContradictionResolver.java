@@ -12,17 +12,16 @@
  */
 package com.spectrayan.spector.memory.cortex.consolidation;
 
-import com.spectrayan.spector.memory.cortex.EngramMemory;
+import com.spectrayan.spector.kernel.store.EngramRegion;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -95,7 +94,7 @@ public final class CadpContradictionResolver {
             CognitiveRecord recordA,
             CognitiveRecord recordB,
             com.spectrayan.spector.memory.persist.PartitionManager partitionManager,
-            EngramMemory store,
+            EngramRegion store,
             HyperEntityGraphMemory hyperEntityGraph,
             EntityDirectory entityDirectory,
             TemporalKnowledgeGraph temporalKnowledgeGraph) {
@@ -108,16 +107,10 @@ public final class CadpContradictionResolver {
         if (partitionManager != null) {
             var router = partitionManager.routerFor(loser.partitionIndex());
             if (router != null) {
-                var layout = router.layoutFor(loser.memoryType());
-                var segment = router.segmentFor(loser.memoryType());
-                if (layout != null && segment != null) {
-                    layout.markContradicted(segment, loser.byteOffset());
-                }
+                router.markContradicted(loser.memoryType(), loser.byteOffset());
             }
         } else if (store != null) {
-            MemorySegment segment = store.segment();
-            FixedEngramLayout layout = (FixedEngramLayout) store.layout();
-            layout.markContradicted(segment, loser.byteOffset());
+            store.markContradicted(loser.byteOffset());
         }
         log.info("CADP resolved: winner='{}' corrects loser='{}'", winner.id(), loser.id());
 
@@ -192,7 +185,7 @@ public final class CadpContradictionResolver {
     public static ResolutionResult resolve(
             CognitiveRecord recordA,
             CognitiveRecord recordB,
-            EngramMemory store,
+            EngramRegion store,
             HyperEntityGraphMemory hyperEntityGraph,
             EntityDirectory entityDirectory,
             TemporalKnowledgeGraph temporalKnowledgeGraph) {
@@ -202,8 +195,8 @@ public final class CadpContradictionResolver {
     /**
      * Computes the 0-based memory slot index for a cognitive record in the given store.
      */
-    public static int memorySlot(CognitiveRecord record, EngramMemory store, FixedEngramLayout layout) {
-        long headerOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0L;
+    public static int memorySlot(CognitiveRecord record, EngramRegion store, FixedEngramLayout layout) {
+        long headerOffset = store.isPersistent() ? EngramRegion.METADATA_PREAMBLE_BYTES : 0L;
         return (int) ((record.byteOffset() - headerOffset) / layout.stride());
     }
 

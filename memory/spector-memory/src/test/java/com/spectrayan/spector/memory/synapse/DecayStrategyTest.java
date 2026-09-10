@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.synapse;
+import com.spectrayan.spector.kernel.score.DecayStrategy;
 
 import org.junit.jupiter.api.Test;
 

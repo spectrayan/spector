@@ -12,7 +12,9 @@
  */
 package com.spectrayan.spector.memory.graph.temporal;
 
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalFact;
+
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

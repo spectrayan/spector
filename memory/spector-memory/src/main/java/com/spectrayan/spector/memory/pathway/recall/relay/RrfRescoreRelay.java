@@ -11,9 +11,10 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.recall.relay;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
 import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.pathway.RelayNames;
@@ -44,7 +45,9 @@ public final class RrfRescoreRelay implements SynapticRelay<RecallSignal> {
             final RecallOptions peekOptions = options.recallMode() == RecallMode.LEARN
                     ? options.toBuilder().recallMode(RecallMode.OBSERVE).build()
                     : options;
-            scorer.applyCognitiveScoring(signal.candidates(), peekOptions, signal.timestampMs(), coActivationTracker, graphScoringPolicy);
+            final CoActivationMemory tracker = (signal != null && signal.coActivationTracker() != null)
+                    ? signal.coActivationTracker() : coActivationTracker;
+            scorer.applyCognitiveScoring(signal.candidates(), peekOptions, signal.timestampMs(), tracker, graphScoringPolicy);
         }
         return true;
     }

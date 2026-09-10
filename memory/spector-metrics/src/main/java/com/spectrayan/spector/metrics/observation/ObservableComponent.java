@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.metrics.observation;
 
+import com.spectrayan.spector.kernel.id.MemoryId;
+
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.config.ObservabilityConfig;
 import io.micrometer.observation.Observation;

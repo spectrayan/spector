@@ -12,22 +12,24 @@
  */
 package com.spectrayan.spector.memory.pathway.remember;
 
+import com.spectrayan.spector.kernel.id.MemoryId;
+
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.bootstrap.BiologicalSubsystemsBuilder;
 import com.spectrayan.spector.memory.bootstrap.CognitiveCortexBuilder;
 import com.spectrayan.spector.memory.bootstrap.CognitiveGraphBuilder;
 import com.spectrayan.spector.memory.bootstrap.RetrievalIndexBuilder;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.TextBlobMemory;
-import com.spectrayan.spector.memory.cortex.WorkingMemory;
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.store.TextBlobMemory;
+import com.spectrayan.spector.kernel.store.WorkingMemory;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.model.RememberContext;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
@@ -190,27 +192,10 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
      * @param type   target cognitive tier
      * @param tags   synaptic tags
      * @param source provenance source
-     * @param hints  optional ingestion hints
-     */
-    public void ingestCognitive(
-            final String id,
-            final String text,
-            final float[] vector,
-            final MemoryType type,
-            final String[] tags,
-            final MemorySource source,
-            final RememberHints hints) {
-        final RememberSignal signal = RememberSignal.forCognitive(
-                id, text, vector, type, tags, source, hints,
-                salienceProfile, currentSoulVersion
-        );
-        signal.soulContexts(this.soulContexts);
-        pathway.conduct(signal);
-    }
-
     /**
-     * Ingests a memory with rich consolidated {@link RememberContext}.
+     * Executes memory ingestion for an explicit namespace kernel without captured namespace state.
      *
+     * @param kernel  the namespace kernel
      * @param id      unique memory identifier
      * @param text    the memory content
      * @param vector  pre-computed embedding vector
@@ -219,7 +204,8 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
      * @param source  provenance source
      * @param context rich ingestion context
      */
-    public void ingestCognitive(
+    public void execute(
+            final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
             final String id,
             final String text,
             final float[] vector,
@@ -243,7 +229,72 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
                 effectiveSalience, effectiveSoulVersion
         );
         signal.soulContexts(effectiveSoulStack);
+        execute(kernel, signal);
+    }
+
+    /**
+     * Executes the remember pathway for a populated signal using an explicit namespace kernel.
+     *
+     * @param kernel the namespace kernel
+     * @param signal the populated remember signal
+     */
+    public void execute(
+            final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
+            final RememberSignal signal) {
+        Objects.requireNonNull(signal, "RememberSignal cannot be null");
+        if (kernel != null) {
+            signal.kernel(kernel);
+        }
         pathway.conduct(signal);
+    }
+
+    /**
+     * Ingests a cognitive memory engram via the synaptic pathway.
+     *
+     * @param id     unique memory identifier
+     * @param text   the memory content
+     * @param vector pre-computed embedding vector
+     * @param type   target cognitive tier
+     * @param tags   synaptic tags
+     * @param source provenance source
+     * @param hints  optional ingestion hints
+     */
+    public void ingestCognitive(
+            final String id,
+            final String text,
+            final float[] vector,
+            final MemoryType type,
+            final String[] tags,
+            final MemorySource source,
+            final RememberHints hints) {
+        final RememberSignal signal = RememberSignal.forCognitive(
+                id, text, vector, type, tags, source, hints,
+                salienceProfile, currentSoulVersion
+        );
+        signal.soulContexts(this.soulContexts);
+        execute(null, signal);
+    }
+
+    /**
+     * Ingests a memory with rich consolidated {@link RememberContext}.
+     *
+     * @param id      unique memory identifier
+     * @param text    the memory content
+     * @param vector  pre-computed embedding vector
+     * @param type    target cognitive tier
+     * @param tags    synaptic tags
+     * @param source  provenance source
+     * @param context rich ingestion context
+     */
+    public void ingestCognitive(
+            final String id,
+            final String text,
+            final float[] vector,
+            final MemoryType type,
+            final String[] tags,
+            final MemorySource source,
+            final RememberContext context) {
+        execute(null, id, text, vector, type, tags, source, context);
     }
 
     /**
@@ -322,7 +373,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
             final MemoryType type,
             final String[] tags,
             final MemorySource source,
-            final com.spectrayan.spector.memory.kernel.layout.EncodingHeader preservedHeader) {
+            final com.spectrayan.spector.kernel.engram.EncodingHeader preservedHeader) {
         final RememberSignal signal = RememberSignal.forCognitiveWithHeader(
                 id, text, vector, type, tags, source, preservedHeader
         );

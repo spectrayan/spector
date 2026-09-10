@@ -12,10 +12,11 @@
  */
 package com.spectrayan.spector.memory.neuromod.amygdala;
 
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.score.Valence;
+import com.spectrayan.spector.kernel.store.DefaultHeaderCursor;
 import org.junit.jupiter.api.Test;
 
 import java.lang.foreign.Arena;
@@ -35,15 +36,18 @@ class ValenceTrackerTest {
             layout.writeHeader(seg, 0, header);
 
             var tracker = new ValenceTracker(0.5f);
-            // Reinforce with strong positive
-            tracker.reinforce(seg, 0, layout, Valence.STRONGLY_POSITIVE);
-            byte v1 = layout.readValence(seg, 0);
-            assertThat(v1).isGreaterThan((byte) 0);
+            try (var cursor = DefaultHeaderCursor.forSegment(seg, layout)) {
+                cursor.seek(0);
+                // Reinforce with strong positive
+                tracker.reinforce(cursor, Valence.STRONGLY_POSITIVE);
+                byte v1 = cursor.valence();
+                assertThat(v1).isGreaterThan((byte) 0);
 
-            // Reinforce with negative — should blend down
-            tracker.reinforce(seg, 0, layout, Valence.STRONGLY_NEGATIVE);
-            byte v2 = layout.readValence(seg, 0);
-            assertThat(v2).isLessThan(v1);
+                // Reinforce with negative — should blend down
+                tracker.reinforce(cursor, Valence.STRONGLY_NEGATIVE);
+                byte v2 = cursor.valence();
+                assertThat(v2).isLessThan(v1);
+            }
         }
     }
 

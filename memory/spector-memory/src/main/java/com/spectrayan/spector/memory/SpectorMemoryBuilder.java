@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.kernel.id.MemoryId;
+
 import com.spectrayan.spector.commons.cache.SpectorCacheManager;
 import com.spectrayan.spector.commons.chunker.ChunkConfig;
 import com.spectrayan.spector.commons.chunker.MarkdownChunker;
@@ -28,21 +30,23 @@ import com.spectrayan.spector.ingestion.sensory.SensoryExtractor;
 import com.spectrayan.spector.memory.api.CognitiveProfileConfig;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
-import com.spectrayan.spector.memory.graph.EdgeImportance;
+import com.spectrayan.spector.kernel.score.EdgeImportance;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.OntologyConfig;
-import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
+import com.spectrayan.spector.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
+import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy;
 import com.spectrayan.spector.memory.pathway.pipeline.TagExtractor;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.scheduler.MemoryScheduler;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.ParallelEmbeddingPipeline;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.TokenEmbeddingProvider;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
@@ -102,6 +106,8 @@ public final class SpectorMemoryBuilder {
     private List<SensoryExtractor> sensoryExtractors = List.of();
     private AssetStore assetStore;
     private SpectorCacheManager cacheManager;
+    private SpectorNamespaceManager namespaceManager;
+    private ParallelEmbeddingPipeline parallelEmbeddingPipeline;
     private MemoryScheduler scheduler;
     private org.quartz.Scheduler customQuartzScheduler;
     private Executor suppliedExecutor;
@@ -125,6 +131,16 @@ public final class SpectorMemoryBuilder {
     private IcnuWeights icnuWeights;
     private com.spectrayan.spector.config.properties.AismeProperties aismeConfig;
     private com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor reflectSweepExecutor;
+
+    // ── Shared Pathway Engines (ADR-0029 / Task 10.4) ───────────
+    private com.spectrayan.spector.memory.pathway.remember.RememberPathway rememberPathway;
+    private com.spectrayan.spector.memory.pathway.recall.RecallPathway recallPathway;
+    private com.spectrayan.spector.memory.pathway.reflect.ReflectPathway reflectPathway;
+    private com.spectrayan.spector.memory.pathway.express.ExpressPathway expressPathway;
+    private com.spectrayan.spector.memory.pathway.dream.DreamPathway dreamPathway;
+    private com.spectrayan.spector.memory.pathway.decide.DecidePathway decidePathway;
+    private com.spectrayan.spector.memory.pathway.wander.WanderPathway wanderPathway;
+    private boolean sharedPathways = false;
 
     // ==============================================================
     // CONSTRUCTORS & FACTORY
@@ -339,6 +355,11 @@ public final class SpectorMemoryBuilder {
         return this;
     }
 
+    public SpectorMemoryBuilder parallelEmbeddingPipeline(ParallelEmbeddingPipeline pipeline) {
+        this.parallelEmbeddingPipeline = pipeline;
+        return this;
+    }
+
     public SpectorMemoryBuilder llmProvider(LlmProvider p) {
         this.llmProvider = p;
         return this;
@@ -404,6 +425,11 @@ public final class SpectorMemoryBuilder {
 
     public SpectorMemoryBuilder cacheManager(SpectorCacheManager cacheManager) {
         this.cacheManager = cacheManager;
+        return this;
+    }
+
+    public SpectorMemoryBuilder namespaceManager(SpectorNamespaceManager namespaceManager) {
+        this.namespaceManager = namespaceManager;
         return this;
     }
 
@@ -512,6 +538,46 @@ public final class SpectorMemoryBuilder {
         return this;
     }
 
+    public SpectorMemoryBuilder rememberPathway(com.spectrayan.spector.memory.pathway.remember.RememberPathway pathway) {
+        this.rememberPathway = pathway;
+        return this;
+    }
+
+    public SpectorMemoryBuilder recallPathway(com.spectrayan.spector.memory.pathway.recall.RecallPathway pathway) {
+        this.recallPathway = pathway;
+        return this;
+    }
+
+    public SpectorMemoryBuilder reflectPathway(com.spectrayan.spector.memory.pathway.reflect.ReflectPathway pathway) {
+        this.reflectPathway = pathway;
+        return this;
+    }
+
+    public SpectorMemoryBuilder expressPathway(com.spectrayan.spector.memory.pathway.express.ExpressPathway pathway) {
+        this.expressPathway = pathway;
+        return this;
+    }
+
+    public SpectorMemoryBuilder dreamPathway(com.spectrayan.spector.memory.pathway.dream.DreamPathway pathway) {
+        this.dreamPathway = pathway;
+        return this;
+    }
+
+    public SpectorMemoryBuilder decidePathway(com.spectrayan.spector.memory.pathway.decide.DecidePathway pathway) {
+        this.decidePathway = pathway;
+        return this;
+    }
+
+    public SpectorMemoryBuilder wanderPathway(com.spectrayan.spector.memory.pathway.wander.WanderPathway pathway) {
+        this.wanderPathway = pathway;
+        return this;
+    }
+
+    public SpectorMemoryBuilder sharedPathways(boolean shared) {
+        this.sharedPathways = shared;
+        return this;
+    }
+
     // ==============================================================
     // BUILD
     // ==============================================================
@@ -557,6 +623,7 @@ public final class SpectorMemoryBuilder {
     public boolean managedByRegistry() { return managedByRegistry; }
     public boolean useBundleMode() { return useBundleMode; }
     public EmbeddingProvider embeddingProvider() { return embeddingProvider; }
+    public ParallelEmbeddingPipeline parallelEmbeddingPipeline() { return parallelEmbeddingPipeline; }
     public LlmProvider llmProvider() { return llmProvider; }
     public LlmProvider LlmProvider() { return llmProvider; }
     public SparseEmbeddingProvider sparseEmbeddingProvider() { return sparseEmbeddingProvider; }
@@ -571,6 +638,7 @@ public final class SpectorMemoryBuilder {
     public List<SensoryExtractor> sensoryExtractors() { return sensoryExtractors; }
     public AssetStore assetStore() { return assetStore; }
     public SpectorCacheManager cacheManager() { return cacheManager; }
+    public SpectorNamespaceManager namespaceManager() { return namespaceManager; }
     public MemoryScheduler scheduler() { return scheduler; }
     public org.quartz.Scheduler customQuartzScheduler() { return customQuartzScheduler; }
     public Executor suppliedExecutor() { return suppliedExecutor; }
@@ -598,4 +666,12 @@ public final class SpectorMemoryBuilder {
     public com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor reflectSweepExecutor() {
         return reflectSweepExecutor;
     }
+    public com.spectrayan.spector.memory.pathway.remember.RememberPathway rememberPathway() { return rememberPathway; }
+    public com.spectrayan.spector.memory.pathway.recall.RecallPathway recallPathway() { return recallPathway; }
+    public com.spectrayan.spector.memory.pathway.reflect.ReflectPathway reflectPathway() { return reflectPathway; }
+    public com.spectrayan.spector.memory.pathway.express.ExpressPathway expressPathway() { return expressPathway; }
+    public com.spectrayan.spector.memory.pathway.dream.DreamPathway dreamPathway() { return dreamPathway; }
+    public com.spectrayan.spector.memory.pathway.decide.DecidePathway decidePathway() { return decidePathway; }
+    public com.spectrayan.spector.memory.pathway.wander.WanderPathway wanderPathway() { return wanderPathway; }
+    public boolean sharedPathways() { return sharedPathways; }
 }

@@ -26,11 +26,13 @@ import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.runtime.SpectorRuntime;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.InsulaSelfModel;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.ParallelEmbeddingPipeline;
 import com.spectrayan.spector.provider.embedding.generic.DenseDerivedSparseProvider;
 import com.spectrayan.spector.provider.embedding.generic.DenseDerivedTokenProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
@@ -100,6 +102,27 @@ public class NamespaceResolver implements AutoCloseable {
     private final ReentrantLock coldPathLock = new ReentrantLock();
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
+
+    // ── Composition Hoists (R12.2) ──────────────────────────────
+    private volatile EmbeddingProvider hoistedEmbeddingProvider;
+    private volatile ParallelEmbeddingPipeline hoistedPipeline;
+    private volatile SpectorRuntime runtime;
+
+    public ParallelEmbeddingPipeline hoistedPipeline() {
+        return hoistedPipeline;
+    }
+
+    public EmbeddingProvider hoistedEmbeddingProvider() {
+        return hoistedEmbeddingProvider;
+    }
+
+    public SpectorRuntime runtime() {
+        return runtime;
+    }
+
+    public void setRuntime(SpectorRuntime runtime) {
+        this.runtime = runtime;
+    }
 
     /**
      * Creates a new namespace resolver.
@@ -303,10 +326,17 @@ public class NamespaceResolver implements AutoCloseable {
                 closeQuietly(handle.memory);
             }
             cache.clear();
+            if (runtime != null) {
+                try {
+                    runtime.close();
+                } catch (Exception e) {
+                    log.warn("[NamespaceResolver] error closing SpectorRuntime: {}", e.getMessage());
+                }
+            }
         } finally {
             coldPathLock.unlock();
         }
-        log.info("[NamespaceResolver] closed all cached namespace memory instances");
+        log.info("[NamespaceResolver] closed all cached namespace memory instances and runtime");
     }
 
     /** @return the number of currently-cached instances. */
@@ -330,14 +360,58 @@ public class NamespaceResolver implements AutoCloseable {
     // Instance building — same logic as former MemoryRegistry
     // ══════════════════════════════════════════════════════════════
 
+    private void ensureHoistedEmbeddingPipeline(EmbeddingProvider rawEmbedder, com.spectrayan.spector.config.SpectorProperties spectorProps) {
+        if (this.hoistedPipeline == null && rawEmbedder != null) {
+            synchronized (this) {
+                if (this.hoistedPipeline == null) {
+                    org.springframework.cache.CacheManager springCacheManager = cacheManagerProvider != null
+                            ? cacheManagerProvider.getIfAvailable() : null;
+                    com.spectrayan.spector.commons.cache.SpectorCacheManager globalCacheManager;
+                    if (springCacheManager != null) {
+                        globalCacheManager = com.spectrayan.spector.spring.cache.SpringSpectorCacheManagerAdapter.builder(springCacheManager)
+                                .errorHandler(com.spectrayan.spector.commons.cache.SpectorCacheErrorHandler.LOGGING)
+                                .build();
+                    } else {
+                        globalCacheManager = com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager();
+                    }
+                    this.hoistedEmbeddingProvider = com.spectrayan.spector.provider.embedding.CachingEmbeddingProvider.wrap(
+                            rawEmbedder, globalCacheManager);
+
+                    boolean sequential = spectorProps != null
+                            && spectorProps.provider() != null
+                            && spectorProps.provider().getEmbedding() != null
+                            && spectorProps.provider().getEmbedding().isSequential();
+                    this.hoistedPipeline = new ParallelEmbeddingPipeline(this.hoistedEmbeddingProvider, sequential);
+                }
+            }
+        }
+    }
+
+    private void ensureSpectorRuntime(EmbeddingProvider embedder, com.spectrayan.spector.config.SpectorProperties spectorProps) {
+        if (this.runtime == null && embedder != null) {
+            synchronized (this) {
+                if (this.runtime == null) {
+                    ensureHoistedEmbeddingPipeline(embedder, spectorProps);
+                    LlmProvider textGen = textGenProvider != null ? textGenProvider.getIfAvailable() : null;
+                    this.runtime = SpectorRuntime.builder()
+                            .properties(spectorProps)
+                            .embeddingProvider(hoistedEmbeddingProvider != null ? hoistedEmbeddingProvider : embedder)
+                            .parallelEmbeddingPipeline(hoistedPipeline)
+                            .llmProvider(textGen)
+                            .build();
+                }
+            }
+        }
+    }
+
     /**
      * Builds a {@link SpectorMemory} instance for the given namespaceId.
-     * Directory path: {@code StorageLayout.namespaceDirSharded(basePath, namespaceId)}.
+     * Directory path: {@code StoragePaths.namespaceDirSharded(basePath, namespaceId)}.
      * Mirrors the former {@code MemoryRegistry.buildInstance(userId)} exactly —
      * since namespaceId == userId for default namespaces, the directory is identical.
      */
     private SpectorMemory buildInstance(String namespaceId) {
-        Path dir = StorageLayout.namespaceDirSharded(basePath(), namespaceId);
+        Path dir = StoragePaths.namespaceDirSharded(basePath(), namespaceId);
 
         EmbeddingProvider embedder = embedderProvider.getIfAvailable();
         if (embedder == null) {
@@ -356,28 +430,10 @@ public class NamespaceResolver implements AutoCloseable {
             }
         }
 
-        var builder = SpectorMemoryBuilder.createEmpty()
-                .fromProperties(spectorProps)
-                .embeddingProvider(embedder)
-                .persistence(dir);
-
-        if (textGen != null) {
-            builder.LlmProvider(textGen);
-        }
-
-        SalienceProfileProvider salience = salienceProvider != null ? salienceProvider.getIfAvailable() : null;
-        if (salience != null) {
-            builder.salienceProfileProvider(salience);
-        }
+        ensureSpectorRuntime(embedder, spectorProps);
 
         MemoryProperties memory = synapseProps.getMemory();
-        if (memory != null && memory.isSpladeEnabled()) {
-            builder.SparseEmbeddingProvider(new DenseDerivedSparseProvider(embedder));
-        }
-        if (memory != null && memory.isColbertEnabled()) {
-            builder.tokenEmbeddingProvider(new DenseDerivedTokenProvider(embedder));
-        }
-
+        SalienceProfileProvider salience = salienceProvider != null ? salienceProvider.getIfAvailable() : null;
         org.springframework.cache.CacheManager springCacheManager = cacheManagerProvider != null
                 ? cacheManagerProvider.getIfAvailable() : null;
         com.spectrayan.spector.memory.persist.DataEncryptor encryptor = encryptorProvider != null
@@ -386,50 +442,60 @@ public class NamespaceResolver implements AutoCloseable {
         ObjectMapper mapper = objectMapperProvider != null
                 ? objectMapperProvider.getIfAvailable(ObjectMapper::new) : new ObjectMapper();
 
-        if (springCacheManager != null) {
-            var cacheBuilder = com.spectrayan.spector.spring.cache.SpringSpectorCacheManagerAdapter.builder(springCacheManager)
-                    .keyGenerator(com.spectrayan.spector.commons.cache.SpectorCacheKeyGenerator.forNamespace(namespaceId))
-                    .errorHandler(com.spectrayan.spector.commons.cache.SpectorCacheErrorHandler.LOGGING);
-            if (encryptor != null && encryptor.isEnabled()) {
-                cacheBuilder.serializer(new com.spectrayan.spector.spring.cache.EncryptingJsonCacheSerializer(mapper, encryptor));
-            }
-            builder.cacheManager(cacheBuilder.build());
-        } else {
-            builder.cacheManager(com.spectrayan.spector.commons.cache.SpectorCacheManager.builder()
-                    .keyGenerator(com.spectrayan.spector.commons.cache.SpectorCacheKeyGenerator.forNamespace(namespaceId))
-                    .build());
-        }
-
         io.micrometer.observation.ObservationRegistry obsRegistry = observationRegistryProvider != null
                 ? observationRegistryProvider.getIfAvailable() : null;
         com.spectrayan.spector.config.ObservabilityConfig obsConfig = observabilityConfigProvider != null
                 ? observabilityConfigProvider.getIfAvailable() : null;
+        org.quartz.Scheduler springQuartz = quartzSchedulerProvider != null
+                ? quartzSchedulerProvider.getIfAvailable() : null;
 
-        if (obsRegistry != null && obsConfig != null) {
-            builder.observationHook(new com.spectrayan.spector.metrics.observation.MicrometerMemoryObservationHook(obsRegistry, obsConfig));
-        }
-
-        if (quartzSchedulerProvider != null) {
-            org.quartz.Scheduler springQuartz = quartzSchedulerProvider.getIfAvailable();
+        SpectorMemory built = runtime.attach(namespaceId, builder -> {
+            builder.persistence(dir);
+            if (textGen != null) {
+                builder.llmProvider(textGen);
+            }
+            if (salience != null) {
+                builder.salienceProfileProvider(salience);
+            }
+            if (memory != null && memory.isSpladeEnabled()) {
+                builder.sparseEmbeddingProvider(new DenseDerivedSparseProvider(embedder));
+            }
+            if (memory != null && memory.isColbertEnabled()) {
+                builder.tokenEmbeddingProvider(new DenseDerivedTokenProvider(embedder));
+            }
+            if (springCacheManager != null) {
+                var cacheBuilder = com.spectrayan.spector.spring.cache.SpringSpectorCacheManagerAdapter.builder(springCacheManager)
+                        .keyGenerator(com.spectrayan.spector.commons.cache.SpectorCacheKeyGenerator.forNamespace(namespaceId))
+                        .errorHandler(com.spectrayan.spector.commons.cache.SpectorCacheErrorHandler.LOGGING);
+                if (encryptor != null && encryptor.isEnabled()) {
+                    cacheBuilder.serializer(new com.spectrayan.spector.spring.cache.EncryptingJsonCacheSerializer(mapper, encryptor));
+                }
+                builder.cacheManager(cacheBuilder.build());
+            } else {
+                builder.cacheManager(com.spectrayan.spector.commons.cache.SpectorCacheManager.builder()
+                        .keyGenerator(com.spectrayan.spector.commons.cache.SpectorCacheKeyGenerator.forNamespace(namespaceId))
+                        .build());
+            }
+            if (obsRegistry != null && obsConfig != null) {
+                builder.observationHook(new com.spectrayan.spector.metrics.observation.MicrometerMemoryObservationHook(obsRegistry, obsConfig));
+            }
             if (springQuartz != null) {
                 builder.quartzScheduler(springQuartz);
             }
-        }
-
-        SpectorMemory built = builder.build();
+        });
 
         if (obsRegistry != null && obsConfig != null) {
             built = new com.spectrayan.spector.metrics.ObservedSpectorMemory(built, obsRegistry, obsConfig);
         }
 
-        log.info("[NamespaceResolver] built namespace memory instance nsId={} (dims={}, persistenceMode={})",
+        log.info("[NamespaceResolver] built namespace memory instance nsId={} (dims={}, persistenceMode={}) via SpectorRuntime",
                 namespaceId, memory.getDimensions(), memory.getPersistenceMode());
 
         // INSULA fallback: only restore salience/soul from Region 24 when no identity bundle
         // exists for this namespace's owner. Post-migration, IdentityPlane supplies the soul
         // stack at bind time — Region 24 is not authoritative (ADR-0029 §23.6).
         try {
-            StorageLayout.validateNamespaceId(namespaceId);
+            StoragePaths.validateNamespaceId(namespaceId);
             Path idBundlePath = com.spectrayan.spector.synapse.identity.IdentityPaths.accountIdentityBundle(basePath(), namespaceId);
             if (java.nio.file.Files.exists(idBundlePath)) {
                 return built;

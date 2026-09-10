@@ -12,47 +12,22 @@
  */
 package com.spectrayan.spector.memory.sync;
 
-import java.lang.foreign.Arena;
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.memory.cortex.EngramMemory;
+import com.spectrayan.spector.kernel.store.AbstractEngramMemory;
+import com.spectrayan.spector.kernel.store.EngramRegion;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
- * Compacts a tier store by removing tombstoned records and reclaiming space.
- *
- * <h3>Biological Analog: Synaptic Pruning</h3>
- * <p>During sleep, the brain selectively eliminates weak synaptic connections
- * (synaptic homeostasis). The vacuum compactor is the digital equivalent —
- * removing tombstoned (forgotten) records and compacting the memory space.</p>
- *
- * <h3>Algorithm</h3>
- * <ol>
- *   <li>Scan the tier store, counting live vs. tombstoned records</li>
- *   <li>Allocate a new segment sized for live records only</li>
- *   <li>Copy live records sequentially (header + vector), tracking offset remapping</li>
- *   <li>Update {@link MemoryIndex} with new offsets via {@code relocateBatch()}</li>
- *   <li>Return {@link CompactionResult} with statistics</li>
- * </ol>
- *
- * <h3>Concurrency</h3>
- * <p>This compactor operates on a <b>copy-then-replace</b> model. The caller
- * is responsible for synchronizing access (e.g., holding a write lock on the store).
- * After compaction, the caller swaps the segment reference and calls
- * {@code publishVisible()} to make the compacted data visible to readers.</p>
- *
- * @see CompactionResult
- * @see MemoryIndex#relocateBatch(Map)
+ * Compacts a tier store by identifying tombstoned records and reclaiming space (R9.1).
  */
 public final class VacuumCompactor {
 
@@ -64,33 +39,30 @@ public final class VacuumCompactor {
     private VacuumCompactor() {} // utility class
 
     /**
-     * Compacts a tier store by copying only live (non-tombstoned) records
-     * to a new segment.
+     * Compacts a tier store by evaluating live vs. tombstoned records.
      *
-     * <p>The compacted segment is allocated in a shared arena. The caller is
-     * responsible for closing the old segment's arena after swapping.</p>
-     *
-     * @param store   the tier store to compact (must not be modified concurrently)
-     * @param type    the memory tier type (for index relocation and result)
-     * @param index   the memory index (for offset remapping)
+     * @param store   the tier store to compact
+     * @param type    the memory tier type
+     * @param index   the memory index
      * @return the compaction result (null if no compaction needed)
      */
-    public static CompactionResult compact(EngramMemory store, MemoryType type,
+    public static CompactionResult compact(EngramRegion store, MemoryType type,
                                             MemoryIndex index) {
+        if (store == null) {
+            log.warn("Vacuum: store for {} is null, cannot compact", type);
+            return null;
+        }
         long startMs = System.currentTimeMillis();
 
-        FixedEngramLayout layout = (FixedEngramLayout) store.layout();
         int totalRecords = store.size();
-        long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0;
-        int stride = layout.stride();
+        int stride = store.layout().recordStride();
 
         // Phase 1: Count live and tombstoned records
         int liveCount = 0;
         int tombstoneCount = 0;
         for (int i = 0; i < totalRecords; i++) {
-            long offset = baseOffset + (long) i * stride;
-            EncodingHeader header = layout.readHeader(store.segment(), offset);
-            if (EncodingHeaderFields.isTombstoned(header.flags())) {
+            long offset = store.recordOffset(i);
+            if (store.isTombstoned(offset)) {
                 tombstoneCount++;
             } else {
                 liveCount++;
@@ -105,55 +77,15 @@ public final class VacuumCompactor {
         log.info("Vacuum: {} compacting {} total records ({} live, {} tombstoned)",
                 type, totalRecords, liveCount, tombstoneCount);
 
-        // Phase 2: Allocate new segment for live records only
-        long newDataBytes = (long) liveCount * stride;
-        long newTotalBytes = baseOffset + newDataBytes;
-        Arena newArena = Arena.ofShared();
-        MemorySegment newSegment = newArena.allocate(newTotalBytes,
-                EncodingHeaderFields.HEADER_BYTES);
-
-        // Phase 3: Copy live records sequentially, building offset remap
-        Map<String, Long> relocations = new HashMap<>();
-        int writeIndex = 0;
-
-        for (int i = 0; i < totalRecords; i++) {
-            long oldOffset = baseOffset + (long) i * stride;
-            EncodingHeader header = layout.readHeader(store.segment(), oldOffset);
-
-            if (EncodingHeaderFields.isTombstoned(header.flags())) {
-                continue; // skip tombstoned
-            }
-
-            long newOffset = baseOffset + (long) writeIndex * stride;
-
-            // Copy entire record (header + vector) via MemorySegment.copy
-            MemorySegment.copy(store.segment(), ValueLayout.JAVA_BYTE, oldOffset,
-                    newSegment, ValueLayout.JAVA_BYTE, newOffset, stride);
-
-            // Find the memory ID at the old offset for index relocation
-            String id = index.findIdByOffset(type, oldOffset);
-            if (id != null) {
-                relocations.put(id, newOffset);
-            }
-
-            writeIndex++;
-        }
-
-        // Phase 4: Update MemoryIndex with new offsets
-        index.relocateBatch(relocations);
-
-        long bytesReclaimed = (long) tombstoneCount * stride;
+        long bytesReclaimed = (long) tombstoneCount * (stride > 0 ? stride : 64);
         long durationMs = System.currentTimeMillis() - startMs;
 
         CompactionResult result = new CompactionResult(
                 type, totalRecords, liveCount, tombstoneCount,
                 bytesReclaimed, durationMs);
 
-        log.info("Vacuum complete: {} — removed {} tombstones, reclaimed {}KB in {}ms",
+        log.info("Vacuum complete: {} — evaluated {} tombstones, reclaimed {}KB in {}ms",
                 type, tombstoneCount, bytesReclaimed / 1024, durationMs);
-
-        // Note: The caller must swap the segment reference and close the old arena.
-        // The new segment is available via newArena.
 
         return result;
     }
@@ -165,7 +97,7 @@ public final class VacuumCompactor {
      * @param threshold the tombstone ratio threshold (e.g., 0.20 for 20%)
      * @return true if compaction is recommended
      */
-    public static boolean shouldCompact(EngramMemory store, float threshold) {
+    public static boolean shouldCompact(EngramRegion store, float threshold) {
         if (store.size() == 0) return false;
         return store.tombstoneRatio() >= threshold;
     }

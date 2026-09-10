@@ -11,11 +11,15 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.synapse;
+import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
+import com.spectrayan.spector.kernel.store.StrengthMemory;
 
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.engram.EncodingHeaderLayout;
+
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import org.junit.jupiter.api.Test;
 
 import java.lang.foreign.Arena;

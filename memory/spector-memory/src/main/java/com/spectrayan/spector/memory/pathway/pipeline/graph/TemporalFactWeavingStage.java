@@ -11,9 +11,10 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.pipeline.graph;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
-import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
+import com.spectrayan.spector.kernel.store.TemporalFact;
 import com.spectrayan.spector.memory.cortex.consolidation.CadpContradictionResolver;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
@@ -51,11 +52,29 @@ public final class TemporalFactWeavingStage {
         this.index = index;
     }
     
+    private TemporalKnowledgeGraph effectiveTkg() {
+        var sig = com.spectrayan.spector.memory.pathway.recall.RecallPathway.activeSignal();
+        return (sig != null && sig.temporalKnowledgeGraph() != null) ? sig.temporalKnowledgeGraph() : this.tkg;
+    }
+
+    private EntityDirectory effectiveEntityDirectory() {
+        var sig = com.spectrayan.spector.memory.pathway.recall.RecallPathway.activeSignal();
+        return (sig != null && sig.entityDirectory() != null) ? sig.entityDirectory() : this.entityDirectory;
+    }
+
+    private MemoryIndex effectiveIndex() {
+        var sig = com.spectrayan.spector.memory.pathway.recall.RecallPathway.activeSignal();
+        return (sig != null && sig.index() != null) ? sig.index() : this.index;
+    }
+    
     public void weave(List<CognitiveResult> candidates, float[] queryVector, RecallOptions options) {
         weave(candidates, queryVector, options, null);
     }
 
     public void weave(List<CognitiveResult> candidates, float[] queryVector, RecallOptions options, String rawQuery) {
+        final TemporalKnowledgeGraph tkg = effectiveTkg();
+        final EntityDirectory entityDirectory = effectiveEntityDirectory();
+        final MemoryIndex index = effectiveIndex();
         if (tkg == null || tkg.factCount() == 0 || candidates.isEmpty()) return;
         
         Instant asOf = options.replayTimestamp() != null ? options.replayTimestamp() : Instant.now();
@@ -79,7 +98,7 @@ public final class TemporalFactWeavingStage {
 
                 // Priority 1: Fast O(1) off-heap lookup via EntityDirectory index slot
                 if (entityDirectory != null && index != null) {
-                    MemoryIndex.MemoryLocation loc = index.locate(candidate.id());
+                    MemoryLocation loc = index.locate(candidate.id());
                     if (loc != null) {
                         int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
                         List<Integer> slotEntityIds = CadpContradictionResolver.findEntitiesForSlot(entityDirectory, slot);

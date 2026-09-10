@@ -12,8 +12,10 @@
  */
 package com.spectrayan.spector.memory.pathway.wander.relay;
 
+import com.spectrayan.spector.kernel.id.MemoryId;
+
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
+import com.spectrayan.spector.kernel.shape.DistributedMemoryTensor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

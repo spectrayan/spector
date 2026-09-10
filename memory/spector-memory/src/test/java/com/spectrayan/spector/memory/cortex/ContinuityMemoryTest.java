@@ -11,8 +11,9 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex;
+import com.spectrayan.spector.kernel.store.ContinuityMemory;
 
-import com.spectrayan.spector.memory.aisme.continuity.IdentityTrajectorySnapshot;
+import com.spectrayan.spector.kernel.store.ContinuityRecord;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -34,7 +35,7 @@ class ContinuityMemoryTest {
 
             long baseTime = 1000L;
             for (int i = 1; i <= 8; i++) {
-                IdentityTrajectorySnapshot snap = new IdentityTrajectorySnapshot(
+                ContinuityRecord snap = new ContinuityRecord(
                         baseTime + i * 100,
                         0.5f + i * 0.05f,
                         10.0f + i,
@@ -50,12 +51,12 @@ class ContinuityMemoryTest {
             assertThat(memory.totalSnapshots()).isEqualTo(8);
             assertThat(memory.size()).isEqualTo(5); // capped at capacity
 
-            Optional<IdentityTrajectorySnapshot> latest = memory.latestSnapshot();
+            Optional<ContinuityRecord> latest = memory.latestSnapshot();
             assertThat(latest).isPresent();
             assertThat(latest.get().timestamp()).isEqualTo(baseTime + 800);
             assertThat(latest.get().phiCc()).isEqualTo(0.5f + 8 * 0.05f);
 
-            List<IdentityTrajectorySnapshot> history = memory.readHistory(3);
+            List<ContinuityRecord> history = memory.readHistory(3);
             assertThat(history).hasSize(3);
             assertThat(history.get(0).timestamp()).isEqualTo(baseTime + 800);
             assertThat(history.get(1).timestamp()).isEqualTo(baseTime + 700);
@@ -70,10 +71,10 @@ class ContinuityMemoryTest {
         Path file = tempDir.resolve("continuity.smd");
 
         try (ContinuityMemory memory = ContinuityMemory.open(file, 100)) {
-            IdentityTrajectorySnapshot s1 = new IdentityTrajectorySnapshot(
+            ContinuityRecord s1 = new ContinuityRecord(
                     1724350000000L, 0.88f, 15.2f, 0.03f, (byte) 10, (byte) 20, (byte) 90, (short) 2
             );
-            IdentityTrajectorySnapshot s2 = new IdentityTrajectorySnapshot(
+            ContinuityRecord s2 = new ContinuityRecord(
                     1724350060000L, 0.92f, 15.5f, 0.05f, (byte) 15, (byte) 25, (byte) 85, (short) 2
             );
             memory.appendSnapshot(s1);
@@ -85,12 +86,12 @@ class ContinuityMemoryTest {
             assertThat(memory.totalSnapshots()).isEqualTo(2);
             assertThat(memory.size()).isEqualTo(2);
 
-            Optional<IdentityTrajectorySnapshot> latest = memory.latestSnapshot();
+            Optional<ContinuityRecord> latest = memory.latestSnapshot();
             assertThat(latest).isPresent();
             assertThat(latest.get().timestamp()).isEqualTo(1724350060000L);
             assertThat(latest.get().phiCc()).isEqualTo(0.92f);
 
-            List<IdentityTrajectorySnapshot> history = memory.readHistory(10);
+            List<ContinuityRecord> history = memory.readHistory(10);
             assertThat(history).hasSize(2);
             assertThat(history.get(0).timestamp()).isEqualTo(1724350060000L);
             assertThat(history.get(1).timestamp()).isEqualTo(1724350000000L);

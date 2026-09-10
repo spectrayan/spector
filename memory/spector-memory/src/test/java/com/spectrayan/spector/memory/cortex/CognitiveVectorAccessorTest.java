@@ -11,20 +11,16 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-
-import java.lang.foreign.Arena;
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 
 import org.junit.jupiter.api.Test;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 class CognitiveVectorAccessorTest {
 
@@ -58,7 +54,6 @@ class CognitiveVectorAccessorTest {
         MemoryIndex index = mock(MemoryIndex.class);
         PartitionRegistry registry = mock(PartitionRegistry.class);
         CognitiveMemoryRouter router = mock(CognitiveMemoryRouter.class);
-        EngramLayout layout = mock(EngramLayout.class);
         ScalarQuantizer quantizer = mock(ScalarQuantizer.class);
 
         float[] mins = new float[]{0.0f, -1.0f};
@@ -66,31 +61,22 @@ class CognitiveVectorAccessorTest {
         when(quantizer.mins()).thenReturn(mins);
         when(quantizer.scales()).thenReturn(scales);
 
-        MemoryIndex.MemoryLocation loc = new MemoryIndex.MemoryLocation(MemoryType.SEMANTIC, 100L, 0);
+        MemoryLocation loc = new MemoryLocation(MemoryType.SEMANTIC, 100L, 0);
         when(index.locate("mem-123")).thenReturn(loc);
         when(registry.routerFor(0)).thenReturn(router);
 
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment segment = arena.allocate(256);
-            long vectorOffset = 64L;
-            when(router.segmentFor(MemoryType.SEMANTIC)).thenReturn(segment);
-            when(router.layoutFor(MemoryType.SEMANTIC)).thenReturn(layout);
-            when(layout.vectorOffset(100L)).thenReturn(vectorOffset);
+        byte[] quantized = new byte[]{(byte) 128, (byte) -1};
+        when(router.readVector(loc)).thenReturn(quantized);
 
-            // Write test bytes at vectorOffset: byte 0 = 128 (~0.5), byte 1 = 255 (1.0)
-            segment.set(ValueLayout.JAVA_BYTE, vectorOffset, (byte) 128);
-            segment.set(ValueLayout.JAVA_BYTE, vectorOffset + 1, (byte) -1); // 255 unsigned
+        CognitiveVectorAccessor accessor = new CognitiveVectorAccessor(index, registry, quantizer);
+        float[] result = accessor.apply("mem-123");
 
-            CognitiveVectorAccessor accessor = new CognitiveVectorAccessor(index, registry, quantizer);
-            float[] result = accessor.apply("mem-123");
-
-            assertNotNull(result);
-            assertEquals(2, result.length);
-            // dim 0: 0.0 + (128 / 255.0f) * 2.0 ≈ 1.0039f
-            assertEquals(0.0f + (128 / 255.0f) * 2.0f, result[0], 0.001f);
-            // dim 1: -1.0 + (255 / 255.0f) * 4.0 = 3.0f
-            assertEquals(3.0f, result[1], 0.001f);
-        }
+        assertNotNull(result);
+        assertEquals(2, result.length);
+        // dim 0: 0.0 + (128 / 255.0f) * 2.0 ≈ 1.0039f
+        assertEquals(0.0f + (128 / 255.0f) * 2.0f, result[0], 0.001f);
+        // dim 1: -1.0 + (255 / 255.0f) * 4.0 = 3.0f
+        assertEquals(3.0f, result[1], 0.001f);
     }
 
     @Test
@@ -101,7 +87,7 @@ class CognitiveVectorAccessorTest {
         when(quantizer.mins()).thenReturn(new float[]{0.0f});
         when(quantizer.scales()).thenReturn(new float[]{1.0f});
 
-        MemoryIndex.MemoryLocation loc = new MemoryIndex.MemoryLocation(MemoryType.EPISODIC, 100L, 0);
+        MemoryLocation loc = new MemoryLocation(MemoryType.EPISODIC, 100L, 0);
         when(index.locate("epi-123")).thenReturn(loc);
 
         CognitiveVectorAccessor accessor = new CognitiveVectorAccessor(index, registry, quantizer);

@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
+import com.spectrayan.spector.kernel.api.TriageOutcome;
+import com.spectrayan.spector.kernel.api.DreamMode;
+
 import com.spectrayan.spector.memory.model.AgentSoul;
 import org.junit.jupiter.api.Test;
 
@@ -90,8 +93,8 @@ class EfeTriageRelaySoulTest {
         DreamSignal.DreamScene evalA = signal.constructedScenes().get(0);
         DreamSignal.DreamScene evalB = signal.constructedScenes().get(1);
 
-        assertThat(evalA.triageOutcome()).isEqualTo(DreamSignal.TriageOutcome.IDENTITY);
-        assertThat(evalB.triageOutcome()).isEqualTo(DreamSignal.TriageOutcome.NOISE);
+        assertThat(evalA.triageOutcome()).isEqualTo(TriageOutcome.IDENTITY);
+        assertThat(evalB.triageOutcome()).isEqualTo(TriageOutcome.NOISE);
         assertThat(signal.survivingScenes()).containsExactly(evalA);
         assertThat(signal.failedPairs().get()).isEqualTo(1);
     }
@@ -140,8 +143,8 @@ class EfeTriageRelaySoulTest {
 
         relay.transmit(signal);
 
-        assertThat(signal.constructedScenes().get(0).triageOutcome()).isEqualTo(DreamSignal.TriageOutcome.EPISTEMIC);
-        assertThat(signal.constructedScenes().get(1).triageOutcome()).isEqualTo(DreamSignal.TriageOutcome.PRAGMATIC);
-        assertThat(signal.constructedScenes().get(2).triageOutcome()).isEqualTo(DreamSignal.TriageOutcome.NOISE);
+        assertThat(signal.constructedScenes().get(0).triageOutcome()).isEqualTo(TriageOutcome.EPISTEMIC);
+        assertThat(signal.constructedScenes().get(1).triageOutcome()).isEqualTo(TriageOutcome.PRAGMATIC);
+        assertThat(signal.constructedScenes().get(2).triageOutcome()).isEqualTo(TriageOutcome.NOISE);
     }
 }

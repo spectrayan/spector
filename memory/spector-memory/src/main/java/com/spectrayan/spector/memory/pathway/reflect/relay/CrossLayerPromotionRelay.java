@@ -15,8 +15,8 @@ package com.spectrayan.spector.memory.pathway.reflect.relay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

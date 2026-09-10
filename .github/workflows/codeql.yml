@@ -78,7 +78,7 @@ jobs:
       - name: Build for CodeQL
         if: matrix.language == 'java-kotlin'
         run: |
-          mvn -B clean compile -DskipTests \
+          mvn -B clean package -DskipTests \
             --no-transfer-progress \
             -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
 

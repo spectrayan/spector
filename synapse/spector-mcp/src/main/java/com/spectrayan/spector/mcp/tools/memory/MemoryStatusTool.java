@@ -18,7 +18,7 @@ package com.spectrayan.spector.mcp.tools.memory;
 import java.util.Map;
 import java.util.function.Supplier;
 import com.spectrayan.spector.mcp.util.McpTemplateEngine;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
 

@@ -11,18 +11,24 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.pipeline;
+import com.spectrayan.spector.kernel.store.HebbianEdge;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.id.SystemMemoryId;
+
+import com.spectrayan.spector.kernel.id.MemoryId;
+
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 
 import com.spectrayan.spector.memory.graph.EntityType;
 
-import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.memory.sync.WalRecoveryDispatcher;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianEdge;
+import com.spectrayan.spector.kernel.store.HebbianEdge;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -96,7 +102,7 @@ class HypergraphRecallSpikeTest {
             HyperEntityGraphMemory recovered = new HyperEntityGraphMemory(100, 500);
             assertThat(recovered.totalHyperedges()).isZero();
 
-            java.util.Map<com.spectrayan.spector.memory.kernel.MemoryId, com.spectrayan.spector.memory.kernel.Memory<?>> memories = new java.util.HashMap<>();
+            java.util.Map<com.spectrayan.spector.kernel.id.MemoryId, com.spectrayan.spector.kernel.shape.Memory<?>> memories = new java.util.HashMap<>();
             memories.put(recovered.id(), recovered);
             WalRecoveryDispatcher.recover(recoveryWal, memories);
             recoveryWal.close();
@@ -130,7 +136,7 @@ class HypergraphRecallSpikeTest {
         Path tempDir = Files.createTempDirectory("spector-wal-roundtrip");
         try {
             MemoryWal wal = new MemoryWal(tempDir);
-            TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+            TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
             EntityDirectory originalDir = new EntityDirectory(100, reg);
             HebbianGraphMemory originalHebbianGraph = new HebbianGraphMemory(100);
 
@@ -158,7 +164,7 @@ class HypergraphRecallSpikeTest {
             MemoryWal recoveryWal = new MemoryWal(tempDir);
 
             // Fresh empty instances (restart state before recovery)
-            TypeRegistryMemory recoveryReg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+            TypeRegistryMemory recoveryReg = TypeRegistryMemory.seeded(com.spectrayan.spector.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
             EntityDirectory recoveredDir = new EntityDirectory(100, recoveryReg);
             HebbianGraphMemory recoveredHebbianGraph = new HebbianGraphMemory(100);
 
@@ -166,7 +172,7 @@ class HypergraphRecallSpikeTest {
             assertThat(recoveredDir.findEntity("Beta")).isEqualTo(-1);
             assertThat(recoveredHebbianGraph.neighbors(10)).isEmpty();
 
-            java.util.Map<com.spectrayan.spector.memory.kernel.MemoryId, com.spectrayan.spector.memory.kernel.Memory<?>> memories = new java.util.HashMap<>();
+            java.util.Map<com.spectrayan.spector.kernel.id.MemoryId, com.spectrayan.spector.kernel.shape.Memory<?>> memories = new java.util.HashMap<>();
             memories.put(recoveredDir.id(), recoveredDir);
             memories.put(recoveredHebbianGraph.id(), recoveredHebbianGraph);
 

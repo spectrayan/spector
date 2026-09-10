@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import com.spectrayan.spector.memory.model.ImportanceContext;
 import com.spectrayan.spector.memory.model.ImportanceResult;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.OrgUnitSoul;
 import com.spectrayan.spector.memory.model.TenantSoul;
 import com.spectrayan.spector.memory.model.UserSoul;

@@ -18,18 +18,18 @@ import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicMemory;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
-import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
+import com.spectrayan.spector.kernel.error.SpectorMemoryTierFullException;
 import com.spectrayan.spector.memory.error.SpectorPartitionFrozenException;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
-import com.spectrayan.spector.memory.model.ConversationRole;
+import com.spectrayan.spector.kernel.api.ConversationRole;
 import com.spectrayan.spector.memory.model.RememberContext;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.model.SourceModality;
+import com.spectrayan.spector.kernel.api.SourceModality;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.pathway.pipeline.PostIngestSync;
@@ -114,19 +114,19 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
         final EncodingHeader header;
         if (preserved != null) {
             long synapticTags = signal.synapticTags() != 0 ? signal.synapticTags() : preserved.synapticTags();
-            final com.spectrayan.spector.memory.model.EngramSource engramSource;
-            if (signal.source() == com.spectrayan.spector.memory.cortex.MemorySource.DREAMED
-                    || signal.source() == com.spectrayan.spector.memory.cortex.MemorySource.THOUGHT_EXPERIMENT
-                    || signal.source() == com.spectrayan.spector.memory.cortex.MemorySource.LANGEVIN_DISCOVERY
-                    || preserved.source() == com.spectrayan.spector.memory.model.EngramSource.SIMULATED) {
+            final com.spectrayan.spector.kernel.api.EngramSource engramSource;
+            if (signal.source() == com.spectrayan.spector.kernel.api.MemorySource.DREAMED
+                    || signal.source() == com.spectrayan.spector.kernel.api.MemorySource.THOUGHT_EXPERIMENT
+                    || signal.source() == com.spectrayan.spector.kernel.api.MemorySource.LANGEVIN_DISCOVERY
+                    || preserved.source() == com.spectrayan.spector.kernel.api.EngramSource.SIMULATED) {
                 // R6.2: dream/simulate may write at most simulated
-                engramSource = com.spectrayan.spector.memory.model.EngramSource.SIMULATED;
+                engramSource = com.spectrayan.spector.kernel.api.EngramSource.SIMULATED;
             } else if (signal.source() != null) {
                 engramSource = signal.source().toEngramSource();
             } else if (preserved.source() != null) {
                 engramSource = preserved.source();
             } else {
-                engramSource = com.spectrayan.spector.memory.model.EngramSource.EXPERIENCED;
+                engramSource = com.spectrayan.spector.kernel.api.EngramSource.EXPERIENCED;
             }
 
             header = new EncodingHeader(
@@ -170,8 +170,8 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
             final byte encodingAlpha = computeEncodingAlpha(salienceProfile);
             final byte encodingBeta = computeEncodingBeta(salienceProfile);
 
-            final com.spectrayan.spector.memory.model.EngramSource engramSource =
-                    (signal.source() != null) ? signal.source().toEngramSource() : com.spectrayan.spector.memory.model.EngramSource.EXPERIENCED;
+            final com.spectrayan.spector.kernel.api.EngramSource engramSource =
+                    (signal.source() != null) ? signal.source().toEngramSource() : com.spectrayan.spector.kernel.api.EngramSource.EXPERIENCED;
 
             header = new EncodingHeader(
                     signal.timestampMs(),

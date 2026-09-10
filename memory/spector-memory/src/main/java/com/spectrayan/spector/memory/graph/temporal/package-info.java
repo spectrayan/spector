@@ -14,3 +14,5 @@
  * Temporal chain: session-based sequence tracking for conversation continuity.
  */
 package com.spectrayan.spector.memory.graph.temporal;
+
+import com.spectrayan.spector.kernel.store.TemporalFact;

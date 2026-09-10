@@ -15,10 +15,10 @@ package com.spectrayan.spector.synapse.observability;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

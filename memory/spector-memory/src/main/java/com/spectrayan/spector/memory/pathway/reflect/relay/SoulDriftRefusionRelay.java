@@ -14,17 +14,17 @@ package com.spectrayan.spector.memory.pathway.reflect.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.cortex.EngramMemory;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.store.AbstractEngramMemory;
+import com.spectrayan.spector.kernel.store.EngramRegion;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.ImportanceContext;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.foreign.MemorySegment;
 import java.util.PriorityQueue;
 
 /**
@@ -39,7 +39,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
     private static final Logger log = LoggerFactory.getLogger(SoulDriftRefusionRelay.class);
 
     private record DriftCandidate(
-            EngramMemory store,
+            EngramRegion store,
             long offset,
             float encodingSurprise,
             float oldImportance,
@@ -114,25 +114,22 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         var handles = signal.partitionManager().snapshot();
         for (var handle : handles) {
             if (handle.router() == null) continue;
-            EngramMemory[] stores = new EngramMemory[]{
+            EngramRegion[] stores = new EngramRegion[]{
                     handle.router().semantic(),
                     handle.router().working()
             };
 
-            for (EngramMemory store : stores) {
-                if (store != null && store.segment() != null) {
-                    FixedEngramLayout layout = (FixedEngramLayout) store.layout();
-                    MemorySegment segment = store.segment();
+            for (EngramRegion store : stores) {
+                if (store != null) {
                     int size = store.size();
-                    int vecBytes = layout.quantizedVecBytes();
-                    byte[] qBytes = new byte[vecBytes];
 
                     for (int i = 0; i < size && count < 2000; i++) {
                         long offset = store.recordOffset(i);
-                        byte flags = layout.readFlags(segment, offset);
-                        if (EncodingHeaderFields.isTombstoned(flags)) continue;
+                        if (store.isTombstoned(offset)) continue;
 
-                        MemorySegment.copy(segment, layout.vectorOffset(offset), MemorySegment.ofArray(qBytes), 0, vecBytes);
+                        byte[] qBytes = store.readVector(offset);
+                        if (qBytes == null) continue;
+
                         float[] vec = quantizer.decode(qBytes);
                         if (accumulator == null) {
                             accumulator = new float[vec.length];
@@ -155,24 +152,23 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         return accumulator;
     }
 
-    private void scanStore(EngramMemory store, short currentSoulVersion,
+    private void scanStore(EngramRegion store, short currentSoulVersion,
                            PriorityQueue<DriftCandidate> heap, ReflectSignal signal) {
-        if (store == null || store.segment() == null) return;
-
-        FixedEngramLayout layout = (FixedEngramLayout) store.layout();
-        MemorySegment segment = store.segment();
+        if (store == null) return;
         int size = store.size();
 
         for (int i = 0; i < size; i++) {
             long offset = store.recordOffset(i);
-            byte flags = layout.readFlags(segment, offset);
-            if (EncodingHeaderFields.isTombstoned(flags)) continue;
+            if (store.isTombstoned(offset)) continue;
 
-            short recordSoulVersion = layout.readSoulVersion(segment, offset);
+            EncodingHeader header = store.readHeader(offset);
+            if (header == null) continue;
+
+            short recordSoulVersion = header.soulVersion();
             if (recordSoulVersion < currentSoulVersion) {
                 signal.addSoulDrifted(1);
-                float importance = layout.readImportance(segment, offset);
-                float encodingSurprise = layout.readEncodingSurprise(segment, offset);
+                float importance = header.importance();
+                float encodingSurprise = header.encodingSurprise();
 
                 heap.offer(new DriftCandidate(store, offset, encodingSurprise, importance, recordSoulVersion));
             }
@@ -180,22 +176,21 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
     }
 
     private void refuseMemory(DriftCandidate candidate, short targetVersion, ReflectSignal signal) {
-        EngramMemory store = candidate.store();
-        FixedEngramLayout layout = (FixedEngramLayout) store.layout();
-        MemorySegment segment = store.segment();
+        EngramRegion store = candidate.store();
+        if (store == null) return;
         long offset = candidate.offset();
 
-        EncodingHeader header = layout.readHeader(segment, offset);
-        if (EncodingHeaderFields.isTombstoned(header.flags())) return;
+        EncodingHeader header = store.readHeader(offset);
+        if (header == null || EncodingHeaderFields.isTombstoned(header.flags())) return;
 
-        int vecBytes = layout.quantizedVecBytes();
-        byte[] quantized = new byte[vecBytes];
-        MemorySegment.copy(segment, layout.vectorOffset(offset), MemorySegment.ofArray(quantized), 0, vecBytes);
+        byte[] quantized = store.readVector(offset);
+        if (quantized == null) return;
 
         ScalarQuantizer quantizer = signal.quantizer();
         if (quantizer == null && signal.rememberPathway() != null) {
             quantizer = signal.rememberPathway().quantizer();
         }
+        int vecBytes = quantized.length;
         float[] vector = (quantizer != null) ? quantizer.decode(quantized) : new float[vecBytes];
 
         MemoryType memoryType = EncodingHeaderFields.memoryTypeOf(header.flags());
@@ -221,8 +216,10 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         float newImportance = importanceResult.importance();
 
         // In-place mutation
-        layout.writeImportance(segment, offset, newImportance);
-        layout.writeSoulVersion(segment, offset, targetVersion);
+        if (store instanceof AbstractEngramMemory<?> aem) {
+            aem.writeImportance(offset, newImportance);
+            aem.writeSoulVersion(offset, targetVersion);
+        }
 
         double delta = Math.abs(newImportance - candidate.oldImportance());
         signal.addSoulRefused(1);

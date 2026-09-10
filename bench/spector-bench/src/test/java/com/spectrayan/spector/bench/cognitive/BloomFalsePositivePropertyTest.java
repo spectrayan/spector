@@ -17,7 +17,7 @@ package com.spectrayan.spector.bench.cognitive;
 
 import java.util.Set;
 
-import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;

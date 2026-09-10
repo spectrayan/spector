@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
+import com.spectrayan.spector.kernel.api.TriageOutcome;
+
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.spi.AcceleratorRegistry;
 import com.spectrayan.spector.memory.model.SoulContext;
@@ -77,23 +79,23 @@ public final class EfeTriageRelay implements SynapticRelay<DreamSignal> {
                 soulResonance = AcceleratorRegistry.getSimilarityKernel().cosineSimilarity(vec, soul.identityEmbedding(), 1, vec.length)[0];
             }
 
-            DreamSignal.TriageOutcome outcome;
+            TriageOutcome outcome;
             if (soulResonance >= identityResonanceThreshold) {
                 // High direct alignment with the active soul self-model
-                outcome = DreamSignal.TriageOutcome.IDENTITY;
+                outcome = TriageOutcome.IDENTITY;
                 identity++;
             } else if (q >= epistemicThreshold) {
-                outcome = DreamSignal.TriageOutcome.EPISTEMIC;
+                outcome = TriageOutcome.EPISTEMIC;
                 epistemic++;
             } else if (q >= pragmaticThreshold) {
-                outcome = DreamSignal.TriageOutcome.PRAGMATIC;
+                outcome = TriageOutcome.PRAGMATIC;
                 pragmatic++;
             } else if (soul == null && q >= identityFallbackThreshold) {
                 // Fallback for soul-less instances
-                outcome = DreamSignal.TriageOutcome.IDENTITY;
+                outcome = TriageOutcome.IDENTITY;
                 identity++;
             } else {
-                outcome = DreamSignal.TriageOutcome.NOISE;
+                outcome = TriageOutcome.NOISE;
                 noise++;
             }
 
@@ -109,7 +111,7 @@ public final class EfeTriageRelay implements SynapticRelay<DreamSignal> {
 
             signal.addConstructedScene(evaluated);
 
-            if (outcome != DreamSignal.TriageOutcome.NOISE) {
+            if (outcome != TriageOutcome.NOISE) {
                 signal.addSurvivingScene(evaluated);
             } else {
                 signal.failedPairs().incrementAndGet();

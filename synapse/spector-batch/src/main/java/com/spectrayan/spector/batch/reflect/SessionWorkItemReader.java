@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.batch.reflect;
 
-import com.spectrayan.spector.memory.cortex.EpisodicMemory;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
 import com.spectrayan.spector.memory.pathway.reflect.ReflectCheckpoint;
 import com.spectrayan.spector.memory.pathway.reflect.SessionWorkItem;
 import com.spectrayan.spector.memory.pathway.reflect.relay.EpisodicLogConsolidationRelay;

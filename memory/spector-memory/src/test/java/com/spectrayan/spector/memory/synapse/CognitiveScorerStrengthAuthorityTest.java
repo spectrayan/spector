@@ -12,11 +12,11 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
-import com.spectrayan.spector.memory.cortex.SemanticMemory;
-import com.spectrayan.spector.memory.cortex.StrengthMemory;
-import com.spectrayan.spector.memory.kernel.layout.SemanticLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.store.SemanticMemory;
+import com.spectrayan.spector.kernel.store.StrengthMemory;
+import com.spectrayan.spector.kernel.layout.SemanticLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -54,8 +54,7 @@ class CognitiveScorerStrengthAuthorityTest {
 
             // 1. Scoring without strengthStore reads header (storageStrength = 1.0f, agentRecallCount = 0)
             final List<CognitiveScorer.ScoredRecord> withoutStrength = CognitiveScorer.score(
-                    store.primarySegment(), 1, layout, queryVector, options, nowMs, 0L,
-                    null, null, null, null, null, null);
+                    store, queryVector, options, nowMs);
             assertThat(withoutStrength).hasSize(1);
             float scoreWithout = withoutStrength.get(0).score();
 
@@ -64,8 +63,7 @@ class CognitiveScorerStrengthAuthorityTest {
             strengthStore.initializeDefault(MemoryType.SEMANTIC, 0, 6.0f, 3.0f, 5);
 
             final List<CognitiveScorer.ScoredRecord> withStrength = CognitiveScorer.score(
-                    store.primarySegment(), 1, layout, queryVector, options, nowMs, 0L,
-                    null, null, null, null, strengthStore, MemoryType.SEMANTIC);
+                    store, queryVector, options, nowMs, null, null, null, null, strengthStore);
             assertThat(withStrength).hasSize(1);
             float scoreWith = withStrength.get(0).score();
 
@@ -103,8 +101,7 @@ class CognitiveScorerStrengthAuthorityTest {
 
             // Without strengthStore, record is filtered out because header importance is 2.0 < 5.0
             final List<CognitiveScorer.ScoredRecord> withoutStrength = CognitiveScorer.score(
-                    store.primarySegment(), 1, layout, queryVector, options, nowMs, 0L,
-                    null, null, null, null, null, null);
+                    store, queryVector, options, nowMs);
             assertThat(withoutStrength).isEmpty();
 
             // With strengthStore having effectiveImportance = 8.0f, record passes filter
@@ -112,8 +109,7 @@ class CognitiveScorerStrengthAuthorityTest {
             strengthStore.initializeDefault(MemoryType.SEMANTIC, 0, 8.0f, 1.0f, 0);
 
             final List<CognitiveScorer.ScoredRecord> withStrength = CognitiveScorer.score(
-                    store.primarySegment(), 1, layout, queryVector, options, nowMs, 0L,
-                    null, null, null, null, strengthStore, MemoryType.SEMANTIC);
+                    store, queryVector, options, nowMs, null, null, null, null, strengthStore);
             assertThat(withStrength).hasSize(1);
         } finally {
             store.close();

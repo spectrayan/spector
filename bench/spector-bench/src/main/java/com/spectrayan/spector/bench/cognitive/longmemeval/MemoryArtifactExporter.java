@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.bench.cognitive.longmemeval;
+import com.spectrayan.spector.kernel.store.HebbianEdge;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
+
+import com.spectrayan.spector.kernel.api.MemoryLocation;
+import com.spectrayan.spector.kernel.id.MemoryId;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -35,9 +40,7 @@ import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianEdge;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 
@@ -99,9 +102,9 @@ public final class MemoryArtifactExporter {
         }
 
         try (BufferedWriter writer = Files.newBufferedWriter(target)) {
-            for (Map.Entry<String, MemoryIndex.MemoryLocation> entry : memory.admin().index().locationMap().entrySet()) {
+            for (Map.Entry<String, MemoryLocation> entry : memory.admin().index().locationMap().entrySet()) {
                 String memId = entry.getKey();
-                MemoryIndex.MemoryLocation loc = entry.getValue();
+                MemoryLocation loc = entry.getValue();
                 BenchmarkCorpusRecord orig = corpusMap.get(memId);
 
                 Map<String, Object> out = new LinkedHashMap<>();

@@ -30,7 +30,7 @@ import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 import net.jqwik.api.lifecycle.AfterContainer;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import net.jqwik.api.lifecycle.BeforeContainer;
 
 /**
@@ -38,7 +38,7 @@ import net.jqwik.api.lifecycle.BeforeContainer;
  * (no overlap / no traversal)</b> of the multi-user auth design.
  *
  * <p>For ANY two distinct valid {@code User_Id} values,
- * {@link StorageLayout#namespaceDirSharded(Path, String)} resolves two distinct
+ * {@link StoragePaths#namespaceDirSharded(Path, String)} resolves two distinct
  * paths where neither is an ancestor of the other; for ANY valid {@code User_Id}
  * the resolved path is a strict descendant of the configured base (no {@code ..}
  * escape); and any identifier containing {@code /}, {@code \}, {@code .}, a null
@@ -83,7 +83,7 @@ class StorageLayoutIsolationPropertyTest {
      * Valid {@code User_Id} values: non-blank identifiers drawn from a safe
      * alphabet (alphanumeric plus {@code -} and {@code _}) that excludes every
      * character the layout must reject. Length is constrained to 1..256 to stay
-     * within {@link StorageLayout#MAX_NAMESPACE_ID_LENGTH}.
+     * within {@link StoragePaths#MAX_NAMESPACE_ID_LENGTH}.
      */
     @Provide
     Arbitrary<String> validUserIds() {
@@ -122,8 +122,8 @@ class StorageLayoutIsolationPropertyTest {
             @ForAll("validUserIds") String u2) {
         Assume.that(!u1.equals(u2));
 
-        Path p1 = StorageLayout.namespaceDirSharded(base, u1).toAbsolutePath().normalize();
-        Path p2 = StorageLayout.namespaceDirSharded(base, u2).toAbsolutePath().normalize();
+        Path p1 = StoragePaths.namespaceDirSharded(base, u1).toAbsolutePath().normalize();
+        Path p2 = StoragePaths.namespaceDirSharded(base, u2).toAbsolutePath().normalize();
 
         assertThat(p1).isNotEqualTo(p2);
         assertThat(p1.startsWith(p2)).as("p1 must not be a descendant of p2").isFalse();
@@ -137,7 +137,7 @@ class StorageLayoutIsolationPropertyTest {
      */
     @Property
     void resolvedPathIsStrictDescendantOfBase(@ForAll("validUserIds") String userId) {
-        Path resolved = StorageLayout.namespaceDirSharded(base, userId).toAbsolutePath().normalize();
+        Path resolved = StoragePaths.namespaceDirSharded(base, userId).toAbsolutePath().normalize();
 
         assertThat(resolved.startsWith(base))
                 .as("resolved path must stay within the base (no .. escape)")
@@ -158,7 +158,7 @@ class StorageLayoutIsolationPropertyTest {
             throws IOException {
         List<Path> before = snapshot(base);
 
-        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(base, badId))
+        assertThatThrownBy(() -> StoragePaths.namespaceDirSharded(base, badId))
                 .isInstanceOf(SpectorValidationException.class);
 
         List<Path> after = snapshot(base);

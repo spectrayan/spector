@@ -32,7 +32,7 @@ package com.spectrayan.spector.memory.graph;
  *   <li><b>Edge age:</b> sum of ages for average computation</li>
  * </ul>
  */
-public final class GraphHealthMetrics {
+public final class GraphHealthMetrics implements com.spectrayan.spector.kernel.store.GraphHealthSink {
 
     // ── Hebbian Graph Metrics ──
 

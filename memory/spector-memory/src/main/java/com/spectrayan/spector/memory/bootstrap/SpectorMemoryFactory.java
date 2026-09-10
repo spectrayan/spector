@@ -11,6 +11,16 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.bootstrap;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
+import com.spectrayan.spector.kernel.store.ProvenanceMemory;
+
+import com.spectrayan.spector.kernel.id.MemoryId;
+
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
@@ -22,29 +32,29 @@ import com.spectrayan.spector.memory.neuromod.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor;
-import com.spectrayan.spector.memory.cortex.ContinuityMemory;
+import com.spectrayan.spector.kernel.store.ContinuityMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.neuromod.dopamine.DefaultImportanceProvider;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.GraphEnrichmentEngine;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.OntologyConfig;
 import com.spectrayan.spector.memory.graph.TypeNormalizer;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
-import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
+import com.spectrayan.spector.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
-import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
-import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
-import com.spectrayan.spector.memory.kernel.bundle.RegionId;
-import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
+import com.spectrayan.spector.kernel.store.InsulaMemory;
+import com.spectrayan.spector.kernel.shape.Memory;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.bundle.PartitionBundle;
+import com.spectrayan.spector.kernel.region.RegionId;
+import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.SalienceProfile;
@@ -69,7 +79,7 @@ import com.spectrayan.spector.memory.scheduler.jobs.HomeostaticDecayJob;
 import com.spectrayan.spector.memory.sync.CheckpointEngine;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalRecoveryDispatcher;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 
 import com.spectrayan.spector.memory.api.ImportanceProvider;
@@ -86,12 +96,12 @@ import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.neuromod.dopamine.DefaultImportanceProvider;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
-import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
+import com.spectrayan.spector.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
@@ -102,12 +112,12 @@ import com.spectrayan.spector.memory.pathway.pipeline.AttachmentProcessor;
 import com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
-import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
-import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
+import com.spectrayan.spector.kernel.bundle.PartitionBundle;
+import com.spectrayan.spector.kernel.store.InsulaMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -169,13 +179,13 @@ public final class SpectorMemoryFactory {
             SpectorNamespaceManager namespaceManager,
             ProfileAdaptor profileAdaptor,
             RuntimeBundle runtimeBundle,
-            InsularCortex insularCortex,
+            InsulaMemory insularCortex,
             WanderPathway wanderPathway,
-            com.spectrayan.spector.memory.cortex.ContinuityMemory continuityMemory,
+            com.spectrayan.spector.kernel.store.ContinuityMemory continuityMemory,
             DecidePathway decidePathway,
             DreamPathway dreamPathway,
             com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle,
-            com.spectrayan.spector.memory.cortex.ProvenanceMemory provenanceMemory
+            com.spectrayan.spector.kernel.store.ProvenanceMemory provenanceMemory
     ) {}
 
     private SpectorMemoryFactory() {}
@@ -202,6 +212,19 @@ public final class SpectorMemoryFactory {
         var twoFactorConfig = com.spectrayan.spector.config.properties.TwoFactorProperties.from(
                 memProps.getTwofactor());
 
+        // ── AISME Predictive Coding Fail-Fast (R12.3) ──
+        if (aismeConfig != null && aismeConfig.enabled() && aismeConfig.enablePredictiveCoding()
+                && memProps.getMaxNamespaces() > 8) {
+            int dims = memProps.getDimensions();
+            long perNamespaceBytes = (long) (4 - 1) * dims * dims * Float.BYTES;
+            double perNamespaceMiB = perNamespaceBytes / (1024.0 * 1024.0);
+            throw new SpectorValidationException(ErrorCode.CONFIG_VALUE_INVALID,
+                    String.format("PredictiveCodingNetwork allocates %.2f MiB per namespace for tier weights at %d dimensions. "
+                            + "AISME predictive coding cannot be enabled when maxNamespaces=%d (> 8). "
+                            + "Reduce maxNamespaces <= 8 or set spector.memory.aisme.enable-predictive-coding=false to prevent OOM.",
+                            perNamespaceMiB, dims, memProps.getMaxNamespaces()));
+        }
+
         com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager = builder.cacheManager() != null
                 ? builder.cacheManager()
                 : com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager();
@@ -214,7 +237,9 @@ public final class SpectorMemoryFactory {
                 && builder.properties().provider() != null
                 && builder.properties().provider().getEmbedding() != null
                 && builder.properties().provider().getEmbedding().isSequential();
-        ParallelEmbeddingPipeline parallelPipeline = new ParallelEmbeddingPipeline(embeddingProvider, sequential);
+        ParallelEmbeddingPipeline parallelPipeline = builder.parallelEmbeddingPipeline() != null
+                ? builder.parallelEmbeddingPipeline()
+                : new ParallelEmbeddingPipeline(embeddingProvider, sequential);
         int batchSize = (builder.properties() != null && builder.properties().provider() != null
                 && builder.properties().provider().getEmbedding() != null)
                 ? builder.properties().provider().getEmbedding().getBatchSize() : 32;
@@ -230,7 +255,7 @@ public final class SpectorMemoryFactory {
         //  WAL 
         MemoryWal wal;
         if (cortex.isDisk() && cortex.basePath() != null) {
-            wal = new MemoryWal(StorageLayout.walDir(cortex.basePath()));
+            wal = new MemoryWal(StoragePaths.walDir(cortex.basePath()));
         } else {
             wal = new MemoryWal();
         }
@@ -266,7 +291,9 @@ public final class SpectorMemoryFactory {
 
         //  Ingestion target (RememberPathway) 
         int activePartitionIndex = 0;
-        RememberPathway rememberPathway = new RememberPathway.Builder()
+        RememberPathway rememberPathway = builder.rememberPathway() != null
+                ? builder.rememberPathway()
+                : new RememberPathway.Builder()
                 .namespaceId(builder.namespaceId())
                 .cortex(cortex)
                 .bio(bio)
@@ -285,7 +312,7 @@ public final class SpectorMemoryFactory {
                 .normalizeAtIngest(true)
                 .build();
 
-        if (builder.salienceProfileProvider() != null) {
+        if (builder.rememberPathway() == null && builder.salienceProfileProvider() != null) {
             SalienceProfile effective = builder.salienceProfileProvider().effectiveProfile();
             if (effective != null && !effective.isNeutral()) {
                 rememberPathway.setSalienceProfile(effective);
@@ -297,17 +324,19 @@ public final class SpectorMemoryFactory {
                 builder, cortex, retrieval, index, graphs, rememberPathway);
 
         partitionManager.setRememberPathway(rememberPathway);
-        rememberPathway.setPartitionRollCallback(partitionManager::rollPartition);
+        if (builder.rememberPathway() == null) {
+            rememberPathway.setPartitionRollCallback(partitionManager::rollPartition);
+        }
 
         //  WAL Recovery 
-        java.lang.foreign.MemorySegment ckptSlice = cortex.useBundleMode() && cortex.runtimeBundle() != null
-                ? cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.CHECKPOINT)
+        com.spectrayan.spector.kernel.bundle.RegionRef ckptRef = cortex.useBundleMode() && cortex.runtimeBundle() != null
+                ? cortex.runtimeBundle().checkpointRef()
                 : null;
         MemoryWalRecovery.recover(wal, cortex.cognitiveRouter(), index, graphs.hebbianGraph(),
                 graphs.temporalChain(), graphs.temporalKnowledgeGraph(),
                 graphs.entityDirectory(), graphs.hyperEntityGraph(),
                 bio.coActivationTracker(), rememberPathway, cortex.basePath(), cortex.initialPartitionSeq(),
-                ckptSlice);
+                ckptRef);
         // ADR-0003 #456 (P2): the EntityDirectory is now the authoritative identity store, WAL-bound
         // and recovered directly (WalRecoveryDispatcher GRAPH_ADD_NODE/LINK repointed to it).
         if (wal != null) {
@@ -333,7 +362,7 @@ public final class SpectorMemoryFactory {
         }
         ProfileAdaptor profileAdaptor = new ProfileAdaptor(salienceDefault);
         if (!bio.coActivationTracker().banditStats().isEmpty()) {
-            profileAdaptor.loadStats(bio.coActivationTracker().banditStats());
+            profileAdaptor.loadBanditStats(bio.coActivationTracker().banditStats());
         }
 
         // Active Inference Self-Model Engine (AISME) (#597, #623)
@@ -363,7 +392,9 @@ public final class SpectorMemoryFactory {
         }
 
         //  Recall Pathway (#561 — relay-based engine) 
-        RecallPathway recallPathway = new RecallPathway.Builder()
+        RecallPathway recallPathway = builder.recallPathway() != null
+                ? builder.recallPathway()
+                : new RecallPathway.Builder()
                 .embeddingProvider(embeddingProvider)
                 .cortex(cortex)
                 .bio(bio)
@@ -381,7 +412,7 @@ public final class SpectorMemoryFactory {
                 .salienceProfileProvider(builder.salienceProfileProvider())
                 .build();
 
-        if (bio.coActivationTracker() != null) {
+        if (builder.recallPathway() == null && bio.coActivationTracker() != null) {
             recallPathway.addListener(new com.spectrayan.spector.memory.pathway.pipeline.HebbianCoActivationListener(bio.coActivationTracker()));
         }
 
@@ -393,11 +424,13 @@ public final class SpectorMemoryFactory {
         MemoryIdGenerator idGenerator = builder.idGenerator() != null
                 ? builder.idGenerator()
                 : (memProps.getIdStrategy() != null && !memProps.getIdStrategy().isBlank()
-                ? com.spectrayan.spector.memory.kernel.id.IdStrategy.valueOf(memProps.getIdStrategy().toUpperCase(java.util.Locale.ROOT)).createGenerator()
-                : com.spectrayan.spector.memory.kernel.id.IdStrategy.TSID.createGenerator());
+                ? com.spectrayan.spector.kernel.id.IdStrategy.valueOf(memProps.getIdStrategy().toUpperCase(java.util.Locale.ROOT)).createGenerator()
+                : com.spectrayan.spector.kernel.id.IdStrategy.TSID.createGenerator());
 
         //  Reflect Pathway (#503 / ADR-0007)
-        ReflectPathway reflectPathway = ReflectPathway.builder()
+        ReflectPathway reflectPathway = builder.reflectPathway() != null
+                ? builder.reflectPathway()
+                : ReflectPathway.builder()
                 .embeddingProvider(embeddingProvider)
                 .textGenerator(builder.llmProvider())
                 .importanceProvider(importanceProvider)
@@ -426,14 +459,18 @@ public final class SpectorMemoryFactory {
                 .build();
 
         // Express Pathway (#602)
-        ExpressPathway expressPathway = ExpressPathway.builder().build();
+        ExpressPathway expressPathway = builder.expressPathway() != null
+                ? builder.expressPathway()
+                : ExpressPathway.builder().build();
 
         ReinforcementHandler reinforcementHandler = new ReinforcementHandler(
                 bio.valenceTracker(), graphs.hebbianGraph(), bio.lateralEvaluator(), recallPathway,
                 wal, twoFactorConfig, profileAdaptor);
 
         //  Wander Pathway (#609 / AISME Phase 10 — DMN & Longitudinal Continuity)
-        WanderPathway wanderPathway = WanderPathway.builder()
+        WanderPathway wanderPathway = builder.wanderPathway() != null
+                ? builder.wanderPathway()
+                : WanderPathway.builder()
                 .quantizer(cortex.quantizer())
                 .embeddingProvider(embeddingProvider)
                 .mentalStateTracker(aismeBundle != null ? aismeBundle.mentalStateTracker() : null)
@@ -446,11 +483,13 @@ public final class SpectorMemoryFactory {
                 .build();
 
         //  Decide Pathway (#611 / AISME Phase 11 — Expected Free Energy G(π) Policy Engine)
-        DecidePathway decidePathway = (aismeBundle != null && aismeBundle.policyInferenceEngine() != null)
-                ? DecidePathway.builder()
-                        .policyInferenceEngine(aismeBundle.policyInferenceEngine())
-                        .build()
-                : null;
+        DecidePathway decidePathway = builder.decidePathway() != null
+                ? builder.decidePathway()
+                : ((aismeBundle != null && aismeBundle.policyInferenceEngine() != null)
+                        ? DecidePathway.builder()
+                                .policyInferenceEngine(aismeBundle.policyInferenceEngine())
+                                .build()
+                        : null);
 
         //  Dream Pathway (#679, #681 / Soul-Conditioned Generative Dreaming)
         com.spectrayan.spector.memory.model.SoulContext dreamPrimarySoul =
@@ -464,7 +503,9 @@ public final class SpectorMemoryFactory {
             dreamActiveSouls = java.util.List.of();
         }
 
-        DreamPathway dreamPathway = DreamPathway.builder()
+        DreamPathway dreamPathway = builder.dreamPathway() != null
+                ? builder.dreamPathway()
+                : DreamPathway.builder()
                 .dreamProperties(memProps.getDream())
                 .partitionManager(partitionManager)
                 .aismeConfig(aismeConfig)
@@ -491,7 +532,7 @@ public final class SpectorMemoryFactory {
                         graphs.hebbianGraph(), graphs.temporalChain(),
                         graphs.entityDirectory(), graphs.hyperEntityGraph(), bio.coActivationTracker(),
                         graphs.temporalKnowledgeGraph(),
-                        cortex.resolvedPartitionDir(), cortex.basePath(), ckptSlice);
+                        cortex.resolvedPartitionDir(), cortex.basePath(), ckptRef);
                 if (builder.spectorProperties() != null && builder.spectorProperties().events() != null) {
                     checkpointEngine.setEventBus(com.spectrayan.spector.events.EventBus.broadcast(
                             builder.spectorProperties().events().isAsync()));
@@ -560,28 +601,18 @@ public final class SpectorMemoryFactory {
             if (semStore == null || semStore.size() == 0) continue;
 
             int storeSize = semStore.size();
-            var seg = semStore.primarySegment();
-            var recLayout = semStore.layout();
-            int stride = recLayout.stride();
-            int vecBytes = recLayout.quantizedVecBytes();
             long baseOffset = semStore.dataOffset();
+            int stride = semStore.layout().stride();
 
             for (int i = 0; i < storeSize; i++) {
-                long recordOff = baseOffset + (long) i * stride;
-                byte flags = recLayout.readFlags(seg, recordOff);
-                if (com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isTombstoned(flags)) {
+                byte[] quantized = semStore.readQuantizedVector(i);
+                if (quantized == null) {
                     continue;
                 }
 
-                String id = index.findIdByOffset(partitionSeq, com.spectrayan.spector.memory.model.MemoryType.SEMANTIC, recordOff);
+                long recordOff = baseOffset + (long) i * stride;
+                String id = index.findIdByOffset(partitionSeq, com.spectrayan.spector.kernel.api.MemoryType.SEMANTIC, recordOff);
                 if (id != null) {
-                    byte[] quantized = new byte[vecBytes];
-                    java.lang.foreign.MemorySegment.copy(
-                            seg, java.lang.foreign.ValueLayout.JAVA_BYTE,
-                            recLayout.vectorOffset(recordOff),
-                            java.lang.foreign.MemorySegment.ofArray(quantized),
-                            java.lang.foreign.ValueLayout.JAVA_BYTE, 0, vecBytes);
-
                     float[] vector = quantizer.decode(quantized);
                     var loc = index.location(id);
                     int graphSlot = (loc != null) ? loc.graphSlot() : i;

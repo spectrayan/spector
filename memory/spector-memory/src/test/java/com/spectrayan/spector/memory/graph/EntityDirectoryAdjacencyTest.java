@@ -11,8 +11,11 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.graph;
+import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
 
-import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.kernel.id.MemoryId;
+
+import com.spectrayan.spector.kernel.id.SystemMemoryId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

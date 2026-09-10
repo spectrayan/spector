@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.metrics.observation;
 
+import com.spectrayan.spector.kernel.id.MemoryId;
+
 import io.micrometer.common.KeyValue;
 import io.micrometer.common.KeyValues;
 

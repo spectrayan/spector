@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.sync;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
@@ -67,7 +68,7 @@ import java.util.zip.Inflater;
  * <p>A replication daemon reads events after a high-water mark and ships them
  * to remote agents. Each agent replays events into their local memory store.</p>
  */
-public final class MemoryWal implements AutoCloseable {
+public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.kernel.sync.MemoryWal {
 
     private static final Logger log = LoggerFactory.getLogger(MemoryWal.class);
 

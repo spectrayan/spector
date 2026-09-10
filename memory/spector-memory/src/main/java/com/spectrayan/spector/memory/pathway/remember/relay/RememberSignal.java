@@ -12,10 +12,10 @@
  */
 package com.spectrayan.spector.memory.pathway.remember.relay;
 
-import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.model.RememberContext;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 
@@ -52,10 +52,12 @@ public final class RememberSignal {
     private int graphSlot = -1;
     private boolean duplicate = false;
     private boolean successful = false;
-    private com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics eventDensityMetrics;
     private boolean gated = false;
+    private com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics eventDensityMetrics;
     private com.spectrayan.spector.memory.aisme.segmentation.EpisodicSegment episodicSegment;
     private List<com.spectrayan.spector.memory.model.SoulContext> soulContexts = List.of();
+    private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
+    private final java.util.Map<String, Object> attributes = new java.util.concurrent.ConcurrentHashMap<>();
 
     private RememberSignal(
             final String id,
@@ -203,4 +205,14 @@ public final class RememberSignal {
 
     public com.spectrayan.spector.memory.aisme.segmentation.EpisodicSegment episodicSegment() { return episodicSegment; }
     public void episodicSegment(final com.spectrayan.spector.memory.aisme.segmentation.EpisodicSegment segment) { this.episodicSegment = segment; }
+
+    public com.spectrayan.spector.kernel.api.NamespaceKernel kernel() { return kernel; }
+    public void kernel(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel) {
+        this.kernel = kernel;
+        if (kernel != null) {
+            this.attributes.put("kernel", kernel);
+        }
+    }
+
+    public java.util.Map<String, Object> attributes() { return attributes; }
 }

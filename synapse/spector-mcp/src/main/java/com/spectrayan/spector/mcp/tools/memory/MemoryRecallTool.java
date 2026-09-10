@@ -30,7 +30,7 @@ import com.spectrayan.spector.memory.model.RecallOptions;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
-import com.spectrayan.spector.memory.model.SourceModality;
+import com.spectrayan.spector.kernel.api.SourceModality;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.config.model.TextSearchMode;

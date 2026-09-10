@@ -11,10 +11,12 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.graph.temporal;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalFactsMemory;
+import com.spectrayan.spector.kernel.store.TemporalFact;
 
-import java.lang.foreign.Arena;
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -29,11 +31,11 @@ import java.util.zip.CRC32C;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.SystemMemoryId;
-import com.spectrayan.spector.memory.kernel.layout.TemporalFactLayout;
-import com.spectrayan.spector.memory.kernel.shape.DefaultAppendMemory;
+import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
+import com.spectrayan.spector.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.id.SystemMemoryId;
+import com.spectrayan.spector.kernel.layout.TemporalFactLayout;
+import com.spectrayan.spector.kernel.shape.DefaultAppendMemory;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.graph.temporal.index.SubjectIndex;
 import com.spectrayan.spector.memory.graph.temporal.index.ValidTimeIndex;
@@ -162,16 +164,17 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
     /**
      * Creates a bundle-backed TemporalKnowledgeGraph.
      */
-    public static TemporalKnowledgeGraph fromBundle(TypeRegistryMemory predicateRegistry,
-                                                    Arena arena, MemorySegment regionSlice,
-                                                    Path bundlePath, boolean isNew) {
-        return new TemporalKnowledgeGraph(predicateRegistry, arena, regionSlice, bundlePath, isNew);
+
+    public static TemporalKnowledgeGraph fromRegionRef(TypeRegistryMemory predicateRegistry,
+                                                        com.spectrayan.spector.kernel.bundle.RegionRef regionRef,
+                                                        Path bundlePath, boolean isNew) {
+        return new TemporalKnowledgeGraph(predicateRegistry, regionRef, bundlePath, isNew);
     }
 
     private TemporalKnowledgeGraph(TypeRegistryMemory predicateRegistry,
-                                   Arena arena, MemorySegment regionSlice,
+                                   com.spectrayan.spector.kernel.bundle.RegionRef regionRef,
                                    Path bundlePath, boolean isNew) {
-        this.factLog = TemporalFactsMemory.fromBundle(arena, regionSlice, bundlePath, isNew);
+        this.factLog = TemporalFactsMemory.fromRegionRef(regionRef, bundlePath, isNew);
         this.predicateRegistry = predicateRegistry;
         this.resolver = new LatestTxWinsResolver();
         this.nextFactId = 1;
@@ -180,15 +183,8 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
             Path legacyPath = bundlePath.resolveSibling("temporal-facts.tfacts");
             if (java.nio.file.Files.exists(legacyPath)) {
                 log.info("Migrating legacy standalone temporal-facts.tfacts to bundle region...");
-                try {
-                    TemporalKnowledgeGraph legacy = new TemporalKnowledgeGraph(legacyPath, java.nio.file.Files.size(legacyPath) - com.spectrayan.spector.memory.kernel.RegionPreamble.PREAMBLE_BYTES, predicateRegistry);
-                    long factCount = legacy.factLog.size();
-                    for (long i = 0; i < factCount; i++) {
-                        MemorySegment factSeg = legacy.factLog.read(i * 64, 64);
-                        this.factLog.append(factSeg);
-                    }
-                    this.factLog.flush();
-                    legacy.close();
+                try (TemporalFactsMemory legacy = new TemporalFactsMemory(legacyPath, java.nio.file.Files.size(legacyPath) - com.spectrayan.spector.kernel.region.RegionPreamble.PREAMBLE_BYTES)) {
+                    this.factLog.copyAllFrom(legacy);
                     java.nio.file.Files.deleteIfExists(legacyPath);
                 } catch (Exception e) {
                     log.warn("Failed to migrate legacy temporal-facts.tfacts: {}", e.getMessage());
@@ -197,6 +193,8 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
         }
         rebuildIndexes();
     }
+
+
 
     // ═══════════════════════════════════════════════════════════════
     // MUTATION — Assert / Retract
@@ -270,13 +268,13 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
 
         byte flags = inferred ? TemporalFactLayout.FLAG_INFERRED : 0;
 
-        MemorySegment segment = writeFactSegment(
+        TemporalFact fact = new TemporalFact(
                 factId, subjectEntityId, predicateId, objectEntityId,
-                objectTextOffset, objectTextLength, flags,
+                objectTextOffset, objectTextLength,
                 validFrom, validTo, txTime, confidence,
-                TemporalFact.SENTINEL_FACT);
+                TemporalFact.SENTINEL_FACT, flags);
 
-        long offset = factLog.append(segment);
+        long offset = factLog.appendFact(fact);
         subjectIndex.add(subjectEntityId, offset);
         validTimeIndex.add(validFrom, offset);
 
@@ -292,13 +290,13 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
         int factId = nextFactId++;
         long txTime = System.currentTimeMillis();
 
-        MemorySegment segment = writeFactSegment(
+        TemporalFact fact = new TemporalFact(
                 factId, 0, 0, TemporalFact.SENTINEL_ENTITY,
-                -1L, (short) 0, (byte) 0,
+                -1L, (short) 0,
                 0L, 0L, txTime, 0f,
-                factIdToRetract);
+                factIdToRetract, (byte) 0);
 
-        factLog.append(segment);
+        factLog.appendFact(fact);
         retractedCache.add(factIdToRetract);
 
         log.debug("TKG: retracted factId={} (retraction={})", factIdToRetract, factId);
@@ -418,8 +416,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
         List<Long> offsets = subjectIndex.offsetsFor(entityId);
         List<TemporalFact> facts = new ArrayList<>(offsets.size());
         for (long offset : offsets) {
-            MemorySegment seg = factLog.read(offset, 64);
-            facts.add(TemporalFact.readFrom(seg, 0, LAYOUT));
+            facts.add(factLog.readFact(offset));
         }
         return facts;
     }
@@ -503,43 +500,22 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
 
         int maxFactId = 0;
         int factCount = 0;
-        long currentOffset = 0;
 
-        Iterator<MemorySegment> it = factLog.replay(0);
-        while (it.hasNext()) {
-            MemorySegment seg = it.next();
-            long segSize = seg.byteSize();
-            if (segSize < 64) {
-                log.warn("TKG: skipping truncated record at offset {} (size={})",
-                        currentOffset, segSize);
-                currentOffset += 4 + segSize; // 4B length prefix + payload
-                continue;
-            }
+        for (TemporalFactsMemory.FactLogEntry entry : factLog.replayAllFacts()) {
+            TemporalFact fact = entry.fact();
+            long offset = entry.dataOffset();
 
-            int factId = seg.get(ValueLayout.JAVA_INT_UNALIGNED, TemporalFactLayout.OFF_FACT_ID);
-            int retractsFactId = seg.get(ValueLayout.JAVA_INT_UNALIGNED,
-                    TemporalFactLayout.OFF_RETRACTS_FACT_ID);
-
-            if (retractsFactId == TemporalFact.SENTINEL_FACT) {
-                // Normal fact — index it
-                int subjectId = seg.get(ValueLayout.JAVA_INT_UNALIGNED,
-                        TemporalFactLayout.OFF_SUBJECT_ENTITY_ID);
-                long validFrom = seg.get(ValueLayout.JAVA_LONG_UNALIGNED,
-                        TemporalFactLayout.OFF_VALID_FROM);
-
-                // Offset in the read() coordinate space = currentOffset (after length prefix)
-                subjectIndex.add(subjectId, currentOffset + 4);
-                validTimeIndex.add(validFrom, currentOffset + 4);
-                factCount++;
+            if (fact.isRetraction()) {
+                retractedCache.add(fact.retractsFactId());
             } else {
-                retractedCache.add(retractsFactId);
+                subjectIndex.add(fact.subjectEntityId(), offset);
+                validTimeIndex.add(fact.validFrom(), offset);
+                factCount++;
             }
 
-            if (factId > maxFactId) {
-                maxFactId = factId;
+            if (fact.factId() > maxFactId) {
+                maxFactId = fact.factId();
             }
-
-            currentOffset += 4 + segSize; // 4B length prefix + payload
         }
 
         nextFactId = maxFactId + 1;
@@ -588,48 +564,5 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
      */
     public void flush() {
         factLog.flush();
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // INTERNAL
-    // ═══════════════════════════════════════════════════════════════
-
-    /**
-     * Writes a 64-byte fact record to a fresh MemorySegment with CRC32C.
-     */
-    private MemorySegment writeFactSegment(
-            int factId, int subjectEntityId, int predicateId, int objectEntityId,
-            long objectTextOffset, short objectTextLength, byte flags,
-            long validFrom, long validTo, long txTime, float confidence,
-            int retractsFactId) {
-
-        MemorySegment seg = MemorySegment.ofArray(new byte[64]);
-
-        seg.set(ValueLayout.JAVA_INT_UNALIGNED, TemporalFactLayout.OFF_FACT_ID, factId);
-        seg.set(ValueLayout.JAVA_INT_UNALIGNED, TemporalFactLayout.OFF_SUBJECT_ENTITY_ID, subjectEntityId);
-        seg.set(ValueLayout.JAVA_INT_UNALIGNED, TemporalFactLayout.OFF_PREDICATE_ID, predicateId);
-        seg.set(ValueLayout.JAVA_INT_UNALIGNED, TemporalFactLayout.OFF_OBJECT_ENTITY_ID, objectEntityId);
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, TemporalFactLayout.OFF_OBJECT_TEXT_OFFSET, objectTextOffset);
-        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, TemporalFactLayout.OFF_OBJECT_TEXT_LENGTH, objectTextLength);
-        seg.set(ValueLayout.JAVA_BYTE, TemporalFactLayout.OFF_FLAGS, flags);
-        seg.set(ValueLayout.JAVA_BYTE, TemporalFactLayout.OFF_RESERVED, (byte) 0);
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, TemporalFactLayout.OFF_VALID_FROM, validFrom);
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, TemporalFactLayout.OFF_VALID_TO, validTo);
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, TemporalFactLayout.OFF_TX_TIME, txTime);
-        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, TemporalFactLayout.OFF_CONFIDENCE, confidence);
-        seg.set(ValueLayout.JAVA_INT_UNALIGNED, TemporalFactLayout.OFF_RETRACTS_FACT_ID, retractsFactId);
-
-        // CRC32C over entire 64 bytes with CRC32C field zeroed out
-        CRC32C crc = new CRC32C();
-        byte[] recordBytes = new byte[64];
-        MemorySegment.copy(seg, 0, MemorySegment.ofArray(recordBytes), 0, 64);
-        recordBytes[56] = 0;
-        recordBytes[57] = 0;
-        recordBytes[58] = 0;
-        recordBytes[59] = 0;
-        crc.update(recordBytes);
-        seg.set(ValueLayout.JAVA_INT_UNALIGNED, TemporalFactLayout.OFF_CRC32C, (int) crc.getValue());
-
-        return seg;
     }
 }

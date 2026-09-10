@@ -12,11 +12,11 @@
  */
 package com.spectrayan.spector.memory;
 
-import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.test.FakeEmbeddingProvider;
 
@@ -77,10 +77,10 @@ class PartitionRestartRecallTest {
     }
 
     private static long partitionDirCount(Path base) throws Exception {
-        try (var stream = Files.newDirectoryStream(StorageLayout.partitionsDir(base))) {
+        try (var stream = Files.newDirectoryStream(StoragePaths.partitionsDir(base))) {
             long n = 0;
             for (Path p : stream) {
-                if (Files.isDirectory(p) && StorageLayout.isPartitionDir(p.getFileName().toString())) n++;
+                if (Files.isDirectory(p) && StoragePaths.isPartitionDir(p.getFileName().toString())) n++;
             }
             return n;
         }

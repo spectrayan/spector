@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.bench.cognitive;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
+
+import com.spectrayan.spector.kernel.id.MemoryId;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -45,16 +48,15 @@ import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityType;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 
 /**
  * Bootstraps a {@link SpectorMemory} instance populated with the benchmark corpus.
@@ -561,7 +563,7 @@ public final class BenchmarkSetup implements AutoCloseable {
         return memory;
     }
 
-    private static int offsetToRecordIndex(com.spectrayan.spector.memory.cortex.index.MemoryIndex.MemoryLocation loc, SpectorMemory memory) {
+    private static int offsetToRecordIndex(com.spectrayan.spector.kernel.api.MemoryLocation loc, SpectorMemory memory) {
         return loc.graphSlot();
     }
 

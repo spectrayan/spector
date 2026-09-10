@@ -81,6 +81,7 @@
         <!-- ── Memory: Cognitive engine (flagship) ── -->
         <module>memory/spector-provider-api</module>
         <module>memory/spector-providers</module>
+        <module>memory/spector-kernel</module>
         <module>memory/spector-ingestion</module>
         <module>memory/spector-memory</module>
         <module>memory/spector-inspect</module>
@@ -160,6 +161,7 @@
         <assertj.version>3.27.7</assertj.version>
         <mockito.version>5.23.0</mockito.version>
         <awaitility.version>4.2.2</awaitility.version>
+        <archunit.version>1.4.2</archunit.version>
 
         <!-- OpenAPI & SDK Generation -->
         <springdoc.version>3.1.0</springdoc.version>
@@ -229,6 +231,11 @@
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-commons</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-kernel</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
@@ -534,6 +541,11 @@
                 <artifactId>mockito-junit-jupiter</artifactId>
                 <version>${mockito.version}</version>
                 <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.tngtech.archunit</groupId>
+                <artifactId>archunit-junit5</artifactId>
+                <version>${archunit.version}</version>
             </dependency>
 
             <!-- JSQL parser (to parse SQL expressions safely)-->

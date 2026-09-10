@@ -16,7 +16,7 @@ import com.spectrayan.spector.ingestion.sensory.AssetStore;
 import com.spectrayan.spector.ingestion.sensory.SensoryExtractor;
 import com.spectrayan.spector.ingestion.sensory.SensoryExtractor.ExtractionChunk;
 import com.spectrayan.spector.memory.model.RememberContext;
-import com.spectrayan.spector.memory.model.SourceModality;
+import com.spectrayan.spector.kernel.api.SourceModality;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

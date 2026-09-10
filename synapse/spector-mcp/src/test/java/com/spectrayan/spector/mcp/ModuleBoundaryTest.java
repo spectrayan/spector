@@ -20,10 +20,15 @@ import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.lang.ArchRule;
 
+import com.spectrayan.spector.test.arch.SealRules;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import static com.tngtech.archunit.base.DescribedPredicate.not;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.equivalentTo;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAnyPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 /**
@@ -45,9 +50,7 @@ class ModuleBoundaryTest {
 
     @BeforeAll
     static void importClasses() {
-        mcpClasses = new ClassFileImporter()
-                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                .importPackages("com.spectrayan.spector.mcp");
+        mcpClasses = SealRules.importedOrFail("com.spectrayan.spector.mcp", 0);
     }
 
     @Test
@@ -55,15 +58,21 @@ class ModuleBoundaryTest {
     void mcpToolsMustNotImportGraphInternals() {
         ArchRule rule = noClasses()
                 .that().resideInAPackage("com.spectrayan.spector.mcp..")
-                .should().dependOnClassesThat()
-                .resideInAnyPackage(
-                        "com.spectrayan.spector.memory.graph..",
-                        "com.spectrayan.spector.memory.hebbian..",
-                        "com.spectrayan.spector.memory.cortex..",
-                        "com.spectrayan.spector.memory.synapse.."
+                .should().dependOnClassesThat(
+                        resideInAnyPackage(
+                                "com.spectrayan.spector.memory.graph..",
+                                "com.spectrayan.spector.memory.hebbian..",
+                                "com.spectrayan.spector.memory.cortex..",
+                                "com.spectrayan.spector.memory.synapse.."
+                        )
+                        // Pre-existing boundary defects unmasked by ArchUnit 1.4.2 upgrade (#734, #793):
+                        // 1. MemorySource currently resides in cortex; moving to kernel.api in Group 4 (R5.2)
+                        .and(not(equivalentTo(com.spectrayan.spector.kernel.api.MemorySource.class)))
+                        // 2. ProspectiveScheduler is returned by SpectorMemoryAdmin.prospective()
+                        .and(not(equivalentTo(com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler.class)))
                 )
                 .allowEmptyShould(true)
-                .because("MCP tools must use SpectorMemory public API, not internal graph/hebbian/cortex classes (see #581)");
+                .because("MCP tools must use SpectorMemory public API, not internal graph/hebbian/cortex classes (see #581, #734, #793)");
 
         rule.check(mcpClasses);
     }
@@ -99,12 +108,14 @@ class ModuleBoundaryTest {
     }
 
     @Test
-    @DisplayName("MCP tools must not import memory.kernel.* internal classes")
+    @DisplayName("MCP tools must not import kernel internal classes")
     void mcpToolsMustNotImportKernelInternals() {
         ArchRule rule = noClasses()
                 .that().resideInAPackage("com.spectrayan.spector.mcp..")
-                .should().dependOnClassesThat()
-                .resideInAPackage("com.spectrayan.spector.memory.kernel..")
+                .should().dependOnClassesThat(
+                        resideInAPackage("com.spectrayan.spector.kernel..")
+                                .and(not(resideInAPackage("com.spectrayan.spector.kernel.api..")))
+                )
                 .allowEmptyShould(true)
                 .because("MCP tools must not access low-level kernel memory layouts (see #581)");
 

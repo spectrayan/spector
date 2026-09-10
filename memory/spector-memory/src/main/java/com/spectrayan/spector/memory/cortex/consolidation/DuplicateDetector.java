@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.cortex.consolidation;
 
-import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,12 +20,12 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.memory.cortex.EngramMemory;
+import com.spectrayan.spector.kernel.store.EngramRegion;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
 
 /**
  * Detector for finding near-duplicate memory records within a specific memory store tier.
@@ -50,14 +49,14 @@ public final class DuplicateDetector {
     /**
      * Associates a partition sequence number with a tier memory store.
      */
-    public record PartitionStore(int partitionSeq, EngramMemory store) {}
+    public record PartitionStore(int partitionSeq, EngramRegion store) {}
 
     private record ScannedEntry(int partitionSeq, int recordIndex, String id, float[] decodedVector) {}
 
     /**
      * Scans the given store for duplicate pairs.
      */
-    public List<DuplicatePair> findDuplicates(EngramMemory store, MemoryIndex index, ScalarQuantizer quantizer) {
+    public List<DuplicatePair> findDuplicates(EngramRegion store, MemoryIndex index, ScalarQuantizer quantizer) {
         if (store == null) return List.of();
         int partitionSeq = index != null ? index.activePartitionSeq() : 0;
         return findDuplicatesAcrossPartitions(List.of(new PartitionStore(partitionSeq, store)), index, quantizer);
@@ -78,23 +77,17 @@ public final class DuplicateDetector {
         List<ScannedEntry> entries = new ArrayList<>();
 
         for (PartitionStore ps : partitionStores) {
-            EngramMemory store = ps.store();
+            EngramRegion store = ps.store();
             if (store == null) continue;
             int recordCount = store.visibleCount();
             if (recordCount == 0) continue;
 
-            MemorySegment segment = store.segment();
-            FixedEngramLayout layout = (FixedEngramLayout) store.layout();
-            long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0L;
-            int stride = layout.stride();
-            int qVecBytes = layout.quantizedVecBytes();
-            byte[] quantizedBuf = new byte[qVecBytes];
+            long baseOffset = store.dataOffset();
+            int stride = store.layout().recordStride();
 
             for (int i = 0; i < recordCount; i++) {
                 long offset = baseOffset + (long) i * stride;
-                byte flags = segment.get(EncodingHeaderFields.LAYOUT_FLAGS, offset + EncodingHeaderFields.OFFSET_FLAGS);
-
-                if (EncodingHeaderFields.isTombstoned(flags)) {
+                if (store.isTombstoned(offset)) {
                     continue;
                 }
 
@@ -103,9 +96,10 @@ public final class DuplicateDetector {
                     continue;
                 }
 
-                long vecOffset = layout.vectorOffset(offset);
-                MemorySegment.copy(segment, java.lang.foreign.ValueLayout.JAVA_BYTE, vecOffset,
-                        MemorySegment.ofArray(quantizedBuf), java.lang.foreign.ValueLayout.JAVA_BYTE, 0, qVecBytes);
+                byte[] quantizedBuf = store.readVector(offset);
+                if (quantizedBuf == null) {
+                    continue;
+                }
                 float[] decoded = new float[quantizer.dimensions()];
                 quantizer.decode(quantizedBuf, 0, decoded, 0);
 

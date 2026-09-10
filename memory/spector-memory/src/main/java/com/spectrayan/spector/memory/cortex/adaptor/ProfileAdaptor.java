@@ -269,6 +269,41 @@ public final class ProfileAdaptor {
         }
     }
 
+    public Map<Long, EnumMap<com.spectrayan.spector.kernel.score.ProfileSlot, com.spectrayan.spector.kernel.store.BanditStats>> exportBanditStats() {
+        Map<Long, EnumMap<com.spectrayan.spector.kernel.score.ProfileSlot, com.spectrayan.spector.kernel.store.BanditStats>> res = new java.util.HashMap<>();
+        for (var entry : stats.entrySet()) {
+            EnumMap<com.spectrayan.spector.kernel.score.ProfileSlot, com.spectrayan.spector.kernel.store.BanditStats> inner =
+                    new EnumMap<>(com.spectrayan.spector.kernel.score.ProfileSlot.class);
+            for (var pEntry : entry.getValue().entrySet()) {
+                com.spectrayan.spector.kernel.score.ProfileSlot slot =
+                        com.spectrayan.spector.kernel.score.ProfileSlot.valueOf(pEntry.getKey().name());
+                RunningStats rs = pEntry.getValue();
+                inner.put(slot, new com.spectrayan.spector.kernel.store.BanditStats(rs.ema(), rs.totalSignals(), rs.positiveSignals(), rs.lastUpdatedMs()));
+            }
+            res.put(entry.getKey(), inner);
+        }
+        return res;
+    }
+
+    public void loadBanditStats(Map<Long, EnumMap<com.spectrayan.spector.kernel.score.ProfileSlot, com.spectrayan.spector.kernel.store.BanditStats>> loaded) {
+        if (loaded == null) return;
+        writeLock.lock();
+        try {
+            stats.clear();
+            for (var entry : loaded.entrySet()) {
+                EnumMap<CognitiveProfile, RunningStats> inner = new EnumMap<>(CognitiveProfile.class);
+                for (var sEntry : entry.getValue().entrySet()) {
+                    CognitiveProfile cp = CognitiveProfile.valueOf(sEntry.getKey().name());
+                    com.spectrayan.spector.kernel.store.BanditStats bs = sEntry.getValue();
+                    inner.put(cp, new RunningStats(bs.ema(), bs.totalSignals(), bs.positiveSignals(), bs.lastUpdatedMs()));
+                }
+                stats.put(entry.getKey(), inner);
+            }
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
     /**
      * Returns the total number of tracked contexts.
      *

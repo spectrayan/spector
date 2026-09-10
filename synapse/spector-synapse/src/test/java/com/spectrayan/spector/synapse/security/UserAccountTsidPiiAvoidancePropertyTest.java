@@ -25,8 +25,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 
 import com.nimbusds.jwt.SignedJWT;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.id.TsidGenerator;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.config.properties.AuthProperties.JwtProperties;
@@ -49,7 +49,7 @@ import net.jqwik.api.Provide;
  * <p>FOR ANY created User, the assigned {@code user_id} is a valid 13-character Crockford
  * Base32 TSID, and the login {@code username} never appears in any identity-derived artifact:
  * the resolved namespace directory path
- * ({@link StorageLayout#namespaceDirSharded(Path, String)}), the JWT {@code sub} claim, or the
+ * ({@link StoragePaths#namespaceDirSharded(Path, String)}), the JWT {@code sub} claim, or the
  * persisted foreign keys of the {@code api_keys} / {@code refresh_tokens} tables (which equal the
  * {@code user_id}). API-key and refresh-token values are stored only as SHA-256 hashes, so the
  * username cannot leak through them either.</p>
@@ -133,7 +133,7 @@ class UserAccountTsidPiiAvoidancePropertyTest {
         assertThat(userId).isNotEqualTo(username);
 
         // (Req 16.2) The namespace directory is resolved from the userId, never the username.
-        Path nsDir = StorageLayout.namespaceDirSharded(BASE, userId);
+        Path nsDir = StoragePaths.namespaceDirSharded(BASE, userId);
         // Terminal segment is the userId itself.
         assertThat(nsDir.getFileName().toString()).isEqualTo(userId);
         // The identity-derived (relative) portion — namespaces/AA/BB/userId — cannot embed the

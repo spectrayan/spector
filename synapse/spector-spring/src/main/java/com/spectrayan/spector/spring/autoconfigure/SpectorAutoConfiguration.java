@@ -24,7 +24,7 @@ import com.spectrayan.spector.provider.embedding.generic.DenseDerivedTokenProvid
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
-import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
+import com.spectrayan.spector.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.neuromod.neurodivergent;
 
-import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

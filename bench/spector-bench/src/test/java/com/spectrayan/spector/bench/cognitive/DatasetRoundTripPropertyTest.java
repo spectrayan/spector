@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.bench.cognitive;
+import com.spectrayan.spector.kernel.score.Valence;
+
+import com.spectrayan.spector.kernel.id.MemoryId;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -24,7 +27,7 @@ import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
 import com.spectrayan.spector.bench.cognitive.model.HebbianEdgeDef;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.persist;
 
-import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 
 /**
  * Service Provider Interface for data encryption at rest.
@@ -49,7 +49,17 @@ import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
  *
  * @see NoopDataEncryptor
  */
-public interface DataEncryptor {
+public interface DataEncryptor extends com.spectrayan.spector.kernel.storage.PayloadEncryptor {
+
+    @Override
+    default byte[] encrypt(byte[] plaintext) {
+        return encryptPayload(plaintext);
+    }
+
+    @Override
+    default byte[] decrypt(byte[] ciphertext) {
+        return decryptPayload(ciphertext);
+    }
 
     /**
      * Encrypts raw text content for persistent storage in {@code text.dat}.
@@ -93,7 +103,7 @@ public interface DataEncryptor {
      * Encodes a tag string into a 64-bit Bloom filter using keyed hashing.
      *
      * <p>When a non-NOOP encryptor is active, this replaces the default
-     * {@link com.spectrayan.spector.memory.synapse.SynapticTagEncoder#encodeTag(String)}
+     * {@link com.spectrayan.spector.kernel.score.SynapticTagEncoder#encodeTag(String)}
      * with a cryptographically keyed variant (e.g., HMAC-SHA256 → Bloom bits).
      * This prevents dictionary attacks on the Bloom filter.</p>
      *

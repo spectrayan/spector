@@ -105,6 +105,26 @@ public abstract class AbstractExecutorProvider implements SpectorExecutorProvide
         return null;
     }
 
+    private static boolean matchesPoolFilter(String key, String filter) {
+        if (filter == null || filter.isBlank()) {
+            return true;
+        }
+        if (key.equals(filter) || key.endsWith(":" + filter) || key.endsWith("-" + filter)) {
+            return true;
+        }
+        int idx = 0;
+        while ((idx = key.indexOf(filter, idx)) != -1) {
+            boolean startDelim = (idx == 0) || (key.charAt(idx - 1) == ':' || key.charAt(idx - 1) == '-');
+            int endIdx = idx + filter.length();
+            boolean endDelim = (endIdx == key.length()) || (key.charAt(endIdx) == ':' || key.charAt(endIdx) == '-');
+            if (startDelim && endDelim) {
+                return true;
+            }
+            idx++;
+        }
+        return false;
+    }
+
     @Override
     public DrainResult drain(Duration budget) {
         return drain(null, budget);
@@ -118,7 +138,11 @@ public abstract class AbstractExecutorProvider implements SpectorExecutorProvide
         int remaining = 0;
 
         for (java.util.Map.Entry<String, TrackedExecutor> entry : executors.entrySet()) {
-            if (poolFilter != null && !poolFilter.isBlank() && !entry.getKey().contains(poolFilter)) {
+            String key = entry.getKey();
+            if (key.contains("tq-worker-")) {
+                continue;
+            }
+            if (poolFilter != null && !poolFilter.isBlank() && !matchesPoolFilter(key, poolFilter)) {
                 continue;
             }
             TrackedExecutor tracked = entry.getValue();

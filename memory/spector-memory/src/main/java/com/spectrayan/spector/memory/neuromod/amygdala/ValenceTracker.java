@@ -12,14 +12,11 @@
  */
 package com.spectrayan.spector.memory.neuromod.amygdala;
 
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.api.HeaderCursor;
+import com.spectrayan.spector.kernel.score.Valence;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.lang.foreign.MemorySegment;
 
 /**
  * Outcome-driven emotional reinforcement tracker.
@@ -32,9 +29,9 @@ import java.lang.foreign.MemorySegment;
  *
  * <h3>Design: Outcome-Driven, Not LLM-Guessed</h3>
  * <p>Valence is NOT assigned at ingestion time. It's updated via
- * {@link #reinforce(MemorySegment, long, FixedEngramLayout, byte)} after
- * the agent observes whether using a memory led to success or failure.
- * This gives ground-truth reinforcement, not hallucinated importance.</p>
+ * {@link #reinforce(HeaderCursor, byte)} after the agent observes whether
+ * using a memory led to success or failure. This gives ground-truth reinforcement,
+ * not hallucinated importance.</p>
  *
  * <h3>Learning Rate</h3>
  * <p>Uses exponential moving average with α=0.3 by default. New outcomes
@@ -64,27 +61,23 @@ public final class ValenceTracker {
     }
 
     /**
-     * Reinforces a memory with an outcome valence.
+     * Reinforces a memory with an outcome valence using HeaderCursor.
      *
-     * <p>Blends the new valence into the existing value using exponential moving average.
-     * This allows gradual learning — a memory used 10 times with positive outcomes
-     * will have strongly positive valence even if one use was negative.</p>
+     * <p>Blends the new valence into the existing value using exponential moving average
+     * and writes it with release memory ordering via {@link HeaderCursor#valenceRelease(byte)}.</p>
      *
-     * @param segment   off-heap segment containing the record
-     * @param offset    record offset within the segment
-     * @param layout    cognitive record layout
-     * @param outcome   outcome valence (use {@link Valence} constants)
+     * @param cursor  header cursor positioned at the target record
+     * @param outcome outcome valence (use {@link Valence} constants)
      */
-    public void reinforce(MemorySegment segment, long offset,
-                           FixedEngramLayout layout, byte outcome) {
-        byte currentValence = layout.readValence(segment, offset);
+    public void reinforce(HeaderCursor cursor, byte outcome) {
+        if (cursor == null) return;
+        byte currentValence = cursor.valence();
         byte blended = Valence.blend(currentValence, outcome, learningRate);
 
-        segment.set(EncodingHeaderFields.LAYOUT_VALENCE,
-                offset + EncodingHeaderFields.OFFSET_VALENCE, blended);
+        cursor.valenceRelease(blended);
 
-        log.debug("Valence reinforced at offset {}: {} → {} (outcome={})",
-                offset, currentValence, blended, outcome);
+        log.debug("Valence reinforced at slot {}: {} → {} (outcome={})",
+                cursor.currentSlot(), currentValence, blended, outcome);
     }
 
     /**

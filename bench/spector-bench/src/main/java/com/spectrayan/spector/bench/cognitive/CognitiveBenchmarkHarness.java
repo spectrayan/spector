@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.bench.cognitive;
+import com.spectrayan.spector.kernel.store.AbstractEngramMemory;
 
 import java.lang.foreign.MemorySegment;
 import java.nio.file.Path;
@@ -41,12 +42,12 @@ import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.EngramMemory;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.store.EngramRegion;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
 
 /**
  * Main entry point for the cognitive memory benchmark.
@@ -660,13 +661,13 @@ public final class CognitiveBenchmarkHarness {
 
         for (MemoryType type : MemoryType.values()) {
             try {
-                EngramMemory store = cognitiveRouter.get(type);
+                EngramRegion store = cognitiveRouter.get(type);
                 if (store != null && store.size() > 0) {
                     FixedEngramLayout layout = store.layout() instanceof FixedEngramLayout fel ? fel : null;
-                    if (layout == null) {
+                    if (layout == null || !(store instanceof com.spectrayan.spector.kernel.store.AbstractEngramMemory<?> aem)) {
                         continue;
                     }
-                    MemorySegment segment = store.primarySegment();
+                    MemorySegment segment = aem.segment();
                     int recordCount = store.size();
                     long dataOffset = store.dataOffset();
 

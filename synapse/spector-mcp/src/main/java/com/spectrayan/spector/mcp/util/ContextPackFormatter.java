@@ -21,7 +21,7 @@ import java.util.Objects;
 
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.FactHistory;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
  * Formats multi-tier cognitive memory into structured, token-budgeted markdown context packs.

@@ -11,10 +11,11 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.e2e;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 import com.spectrayan.spector.memory.*;
 import com.spectrayan.spector.memory.model.*;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 
 import org.junit.jupiter.api.*;
 

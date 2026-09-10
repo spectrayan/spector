@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pathway.wander.relay;
 
 import com.spectrayan.spector.config.properties.AismeProperties;
-import com.spectrayan.spector.memory.cortex.ContinuityMemory;
+import com.spectrayan.spector.kernel.store.ContinuityMemory;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

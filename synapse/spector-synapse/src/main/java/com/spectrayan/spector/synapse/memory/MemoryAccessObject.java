@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -27,13 +29,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.GraphNeighborhood;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.TopologyStats;
 import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepProgress;
@@ -296,7 +298,7 @@ public class MemoryAccessObject {
      * Tag-based metadata browsing — no vector search.
      *
      * <p>Delegates to {@link SpectorMemory#browse(String...)} which uses
-     * the inverted tag index ({@code IndexRecordMemory.tagToIds}) for
+     * the inverted tag index ({@code IndexEntryMemory.tagToIds}) for
      * O(1) exact tag matching with AND semantics.</p>
      */
     public List<CognitiveRecord> browse(SpectorMemory memory, String... tags) {
@@ -672,15 +674,8 @@ public class MemoryAccessObject {
                 float combinedBoost = topicBoost * selfBoost;
                 if (Math.abs(combinedBoost - 1.0f) > 0.01f) {
                     var loc = entry.getValue();
-                    var segment = cognitiveRouter.segmentFor(loc.type());
-                    var layout = cognitiveRouter.layoutFor(loc.type());
-
-                    if (segment != null && layout != null) {
-                        float oldImportance = layout.readImportance(segment, loc.offset());
-                        float newImportance = Math.clamp(oldImportance * combinedBoost, 0.05f, 10.0f);
-                        layout.writeImportance(segment, loc.offset(), newImportance);
-                        rescored++;
-                    }
+                    cognitiveRouter.casImportance(loc, oldImportance -> Math.clamp(oldImportance * combinedBoost, 0.05f, 10.0f));
+                    rescored++;
                 }
             } catch (Exception e) {
                 errors++;

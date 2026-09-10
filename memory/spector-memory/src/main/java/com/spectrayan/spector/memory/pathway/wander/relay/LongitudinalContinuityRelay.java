@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.wander.relay;
+import com.spectrayan.spector.kernel.store.ContinuityMemory;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.aisme.continuity.IdentityTrajectorySnapshot;
@@ -25,7 +26,7 @@ import org.slf4j.LoggerFactory;
  * <h3>Biological Analog: Multi-Epoch Self-Model Metacognitive Auditing</h3>
  * <p>Periodically records Integrated Information Theory cohesion (\(\Phi_{CC}\)), personal Riemannian
  * manifold volume (\(\text{Trace}(G)\)), epistemic generative prior drift (\(\|\boldsymbol{\mu}_t - \boldsymbol{\mu}_0\|\)),
- * and homeostatic emotional levels into the zero-copy off-heap {@link com.spectrayan.spector.memory.cortex.ContinuityMemory}.</p>
+ * and homeostatic emotional levels into the zero-copy off-heap {@link com.spectrayan.spector.kernel.store.ContinuityMemory}.</p>
  *
  * @since 1.2.0
  */
@@ -86,7 +87,7 @@ public final class LongitudinalContinuityRelay implements SynapticRelay<WanderSi
                 now, phiCc, traceG, priorDrift, valence, arousal, energy, soulVersion
         );
 
-        signal.continuityMemory().appendSnapshot(snapshot);
+        signal.continuityMemory().appendSnapshot(snapshot.toContinuityRecord());
         signal.setSnapshotRecorded(true);
 
         if (log.isDebugEnabled()) {

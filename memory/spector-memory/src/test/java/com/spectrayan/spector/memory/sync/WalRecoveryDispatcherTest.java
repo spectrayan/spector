@@ -11,6 +11,10 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.sync;
+import com.spectrayan.spector.kernel.store.HebbianEdge;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
+
+import com.spectrayan.spector.kernel.id.SystemMemoryId;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -26,20 +30,20 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
-import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.shape.DefaultRecordMemory;
-import com.spectrayan.spector.memory.kernel.shape.DefaultAppendMemory;
-import com.spectrayan.spector.memory.kernel.shape.DefaultRegistryMemory;
-import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
-import com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout;
-import com.spectrayan.spector.memory.kernel.layout.IdBlobLayout;
+import com.spectrayan.spector.kernel.shape.Memory;
+import com.spectrayan.spector.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.shape.DefaultRecordMemory;
+import com.spectrayan.spector.kernel.shape.DefaultAppendMemory;
+import com.spectrayan.spector.kernel.shape.DefaultRegistryMemory;
+import com.spectrayan.spector.kernel.layout.RegistryLayout;
+import com.spectrayan.spector.kernel.layout.IndexEntryLayout;
+import com.spectrayan.spector.kernel.layout.IdBlobLayout;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityType;
-import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianEdge;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
+import com.spectrayan.spector.kernel.store.HebbianEdge;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -83,7 +87,7 @@ class WalRecoveryDispatcherTest {
                      MemoryId.of("test", "append"), new IdBlobLayout(), 10, 1000, appendFile);
              DefaultRegistryMemory registryMem = new DefaultRegistryMemory(
                      MemoryId.of("test", "registry"), new RegistryLayout(), 10, 1000, registryFile);
-             EntityDirectory entityDirectory = new EntityDirectory(entityFile, 10, TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED));
+             EntityDirectory entityDirectory = new EntityDirectory(entityFile, 10, TypeRegistryMemory.seeded(com.spectrayan.spector.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED));
              TemporalChainMemory temporalChain = new TemporalChainMemory(chainFile, 10)) {
 
             recordMem.bindWal(wal);
@@ -124,7 +128,7 @@ class WalRecoveryDispatcherTest {
                      MemoryId.of("test", "append"), new IdBlobLayout(), 10, 1000, appendFile);
              DefaultRegistryMemory registryMem = new DefaultRegistryMemory(
                      MemoryId.of("test", "registry"), new RegistryLayout(), 10, 1000, registryFile);
-             EntityDirectory entityDirectory = new EntityDirectory(entityFile, 10, TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED));
+             EntityDirectory entityDirectory = new EntityDirectory(entityFile, 10, TypeRegistryMemory.seeded(com.spectrayan.spector.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED));
              TemporalChainMemory temporalChain = new TemporalChainMemory(chainFile, 10);
              HebbianGraphMemory hebbianGraph = new HebbianGraphMemory(10)) {
 
@@ -181,7 +185,7 @@ class WalRecoveryDispatcherTest {
                      MemoryId.of("test", "append"), new IdBlobLayout(), 10, 1000, appendFile);
              DefaultRegistryMemory registryMem = new DefaultRegistryMemory(
                      MemoryId.of("test", "registry"), new RegistryLayout(), 10, 1000, registryFile);
-             EntityDirectory entityDirectory = new EntityDirectory(entityFile, 10, TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED));
+             EntityDirectory entityDirectory = new EntityDirectory(entityFile, 10, TypeRegistryMemory.seeded(com.spectrayan.spector.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED));
              TemporalChainMemory temporalChain = new TemporalChainMemory(chainFile, 10);
              HebbianGraphMemory hebbianGraph = new HebbianGraphMemory(10)) {
 

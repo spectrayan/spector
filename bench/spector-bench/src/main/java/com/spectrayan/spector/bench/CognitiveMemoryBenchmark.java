@@ -18,7 +18,7 @@ package com.spectrayan.spector.bench;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.*;
 import com.spectrayan.spector.memory.model.*;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.commons.concurrent.MemoryPinning;
 

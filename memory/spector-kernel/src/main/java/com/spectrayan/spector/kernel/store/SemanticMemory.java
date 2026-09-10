@@ -1,0 +1,157 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.spectrayan.spector.kernel.store;
+
+import com.spectrayan.spector.kernel.layout.SemanticLayout;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.spectrayan.spector.kernel.bundle.RegionRef;
+
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
+import java.nio.file.Path;
+import java.util.concurrent.locks.ReentrantLock;
+import com.spectrayan.spector.commons.error.SpectorServerException;
+import com.spectrayan.spector.kernel.error.SpectorMemoryTierFullException;
+import com.spectrayan.spector.commons.error.ErrorCode;
+
+/**
+ * Permanent factual knowledge store — stores full cognitive records (header + quantized vector).
+ *
+ * <h3>Biological Analog: Neocortex</h3>
+ * <p>The neocortex stores permanent, deduplicated facts — consolidated from episodic
+ * memories during sleep. It's the "long-term" memory that survives across sessions.</p>
+ *
+ * <h3>Self-Contained Storage</h3>
+ * <p>Each record is a complete cognitive record: 64-byte synaptic header followed
+ * by the INT8 quantized vector payload. The memory system is self-contained —
+ * vectors live alongside their metadata in the same tier store file.</p>
+ *
+ * <h3>Design</h3>
+ * <ul>
+ *   <li>Extends {@link AbstractEngramMemory} for common Arena/layout/segment lifecycle</li>
+ *   <li>Full cognitive records — header + quantized vector in one slab</li>
+ *   <li>Directory-level partitioning: each partition dir has its own {@code semantic.mem}</li>
+ *   <li>Flat scan with {@code CognitiveScorer} for distance computation</li>
+ * </ul>
+ */
+public final class SemanticMemory extends AbstractEngramMemory<SemanticLayout> {
+
+    private static final Logger log = LoggerFactory.getLogger(SemanticMemory.class);
+
+    /**
+     * Creates a volatile Semantic Memory store (in-memory only).
+     *
+     * <p>Allocates a header-only slab (no vector payload) since vectors are stored
+     * in SpectorIndex.</p>
+     *
+     * @param quantizedVecBytes bytes per quantized vector (for layout calculation)
+     * @param capacity          maximum number of semantic memories (default: 100_000)
+     */
+    public SemanticMemory(int quantizedVecBytes, int capacity) {
+        this(new SemanticLayout(quantizedVecBytes), capacity);
+    }
+
+    /**
+     * Creates a volatile Semantic Memory store with dedicated layout.
+     */
+    public SemanticMemory(SemanticLayout layout, int capacity) {
+        super(MemoryType.SEMANTIC, layout, capacity, (long) layout.stride() * capacity);
+
+        log.info("SemanticMemory initialized: capacity={}, stride={}B, persistent=false, headerVersion=V{}",
+                capacity, layout.stride(), layout.headerLayout().version());
+    }
+
+
+    /**
+     * Creates a bundle-backed Semantic Memory store from a pre-sliced region segment.
+     *
+     * <p>The region slice contains a 64-byte SMKM header followed by record data.
+     * The arena is shared across all bundle regions and is <b>not</b> owned by this store.</p>
+     *
+     * @param arena        the shared arena from the owning bundle
+     * @param regionSlice  the memory segment sliced from the bundle's master segment
+     * @param capacity     the maximum number of semantic memories in this region
+     * @param quantizedVecBytes bytes per quantized vector (for layout calculation)
+     * @param bundlePath   the path to the bundle file (for diagnostics)
+     * @param isNew        true if the region was just created
+     * @return a new bundle-backed SemanticMemory
+     */
+    public static SemanticMemory fromBundle(Arena arena, MemorySegment regionSlice,
+                                            int capacity, int quantizedVecBytes,
+                                            Path bundlePath, boolean isNew) {
+        return new SemanticMemory(arena, regionSlice, capacity, quantizedVecBytes, bundlePath, isNew);
+    }
+
+    public static SemanticMemory fromRegionRef(RegionRef regionRef, int capacity,
+                                               int quantizedVecBytes, Path bundlePath, boolean isNew) {
+        return new SemanticMemory(regionRef, capacity, quantizedVecBytes, bundlePath, isNew);
+    }
+
+    private SemanticMemory(RegionRef regionRef, int capacity,
+                           int quantizedVecBytes, Path bundlePath, boolean isNew) {
+        super(MemoryType.SEMANTIC, new SemanticLayout(quantizedVecBytes),
+              capacity, regionRef, bundlePath, isNew);
+    }
+
+    private SemanticMemory(Arena arena, MemorySegment regionSlice, int capacity,
+                           int quantizedVecBytes, Path bundlePath, boolean isNew) {
+        super(MemoryType.SEMANTIC, new SemanticLayout(quantizedVecBytes),
+              capacity, arena, regionSlice, bundlePath, isNew);
+    }
+
+    @Override
+    public MemoryType type() {
+        return MemoryType.SEMANTIC;
+    }
+
+    @Override
+    public long write(EncodingHeader header, byte[] quantizedVec) {
+        long offset = dataOffset() + (long) getCount() * layout.stride();
+        append(header, quantizedVec);
+        return offset;
+    }
+
+    public int store(EncodingHeader header) {
+        writeLock.lock();
+        try {
+            if (getCount() >= capacity()) {
+                throw new SpectorMemoryTierFullException("SEMANTIC", capacity());
+            }
+
+            long offset = dataOffset() + (long) getCount() * layout.stride();
+            layout.writeHeader(segment(), offset, header);
+            int index = getCount();
+            setCount(index + 1);
+            persistCount();
+            publishVisible(); // SWMR: make record visible to scanners
+            return index;
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    public EncodingHeader readHeader(int index) {
+        long offset = dataOffset() + (long) index * layout.stride();
+        return layout.readHeader(segment(), offset);
+    }
+
+}

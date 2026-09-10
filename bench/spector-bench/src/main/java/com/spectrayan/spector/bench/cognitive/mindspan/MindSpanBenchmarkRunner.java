@@ -66,18 +66,18 @@ import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.ConversationRole;
+import com.spectrayan.spector.kernel.api.ConversationRole;
 import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.ScoringMode;
-import com.spectrayan.spector.memory.model.SourceModality;
+import com.spectrayan.spector.kernel.api.SourceModality;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.config.properties.CircadianProperties;
 import com.spectrayan.spector.provider.ProviderConfig;
@@ -212,9 +212,12 @@ public final class MindSpanBenchmarkRunner {
         LlmProvider llm = googleFactory.createGenerationProvider(genConfig)
                 .orElseThrow(() -> new IllegalStateException("Failed to instantiate Google Gemini LLM Provider"));
 
-        Path cacheFile = datasetDir.resolve("embeddings.bin");
+        Path cacheFile = resolveDataFile(datasetDir, "embeddings.bin");
+        String memDirProp = System.getProperty("memoryDir");
         String memDirName = System.getProperty("memoryDirName", "v2-memory");
-        Path naturalMemoryDir = outputDir.resolve(memDirName);
+        Path naturalMemoryDir = (memDirProp != null && !memDirProp.isBlank())
+                ? Path.of(memDirProp).toAbsolutePath().normalize()
+                : outputDir.resolve(memDirName);
         Files.createDirectories(naturalMemoryDir);
 
         // 4. Memory Setup & Ingestion (with disk persistence & caching)
@@ -257,6 +260,7 @@ public final class MindSpanBenchmarkRunner {
 
         memoryProps.setEpisodicPartitionCapacity(Math.max(35_000, corpus.size() + 100))
                 .setSemanticCapacity(Math.max(30_000, corpus.size() + 100))
+                .setMaxNamespaces(1)
                 .setEntityExtractionParallelism(4)
                 .setEntityExtractionQueueCapacity(2000)
                 .setCircadian(CircadianProperties.builder().volumeTrigger(Integer.MAX_VALUE).build());

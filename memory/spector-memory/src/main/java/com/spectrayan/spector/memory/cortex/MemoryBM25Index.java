@@ -11,17 +11,17 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex;
+import com.spectrayan.spector.kernel.store.TextBlobMemory;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.index.text.BM25Index;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.text.StemmingAnalyzer;
-import com.spectrayan.spector.memory.kernel.bundle.BundleManager;
-import com.spectrayan.spector.memory.kernel.bundle.RegionId;
-import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
-
-import java.lang.foreign.MemorySegment;
+import com.spectrayan.spector.kernel.bundle.BundleManager;
+import com.spectrayan.spector.kernel.region.RegionId;
+import com.spectrayan.spector.kernel.bundle.RegionRef;
+import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -257,7 +257,7 @@ public final class MemoryBM25Index implements AutoCloseable {
      * Persists the active BM25 index into a V4 {@link RuntimeBundle} with dynamic variable-slice growth.
      *
      * <p>If the serialized BM25 index payload exceeds the current {@link RegionId#BM25} region size,
-     * this method automatically grows the region via {@link RuntimeBundle#growRegion(RegionId)}
+     * this method automatically ensures capacity via {@link RegionRef#ensureCapacity(long)}
      * and retries the save into the expanded slice.</p>
      *
      * @param runtimeBundle the runtime bundle containing the BM25 region
@@ -270,20 +270,19 @@ public final class MemoryBM25Index implements AutoCloseable {
         }
 
         try {
-            MemorySegment bm25Region = runtimeBundle.regionSegment(RegionId.BM25);
-            if (bm25Region == null) {
+            RegionRef bm25Ref = runtimeBundle.regionRef(RegionId.BM25);
+            if (bm25Ref == null) {
                 return -1;
             }
 
-            int written = partition(0).saveToRegion(bm25Region);
+            int written = partition(0).saveToRegion(bm25Ref.resolve());
             if (written == -1) {
-                // Payload exceeds current capacity -> dynamically grow BM25 region
-                log.info("BM25 index exceeded region capacity; triggering dynamic region growth");
-                runtimeBundle.growRegion(RegionId.BM25);
+                // Payload exceeds current capacity -> dynamically ensure capacity
+                log.info("BM25 index exceeded region capacity; ensuring expanded capacity");
+                bm25Ref.ensureCapacity(bm25Ref.byteSize() + 1);
 
-                // Fetch new expanded slice and retry write
-                MemorySegment grownRegion = runtimeBundle.regionSegment(RegionId.BM25);
-                written = partition(0).saveToRegion(grownRegion);
+                // Retry write into expanded slice
+                written = partition(0).saveToRegion(bm25Ref.resolve());
             }
 
             if (written > 0) {
@@ -307,9 +306,9 @@ public final class MemoryBM25Index implements AutoCloseable {
             return null;
         }
         try {
-            MemorySegment bm25Region = runtimeBundle.regionSegment(RegionId.BM25);
-            if (bm25Region != null) {
-                return BM25Index.loadFromRegion(bm25Region);
+            RegionRef bm25Ref = runtimeBundle.regionRef(RegionId.BM25);
+            if (bm25Ref != null) {
+                return BM25Index.loadFromRegion(bm25Ref.resolve());
             }
         } catch (Exception e) {
             log.debug("BM25 load from bundle region failed: {}", e.getMessage());

@@ -11,6 +11,10 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.e2e;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.api.SourceModality;
+
+import com.spectrayan.spector.kernel.id.MemoryId;
 
 import com.spectrayan.spector.provider.generation.GenerationOptions;
 import com.spectrayan.spector.provider.generation.LlmProvider;
@@ -19,7 +23,7 @@ import com.spectrayan.spector.ingestion.sensory.AssetStore;
 import com.spectrayan.spector.ingestion.sensory.LocalAssetStore;
 import com.spectrayan.spector.ingestion.sensory.OllamaVisionExtractor;
 import com.spectrayan.spector.ingestion.sensory.SensoryExtractor;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.test.judge.JudgeVerdict;
 import com.spectrayan.spector.test.judge.LlmAssertions;

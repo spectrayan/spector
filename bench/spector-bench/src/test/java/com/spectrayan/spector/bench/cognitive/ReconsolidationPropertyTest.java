@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
-import com.spectrayan.spector.memory.synapse.DecayStrategy;
+import com.spectrayan.spector.kernel.score.DecayStrategy;
 
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;

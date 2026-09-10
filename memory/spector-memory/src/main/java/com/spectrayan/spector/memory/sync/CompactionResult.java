@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.sync;
 
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
  * Result of a vacuum/compaction operation on a tier store.

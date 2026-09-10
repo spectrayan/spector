@@ -12,11 +12,23 @@
  */
 package com.spectrayan.spector.memory.cortex.index;
 
+import java.nio.file.Path;
+import com.spectrayan.spector.kernel.bundle.RegionRef;
+
 /**
- * Backward-compatibility alias for {@link IndexRecordMemory}.
+ * Backward-compatibility alias for {@link IndexEntryMemory}.
  */
-public class MemoryIndex extends IndexRecordMemory {
+public class MemoryIndex extends IndexEntryMemory {
+
     public MemoryIndex() {
         super();
+    }
+
+    public static MemoryIndex fromRegionRefs(RegionRef midxRef, RegionRef idplRef, Path bundlePath, boolean isNew) {
+        return com.spectrayan.spector.kernel.store.IndexEntryMemory.fromRegionRefs(MemoryIndex::new, midxRef, idplRef, bundlePath, isNew);
+    }
+
+    public static MemoryIndex load(Path filePath) {
+        return com.spectrayan.spector.kernel.store.IndexEntryMemory.load(MemoryIndex::new, filePath);
     }
 }

@@ -15,16 +15,19 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
+import com.spectrayan.spector.kernel.store.EngramRegion;
+import com.spectrayan.spector.kernel.score.Valence;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -82,8 +85,7 @@ class ValenceFilterPropertyTest {
                     .maxValence(range.max())
                     .build();
 
-            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
-                    segment, corpusSize, layout, queryVec, options, System.currentTimeMillis());
+            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(EngramRegion.of(segment, corpusSize, layout), queryVec, options, System.currentTimeMillis());
 
             // Verify all results have valence within range
             for (CognitiveScorer.ScoredRecord result : results) {

@@ -11,8 +11,15 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.model;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+
+import com.spectrayan.spector.kernel.api.SourceModality;
+import com.spectrayan.spector.kernel.api.EngramSource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 
 import java.util.Map;
 
@@ -304,13 +311,13 @@ public record CognitiveResult(
      */
     public boolean isSimulated() {
         return (source != null && source.toEngramSource() == EngramSource.SIMULATED)
-                || com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isSimulated(consolidationFlags);
+                || com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.isSimulated(consolidationFlags);
     }
 
     /**
      * Returns true if this result was ingested during a dream cycle (ADR-0031).
      */
     public boolean isDreamed() {
-        return com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isDreamed(consolidationFlags);
+        return com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.isDreamed(consolidationFlags);
     }
 }

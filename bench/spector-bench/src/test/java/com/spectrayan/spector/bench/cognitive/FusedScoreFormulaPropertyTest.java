@@ -15,17 +15,19 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
+import com.spectrayan.spector.kernel.store.EngramRegion;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -112,8 +114,7 @@ class FusedScoreFormulaPropertyTest {
                     .synapticFilter("test-tag")
                     .build();
 
-            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
-                    segment, corpusSize, layout, queryVec, options, nowMs);
+            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(EngramRegion.of(segment, corpusSize, layout), queryVec, options, nowMs);
 
             if (!results.isEmpty()) {
                 float actualScore = results.getFirst().score();

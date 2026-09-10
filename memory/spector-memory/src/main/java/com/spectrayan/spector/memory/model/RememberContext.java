@@ -11,6 +11,10 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.model;
+import com.spectrayan.spector.kernel.api.MemoryType;
+
+import com.spectrayan.spector.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.api.SourceModality;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
@@ -132,11 +136,11 @@ public record RememberContext(
     /**
      * Returns the source modality from metadata, or {@code null} if not specified.
      *
-     * <p>Reads the {@value com.spectrayan.spector.memory.model.SourceModality#METADATA_KEY}
+     * <p>Reads the {@value com.spectrayan.spector.kernel.api.SourceModality#METADATA_KEY}
      * key from the metadata map. The ingestion pipeline extracts this value and
      * encodes it into the binary header flags byte.</p>
      */
-    public com.spectrayan.spector.memory.model.SourceModality sourceModality() {
+    public com.spectrayan.spector.kernel.api.SourceModality sourceModality() {
         String val = metadata != null ? metadata.get(SourceModality.METADATA_KEY) : null;
         return val != null ? SourceModality.fromName(val) : null;
     }
@@ -144,7 +148,7 @@ public record RememberContext(
     /**
      * Returns the source asset URI from metadata, or {@code null} if not specified.
      *
-     * <p>Reads the {@value com.spectrayan.spector.memory.model.SourceModality#URI_KEY}
+     * <p>Reads the {@value com.spectrayan.spector.kernel.api.SourceModality#URI_KEY}
      * key from the metadata map.</p>
      */
     public String sourceUri() {
@@ -154,7 +158,7 @@ public record RememberContext(
     /**
      * Returns the comma-separated attachment paths/URIs, or {@code null} if none.
      *
-     * <p>Reads the {@value com.spectrayan.spector.memory.model.SourceModality#ATTACHMENTS_KEY}
+     * <p>Reads the {@value com.spectrayan.spector.kernel.api.SourceModality#ATTACHMENTS_KEY}
      * key from the metadata map.</p>
      */
     public String attachments() {

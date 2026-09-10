@@ -12,21 +12,19 @@
  */
 package com.spectrayan.spector.memory.pathway.pipeline.scan;
 
-import com.spectrayan.spector.commons.concurrent.NativeOsMemory;
-import com.spectrayan.spector.memory.cortex.EpisodicMemory;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import java.lang.foreign.MemorySegment;
+
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.function.IntSupplier;
-import java.util.function.Supplier;
 
 /**
- * Parallel emitter — each scan becomes an {@code madvise}-wrapped {@link Callable}.
+ * Parallel emitter — each tier scan becomes a {@link Callable}.
  */
 public final class ParallelScanEmitter implements ScanEmitter {
     private final List<Callable<List<CognitiveResult>>> tasks;
@@ -61,19 +59,10 @@ public final class ParallelScanEmitter implements ScanEmitter {
     }
 
     @Override
-    public void emitSlabScan(Supplier<MemorySegment> segment, IntSupplier visibleCount,
-                             FixedEngramLayout layout, MemoryType type,
-                             long baseOffset, int partitionSeq) {
-        tasks.add(() -> {
-            MemorySegment seg = segment.get();
-            NativeOsMemory.advise(seg, NativeOsMemory.MADV_SEQUENTIAL);
-            try {
-                return scoreFunc.score(seg, visibleCount.getAsInt(), layout,
-                        queryVector, options, nowMs, type, baseOffset, partitionSeq);
-            } finally {
-                NativeOsMemory.advise(seg, NativeOsMemory.MADV_NORMAL);
-            }
-        });
+    public void emitSlabScan(int partitionSeq, MemoryType type, FixedEngramLayout layout,
+                             IntSupplier visibleCount, long baseOffset) {
+        tasks.add(() -> scoreFunc.score(partitionSeq, type, layout, visibleCount.getAsInt(),
+                baseOffset, queryVector, options, nowMs));
     }
 
     @Override

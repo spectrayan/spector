@@ -11,12 +11,13 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.graph;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 
 import com.spectrayan.spector.commons.concurrent.SpectorExecutors;
 import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.layout.HyperEntityLayout;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

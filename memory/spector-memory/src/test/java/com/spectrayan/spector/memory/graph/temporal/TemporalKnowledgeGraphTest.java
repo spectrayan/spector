@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.memory.graph.temporal;
 
+import com.spectrayan.spector.kernel.store.TemporalFact;
+
+import com.spectrayan.spector.kernel.id.MemoryId;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,8 +25,8 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 
-import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
-import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
+import com.spectrayan.spector.kernel.id.SystemMemoryId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

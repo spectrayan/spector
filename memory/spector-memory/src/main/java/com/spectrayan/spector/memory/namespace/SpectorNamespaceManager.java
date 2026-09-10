@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.persist.migration.MigrationPipeline;
 
 /**
@@ -61,7 +61,7 @@ import com.spectrayan.spector.memory.persist.migration.MigrationPipeline;
  *
  * @see NamespaceConfig
  * @see NamespaceQuotas
- * @see StorageLayout
+ * @see StoragePaths
  */
 public class SpectorNamespaceManager {
 
@@ -115,7 +115,7 @@ public class SpectorNamespaceManager {
         this.registry = new NamespaceRegistry(maxNamespaces > 0 ? maxNamespaces : 100);
 
         // Discover existing namespaces
-        Path namespacesDir = StorageLayout.namespacesDir(basePath);
+        Path namespacesDir = StoragePaths.namespacesDir(basePath);
         if (Files.isDirectory(namespacesDir)) {
             if (sharded) {
                 discoverShardedNamespaces(namespacesDir);
@@ -138,7 +138,7 @@ public class SpectorNamespaceManager {
                 String nsId = entry.getFileName().toString();
 
                 // Only recognize directories with namespace.json
-                if (Files.exists(entry.resolve(StorageLayout.FILE_NAMESPACE))) {
+                if (Files.exists(entry.resolve(StoragePaths.FILE_NAMESPACE))) {
                     NamespaceConfig config = loadConfig(nsId, entry);
                     namespaces.put(nsId, new NamespaceContext(config, entry));
                     log.info("Discovered namespace: {}", nsId);
@@ -159,14 +159,14 @@ public class SpectorNamespaceManager {
                 if (!Files.isDirectory(l1)) continue;
                 // L1 bucket (2-char hex prefix)
                 String l1Name = l1.getFileName().toString();
-                if (l1Name.length() != StorageLayout.SHARD_HEX_DIGITS) continue;
+                if (l1Name.length() != StoragePaths.SHARD_HEX_DIGITS) continue;
 
                 try (DirectoryStream<Path> l2Stream = Files.newDirectoryStream(l1)) {
                     for (Path l2 : l2Stream) {
                         if (!Files.isDirectory(l2)) continue;
                         // L2 bucket (2-char hex prefix)
                         String l2Name = l2.getFileName().toString();
-                        if (l2Name.length() != StorageLayout.SHARD_HEX_DIGITS) continue;
+                        if (l2Name.length() != StoragePaths.SHARD_HEX_DIGITS) continue;
 
                         // Scan namespace dirs inside L2 bucket
                         try (DirectoryStream<Path> nsStream = Files.newDirectoryStream(l2)) {
@@ -174,7 +174,7 @@ public class SpectorNamespaceManager {
                                 if (!Files.isDirectory(nsDir)) continue;
                                 String nsId = nsDir.getFileName().toString();
 
-                                if (Files.exists(nsDir.resolve(StorageLayout.FILE_NAMESPACE))) {
+                                if (Files.exists(nsDir.resolve(StoragePaths.FILE_NAMESPACE))) {
                                     NamespaceConfig config = loadConfig(nsId, nsDir);
                                     namespaces.put(nsId, new NamespaceContext(config, nsDir));
                                     log.debug("Discovered sharded namespace: {} at {}/{}/{}",
@@ -212,9 +212,9 @@ public class SpectorNamespaceManager {
         Path nsDir = resolveNamespacePath(config.id());
         try {
             Files.createDirectories(nsDir);
-            Files.createDirectories(nsDir.resolve(StorageLayout.DIR_RUNTIME));
-            Files.createDirectories(nsDir.resolve(StorageLayout.DIR_PARTITIONS));
-            writeConfig(config, nsDir.resolve(StorageLayout.FILE_NAMESPACE));
+            Files.createDirectories(nsDir.resolve(StoragePaths.DIR_RUNTIME));
+            Files.createDirectories(nsDir.resolve(StoragePaths.DIR_PARTITIONS));
+            writeConfig(config, nsDir.resolve(StoragePaths.FILE_NAMESPACE));
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to create namespace: " + config.id(), e);
         }
@@ -253,9 +253,9 @@ public class SpectorNamespaceManager {
         Path nsDir = resolveNamespacePath(config.id());
         try {
             Files.createDirectories(nsDir);
-            Files.createDirectories(nsDir.resolve(StorageLayout.DIR_RUNTIME));
-            Files.createDirectories(nsDir.resolve(StorageLayout.DIR_PARTITIONS));
-            writeConfig(config, nsDir.resolve(StorageLayout.FILE_NAMESPACE));
+            Files.createDirectories(nsDir.resolve(StoragePaths.DIR_RUNTIME));
+            Files.createDirectories(nsDir.resolve(StoragePaths.DIR_PARTITIONS));
+            writeConfig(config, nsDir.resolve(StoragePaths.FILE_NAMESPACE));
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to create namespace: " + namespaceId, e);
         }
@@ -345,9 +345,9 @@ public class SpectorNamespaceManager {
      */
     protected Path resolveNamespacePath(String namespaceId) {
         if (sharded) {
-            return StorageLayout.namespaceDirSharded(basePath, namespaceId);
+            return StoragePaths.namespaceDirSharded(basePath, namespaceId);
         }
-        return StorageLayout.namespaceDir(basePath, namespaceId);
+        return StoragePaths.namespaceDir(basePath, namespaceId);
     }
 
     // ── Internal helpers ──
@@ -357,7 +357,7 @@ public class SpectorNamespaceManager {
      * Subclasses (e.g., enterprise) can override for richer config parsing.
      */
     protected NamespaceConfig loadConfig(String nsId, Path nsDir) {
-        log.debug("Loading namespace config: {}", nsDir.resolve(StorageLayout.FILE_NAMESPACE));
+        log.debug("Loading namespace config: {}", nsDir.resolve(StoragePaths.FILE_NAMESPACE));
         return NamespaceConfig.unlimited(nsId);
     }
 
@@ -422,9 +422,9 @@ public class SpectorNamespaceManager {
         public Path directory() { return directory; }
 
         /** Path to runtime/ within this namespace (V3 layout). */
-        public Path runtimeDir() { return directory.resolve(StorageLayout.DIR_RUNTIME); }
+        public Path runtimeDir() { return directory.resolve(StoragePaths.DIR_RUNTIME); }
 
         /** Path to partitions/ within this namespace. */
-        public Path partitionsDir() { return directory.resolve(StorageLayout.DIR_PARTITIONS); }
+        public Path partitionsDir() { return directory.resolve(StoragePaths.DIR_PARTITIONS); }
     }
 }

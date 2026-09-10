@@ -17,23 +17,23 @@ import com.spectrayan.spector.core.spacetime.SpacetimeSimulationMode;
 import com.spectrayan.spector.core.spacetime.Time2VecProjector;
 import com.spectrayan.spector.memory.pathway.express.ExpressPathway;
 import com.spectrayan.spector.memory.aisme.homeostasis.InteroceptiveState;
-import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.SemanticMemory;
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.store.SemanticMemory;
 import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
 import com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.model.SourceModality;
+import com.spectrayan.spector.kernel.api.SourceModality;
 import com.spectrayan.spector.memory.pathway.simulation.relay.SpacetimeSeedRelay;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
 import com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion;
-import com.spectrayan.spector.memory.synapse.scan.RecordGates;
+import com.spectrayan.spector.kernel.score.RecordGates;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -193,7 +193,7 @@ class SpacetimeSimulationFixtureTest {
                     .build();
 
             final List<ScoredRecord> standardResults = CognitiveScorer.score(
-                    store.segment(), 2, layout, queryVec, standardOptions, now, 0L, null, null);
+                    store, queryVec, standardOptions, now);
 
             assertThat(standardResults).hasSize(1);
             assertThat(standardResults.get(0).header().timestampMs()).isEqualTo(wakingHeader.timestampMs());
@@ -206,7 +206,7 @@ class SpacetimeSimulationFixtureTest {
                     .build();
 
             final List<ScoredRecord> simResults = CognitiveScorer.score(
-                    store.segment(), 2, layout, queryVec, simOptions, now, 0L, null, null);
+                    store, queryVec, simOptions, now);
 
             assertThat(simResults).hasSize(2);
 

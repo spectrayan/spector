@@ -15,8 +15,8 @@ package com.spectrayan.spector.memory.bootstrap;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.bundle.PartitionBundle;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 
@@ -24,8 +24,8 @@ import com.spectrayan.spector.memory.persist.PartitionManager;
 
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.bundle.PartitionBundle;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 
 import java.nio.file.Path;
@@ -82,7 +82,7 @@ public final class PartitionManagerBuilder {
         List<PartitionHandle> frozenHandles = new java.util.ArrayList<>();
         if (isDisk && basePath != null && !cortex.frozenPartitionDirs().isEmpty()) {
             for (Path frozenDir : cortex.frozenPartitionDirs()) {
-                int frozenSeq = StorageLayout.parsePartitionSeqNo(frozenDir.getFileName().toString());
+                int frozenSeq = StoragePaths.parsePartitionSeqNo(frozenDir.getFileName().toString());
                 try {
                     frozenHandles.add(PartitionManager.openFrozenPartition(
                             frozenDir, frozenSeq, workingStore, quantizedVecBytes,

@@ -69,16 +69,26 @@ public final class LexicalFusionRelay implements SynapticRelay<RecallSignal> {
     public boolean transmit(final RecallSignal signal) {
         boolean rrfFused = false;
 
+        final com.spectrayan.spector.memory.cortex.MemoryBM25Index effectiveBm25 = signal != null && signal.bm25Index() != null
+                ? signal.bm25Index()
+                : this.bm25Index;
+        final PartitionRegistry effectivePr = signal != null && signal.partitionRegistry() != null
+                ? signal.partitionRegistry()
+                : this.partitionRegistry;
+        final com.spectrayan.spector.memory.cortex.index.MemoryIndex effectiveIndex = signal != null && signal.index() != null
+                ? signal.index()
+                : (gatherer != null ? gatherer.index() : null);
+
         // Sort vector candidates by cognitive score descending before RRF rank assignment
         signal.candidates().sort(java.util.Comparator.comparing(com.spectrayan.spector.memory.model.CognitiveResult::score).reversed());
 
         // BM25 Text Search
-        if (bm25Index != null && signal.options().enableTextSearch()
+        if (effectiveBm25 != null && signal.options().enableTextSearch()
                 && signal.options().textSearchMode() != TextSearchMode.VECTOR_ONLY) {
             try {
-                final List<BM25Candidate> bm25Hits = bm25Index.search(signal.rawQuery(), signal.options().topK() * 2);
+                final List<BM25Candidate> bm25Hits = effectiveBm25.search(signal.rawQuery(), signal.options().topK() * 2);
                 if (bm25Hits != null && !bm25Hits.isEmpty()) {
-                    gatherer.fuseBM25Candidates(signal.candidates(), bm25Hits, signal.options(), partitionRegistry);
+                    gatherer.fuseBM25Candidates(signal.candidates(), bm25Hits, signal.options(), effectivePr, effectiveIndex);
                     rrfFused = true;
                 }
             } catch (final RuntimeException e) {
@@ -96,7 +106,7 @@ public final class LexicalFusionRelay implements SynapticRelay<RecallSignal> {
                         final List<BM25Candidate> asBm25 = spladeHits.stream()
                                 .map(sc -> new BM25Candidate(sc.id(), sc.spladeScore(), sc.partitionIndex()))
                                 .toList();
-                        gatherer.fuseBM25Candidates(signal.candidates(), asBm25, signal.options(), partitionRegistry);
+                        gatherer.fuseBM25Candidates(signal.candidates(), asBm25, signal.options(), effectivePr, effectiveIndex);
                         rrfFused = true;
                     }
                 } catch (final RuntimeException e) {

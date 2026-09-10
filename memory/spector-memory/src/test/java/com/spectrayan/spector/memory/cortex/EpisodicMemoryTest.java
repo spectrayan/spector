@@ -11,16 +11,22 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
 
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-import com.spectrayan.spector.memory.kernel.layout.EpisodeCodec;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
-import com.spectrayan.spector.memory.model.ConversationRole;
-import com.spectrayan.spector.memory.model.EngramSource;
-import com.spectrayan.spector.memory.model.EpisodeRecord;
-import com.spectrayan.spector.memory.model.SourceModality;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+
+import com.spectrayan.spector.kernel.store.EngramRegion;
+
+import com.spectrayan.spector.kernel.region.RegionPreamble;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.store.codec.EpisodeCodec;
+import com.spectrayan.spector.kernel.engram.EpisodicHeaderLayout;
+import com.spectrayan.spector.kernel.layout.EpisodicLayout;
+import com.spectrayan.spector.kernel.api.ConversationRole;
+import com.spectrayan.spector.kernel.api.EngramSource;
+import com.spectrayan.spector.kernel.api.EpisodeRecord;
+import com.spectrayan.spector.kernel.api.SourceModality;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -218,16 +224,15 @@ class EpisodicMemoryTest {
 
 
     @Test
-    @DisplayName("EpisodicMemory satisfies EngramMemory contract")
+    @DisplayName("EpisodicMemory satisfies EngramRegion contract")
     void episodicMemoryEngramContract() {
-        assertEquals(com.spectrayan.spector.memory.model.MemoryType.EPISODIC, episodicMemory.type());
+        assertEquals(com.spectrayan.spector.kernel.api.MemoryType.EPISODIC, episodicMemory.type());
         assertEquals(0, episodicMemory.visibleCount());
         assertEquals(0.0f, episodicMemory.tombstoneRatio());
-        assertNull(episodicMemory.headerSlab());
 
         long offset = episodicMemory.appendTurn(
                 ConversationRole.USER, 1, 1000L, 123L,
-                "Testing EngramMemory contract".getBytes(), (short) 1, 10, 0, 0, 999L, (short) 1,
+                "Testing EngramRegion contract".getBytes(), (short) 1, 10, 0, 0, 999L, (short) 1,
                 SourceModality.TEXT, 0.75f, (byte) 15, (byte) 30, EngramSource.EXPERIENCED
         );
 

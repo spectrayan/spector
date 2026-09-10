@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.graph.temporal;
 
+import com.spectrayan.spector.kernel.store.TemporalFact;
+
 import java.util.List;
 
 /**

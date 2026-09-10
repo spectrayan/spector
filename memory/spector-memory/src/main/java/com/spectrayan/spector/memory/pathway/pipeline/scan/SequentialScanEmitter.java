@@ -12,19 +12,18 @@
  */
 package com.spectrayan.spector.memory.pathway.pipeline.scan;
 
-import com.spectrayan.spector.memory.cortex.EpisodicMemory;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import java.lang.foreign.MemorySegment;
+
 import java.util.List;
 import java.util.function.IntSupplier;
-import java.util.function.Supplier;
 
 /**
- * Sequential emitter — each scan runs immediately (no {@code madvise}), matching the fallback path.
+ * Sequential emitter — each scan runs immediately on the caller thread.
  */
 public final class SequentialScanEmitter implements ScanEmitter {
     private final List<CognitiveResult> results;
@@ -59,11 +58,10 @@ public final class SequentialScanEmitter implements ScanEmitter {
     }
 
     @Override
-    public void emitSlabScan(Supplier<MemorySegment> segment, IntSupplier visibleCount,
-                             FixedEngramLayout layout, MemoryType type,
-                             long baseOffset, int partitionSeq) {
-        results.addAll(scoreFunc.score(segment.get(), visibleCount.getAsInt(), layout,
-                queryVector, options, nowMs, type, baseOffset, partitionSeq));
+    public void emitSlabScan(int partitionSeq, MemoryType type, FixedEngramLayout layout,
+                             IntSupplier visibleCount, long baseOffset) {
+        results.addAll(scoreFunc.score(partitionSeq, type, layout, visibleCount.getAsInt(),
+                baseOffset, queryVector, options, nowMs));
     }
 
     @Override

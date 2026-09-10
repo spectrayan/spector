@@ -15,6 +15,9 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
+import com.spectrayan.spector.kernel.store.EngramRegion;
+import com.spectrayan.spector.kernel.score.Valence;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.List;
@@ -25,12 +28,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 
 /**
  * Example-based tests for each scoring phase of the CognitiveScorer independently.
@@ -78,8 +81,7 @@ class ScoringPipelineValidationTest {
                     EncodingHeaderFields.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
 
             RecallOptions options = RecallOptions.builder().topK(2).build();
-            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
-                    segment, corpusSize, layout, vec, options, System.currentTimeMillis());
+            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(EngramRegion.of(segment, corpusSize, layout), vec, options, System.currentTimeMillis());
 
             assertEquals(1, results.size(), "Only non-tombstoned record should be returned");
             assertEquals(1, results.getFirst().index(), "Alive record should be at index 1");
@@ -124,8 +126,7 @@ class ScoringPipelineValidationTest {
                     .topK(3)
                     .synapticFilter("java", "performance")
                     .build();
-            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
-                    segment, corpusSize, layout, vec, options, System.currentTimeMillis());
+            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(EngramRegion.of(segment, corpusSize, layout), vec, options, System.currentTimeMillis());
 
             // Non-matching record (index 1) should be excluded (zero overlap)
             // Note: CognitiveScorer uses broadened containment â€” skip only on ZERO overlap.
@@ -178,8 +179,7 @@ class ScoringPipelineValidationTest {
                     .minValence((byte) -60)
                     .maxValence((byte) 60)
                     .build();
-            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
-                    segment, corpusSize, layout, vec, options, System.currentTimeMillis());
+            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(EngramRegion.of(segment, corpusSize, layout), vec, options, System.currentTimeMillis());
 
             // Only valences -50, 0, 50 should pass (indices 1, 2, 3)
             assertEquals(3, results.size(), "Only 3 records should pass valence filter [-60, 60]");
@@ -219,8 +219,7 @@ class ScoringPipelineValidationTest {
                     EncodingHeaderFields.FLAG_RESOLVED, mins, scales);
 
             RecallOptions options = RecallOptions.builder().topK(2).build();
-            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
-                    segment, corpusSize, layout, vec, options, System.currentTimeMillis());
+            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(EngramRegion.of(segment, corpusSize, layout), vec, options, System.currentTimeMillis());
 
             // Only high-importance record should survive
             assertEquals(1, results.size(), "Low-importance MAX_BUCKET record should be excluded");
@@ -266,8 +265,7 @@ class ScoringPipelineValidationTest {
                     .alpha(1.0f)  // pure similarity scoring
                     .beta(0.0f)
                     .build();
-            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
-                    segment, corpusSize, layout, queryVec, options, System.currentTimeMillis());
+            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(EngramRegion.of(segment, corpusSize, layout), queryVec, options, System.currentTimeMillis());
 
             assertEquals(2, results.size());
             // Closer vector should rank first
@@ -312,8 +310,7 @@ class ScoringPipelineValidationTest {
                     .alpha(0.5f)
                     .beta(0.5f)
                     .build();
-            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
-                    segment, corpusSize, layout, vec, options, nowMs);
+            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(EngramRegion.of(segment, corpusSize, layout), vec, options, nowMs);
 
             assertEquals(2, results.size());
             // With equal similarity but different importance, high importance wins
@@ -353,8 +350,7 @@ class ScoringPipelineValidationTest {
                     .topK(2)
                     .scoringMode(com.spectrayan.spector.memory.model.ScoringMode.SIMILARITY)
                     .build();
-            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
-                    segment, corpusSize, layout, vec, options, nowMs);
+            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(EngramRegion.of(segment, corpusSize, layout), vec, options, nowMs);
 
             assertEquals(2, results.size());
             // Since vectors are identical and importance is ignored in SIMILARITY mode,
@@ -397,8 +393,7 @@ class ScoringPipelineValidationTest {
                     .minTimestamp(nowMs - (7L * 24 * 60 * 60 * 1000))
                     .maxTimestamp(nowMs - (2L * 24 * 60 * 60 * 1000))
                     .build();
-            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
-                    segment, corpusSize, layout, vec, options, nowMs);
+            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(EngramRegion.of(segment, corpusSize, layout), vec, options, nowMs);
 
             // Only Record 1 should match
             assertEquals(1, results.size(), "Only 1 record should pass the timestamp filter window");

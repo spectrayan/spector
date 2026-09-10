@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.pathway.dream.daemon;
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.config.properties.AismeProperties;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
+import com.spectrayan.spector.kernel.api.DreamMode;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

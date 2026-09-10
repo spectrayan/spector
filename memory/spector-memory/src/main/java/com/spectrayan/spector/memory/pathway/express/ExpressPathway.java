@@ -60,7 +60,14 @@ public final class ExpressPathway implements AutoCloseable {
                 .gated("PhenomenologicalStream", ExpressGates.PHENOMENOLOGICAL_ENABLED, new PhenomenologicalStreamRelay(), ErrorPolicy.DEGRADE_GRACEFULLY)
                 .build();
     }
-    
+
+    public ExpressReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel, final ExpressSignal signal) {
+        if (kernel != null && signal != null && signal.attributes() != null) {
+            signal.attributes().put("kernel", kernel);
+        }
+        return express(signal);
+    }
+
     public ExpressReport express(ExpressSignal signal) {
         long start = System.currentTimeMillis();
         pathway.conduct(signal);

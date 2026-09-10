@@ -12,29 +12,33 @@
  */
 package com.spectrayan.spector.memory.pathway.pipeline;
 
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
+
+import com.spectrayan.spector.kernel.id.MemoryId;
+
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingResult;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
-import com.spectrayan.spector.memory.cortex.TextBlobMemory;
+import com.spectrayan.spector.kernel.store.TextBlobMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorHebbianException;
 import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.layout.HyperEntityLayout;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.sync.MemoryWal;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 
 import org.slf4j.Logger;

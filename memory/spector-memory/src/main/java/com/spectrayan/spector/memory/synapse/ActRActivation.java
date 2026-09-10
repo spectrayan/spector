@@ -12,11 +12,9 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
-import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
+import com.spectrayan.spector.kernel.api.HeaderCursor;
+import com.spectrayan.spector.kernel.layout.StrengthLayout;
+import com.spectrayan.spector.kernel.score.DecayStrategy;
 
 /**
  * Full ACT-R base-level activation using an 8-slot recall-timestamp ring buffer (ADR-0028).
@@ -30,9 +28,10 @@ import java.lang.foreign.ValueLayout;
  * <b>recency</b> and <b>frequency</b>, and models the <b>spacing effect</b>:
  * recalls spaced over time produce stronger activation than massed practice.</p>
  *
- * <h3>Storage: 8-Slot Ring Buffer in Audit Region</h3>
+ * <h3>Storage: 8-Slot Ring Buffer via HeaderCursor</h3>
  * <p>Under ADR-0028 dual-region architecture, 32 bytes in {@link StrengthLayout}
- * are dedicated to an 8-slot circular ring buffer of relative-second timestamps.</p>
+ * are dedicated to an 8-slot circular ring buffer of relative-second timestamps,
+ * accessed through {@link HeaderCursor}.</p>
  *
  * <h3>Performance</h3>
  * <p>Zero {@code Math.pow}, zero {@code Math.log}, zero {@code Math.exp} at query time.
@@ -43,9 +42,8 @@ import java.lang.foreign.ValueLayout;
  * Total: ~35 CPU cycles for 8 recall slots.</p>
  *
  * @see DecayStrategy
- * @see com.spectrayan.spector.config.properties.DecayProperties
  * @see StrengthLayout
- * @see com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout
+ * @see HeaderCursor
  */
 public final class ActRActivation {
 
@@ -55,27 +53,26 @@ public final class ActRActivation {
     public static final int RING_BUFFER_SLOTS = StrengthLayout.ACT_R_RING_BUFFER_SLOTS;
 
     /**
-     * Records a recall timestamp into the audit record's 8-slot ring buffer.
+     * Records a recall timestamp into the cursor's 8-slot ring buffer.
      *
-     * @param auditSeg          off-heap audit memory segment
-     * @param auditRecordOffset byte offset where this audit record starts
-     * @param creationMs        memory creation timestamp (epoch millis)
-     * @param recallMs          current recall timestamp (epoch millis)
+     * @param cursor     header cursor positioned at the target record
+     * @param creationMs memory creation timestamp (epoch millis)
+     * @param recallMs   current recall timestamp (epoch millis)
      */
-    public static void recordRecall(MemorySegment auditSeg, long auditRecordOffset,
-                                    long creationMs, long recallMs) {
-        StrengthLayout.INSTANCE.recordActRRecall(auditSeg, auditRecordOffset, creationMs, recallMs);
+    public static void recordRecall(HeaderCursor cursor, long creationMs, long recallMs) {
+        if (cursor != null) {
+            cursor.recordActRRecall(creationMs, recallMs);
+        }
     }
 
     /**
-     * Reads all 8 recall timestamps from the audit record's ring buffer.
+     * Reads all 8 recall timestamps from the cursor's ring buffer.
      *
-     * @param auditSeg          off-heap audit memory segment
-     * @param auditRecordOffset byte offset where this audit record starts
+     * @param cursor header cursor positioned at the target record
      * @return array of 8 relative-second values (0 = empty slot)
      */
-    public static int[] readRecallTimestamps(MemorySegment auditSeg, long auditRecordOffset) {
-        return StrengthLayout.INSTANCE.readActRTimestamps(auditSeg, auditRecordOffset);
+    public static int[] readRecallTimestamps(HeaderCursor cursor) {
+        return cursor != null ? cursor.readActRTimestamps() : new int[RING_BUFFER_SLOTS];
     }
 
     /**
@@ -87,37 +84,35 @@ public final class ActRActivation {
      *   σ(B_i) = 1 / (1 + e^{-ln(sum)}) = sum / (sum + 1)   ← algebraic identity!
      * </pre>
      *
-     * @param auditSeg          off-heap audit memory segment
-     * @param auditRecordOffset byte offset where this audit record starts
-     * @param creationMs        memory creation timestamp (epoch millis)
-     * @param nowMs             current time (epoch millis)
-     * @param decayExponent     unused (kept for API compatibility)
+     * @param cursor        header cursor positioned at the target record
+     * @param creationMs    memory creation timestamp (epoch millis)
+     * @param nowMs         current time (epoch millis)
+     * @param decayExponent unused (kept for API compatibility)
      * @return normalized base-level activation in [0, 1], or -1 if no recall data
      */
-    public static float computeBaseLevelActivation(MemorySegment auditSeg, long auditRecordOffset,
-                                                    long creationMs, long nowMs,
-                                                    float decayExponent) {
-        if (auditSeg == null) return -1.0f;
-        return StrengthLayout.INSTANCE.computeActRActivation(auditSeg, auditRecordOffset, creationMs, nowMs);
+    public static float computeBaseLevelActivation(HeaderCursor cursor,
+                                                   long creationMs, long nowMs,
+                                                   float decayExponent) {
+        if (cursor == null) return -1.0f;
+        return cursor.computeActRActivation(creationMs, nowMs);
     }
 
     /**
      * Computes the decay multiplier using the full ACT-R model when recall
      * timestamps are available, otherwise falls back to bucket-based decay.
      *
-     * @param auditSeg          off-heap audit memory segment (or null for fallback)
-     * @param auditRecordOffset byte offset where this audit record starts
-     * @param creationMs        memory creation timestamp (epoch millis)
-     * @param nowMs             current time (epoch millis)
-     * @param agentRecallCount  simplified recall count (for fallback)
-     * @param decayExponent     power-law decay exponent
+     * @param cursor           header cursor positioned at the target record (or null for fallback)
+     * @param creationMs       memory creation timestamp (epoch millis)
+     * @param nowMs            current time (epoch millis)
+     * @param agentRecallCount simplified recall count (for fallback)
+     * @param decayExponent    power-law decay exponent
      * @return decay multiplier in [0, 1]
      */
-    public static float computeDecayWithActR(MemorySegment auditSeg, long auditRecordOffset,
-                                              long creationMs, long nowMs,
-                                              int agentRecallCount, float decayExponent) {
-        if (auditSeg != null) {
-            float actr = computeBaseLevelActivation(auditSeg, auditRecordOffset, creationMs, nowMs, decayExponent);
+    public static float computeDecayWithActR(HeaderCursor cursor,
+                                             long creationMs, long nowMs,
+                                             int agentRecallCount, float decayExponent) {
+        if (cursor != null) {
+            float actr = computeBaseLevelActivation(cursor, creationMs, nowMs, decayExponent);
             if (actr >= 0) {
                 return actr; // Full ACT-R result
             }

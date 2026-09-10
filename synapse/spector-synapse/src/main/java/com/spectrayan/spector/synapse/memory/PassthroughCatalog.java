@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
+import com.spectrayan.spector.kernel.storage.StoragePaths;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -25,7 +27,7 @@ import com.spectrayan.spector.synapse.catalog.*;
  *
  * <p>This produces identical behavior to the pre-Phase-1 {@code MemoryRegistry}:
  * every accountId resolves to a SpectorMemory at
- * {@code StorageLayout.namespaceDirSharded(basePath, accountId)}.</p>
+ * {@code StoragePaths.namespaceDirSharded(basePath, accountId)}.</p>
  */
 final class PassthroughCatalog implements AccountCatalog {
 

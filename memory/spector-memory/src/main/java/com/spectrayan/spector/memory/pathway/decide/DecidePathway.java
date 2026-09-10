@@ -65,6 +65,10 @@ public final class DecidePathway implements AutoCloseable {
         return new Builder();
     }
 
+    public DecideReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel, final DecideSignal signal) {
+        return decide(signal);
+    }
+
     public DecideReport decide(final DecideSignal signal) {
         Objects.requireNonNull(signal, "DecideSignal cannot be null");
         long start = System.currentTimeMillis();

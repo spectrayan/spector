@@ -15,16 +15,18 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
+import com.spectrayan.spector.kernel.store.EngramRegion;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -100,8 +102,7 @@ class ArousalOrderingPropertyTest {
                     .beta(0.7f)
                     .build();
 
-            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
-                    segment, corpusSize, layout, queryVec, options, nowMs);
+            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(EngramRegion.of(segment, corpusSize, layout), queryVec, options, nowMs);
 
             if (results.size() == 2) {
                 // Higher arousal should have higher score (due to slower decay)

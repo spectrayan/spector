@@ -15,16 +15,18 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
+import com.spectrayan.spector.kernel.store.EngramRegion;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -80,8 +82,7 @@ class ResultOrderingPropertyTest {
                     .topK(topK)
                     .build();
 
-            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
-                    segment, corpusSize, layout, queryVector, options, nowMs);
+            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(EngramRegion.of(segment, corpusSize, layout), queryVector, options, nowMs);
 
             // Check count â‰¤ topK
             assert results.size() <= topK

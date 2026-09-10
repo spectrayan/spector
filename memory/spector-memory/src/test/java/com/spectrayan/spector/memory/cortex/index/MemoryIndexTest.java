@@ -12,9 +12,11 @@
  */
 package com.spectrayan.spector.memory.cortex.index;
 
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
+
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 
 import org.junit.jupiter.api.*;
 import static org.assertj.core.api.Assertions.*;

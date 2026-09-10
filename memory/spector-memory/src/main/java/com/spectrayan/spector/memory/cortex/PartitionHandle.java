@@ -11,8 +11,9 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex;
+import com.spectrayan.spector.kernel.store.TextBlobMemory;
 
-import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
+import com.spectrayan.spector.kernel.bundle.PartitionBundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

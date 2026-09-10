@@ -11,9 +11,10 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.recall.relay;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy;
 import com.spectrayan.spector.memory.pathway.pipeline.scorer.SalienceAndHabituationScorer;
@@ -42,11 +43,13 @@ public final class NeuromodulatoryScoringRelay implements SynapticRelay<RecallSi
 
     @Override
     public boolean transmit(final RecallSignal signal) {
+        final CoActivationMemory tracker = (signal != null && signal.coActivationTracker() != null)
+                ? signal.coActivationTracker() : coActivationTracker;
         salienceScorer.applyCognitiveScoring(
                 signal.candidates(),
                 signal.options(),
                 signal.timestampMs(),
-                coActivationTracker,
+                tracker,
                 graphScoringPolicy
         );
         return true;

@@ -11,26 +11,26 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.sync;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
 import com.spectrayan.spector.memory.error.SpectorWalCorruptionException;
-import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.shape.RecordMemory;
-import com.spectrayan.spector.memory.kernel.shape.AppendMemory;
-import com.spectrayan.spector.memory.kernel.shape.RegistryMemory;
+import com.spectrayan.spector.kernel.shape.Memory;
+import com.spectrayan.spector.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.shape.RecordMemory;
+import com.spectrayan.spector.kernel.shape.AppendMemory;
+import com.spectrayan.spector.kernel.shape.RegistryMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 
 /**
  * Replays shape-specific Write-Ahead Log (WAL) events and dispatches mutations
@@ -100,10 +100,10 @@ public final class WalRecoveryDispatcher {
                             long recordId = payload.getLong();
                             byte[] recordBytes = new byte[event.payload().length - 8];
                             payload.get(recordBytes);
-                            ((RecordMemory<?>) target).write(recordId, MemorySegment.ofArray(recordBytes));
+                            ((RecordMemory<?>) target).write(recordId, recordBytes);
                         }
                         case APPEND -> {
-                            ((AppendMemory<?>) target).append(MemorySegment.ofArray(event.payload()));
+                            ((AppendMemory<?>) target).append(event.payload());
                         }
                         case REGISTRY_INTERN -> {
                             int id = payload.getInt();

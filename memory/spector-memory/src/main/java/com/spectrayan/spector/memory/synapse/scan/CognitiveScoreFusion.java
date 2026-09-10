@@ -12,12 +12,17 @@
  */
 package com.spectrayan.spector.memory.synapse.scan;
 
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+
 import com.spectrayan.spector.memory.model.ScoreFusionMode;
 import com.spectrayan.spector.memory.synapse.AssociativePriorProvider;
-import com.spectrayan.spector.memory.synapse.DecayStrategy;
+import com.spectrayan.spector.kernel.score.CognitiveMass;
+import com.spectrayan.spector.kernel.score.DecayStrategy;
 import com.spectrayan.spector.memory.synapse.QueryAssociativeContext;
 
-import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.memoryTypeOrdinal;
+import static com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.memoryTypeOrdinal;
 
 /**
  * Fused SIMD cognitive score composition, dynamic mass calculation, and mass-dilated log recency (Phase 6).
@@ -42,10 +47,7 @@ public final class CognitiveScoreFusion {
      */
     public static float computeCognitiveMass(
             final float importance, final byte arousal, final float storageStrength) {
-        final float importanceNorm = importance / 10.0f;
-        final float arousalNorm = 1.0f + ((arousal & 0xFF) / 128.0f);
-        final float storageBoost = StorageBoostLut.fastStorageBoost(storageStrength, 0.3f);
-        return importanceNorm * arousalNorm * storageBoost;
+        return com.spectrayan.spector.kernel.score.CognitiveMass.computeCognitiveMass(importance, arousal, storageStrength);
     }
 
     /**
@@ -129,7 +131,7 @@ public final class CognitiveScoreFusion {
 
         float storageBoost = 1.0f;
         if (hasStorageStrength && twoFactorEnabled && storageStrength > 1.0f) {
-            storageBoost = StorageBoostLut.fastStorageBoost(storageStrength, sExponent);
+            storageBoost = CognitiveMass.fastStorageBoost(storageStrength, sExponent);
         }
 
         final float importanceNorm = importance / 10.0f;

@@ -53,7 +53,7 @@ public final class TemperatureSoftmaxRelay implements SynapticRelay<RecallSignal
         final RecallOptions options = signal.options();
         List<CognitiveResult> allResults = signal.candidates();
 
-        final float effectiveTemp = computeEffectiveTemperature(signal.queryVector(), options);
+        final float effectiveTemp = computeEffectiveTemperature(signal, signal.queryVector(), options);
         signal.setEffectiveTemperature(effectiveTemp);
         if (Math.abs(effectiveTemp - 1.0f) >= 1e-4f) {
             TemperatureSoftmax.applySoftmaxTemperature(allResults, effectiveTemp);
@@ -72,19 +72,23 @@ public final class TemperatureSoftmaxRelay implements SynapticRelay<RecallSignal
         return RelayNames.TEMPERATURE;
     }
 
-    private float computeEffectiveTemperature(final float[] queryVector, final RecallOptions options) {
+    private float computeEffectiveTemperature(final RecallSignal signal, final float[] queryVector, final RecallOptions options) {
         if (!options.adaptiveTemperature()) {
             return options.computeEffectiveTemperature(0.0);
         }
         double zSurprise = 0.0;
-        if (surpriseDetector != null && queryVector != null && partitionRegistry != null) {
+        final PartitionRegistry pr = (signal != null && signal.partitionRegistry() != null)
+                ? signal.partitionRegistry() : partitionRegistry;
+        final SurpriseDetector sd = (signal != null && signal.surpriseDetector() != null)
+                ? signal.surpriseDetector() : surpriseDetector;
+        if (sd != null && queryVector != null && pr != null) {
             try {
-                final var activeRouter = partitionRegistry.activeRouter();
+                final var activeRouter = pr.activeRouter();
                 if (activeRouter != null && activeRouter.working() != null) {
                     final float nearestDist = activeRouter.working().nearestDistance(
                             queryVector, calibrationMins, calibrationScales);
                     if (nearestDist != Float.MAX_VALUE) {
-                        zSurprise = surpriseDetector.querySurpriseZScore(nearestDist);
+                        zSurprise = sd.querySurpriseZScore(nearestDist);
                     }
                 }
             } catch (final RuntimeException e) {

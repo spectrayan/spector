@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.synapse;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;

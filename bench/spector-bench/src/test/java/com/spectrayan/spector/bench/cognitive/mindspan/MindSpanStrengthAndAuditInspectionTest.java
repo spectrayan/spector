@@ -25,11 +25,12 @@ import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
-import com.spectrayan.spector.memory.cortex.StrengthMemory;
+import com.spectrayan.spector.kernel.store.StrengthMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -167,7 +168,7 @@ public class MindSpanStrengthAndAuditInspectionTest {
             String[] testIds = {"bio-0001", "bio-0002", "bio-0003", "bio-0004", "bio-0005", "bio-0006", "bio-0007", "bio-0008", "bio-0009", "bio-0010"};
             out.println("--- Ingested Records Sample Inspection ---");
             for (String id : testIds) {
-                MemoryIndex.MemoryLocation loc = index.locate(id);
+                MemoryLocation loc = index.locate(id);
                 if (loc != null) {
                     var body = router.readRecordBody(loc, false);
                     EncodingHeader h = body != null ? body.header() : null;
@@ -191,7 +192,7 @@ public class MindSpanStrengthAndAuditInspectionTest {
             }
 
             // Test Dynamic Update of StrengthLayout for Semantic Record
-            MemoryIndex.MemoryLocation semLoc = index.locate("bio-0002");
+            MemoryLocation semLoc = index.locate("bio-0002");
             assertNotNull(semLoc);
             int semSlot = (int) ((semLoc.offset() - router.get(MemoryType.SEMANTIC).dataOffset()) / router.layoutFor(MemoryType.SEMANTIC).stride());
             float beforeStrength = strengthStore.readStorageStrength(MemoryType.SEMANTIC, semSlot);

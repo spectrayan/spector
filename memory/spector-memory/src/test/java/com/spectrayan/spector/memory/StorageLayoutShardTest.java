@@ -21,11 +21,11 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tests for {@link StorageLayout} sharded namespace path resolution.
+ * Tests for {@link StoragePaths} sharded namespace path resolution.
  *
  * <p>Validates determinism, structure, and distribution evenness of the
  * hash-based 2-level directory sharding for namespace IDs.</p>
@@ -37,21 +37,21 @@ class StorageLayoutShardTest {
 
     @Test
     void shardedPathIsDeterministic() {
-        Path p1 = StorageLayout.namespaceDirSharded(tempDir, "tenant-alpha");
-        Path p2 = StorageLayout.namespaceDirSharded(tempDir, "tenant-alpha");
+        Path p1 = StoragePaths.namespaceDirSharded(tempDir, "tenant-alpha");
+        Path p2 = StoragePaths.namespaceDirSharded(tempDir, "tenant-alpha");
         assertThat(p1).isEqualTo(p2);
     }
 
     @Test
     void shardedPathContainsNamespaceId() {
-        Path sharded = StorageLayout.namespaceDirSharded(tempDir, "tenant-alpha");
+        Path sharded = StoragePaths.namespaceDirSharded(tempDir, "tenant-alpha");
         assertThat(sharded.getFileName().toString()).isEqualTo("tenant-alpha");
     }
 
     @Test
     void shardedPathHasTwoLevelPrefix() {
-        Path sharded = StorageLayout.namespaceDirSharded(tempDir, "tenant-alpha");
-        Path namespacesDir = StorageLayout.namespacesDir(tempDir);
+        Path sharded = StoragePaths.namespaceDirSharded(tempDir, "tenant-alpha");
+        Path namespacesDir = StoragePaths.namespacesDir(tempDir);
 
         Path relative = namespacesDir.relativize(sharded);
         // Should be XX/YY/tenant-alpha (3 components)
@@ -63,15 +63,15 @@ class StorageLayoutShardTest {
 
     @Test
     void differentNamespacesGetDifferentPaths() {
-        Path p1 = StorageLayout.namespaceDirSharded(tempDir, "tenant-alpha");
-        Path p2 = StorageLayout.namespaceDirSharded(tempDir, "tenant-beta");
+        Path p1 = StoragePaths.namespaceDirSharded(tempDir, "tenant-alpha");
+        Path p2 = StoragePaths.namespaceDirSharded(tempDir, "tenant-beta");
         assertThat(p1).isNotEqualTo(p2);
     }
 
     @Test
     void tenantScopedShardedPathStructure() {
-        Path sharded = StorageLayout.tenantNamespaceDirSharded(tempDir, "org-acme", "user-1");
-        Path namespacesDir = StorageLayout.namespacesDir(tempDir);
+        Path sharded = StoragePaths.tenantNamespaceDirSharded(tempDir, "org-acme", "user-1");
+        Path namespacesDir = StoragePaths.namespacesDir(tempDir);
 
         Path relative = namespacesDir.relativize(sharded);
         // Should be XX/YY/org-acme/user-1 (4 components)
@@ -85,8 +85,8 @@ class StorageLayoutShardTest {
     @Test
     void tenantScopedShardsOnTenantNotUser() {
         // Same tenant, different users should share the same shard bucket
-        Path u1 = StorageLayout.tenantNamespaceDirSharded(tempDir, "org-acme", "user-1");
-        Path u2 = StorageLayout.tenantNamespaceDirSharded(tempDir, "org-acme", "user-2");
+        Path u1 = StoragePaths.tenantNamespaceDirSharded(tempDir, "org-acme", "user-1");
+        Path u2 = StoragePaths.tenantNamespaceDirSharded(tempDir, "org-acme", "user-2");
 
         // Their parent (the tenant dir) should be the same
         assertThat(u1.getParent()).isEqualTo(u2.getParent());
@@ -99,8 +99,8 @@ class StorageLayoutShardTest {
 
         for (int i = 0; i < 10_000; i++) {
             String nsId = "tenant-" + i;
-            Path sharded = StorageLayout.namespaceDirSharded(tempDir, nsId);
-            Path namespacesDir = StorageLayout.namespacesDir(tempDir);
+            Path sharded = StoragePaths.namespaceDirSharded(tempDir, nsId);
+            Path namespacesDir = StoragePaths.namespacesDir(tempDir);
             Path relative = namespacesDir.relativize(sharded);
 
             // Use the first shard level (256 buckets)
@@ -124,15 +124,15 @@ class StorageLayoutShardTest {
 
     @Test
     void sha256HexProducesCorrectLength() {
-        String hash = StorageLayout.sha256Hex("test-input");
+        String hash = StoragePaths.sha256Hex("test-input");
         assertThat(hash).hasSize(64); // SHA-256 = 32 bytes = 64 hex chars
         assertThat(hash).matches("[0-9a-f]{64}");
     }
 
     @Test
     void flatAndShardedPathsDiffer() {
-        Path flat = StorageLayout.namespaceDir(tempDir, "tenant-1");
-        Path sharded = StorageLayout.namespaceDirSharded(tempDir, "tenant-1");
+        Path flat = StoragePaths.namespaceDir(tempDir, "tenant-1");
+        Path sharded = StoragePaths.namespaceDirSharded(tempDir, "tenant-1");
 
         // Both end with the namespace ID
         assertThat(flat.getFileName().toString()).isEqualTo("tenant-1");
@@ -146,59 +146,59 @@ class StorageLayoutShardTest {
 
     @Test
     void rejectsNullIdentifier() {
-        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, null))
+        assertThatThrownBy(() -> StoragePaths.namespaceDirSharded(tempDir, null))
                 .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
     void rejectsEmptyIdentifier() {
-        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, ""))
+        assertThatThrownBy(() -> StoragePaths.namespaceDirSharded(tempDir, ""))
                 .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
     void rejectsWhitespaceOnlyIdentifier() {
-        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, "   \t\n"))
+        assertThatThrownBy(() -> StoragePaths.namespaceDirSharded(tempDir, "   \t\n"))
                 .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
     void rejectsIdentifierExceeding256Characters() {
         String tooLong = "a".repeat(257);
-        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, tooLong))
+        assertThatThrownBy(() -> StoragePaths.namespaceDirSharded(tempDir, tooLong))
                 .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
     void acceptsIdentifierAtMaxLength() {
         String atMax = "a".repeat(256);
-        assertThatCode(() -> StorageLayout.namespaceDirSharded(tempDir, atMax))
+        assertThatCode(() -> StoragePaths.namespaceDirSharded(tempDir, atMax))
                 .doesNotThrowAnyException();
     }
 
     @Test
     void rejectsForwardSlash() {
-        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, "a/b"))
+        assertThatThrownBy(() -> StoragePaths.namespaceDirSharded(tempDir, "a/b"))
                 .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
     void rejectsBackslash() {
-        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, "a\\b"))
+        assertThatThrownBy(() -> StoragePaths.namespaceDirSharded(tempDir, "a\\b"))
                 .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
     void rejectsDot() {
-        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, "a.b"))
+        assertThatThrownBy(() -> StoragePaths.namespaceDirSharded(tempDir, "a.b"))
                 .isInstanceOf(SpectorValidationException.class);
-        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, ".."))
+        assertThatThrownBy(() -> StoragePaths.namespaceDirSharded(tempDir, ".."))
                 .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
     void rejectsNullByte() {
-        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, "a\u0000b"))
+        assertThatThrownBy(() -> StoragePaths.namespaceDirSharded(tempDir, "a\u0000b"))
                 .isInstanceOf(SpectorValidationException.class);
     }
 
@@ -206,7 +206,7 @@ class StorageLayoutShardTest {
     void rejectsC0ControlCharacters() {
         for (char c = '\u0000'; c <= '\u001F'; c++) {
             String id = "a" + c + "b";
-            assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, id))
+            assertThatThrownBy(() -> StoragePaths.namespaceDirSharded(tempDir, id))
                     .as("control char U+%04X must be rejected", (int) c)
                     .isInstanceOf(SpectorValidationException.class);
         }
@@ -215,7 +215,7 @@ class StorageLayoutShardTest {
     @Test
     void acceptsValidTsidLikeIdentifier() {
         // 13-char TSID (Crockford Base32) — the real per-user namespace id
-        assertThatCode(() -> StorageLayout.namespaceDirSharded(tempDir, "0GXABCDEFGHJK"))
+        assertThatCode(() -> StoragePaths.namespaceDirSharded(tempDir, "0GXABCDEFGHJK"))
                 .doesNotThrowAnyException();
     }
 
@@ -223,7 +223,7 @@ class StorageLayoutShardTest {
 
     @Test
     void resolvedPathIsDescendantOfBase() {
-        Path sharded = StorageLayout.namespaceDirSharded(tempDir, "0GXABCDEFGHJK");
+        Path sharded = StoragePaths.namespaceDirSharded(tempDir, "0GXABCDEFGHJK");
         Path normalizedBase = tempDir.toAbsolutePath().normalize();
         Path normalizedResolved = sharded.toAbsolutePath().normalize();
 
@@ -235,12 +235,12 @@ class StorageLayoutShardTest {
     @Test
     void shardSegmentsEqualFirstTwoSha256BytePairs() {
         String id = "0GXABCDEFGHJK";
-        String hash = StorageLayout.sha256Hex(id);
+        String hash = StoragePaths.sha256Hex(id);
         String expectedL1 = hash.substring(0, 2);
         String expectedL2 = hash.substring(2, 4);
 
-        Path sharded = StorageLayout.namespaceDirSharded(tempDir, id);
-        Path relative = StorageLayout.namespacesDir(tempDir).relativize(sharded);
+        Path sharded = StoragePaths.namespaceDirSharded(tempDir, id);
+        Path relative = StoragePaths.namespacesDir(tempDir).relativize(sharded);
 
         assertThat(relative.getName(0).toString()).isEqualTo(expectedL1).matches("[0-9a-f]{2}");
         assertThat(relative.getName(1).toString()).isEqualTo(expectedL2).matches("[0-9a-f]{2}");

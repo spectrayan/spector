@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.graph;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 
 import com.spectrayan.spector.memory.model.GraphRecallOptions;
 import com.spectrayan.spector.memory.model.GraphTraversalResult;
@@ -18,14 +19,14 @@ import com.spectrayan.spector.memory.model.GraphTraversalResult.DiscoveredEntity
 import com.spectrayan.spector.memory.model.GraphTraversalResult.RelationalPath;
 import com.spectrayan.spector.memory.model.GraphTraversalResult.PathNode;
 import com.spectrayan.spector.memory.model.GraphTraversalResult.GroundingMemory;
-import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
+import com.spectrayan.spector.kernel.store.TemporalFact;
 import java.time.Instant;
 
 import com.spectrayan.spector.commons.cache.SpectorCache;
 import com.spectrayan.spector.commons.cache.SpectorCacheManager;
 import com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager;
 import com.spectrayan.spector.memory.cortex.cache.MemoryCacheNames;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.GraphNeighborhood;
@@ -37,7 +38,7 @@ import com.spectrayan.spector.memory.model.TopologyStats.EntityTypeStats;
 import com.spectrayan.spector.memory.model.TopologyStats.RelationTypeStats;
 import com.spectrayan.spector.memory.graph.causal.CausalChain;
 import com.spectrayan.spector.memory.graph.causal.CausalQueryEngine;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 
 import org.slf4j.Logger;

@@ -47,13 +47,13 @@ public class SpectorHealthIndicator implements HealthIndicator {
             if (memory != null) {
                 builder.withDetail("memory.total", memory.totalMemories());
                 builder.withDetail("memory.working",
-                        memory.memoryCount(com.spectrayan.spector.memory.model.MemoryType.WORKING));
+                        memory.memoryCount(com.spectrayan.spector.kernel.api.MemoryType.WORKING));
                 builder.withDetail("memory.episodic",
-                        memory.memoryCount(com.spectrayan.spector.memory.model.MemoryType.EPISODIC));
+                        memory.memoryCount(com.spectrayan.spector.kernel.api.MemoryType.EPISODIC));
                 builder.withDetail("memory.semantic",
-                        memory.memoryCount(com.spectrayan.spector.memory.model.MemoryType.SEMANTIC));
+                        memory.memoryCount(com.spectrayan.spector.kernel.api.MemoryType.SEMANTIC));
                 builder.withDetail("memory.procedural",
-                        memory.memoryCount(com.spectrayan.spector.memory.model.MemoryType.PROCEDURAL));
+                        memory.memoryCount(com.spectrayan.spector.kernel.api.MemoryType.PROCEDURAL));
             }
 
             return builder.build();

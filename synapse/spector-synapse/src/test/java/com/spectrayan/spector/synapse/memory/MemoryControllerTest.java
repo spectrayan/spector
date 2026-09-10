@@ -421,8 +421,8 @@ class MemoryControllerTest {
                 0.1f,
                 (short) 1,
                 (byte) 0,
-                com.spectrayan.spector.memory.model.MemoryType.SEMANTIC,
-                com.spectrayan.spector.memory.cortex.MemorySource.OBSERVED,
+                com.spectrayan.spector.kernel.api.MemoryType.SEMANTIC,
+                com.spectrayan.spector.kernel.api.MemorySource.OBSERVED,
                 new String[]{"federation"},
                 1.0f,
                 1.0f

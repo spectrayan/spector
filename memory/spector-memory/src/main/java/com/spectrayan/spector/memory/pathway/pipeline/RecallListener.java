@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.pipeline;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
 
 import com.spectrayan.spector.memory.model.CognitiveResult;
 
@@ -29,7 +30,7 @@ import java.util.List;
  * <ul>
  *   <li>{@link LtpReconsolidationListener} — increments agent_recall_count for returned memories</li>
  *   <li>{@link HebbianCoActivationListener} — records tag co-occurrence in the
- *       {@link com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory}</li>
+ *       {@link com.spectrayan.spector.kernel.store.CoActivationMemory}</li>
  * </ul>
  */
 @FunctionalInterface

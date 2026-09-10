@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.model;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
  * Filter parameters for recall queries.

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.bench.conformance.model;
+import com.spectrayan.spector.kernel.score.Valence;
 
 /**
  * Valence window range for MF-001 recall queries.

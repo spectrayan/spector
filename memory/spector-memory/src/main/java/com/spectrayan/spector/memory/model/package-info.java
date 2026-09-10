@@ -34,10 +34,11 @@
  *   <li>{@link com.spectrayan.spector.memory.model.CognitiveProfile} — preset recall scoring profiles (BALANCED, DEBUGGING, HYPERFOCUS, etc.)</li>
  *   <li>{@link com.spectrayan.spector.memory.model.ConfidenceBand} — result confidence classification</li>
  *   <li>{@link com.spectrayan.spector.memory.model.MemoryPersistenceMode} — IN_MEMORY vs DISK storage</li>
- *   <li>{@link com.spectrayan.spector.memory.model.MemoryType} — memory tier (WORKING, EPISODIC, SEMANTIC, PROCEDURAL)</li>
+ *   <li>{@link com.spectrayan.spector.kernel.api.MemoryType} — memory tier (WORKING, EPISODIC, SEMANTIC, PROCEDURAL)</li>
  *   <li>{@link com.spectrayan.spector.memory.model.RecallMode} — recall strategy selection</li>
  *   <li>{@link com.spectrayan.spector.memory.model.ScoringMode} — scoring algorithm variants</li>
  *   <li>{@link com.spectrayan.spector.config.model.TextSearchMode} — text search strategy (BM25, SEMANTIC, HYBRID)</li>
  * </ul>
  */
 package com.spectrayan.spector.memory.model;
+import com.spectrayan.spector.kernel.api.MemoryType;

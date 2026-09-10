@@ -12,15 +12,20 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.kernel.api.TriageOutcome;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
+
+import com.spectrayan.spector.kernel.id.MemoryId;
+
 import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
+import com.spectrayan.spector.kernel.api.DreamMode;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamSignal;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
-import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
+import com.spectrayan.spector.kernel.shape.DistributedMemoryTensor;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -136,7 +141,7 @@ class DreamPathwayTest {
                 .build();
 
         java.util.concurrent.atomic.AtomicInteger counter = new java.util.concurrent.atomic.AtomicInteger(100);
-        com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator customIdGen = () -> "CUSTOM-ID-" + counter.getAndIncrement();
+        com.spectrayan.spector.kernel.id.MemoryIdGenerator customIdGen = () -> "CUSTOM-ID-" + counter.getAndIncrement();
 
         try (DreamPathway pathway = DreamPathway.builder()
                 .dreamConfig(dreamConfig)
@@ -221,7 +226,7 @@ class DreamPathwayTest {
             assertThat(signal.salienceProfile()).isEqualTo(profile);
             assertThat(signal.constructedScenes()).isNotEmpty();
             // At least one constructed scene aligns with soul and gets IDENTITY
-            assertThat(signal.survivingScenes()).anyMatch(s -> s.triageOutcome() == DreamSignal.TriageOutcome.IDENTITY);
+            assertThat(signal.survivingScenes()).anyMatch(s -> s.triageOutcome() == TriageOutcome.IDENTITY);
         }
     }
 }

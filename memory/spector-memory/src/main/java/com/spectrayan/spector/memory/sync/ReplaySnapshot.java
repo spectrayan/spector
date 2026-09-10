@@ -15,31 +15,14 @@ package com.spectrayan.spector.memory.sync;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 
-import java.lang.foreign.Arena;
 import java.time.Instant;
 
 /**
- * Ephemeral point-in-time memory state reconstructed from WAL events.
- *
- * <h3>Biological Analog: Hippocampal Replay</h3>
- * <p>During sleep, the hippocampus replays past experiences to consolidate them.
- * {@code ReplaySnapshot} is the programmatic equivalent — it reconstructs the
- * memory landscape as it existed at a specific moment in time by replaying
- * the WAL event log.</p>
- *
- * <h3>Lifecycle</h3>
- * <p>The snapshot holds an ephemeral {@link Arena} with off-heap segments
- * for the reconstructed cognitive memory stores. It must be closed after use to release
- * off-heap memory:</p>
- * <pre>{@code
- *   try (var snapshot = WalReplayer.replay(wal, targetTimestamp, maxEvents, ...)) {
- *       // Use snapshot.index() and snapshot.cognitiveRouter() for recall
- *   }
- * }</pre>
+ * Ephemeral point-in-time memory state reconstructed from WAL events (R9.1, R9.3).
  *
  * @param index           reconstructed MemoryIndex with IDs, text, metadata
- * @param cognitiveRouter reconstructed CognitiveMemoryRouter with ephemeral off-heap segments
- * @param arena           the off-heap Arena owning all replay segments (close to release)
+ * @param cognitiveRouter reconstructed CognitiveMemoryRouter with ephemeral segments (nullable)
+ * @param releaseHandle   closeable handle releasing any resources upon snapshot completion
  * @param memoryCount     total memories reconstructed
  * @param eventsProcessed WAL events replayed to build this snapshot
  * @param replayTimestamp the target timestamp this snapshot represents
@@ -47,7 +30,7 @@ import java.time.Instant;
 public record ReplaySnapshot(
         MemoryIndex index,
         CognitiveMemoryRouter cognitiveRouter,
-        Arena arena,
+        AutoCloseable releaseHandle,
         int memoryCount,
         int eventsProcessed,
         Instant replayTimestamp
@@ -55,8 +38,11 @@ public record ReplaySnapshot(
 
     @Override
     public void close() {
-        if (arena != null) {
-            arena.close();
+        if (releaseHandle != null) {
+            try {
+                releaseHandle.close();
+            } catch (Exception ignored) {
+            }
         }
     }
 }

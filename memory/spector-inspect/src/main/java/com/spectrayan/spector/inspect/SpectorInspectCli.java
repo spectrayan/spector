@@ -15,13 +15,13 @@
  */
 package com.spectrayan.spector.inspect;
 
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.bundle.BundleDirectory;
-import com.spectrayan.spector.memory.kernel.bundle.BundleSubHeader;
-import com.spectrayan.spector.memory.kernel.bundle.RegionEntry;
-import com.spectrayan.spector.memory.kernel.bundle.RegionId;
-import com.spectrayan.spector.memory.kernel.bundle.BundleLayout;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
+import com.spectrayan.spector.kernel.shape.MemoryShape;
+import com.spectrayan.spector.kernel.bundle.BundleDirectory;
+import com.spectrayan.spector.kernel.bundle.BundleSubHeader;
+import com.spectrayan.spector.kernel.region.RegionEntry;
+import com.spectrayan.spector.kernel.region.RegionId;
+import com.spectrayan.spector.kernel.bundle.BundleFileLayout;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -188,7 +188,7 @@ public class SpectorInspectCli {
             System.out.println("Spector Memory Bundle Diagnostics: " + path.getFileName());
             System.out.println("==================================================================================");
             System.out.printf("Magic:              0x%08X (SMKM)\n", RegionPreamble.MAGIC);
-            System.out.printf("Layout ID:          0x%08X (\"%s\")\n", BundleLayout.LAYOUT_ID, decodeLayoutId(BundleLayout.LAYOUT_ID));
+            System.out.printf("Layout ID:          0x%08X (\"%s\")\n", BundleFileLayout.LAYOUT_ID, decodeLayoutId(BundleFileLayout.LAYOUT_ID));
             System.out.printf("Bundle Type:        0x%08X (\"%s\")\n", bundleMagic, bundleMagicStr);
             System.out.printf("Bundle Version:     %d\n", version);
             System.out.printf("File Size (Header): %d bytes\n", totalFileSize);

@@ -12,18 +12,20 @@
  */
 package com.spectrayan.spector.memory.pathway.reflect.relay;
 
+import com.spectrayan.spector.kernel.id.MemoryId;
+
 import com.spectrayan.spector.commons.template.TemplateEngine;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
-import com.spectrayan.spector.memory.cortex.ProvenanceMemory;
-import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
+import com.spectrayan.spector.kernel.store.ProvenanceMemory;
+import com.spectrayan.spector.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.TypeNormalizer;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.config.properties.CircadianProperties;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
@@ -31,7 +33,7 @@ import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 import com.spectrayan.spector.memory.sync.MemoryWal;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec;
 import com.spectrayan.spector.memory.pathway.reflect.ReflectCheckpoint;
 import com.spectrayan.spector.memory.pathway.reflect.spi.ReflectCheckpointStore;
@@ -89,6 +91,7 @@ public final class ReflectSignal {
     private final float identityAnchorEta;
     private final float identityLyapunovThreshold;
     private final com.spectrayan.spector.memory.aisme.lifespan.LifespanRetentionController lifespanController;
+    private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
 
     // ── Batch & Sweep Orchestration Context ────────────────────────
     private final ReflectSweepSpec sweepSpec;
@@ -155,6 +158,7 @@ public final class ReflectSignal {
         this.identityAnchorEta = builder.identityAnchorEta;
         this.identityLyapunovThreshold = builder.identityLyapunovThreshold;
         this.lifespanController = builder.lifespanController;
+        this.kernel = builder.kernel;
 
         this.sweepSpec = builder.sweepSpec != null ? builder.sweepSpec : ReflectSweepSpec.fullCycle();
         this.checkpointStore = builder.checkpointStore;
@@ -168,7 +172,8 @@ public final class ReflectSignal {
         return new Builder();
     }
 
-    // ── Getters & Accessors ────────────────────────────────────────
+    public com.spectrayan.spector.kernel.api.NamespaceKernel kernel() { return kernel; }
+    public void kernel(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel) { this.kernel = kernel; }
 
     public ReflectSweepSpec sweepSpec() { return sweepSpec; }
     public ReflectCheckpointStore checkpointStore() { return checkpointStore; }
@@ -366,10 +371,12 @@ public final class ReflectSignal {
         private float identityAnchorEta = 0.0001f;
         private float identityLyapunovThreshold = 0.15f;
         private com.spectrayan.spector.memory.aisme.lifespan.LifespanRetentionController lifespanController;
+        private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
         private ReflectSweepSpec sweepSpec = ReflectSweepSpec.fullCycle();
         private ReflectCheckpointStore checkpointStore;
         private ReflectCheckpoint checkpoint;
 
+        public Builder kernel(com.spectrayan.spector.kernel.api.NamespaceKernel kernel) { this.kernel = kernel; return this; }
         public Builder sweepSpec(ReflectSweepSpec sweepSpec) { this.sweepSpec = sweepSpec; return this; }
         public Builder checkpointStore(ReflectCheckpointStore checkpointStore) { this.checkpointStore = checkpointStore; return this; }
         public Builder checkpoint(ReflectCheckpoint checkpoint) { this.checkpoint = checkpoint; return this; }

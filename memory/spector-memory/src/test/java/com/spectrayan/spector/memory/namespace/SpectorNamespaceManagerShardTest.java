@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.namespace;
 
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import org.junit.jupiter.api.*;
 
 import java.io.IOException;
@@ -59,8 +59,8 @@ class SpectorNamespaceManagerShardTest {
         // namespaces / XX / YY / test-agent
         assertThat(parts).hasSize(4);
         assertThat(parts[0]).isEqualTo("namespaces");
-        assertThat(parts[1]).hasSize(StorageLayout.SHARD_HEX_DIGITS);
-        assertThat(parts[2]).hasSize(StorageLayout.SHARD_HEX_DIGITS);
+        assertThat(parts[1]).hasSize(StoragePaths.SHARD_HEX_DIGITS);
+        assertThat(parts[2]).hasSize(StoragePaths.SHARD_HEX_DIGITS);
         assertThat(parts[3]).isEqualTo("test-agent");
     }
 
@@ -69,16 +69,16 @@ class SpectorNamespaceManagerShardTest {
     void shardedDiscovery() throws IOException {
         // Create a sharded namespace manually
         String nsId = "agent-alpha";
-        Path shardedDir = StorageLayout.namespaceDirSharded(tempDir, nsId);
+        Path shardedDir = StoragePaths.namespaceDirSharded(tempDir, nsId);
         Files.createDirectories(shardedDir);
-        Files.writeString(shardedDir.resolve(StorageLayout.FILE_NAMESPACE),
+        Files.writeString(shardedDir.resolve(StoragePaths.FILE_NAMESPACE),
                 "{\"id\": \"" + nsId + "\"}");
 
         // Create another
         String nsId2 = "agent-beta";
-        Path shardedDir2 = StorageLayout.namespaceDirSharded(tempDir, nsId2);
+        Path shardedDir2 = StoragePaths.namespaceDirSharded(tempDir, nsId2);
         Files.createDirectories(shardedDir2);
-        Files.writeString(shardedDir2.resolve(StorageLayout.FILE_NAMESPACE),
+        Files.writeString(shardedDir2.resolve(StoragePaths.FILE_NAMESPACE),
                 "{\"id\": \"" + nsId2 + "\"}");
 
         // Discover
@@ -93,9 +93,9 @@ class SpectorNamespaceManagerShardTest {
     @DisplayName("Flat manager does NOT discover sharded namespaces")
     void flatIgnoresShardedDirs() throws IOException {
         String nsId = "agent-alpha";
-        Path shardedDir = StorageLayout.namespaceDirSharded(tempDir, nsId);
+        Path shardedDir = StoragePaths.namespaceDirSharded(tempDir, nsId);
         Files.createDirectories(shardedDir);
-        Files.writeString(shardedDir.resolve(StorageLayout.FILE_NAMESPACE),
+        Files.writeString(shardedDir.resolve(StoragePaths.FILE_NAMESPACE),
                 "{\"id\": \"" + nsId + "\"}");
 
         // Flat mode should not discover this
@@ -111,7 +111,7 @@ class SpectorNamespaceManagerShardTest {
 
         assertThat(mgr.exists("my-agent")).isTrue();
         assertThat(ctx.directory().toString()).contains(
-                StorageLayout.namespaceDirSharded(tempDir, "my-agent").toString());
+                StoragePaths.namespaceDirSharded(tempDir, "my-agent").toString());
     }
 
     @Test
@@ -125,7 +125,7 @@ class SpectorNamespaceManagerShardTest {
         var flatBase = Files.isDirectory(tempDir) ? tempDir : tempDir;
 
         Path shardedPath = shardedCtx.directory();
-        Path flatPath = StorageLayout.namespaceDir(tempDir, "agent-x");
+        Path flatPath = StoragePaths.namespaceDir(tempDir, "agent-x");
 
         assertThat(shardedPath).isNotEqualTo(flatPath);
         assertThat(shardedPath.toString().length()).isGreaterThan(flatPath.toString().length());

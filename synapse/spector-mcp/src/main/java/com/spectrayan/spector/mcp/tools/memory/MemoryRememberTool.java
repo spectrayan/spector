@@ -24,10 +24,10 @@ import io.modelcontextprotocol.spec.McpSchema;
 
 import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
 import com.spectrayan.spector.memory.model.RememberContext;
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.model.SourceModality;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.api.SourceModality;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 
 /**

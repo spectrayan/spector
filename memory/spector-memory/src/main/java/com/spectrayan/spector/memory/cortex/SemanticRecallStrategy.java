@@ -12,27 +12,33 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.score.Valence;
+import com.spectrayan.spector.kernel.store.SemanticMemory;
+import com.spectrayan.spector.kernel.store.StrengthMemory;
+
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
+
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.VectorIndex;
-import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.SemanticLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.layout.SemanticLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.model.ScoringMode;
-import com.spectrayan.spector.memory.model.SourceModality;
-import com.spectrayan.spector.memory.synapse.DecayStrategy;
-import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.kernel.api.SourceModality;
+import com.spectrayan.spector.kernel.score.DecayStrategy;
+import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 import com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion;
-import com.spectrayan.spector.memory.synapse.scan.RecordGates;
+import com.spectrayan.spector.kernel.score.RecordGates;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -133,22 +139,20 @@ public final class SemanticRecallStrategy {
             if (store == null) continue;
 
             SemanticLayout layout = store.layout();
-            MemorySegment headerSlab = store.primarySegment();
-
-            // Bounds check: ensure we're within the slab
-            if (headerSlab == null || headerOffset + layout.headerLayout().headerBytes() > headerSlab.byteSize()) {
+            int slotIndex = (int) ((headerOffset - store.dataOffset()) / layout.stride());
+            if (slotIndex < 0 || slotIndex >= store.visibleCount()) {
                 continue;
             }
 
-            EncodingHeader header = layout.readHeader(headerSlab, headerOffset);
+            EncodingHeader header = store.readHeader(headerOffset);
+            if (header == null) continue;
 
             // Phase 1: Tombstone check (always applied)
             if (EncodingHeaderFields.isTombstoned(header.flags())) continue;
 
             // Phase 1c: Contradiction Gating
             if (!options.includeContradictions()) {
-                byte cFlags = layout.readConsolidationFlags(headerSlab, headerOffset);
-                if (EncodingHeaderFields.isContradicted(cFlags)) continue;
+                if (store.isContradicted(headerOffset)) continue;
             }
 
             // Phase 1b: Temporal gating & Future causal horizon gate
@@ -171,7 +175,6 @@ public final class SemanticRecallStrategy {
             if (valence < minValence || valence > maxValence) continue;
 
             StrengthMemory strengthStore = handle.router().strength();
-            int slotIndex = (int) ((headerOffset - store.dataOffset()) / layout.stride());
 
             // Phase 4: Importance threshold
             float rawImportance = header.importance();
@@ -209,7 +212,7 @@ public final class SemanticRecallStrategy {
                     float s = strengthStore.readStorageStrength(MemoryType.SEMANTIC, slotIndex);
                     storage = s > 0.0f ? s : 1.0f;
                 } else if (layout.headerLayout().version() >= 2) {
-                    storage = layout.headerLayout().readStorageStrength(headerSlab, headerOffset);
+                    storage = store.readStorageStrength(headerOffset);
                 } else {
                     storage = 1.0f;
                 }
