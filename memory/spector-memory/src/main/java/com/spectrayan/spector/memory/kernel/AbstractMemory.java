@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.kernel;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
+import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,6 +59,7 @@ public abstract class AbstractMemory<L extends RegionLayout> implements Memory<L
     protected final L layout;
     protected final Arena arena;
     protected final MemorySegment segment;
+    protected final RegionRef regionRef;
     protected final int capacity;
     protected final boolean persistent;
     protected final boolean bundleManaged;
@@ -123,6 +125,7 @@ public abstract class AbstractMemory<L extends RegionLayout> implements Memory<L
         this.persistent = false;
         this.bundleManaged = false;
         this.filePath = null;
+        this.regionRef = null;
         this.arena = Arena.ofShared();
         this.segment = arena.allocate(segmentBytes, 64);
     }
@@ -172,11 +175,46 @@ public abstract class AbstractMemory<L extends RegionLayout> implements Memory<L
         this.capacity = capacity;
         this.arena = arena;
         this.segment = segment;
+        this.regionRef = null;
         this.count = count;
         this.persistent = persistent;
         this.bundleManaged = bundleManaged;
         this.filePath = filePath;
         this.fileChannel = fileChannel;
+        if (count > 0) {
+            publishVisible();
+        }
+    }
+
+    /**
+     * Bundle-managed constructor with {@link RegionRef} dynamic rebinding.
+     *
+     * <p>When managed by a bundle, the segment is not captured permanently; instead,
+     * calls to {@link #segment()} resolve dynamically through {@code regionRef.resolve()}
+     * so that background growth and remapping are observed immediately without stale handle defects.</p>
+     *
+     * @param id         the unique identifier for this memory
+     * @param layout     the layout configuration
+     * @param capacity   the maximum number of records
+     * @param regionRef  the region reference for dynamic resolution
+     * @param count      the initial record count
+     * @param persistent whether this memory is file-backed
+     * @param filePath   the bundle file path
+     */
+    protected AbstractMemory(MemoryId id, L layout, int capacity,
+                             RegionRef regionRef, int count,
+                             boolean persistent, Path filePath) {
+        this.id = id;
+        this.layout = layout;
+        this.capacity = capacity;
+        this.regionRef = regionRef;
+        this.arena = null;
+        this.segment = regionRef != null ? regionRef.resolve() : null;
+        this.count = count;
+        this.persistent = persistent;
+        this.bundleManaged = true;
+        this.filePath = filePath;
+        this.fileChannel = null;
         if (count > 0) {
             publishVisible();
         }
@@ -198,6 +236,7 @@ public abstract class AbstractMemory<L extends RegionLayout> implements Memory<L
         this.capacity = capacity;
         this.persistent = true;
         this.filePath = filePath;
+        this.regionRef = null;
         this.arena = Arena.ofShared();
 
         try {
@@ -272,8 +311,11 @@ public abstract class AbstractMemory<L extends RegionLayout> implements Memory<L
      * Persists the current count to the metadata header.
      */
     protected void persistCount() {
-        if (persistent) {
-            RegionPreamble.writeCount(segment, 0, count);
+        if (persistent || bundleManaged) {
+            MemorySegment seg = segment();
+            if (seg != null && RegionPreamble.isValid(seg, 0)) {
+                RegionPreamble.writeCount(seg, 0, count);
+            }
         }
     }
 
@@ -281,6 +323,7 @@ public abstract class AbstractMemory<L extends RegionLayout> implements Memory<L
     public MemoryId id() {
         return id;
     }
+
 
     @Override
     public L layout() {
@@ -294,13 +337,26 @@ public abstract class AbstractMemory<L extends RegionLayout> implements Memory<L
 
     @Override
     public MemorySegment segment() {
+        if (regionRef != null) {
+            return regionRef.resolve();
+        }
         return segment;
+    }
+
+    /**
+     * Returns the bound {@link RegionRef}, or {@code null} if this memory is not bundle-managed.
+     */
+    public RegionRef regionRef() {
+        return regionRef;
     }
 
     @Override
     public MemorySegment headerSegment() {
-        if (persistent && segment != null) {
-            return segment.asSlice(0, RegionPreamble.PREAMBLE_BYTES);
+        if (persistent) {
+            MemorySegment seg = segment();
+            if (seg != null) {
+                return seg.asSlice(0, RegionPreamble.PREAMBLE_BYTES);
+            }
         }
         return null;
     }
@@ -312,6 +368,10 @@ public abstract class AbstractMemory<L extends RegionLayout> implements Memory<L
 
     @Override
     public int size() {
+        MemorySegment seg = regionRef != null ? regionRef.resolve() : segment;
+        if (seg != null && RegionPreamble.isValid(seg, 0)) {
+            return (int) RegionPreamble.readCount(seg, 0L);
+        }
         return count;
     }
 
@@ -337,10 +397,11 @@ public abstract class AbstractMemory<L extends RegionLayout> implements Memory<L
 
     @Override
     public void flush() {
-        if (persistent && segment != null) {
+        if (persistent) {
             try {
-                if (segment.scope().isAlive()) {
-                    segment.force();
+                MemorySegment seg = segment();
+                if (seg != null && seg.scope().isAlive()) {
+                    seg.force();
                 }
             } catch (Exception e) {
                 log.debug("Error forcing segment during flush: {}", e.getMessage());
@@ -353,14 +414,15 @@ public abstract class AbstractMemory<L extends RegionLayout> implements Memory<L
         log.info("Closing memory {} ({} records, persistent={}, bundleManaged={})", id, count, persistent, bundleManaged);
         if (persistent) {
             try {
-                if (segment != null) {
-                    segment.force();
+                MemorySegment seg = segment();
+                if (seg != null && seg.scope().isAlive()) {
+                    seg.force();
                 }
             } catch (Exception e) {
                 log.debug("Error forcing segment: {}", e.getMessage());
             }
         }
-        if (!bundleManaged) {
+        if (!bundleManaged && arena != null) {
             arena.close();
         }
         if (fileChannel != null) {

@@ -19,6 +19,8 @@ import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.RegionLayout;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 
+import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -58,6 +60,12 @@ public abstract class AbstractRecordMemory<L extends RegionLayout> extends Abstr
         super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel, bundleManaged);
     }
 
+    protected AbstractRecordMemory(MemoryId id, L layout, int capacity,
+                                   RegionRef regionRef, int count,
+                                   boolean persistent, Path filePath) {
+        super(id, layout, capacity, regionRef, count, persistent, filePath);
+    }
+
     @Override
     public MemoryShape shape() {
         return MemoryShape.RECORD;
@@ -81,16 +89,16 @@ public abstract class AbstractRecordMemory<L extends RegionLayout> extends Abstr
         }
 
         long offset = recordOffset(recordId);
-        MemorySegment.copy(recordBytes, 0, segment, offset, layout.recordStride());
+        MemorySegment.copy(recordBytes, 0, segment(), offset, layout.recordStride());
 
         if (layout.crcEnabled() && layout.recordStride() >= 4) {
             int payloadLen = layout.recordStride() - 4;
             byte[] payload = new byte[payloadLen];
-            MemorySegment.copy(segment, offset, MemorySegment.ofArray(payload), 0, payloadLen);
+            MemorySegment.copy(segment(), offset, MemorySegment.ofArray(payload), 0, payloadLen);
             CRC32C crc32c = new CRC32C();
             crc32c.update(payload);
             int checksum = (int) crc32c.getValue();
-            segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + payloadLen, checksum);
+            segment().set(ValueLayout.JAVA_INT_UNALIGNED, offset + payloadLen, checksum);
         }
 
         if (recordId >= count) {
@@ -112,16 +120,16 @@ public abstract class AbstractRecordMemory<L extends RegionLayout> extends Abstr
         if (layout.crcEnabled() && layout.recordStride() >= 4) {
             int payloadLen = layout.recordStride() - 4;
             byte[] payload = new byte[payloadLen];
-            MemorySegment.copy(segment, offset, MemorySegment.ofArray(payload), 0, payloadLen);
+            MemorySegment.copy(segment(), offset, MemorySegment.ofArray(payload), 0, payloadLen);
             CRC32C crc32c = new CRC32C();
             crc32c.update(payload);
             int expectedChecksum = (int) crc32c.getValue();
-            int actualChecksum = segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + payloadLen);
+            int actualChecksum = segment().get(ValueLayout.JAVA_INT_UNALIGNED, offset + payloadLen);
             if (expectedChecksum != actualChecksum) {
                 throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, recordId);
             }
         }
 
-        MemorySegment.copy(segment, offset, dest, 0, layout.recordStride());
+        MemorySegment.copy(segment(), offset, dest, 0, layout.recordStride());
     }
 }

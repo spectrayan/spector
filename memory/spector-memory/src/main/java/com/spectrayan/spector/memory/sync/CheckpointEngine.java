@@ -104,9 +104,10 @@ public final class CheckpointEngine {
     private final com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph; // nullable
     private final Path partitionDir;                   // nullable â€” active partition dir for graph saves
     private final Path basePath;                       // nullable â€” persistence root for coactivation
-    private final MemorySegment checkpointRegion;      // nullable â€” V4 bundle CHECKPOINT region slice
+    private final MemorySegment checkpointRegion;      // nullable — V4 bundle CHECKPOINT region slice
+    private final com.spectrayan.spector.memory.kernel.bundle.RegionRef checkpointRef;
 
-    // â”€â”€ Event Bus (replaces CheckpointListener) â”€â”€
+    // ── Event Bus (replaces CheckpointListener) ──
     private volatile EventBus<SpectorLifecycleEvent> eventBus;
     private volatile Map<String, String> eventContext = Map.of();
 
@@ -116,7 +117,6 @@ public final class CheckpointEngine {
     public void setRouterSupplier(java.util.function.Supplier<CognitiveMemoryRouter> supplier) {
         this.routerSupplier = supplier;
     }
-
 
 
     /**
@@ -148,7 +148,7 @@ public final class CheckpointEngine {
                             CoActivationMemory coActivationTracker,
                             com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                             Path partitionDir, Path basePath) {
-        this(cognitiveRouter, wal, checkpointMetaPath, index, indexPath, hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, coActivationTracker, temporalKnowledgeGraph, partitionDir, basePath, null);
+        this(cognitiveRouter, wal, checkpointMetaPath, index, indexPath, hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, coActivationTracker, temporalKnowledgeGraph, partitionDir, basePath, (MemorySegment) null);
     }
 
     /**
@@ -179,6 +179,35 @@ public final class CheckpointEngine {
         this.partitionDir = partitionDir;
         this.basePath = basePath;
         this.checkpointRegion = checkpointRegion;
+        this.checkpointRef = null;
+    }
+
+    public CheckpointEngine(CognitiveMemoryRouter cognitiveRouter, MemoryWal wal,
+                            Path checkpointMetaPath,
+                            MemoryIndex index, Path indexPath,
+                            HebbianGraphBase hebbianGraph,
+                            TemporalChainMemory temporalChain,
+                            EntityDirectory entityDirectory,
+                            HyperEntityGraphMemory hyperEntityGraph,
+                            CoActivationMemory coActivationTracker,
+                            com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
+                            Path partitionDir, Path basePath,
+                            com.spectrayan.spector.memory.kernel.bundle.RegionRef checkpointRef) {
+        this.cognitiveRouter = cognitiveRouter;
+        this.wal = wal;
+        this.checkpointMetaPath = checkpointMetaPath;
+        this.index = index;
+        this.indexPath = indexPath;
+        this.hebbianGraph = hebbianGraph;
+        this.temporalChain = temporalChain;
+        this.entityDirectory = entityDirectory;
+        this.hyperEntityGraph = hyperEntityGraph;
+        this.coActivationTracker = coActivationTracker;
+        this.temporalKnowledgeGraph = temporalKnowledgeGraph;
+        this.partitionDir = partitionDir;
+        this.basePath = basePath;
+        this.checkpointRef = checkpointRef;
+        this.checkpointRegion = null;
     }
 
     /**
@@ -338,12 +367,13 @@ public final class CheckpointEngine {
      */
     private void writeCheckpointMeta(long hwm) {
         // V4 bundle path: write directly to CHECKPOINT region slice
-        if (checkpointRegion != null) {
+        MemorySegment ckptSeg = checkpointRef != null ? checkpointRef.resolve() : checkpointRegion;
+        if (ckptSeg != null) {
             try {
-                checkpointRegion.set(ValueLayout.JAVA_INT, 0, CKPT_MAGIC);
-                checkpointRegion.set(ValueLayout.JAVA_INT, 4, CKPT_VERSION);
-                checkpointRegion.set(ValueLayout.JAVA_LONG, 8, hwm);
-                checkpointRegion.force();
+                ckptSeg.set(ValueLayout.JAVA_INT, 0, CKPT_MAGIC);
+                ckptSeg.set(ValueLayout.JAVA_INT, 4, CKPT_VERSION);
+                ckptSeg.set(ValueLayout.JAVA_LONG, 8, hwm);
+                ckptSeg.force();
                 log.trace("Checkpoint meta written to bundle region: hwm={}", hwm);
                 return;
             } catch (Exception e) {

@@ -315,14 +315,14 @@ public final class SpectorMemoryFactory {
         rememberPathway.setPartitionRollCallback(partitionManager::rollPartition);
 
         //  WAL Recovery 
-        java.lang.foreign.MemorySegment ckptSlice = cortex.useBundleMode() && cortex.runtimeBundle() != null
-                ? cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.CHECKPOINT)
+        com.spectrayan.spector.memory.kernel.bundle.RegionRef ckptRef = cortex.useBundleMode() && cortex.runtimeBundle() != null
+                ? cortex.runtimeBundle().checkpointRef()
                 : null;
         MemoryWalRecovery.recover(wal, cortex.cognitiveRouter(), index, graphs.hebbianGraph(),
                 graphs.temporalChain(), graphs.temporalKnowledgeGraph(),
                 graphs.entityDirectory(), graphs.hyperEntityGraph(),
                 bio.coActivationTracker(), rememberPathway, cortex.basePath(), cortex.initialPartitionSeq(),
-                ckptSlice);
+                ckptRef);
         // ADR-0003 #456 (P2): the EntityDirectory is now the authoritative identity store, WAL-bound
         // and recovered directly (WalRecoveryDispatcher GRAPH_ADD_NODE/LINK repointed to it).
         if (wal != null) {
@@ -506,7 +506,7 @@ public final class SpectorMemoryFactory {
                         graphs.hebbianGraph(), graphs.temporalChain(),
                         graphs.entityDirectory(), graphs.hyperEntityGraph(), bio.coActivationTracker(),
                         graphs.temporalKnowledgeGraph(),
-                        cortex.resolvedPartitionDir(), cortex.basePath(), ckptSlice);
+                        cortex.resolvedPartitionDir(), cortex.basePath(), ckptRef);
                 if (builder.spectorProperties() != null && builder.spectorProperties().events() != null) {
                     checkpointEngine.setEventBus(com.spectrayan.spector.events.EventBus.broadcast(
                             builder.spectorProperties().events().isAsync()));

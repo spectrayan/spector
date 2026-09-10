@@ -55,6 +55,12 @@ public abstract class AbstractAppendMemory<L extends RegionLayout>
         super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel, bundleManaged);
     }
 
+    protected AbstractAppendMemory(MemoryId id, L layout, int capacity,
+                                   com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, int count,
+                                   boolean persistent, Path filePath) {
+        super(id, layout, capacity, regionRef, count, persistent, filePath);
+    }
+
     @Override
     public MemoryShape shape() {
         return MemoryShape.APPEND;

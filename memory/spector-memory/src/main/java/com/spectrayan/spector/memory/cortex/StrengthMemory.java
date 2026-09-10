@@ -19,6 +19,8 @@ import com.spectrayan.spector.memory.kernel.FloatUnaryOperator;
 import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
 
+import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.channels.FileChannel;
@@ -103,6 +105,33 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
                 true);
     }
 
+    public static StrengthMemory fromRegionRef(RegionRef regionRef,
+                                               int semanticCapacity, int episodicCapacity, int proceduralCapacity,
+                                               Path bundlePath, String memoryName) {
+        String name = (memoryName != null && !memoryName.isBlank()) ? memoryName : "bundle-strength";
+        return new StrengthMemory(
+                MemoryId.of("default", name),
+                StrengthLayout.INSTANCE,
+                semanticCapacity,
+                episodicCapacity,
+                proceduralCapacity,
+                regionRef,
+                0,
+                true,
+                bundlePath);
+    }
+
+    private StrengthMemory(MemoryId id, StrengthLayout layout,
+                          int semanticCapacity, int episodicCapacity, int proceduralCapacity,
+                          RegionRef regionRef, int count,
+                          boolean persistent, Path filePath) {
+        super(id, layout, semanticCapacity + episodicCapacity + proceduralCapacity,
+                regionRef, count, persistent, filePath);
+        this.semanticCapacity = semanticCapacity;
+        this.episodicCapacity = episodicCapacity;
+        this.proceduralCapacity = proceduralCapacity;
+    }
+
     /**
      * Creates a bundle-backed StrengthMemory from a pre-sliced region segment with default memory name.
      */
@@ -110,6 +139,12 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
                                             int semanticCapacity, int episodicCapacity, int proceduralCapacity,
                                             Path bundlePath) {
         return fromBundle(arena, segment, semanticCapacity, episodicCapacity, proceduralCapacity, bundlePath, "bundle-strength");
+    }
+
+    public static StrengthMemory fromRegionRef(RegionRef regionRef,
+                                               int semanticCapacity, int episodicCapacity, int proceduralCapacity,
+                                               Path bundlePath) {
+        return fromRegionRef(regionRef, semanticCapacity, episodicCapacity, proceduralCapacity, bundlePath, "bundle-strength");
     }
 
     public int semanticCapacity() {
@@ -158,7 +193,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public void initializeDefault(MemoryType tier, int slotIndex, float baseImportance) {
         long offset = strengthOffset(tier, slotIndex);
-        layout.initializeDefaultRecord(segment, offset, tier, baseImportance);
+        layout.initializeDefaultRecord(segment(), offset, tier, baseImportance);
     }
 
     /**
@@ -166,7 +201,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public void initializeDefault(MemoryType tier, int slotIndex, float baseImportance, float storageStrength, int agentRecallCount) {
         long offset = strengthOffset(tier, slotIndex);
-        layout.initializeDefaultRecord(segment, offset, tier, baseImportance, storageStrength, agentRecallCount);
+        layout.initializeDefaultRecord(segment(), offset, tier, baseImportance, storageStrength, agentRecallCount);
     }
 
     /**
@@ -174,7 +209,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public float readEffectiveImportance(MemoryType tier, int slotIndex) {
         long offset = strengthOffset(tier, slotIndex);
-        return layout.readEffectiveImportance(segment, offset);
+        return layout.readEffectiveImportance(segment(), offset);
     }
 
     /**
@@ -182,7 +217,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public void resetRecord(MemoryType tier, int slotIndex) {
         long offset = strengthOffset(tier, slotIndex);
-        layout.resetRecord(segment, offset);
+        layout.resetRecord(segment(), offset);
     }
 
     /**
@@ -190,7 +225,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public StrengthState readStrengthState(MemoryType tier, int slotIndex) {
         long offset = strengthOffset(tier, slotIndex);
-        return layout.readRecord(segment, offset);
+        return layout.readRecord(segment(), offset);
     }
 
     /**
@@ -205,7 +240,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public void writeStrengthState(MemoryType tier, int slotIndex, StrengthState record) {
         long offset = strengthOffset(tier, slotIndex);
-        layout.writeRecord(segment, offset, record);
+        layout.writeRecord(segment(), offset, record);
     }
 
     /**
@@ -220,7 +255,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public int readAgentRecallCount(MemoryType tier, int slotIndex) {
         long offset = strengthOffset(tier, slotIndex);
-        return layout.readAgentRecallCount(segment, offset);
+        return layout.readAgentRecallCount(segment(), offset);
     }
 
     /**
@@ -228,7 +263,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public int readSpectorRecallCount(MemoryType tier, int slotIndex) {
         long offset = strengthOffset(tier, slotIndex);
-        return layout.readSpectorRecallCount(segment, offset);
+        return layout.readSpectorRecallCount(segment(), offset);
     }
 
     /**
@@ -236,7 +271,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public float readStorageStrength(MemoryType tier, int slotIndex) {
         long offset = strengthOffset(tier, slotIndex);
-        return layout.readStorageStrength(segment, offset);
+        return layout.readStorageStrength(segment(), offset);
     }
 
     /**
@@ -244,7 +279,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public int incrementAgentRecallCount(MemoryType tier, int slotIndex) {
         long offset = strengthOffset(tier, slotIndex);
-        return layout.incrementAgentRecallCount(segment, offset);
+        return layout.incrementAgentRecallCount(segment(), offset);
     }
 
     /**
@@ -252,7 +287,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public int incrementSpectorRecallCount(MemoryType tier, int slotIndex) {
         long offset = strengthOffset(tier, slotIndex);
-        return layout.incrementSpectorRecallCount(segment, offset);
+        return layout.incrementSpectorRecallCount(segment(), offset);
     }
 
     /**
@@ -260,7 +295,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public float casEffectiveImportance(MemoryType tier, int slotIndex, FloatUnaryOperator updateFn) {
         long offset = strengthOffset(tier, slotIndex);
-        return layout.casEffectiveImportance(segment, offset, updateFn);
+        return layout.casEffectiveImportance(segment(), offset, updateFn);
     }
 
     /**
@@ -268,7 +303,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public float casStorageStrength(MemoryType tier, int slotIndex, FloatUnaryOperator updateFn) {
         long offset = strengthOffset(tier, slotIndex);
-        return layout.casStorageStrength(segment, offset, updateFn);
+        return layout.casStorageStrength(segment(), offset, updateFn);
     }
 
     /**
@@ -276,12 +311,12 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public void recordRecall(MemoryType tier, int slotIndex, long creationMs, long nowMs, byte profileOrdinal, int agentHash) {
         long offset = strengthOffset(tier, slotIndex);
-        layout.writeLastRecallTimestamp(segment, offset, nowMs);
-        layout.writeLastRecallProfile(segment, offset, profileOrdinal);
+        layout.writeLastRecallTimestamp(segment(), offset, nowMs);
+        layout.writeLastRecallProfile(segment(), offset, profileOrdinal);
         if (agentHash != 0) {
-            layout.writeLastAgentHash(segment, offset, agentHash);
+            layout.writeLastAgentHash(segment(), offset, agentHash);
         }
-        layout.recordActRRecall(segment, offset, creationMs, nowMs);
+        layout.recordActRRecall(segment(), offset, creationMs, nowMs);
     }
 
     /**
@@ -289,7 +324,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public float computeActRActivation(MemoryType tier, int slotIndex, long creationMs, long nowMs) {
         long offset = strengthOffset(tier, slotIndex);
-        return layout.computeActRActivation(segment, offset, creationMs, nowMs);
+        return layout.computeActRActivation(segment(), offset, creationMs, nowMs);
     }
 
     /**
@@ -297,7 +332,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public long readLastAutoLtp(MemoryType tier, int slotIndex) {
         long offset = strengthOffset(tier, slotIndex);
-        return layout.readLastAutoLtp(segment, offset);
+        return layout.readLastAutoLtp(segment(), offset);
     }
 
     /**
@@ -305,7 +340,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public void writeLastAutoLtp(MemoryType tier, int slotIndex, long timestampMs) {
         long offset = strengthOffset(tier, slotIndex);
-        layout.writeLastAutoLtp(segment, offset, timestampMs);
+        layout.writeLastAutoLtp(segment(), offset, timestampMs);
     }
 
     /**
@@ -313,7 +348,7 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public byte readLastRecallProfile(MemoryType tier, int slotIndex) {
         long offset = strengthOffset(tier, slotIndex);
-        return layout.readLastRecallProfile(segment, offset);
+        return layout.readLastRecallProfile(segment(), offset);
     }
 
     /**
@@ -321,6 +356,6 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
      */
     public void writeLastRecallProfile(MemoryType tier, int slotIndex, byte profileOrdinal) {
         long offset = strengthOffset(tier, slotIndex);
-        layout.writeLastRecallProfile(segment, offset, profileOrdinal);
+        layout.writeLastRecallProfile(segment(), offset, profileOrdinal);
     }
 }

@@ -51,12 +51,7 @@ public final class MemoryIndexBuilder {
         //  Memory Index 
         MemoryIndex index;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-            java.lang.foreign.MemorySegment midxSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.INDEX_MIDX);
-            java.lang.foreign.MemorySegment idplSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.INDEX_IDPL);
-            boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(midxSlice, 0L);
-            index = com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.fromBundle(
-                    cortex.runtimeBundle().arena(), midxSlice, idplSlice,
-                    cortex.runtimeBundle().bundlePath(), isNew);
+            index = cortex.runtimeBundle().openMemoryIndex();
         } else {
             index = new MemoryIndex();
         }

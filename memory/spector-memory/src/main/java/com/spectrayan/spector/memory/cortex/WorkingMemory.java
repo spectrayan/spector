@@ -119,6 +119,25 @@ public final class WorkingMemory extends AbstractEngramMemory<WorkingLayout> {
         return new WorkingMemory(arena, regionSlice, capacity, quantizedVecBytes, bundlePath, isNew);
     }
 
+    public static WorkingMemory fromRegionRef(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef,
+                                              int capacity, int quantizedVecBytes,
+                                              Path bundlePath, boolean isNew) {
+        return new WorkingMemory(regionRef, capacity, quantizedVecBytes, bundlePath, isNew);
+    }
+
+    private WorkingMemory(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, int capacity,
+                          int quantizedVecBytes, Path bundlePath, boolean isNew) {
+        super(MemoryType.WORKING, new WorkingLayout(quantizedVecBytes),
+              capacity, regionRef, bundlePath, isNew);
+
+        // Restore writeIndex from metadata header extra1 field
+        if (getCount() > 0) {
+            this.writeIndex = segment().get(ValueLayout.JAVA_INT, META_EXTRA1);
+        }
+        log.info("WorkingMemory initialized (regionRef): capacity={}, stride={}B, persistent=true, count={}, writeIndex={}",
+                capacity(), layout.stride(), getCount(), writeIndex);
+    }
+
     private WorkingMemory(Arena arena, MemorySegment regionSlice, int capacity,
                           int quantizedVecBytes, Path bundlePath, boolean isNew) {
         super(MemoryType.WORKING, new WorkingLayout(quantizedVecBytes),

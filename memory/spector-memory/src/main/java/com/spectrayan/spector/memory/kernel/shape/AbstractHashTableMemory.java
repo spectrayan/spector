@@ -68,6 +68,12 @@ public abstract class AbstractHashTableMemory<L extends RegionLayout> extends Ab
         super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel, bundleManaged);
     }
 
+    protected AbstractHashTableMemory(MemoryId id, L layout, int capacity,
+                                      com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, int count,
+                                      boolean persistent, Path filePath) {
+        super(id, layout, capacity, regionRef, count, persistent, filePath);
+    }
+
     @Override
     public MemoryShape shape() {
         return MemoryShape.HASHTABLE;
@@ -86,6 +92,6 @@ public abstract class AbstractHashTableMemory<L extends RegionLayout> extends Ab
      * @return a {@link MemorySegment} view of the sub-table region
      */
     protected MemorySegment tableSlice(long offset, long size) {
-        return segment.asSlice(dataOffset() + offset, size);
+        return segment().asSlice(dataOffset() + offset, size);
     }
 }

@@ -112,6 +112,43 @@ public final class ContinuityMemory extends AbstractRecordMemory<ContinuityLayou
         return new ContinuityMemory(memoryId, arena, regionSlice, recordCapacity, true, true, null, null);
     }
 
+    public static ContinuityMemory fromRegionRef(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, boolean isNew) {
+        MemoryId memoryId = SystemMemoryId.CONTINUITY.id();
+        MemorySegment regionSlice = regionRef.resolve();
+        int recordCapacity = (int) ((regionSlice.byteSize() - ContinuityLayout.DATA_START) / ContinuityLayout.RECORD_STRIDE);
+        if (recordCapacity <= 0) {
+            throw new SpectorMemoryException(ErrorCode.RECORD_CRC_CORRUPTED, "Region slice too small for ContinuityMemory");
+        }
+
+        boolean effectivelyNew = isNew || !RegionPreamble.isValid(regionSlice, 0L);
+        if (effectivelyNew) {
+            long now = System.currentTimeMillis();
+            RegionPreamble.write(regionSlice, 0L, ContinuityLayout.SCHEMA_VERSION, MemoryShape.RECORD, 1,
+                    ContinuityLayout.RECORD_STRIDE, recordCapacity, 0, ContinuityLayout.LAYOUT_ID, now, now);
+
+            ContinuityLayout.writeHeadIndex(regionSlice, 0);
+            ContinuityLayout.writeTotalSnapshots(regionSlice, 0);
+            ContinuityLayout.writeLastSnapshotTimestamp(regionSlice, 0L);
+            ContinuityLayout.writeCapacity(regionSlice, recordCapacity);
+            regionSlice.force();
+        } else {
+            validateHeader(regionSlice);
+        }
+
+        int count = effectivelyNew ? 0 : (int) Math.min(ContinuityLayout.readTotalSnapshots(regionSlice), recordCapacity);
+        return new ContinuityMemory(memoryId, regionRef, recordCapacity, count, regionRef.bundlePath() != null, regionRef.bundlePath());
+    }
+
+    private ContinuityMemory(
+            MemoryId id,
+            com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef,
+            int capacity,
+            int count,
+            boolean persistent,
+            Path filePath) {
+        super(id, ContinuityLayout.SINGLETON, capacity, regionRef, count, persistent, filePath);
+    }
+
     /**
      * Creates an in-memory heap-backed {@link ContinuityMemory} for testing or ephemeral sessions.
      *
@@ -210,12 +247,13 @@ public final class ContinuityMemory extends AbstractRecordMemory<ContinuityLayou
         }
         writeLock.lock();
         try {
-            int head = ContinuityLayout.readHeadIndex(segment);
-            int total = ContinuityLayout.readTotalSnapshots(segment);
+            MemorySegment seg = segment();
+            int head = ContinuityLayout.readHeadIndex(seg);
+            int total = ContinuityLayout.readTotalSnapshots(seg);
 
             long recordOff = ContinuityLayout.recordOffset(head);
             ContinuityLayout.writeRecord(
-                    segment,
+                    seg,
                     recordOff,
                     snapshot.timestamp(),
                     snapshot.phiCc(),
@@ -228,13 +266,13 @@ public final class ContinuityMemory extends AbstractRecordMemory<ContinuityLayou
             );
 
             int nextHead = (head + 1) % capacity;
-            ContinuityLayout.writeHeadIndex(segment, nextHead);
-            ContinuityLayout.writeTotalSnapshots(segment, total + 1);
-            ContinuityLayout.writeLastSnapshotTimestamp(segment, snapshot.timestamp());
+            ContinuityLayout.writeHeadIndex(seg, nextHead);
+            ContinuityLayout.writeTotalSnapshots(seg, total + 1);
+            ContinuityLayout.writeLastSnapshotTimestamp(seg, snapshot.timestamp());
             this.count = Math.min(total + 1, capacity);
 
             if (persistent && !bundleManaged) {
-                segment.asSlice(recordOff, ContinuityLayout.RECORD_STRIDE).force();
+                seg.asSlice(recordOff, ContinuityLayout.RECORD_STRIDE).force();
             }
 
             if (log.isDebugEnabled()) {
@@ -303,30 +341,31 @@ public final class ContinuityMemory extends AbstractRecordMemory<ContinuityLayou
     }
 
     private IdentityTrajectorySnapshot readSnapshotAt(long off) {
+        MemorySegment seg = segment();
         return new IdentityTrajectorySnapshot(
-                ContinuityLayout.readTimestamp(segment, off),
-                ContinuityLayout.readPhiCc(segment, off),
-                ContinuityLayout.readTraceG(segment, off),
-                ContinuityLayout.readPriorDrift(segment, off),
-                ContinuityLayout.readValence(segment, off),
-                ContinuityLayout.readArousal(segment, off),
-                ContinuityLayout.readEnergy(segment, off),
-                ContinuityLayout.readSoulVersion(segment, off)
+                ContinuityLayout.readTimestamp(seg, off),
+                ContinuityLayout.readPhiCc(seg, off),
+                ContinuityLayout.readTraceG(seg, off),
+                ContinuityLayout.readPriorDrift(seg, off),
+                ContinuityLayout.readValence(seg, off),
+                ContinuityLayout.readArousal(seg, off),
+                ContinuityLayout.readEnergy(seg, off),
+                ContinuityLayout.readSoulVersion(seg, off)
         );
     }
 
     @Override
     public int size() {
-        int total = ContinuityLayout.readTotalSnapshots(segment);
+        int total = ContinuityLayout.readTotalSnapshots(segment());
         return Math.min(total, capacity);
     }
 
     public int totalSnapshots() {
-        return ContinuityLayout.readTotalSnapshots(segment);
+        return ContinuityLayout.readTotalSnapshots(segment());
     }
 
     public long lastSnapshotTimestamp() {
-        return ContinuityLayout.readLastSnapshotTimestamp(segment);
+        return ContinuityLayout.readLastSnapshotTimestamp(segment());
     }
 
     public void sync() {

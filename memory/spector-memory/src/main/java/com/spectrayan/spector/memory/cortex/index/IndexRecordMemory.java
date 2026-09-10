@@ -577,7 +577,60 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
 
     private transient MemorySegment bundleMidxSlice;
     private transient MemorySegment bundleIdplSlice;
+    private transient com.spectrayan.spector.memory.kernel.bundle.RegionRef bundleMidxRef;
+    private transient com.spectrayan.spector.memory.kernel.bundle.RegionRef bundleIdplRef;
     private transient boolean bundleManaged = false;
+
+    private MemorySegment midxSegment() {
+        return bundleMidxRef != null ? bundleMidxRef.resolve() : bundleMidxSlice;
+    }
+
+    private MemorySegment idplSegment() {
+        return bundleIdplRef != null ? bundleIdplRef.resolve() : bundleIdplSlice;
+    }
+
+    public static MemoryIndex fromRegionRefs(com.spectrayan.spector.memory.kernel.bundle.RegionRef midxRef,
+                                             com.spectrayan.spector.memory.kernel.bundle.RegionRef idplRef,
+                                             Path bundlePath, boolean isNew) {
+        IndexRecordMemory idx = new MemoryIndex();
+        idx.bundleMidxRef = midxRef;
+        idx.bundleIdplRef = idplRef;
+        idx.bundleMidxSlice = midxRef.resolve();
+        idx.bundleIdplSlice = idplRef.resolve();
+        idx.bundleManaged = true;
+
+        if (!isNew) {
+            idx.loadFromBundleSegments();
+        } else {
+            if (bundlePath != null) {
+                Path legacyMidx = bundlePath.resolveSibling("index.midx");
+                if (Files.exists(legacyMidx)) {
+                    log.info("Migrating legacy standalone index.midx and index.idpl to bundle regions...");
+                    IndexRecordMemory legacy = IndexRecordMemory.load(legacyMidx);
+                    idx.locations.putAll(legacy.locations);
+                    idx.texts.putAll(legacy.texts);
+                    idx.sources.putAll(legacy.sources);
+                    idx.tags.putAll(legacy.tags);
+                    idx.metadataMap.putAll(legacy.metadataMap);
+                    idx.reverseIndex.putAll(legacy.reverseIndex);
+                    idx.orderedIdsLock.lock();
+                    try {
+                        idx.orderedIds.addAll(legacy.orderedIds);
+                    } finally {
+                        idx.orderedIdsLock.unlock();
+                    }
+                    idx.save(legacyMidx); // will write directly into bundle segments
+                    try {
+                        Files.deleteIfExists(legacyMidx);
+                        Files.deleteIfExists(bundlePath.resolveSibling("index.idpl"));
+                    } catch (IOException e) {
+                        log.warn("Failed to delete legacy index files after migration: {}", e.getMessage());
+                    }
+                }
+            }
+        }
+        return (MemoryIndex) idx;
+    }
 
     public static MemoryIndex fromBundle(Arena arena, MemorySegment midxSlice, MemorySegment idplSlice, Path bundlePath, boolean isNew) {
         IndexRecordMemory idx = new MemoryIndex();
@@ -620,11 +673,13 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
     }
 
     private void loadFromBundleSegments() {
-        if (!RegionPreamble.isValid(bundleMidxSlice, 0L)) {
+        MemorySegment midxSeg = midxSegment();
+        MemorySegment idplSeg = idplSegment();
+        if (!RegionPreamble.isValid(midxSeg, 0L)) {
             log.info("MemoryIndex in bundle is empty/invalid, starting fresh");
             return;
         }
-        int schemaVersion = RegionPreamble.readSchemaVersion(bundleMidxSlice, 0L);
+        int schemaVersion = RegionPreamble.readSchemaVersion(midxSeg, 0L);
         final int slotStride;
         final boolean readColocated;
         switch (schemaVersion) {
@@ -640,27 +695,27 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                     "MemoryIndex unsupported schema version v" + schemaVersion + " in bundle");
         }
 
-        int entryCount = (int) RegionPreamble.readCount(bundleMidxSlice, 0L);
+        int entryCount = (int) RegionPreamble.readCount(midxSeg, 0L);
         long slotBase = RegionPreamble.PREAMBLE_BYTES;
         long poolBase = RegionPreamble.PREAMBLE_BYTES;
 
         for (int i = 0; i < entryCount; i++) {
             long slotOffset = slotBase + (long) i * slotStride;
-            long poolOffset = bundleMidxSlice.get(ValueLayout.JAVA_LONG_UNALIGNED, slotOffset);
-            int poolLen = bundleMidxSlice.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 8);
-            int typeOrd = bundleMidxSlice.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 12);
-            long offset = bundleMidxSlice.get(ValueLayout.JAVA_LONG_UNALIGNED, slotOffset + 16);
-            int graphSlot = bundleMidxSlice.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 24);
-            long textOffset = bundleMidxSlice.get(ValueLayout.JAVA_LONG_UNALIGNED, slotOffset + 28);
-            int textLength = bundleMidxSlice.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 36);
+            long poolOffset = midxSeg.get(ValueLayout.JAVA_LONG_UNALIGNED, slotOffset);
+            int poolLen = midxSeg.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 8);
+            int typeOrd = midxSeg.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 12);
+            long offset = midxSeg.get(ValueLayout.JAVA_LONG_UNALIGNED, slotOffset + 16);
+            int graphSlot = midxSeg.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 24);
+            long textOffset = midxSeg.get(ValueLayout.JAVA_LONG_UNALIGNED, slotOffset + 28);
+            int textLength = midxSeg.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 36);
             int colocatedPartition = readColocated
-                    ? bundleMidxSlice.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 40) : 0;
+                    ? midxSeg.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 40) : 0;
 
             MemoryType type = MemoryType.values()[typeOrd];
             MemoryLocation loc = new MemoryLocation(type, offset, graphSlot,
                     colocatedPartition, textOffset, textLength);
 
-            MemorySegment blobSeg = bundleIdplSlice.asSlice(poolBase + poolOffset, poolLen);
+            MemorySegment blobSeg = idplSeg.asSlice(poolBase + poolOffset, poolLen);
             DeserializedEntry target = new DeserializedEntry();
             deserializeIdBlob(blobSeg, target);
 
@@ -673,7 +728,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         
         // Restore graphSlotHighWater from reserved field (offset 60)
         long headerBaseOffset = 0L;
-        int persistedHw = bundleMidxSlice.get(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, headerBaseOffset + 60);
+        int persistedHw = midxSeg.get(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, headerBaseOffset + 60);
         int computedMaxSlot = -1;
         for (MemoryLocation loc : locations.values()) {
             if (loc.graphSlot() > computedMaxSlot) computedMaxSlot = loc.graphSlot();
@@ -686,6 +741,8 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
     public void save(Path filePath) {
         if (bundleManaged) {
             try {
+                MemorySegment midxSeg = midxSegment();
+                MemorySegment idplSeg = idplSegment();
                 int entryCount = locations.size();
                 java.util.List<String> orderedKeys = orderedIds();
                 java.util.List<byte[]> serializedBlobs = new java.util.ArrayList<>(entryCount);
@@ -712,13 +769,13 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                 long totalSlotBytes = (long) entryCount * stride;
 
                 long now = System.currentTimeMillis();
-                RegionPreamble.write(bundleMidxSlice, 0L, INDEX_VERSION_V7, MemoryShape.RECORD, 0,
+                RegionPreamble.write(midxSeg, 0L, INDEX_VERSION_V7, MemoryShape.RECORD, 0,
                         100_000L, entryCount, stride, new IndexEntryLayout().layoutId(), now, now);
                 // Persist graphSlotHighWater in the reserved field (offset 60, outside CRC range)
                 long headerBaseOffset = 0L;
-                bundleMidxSlice.set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, headerBaseOffset + 60, graphSlotHighWater.get());
+                midxSeg.set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, headerBaseOffset + 60, graphSlotHighWater.get());
 
-                RegionPreamble.write(bundleIdplSlice, 0L, 1, MemoryShape.APPEND, 0,
+                RegionPreamble.write(idplSeg, 0L, 1, MemoryShape.APPEND, 0,
                         totalPoolBytes, entryCount, 0, new IdBlobLayout().layoutId(), now, now);
 
                 long poolOffset = 0;
@@ -730,8 +787,8 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                     byte[] blobBytes = serializedBlobs.get(index);
 
                     long poolPos = RegionPreamble.PREAMBLE_BYTES + poolOffset;
-                    bundleIdplSlice.set(ValueLayout.JAVA_INT_UNALIGNED, poolPos, blobBytes.length);
-                    MemorySegment.copy(MemorySegment.ofArray(blobBytes), 0L, bundleIdplSlice, poolPos + 4, blobBytes.length);
+                    idplSeg.set(ValueLayout.JAVA_INT_UNALIGNED, poolPos, blobBytes.length);
+                    MemorySegment.copy(MemorySegment.ofArray(blobBytes), 0L, idplSeg, poolPos + 4, blobBytes.length);
 
                     byte[] slotBytes = new byte[stride];
                     ByteBuffer slotBuf = ByteBuffer.wrap(slotBytes);
@@ -748,14 +805,14 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                     slotBuf.putInt(0);
 
                     long slotPos = RegionPreamble.PREAMBLE_BYTES + (long) index * stride;
-                    MemorySegment.copy(MemorySegment.ofArray(slotBytes), 0L, bundleMidxSlice, slotPos, stride);
+                    MemorySegment.copy(MemorySegment.ofArray(slotBytes), 0L, midxSeg, slotPos, stride);
 
                     poolOffset += 4 + blobBytes.length;
                     index++;
                 }
 
-                bundleMidxSlice.force();
-                bundleIdplSlice.force();
+                midxSeg.force();
+                idplSeg.force();
                 log.info("MemoryIndex saved to bundle: {} entries", entryCount);
             } catch (Exception e) {
                 throw new SpectorStorageException(ErrorCode.DISK_IO_FAILED, e, "save MemoryIndex to bundle");
@@ -819,8 +876,6 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                     long headerBaseOffset = 0L;
                     // Persist graphSlotHighWater in the reserved field (offset 60, outside CRC range)
                     slotMemory.segment().set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, headerBaseOffset + 60, graphSlotHighWater.get());
-                    // Since DefaultRecordMemory uses INDEX_VERSION_V6 by default (if it uses that), we should manually bump to V7
-                    slotMemory.segment().set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, headerBaseOffset + 8, INDEX_VERSION_V7);
 
                     
                     int index = 0;

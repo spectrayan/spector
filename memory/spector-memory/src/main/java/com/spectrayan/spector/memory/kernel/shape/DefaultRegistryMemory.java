@@ -12,36 +12,24 @@
  */
 package com.spectrayan.spector.memory.kernel.shape;
 
-import java.nio.channels.FileChannel;
-import java.nio.file.Path;
-import java.lang.foreign.Arena;
-import java.lang.foreign.MemorySegment;
-import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
 import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
+import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
+
+import java.nio.file.Path;
 
 /**
- * Concrete implementation of RegistryMemory shape.
+ * Standard default implementation of {@link RegistryMemory} backed by a {@link RegionRef}.
  */
-public final class DefaultRegistryMemory extends AbstractRegistryMemory {
+public class DefaultRegistryMemory extends AbstractRegistryMemory {
 
-    public DefaultRegistryMemory(MemoryId id, RegistryLayout layout, int capacity, long segmentBytes) {
-        super(id, layout, capacity, segmentBytes);
+    public DefaultRegistryMemory(MemoryId id, RegistryLayout layout, int capacity,
+                                 RegionRef regionRef, int count,
+                                 boolean persistent, Path filePath) {
+        super(id, layout, capacity, regionRef, count, persistent, filePath);
     }
 
     public DefaultRegistryMemory(MemoryId id, RegistryLayout layout, int capacity, long segmentBytes, Path filePath) {
         super(id, layout, capacity, segmentBytes, filePath);
-    }
-
-    public DefaultRegistryMemory(MemoryId id, RegistryLayout layout, int capacity,
-                                 Arena arena, MemorySegment segment, int count,
-                                 boolean persistent, Path filePath, FileChannel fileChannel) {
-        super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel);
-    }
-
-    public DefaultRegistryMemory(MemoryId id, RegistryLayout layout, int capacity,
-                                 Arena arena, MemorySegment segment, int count,
-                                 boolean persistent, Path filePath, FileChannel fileChannel,
-                                 boolean bundleManaged) {
-        super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel, bundleManaged);
     }
 }

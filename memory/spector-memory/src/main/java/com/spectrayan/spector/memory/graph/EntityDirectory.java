@@ -180,6 +180,95 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         return new EntityDirectory(arena, entityRegionSlice, adjacencyRegionSlice, resolvedCap, entityTypeRegistry, bundlePath, isNew);
     }
 
+    public static EntityDirectory fromRegionRefs(
+            com.spectrayan.spector.memory.kernel.bundle.RegionRef entityDirRef,
+            com.spectrayan.spector.memory.kernel.bundle.RegionRef entityNamesRef,
+            int entityCapacity, TypeRegistryMemory entityTypeRegistry,
+            Path bundlePath, boolean isNew) {
+        MemorySegment entityRegionSlice = entityDirRef.resolve();
+        MemorySegment adjacencyRegionSlice = entityNamesRef.resolve();
+        int resolvedCap = entityCapacity;
+        if (!isNew) {
+            int preambleCap = (int) RegionPreamble.readCapacity(entityRegionSlice, 0L);
+            long availableBytes = Math.max(0L, entityRegionSlice.byteSize() - DATA_START);
+            int maxCapFromRegion = (int) (availableBytes / ENTITY_NODE_BYTES);
+            resolvedCap = preambleCap > 0 ? Math.min(preambleCap, maxCapFromRegion) : Math.min(entityCapacity, maxCapFromRegion);
+            if (resolvedCap <= 0) {
+                resolvedCap = maxCapFromRegion;
+            }
+        }
+        return new EntityDirectory(entityDirRef, entityNamesRef, resolvedCap, entityTypeRegistry, bundlePath, isNew);
+    }
+
+    private EntityDirectory(com.spectrayan.spector.memory.kernel.bundle.RegionRef entityDirRef,
+                            com.spectrayan.spector.memory.kernel.bundle.RegionRef entityNamesRef,
+                            int entityCapacity, TypeRegistryMemory entityTypeRegistry,
+                            Path bundlePath, boolean isNew) {
+        super(MEMORY_ID, LAYOUT, entityCapacity, entityDirRef,
+              isNew ? 0 : (int) RegionPreamble.readCount(entityDirRef.resolve(), 0L),
+              true, bundlePath);
+        this.bundleManaged = true;
+        MemorySegment entityRegionSlice = entityDirRef.resolve();
+        MemorySegment adjacencyRegionSlice = entityNamesRef.resolve();
+        this.rawAdjacencyRegion = adjacencyRegionSlice;
+        long availableBytes = Math.max(0L, entityRegionSlice.byteSize() - DATA_START);
+        int maxCapFromRegion = (int) (availableBytes / ENTITY_NODE_BYTES);
+        this.entityCapacity = Math.min(entityCapacity, maxCapFromRegion);
+        this.headerSegment = entityRegionSlice.asSlice(0, DATA_START);
+        this.entitySegment = entityRegionSlice.asSlice(DATA_START, (long) ENTITY_NODE_BYTES * this.entityCapacity);
+        this.fileBacked = true;
+        this.mmapFilePath = bundlePath;
+        this.memoryId = MEMORY_ID;
+        this.entityTypeRegistryMemory = entityTypeRegistry;
+
+        long headerStart = RegionPreamble.PREAMBLE_BYTES;
+        int initialAdjCap = adjacencyRegionSlice.get(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_CAPACITY);
+        int adjHwm = adjacencyRegionSlice.get(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_HWM);
+        long availableAdjBytes = Math.max(0L, adjacencyRegionSlice.byteSize() - DATA_START);
+        int maxAdjCap = (int) (availableAdjBytes / ADJ_ENTRY_BYTES);
+
+        if (isNew) {
+            this.entityCount = 0;
+            writeSmkmHeaderToSegment(this.headerSegment, this.entityCapacity, 0, 0, 0);
+            writeSmkmHeaderToSegment(adjacencyRegionSlice.asSlice(0, DATA_START), 0, 0, 0, 0);
+
+            long reservedForNames = 32L * this.entityCapacity;
+            long availableForAdj = Math.max(0, adjacencyRegionSlice.byteSize() - DATA_START - reservedForNames);
+            int adjCap = (int) (availableForAdj / ADJ_ENTRY_BYTES);
+            adjacencyRegionSlice.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_CAPACITY, adjCap);
+            adjacencyRegionSlice.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_HWM, 0);
+            this.adjSegmentCapacity = adjCap;
+            this.adjHighWaterMark = 0;
+            this.entitySegment.fill((byte) 0);
+            this.adjacencySegment = adjacencyRegionSlice.asSlice(DATA_START, (long) ADJ_ENTRY_BYTES * adjCap);
+            this.adjacencySegment.fill((byte) 0);
+        } else {
+            this.entityCount = (int) RegionPreamble.readCount(entityRegionSlice, 0L);
+            this.adjSegmentCapacity = Math.min(initialAdjCap, maxAdjCap);
+            this.adjHighWaterMark = adjHwm;
+            this.adjacencySegment = adjacencyRegionSlice.asSlice(DATA_START, (long) ADJ_ENTRY_BYTES * this.adjSegmentCapacity);
+        }
+
+        if (!isNew && bundlePath != null) {
+            try {
+                long nameIndexOffset = DATA_START + (long) adjSegmentCapacity * ADJ_ENTRY_BYTES;
+                ConcurrentHashMap<String, Integer> names = EntityDirectorySerializer.loadNameIndexFromRegion(
+                        adjacencyRegionSlice, nameIndexOffset);
+                if (names != null && !names.isEmpty()) {
+                    this.nameIndex.putAll(names);
+                } else {
+                    names = EntityDirectorySerializer.loadNameIndexSidecar(bundlePath, null);
+                    if (names != null && !names.isEmpty()) {
+                        this.nameIndex.putAll(names);
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Failed to load name index from bundle region: {}", e.getMessage());
+            }
+        }
+        rebuildReverseIndex();
+    }
+
     private EntityDirectory(Arena arena, MemorySegment entityRegionSlice, MemorySegment adjacencyRegionSlice,
                             int entityCapacity, TypeRegistryMemory entityTypeRegistry,
                             Path bundlePath, boolean isNew) {
@@ -1532,6 +1621,8 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
             adjacencySegment.force();
             headerSegment.force();
         }
-        arena.close();
+        if (!bundleManaged && arena != null) {
+            arena.close();
+        }
     }
 }

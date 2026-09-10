@@ -104,13 +104,9 @@ public final class CognitiveGraphBuilder {
 
         HebbianGraphBase hebbianGraph;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-            java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.HEBBIAN);
-            boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(regionSlice, 0L);
             int edgeCapacity = graphCapacity * hebbianMaxDegree;
-            hebbianGraph = HebbianGraphMemory.fromBundle(
-                    cortex.runtimeBundle().arena(), regionSlice, graphCapacity, edgeCapacity,
-                    hebbianMaxDegree, builder.edgeImportance(),
-                    cortex.runtimeBundle().bundlePath(), isNew);
+            hebbianGraph = cortex.runtimeBundle().openHebbian(
+                    graphCapacity, edgeCapacity, hebbianMaxDegree, builder.edgeImportance());
         } else {
             hebbianGraph = new HebbianGraphMemory(graphCapacity);
         }
@@ -119,11 +115,7 @@ public final class CognitiveGraphBuilder {
                 ? memProps.getTemporalChainCapacity() : graphCapacity;
         TemporalChainMemory temporalChain;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-            java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.TEMPORAL_CHAIN);
-            boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(regionSlice, 0L);
-            temporalChain = TemporalChainMemory.fromBundle(
-                    cortex.runtimeBundle().arena(), regionSlice, temporalCapacity,
-                    cortex.runtimeBundle().bundlePath(), isNew);
+            temporalChain = cortex.runtimeBundle().openTemporalChain(temporalCapacity);
         } else {
             temporalChain = new TemporalChainMemory(temporalCapacity);
         }
@@ -158,11 +150,7 @@ public final class CognitiveGraphBuilder {
             int hyperCap = memProps.getEntityGraphCapacity();
             int hyperEdgeCap = hyperCap * 2;
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-                java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.HYPERGRAPH);
-                boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(regionSlice, 0L);
-                hyperEntityGraph = HyperEntityGraphMemory.fromBundle(
-                        cortex.runtimeBundle().arena(), regionSlice, hyperCap, hyperEdgeCap,
-                        cortex.runtimeBundle().bundlePath(), isNew);
+                hyperEntityGraph = cortex.runtimeBundle().openHyperGraph(hyperCap, hyperEdgeCap);
             } else {
                 hyperEntityGraph = new HyperEntityGraphMemory(hyperCap, hyperEdgeCap);
             }
@@ -180,24 +168,15 @@ public final class CognitiveGraphBuilder {
             int dirCap = memProps.getEntityGraphCapacity();
             TypeRegistryMemory entityTypeRegistry;
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-                java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_TYPES);
-                boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(regionSlice, 0L);
-                entityTypeRegistry = TypeRegistryMemory.fromBundle(
-                        SystemMemoryId.ENTITY_TYPE, cortex.runtimeBundle().arena(), regionSlice,
-                        cortex.runtimeBundle().bundlePath(), isNew,
-                        entitySeedTypes);
+                entityTypeRegistry = cortex.runtimeBundle().openRegistry(
+                        com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_TYPES,
+                        SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
             } else {
                 entityTypeRegistry = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
             }
 
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-                java.lang.foreign.MemorySegment entitySlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_DIRECTORY);
-                java.lang.foreign.MemorySegment adjSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_NAMES);
-                boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(entitySlice, 0L);
-                entityDirectory = EntityDirectory.fromBundle(
-                        cortex.runtimeBundle().arena(), entitySlice, adjSlice,
-                        dirCap, entityTypeRegistry,
-                        cortex.runtimeBundle().bundlePath(), isNew);
+                entityDirectory = cortex.runtimeBundle().openEntityDirectory(dirCap, entityTypeRegistry);
             } else {
                 entityDirectory = new EntityDirectory(dirCap, entityTypeRegistry);
             }
@@ -208,21 +187,15 @@ public final class CognitiveGraphBuilder {
         TemporalKnowledgeGraph temporalKnowledgeGraph;
         TypeRegistryMemory predRegistry;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-            java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.RELATION_TYPES);
-            boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(regionSlice, 0L);
-            predRegistry = TypeRegistryMemory.fromBundle(
-                    SystemMemoryId.RELATION_TYPE, cortex.runtimeBundle().arena(), regionSlice,
-                    cortex.runtimeBundle().bundlePath(), isNew);
+            predRegistry = cortex.runtimeBundle().openRegistry(
+                    com.spectrayan.spector.memory.kernel.bundle.RegionId.RELATION_TYPES,
+                    SystemMemoryId.RELATION_TYPE, null);
         } else {
             predRegistry = new TypeRegistryMemory(SystemMemoryId.RELATION_TYPE);
         }
 
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-            java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.TEMPORAL_FACTS);
-            boolean isNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(regionSlice, 0L);
-            temporalKnowledgeGraph = TemporalKnowledgeGraph.fromBundle(
-                    predRegistry, cortex.runtimeBundle().arena(), regionSlice,
-                    cortex.runtimeBundle().bundlePath(), isNew);
+            temporalKnowledgeGraph = cortex.runtimeBundle().openTemporalKnowledgeGraph(predRegistry);
         } else {
             temporalKnowledgeGraph = new TemporalKnowledgeGraph(predRegistry);
         }

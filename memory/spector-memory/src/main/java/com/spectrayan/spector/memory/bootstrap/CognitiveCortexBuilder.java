@@ -230,25 +230,10 @@ public final class CognitiveCortexBuilder {
                 runtimeBundle = RuntimeBundle.Init.mmap(runtimeBundleFile, specs);
             }
 
-            MemorySegment workingSlice = runtimeBundle.regionSegment(RegionId.WORKING);
-            boolean isWorkingNew = !com.spectrayan.spector.memory.kernel.RegionPreamble.isValid(workingSlice, 0L);
-            workingStore = WorkingMemory.fromBundle(runtimeBundle.arena(), workingSlice,
-                    quantizedVecBytes, memProps.getWorkingCapacity(),
-                    runtimeBundleFile, isWorkingNew);
-
-            MemorySegment insulaSlice = runtimeBundle.regionSegment(RegionId.INSULA);
-            insularCortex = InsularCortex.fromBundle(runtimeBundle.arena(), insulaSlice, isNewRuntime);
-
-            MemorySegment continuitySlice = runtimeBundle.optionalRegionSegment(RegionId.CONTINUITY);
-            if (continuitySlice != null) {
-                continuityMemory = ContinuityMemory.fromBundle(runtimeBundle.arena(), continuitySlice, isNewRuntime);
-            }
-
-            MemorySegment provenanceSlice = runtimeBundle.optionalRegionSegment(RegionId.PROVENANCE);
-            if (provenanceSlice != null) {
-                provenanceMemory = ProvenanceMemory.fromBundle(runtimeBundle.arena(), provenanceSlice,
-                        runtimeBundleFile);
-            }
+            workingStore = runtimeBundle.openWorking(quantizedVecBytes, memProps.getWorkingCapacity());
+            insularCortex = runtimeBundle.openInsula();
+            continuityMemory = runtimeBundle.openContinuity().orElse(null);
+            provenanceMemory = runtimeBundle.openProvenance(memProps.getEpisodicPartitionCapacity()).orElse(null);
 
             // ── V4 Partition Bundle ──
             Path bundleFile = StorageLayout.partitionBundleFile(resolvedPartitionDir);
@@ -284,27 +269,16 @@ public final class CognitiveCortexBuilder {
                         "Failed to initialize partition bundle: " + bundleFile, e);
             }
 
-            MemorySegment semSlice = partitionBundle.regionSegment(RegionId.SEMANTIC);
-            MemorySegment epiSlice = partitionBundle.regionSegment(RegionId.EPISODIC);
-            MemorySegment procSlice = partitionBundle.regionSegment(RegionId.PROCEDURAL);
-            MemorySegment textSlice = partitionBundle.regionSegment(RegionId.TEXT);
-
-            SemanticMemory semanticStore = SemanticMemory.fromBundle(
-                    partitionBundle.arena(), semSlice,
-                    memProps.getSemanticCapacity(), quantizedVecBytes, bundleFile, isNew);
-            EpisodicMemory episodicStore = EpisodicMemory.fromBundle(
-                    partitionBundle.arena(), epiSlice, memProps.getEpisodicPartitionCapacity(), bundleFile, isNew);
-            ProceduralMemory proceduralStore = ProceduralMemory.fromBundle(
-                    partitionBundle.arena(), procSlice,
-                    memProps.getProceduralCapacity(), quantizedVecBytes, bundleFile, isNew);
-            textStore = TextBlobMemory.fromBundle(
-                    partitionBundle.arena(), textSlice, bundleFile, isNew,
-                    builder.dataEncryptor());
-
-            StrengthMemory strengthStore = partitionBundle.hasRegion(RegionId.STRENGTH)
-                    ? StrengthMemory.fromBundle(partitionBundle.arena(), partitionBundle.regionSegment(RegionId.STRENGTH),
-                            memProps.getSemanticCapacity(), memProps.getEpisodicPartitionCapacity(), memProps.getProceduralCapacity(), bundleFile)
-                    : null;
+            SemanticMemory semanticStore = partitionBundle.openSemantic(
+                    memProps.getSemanticCapacity(), quantizedVecBytes);
+            EpisodicMemory episodicStore = partitionBundle.openEpisodic(
+                    memProps.getEpisodicPartitionCapacity());
+            ProceduralMemory proceduralStore = partitionBundle.openProcedural(
+                    memProps.getProceduralCapacity(), quantizedVecBytes);
+            textStore = partitionBundle.openText(builder.dataEncryptor());
+            StrengthMemory strengthStore = partitionBundle.openStrength(
+                    memProps.getSemanticCapacity(), memProps.getEpisodicPartitionCapacity(),
+                    memProps.getProceduralCapacity(), "partition-audit");
 
             cognitiveRouter = new CognitiveMemoryRouter(workingStore, semanticStore, proceduralStore, episodicStore, strengthStore);
             log.info("V4 bundle mode: {} ({}, {} stores, episodic=log-structured)",

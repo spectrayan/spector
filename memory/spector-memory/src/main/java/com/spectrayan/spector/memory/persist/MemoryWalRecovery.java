@@ -99,15 +99,15 @@ public final class MemoryWalRecovery {
             RememberPathway cognitiveTarget,
             Path basePath,
             int activePartitionSeq,
-            java.lang.foreign.MemorySegment checkpointRegion) {
+            com.spectrayan.spector.memory.kernel.bundle.RegionRef checkpointRef) {
 
         if (wal == null || !wal.isPersistent()) {
             return;
         }
 
         long checkpointHwm = 0;
-        if (checkpointRegion != null) {
-            long hwm = CheckpointEngine.readCheckpointHwm(checkpointRegion);
+        if (checkpointRef != null) {
+            long hwm = CheckpointEngine.readCheckpointHwm(checkpointRef.resolve());
             if (hwm > 0) {
                 checkpointHwm = hwm;
                 log.info("WAL recovery: loaded checkpoint HWM {} from bundle region", checkpointHwm);

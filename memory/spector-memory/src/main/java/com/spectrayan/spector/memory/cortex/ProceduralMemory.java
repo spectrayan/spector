@@ -19,6 +19,8 @@ import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.file.Path;
@@ -116,6 +118,18 @@ public final class ProceduralMemory extends AbstractEngramMemory<ProceduralLayou
                                              int capacity, int quantizedVecBytes,
                                              Path bundlePath, boolean isNew) {
         return new ProceduralMemory(arena, regionSlice, capacity, quantizedVecBytes, bundlePath, isNew);
+    }
+
+    public static ProceduralMemory fromRegionRef(RegionRef regionRef, int capacity,
+                                                int quantizedVecBytes, Path bundlePath, boolean isNew) {
+        return new ProceduralMemory(regionRef, capacity, quantizedVecBytes, bundlePath, isNew);
+    }
+
+    private ProceduralMemory(RegionRef regionRef, int capacity,
+                             int quantizedVecBytes, Path bundlePath, boolean isNew) {
+        super(MemoryType.PROCEDURAL,
+              new ProceduralLayout(quantizedVecBytes),
+              capacity, regionRef, bundlePath, isNew);
     }
 
     private ProceduralMemory(Arena arena, MemorySegment regionSlice, int capacity,

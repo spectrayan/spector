@@ -20,6 +20,8 @@ import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.file.Path;
@@ -114,6 +116,17 @@ public final class SemanticMemory extends AbstractEngramMemory<SemanticLayout> {
                                             int capacity, int quantizedVecBytes,
                                             Path bundlePath, boolean isNew) {
         return new SemanticMemory(arena, regionSlice, capacity, quantizedVecBytes, bundlePath, isNew);
+    }
+
+    public static SemanticMemory fromRegionRef(RegionRef regionRef, int capacity,
+                                               int quantizedVecBytes, Path bundlePath, boolean isNew) {
+        return new SemanticMemory(regionRef, capacity, quantizedVecBytes, bundlePath, isNew);
+    }
+
+    private SemanticMemory(RegionRef regionRef, int capacity,
+                           int quantizedVecBytes, Path bundlePath, boolean isNew) {
+        super(MemoryType.SEMANTIC, new SemanticLayout(quantizedVecBytes),
+              capacity, regionRef, bundlePath, isNew);
     }
 
     private SemanticMemory(Arena arena, MemorySegment regionSlice, int capacity,

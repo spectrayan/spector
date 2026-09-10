@@ -129,10 +129,7 @@ class EntityDirectoryTest {
         // First pass: create the bundle with 100 entity capacity
         try (com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle bundle =
                      com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.mmap(bundlePath, specs)) {
-            java.lang.foreign.MemorySegment entitySlice = bundle.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_DIRECTORY);
-            java.lang.foreign.MemorySegment adjSlice = bundle.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_NAMES);
-
-            EntityDirectory dir = EntityDirectory.fromBundle(bundle.arena(), entitySlice, adjSlice, 100, reg, bundlePath, true);
+            EntityDirectory dir = bundle.openEntityDirectory(100, reg);
             dir.intern("Alice", "PERSON");
             dir.intern("Bob", "PERSON");
             assertThat(dir.entityCount()).isEqualTo(2);
@@ -143,10 +140,7 @@ class EntityDirectoryTest {
         // Second pass: reopen the bundle but request 50,000 capacity (as if upgraded in properties)
         try (com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle reopened =
                      com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.open(bundlePath)) {
-            java.lang.foreign.MemorySegment entitySlice = reopened.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_DIRECTORY);
-            java.lang.foreign.MemorySegment adjSlice = reopened.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_NAMES);
-
-            EntityDirectory dir = EntityDirectory.fromBundle(reopened.arena(), entitySlice, adjSlice, 50_000, reg, bundlePath, false);
+            EntityDirectory dir = reopened.openEntityDirectory(50_000, reg);
             assertThat(dir.entityCount()).isEqualTo(2);
             assertThat(dir.findEntity("Alice")).isEqualTo(0);
             assertThat(dir.findEntity("Bob")).isEqualTo(1);
@@ -173,10 +167,7 @@ class EntityDirectoryTest {
         // First pass: intern and link
         try (com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle bundle =
                      com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.mmap(bundlePath, specs)) {
-            java.lang.foreign.MemorySegment entitySlice = bundle.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_DIRECTORY);
-            java.lang.foreign.MemorySegment adjSlice = bundle.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_NAMES);
-
-            EntityDirectory dir = EntityDirectory.fromBundle(bundle.arena(), entitySlice, adjSlice, 100, reg, bundlePath, true);
+            EntityDirectory dir = bundle.openEntityDirectory(100, reg);
             int e1 = dir.intern("Quantum Engine", "PROJECT");
             int e2 = dir.intern("DeepMind", "ORGANIZATION");
 
@@ -195,10 +186,7 @@ class EntityDirectoryTest {
         // Second pass: reopen from existing bundle and verify reverse index is restored
         try (com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle reopened =
                      com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.open(bundlePath)) {
-            java.lang.foreign.MemorySegment entitySlice = reopened.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_DIRECTORY);
-            java.lang.foreign.MemorySegment adjSlice = reopened.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_NAMES);
-
-            EntityDirectory dir = EntityDirectory.fromBundle(reopened.arena(), entitySlice, adjSlice, 100, reg, bundlePath, false);
+            EntityDirectory dir = reopened.openEntityDirectory(100, reg);
             assertThat(dir.entityCount()).isEqualTo(2);
 
             int e1 = dir.findEntity("quantum engine");

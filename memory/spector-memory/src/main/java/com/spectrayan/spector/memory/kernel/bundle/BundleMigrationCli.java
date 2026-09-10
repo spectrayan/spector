@@ -330,7 +330,7 @@ public final class BundleMigrationCli {
                 try {
                     com.spectrayan.spector.index.text.BM25Index loaded = com.spectrayan.spector.index.text.BM25Index.load(bm25File);
                     if (loaded != null) {
-                        MemorySegment bm25Slice = bundle.regionSegment(RegionId.BM25);
+                        MemorySegment bm25Slice = bundle.currentSlice(RegionId.BM25);
                         loaded.saveToRegion(bm25Slice);
                         log.info("BundleMigration: migrated BM25 index with {} docs", loaded.size());
                     }
@@ -508,11 +508,9 @@ public final class BundleMigrationCli {
             // Migrate V1 engram header counters into RegionId.STRENGTH
             int totalStrengthCount = 0;
             if (bundle.hasRegion(RegionId.STRENGTH)) {
-                MemorySegment strengthSlice = bundle.regionSegment(RegionId.STRENGTH);
-                StrengthMemory strengthStore = StrengthMemory.fromBundle(
-                        bundle.arena(), strengthSlice,
+                StrengthMemory strengthStore = bundle.openStrength(
                         semanticCap, episodicCap, proceduralCap,
-                        bundle.bundlePath());
+                        "strength-migration");
 
                 if (semantic.exists() && semantic.count > 0) {
                     HeaderMigrator.migrateRecordsToStrength(
@@ -537,7 +535,7 @@ public final class BundleMigrationCli {
                     totalStrengthCount += procedural.count;
                 }
 
-                RegionPreamble.writeCount(strengthSlice, 0, totalStrengthCount);
+                RegionPreamble.writeCount(bundle.currentSlice(RegionId.STRENGTH), 0, totalStrengthCount);
             }
 
             // Fidelity check
@@ -643,7 +641,7 @@ public final class BundleMigrationCli {
             return;
         }
 
-        MemorySegment targetSlice = bundle.regionSegment(regionId);
+        MemorySegment targetSlice = bundle.currentSlice(regionId);
         long sourceSize = source.segment.byteSize();
         long targetSize = targetSlice.byteSize();
 
@@ -669,7 +667,7 @@ public final class BundleMigrationCli {
             return;
         }
 
-        MemorySegment targetSlice = bundle.regionSegment(regionId);
+        MemorySegment targetSlice = bundle.currentSlice(regionId);
         long sourceSize = source.segment.byteSize();
         long targetSize = targetSlice.byteSize();
 
@@ -699,7 +697,7 @@ public final class BundleMigrationCli {
             assertRegionCount(bundle, RegionId.TEXT, text.count, "text", partitionDir);
         }
         if (bundle.hasRegion(RegionId.STRENGTH)) {
-            MemorySegment strengthSlice = bundle.regionSegment(RegionId.STRENGTH);
+            MemorySegment strengthSlice = bundle.currentSlice(RegionId.STRENGTH);
             int actualStrengthCount = (int) RegionPreamble.readCount(strengthSlice, 0);
             int minExpectedStrength = semantic.count + procedural.count;
             if (actualStrengthCount < minExpectedStrength) {
@@ -714,7 +712,7 @@ public final class BundleMigrationCli {
 
     private static void assertRegionCount(PartitionBundle bundle, RegionId regionId,
                                            int expectedCount, String name, Path partitionDir) {
-        MemorySegment slice = bundle.regionSegment(regionId);
+        MemorySegment slice = bundle.currentSlice(regionId);
         int actual = (int) RegionPreamble.readCount(slice, 0);
         if (actual != expectedCount) {
             throw new MigrationException(String.format(

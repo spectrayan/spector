@@ -61,10 +61,25 @@ public final class TemporalFactsMemory extends AbstractAppendMemory<TemporalFact
         return new TemporalFactsMemory(arena, regionSlice, bundlePath, isNew);
     }
 
+    public static TemporalFactsMemory fromRegionRef(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, Path bundlePath, boolean isNew) {
+        return new TemporalFactsMemory(regionRef, bundlePath, isNew);
+    }
+
     private TemporalFactsMemory(Arena arena, MemorySegment regionSlice, Path bundlePath, boolean isNew) {
         super(MEMORY_ID, new TemporalFactLayout(), 0, arena, regionSlice,
               isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0L),
               true, bundlePath, null, true); // bundleManaged=true
+        if (isNew) {
+            long now = System.currentTimeMillis();
+            RegionPreamble.write(segment(), 0L, new TemporalFactLayout().schemaVersion(), MemoryShape.APPEND, 0,
+                    (int) segment().byteSize(), 0, 0, new TemporalFactLayout().layoutId(), now, now);
+        }
+    }
+
+    private TemporalFactsMemory(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, Path bundlePath, boolean isNew) {
+        super(MEMORY_ID, new TemporalFactLayout(), 0, regionRef,
+              isNew ? 0 : (int) RegionPreamble.readCount(regionRef.resolve(), 0L),
+              true, bundlePath);
         if (isNew) {
             long now = System.currentTimeMillis();
             RegionPreamble.write(segment(), 0L, new TemporalFactLayout().schemaVersion(), MemoryShape.APPEND, 0,

@@ -143,6 +143,41 @@ public final class TemporalChainMemory extends AbstractChainMemory<TemporalLayou
         return new TemporalChainMemory(arena, regionSlice, resolvedCap, bundlePath, isNew);
     }
 
+    public static TemporalChainMemory fromRegionRef(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, int capacity, Path bundlePath, boolean isNew) {
+        int resolvedCap = capacity;
+        MemorySegment regionSlice = regionRef.resolve();
+        if (!isNew) {
+            int preambleCap = (int) RegionPreamble.readCapacity(regionSlice, 0L);
+            if (preambleCap > 0) {
+                resolvedCap = preambleCap;
+            }
+        }
+        return new TemporalChainMemory(regionRef, resolvedCap, bundlePath, isNew);
+    }
+
+    private TemporalChainMemory(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, int capacity, Path bundlePath, boolean isNew) {
+        super(SystemMemoryId.TEMPORAL_CHAIN.id(), new TemporalLayout(), capacity,
+                regionRef,
+                isNew ? 0 : (int) RegionPreamble.readCount(regionRef.resolve(), 0L),
+                true, bundlePath);
+
+        if (isNew) {
+            long now = System.currentTimeMillis();
+            RegionPreamble.write(segment(), 0L, layout.schemaVersion(), MemoryShape.CHAIN, 1,
+                    capacity, 0L, layout.recordStride(), layout.layoutId(), now, now);
+            MemorySegment seg = segment();
+            long base = dataOffset();
+            for (int i = 0; i < capacity; i++) {
+                long offset = base + (long) i * NODE_BYTES;
+                seg.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
+                seg.set(ValueLayout.JAVA_INT, offset + OFF_NEXT, NO_LINK);
+                seg.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
+                seg.set(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC, 0);
+            }
+            flush();
+        }
+    }
+
     private TemporalChainMemory(Arena arena, MemorySegment regionSlice, int capacity, Path bundlePath, boolean isNew) {
         super(SystemMemoryId.TEMPORAL_CHAIN.id(), new TemporalLayout(), capacity,
                 arena, regionSlice,
@@ -151,9 +186,9 @@ public final class TemporalChainMemory extends AbstractChainMemory<TemporalLayou
 
         if (isNew) {
             long now = System.currentTimeMillis();
-            RegionPreamble.write(segment, 0L, layout.schemaVersion(), MemoryShape.CHAIN, 1,
+            RegionPreamble.write(segment(), 0L, layout.schemaVersion(), MemoryShape.CHAIN, 1,
                     capacity, 0L, layout.recordStride(), layout.layoutId(), now, now);
-            MemorySegment seg = segment;
+            MemorySegment seg = segment();
             long base = dataOffset();
             for (int i = 0; i < capacity; i++) {
                 long offset = base + (long) i * NODE_BYTES;
@@ -232,7 +267,7 @@ public final class TemporalChainMemory extends AbstractChainMemory<TemporalLayou
     @Override
     public void flush() {
         if (isPersistent()) {
-            RegionPreamble.writeCount(segment, 0, chainLength());
+            RegionPreamble.writeCount(segment(), 0, chainLength());
         }
         super.flush();
     }
@@ -307,7 +342,7 @@ public final class TemporalChainMemory extends AbstractChainMemory<TemporalLayou
             long prevOff = dataOffset() + (long) prevIdx * NODE_BYTES;
             long nextOff = dataOffset() + (long) nextIdx * NODE_BYTES;
 
-            MemorySegment seg = segment;
+            MemorySegment seg = segment();
             seg.set(ValueLayout.JAVA_INT, prevOff + OFF_NEXT, nextIdx);
             if (sessionId > 0) {
                 seg.set(ValueLayout.JAVA_INT, prevOff + OFF_SESSION, sessionId);
@@ -331,25 +366,25 @@ public final class TemporalChainMemory extends AbstractChainMemory<TemporalLayou
     public int getPrevIndex(int nodeIdx) {
         boundsCheck(nodeIdx);
         long off = dataOffset() + (long) nodeIdx * NODE_BYTES;
-        return segment.get(ValueLayout.JAVA_INT, off + OFF_PREV);
+        return segment().get(ValueLayout.JAVA_INT, off + OFF_PREV);
     }
 
     public int getNextIndex(int nodeIdx) {
         boundsCheck(nodeIdx);
         long off = dataOffset() + (long) nodeIdx * NODE_BYTES;
-        return segment.get(ValueLayout.JAVA_INT, off + OFF_NEXT);
+        return segment().get(ValueLayout.JAVA_INT, off + OFF_NEXT);
     }
 
     public int getSessionId(int nodeIdx) {
         boundsCheck(nodeIdx);
         long off = dataOffset() + (long) nodeIdx * NODE_BYTES;
-        return segment.get(ValueLayout.JAVA_INT, off + OFF_SESSION);
+        return segment().get(ValueLayout.JAVA_INT, off + OFF_SESSION);
     }
 
     public int getEpochSec(int nodeIdx) {
         boundsCheck(nodeIdx);
         long off = dataOffset() + (long) nodeIdx * NODE_BYTES;
-        return segment.get(ValueLayout.JAVA_INT, off + OFF_EPOCH_SEC);
+        return segment().get(ValueLayout.JAVA_INT, off + OFF_EPOCH_SEC);
     }
 
     public int[] followForward(int startIdx, int maxSteps) {
@@ -435,18 +470,18 @@ public final class TemporalChainMemory extends AbstractChainMemory<TemporalLayou
 
             if (p != NO_LINK) {
                 long pOff = dataOffset() + (long) p * NODE_BYTES;
-                segment.set(ValueLayout.JAVA_INT, pOff + OFF_NEXT, n);
+                segment().set(ValueLayout.JAVA_INT, pOff + OFF_NEXT, n);
             }
             if (n != NO_LINK) {
                 long nOff = dataOffset() + (long) n * NODE_BYTES;
-                segment.set(ValueLayout.JAVA_INT, nOff + OFF_PREV, p);
+                segment().set(ValueLayout.JAVA_INT, nOff + OFF_PREV, p);
             }
 
             long selfOff = dataOffset() + (long) nodeIdx * NODE_BYTES;
-            segment.set(ValueLayout.JAVA_INT, selfOff + OFF_PREV, NO_LINK);
-            segment.set(ValueLayout.JAVA_INT, selfOff + OFF_NEXT, NO_LINK);
-            segment.set(ValueLayout.JAVA_INT, selfOff + OFF_SESSION, 0);
-            segment.set(ValueLayout.JAVA_INT, selfOff + OFF_EPOCH_SEC, 0);
+            segment().set(ValueLayout.JAVA_INT, selfOff + OFF_PREV, NO_LINK);
+            segment().set(ValueLayout.JAVA_INT, selfOff + OFF_NEXT, NO_LINK);
+            segment().set(ValueLayout.JAVA_INT, selfOff + OFF_SESSION, 0);
+            segment().set(ValueLayout.JAVA_INT, selfOff + OFF_EPOCH_SEC, 0);
         } finally {
             lock.unlock();
         }

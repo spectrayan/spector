@@ -211,7 +211,7 @@ class MemoryBM25IndexTest {
             assertThat(written).isGreaterThan(4096);
 
             // Verify BM25 region grew
-            assertThat(runtimeBundle.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25).byteSize())
+            assertThat(runtimeBundle.regionRef(com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25).resolve().byteSize())
                     .isGreaterThan(4096);
         }
 

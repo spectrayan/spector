@@ -137,6 +137,20 @@ public abstract class AdjacencyListGraphMemory<L extends RegionLayout>
         initVertexSlab();
     }
 
+    protected AdjacencyListGraphMemory(MemoryId id, L layout, int vertexCapacity, int edgeCapacity,
+                                       com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, int count,
+                                       boolean persistent, Path filePath) {
+        super(id, layout, vertexCapacity, regionRef, count, persistent, filePath);
+        this.edgeCapacity = edgeCapacity;
+        this.edgeStride = layout.recordStride();
+        this.vertexSlabOffset = dataOffset();
+        this.edgeSlabOffset = vertexSlabOffset + (long) vertexCapacity * VERTEX_STRIDE;
+        this.edgeOwner = new int[Math.max(1, edgeCapacity)];
+        this.edgeFree = new IntStack();
+        this.vertexFree = new IntStack();
+        requireEdgeStride();
+    }
+
     // ══════════════════════════════════════════════════════════════
     // CAPACITY
     // ══════════════════════════════════════════════════════════════

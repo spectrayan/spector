@@ -65,6 +65,13 @@ public abstract class AbstractRegistryMemory extends AbstractMemory<RegistryLayo
         initializeFromSegment();
     }
 
+    protected AbstractRegistryMemory(MemoryId id, RegistryLayout layout, int capacity,
+                                      com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, int count,
+                                      boolean persistent, Path filePath) {
+        super(id, layout, capacity, regionRef, count, persistent, filePath);
+        initializeFromSegment();
+    }
+
     @Override
     public MemoryShape shape() {
         return MemoryShape.REGISTRY;

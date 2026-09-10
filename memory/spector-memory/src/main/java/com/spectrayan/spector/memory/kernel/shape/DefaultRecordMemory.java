@@ -12,29 +12,26 @@
  */
 package com.spectrayan.spector.memory.kernel.shape;
 
-import java.nio.channels.FileChannel;
-import java.nio.file.Path;
-import java.lang.foreign.Arena;
-import java.lang.foreign.MemorySegment;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.RegionLayout;
+import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
+
+import java.nio.file.Path;
 
 /**
- * Concrete implementation of RecordMemory shape.
+ * Standard default implementation of {@link RecordMemory} backed by a {@link RegionRef}.
+ *
+ * @param <L> the layout type
  */
-public final class DefaultRecordMemory<L extends RegionLayout> extends AbstractRecordMemory<L> {
+public class DefaultRecordMemory<L extends RegionLayout> extends AbstractRecordMemory<L> {
 
-    public DefaultRecordMemory(MemoryId id, L layout, int capacity, long segmentBytes) {
-        super(id, layout, capacity, segmentBytes);
+    public DefaultRecordMemory(MemoryId id, L layout, int capacity,
+                               RegionRef regionRef, int count,
+                               boolean persistent, Path filePath) {
+        super(id, layout, capacity, regionRef, count, persistent, filePath);
     }
 
     public DefaultRecordMemory(MemoryId id, L layout, int capacity, long segmentBytes, Path filePath) {
         super(id, layout, capacity, segmentBytes, filePath);
-    }
-
-    public DefaultRecordMemory(MemoryId id, L layout, int capacity,
-                               Arena arena, MemorySegment segment, int count,
-                               boolean persistent, Path filePath, FileChannel fileChannel) {
-        super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel);
     }
 }

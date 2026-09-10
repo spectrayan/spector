@@ -16,6 +16,7 @@ import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.EpisodeCodec;
@@ -117,6 +118,32 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
                     bundlePath, count, capacity);
             this.liveTurnCount.set(countLiveTurns());
         }
+    }
+
+    private EpisodicMemory(RegionRef regionRef, int capacity,
+                           java.nio.file.Path bundlePath, boolean isNew) {
+        super(SystemMemoryId.EPISODIC.id(), EpisodicLayout.INSTANCE, capacity,
+              regionRef,
+              isNew ? 0 : (int) RegionPreamble.readCount(regionRef.resolve(), 0),
+              true, bundlePath);
+
+        if (isNew) {
+            long now = System.currentTimeMillis();
+            RegionPreamble.write(segment(), 0, 1, MemoryShape.APPEND, 1, 0, 0,
+                    EpisodicLayout.INSTANCE.recordStride(),
+                    EpisodicLayout.INSTANCE.layoutId(), now, now);
+            log.info("EpisodicMemory initialized new bundle region in: {} ({}KB, cap={})",
+                    bundlePath, regionRef.resolve().byteSize() / 1024, capacity);
+        } else {
+            log.info("EpisodicMemory loaded from bundle region in: {} (cursor={}B, cap={})",
+                    bundlePath, count, capacity);
+            this.liveTurnCount.set(countLiveTurns());
+        }
+    }
+
+    public static EpisodicMemory fromRegionRef(RegionRef regionRef, int capacity,
+                                              java.nio.file.Path bundlePath, boolean isNew) {
+        return new EpisodicMemory(regionRef, capacity, bundlePath, isNew);
     }
 
     /**

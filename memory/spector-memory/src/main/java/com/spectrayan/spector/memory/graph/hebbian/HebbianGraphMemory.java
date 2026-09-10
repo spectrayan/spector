@@ -174,6 +174,57 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
         return new HebbianGraphMemory(arena, regionSlice, resolvedCap, edgeCapacity, maxDegree, edgeImportance, bundlePath, isNew);
     }
 
+    public static HebbianGraphMemory fromRegionRef(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef,
+                                                    int capacity, int edgeCapacity, int maxDegree,
+                                                    EdgeImportance edgeImportance, Path bundlePath, boolean isNew) {
+        int resolvedCap = capacity;
+        MemorySegment regionSlice = regionRef.resolve();
+        if (!isNew) {
+            int preambleCap = (int) RegionPreamble.readCapacity(regionSlice, 0L);
+            if (preambleCap > 0) {
+                resolvedCap = preambleCap;
+            }
+        }
+        return new HebbianGraphMemory(regionRef, resolvedCap, edgeCapacity, maxDegree, edgeImportance, bundlePath, isNew);
+    }
+
+    private HebbianGraphMemory(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef,
+                               int capacity, int edgeCapacity, int maxDegree,
+                               EdgeImportance edgeImportance, Path bundlePath, boolean isNew) {
+        super(MEMORY_ID, LAYOUT, capacity, regionRef,
+              isNew ? 0 : (int) RegionPreamble.readCount(regionRef.resolve(), 0L),
+              true, bundlePath);
+        this.bundleManaged = true;
+        this.maxDegree = maxDegree;
+        this.edgeImportance = edgeImportance;
+
+        MemorySegment regionSlice = regionRef.resolve();
+        long offsetBytes = (long) (capacity + 1) * Integer.BYTES;
+        long maxEdgeBytes = Math.max(0L, regionSlice.byteSize() - DATA_START - offsetBytes);
+        int availableEdgeCap = (int) (maxEdgeBytes / EDGE_BYTES);
+        this.edgeCapacity = Math.min(edgeCapacity, availableEdgeCap);
+        long edgeBytes = (long) this.edgeCapacity * EDGE_BYTES;
+
+        this.offsets = segment().asSlice(DATA_START, offsetBytes);
+        this.edges = segment().asSlice(DATA_START + offsetBytes, edgeBytes);
+
+        this.overflow = new List[capacity];
+
+        if (isNew) {
+            writeSmkmHeader(segment(), capacity, edgeCapacity, 0, 0);
+            segment().asSlice(DATA_START, offsetBytes + edgeBytes).fill((byte) 0);
+            this.currentCycle = 0;
+            this.totalEdgeCount = 0;
+        } else {
+            this.currentCycle = segment().get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_CURRENT_CYCLE);
+            this.totalEdgeCount = (int) RegionPreamble.readCount(segment(), 0L);
+        }
+
+        long totalKB = (offsetBytes + edgeBytes) / 1024;
+        log.info("HebbianGraphMemory initialized (regionRef): capacity={}, edgeCap={}, maxDegree={}, memory={}KB",
+                capacity, this.edgeCapacity, maxDegree, totalKB);
+    }
+
     private HebbianGraphMemory(Arena arena, MemorySegment regionSlice,
                                int capacity, int edgeCapacity, int maxDegree,
                                EdgeImportance edgeImportance, Path bundlePath, boolean isNew) {

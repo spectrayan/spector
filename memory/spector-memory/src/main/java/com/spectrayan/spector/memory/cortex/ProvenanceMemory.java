@@ -135,6 +135,30 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
         return fromBundle(arena, segment, bundlePath, "bundle-provenance");
     }
 
+    public static ProvenanceMemory fromRegionRef(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, Path bundlePath, String memoryName) {
+        String name = (memoryName != null && !memoryName.isBlank()) ? memoryName : "bundle-provenance";
+        MemorySegment segment = regionRef.resolve();
+        int capacity = (int) (segment.byteSize() / ProvenanceLayout.RECORD_STRIDE);
+        return new ProvenanceMemory(
+                MemoryId.of("default", name),
+                ProvenanceLayout.INSTANCE,
+                capacity,
+                regionRef,
+                0,
+                true,
+                bundlePath);
+    }
+
+    public static ProvenanceMemory fromRegionRef(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, Path bundlePath) {
+        return fromRegionRef(regionRef, bundlePath, "bundle-provenance");
+    }
+
+    private ProvenanceMemory(MemoryId id, ProvenanceLayout layout, int capacity,
+                             com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, int count,
+                             boolean persistent, Path filePath) {
+        super(id, layout, capacity, regionRef, count, persistent, filePath);
+    }
+
     // ── Append ──
 
     /**
@@ -176,13 +200,13 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
             );
 
             // Write fields to off-heap segment
-            ProvenanceLayout.writeRecord(segment, recordOff, state);
+            ProvenanceLayout.writeRecord(segment(), recordOff, state);
 
             // Write CRC32C via base class contract
             Arena recordArena = Arena.ofConfined();
             try {
                 MemorySegment recordBuf = recordArena.allocate(ProvenanceLayout.RECORD_STRIDE, 8);
-                MemorySegment.copy(segment, recordOff, recordBuf, 0, ProvenanceLayout.RECORD_STRIDE);
+                MemorySegment.copy(segment(), recordOff, recordBuf, 0, ProvenanceLayout.RECORD_STRIDE);
                 write(slot, recordBuf);
             } finally {
                 recordArena.close();
@@ -213,7 +237,7 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
             return Optional.empty();
         }
         long recordOff = recordOffset(slot);
-        ProvenanceState state = ProvenanceLayout.readRecord(segment, recordOff);
+        ProvenanceState state = ProvenanceLayout.readRecord(segment(), recordOff);
         return state.isLive() ? Optional.of(state) : Optional.empty();
     }
 
@@ -232,9 +256,10 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
         }
 
         List<ProvenanceState> result = new ArrayList<>(slots.size());
+        MemorySegment seg = segment();
         for (int slot : slots) {
             long recordOff = recordOffset(slot);
-            ProvenanceState state = ProvenanceLayout.readRecord(segment, recordOff);
+            ProvenanceState state = ProvenanceLayout.readRecord(seg, recordOff);
             if (state.isLive()) {
                 result.add(state);
             }
@@ -260,9 +285,10 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
         }
 
         List<ProvenanceState> result = new ArrayList<>();
+        MemorySegment seg = segment();
         for (int slot : slots) {
             long recordOff = recordOffset(slot);
-            ProvenanceState state = ProvenanceLayout.readRecord(segment, recordOff);
+            ProvenanceState state = ProvenanceLayout.readRecord(seg, recordOff);
             if (state.isLive() && state.passNumber() == passNumber) {
                 result.add(state);
             }
@@ -287,10 +313,11 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
         }
 
         int maxPass = 0;
+        MemorySegment seg = segment();
         for (int slot : slots) {
             long recordOff = recordOffset(slot);
-            short passNum = ProvenanceLayout.readPassNumber(segment, recordOff);
-            byte flags = ProvenanceLayout.readFlags(segment, recordOff);
+            short passNum = ProvenanceLayout.readPassNumber(seg, recordOff);
+            byte flags = ProvenanceLayout.readFlags(seg, recordOff);
             if (flags != ProvenanceLayout.FLAG_TOMBSTONE && passNum > maxPass) {
                 maxPass = passNum;
             }
@@ -310,15 +337,16 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
         targetIndex.clear();
         sessionIndex.clear();
 
+        MemorySegment seg = segment();
         for (int slot = 0; slot < count; slot++) {
             long recordOff = recordOffset(slot);
-            byte flags = ProvenanceLayout.readFlags(segment, recordOff);
+            byte flags = ProvenanceLayout.readFlags(seg, recordOff);
             if (flags == ProvenanceLayout.FLAG_TOMBSTONE) {
                 continue;
             }
 
-            long targetTsid = ProvenanceLayout.readTargetTsid(segment, recordOff);
-            long sessionId = ProvenanceLayout.readSessionId(segment, recordOff);
+            long targetTsid = ProvenanceLayout.readTargetTsid(seg, recordOff);
+            long sessionId = ProvenanceLayout.readSessionId(seg, recordOff);
 
             targetIndex.put(targetTsid, slot);
             sessionIndex.computeIfAbsent(sessionId, k -> Collections.synchronizedList(new ArrayList<>()))
@@ -337,8 +365,9 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
      * @return stream of live provenance states
      */
     public Stream<ProvenanceState> replay() {
+        MemorySegment seg = segment();
         return java.util.stream.IntStream.range(0, count)
-                .mapToObj(slot -> ProvenanceLayout.readRecord(segment, recordOffset(slot)))
+                .mapToObj(slot -> ProvenanceLayout.readRecord(seg, recordOffset(slot)))
                 .filter(ProvenanceState::isLive);
     }
 

@@ -64,7 +64,7 @@ import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
  * @see BundleDirectory
  * @see BundleLayoutCalculator
  */
-public final class PartitionBundle implements AutoCloseable {
+public final class PartitionBundle implements AbstractBundle {
 
     private static final Logger log = LoggerFactory.getLogger(PartitionBundle.class);
 
@@ -73,14 +73,24 @@ public final class PartitionBundle implements AutoCloseable {
     private final BundleDirectory directory;
     private final Path bundlePath;
     private final boolean isNew;
+    private final boolean canForward;
+    private volatile PartitionBundle rolledTo;
+    private final java.util.concurrent.ConcurrentHashMap<RegionId, java.util.concurrent.atomic.AtomicInteger> generations = new java.util.concurrent.ConcurrentHashMap<>();
 
     private PartitionBundle(Arena arena, MemorySegment masterSegment,
                              BundleDirectory directory, Path bundlePath, boolean isNew) {
+        this(arena, masterSegment, directory, bundlePath, isNew, true);
+    }
+
+    private PartitionBundle(Arena arena, MemorySegment masterSegment,
+                             BundleDirectory directory, Path bundlePath, boolean isNew,
+                             boolean canForward) {
         this.arena = arena;
         this.masterSegment = masterSegment;
         this.directory = directory;
         this.bundlePath = bundlePath;
         this.isNew = isNew;
+        this.canForward = canForward;
     }
 
     // ── Init factory (follows EntityDirectory.Init pattern) ──
@@ -275,18 +285,135 @@ public final class PartitionBundle implements AutoCloseable {
 
     // ── Public API ──
 
-    /**
-     * Returns the region slice for the specified region.
-     *
-     * <p>The returned segment starts with a 64-byte SMKM {@link RegionPreamble}
-     * followed by the region's data area. Stores should use this segment
-     * in their {@code fromBundle()} factories.</p>
-     *
-     * @param id the region identifier (must be a partition region: SEMANTIC, EPISODIC, PROCEDURAL, TEXT)
-     * @return a MemorySegment slice of the master segment for the region
-     * @throws IllegalArgumentException if the region is not found or not live
-     */
-    public MemorySegment regionSegment(RegionId id) {
+    public void rollTo(PartitionBundle next) {
+        this.rolledTo = next;
+    }
+
+    public PartitionBundle asFrozen() {
+        return new PartitionBundle(arena, masterSegment, directory, bundlePath, false, false);
+    }
+
+    @Override
+    public MemorySegment currentSlice(RegionId id) {
+        if (canForward && rolledTo != null) {
+            return rolledTo.currentSlice(id);
+        }
+        return regionSegment(id);
+    }
+
+    @Override
+    public int generation(RegionId id) {
+        if (canForward && rolledTo != null) {
+            return rolledTo.generation(id);
+        }
+        return generations.computeIfAbsent(id, _ -> new java.util.concurrent.atomic.AtomicInteger(0)).get();
+    }
+
+    // ── Specialized Typed Region Openers ──
+
+    public com.spectrayan.spector.memory.cortex.SemanticMemory openSemantic(int semanticCapacity, int quantizedVecBytes) {
+        return com.spectrayan.spector.memory.cortex.SemanticMemory.fromRegionRef(regionRef(RegionId.SEMANTIC), semanticCapacity, quantizedVecBytes, bundlePath, isNew);
+    }
+
+    public com.spectrayan.spector.memory.cortex.EpisodicMemory openEpisodic(int episodicPartitionCapacity) {
+        return com.spectrayan.spector.memory.cortex.EpisodicMemory.fromRegionRef(regionRef(RegionId.EPISODIC), episodicPartitionCapacity, bundlePath, isNew);
+    }
+
+    public com.spectrayan.spector.memory.cortex.ProceduralMemory openProcedural(int proceduralCapacity, int quantizedVecBytes) {
+        return com.spectrayan.spector.memory.cortex.ProceduralMemory.fromRegionRef(regionRef(RegionId.PROCEDURAL), proceduralCapacity, quantizedVecBytes, bundlePath, isNew);
+    }
+
+    public com.spectrayan.spector.memory.cortex.TextBlobMemory openText(com.spectrayan.spector.memory.persist.DataEncryptor encryptor) {
+        return com.spectrayan.spector.memory.cortex.TextBlobMemory.fromRegionRef(regionRef(RegionId.TEXT), bundlePath, isNew, encryptor);
+    }
+
+    public com.spectrayan.spector.memory.cortex.StrengthMemory openStrength(int semanticCapacity, int episodicCapacity, int proceduralCapacity, String auditName) {
+        return hasRegion(RegionId.STRENGTH)
+                ? com.spectrayan.spector.memory.cortex.StrengthMemory.fromRegionRef(regionRef(RegionId.STRENGTH), semanticCapacity, episodicCapacity, proceduralCapacity, bundlePath, auditName)
+                : null;
+    }
+
+    // ── Generic RegionOpener Implementation ──
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> com.spectrayan.spector.memory.kernel.shape.RecordMemory<L> openRecord(RegionId id, L layout) {
+        RegionRef ref = regionRef(id);
+        int count = hasRegion(id) ? (int) RegionPreamble.readCount(currentSlice(id), 0L) : 0;
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultRecordMemory<>(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), layout, 0, ref, count, bundlePath != null, bundlePath);
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> com.spectrayan.spector.memory.kernel.shape.AppendMemory<L> openAppend(RegionId id, L layout) {
+        RegionRef ref = regionRef(id);
+        int count = hasRegion(id) ? (int) RegionPreamble.readCount(currentSlice(id), 0L) : 0;
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultAppendMemory<>(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), layout, 0, ref, count, bundlePath != null, bundlePath);
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> com.spectrayan.spector.memory.kernel.shape.GraphMemory<L> openGraph(RegionId id, L layout) {
+        RegionRef ref = regionRef(id);
+        int count = hasRegion(id) ? (int) RegionPreamble.readCount(currentSlice(id), 0L) : 0;
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultGraphMemory<>(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), layout, 1000, 2000, ref, count, bundlePath != null, bundlePath);
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> com.spectrayan.spector.memory.kernel.shape.ChainMemory<L> openChain(RegionId id, L layout) {
+        RegionRef ref = regionRef(id);
+        int count = hasRegion(id) ? (int) RegionPreamble.readCount(currentSlice(id), 0L) : 0;
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultChainMemory<>(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), layout, 0, ref, count, bundlePath != null, bundlePath);
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> com.spectrayan.spector.memory.kernel.shape.HashTableMemory<L> openHashTable(RegionId id, L layout) {
+        RegionRef ref = regionRef(id);
+        int count = hasRegion(id) ? (int) RegionPreamble.readCount(currentSlice(id), 0L) : 0;
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultHashTableMemory<>(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), layout, 0, ref, count, bundlePath != null, bundlePath);
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.kernel.shape.RegistryMemory openRegistry(RegionId id) {
+        RegionRef ref = regionRef(id);
+        int count = hasRegion(id) ? (int) RegionPreamble.readCount(currentSlice(id), 0L) : 0;
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultRegistryMemory(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), new com.spectrayan.spector.memory.kernel.layout.RegistryLayout(), 0, ref, count, bundlePath != null, bundlePath);
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.RecordMemory<L>> tryOpenRecord(RegionId id, L layout) {
+        if (!hasRegion(id)) return java.util.Optional.empty();
+        return java.util.Optional.of(openRecord(id, layout));
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.AppendMemory<L>> tryOpenAppend(RegionId id, L layout) {
+        if (!hasRegion(id)) return java.util.Optional.empty();
+        return java.util.Optional.of(openAppend(id, layout));
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.GraphMemory<L>> tryOpenGraph(RegionId id, L layout) {
+        if (!hasRegion(id)) return java.util.Optional.empty();
+        return java.util.Optional.of(openGraph(id, layout));
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.ChainMemory<L>> tryOpenChain(RegionId id, L layout) {
+        if (!hasRegion(id)) return java.util.Optional.empty();
+        return java.util.Optional.of(openChain(id, layout));
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.HashTableMemory<L>> tryOpenHashTable(RegionId id, L layout) {
+        if (!hasRegion(id)) return java.util.Optional.empty();
+        return java.util.Optional.of(openHashTable(id, layout));
+    }
+
+    @Override
+    public java.util.Optional<com.spectrayan.spector.memory.kernel.shape.RegistryMemory> tryOpenRegistry(RegionId id) {
+        if (!hasRegion(id)) return java.util.Optional.empty();
+        return java.util.Optional.of(openRegistry(id));
+    }
+
+    MemorySegment regionSegment(RegionId id) {
         RegionEntry entry = directory.findRegion(id);
         if (entry == null) {
             throw new IllegalArgumentException("Region not found in partition bundle: " + id);
@@ -297,18 +424,13 @@ public final class PartitionBundle implements AutoCloseable {
         return masterSegment.asSlice(entry.offset(), entry.allocatedSize());
     }
 
-    /**
-     * Checks whether the specified region exists and is live in this bundle.
-     */
+    @Override
     public boolean hasRegion(RegionId id) {
         RegionEntry entry = directory.findRegion(id);
         return entry != null && entry.isLive();
     }
 
-    /**
-     * Returns the shared arena. Stores must <b>not</b> close this arena — the bundle owns it.
-     */
-    public Arena arena() {
+    Arena arena() {
         return arena;
     }
 

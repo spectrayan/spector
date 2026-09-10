@@ -19,6 +19,7 @@ import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
 import com.spectrayan.spector.memory.kernel.codec.XxHash64;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractAppendMemory;
@@ -127,6 +128,32 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                                                Path bundlePath, boolean isNew,
                                                DataEncryptor encryptor) {
         return new TextBlobMemory(arena, regionSlice, bundlePath, isNew, encryptor);
+    }
+
+    public static TextBlobMemory fromRegionRef(RegionRef regionRef, Path bundlePath,
+                                               boolean isNew, DataEncryptor encryptor) {
+        return new TextBlobMemory(regionRef, bundlePath, isNew, encryptor);
+    }
+
+    private TextBlobMemory(RegionRef regionRef, Path bundlePath,
+                           boolean isNew, DataEncryptor encryptor) {
+        super(SystemMemoryId.CORTEX_TEXT.id(), new TextBlobLayout(), 0,
+              regionRef,
+              isNew ? 0 : (int) RegionPreamble.readCount(regionRef.resolve(), 0),
+              true, bundlePath);
+        this.file = bundlePath;
+        this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
+        this.entryCount = 0;
+        if (isNew) {
+            long now = System.currentTimeMillis();
+            RegionPreamble.write(segment(), 0, 1, MemoryShape.APPEND, 1, 0, 0,
+                    layout.recordStride(), layout.layoutId(), now, now);
+            log.info("TextBlobMemory initialized new bundle region in: {} ({}KB)",
+                    bundlePath, regionRef.resolve().byteSize() / 1024);
+        } else {
+            log.info("TextBlobMemory loaded from bundle region in: {} (cursor={}B)",
+                    bundlePath, count);
+        }
     }
 
     private TextBlobMemory(Arena arena, MemorySegment regionSlice, Path bundlePath,

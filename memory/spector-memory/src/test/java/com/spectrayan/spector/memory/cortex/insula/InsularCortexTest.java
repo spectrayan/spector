@@ -141,8 +141,7 @@ class InsularCortexTest {
 
         // 1. Create bundle and initialize InsularCortex
         try (RuntimeBundle bundle = RuntimeBundle.Init.mmap(bundlePath, specs)) {
-            MemorySegment slice = bundle.regionSegment(RegionId.INSULA);
-            try (InsularCortex insula = InsularCortex.fromBundle(bundle.arena(), slice, true)) {
+            try (InsularCortex insula = bundle.openInsula()) {
                 assertThat(insula.isPresent()).isFalse();
                 insula.put(TEST_JSON);
                 assertThat(insula.isPresent()).isTrue();
@@ -151,8 +150,7 @@ class InsularCortexTest {
 
         // 2. Reopen bundle and load InsularCortex
         try (RuntimeBundle reopened = RuntimeBundle.Init.open(bundlePath)) {
-            MemorySegment slice = reopened.regionSegment(RegionId.INSULA);
-            try (InsularCortex insula = InsularCortex.fromBundle(reopened.arena(), slice, false)) {
+            try (InsularCortex insula = reopened.openInsula()) {
                 assertThat(insula.isPresent()).isTrue();
                 assertThat(insula.version()).isEqualTo(1);
                 Optional<byte[]> retrieved = insula.get();

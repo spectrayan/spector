@@ -168,6 +168,42 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
         return new TemporalKnowledgeGraph(predicateRegistry, arena, regionSlice, bundlePath, isNew);
     }
 
+    public static TemporalKnowledgeGraph fromRegionRef(TypeRegistryMemory predicateRegistry,
+                                                        com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef,
+                                                        Path bundlePath, boolean isNew) {
+        return new TemporalKnowledgeGraph(predicateRegistry, regionRef, bundlePath, isNew);
+    }
+
+    private TemporalKnowledgeGraph(TypeRegistryMemory predicateRegistry,
+                                   com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef,
+                                   Path bundlePath, boolean isNew) {
+        this.factLog = TemporalFactsMemory.fromRegionRef(regionRef, bundlePath, isNew);
+        this.predicateRegistry = predicateRegistry;
+        this.resolver = new LatestTxWinsResolver();
+        this.nextFactId = 1;
+
+        if (isNew && bundlePath != null) {
+            Path legacyPath = bundlePath.resolveSibling("temporal-facts.tfacts");
+            if (java.nio.file.Files.exists(legacyPath)) {
+                log.info("Migrating legacy standalone temporal-facts.tfacts to bundle region...");
+                try {
+                    TemporalKnowledgeGraph legacy = new TemporalKnowledgeGraph(legacyPath, java.nio.file.Files.size(legacyPath) - com.spectrayan.spector.memory.kernel.RegionPreamble.PREAMBLE_BYTES, predicateRegistry);
+                    long factCount = legacy.factLog.size();
+                    for (long i = 0; i < factCount; i++) {
+                        MemorySegment factSeg = legacy.factLog.read(i * 64, 64);
+                        this.factLog.append(factSeg);
+                    }
+                    this.factLog.flush();
+                    legacy.close();
+                    java.nio.file.Files.deleteIfExists(legacyPath);
+                } catch (Exception e) {
+                    log.warn("Failed to migrate legacy temporal-facts.tfacts: {}", e.getMessage());
+                }
+            }
+        }
+        rebuildIndexes();
+    }
+
     private TemporalKnowledgeGraph(TypeRegistryMemory predicateRegistry,
                                    Arena arena, MemorySegment regionSlice,
                                    Path bundlePath, boolean isNew) {

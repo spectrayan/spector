@@ -75,7 +75,7 @@ import org.slf4j.LoggerFactory;
  * @see PartitionBundle
  * @see BundleManager
  */
-public final class RuntimeBundle implements AutoCloseable {
+public final class RuntimeBundle implements AbstractBundle {
 
     private static final Logger log = LoggerFactory.getLogger(RuntimeBundle.class);
 
@@ -84,6 +84,7 @@ public final class RuntimeBundle implements AutoCloseable {
 
     private final Path bundlePath;
     private final StampedLock remapLock = new StampedLock();
+    private final java.util.concurrent.ConcurrentHashMap<RegionId, java.util.concurrent.atomic.AtomicInteger> generations = new java.util.concurrent.ConcurrentHashMap<>();
 
     // Volatile fields — updated atomically under write lock during remap
     private volatile Arena arena;
@@ -213,7 +214,162 @@ public final class RuntimeBundle implements AutoCloseable {
      * @throws IllegalArgumentException if the region is not found
      * @throws IllegalStateException if the region is not live
      */
-    public MemorySegment regionSegment(RegionId id) {
+    @Override
+    public MemorySegment currentSlice(RegionId id) {
+        return regionSegment(id);
+    }
+
+    @Override
+    public int generation(RegionId id) {
+        return generations.computeIfAbsent(id, _ -> new java.util.concurrent.atomic.AtomicInteger(0)).get();
+    }
+
+    // ── Specialized Typed Region Openers ──
+
+    public com.spectrayan.spector.memory.cortex.WorkingMemory openWorking(int quantizedVecBytes, int capacity) {
+        return com.spectrayan.spector.memory.cortex.WorkingMemory.fromRegionRef(regionRef(RegionId.WORKING), quantizedVecBytes, capacity, bundlePath, isNew);
+    }
+
+    public com.spectrayan.spector.memory.cortex.insula.InsularCortex openInsula() {
+        return com.spectrayan.spector.memory.cortex.insula.InsularCortex.fromRegionRef(regionRef(RegionId.INSULA), isNew);
+    }
+
+    public java.util.Optional<com.spectrayan.spector.memory.cortex.ContinuityMemory> openContinuity() {
+        if (!hasRegion(RegionId.CONTINUITY)) return java.util.Optional.empty();
+        return java.util.Optional.of(com.spectrayan.spector.memory.cortex.ContinuityMemory.fromRegionRef(regionRef(RegionId.CONTINUITY), isNew));
+    }
+
+    public java.util.Optional<com.spectrayan.spector.memory.cortex.ProvenanceMemory> openProvenance(int capacity) {
+        if (!hasRegion(RegionId.PROVENANCE)) return java.util.Optional.empty();
+        return java.util.Optional.of(com.spectrayan.spector.memory.cortex.ProvenanceMemory.fromRegionRef(regionRef(RegionId.PROVENANCE), bundlePath));
+    }
+
+    public com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase openHebbian(int graphCapacity, int edgeCapacity, int maxDegree, com.spectrayan.spector.memory.graph.EdgeImportance edgeImportance) {
+        return com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory.fromRegionRef(
+                regionRef(RegionId.HEBBIAN), graphCapacity, edgeCapacity, maxDegree, edgeImportance, bundlePath, isNew);
+    }
+
+    public com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory openTemporalChain(int temporalCapacity) {
+        return com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory.fromRegionRef(
+                regionRef(RegionId.TEMPORAL_CHAIN), temporalCapacity, bundlePath, isNew);
+    }
+
+    public com.spectrayan.spector.memory.graph.HyperEntityGraphMemory openHyperGraph(int hyperCap, int hyperEdgeCap) {
+        return com.spectrayan.spector.memory.graph.HyperEntityGraphMemory.fromRegionRef(
+                regionRef(RegionId.HYPERGRAPH), hyperCap, hyperEdgeCap, bundlePath, isNew);
+    }
+
+    public com.spectrayan.spector.memory.graph.TypeRegistryMemory openRegistry(RegionId id, com.spectrayan.spector.memory.kernel.SystemMemoryId sysId, String[] seedTypes) {
+        return com.spectrayan.spector.memory.graph.TypeRegistryMemory.fromRegionRef(
+                sysId, regionRef(id), bundlePath, isNew, seedTypes);
+    }
+
+    public com.spectrayan.spector.memory.graph.EntityDirectory openEntityDirectory(int dirCap, com.spectrayan.spector.memory.graph.TypeRegistryMemory typeRegistry) {
+        return com.spectrayan.spector.memory.graph.EntityDirectory.fromRegionRefs(
+                regionRef(RegionId.ENTITY_DIRECTORY), regionRef(RegionId.ENTITY_NAMES), dirCap, typeRegistry, bundlePath, isNew);
+    }
+
+    public com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph openTemporalKnowledgeGraph(com.spectrayan.spector.memory.graph.TypeRegistryMemory predRegistry) {
+        return com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph.fromRegionRef(
+                predRegistry, regionRef(RegionId.TEMPORAL_FACTS), bundlePath, isNew);
+    }
+
+    public com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory openCoActivation(int pairCap, int edgeCap) {
+        MemorySegment ckpt = hasRegion(RegionId.CHECKPOINT) ? currentSlice(RegionId.CHECKPOINT) : null;
+        return com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory.fromRegionRef(
+                regionRef(RegionId.COACTIVATION), pairCap, edgeCap, bundlePath, isNew, ckpt);
+    }
+
+    public com.spectrayan.spector.memory.cortex.index.MemoryIndex openMemoryIndex() {
+        return com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.fromRegionRefs(
+                regionRef(RegionId.INDEX_MIDX), regionRef(RegionId.INDEX_IDPL), bundlePath, isNew);
+    }
+
+    public RegionRef checkpointRef() {
+        return hasRegion(RegionId.CHECKPOINT) ? regionRef(RegionId.CHECKPOINT) : null;
+    }
+
+    // ── Generic RegionOpener Implementation ──
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> com.spectrayan.spector.memory.kernel.shape.RecordMemory<L> openRecord(RegionId id, L layout) {
+        RegionRef ref = regionRef(id);
+        int count = hasRegion(id) ? (int) com.spectrayan.spector.memory.kernel.RegionPreamble.readCount(currentSlice(id), 0L) : 0;
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultRecordMemory<>(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), layout, 0, ref, count, bundlePath != null, bundlePath);
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> com.spectrayan.spector.memory.kernel.shape.AppendMemory<L> openAppend(RegionId id, L layout) {
+        RegionRef ref = regionRef(id);
+        int count = hasRegion(id) ? (int) com.spectrayan.spector.memory.kernel.RegionPreamble.readCount(currentSlice(id), 0L) : 0;
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultAppendMemory<>(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), layout, 0, ref, count, bundlePath != null, bundlePath);
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> com.spectrayan.spector.memory.kernel.shape.GraphMemory<L> openGraph(RegionId id, L layout) {
+        RegionRef ref = regionRef(id);
+        int count = hasRegion(id) ? (int) com.spectrayan.spector.memory.kernel.RegionPreamble.readCount(currentSlice(id), 0L) : 0;
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultGraphMemory<>(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), layout, 1000, 2000, ref, count, bundlePath != null, bundlePath);
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> com.spectrayan.spector.memory.kernel.shape.ChainMemory<L> openChain(RegionId id, L layout) {
+        RegionRef ref = regionRef(id);
+        int count = hasRegion(id) ? (int) com.spectrayan.spector.memory.kernel.RegionPreamble.readCount(currentSlice(id), 0L) : 0;
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultChainMemory<>(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), layout, 0, ref, count, bundlePath != null, bundlePath);
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> com.spectrayan.spector.memory.kernel.shape.HashTableMemory<L> openHashTable(RegionId id, L layout) {
+        RegionRef ref = regionRef(id);
+        int count = hasRegion(id) ? (int) com.spectrayan.spector.memory.kernel.RegionPreamble.readCount(currentSlice(id), 0L) : 0;
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultHashTableMemory<>(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), layout, 0, ref, count, bundlePath != null, bundlePath);
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.kernel.shape.RegistryMemory openRegistry(RegionId id) {
+        RegionRef ref = regionRef(id);
+        int count = hasRegion(id) ? (int) com.spectrayan.spector.memory.kernel.RegionPreamble.readCount(currentSlice(id), 0L) : 0;
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultRegistryMemory(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), new com.spectrayan.spector.memory.kernel.layout.RegistryLayout(), 0, ref, count, bundlePath != null, bundlePath);
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.RecordMemory<L>> tryOpenRecord(RegionId id, L layout) {
+        if (!hasRegion(id)) return java.util.Optional.empty();
+        return java.util.Optional.of(openRecord(id, layout));
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.AppendMemory<L>> tryOpenAppend(RegionId id, L layout) {
+        if (!hasRegion(id)) return java.util.Optional.empty();
+        return java.util.Optional.of(openAppend(id, layout));
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.GraphMemory<L>> tryOpenGraph(RegionId id, L layout) {
+        if (!hasRegion(id)) return java.util.Optional.empty();
+        return java.util.Optional.of(openGraph(id, layout));
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.ChainMemory<L>> tryOpenChain(RegionId id, L layout) {
+        if (!hasRegion(id)) return java.util.Optional.empty();
+        return java.util.Optional.of(openChain(id, layout));
+    }
+
+    @Override
+    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.HashTableMemory<L>> tryOpenHashTable(RegionId id, L layout) {
+        if (!hasRegion(id)) return java.util.Optional.empty();
+        return java.util.Optional.of(openHashTable(id, layout));
+    }
+
+    @Override
+    public java.util.Optional<com.spectrayan.spector.memory.kernel.shape.RegistryMemory> tryOpenRegistry(RegionId id) {
+        if (!hasRegion(id)) return java.util.Optional.empty();
+        return java.util.Optional.of(openRegistry(id));
+    }
+
+    MemorySegment regionSegment(RegionId id) {
         // Fast path: optimistic read
         long stamp = remapLock.tryOptimisticRead();
         Map<RegionId, MemorySegment> slices = this.regionSlices;
@@ -240,9 +396,7 @@ public final class RuntimeBundle implements AutoCloseable {
         }
     }
 
-    /**
-     * Checks whether the runtime bundle contains the specified region.
-     */
+    @Override
     public boolean hasRegion(RegionId id) {
         long stamp = remapLock.tryOptimisticRead();
         Map<RegionId, MemorySegment> slices = this.regionSlices;
@@ -257,10 +411,7 @@ public final class RuntimeBundle implements AutoCloseable {
         }
     }
 
-    /**
-     * Returns the region slice for the specified region if present, or {@code null} if not found.
-     */
-    public MemorySegment optionalRegionSegment(RegionId id) {
+    MemorySegment optionalRegionSegment(RegionId id) {
         if (!hasRegion(id)) {
             return null;
         }
@@ -271,10 +422,7 @@ public final class RuntimeBundle implements AutoCloseable {
         }
     }
 
-    /**
-     * Returns the shared arena. Stores must <b>not</b> close this arena.
-     */
-    public Arena arena() {
+    Arena arena() {
         return arena;
     }
 
@@ -375,6 +523,7 @@ public final class RuntimeBundle implements AutoCloseable {
                 this.masterSegment = newMapped;
                 this.directory = newDir;
                 this.regionSlices = buildSliceMap(newMapped, newDir);
+                generations.computeIfAbsent(regionId, _ -> new java.util.concurrent.atomic.AtomicInteger(0)).incrementAndGet();
 
                 log.info("Grew region {} in runtime bundle: {} ({}KB → {}KB, tail@{})",
                         regionId, bundlePath,

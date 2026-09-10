@@ -72,10 +72,44 @@ public final class TypeRegistryMemory extends AbstractRegistryMemory {
         this.label = systemMemoryId.id().memoryName();
     }
 
+    private TypeRegistryMemory(SystemMemoryId systemMemoryId, RegistryLayout layout, int capacity,
+                               com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, int count,
+                               boolean persistent, Path filePath) {
+        super(systemMemoryId.id(), layout, capacity, regionRef, count, persistent, filePath);
+        this.label = systemMemoryId.id().memoryName();
+    }
+
+    public static TypeRegistryMemory fromRegionRef(SystemMemoryId systemMemoryId, com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, Path bundlePath, boolean isNew, String... seedTypes) {
+        RegistryLayout layout = new RegistryLayout();
+        MemorySegment regionSlice = regionRef.resolve();
+        if (isNew) {
+            long now = System.currentTimeMillis();
+            RegionPreamble.write(regionSlice, 0L, layout.schemaVersion(), MemoryShape.REGISTRY, 0,
+                    (int) regionSlice.byteSize(), 0, 0, layout.layoutId(), now, now);
+        }
+
+        TypeRegistryMemory reg = new TypeRegistryMemory(systemMemoryId, layout, 1024, regionRef,
+                isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0L),
+                true, bundlePath);
+
+        if (seedTypes != null) {
+            for (String seed : seedTypes) {
+                if (seed != null) {
+                    reg.intern(seed);
+                }
+            }
+        }
+        return reg;
+    }
+
     public static TypeRegistryMemory seeded(SystemMemoryId systemMemoryId, String... seedTypes) {
         TypeRegistryMemory registry = new TypeRegistryMemory(systemMemoryId);
-        for (String type : seedTypes) {
-            registry.intern(type);
+        if (seedTypes != null) {
+            for (String type : seedTypes) {
+                if (type != null) {
+                    registry.intern(type);
+                }
+            }
         }
         return registry;
     }
@@ -108,8 +142,12 @@ public final class TypeRegistryMemory extends AbstractRegistryMemory {
                 isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0L),
                 true, bundlePath, null, true);
 
-        for (String seed : seedTypes) {
-            reg.intern(seed);
+        if (seedTypes != null) {
+            for (String seed : seedTypes) {
+                if (seed != null) {
+                    reg.intern(seed);
+                }
+            }
         }
 
         // Migrate legacy standalone TypeRegistry if it exists
@@ -199,8 +237,12 @@ public final class TypeRegistryMemory extends AbstractRegistryMemory {
                 TypeRegistryMemory registry = new TypeRegistryMemory(systemMemoryId, filePath);
 
                 // Ensure all seed types are present (e.g. if new seed types were added)
-                for (String seed : seedTypes) {
-                    registry.intern(seed);
+                if (seedTypes != null) {
+                    for (String seed : seedTypes) {
+                        if (seed != null) {
+                            registry.intern(seed);
+                        }
+                    }
                 }
                 log.info("{} registry loaded (SMKM V1): {} types from {}", label, registry.size(), filePath.getFileName());
                 return registry;
@@ -236,8 +278,12 @@ public final class TypeRegistryMemory extends AbstractRegistryMemory {
                 }
 
                 // Ensure all seed types are present
-                for (String seed : seedTypes) {
-                    registry.intern(seed);
+                if (seedTypes != null) {
+                    for (String seed : seedTypes) {
+                        if (seed != null) {
+                            registry.intern(seed);
+                        }
+                    }
                 }
                 log.info("{} registry loaded (legacy V1): {} types from {}", label, registry.size(), filePath.getFileName());
                 return registry;

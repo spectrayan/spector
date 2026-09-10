@@ -32,6 +32,7 @@ import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
@@ -196,6 +197,26 @@ public abstract class AbstractEngramMemory<L extends FixedEngramLayout>
         }
     }
 
+    protected AbstractEngramMemory(MemoryType type, L cogLayout,
+                                    int capacity, RegionRef regionRef,
+                                    Path bundlePath, boolean isNew) {
+        super(tierId(type), cogLayout, capacity,
+              regionRef,
+              isNew ? 0 : (int) RegionPreamble.readCount(regionRef.resolve(), 0),
+              true, bundlePath);
+        if (isNew) {
+            setCount(0);
+            writeMetadata();
+            log.info("{} initialized new bundle region in: {} ({}KB)",
+                    getClass().getSimpleName(), bundlePath, regionRef.resolve().byteSize() / 1024);
+        } else {
+            readMetadata();
+            publishVisible();
+            log.info("{} loaded from bundle region in: {} ({} records)",
+                    getClass().getSimpleName(), bundlePath, count);
+        }
+    }
+
     /** Derives the stable, tier-scoped identity for this store (e.g. {@code tier/semantic}). */
     private static MemoryId tierId(MemoryType type) {
         return switch (type) {
@@ -212,7 +233,7 @@ public abstract class AbstractEngramMemory<L extends FixedEngramLayout>
     protected void writeMetadata() {
         if (!persistent) return;
         long now = System.currentTimeMillis();
-        RegionPreamble.write(segment, 0, 1, MemoryShape.RECORD, 1, capacity, count,
+        RegionPreamble.write(segment(), 0, 1, MemoryShape.RECORD, 1, capacity, count,
                 layout.stride(), layout.layoutId(), now, now);
     }
 
@@ -220,14 +241,15 @@ public abstract class AbstractEngramMemory<L extends FixedEngramLayout>
      * Reads the metadata header from the mapped segment.
      */
     protected void readMetadata() {
-        if (RegionPreamble.isValid(segment, 0)) {
-            setCount((int) RegionPreamble.readCount(segment, 0));
+        MemorySegment seg = segment();
+        if (RegionPreamble.isValid(seg, 0)) {
+            setCount((int) RegionPreamble.readCount(seg, 0));
             return;
         }
         // Fallback for legacy TIER header
-        int magic = segment.get(ValueLayout.JAVA_INT, 0);
+        int magic = seg.get(ValueLayout.JAVA_INT, 0);
         if (magic == TIER_MAGIC) {
-            setCount(segment.get(ValueLayout.JAVA_INT, 8));
+            setCount(seg.get(ValueLayout.JAVA_INT, 8));
         } else {
             log.warn("Invalid header magic in {}: 0x{}", filePath(), Integer.toHexString(magic));
             setCount(0);
@@ -238,11 +260,12 @@ public abstract class AbstractEngramMemory<L extends FixedEngramLayout>
      * Persists the current count to the metadata header.
      */
     protected void persistCount() {
-        if (persistent) {
-            if (RegionPreamble.isValid(segment, 0)) {
-                RegionPreamble.writeCount(segment, 0, count);
+        if (persistent || isBundleManaged()) {
+            MemorySegment seg = segment();
+            if (RegionPreamble.isValid(seg, 0)) {
+                RegionPreamble.writeCount(seg, 0, count);
             } else {
-                segment.set(ValueLayout.JAVA_INT, 8, count);
+                seg.set(ValueLayout.JAVA_INT, 8, count);
             }
         }
     }
@@ -251,12 +274,12 @@ public abstract class AbstractEngramMemory<L extends FixedEngramLayout>
      * Returns the byte offset where data records begin.
      */
     public long dataOffset() {
-        return persistent ? METADATA_PREAMBLE_BYTES : 0;
+        return (persistent || isBundleManaged()) ? METADATA_PREAMBLE_BYTES : 0;
     }
 
     @Override
     public int size() {
-        return count;
+        return super.size();
     }
 
     @Override
@@ -274,29 +297,29 @@ public abstract class AbstractEngramMemory<L extends FixedEngramLayout>
     @Override
     public long write(long recordId, MemorySegment recordBytes) {
         long offset = recordOffset(recordId);
-        MemorySegment.copy(recordBytes, 0, segment, offset, Math.min(recordBytes.byteSize(), layout.stride()));
+        MemorySegment.copy(recordBytes, 0, segment(), offset, Math.min(recordBytes.byteSize(), layout.stride()));
         return offset;
     }
 
     @Override
     public void read(long recordId, MemorySegment dest) {
         long offset = recordOffset(recordId);
-        MemorySegment.copy(segment, offset, dest, 0, Math.min(dest.byteSize(), layout.stride()));
+        MemorySegment.copy(segment(), offset, dest, 0, Math.min(dest.byteSize(), layout.stride()));
     }
 
     @Override
     public MemorySegment primarySegment() {
-        return segment;
+        return segment();
     }
 
     @Override
     public MemorySegment segment() {
-        return segment;
+        return super.segment();
     }
 
     @Override
     public MemorySegment headerSlab() {
-        return segment;
+        return segment();
     }
 
     @Override

@@ -19,6 +19,7 @@ import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.text.StemmingAnalyzer;
 import com.spectrayan.spector.memory.kernel.bundle.BundleManager;
 import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 
 import java.lang.foreign.MemorySegment;
@@ -270,20 +271,19 @@ public final class MemoryBM25Index implements AutoCloseable {
         }
 
         try {
-            MemorySegment bm25Region = runtimeBundle.regionSegment(RegionId.BM25);
-            if (bm25Region == null) {
+            RegionRef bm25Ref = runtimeBundle.regionRef(RegionId.BM25);
+            if (bm25Ref == null) {
                 return -1;
             }
 
-            int written = partition(0).saveToRegion(bm25Region);
+            int written = partition(0).saveToRegion(bm25Ref.resolve());
             if (written == -1) {
                 // Payload exceeds current capacity -> dynamically grow BM25 region
                 log.info("BM25 index exceeded region capacity; triggering dynamic region growth");
                 runtimeBundle.growRegion(RegionId.BM25);
 
                 // Fetch new expanded slice and retry write
-                MemorySegment grownRegion = runtimeBundle.regionSegment(RegionId.BM25);
-                written = partition(0).saveToRegion(grownRegion);
+                written = partition(0).saveToRegion(bm25Ref.resolve());
             }
 
             if (written > 0) {
@@ -307,9 +307,9 @@ public final class MemoryBM25Index implements AutoCloseable {
             return null;
         }
         try {
-            MemorySegment bm25Region = runtimeBundle.regionSegment(RegionId.BM25);
-            if (bm25Region != null) {
-                return BM25Index.loadFromRegion(bm25Region);
+            RegionRef bm25Ref = runtimeBundle.regionRef(RegionId.BM25);
+            if (bm25Ref != null) {
+                return BM25Index.loadFromRegion(bm25Ref.resolve());
             }
         } catch (Exception e) {
             log.debug("BM25 load from bundle region failed: {}", e.getMessage());

@@ -19,19 +19,15 @@ import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
 import java.nio.file.Path;
 
 /**
- * Standard default implementation of {@link AppendMemory} backed by a {@link RegionRef}.
+ * Standard default implementation of {@link GraphMemory} backed by a {@link RegionRef}.
  *
  * @param <L> the layout type
  */
-public class DefaultAppendMemory<L extends RegionLayout> extends AbstractAppendMemory<L> {
+public class DefaultGraphMemory<L extends RegionLayout> extends AdjacencyListGraphMemory<L> {
 
-    public DefaultAppendMemory(MemoryId id, L layout, int capacity,
-                               RegionRef regionRef, int count,
-                               boolean persistent, Path filePath) {
-        super(id, layout, capacity, regionRef, count, persistent, filePath);
-    }
-
-    public DefaultAppendMemory(MemoryId id, L layout, int capacity, long segmentBytes, Path filePath) {
-        super(id, layout, capacity, segmentBytes, filePath);
+    public DefaultGraphMemory(MemoryId id, L layout, int vertexCapacity, int edgeCapacity,
+                              RegionRef regionRef, int count,
+                              boolean persistent, Path filePath) {
+        super(id, layout, vertexCapacity, edgeCapacity, regionRef, count, persistent, filePath);
     }
 }

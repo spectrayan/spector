@@ -39,6 +39,7 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
     private final MemoryId id;
     private final Arena arena;
     private final MemorySegment segment;
+    private final com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef;
     private final boolean bundleManaged;
     private final ReentrantLock writeLock = new ReentrantLock();
 
@@ -49,10 +50,44 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
         this.id = id;
         this.arena = arena;
         this.segment = segment;
+        this.regionRef = null;
+        this.bundleManaged = bundleManaged;
+    }
+
+    private InsularCortex(MemoryId id, com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, boolean bundleManaged) {
+        this.id = id;
+        this.arena = null;
+        this.segment = null;
+        this.regionRef = regionRef;
         this.bundleManaged = bundleManaged;
     }
 
     // ── Factory Methods ──
+
+    /**
+     * Creates an InsularCortex region from a bundle RegionRef.
+     */
+    public static InsularCortex fromRegionRef(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef, boolean isNew) {
+        MemoryId memoryId = SystemMemoryId.INSULA.id();
+        MemorySegment regionSlice = regionRef.resolve();
+        boolean effectivelyNew = isNew || !RegionPreamble.isValid(regionSlice, 0L);
+        if (effectivelyNew) {
+            long now = System.currentTimeMillis();
+            RegionPreamble.write(regionSlice, 0L, InsularLayout.SCHEMA_VERSION, MemoryShape.INSULAR, 1,
+                    1, 0, 0, InsularLayout.LAYOUT_ID, now, now);
+
+            regionSlice.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_VERSION, 0);
+            regionSlice.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_DATA_LENGTH, 0);
+            regionSlice.set(ValueLayout.JAVA_LONG_UNALIGNED, HEADER_START + InsularLayout.OFF_UPDATED_AT, 0L);
+            regionSlice.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_CHECKSUM, 0);
+            regionSlice.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_FLAGS, InsularLayout.FLAG_EMPTY);
+            regionSlice.set(ValueLayout.JAVA_LONG_UNALIGNED, HEADER_START + 24, 0L); // reserved
+            regionSlice.force();
+        } else {
+            validateHeader(regionSlice);
+        }
+        return new InsularCortex(memoryId, regionRef, true);
+    }
 
     /**
      * Creates an InsularCortex region from an existing bundle slice.
@@ -121,7 +156,7 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
         
         writeLock.lock();
         try {
-            long maxPayloadSize = segment.byteSize() - DATA_START;
+            long maxPayloadSize = segment().byteSize() - DATA_START;
             if (selfModelJson.length > maxPayloadSize) {
                 throw new SpectorMemoryException(ErrorCode.MEMORY_TIER_FULL,
                         "Self-model size of " + selfModelJson.length + " bytes exceeds allocated capacity of " + maxPayloadSize + " bytes");
@@ -133,24 +168,24 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
             int checksum = (int) crc32c.getValue();
 
             // Read version and increment
-            int currentVersion = segment.get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_VERSION);
+            int currentVersion = segment().get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_VERSION);
             int nextVersion = currentVersion + 1;
             long now = System.currentTimeMillis();
 
             // Write JSON payload
-            MemorySegment.copy(MemorySegment.ofArray(selfModelJson), 0L, segment, DATA_START, selfModelJson.length);
+            MemorySegment.copy(MemorySegment.ofArray(selfModelJson), 0L, segment(), DATA_START, selfModelJson.length);
 
             // Write insular sub-header
-            segment.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_VERSION, nextVersion);
-            segment.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_DATA_LENGTH, selfModelJson.length);
-            segment.set(ValueLayout.JAVA_LONG_UNALIGNED, HEADER_START + InsularLayout.OFF_UPDATED_AT, now);
-            segment.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_CHECKSUM, checksum);
-            segment.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_FLAGS, InsularLayout.FLAG_PRESENT);
+            segment().set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_VERSION, nextVersion);
+            segment().set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_DATA_LENGTH, selfModelJson.length);
+            segment().set(ValueLayout.JAVA_LONG_UNALIGNED, HEADER_START + InsularLayout.OFF_UPDATED_AT, now);
+            segment().set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_CHECKSUM, checksum);
+            segment().set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_FLAGS, InsularLayout.FLAG_PRESENT);
 
             // Recompute master RegionPreamble CRC by rewriting it
-            long createdAt = RegionPreamble.readCreatedAt(segment, 0L);
-            int flags = RegionPreamble.readFlags(segment, 0L);
-            RegionPreamble.write(segment, 0L, InsularLayout.SCHEMA_VERSION, MemoryShape.INSULAR, flags,
+            long createdAt = RegionPreamble.readCreatedAt(segment(), 0L);
+            int flags = RegionPreamble.readFlags(segment(), 0L);
+            RegionPreamble.write(segment(), 0L, InsularLayout.SCHEMA_VERSION, MemoryShape.INSULAR, flags,
                     1L, 1L, 0, InsularLayout.LAYOUT_ID, createdAt, now);
 
             flush();
@@ -164,23 +199,23 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
      * Reads the current self-model JSON, if present.
      */
     public Optional<byte[]> get() {
-        int flags = segment.get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_FLAGS);
+        int flags = segment().get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_FLAGS);
         if (flags == InsularLayout.FLAG_EMPTY) {
             return Optional.empty();
         }
 
-        int length = segment.get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_DATA_LENGTH);
-        if (length < 0 || length > segment.byteSize() - DATA_START) {
+        int length = segment().get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_DATA_LENGTH);
+        if (length < 0 || length > segment().byteSize() - DATA_START) {
             throw new SpectorMemoryException(ErrorCode.GRAPH_PERSISTENCE_FAILED, "InsularCortex", "Corrupted self-model payload length: " + length);
         }
 
         byte[] payload = new byte[length];
-        MemorySegment.copy(segment, DATA_START, MemorySegment.ofArray(payload), 0L, length);
+        MemorySegment.copy(segment(), DATA_START, MemorySegment.ofArray(payload), 0L, length);
 
         // Check checksum
         CRC32C crc32c = new CRC32C();
         crc32c.update(payload, 0, length);
-        int expectedChecksum = segment.get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_CHECKSUM);
+        int expectedChecksum = segment().get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_CHECKSUM);
         if ((int) crc32c.getValue() != expectedChecksum) {
             throw new SpectorMemoryException(ErrorCode.GRAPH_PERSISTENCE_FAILED, "InsularCortex", "CRC32C checksum mismatch");
         }
@@ -194,26 +229,26 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
     public boolean clear() {
         writeLock.lock();
         try {
-            int flags = segment.get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_FLAGS);
+            int flags = segment().get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_FLAGS);
             if (flags == InsularLayout.FLAG_EMPTY) {
                 return false;
             }
 
-            int currentVersion = segment.get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_VERSION);
+            int currentVersion = segment().get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_VERSION);
             int nextVersion = currentVersion + 1;
             long now = System.currentTimeMillis();
 
             // Set flags to empty and reset version
-            segment.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_VERSION, nextVersion);
-            segment.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_DATA_LENGTH, 0);
-            segment.set(ValueLayout.JAVA_LONG_UNALIGNED, HEADER_START + InsularLayout.OFF_UPDATED_AT, now);
-            segment.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_CHECKSUM, 0);
-            segment.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_FLAGS, InsularLayout.FLAG_EMPTY);
+            segment().set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_VERSION, nextVersion);
+            segment().set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_DATA_LENGTH, 0);
+            segment().set(ValueLayout.JAVA_LONG_UNALIGNED, HEADER_START + InsularLayout.OFF_UPDATED_AT, now);
+            segment().set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_CHECKSUM, 0);
+            segment().set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_FLAGS, InsularLayout.FLAG_EMPTY);
 
             // Re-write RegionPreamble with count 0L
-            long createdAt = RegionPreamble.readCreatedAt(segment, 0L);
-            int headerFlags = RegionPreamble.readFlags(segment, 0L);
-            RegionPreamble.write(segment, 0L, InsularLayout.SCHEMA_VERSION, MemoryShape.INSULAR, headerFlags,
+            long createdAt = RegionPreamble.readCreatedAt(segment(), 0L);
+            int headerFlags = RegionPreamble.readFlags(segment(), 0L);
+            RegionPreamble.write(segment(), 0L, InsularLayout.SCHEMA_VERSION, MemoryShape.INSULAR, headerFlags,
                     1L, 0L, 0, InsularLayout.LAYOUT_ID, createdAt, now);
 
             flush();
@@ -229,7 +264,7 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
      * @return the version integer
      */
     public int version() {
-        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_VERSION);
+        return segment().get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_VERSION);
     }
 
     /**
@@ -238,7 +273,7 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
      * @return the update timestamp in milliseconds
      */
     public long updatedAt() {
-        return segment.get(ValueLayout.JAVA_LONG_UNALIGNED, HEADER_START + InsularLayout.OFF_UPDATED_AT);
+        return segment().get(ValueLayout.JAVA_LONG_UNALIGNED, HEADER_START + InsularLayout.OFF_UPDATED_AT);
     }
 
     /**
@@ -247,7 +282,7 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
      * @return true if a self-model exists, false otherwise
      */
     public boolean isPresent() {
-        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_FLAGS) == InsularLayout.FLAG_PRESENT;
+        return segment().get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_FLAGS) == InsularLayout.FLAG_PRESENT;
     }
 
     // ── Memory Interface Contract ──
@@ -269,6 +304,9 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
 
     @Override
     public MemorySegment segment() {
+        if (regionRef != null) {
+            return regionRef.resolve();
+        }
         return segment;
     }
 
@@ -294,14 +332,15 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
 
     @Override
     public void flush() {
-        if (segment.isMapped()) {
-            segment.force();
+        MemorySegment seg = segment();
+        if (seg != null && seg.isMapped()) {
+            seg.force();
         }
     }
 
     @Override
     public void close() {
-        if (!bundleManaged) {
+        if (!bundleManaged && arena != null) {
             arena.close();
         }
     }

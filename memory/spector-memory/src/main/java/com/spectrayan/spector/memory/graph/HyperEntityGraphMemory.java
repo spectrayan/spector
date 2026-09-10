@@ -186,6 +186,67 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
         return new HyperEntityGraphMemory(arena, regionSlice, entityCapacity, hyperedgeCapacity, bundlePath, isNew);
     }
 
+    public static HyperEntityGraphMemory fromRegionRef(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef,
+                                                        int entityCapacity, int hyperedgeCapacity,
+                                                        Path bundlePath, boolean isNew) {
+        return new HyperEntityGraphMemory(regionRef, entityCapacity, hyperedgeCapacity, bundlePath, isNew);
+    }
+
+    private HyperEntityGraphMemory(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef,
+                                   int entityCapacity, int hyperedgeCapacity,
+                                   Path bundlePath, boolean isNew) {
+        super(MEMORY_ID, LAYOUT, hyperedgeCapacity, regionRef,
+              isNew ? 0 : (int) RegionPreamble.readCount(regionRef.resolve(), 0L),
+              true, bundlePath);
+        this.bundleManaged = true;
+        this.entityCapacity = entityCapacity;
+        MemorySegment regionSlice = regionRef.resolve();
+        long availableBytes = Math.max(0L, regionSlice.byteSize() - DATA_START);
+        long bytesPerHedge = HyperEntityLayout.HEDGE_BYTES + (long) HyperEntityLayout.VERTEX_BYTES * HyperEntityLayout.MAX_VERTICES_PER_EDGE;
+        int availableHedgeCap = (int) (availableBytes / bytesPerHedge);
+        this.hyperedgeCapacity = Math.min(hyperedgeCapacity, availableHedgeCap);
+        this.vertexCapacity = this.hyperedgeCapacity * HyperEntityLayout.MAX_VERTICES_PER_EDGE;
+        this.incidenceCapacity = entityCapacity * HyperEntityLayout.MAX_HYPEREDGES_PER_ENTITY;
+
+        long hedgeBytes = (long) HyperEntityLayout.HEDGE_BYTES * this.hyperedgeCapacity;
+        long vertexBytes = (long) HyperEntityLayout.VERTEX_BYTES * this.vertexCapacity;
+
+        this.hedges = segment().asSlice(DATA_START, hedgeBytes);
+        this.vertices = segment().asSlice(DATA_START + hedgeBytes, vertexBytes);
+
+        Arena arena = Arena.ofShared();
+        this.incidenceIndex = arena.allocate((long) (entityCapacity + 1) * Integer.BYTES);
+        this.incidenceIndex.fill((byte) 0);
+        this.incidenceList = arena.allocate((long) HyperEntityLayout.INCIDENCE_ENTRY_BYTES * incidenceCapacity);
+        this.incidenceList.fill((byte) 0);
+
+        if (isNew) {
+            writeSmkmHeaderToSegment(segment(), entityCapacity, hyperedgeCapacity, 0, 0, 0);
+            hedges.fill((byte) 0);
+            vertices.fill((byte) 0);
+            this.nextHyperedgeId = 0;
+            this.nextVertexOffset = 0;
+            this.totalHyperedges = 0;
+        } else {
+            this.nextHyperedgeId = segment().get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_NEXT_HYPEREDGE_ID);
+            this.nextVertexOffset = segment().get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_NEXT_VERTEX_OFFSET);
+            this.totalHyperedges = segment().get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_TOTAL_HYPEREDGES);
+        }
+
+        this.incidenceHeap = new java.util.ArrayList<>(entityCapacity);
+        for (int i = 0; i < entityCapacity; i++) {
+            incidenceHeap.add(new java.util.ArrayList<>(4));
+        }
+
+        if (nextHyperedgeId > 0) {
+            rebuildIncidenceLists();
+        }
+
+        long totalKB = (hedgeBytes + vertexBytes) / 1024;
+        log.info("HyperEntityGraphMemory initialized (regionRef): entities={}, hedges={}, memory={}KB",
+                entityCapacity, this.hyperedgeCapacity, totalKB);
+    }
+
     private HyperEntityGraphMemory(Arena arena, MemorySegment regionSlice,
                                    int entityCapacity, int hyperedgeCapacity,
                                    Path bundlePath, boolean isNew) {

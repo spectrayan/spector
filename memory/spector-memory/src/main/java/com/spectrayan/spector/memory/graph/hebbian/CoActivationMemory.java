@@ -200,14 +200,27 @@ public final class CoActivationMemory extends AbstractHashTableMemory<CoActivati
         return new CoActivationMemory(arena, regionSlice, pairCap, edgeCap, bundlePath, isNew, checkpointRegion);
     }
 
-    private CoActivationMemory(Arena arena, MemorySegment regionSlice,
-                                     int pairCap, int edgeCap,
-                                     Path bundlePath, boolean isNew,
-                                     MemorySegment checkpointRegion) {
+    public static CoActivationMemory fromRegionRef(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef,
+                                                   int pairCap, int edgeCap,
+                                                   Path bundlePath, boolean isNew) {
+        return new CoActivationMemory(regionRef, pairCap, edgeCap, bundlePath, isNew, null);
+    }
+
+    public static CoActivationMemory fromRegionRef(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef,
+                                                   int pairCap, int edgeCap,
+                                                   Path bundlePath, boolean isNew,
+                                                   MemorySegment checkpointRegion) {
+        return new CoActivationMemory(regionRef, pairCap, edgeCap, bundlePath, isNew, checkpointRegion);
+    }
+
+    private CoActivationMemory(com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef,
+                               int pairCap, int edgeCap,
+                               Path bundlePath, boolean isNew,
+                               MemorySegment checkpointRegion) {
         super(SystemMemoryId.COACTIVATION.id(), new CoActivationLayout(),
-              pairCap, arena, regionSlice,
-              isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0),
-              true, bundlePath, null, true); // bundleManaged=true
+              pairCap, regionRef,
+              isNew ? 0 : (int) RegionPreamble.readCount(regionRef.resolve(), 0),
+              true, bundlePath);
         this.checkpointRegion = checkpointRegion;
 
         MemorySegment segment = segment();
@@ -241,6 +254,10 @@ public final class CoActivationMemory extends AbstractHashTableMemory<CoActivati
         this.pairTable = new OffHeapPairTable(resolvedPairCap, segment.asSlice(dataOffset + layout.pairTableOffset(), (long) CoActivationLayout.PAIR_SLOT_BYTES * resolvedPairCap), 0);
         this.edgeTable = new OffHeapEdgeTable(resolvedEdgeCap, segment.asSlice(dataOffset + layout.edgeTableOffset(resolvedPairCap), (long) CoActivationLayout.EDGE_SLOT_BYTES * resolvedEdgeCap), 0);
 
+        initBundleMetadata(isNew, bundlePath, checkpointRegion, resolvedPairCap, resolvedEdgeCap);
+    }
+
+    private void initBundleMetadata(boolean isNew, Path bundlePath, MemorySegment checkpointRegion, int pairCap, int edgeCap) {
         // One-time migration of standalone legacy file into bundle region
         if (isNew && bundlePath != null) {
             Path legacyPath = bundlePath.resolveSibling("coactivation.dat");
@@ -327,11 +344,53 @@ public final class CoActivationMemory extends AbstractHashTableMemory<CoActivati
                 }
             }
         }
-
         this.checkpointRegion = checkpointRegion;
-
         log.info("CoActivationMemory initialized (bundle): pairCap={}, edgeCap={}, count={}",
                 pairCap, edgeCap, size());
+    }
+
+    private CoActivationMemory(Arena arena, MemorySegment regionSlice,
+                                     int pairCap, int edgeCap,
+                                     Path bundlePath, boolean isNew,
+                                     MemorySegment checkpointRegion) {
+        super(SystemMemoryId.COACTIVATION.id(), new CoActivationLayout(),
+              pairCap, arena, regionSlice,
+              isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0),
+              true, bundlePath, null, true); // bundleManaged=true
+        this.checkpointRegion = checkpointRegion;
+
+        MemorySegment segment = segment();
+        long dataOffset = dataOffset();
+        int resolvedPairCap = pairCap;
+        int resolvedEdgeCap = edgeCap;
+
+        if (isNew) {
+            long totalBytes = layout.totalDataBytes(pairCap, edgeCap);
+            segment.set(ValueLayout.JAVA_INT, dataOffset, pairCap);
+            segment.set(ValueLayout.JAVA_INT, dataOffset + 4, edgeCap);
+            segment.asSlice(dataOffset + layout.pairTableOffset(), totalBytes - CoActivationLayout.SUB_HEADER_BYTES).fill((byte) 0);
+
+            long now = System.currentTimeMillis();
+            RegionPreamble.write(segment, 0L, layout().schemaVersion(), MemoryShape.HASHTABLE, 1,
+                    (int) totalBytes, 0, 0, layout().layoutId(), now, now);
+        } else {
+            if (!RegionPreamble.isValid(segment, 0L)) {
+                throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
+                        com.spectrayan.spector.commons.error.ErrorCode.MEMORY_RECALL_FAILED,
+                        "Invalid SMKM header for CoActivationMemory in bundle");
+            }
+            int storedPairCap = segment.get(ValueLayout.JAVA_INT, dataOffset);
+            int storedEdgeCap = segment.get(ValueLayout.JAVA_INT, dataOffset + 4);
+            if (storedPairCap > 0 && storedEdgeCap > 0) {
+                resolvedPairCap = storedPairCap;
+                resolvedEdgeCap = storedEdgeCap;
+            }
+        }
+
+        this.pairTable = new OffHeapPairTable(resolvedPairCap, segment.asSlice(dataOffset + layout.pairTableOffset(), (long) CoActivationLayout.PAIR_SLOT_BYTES * resolvedPairCap), 0);
+        this.edgeTable = new OffHeapEdgeTable(resolvedEdgeCap, segment.asSlice(dataOffset + layout.edgeTableOffset(resolvedPairCap), (long) CoActivationLayout.EDGE_SLOT_BYTES * resolvedEdgeCap), 0);
+
+        initBundleMetadata(isNew, bundlePath, checkpointRegion, resolvedPairCap, resolvedEdgeCap);
     }
 
     private static long calculateTotalBytes(int maxPairs, int maxEdges) {
