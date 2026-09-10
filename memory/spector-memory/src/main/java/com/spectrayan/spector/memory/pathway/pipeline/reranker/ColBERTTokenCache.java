@@ -12,19 +12,19 @@
  */
 package com.spectrayan.spector.memory.pathway.pipeline.reranker;
 
+import com.spectrayan.spector.kernel.scratch.DefaultTokenVectorTable;
+import com.spectrayan.spector.kernel.scratch.TokenVectorTable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.foreign.Arena;
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.Objects;
 
 /**
- * Off-heap cache for ColBERT per-token embeddings.
+ * Off-heap cache facade for ColBERT per-token embeddings (R8.3).
+ *
+ * <p>Rewritten against {@link TokenVectorTable} in {@code spector-kernel} to eliminate
+ * all direct off-heap segment allocations, {@code Arena} ownership, and Panama dependencies
+ * from the cognitive layer.</p>
  */
 public final class ColBERTTokenCache implements AutoCloseable {
 
@@ -32,115 +32,113 @@ public final class ColBERTTokenCache implements AutoCloseable {
 
     private static final int DEFAULT_MAX_ENTRIES = 10_000;
     private static final int DEFAULT_MAX_TOKENS = 512;
+    private static final int DEFAULT_DIMS = 128;
 
-    private final int maxEntries;
-    private final int maxTokensPerDoc;
-    private final Arena arena;
-    private final Map<String, CacheEntry> entries;
-    private final ReadWriteLock rwLock;
+    private final TokenVectorTable tokenTable;
     private volatile boolean closed;
 
-    private record CacheEntry(MemorySegment segment, int tokenCount, int tokenDims, long accessTime) {}
+    /**
+     * Constructs a cache backed by a managed kernel {@link TokenVectorTable}.
+     *
+     * @param tokenTable kernel token vector table
+     */
+    public ColBERTTokenCache(TokenVectorTable tokenTable) {
+        this.tokenTable = Objects.requireNonNull(tokenTable, "tokenTable cannot be null");
+        this.closed = false;
+    }
 
+    /**
+     * Constructs a cache with default capacity and dimension limits.
+     */
     public ColBERTTokenCache() {
         this(DEFAULT_MAX_ENTRIES, DEFAULT_MAX_TOKENS);
     }
 
+    /**
+     * Constructs a cache with specified entry and token capacity limits.
+     *
+     * @param maxEntries maximum document entries before LRU eviction
+     * @param maxTokensPerDoc maximum tokens per document
+     */
     public ColBERTTokenCache(int maxEntries, int maxTokensPerDoc) {
-        this.maxEntries = maxEntries;
-        this.maxTokensPerDoc = maxTokensPerDoc;
-        this.arena = Arena.ofShared();
-        this.entries = new ConcurrentHashMap<>();
-        this.rwLock = new ReentrantReadWriteLock();
-        this.closed = false;
+        this(new DefaultTokenVectorTable(maxEntries, maxTokensPerDoc, DEFAULT_DIMS));
     }
 
+    /**
+     * Constructs a cache with specified entry, token, and dimension limits.
+     *
+     * @param maxEntries maximum document entries before LRU eviction
+     * @param maxTokensPerDoc maximum tokens per document
+     * @param dims token vector dimension
+     */
+    public ColBERTTokenCache(int maxEntries, int maxTokensPerDoc, int dims) {
+        this(new DefaultTokenVectorTable(maxEntries, maxTokensPerDoc, dims));
+    }
+
+    /**
+     * Retrieves token vectors for the specified document ID.
+     *
+     * @param docId document identifier
+     * @return token embedding array (tokens x dims) or {@code null} if not cached
+     */
     public float[][] get(String docId) {
         if (closed || docId == null) {
             return null;
         }
-
-        rwLock.readLock().lock();
-        try {
-            CacheEntry entry = entries.get(docId);
-            if (entry == null) {
-                return null;
-            }
-
-            int tokenCount = entry.tokenCount();
-            int tokenDims = entry.tokenDims();
-            float[][] result = new float[tokenCount][tokenDims];
-
-            for (int t = 0; t < tokenCount; t++) {
-                for (int d = 0; d < tokenDims; d++) {
-                    long byteOffset = (long) (t * tokenDims + d) * ValueLayout.JAVA_FLOAT.byteSize();
-                    result[t][d] = entry.segment().get(ValueLayout.JAVA_FLOAT, byteOffset);
-                }
-            }
-
-            entries.put(docId, new CacheEntry(entry.segment(), tokenCount, tokenDims, System.currentTimeMillis()));
-            return result;
-        } finally {
-            rwLock.readLock().unlock();
-        }
+        return tokenTable.get(docId);
     }
 
+    /**
+     * Retrieves token vectors into a pre-allocated destination buffer.
+     *
+     * @param docId document identifier
+     * @param dest destination array
+     * @return true if cached and copied, false otherwise
+     */
+    public boolean get(String docId, float[][] dest) {
+        if (closed || docId == null || dest == null) {
+            return false;
+        }
+        return tokenTable.get(docId, dest);
+    }
+
+    /**
+     * Caches token vectors for the specified document ID.
+     *
+     * @param docId document identifier
+     * @param embeddings array of per-token embeddings
+     */
     public void put(String docId, float[][] embeddings) {
         if (closed || docId == null || embeddings == null || embeddings.length == 0) {
             return;
         }
-
-        int tokenCount = Math.min(embeddings.length, maxTokensPerDoc);
-        int tokenDims = embeddings[0].length;
-
-        rwLock.writeLock().lock();
-        try {
-            if (entries.size() >= maxEntries && !entries.containsKey(docId)) {
-                evictOldest();
-            }
-
-            long totalFloats = (long) tokenCount * tokenDims;
-            MemorySegment segment = arena.allocate(totalFloats * ValueLayout.JAVA_FLOAT.byteSize(), 8);
-
-            for (int t = 0; t < tokenCount; t++) {
-                for (int d = 0; d < tokenDims; d++) {
-                    long byteOffset = (long) (t * tokenDims + d) * ValueLayout.JAVA_FLOAT.byteSize();
-                    segment.set(ValueLayout.JAVA_FLOAT, byteOffset, embeddings[t][d]);
-                }
-            }
-
-            entries.put(docId, new CacheEntry(segment, tokenCount, tokenDims, System.currentTimeMillis()));
-        } finally {
-            rwLock.writeLock().unlock();
-        }
+        tokenTable.put(docId, embeddings);
     }
 
-    private void evictOldest() {
-        String oldestKey = null;
-        long oldestTime = Long.MAX_VALUE;
-
-        for (Map.Entry<String, CacheEntry> entry : entries.entrySet()) {
-            if (entry.getValue().accessTime() < oldestTime) {
-                oldestTime = entry.getValue().accessTime();
-                oldestKey = entry.getKey();
-            }
-        }
-
-        if (oldestKey != null) {
-            entries.remove(oldestKey);
-        }
-    }
-
+    /**
+     * Number of document vector sets currently held in the cache.
+     *
+     * @return cache size
+     */
     public int size() {
-        return entries.size();
+        return closed ? 0 : tokenTable.size();
     }
 
+    /**
+     * Off-heap bytes currently allocated by this cache.
+     *
+     * @return total allocated bytes
+     */
+    public long allocatedBytes() {
+        return closed ? 0L : tokenTable.allocatedBytes();
+    }
+
+    /**
+     * Clears all cached token vectors.
+     */
     public void clear() {
-        rwLock.writeLock().lock();
-        try {
-            entries.clear();
-        } finally {
-            rwLock.writeLock().unlock();
+        if (!closed) {
+            tokenTable.clear();
         }
     }
 
@@ -149,13 +147,11 @@ public final class ColBERTTokenCache implements AutoCloseable {
         if (closed) {
             return;
         }
-        rwLock.writeLock().lock();
+        closed = true;
         try {
-            closed = true;
-            entries.clear();
-            arena.close();
-        } finally {
-            rwLock.writeLock().unlock();
+            tokenTable.close();
+        } catch (Exception e) {
+            log.warn("Error closing TokenVectorTable: {}", e.getMessage());
         }
     }
 }

@@ -71,6 +71,7 @@ public class DefaultNamespaceKernel implements NamespaceKernel {
     private final EngramMemory engramMemory;
     private final EntityDirectoryMemory entityDirectoryMemory;
     private final com.spectrayan.spector.kernel.scan.ScanService scanService;
+    private final com.spectrayan.spector.kernel.scratch.ScratchMemory scratch;
 
     private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
@@ -166,6 +167,7 @@ public class DefaultNamespaceKernel implements NamespaceKernel {
         if (semantic != null) scanMap.put(MemoryType.SEMANTIC, semantic);
         if (procedural != null) scanMap.put(MemoryType.PROCEDURAL, procedural);
         this.scanService = new com.spectrayan.spector.kernel.scan.DefaultScanService(scanMap, strength, 0);
+        this.scratch = new com.spectrayan.spector.kernel.scratch.DefaultScratchMemory();
     }
 
     private static List<RegionSizeSpec> buildRuntimeSpecs(KernelSpec spec) {
@@ -282,6 +284,11 @@ public class DefaultNamespaceKernel implements NamespaceKernel {
     }
 
     @Override
+    public com.spectrayan.spector.kernel.scratch.ScratchMemory scratch() {
+        return scratch;
+    }
+
+    @Override
     public com.spectrayan.spector.kernel.scan.ScanService scan() {
         return scanService;
     }
@@ -305,6 +312,9 @@ public class DefaultNamespaceKernel implements NamespaceKernel {
             return;
         }
         flush();
+        try {
+            scratch.releaseAll();
+        } catch (Exception ignored) {}
         try {
             engramMemory.close();
         } catch (Exception ignored) {}

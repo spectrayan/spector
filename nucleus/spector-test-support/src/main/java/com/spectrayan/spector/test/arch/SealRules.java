@@ -47,6 +47,15 @@ public final class SealRules {
             .should().dependOnClassesThat().resideInAnyPackage("java.lang.foreign..")
             .because("Panama I/O is sealed inside spector-kernel (spec R3.5, R11.6)");
 
+    public static final ArchRule NO_ARENA_OUTSIDE_KERNEL = noClasses()
+            .that().resideOutsideOfPackage(KERNEL)
+            .should().callMethod(java.lang.foreign.Arena.class, "ofShared")
+            .orShould().callMethod(java.lang.foreign.Arena.class, "ofConfined")
+            .orShould().callMethod(java.lang.foreign.Arena.class, "ofAuto")
+            .orShould().callMethod(java.lang.foreign.Arena.class, "global")
+            .orShould().dependOnClassesThat().haveFullyQualifiedName("java.lang.foreign.Arena")
+            .because("no code outside the kernel shall construct or depend on an Arena (spec R8.2)");
+
     public static final ArchRule KERNEL_HAS_NO_COGNITIVE_TYPES = noClasses()
             .that().resideInAPackage(KERNEL)
             .should().dependOnClassesThat().resideInAnyPackage(

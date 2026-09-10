@@ -62,7 +62,7 @@ class KernelSealBoundaryTest {
                         + "HeaderMigrator|"
                         // Group 6: Scan Pipeline scheduled conversions
                         + "CognitiveScorer|SemanticRecallStrategy|SemanticDeduplicator|MemoryBM25Index|"
-                        + "GraphExpansionStage|RecallCandidateGatherer|ColBERTTokenCache|"
+                        + "GraphExpansionStage|RecallCandidateGatherer|"
                         + "ParallelScanEmitter|ScanEmitter|SequentialScanEmitter|SlabScoreFunction|DreamJournalMemory|"
                         // Group 7: Graph & Table APIs scheduled conversions
                         + "IndexEntryMemory|EntityDirectory|HebbianGraph|SynapticDecayModulator|"
@@ -72,6 +72,34 @@ class KernelSealBoundaryTest {
                         + ").*")))
                 .should().dependOnClassesThat().resideInAnyPackage("java.lang.foreign..")
                 .because("Panama I/O is sealed inside spector-kernel (spec R3.5, R11.6)");
+
+        rule.check(memoryClasses);
+    }
+
+    @Test
+    @DisplayName("No Arena is constructed outside the kernel, with explicit triage for scheduled conversions (R8.2)")
+    void noArenaConstructedOutsideKernel() {
+        ArchRule rule = noClasses()
+                .that().resideInAPackage("com.spectrayan.spector.memory..")
+                .and(not(nameMatching(".*("
+                        // Group 5: HeaderCursor scheduled conversions
+                        + "HeaderMigrator|"
+                        // Group 6: Scan Pipeline scheduled conversions
+                        + "CognitiveScorer|SemanticRecallStrategy|SemanticDeduplicator|MemoryBM25Index|"
+                        + "GraphExpansionStage|RecallCandidateGatherer|"
+                        + "ParallelScanEmitter|ScanEmitter|SequentialScanEmitter|SlabScoreFunction|DreamJournalMemory|"
+                        // Group 7: Graph & Table APIs scheduled conversions
+                        + "IndexEntryMemory|EntityDirectory|HebbianGraph|SynapticDecayModulator|"
+                        + "TemporalFact|TemporalKnowledgeGraph|"
+                        // Group 8: WAL & Sync scheduled conversions
+                        + "CheckpointEngine|ReplaySnapshot|VacuumCompactor|WalRecoveryDispatcher|WalReplayer"
+                        + ").*")))
+                .should().callMethod(java.lang.foreign.Arena.class, "ofShared")
+                .orShould().callMethod(java.lang.foreign.Arena.class, "ofConfined")
+                .orShould().callMethod(java.lang.foreign.Arena.class, "ofAuto")
+                .orShould().callMethod(java.lang.foreign.Arena.class, "global")
+                .orShould().dependOnClassesThat().haveFullyQualifiedName("java.lang.foreign.Arena")
+                .because("no code outside the kernel shall construct or depend on an Arena (spec R8.2)");
 
         rule.check(memoryClasses);
     }
