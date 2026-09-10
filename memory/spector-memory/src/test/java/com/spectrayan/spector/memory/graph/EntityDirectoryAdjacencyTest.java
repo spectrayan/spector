@@ -12,7 +12,9 @@
  */
 package com.spectrayan.spector.memory.graph;
 
-import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
+import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

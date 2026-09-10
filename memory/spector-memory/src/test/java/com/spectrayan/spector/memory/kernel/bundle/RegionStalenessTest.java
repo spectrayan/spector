@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
+import com.spectrayan.spector.memory.kernel.region.RegionId;
+import com.spectrayan.spector.memory.kernel.region.RegionSizeSpec;
+
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.WorkingMemory;
@@ -21,8 +24,8 @@ import com.spectrayan.spector.memory.cortex.TextBlobMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.model.MemoryType;

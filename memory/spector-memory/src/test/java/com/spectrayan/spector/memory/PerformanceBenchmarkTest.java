@@ -12,13 +12,15 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
+
 import com.spectrayan.spector.memory.model.*;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory.MemoryLocation;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
 import com.spectrayan.spector.memory.cortex.WorkingMemory;

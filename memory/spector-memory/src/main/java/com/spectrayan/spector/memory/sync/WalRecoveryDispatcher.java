@@ -22,8 +22,8 @@ import java.util.List;
 import java.util.Map;
 
 import com.spectrayan.spector.memory.error.SpectorWalCorruptionException;
-import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.shape.Memory;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
 import com.spectrayan.spector.memory.kernel.shape.RecordMemory;
 import com.spectrayan.spector.memory.kernel.shape.AppendMemory;
 import com.spectrayan.spector.memory.kernel.shape.RegistryMemory;

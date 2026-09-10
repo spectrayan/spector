@@ -12,12 +12,14 @@
  */
 package com.spectrayan.spector.memory.graph;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
-import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;

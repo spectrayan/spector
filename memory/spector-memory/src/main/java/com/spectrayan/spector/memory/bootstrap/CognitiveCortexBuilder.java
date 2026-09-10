@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.bootstrap;
 
+import com.spectrayan.spector.memory.kernel.bundle.BundleFileLayout;
+
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.cortex.StrengthMemory;
@@ -26,17 +28,17 @@ import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
 import com.spectrayan.spector.memory.kernel.layout.InsularLayout;
 import com.spectrayan.spector.memory.kernel.layout.ProvenanceLayout;
-import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.bundle.BundleLayoutCalculator;
+import com.spectrayan.spector.memory.kernel.shape.Memory;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+import com.spectrayan.spector.memory.kernel.bundle.BundleFileLayoutCalculator;
 import com.spectrayan.spector.memory.kernel.bundle.BundleMigrationCli;
 import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
-import com.spectrayan.spector.memory.kernel.bundle.RegionId;
-import com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec;
+import com.spectrayan.spector.memory.kernel.region.RegionId;
+import com.spectrayan.spector.memory.kernel.region.RegionSizeSpec;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
-import com.spectrayan.spector.memory.kernel.codec.MigrationResult;
+import com.spectrayan.spector.memory.kernel.migration.MigrationResult;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
@@ -158,8 +160,8 @@ public final class CognitiveCortexBuilder {
         List<Path> frozenPartitionDirs = List.of();
         if (isDisk && basePath != null) {
             try {
-                createDirectoriesSecure(StorageLayout.runtimeDir(basePath));
-                createDirectoriesSecure(StorageLayout.partitionsDir(basePath));
+                createDirectoriesSecure(StoragePaths.runtimeDir(basePath));
+                createDirectoriesSecure(StoragePaths.partitionsDir(basePath));
                 List<Path> allPartitions = PartitionManager.discoverAllPartitions(basePath);
                 resolvedPartitionDir = allPartitions.get(allPartitions.size() - 1); // newest = active
                 if (allPartitions.size() > 1) {
@@ -174,7 +176,7 @@ public final class CognitiveCortexBuilder {
 
         // #443: sequence of the active (newest) partition.
         final int initialPartitionSeq = resolvedPartitionDir != null
-                ? StorageLayout.parsePartitionSeqNo(resolvedPartitionDir.getFileName().toString())
+                ? StoragePaths.parsePartitionSeqNo(resolvedPartitionDir.getFileName().toString())
                 : 0;
 
         //  Cognitive Memory stores 
@@ -190,7 +192,7 @@ public final class CognitiveCortexBuilder {
 
         if (isDisk && basePath != null && resolvedPartitionDir != null) {
             // ── V4 Runtime Bundle & Insular Cortex ──
-            Path runtimeBundleFile = StorageLayout.runtimeBundleFile(basePath);
+            Path runtimeBundleFile = StoragePaths.runtimeBundleFile(basePath);
             boolean isNewRuntime = !Files.exists(runtimeBundleFile);
             List<RegionSizeSpec> specs = getRuntimeBundleSpecs(builder, quantizedVecBytes);
             if (!isNewRuntime) {
@@ -236,7 +238,7 @@ public final class CognitiveCortexBuilder {
             provenanceMemory = runtimeBundle.openProvenance(memProps.getEpisodicPartitionCapacity()).orElse(null);
 
             // ── V4 Partition Bundle ──
-            Path bundleFile = StorageLayout.partitionBundleFile(resolvedPartitionDir);
+            Path bundleFile = StoragePaths.partitionBundleFile(resolvedPartitionDir);
             if (!Files.exists(bundleFile)) {
                 try {
                     com.spectrayan.spector.memory.kernel.bundle.BundleMigrationCli.migratePartition(resolvedPartitionDir, quantizedVecBytes);
@@ -356,7 +358,7 @@ public final class CognitiveCortexBuilder {
         return List.of(
                 new RegionSizeSpec(
                         RegionId.WORKING,
-                        com.spectrayan.spector.memory.kernel.RegionPreamble.PREAMBLE_BYTES + (long) new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes).recordStride() * workingCap,
+                        com.spectrayan.spector.memory.kernel.region.RegionPreamble.PREAMBLE_BYTES + (long) new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes).recordStride() * workingCap,
                         workingCap,
                         new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes).recordStride(),
                         new com.spectrayan.spector.memory.kernel.layout.EngramLayout(quantizedVecBytes).layoutId(),

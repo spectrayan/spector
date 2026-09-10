@@ -12,15 +12,19 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
+import com.spectrayan.spector.memory.kernel.bundle.compat.LegacyV3BundleFormat;
+
+import com.spectrayan.spector.memory.kernel.region.RegionId;
+
 import com.spectrayan.spector.memory.cortex.ProceduralMemory;
 import com.spectrayan.spector.memory.cortex.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.TextBlobMemory;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 
@@ -84,7 +88,7 @@ class BundleMigrationCliTest {
         createV3StoreFiles(partDir, 5);
 
         // Pre-create bundle file
-        Files.createFile(StorageLayout.partitionBundleFile(partDir));
+        Files.createFile(StoragePaths.partitionBundleFile(partDir));
 
         BundleMigrationCli.MigrationResult result =
                 BundleMigrationCli.migratePartition(partDir, VEC_BYTES);
@@ -109,24 +113,24 @@ class BundleMigrationCliTest {
         assertEquals(1, result.migratedPartitions());
 
         // Assert bundle file was created
-        Path bundleFile = StorageLayout.partitionBundleFile(partDir);
+        Path bundleFile = StoragePaths.partitionBundleFile(partDir);
         assertTrue(Files.exists(bundleFile), "partition.bundle should exist");
         assertTrue(Files.size(bundleFile) > 0, "partition.bundle should have content");
 
         // Assert V3 files were backed up
-        assertTrue(Files.exists(Path.of(LegacyV3Layout.semanticMem(partDir) + ".v3bak")),
+        assertTrue(Files.exists(Path.of(LegacyV3BundleFormat.semanticMem(partDir) + ".v3bak")),
                 "semantic.mem.v3bak should exist");
-        assertTrue(Files.exists(Path.of(LegacyV3Layout.episodicMem(partDir) + ".v3bak")),
+        assertTrue(Files.exists(Path.of(LegacyV3BundleFormat.episodicMem(partDir) + ".v3bak")),
                 "episodic.mem.v3bak should exist");
-        assertTrue(Files.exists(Path.of(LegacyV3Layout.proceduralMem(partDir) + ".v3bak")),
+        assertTrue(Files.exists(Path.of(LegacyV3BundleFormat.proceduralMem(partDir) + ".v3bak")),
                 "procedural.mem.v3bak should exist");
-        assertTrue(Files.exists(Path.of(LegacyV3Layout.textDat(partDir) + ".v3bak")),
+        assertTrue(Files.exists(Path.of(LegacyV3BundleFormat.textDat(partDir) + ".v3bak")),
                 "text.dat.v3bak should exist");
 
         // Assert original V3 files are gone (moved to backup)
-        assertFalse(Files.exists(LegacyV3Layout.semanticMem(partDir)),
+        assertFalse(Files.exists(LegacyV3BundleFormat.semanticMem(partDir)),
                 "semantic.mem should have been moved");
-        assertFalse(Files.exists(LegacyV3Layout.episodicMem(partDir)),
+        assertFalse(Files.exists(LegacyV3BundleFormat.episodicMem(partDir)),
                 "episodic.mem should have been moved");
 
         // Verify bundle can be reopened and record counts match
@@ -158,7 +162,7 @@ class BundleMigrationCliTest {
     @Test
     void migrateAll_multiplePartitions_migratesAll() throws IOException {
         // Create partitions/ dir
-        Path partitionsDir = StorageLayout.partitionsDir(tempDir);
+        Path partitionsDir = StoragePaths.partitionsDir(tempDir);
         Files.createDirectories(partitionsDir);
 
         // Two partitions with V3 files
@@ -177,8 +181,8 @@ class BundleMigrationCliTest {
         assertEquals(0, result.skippedPartitions());
 
         // Both bundles should exist
-        assertTrue(Files.exists(StorageLayout.partitionBundleFile(part0)));
-        assertTrue(Files.exists(StorageLayout.partitionBundleFile(part1)));
+        assertTrue(Files.exists(StoragePaths.partitionBundleFile(part0)));
+        assertTrue(Files.exists(StoragePaths.partitionBundleFile(part1)));
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -187,11 +191,11 @@ class BundleMigrationCliTest {
 
     @Test
     void migrateRuntime_withV3Files_createsBundleAndBackups() throws IOException {
-        Path runtimeDir = StorageLayout.runtimeDir(tempDir);
+        Path runtimeDir = StoragePaths.runtimeDir(tempDir);
         Files.createDirectories(runtimeDir);
 
         // Create V3 working.mem with SMKM header
-        Path workingFile = LegacyV3Layout.workingMem(tempDir);
+        Path workingFile = LegacyV3BundleFormat.workingMem(tempDir);
         try (FileChannel fc = FileChannel.open(workingFile, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
             int stride = 128;
             long fileSize = RegionPreamble.PREAMBLE_BYTES + 100L * stride;
@@ -208,7 +212,7 @@ class BundleMigrationCliTest {
         assertEquals(BundleMigrationCli.MigrationResult.Status.MIGRATED, result.status());
         assertEquals(1, result.migratedPartitions());
 
-        Path runtimeBundleFile = StorageLayout.runtimeBundleFile(tempDir);
+        Path runtimeBundleFile = StoragePaths.runtimeBundleFile(tempDir);
         assertTrue(Files.exists(runtimeBundleFile), "runtime.bundle should exist");
 
         // Verify working.mem.v3bak exists and working.mem was moved
@@ -225,10 +229,10 @@ class BundleMigrationCliTest {
 
     @Test
     void migrateRuntime_alreadyMigrated_skips() throws IOException {
-        Path runtimeDir = StorageLayout.runtimeDir(tempDir);
+        Path runtimeDir = StoragePaths.runtimeDir(tempDir);
         Files.createDirectories(runtimeDir);
 
-        Path runtimeBundleFile = StorageLayout.runtimeBundleFile(tempDir);
+        Path runtimeBundleFile = StoragePaths.runtimeBundleFile(tempDir);
         Files.createFile(runtimeBundleFile);
 
         BundleMigrationCli.MigrationResult result =
@@ -239,10 +243,10 @@ class BundleMigrationCliTest {
 
     @Test
     void migrateAllWithRuntime_migratesBothRuntimeAndPartitions() throws IOException {
-        Path runtimeDir = StorageLayout.runtimeDir(tempDir);
+        Path runtimeDir = StoragePaths.runtimeDir(tempDir);
         Files.createDirectories(runtimeDir);
 
-        Path workingFile = LegacyV3Layout.workingMem(tempDir);
+        Path workingFile = LegacyV3BundleFormat.workingMem(tempDir);
         try (FileChannel fc = FileChannel.open(workingFile, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
             long fileSize = RegionPreamble.PREAMBLE_BYTES + 64;
             fc.write(java.nio.ByteBuffer.allocate(1), fileSize - 1);
@@ -259,8 +263,8 @@ class BundleMigrationCliTest {
                 BundleMigrationCli.migrateAllWithRuntime(tempDir, VEC_BYTES);
 
         assertEquals(BundleMigrationCli.MigrationResult.Status.MIGRATED, result.status());
-        assertTrue(Files.exists(StorageLayout.runtimeBundleFile(tempDir)));
-        assertTrue(Files.exists(StorageLayout.partitionBundleFile(part0)));
+        assertTrue(Files.exists(StoragePaths.runtimeBundleFile(tempDir)));
+        assertTrue(Files.exists(StoragePaths.partitionBundleFile(part0)));
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -268,9 +272,9 @@ class BundleMigrationCliTest {
     // ══════════════════════════════════════════════════════════════
 
     private Path createPartitionDir(int seq) throws IOException {
-        Path partitionsDir = StorageLayout.partitionsDir(tempDir);
+        Path partitionsDir = StoragePaths.partitionsDir(tempDir);
         Files.createDirectories(partitionsDir);
-        Path partDir = StorageLayout.partitionDir(tempDir, seq, 1700000000L + seq);
+        Path partDir = StoragePaths.partitionDir(tempDir, seq, 1700000000L + seq);
         Files.createDirectories(partDir);
         return partDir;
     }
@@ -281,9 +285,9 @@ class BundleMigrationCliTest {
     private void createV3StoreFiles(Path partDir, int recordCount) throws IOException {
         // Create cognitive stores using the real store constructors
         SemanticMemory semantic = new SemanticMemory(
-                VEC_BYTES, CAPACITY, LegacyV3Layout.semanticMem(partDir));
+                VEC_BYTES, CAPACITY, LegacyV3BundleFormat.semanticMem(partDir));
         ProceduralMemory procedural = new ProceduralMemory(
-                VEC_BYTES, CAPACITY, LegacyV3Layout.proceduralMem(partDir));
+                VEC_BYTES, CAPACITY, LegacyV3BundleFormat.proceduralMem(partDir));
 
         // Write some records using the store API
         byte[] vec = new byte[VEC_BYTES];
@@ -304,7 +308,7 @@ class BundleMigrationCliTest {
         // Create legacy V3 episodic.mem file directly
         int cogStride = 64 + VEC_BYTES;
         long totalBytes = RegionPreamble.PREAMBLE_BYTES + (long) CAPACITY * cogStride;
-        try (FileChannel ch = FileChannel.open(LegacyV3Layout.episodicMem(partDir),
+        try (FileChannel ch = FileChannel.open(LegacyV3BundleFormat.episodicMem(partDir),
                 StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
             ch.truncate(totalBytes);
             try (Arena arena = Arena.ofConfined()) {
@@ -322,7 +326,7 @@ class BundleMigrationCliTest {
 
         // Create text.dat with a minimal SMKM header
         TextBlobMemory text = new TextBlobMemory(
-                LegacyV3Layout.textDat(partDir), DataEncryptor.NOOP);
+                LegacyV3BundleFormat.textDat(partDir), DataEncryptor.NOOP);
         text.close();
     }
 }

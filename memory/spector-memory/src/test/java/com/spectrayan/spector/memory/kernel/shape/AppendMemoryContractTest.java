@@ -12,9 +12,9 @@
  */
 package com.spectrayan.spector.memory.kernel.shape;
 
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.RegionLayout;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.memory.kernel.layout.RegionLayout;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

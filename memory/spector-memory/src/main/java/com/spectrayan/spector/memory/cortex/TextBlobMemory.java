@@ -14,13 +14,13 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
+import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
-import com.spectrayan.spector.memory.kernel.codec.XxHash64;
+import com.spectrayan.spector.memory.kernel.util.XxHash64;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractAppendMemory;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
@@ -214,7 +214,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
             return null;
         }
 
-        if (magic == StorageLayout.TEXT_DAT_MAGIC) {
+        if (magic == StoragePaths.TEXT_DAT_MAGIC) {
             log.info("Migrating legacy text.dat format to standard Memory Kernel format: {}", file);
             Map<String, TextEntry> entries = readLegacyEntries(file, encryptor);
             try {
@@ -236,7 +236,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
             try (Arena tempArena = Arena.ofShared()) {
                 MemorySegment mapped = ch.map(FileChannel.MapMode.READ_ONLY, 0, fileSize, tempArena);
                 int magic = mapped.get(BE_INT, 0);
-                if (magic != StorageLayout.TEXT_DAT_MAGIC) {
+                if (magic != StoragePaths.TEXT_DAT_MAGIC) {
                     return entries;
                 }
                 int count = mapped.get(BE_INT, 8);

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.wander.relay;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.config.properties.AismeProperties;

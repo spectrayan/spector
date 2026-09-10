@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.kernel.shape;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
-import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
 
 import org.junit.jupiter.api.Test;
 

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -296,7 +298,7 @@ public class MemoryAccessObject {
      * Tag-based metadata browsing — no vector search.
      *
      * <p>Delegates to {@link SpectorMemory#browse(String...)} which uses
-     * the inverted tag index ({@code IndexRecordMemory.tagToIds}) for
+     * the inverted tag index ({@code IndexEntryMemory.tagToIds}) for
      * O(1) exact tag matching with AND semantics.</p>
      */
     public List<CognitiveRecord> browse(SpectorMemory memory, String... tags) {

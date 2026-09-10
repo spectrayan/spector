@@ -12,7 +12,10 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.region.RegionId;
+import com.spectrayan.spector.memory.kernel.region.RegionSizeSpec;
+
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

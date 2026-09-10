@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.index.hnsw.HnswIndex;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -72,10 +72,10 @@ class PartitionAwareHnswRecallTest {
     }
 
     private static long partitionDirCount(Path base) throws Exception {
-        try (var stream = Files.newDirectoryStream(StorageLayout.partitionsDir(base))) {
+        try (var stream = Files.newDirectoryStream(StoragePaths.partitionsDir(base))) {
             long n = 0;
             for (Path p : stream) {
-                if (Files.isDirectory(p) && StorageLayout.isPartitionDir(p.getFileName().toString())) n++;
+                if (Files.isDirectory(p) && StoragePaths.isPartitionDir(p.getFileName().toString())) n++;
             }
             return n;
         }

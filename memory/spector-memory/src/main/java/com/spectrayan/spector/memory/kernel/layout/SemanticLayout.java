@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
+import com.spectrayan.spector.memory.kernel.engram.SemanticHeaderLayout;
+
 /**
  * Dedicated record layout for the Semantic memory tier (ADR-0030).
  *

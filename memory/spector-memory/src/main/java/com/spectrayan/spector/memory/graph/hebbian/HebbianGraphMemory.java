@@ -12,15 +12,17 @@
  */
 package com.spectrayan.spector.memory.graph.hebbian;
 
+import com.spectrayan.spector.memory.kernel.migration.FormatCodec;
+
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.graph.BridgeDetector;
 import com.spectrayan.spector.memory.graph.EdgeImportance;
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.SystemMemoryId;
-import com.spectrayan.spector.memory.kernel.codec.Codecs;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
+import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
+import com.spectrayan.spector.memory.kernel.migration.Codecs;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.memory.kernel.layout.HebbianLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractGraphMemory;

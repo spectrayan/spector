@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.graph.temporal;
 
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -30,8 +32,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.TemporalFactLayout;
 import com.spectrayan.spector.memory.kernel.shape.DefaultAppendMemory;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -187,7 +189,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
             if (java.nio.file.Files.exists(legacyPath)) {
                 log.info("Migrating legacy standalone temporal-facts.tfacts to bundle region...");
                 try {
-                    TemporalKnowledgeGraph legacy = new TemporalKnowledgeGraph(legacyPath, java.nio.file.Files.size(legacyPath) - com.spectrayan.spector.memory.kernel.RegionPreamble.PREAMBLE_BYTES, predicateRegistry);
+                    TemporalKnowledgeGraph legacy = new TemporalKnowledgeGraph(legacyPath, java.nio.file.Files.size(legacyPath) - com.spectrayan.spector.memory.kernel.region.RegionPreamble.PREAMBLE_BYTES, predicateRegistry);
                     long factCount = legacy.factLog.size();
                     for (long i = 0; i < factCount; i++) {
                         MemorySegment factSeg = legacy.factLog.read(i * 64, 64);
@@ -217,7 +219,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
             if (java.nio.file.Files.exists(legacyPath)) {
                 log.info("Migrating legacy standalone temporal-facts.tfacts to bundle region...");
                 try {
-                    TemporalKnowledgeGraph legacy = new TemporalKnowledgeGraph(legacyPath, java.nio.file.Files.size(legacyPath) - com.spectrayan.spector.memory.kernel.RegionPreamble.PREAMBLE_BYTES, predicateRegistry);
+                    TemporalKnowledgeGraph legacy = new TemporalKnowledgeGraph(legacyPath, java.nio.file.Files.size(legacyPath) - com.spectrayan.spector.memory.kernel.region.RegionPreamble.PREAMBLE_BYTES, predicateRegistry);
                     long factCount = legacy.factLog.size();
                     for (long i = 0; i < factCount; i++) {
                         MemorySegment factSeg = legacy.factLog.read(i * 64, 64);

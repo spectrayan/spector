@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.graph.hebbian;
 
-import com.spectrayan.spector.memory.kernel.codec.Codec;
-import com.spectrayan.spector.memory.kernel.codec.CodecStep;
+import com.spectrayan.spector.memory.kernel.migration.FormatCodec;
+import com.spectrayan.spector.memory.kernel.migration.CodecStep;
 import com.spectrayan.spector.memory.kernel.layout.HebbianLayout;
 
 import java.lang.foreign.MemorySegment;
@@ -23,7 +23,7 @@ import java.util.Set;
 /**
  * Codec binding for HebbianGraphMemory format.
  */
-public final class HebbianGraphCodec implements Codec<HebbianLayout> {
+public final class HebbianGraphCodec implements FormatCodec<HebbianLayout> {
 
     private final HebbianLayout layout = new HebbianLayout();
 

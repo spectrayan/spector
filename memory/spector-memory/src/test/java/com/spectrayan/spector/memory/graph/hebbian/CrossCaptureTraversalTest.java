@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.graph.hebbian;
 
-import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

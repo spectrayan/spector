@@ -25,12 +25,12 @@ import com.spectrayan.spector.memory.cortex.WorkingMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.kernel.bundle.BundleMigrationCli;
-import com.spectrayan.spector.memory.kernel.bundle.LegacyV3Layout;
+import com.spectrayan.spector.memory.kernel.bundle.compat.LegacyV3BundleFormat;
 import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
-import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.kernel.region.RegionId;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
@@ -50,7 +50,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import java.time.Instant;
 
 /**
@@ -79,7 +79,7 @@ import java.time.Instant;
  * Rolls hold {@link #partitionRollLock} for the create-then-publish sequence. Never
  * uses {@code synchronized}.</p>
  *
- * @see StorageLayout
+ * @see StoragePaths
  * @see PartitionHandle
  */
 public final class PartitionManager implements PartitionRegistry, AutoCloseable {
@@ -248,7 +248,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
      * @return all partition dirs sorted by sequence (never empty; last = active)
      */
     public static List<Path> discoverAllPartitions(Path basePath) throws IOException {
-        Path partitionsDir = StorageLayout.partitionsDir(basePath);
+        Path partitionsDir = StoragePaths.partitionsDir(basePath);
         Files.createDirectories(partitionsDir);
 
         java.util.TreeMap<Integer, Path> bySeq = new java.util.TreeMap<>();
@@ -256,8 +256,8 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
             for (Path dir : stream) {
                 if (!Files.isDirectory(dir)) continue;
                 String name = dir.getFileName().toString();
-                if (StorageLayout.isPartitionDir(name)) {
-                    int seq = StorageLayout.parsePartitionSeqNo(name);
+                if (StoragePaths.isPartitionDir(name)) {
+                    int seq = StoragePaths.parsePartitionSeqNo(name);
                     if (bySeq.containsKey(seq)) {
                         Path existing = bySeq.get(seq);
                         log.warn("Sequence collision detected for partition seq {}: '{}' vs '{}'", seq, existing.getFileName(), name);
@@ -281,7 +281,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
         if (bySeq.isEmpty()) {
             // No partitions found → create partition 000
             long epochSecs = Instant.now().getEpochSecond();
-            Path newPartition = StorageLayout.partitionDir(basePath, 0, epochSecs);
+            Path newPartition = StoragePaths.partitionDir(basePath, 0, epochSecs);
             Files.createDirectories(newPartition);
             log.info("Created initial partition: {}", newPartition.getFileName());
             return List.of(newPartition);
@@ -292,7 +292,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
     }
 
     private static long getPartitionPayloadSize(Path dir) {
-        Path bundle = StorageLayout.partitionBundleFile(dir);
+        Path bundle = StoragePaths.partitionBundleFile(dir);
         if (Files.exists(bundle)) {
             try {
                 return Files.size(bundle);
@@ -337,7 +337,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                                                int proceduralCapacity,
                                                DataEncryptor encryptor) {
         // V4 bundle loading (with auto-migration if unbundled legacy files exist)
-        Path bundleFile = StorageLayout.partitionBundleFile(dir);
+        Path bundleFile = StoragePaths.partitionBundleFile(dir);
         if (!Files.exists(bundleFile)) {
             try {
                 com.spectrayan.spector.memory.kernel.bundle.BundleMigrationCli.migratePartition(dir, quantizedVecBytes);
@@ -407,14 +407,14 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
 
             try {
                 // Determine next sequence number
-                Path partitionsDir = StorageLayout.partitionsDir(basePath);
+                Path partitionsDir = StoragePaths.partitionsDir(basePath);
                 int maxSeq = -1;
                 try (var stream = Files.newDirectoryStream(partitionsDir)) {
                     for (Path dir : stream) {
                         if (Files.isDirectory(dir)
-                                && StorageLayout.isPartitionDir(dir.getFileName().toString())) {
+                                && StoragePaths.isPartitionDir(dir.getFileName().toString())) {
                             maxSeq = Math.max(maxSeq,
-                                    StorageLayout.parsePartitionSeqNo(
+                                    StoragePaths.parsePartitionSeqNo(
                                             dir.getFileName().toString()));
                         }
                     }
@@ -422,7 +422,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
 
                 int nextSeq = maxSeq + 1;
                 long epochSecs = Instant.now().getEpochSecond();
-                Path newPartition = StorageLayout.partitionDir(basePath, nextSeq, epochSecs);
+                Path newPartition = StoragePaths.partitionDir(basePath, nextSeq, epochSecs);
                 Files.createDirectories(newPartition);
 
                 // Preserve working memory (global, not partitioned)
@@ -433,7 +433,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                 PartitionBundle newBundle = null;
 
                 // ── V4 Bundle Mode ──
-                Path bundleFile = StorageLayout.partitionBundleFile(newPartition);
+                Path bundleFile = StoragePaths.partitionBundleFile(newPartition);
                 EngramLayout cogLayout = new EngramLayout(quantizedVecBytes);
                 TextBlobLayout textLayout = new TextBlobLayout();
                 long textSize = textSegmentSize > 0 ? textSegmentSize : SpectorPropertyConstants.DEFAULT_MEMORY_TEXT_SEGMENT_SIZE;
@@ -567,7 +567,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
     @SuppressWarnings("removal")
     private void flushGlobalState() {
         if (basePath == null) return;
-        Path targetPath = useBundleMode ? StorageLayout.runtimeBundleFile(basePath) : LegacyV3Layout.indexMidxRuntime(basePath);
+        Path targetPath = useBundleMode ? StoragePaths.runtimeBundleFile(basePath) : LegacyV3BundleFormat.indexMidxRuntime(basePath);
         try {
             index.save(targetPath);
             log.info("Flushed MemoryIndex during partition roll");
@@ -576,13 +576,13 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                     e.getMessage(), e);
         }
         try {
-            hebbianGraph.save(useBundleMode ? targetPath : LegacyV3Layout.hebbianGraphRuntime(basePath));
+            hebbianGraph.save(useBundleMode ? targetPath : LegacyV3BundleFormat.hebbianGraphRuntime(basePath));
         } catch (Exception e) {
             log.error("Failed to flush HebbianGraph during partition roll: {}",
                     e.getMessage(), e);
         }
         try {
-            temporalChain.save(useBundleMode ? targetPath : LegacyV3Layout.temporalChainRuntime(basePath));
+            temporalChain.save(useBundleMode ? targetPath : LegacyV3BundleFormat.temporalChainRuntime(basePath));
         } catch (Exception e) {
             log.error("Failed to flush TemporalChain during partition roll: {}",
                     e.getMessage(), e);

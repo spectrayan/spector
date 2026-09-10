@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.synapse.security;
 
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
@@ -40,7 +42,7 @@ import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
  *
  * <ul>
  *   <li><strong>Unsafe namespace identifier → {@code 400}.</strong> When a resolved {@code User_Id}
- *       yields an unsafe namespace identifier, {@code StorageLayout.namespaceDirSharded(...)} throws
+ *       yields an unsafe namespace identifier, {@code StoragePaths.namespaceDirSharded(...)} throws
  *       a {@link SpectorValidationException} ({@code SPE-100-013}) whose message names the
  *       {@value #NAMESPACE_ID_MARKER} but <em>never</em> carries the raw value, thrown <em>before</em>
  *       any path is resolved or any filesystem mutation occurs. Such failures are mapped to HTTP
@@ -72,7 +74,7 @@ public class AuthExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(AuthExceptionHandler.class);
 
     /**
-     * Message prefix produced by {@code StorageLayout.validateNamespaceId(...)} for every unsafe
+     * Message prefix produced by {@code StoragePaths.validateNamespaceId(...)} for every unsafe
      * identifier (null/blank, over-length, or containing an illegal character). The identifier's raw
      * value is intentionally absent from that message, so matching on this prefix lets us map the
      * failure without ever reading the raw value.
@@ -80,7 +82,7 @@ public class AuthExceptionHandler {
     static final String UNSAFE_NAMESPACE_PREFIX = "Invalid namespace identifier";
 
     /**
-     * Value-free marker present in every {@code StorageLayout.validateNamespaceId(...)} rejection
+     * Value-free marker present in every {@code StoragePaths.validateNamespaceId(...)} rejection
      * message (the literal field name passed to {@code ARGUMENT_INVALID}). The raw identifier is
      * never included in that message, so matching on this marker classifies the namespace-safety
      * failure without ever reading the raw value. This is the classifier for the
@@ -139,7 +141,7 @@ public class AuthExceptionHandler {
 
     /**
      * Maps a domain validation failure ({@link SpectorValidationException}, {@code SPE-100-xxx}) to a
-     * fail-closed {@code 400}. Since {@code StorageLayout.validateNamespaceId(...)} was hardened to
+     * fail-closed {@code 400}. Since {@code StoragePaths.validateNamespaceId(...)} was hardened to
      * throw this typed exception (Refs #438) instead of a raw {@link IllegalArgumentException}, this
      * handler restores the pre-existing security contract for the namespace-safety case.
      *

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.synapse.identity;
 
+import com.spectrayan.spector.memory.kernel.region.RegionId;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -22,8 +24,8 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.kernel.identity.IdentityBundle;
-import com.spectrayan.spector.memory.kernel.identity.IdentityRegionId;
+import com.spectrayan.spector.memory.kernel.bundle.identity.IdentityBundle;
+import com.spectrayan.spector.memory.kernel.bundle.identity.IdentityRegionId;
 import com.spectrayan.spector.memory.model.InsulaSelfModel;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;

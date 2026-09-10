@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.dream;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;

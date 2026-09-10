@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.bench.cognitive.model;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import java.util.List;
 
 /**

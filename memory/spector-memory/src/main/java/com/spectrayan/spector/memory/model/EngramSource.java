@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
 /**
  * Trace provenance classification conforming to the MF-001 §NF7 (Source Honesty) rule.
  *
@@ -34,8 +38,8 @@ package com.spectrayan.spector.memory.model;
  * <p>Source honesty guarantees that the agent can distinguish between lived reality and imagined
  * scenarios (reality monitoring), preventing cognitive confabulation.</p>
  *
- * @see com.spectrayan.spector.memory.kernel.layout.EncodingHeader
- * @see com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields#OFFSET_V2_SOURCE
+ * @see com.spectrayan.spector.memory.kernel.engram.EncodingHeader
+ * @see com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields#OFFSET_V2_SOURCE
  */
 public enum EngramSource {
 

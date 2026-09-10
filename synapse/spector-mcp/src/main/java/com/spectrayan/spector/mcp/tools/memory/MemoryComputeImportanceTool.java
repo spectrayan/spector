@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.mcp.tools.memory;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;

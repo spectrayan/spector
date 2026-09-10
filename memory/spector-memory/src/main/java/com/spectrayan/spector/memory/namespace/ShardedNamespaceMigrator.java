@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.namespace;
 
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +45,7 @@ public class ShardedNamespaceMigrator {
      * @return number of namespaces successfully migrated
      */
     public static int migrateToSharded(Path basePath) {
-        Path namespacesDir = StorageLayout.namespacesDir(basePath);
+        Path namespacesDir = StoragePaths.namespacesDir(basePath);
         if (!Files.isDirectory(namespacesDir)) {
             log.info("[Migration] No namespaces directory found at {}. Nothing to migrate.", namespacesDir);
             return 0;
@@ -62,18 +62,18 @@ public class ShardedNamespaceMigrator {
                 String dirName = entry.getFileName().toString();
 
                 // Skip shard bucket directories (2-char hex names like "a3", "f7")
-                if (dirName.length() == StorageLayout.SHARD_HEX_DIGITS
+                if (dirName.length() == StoragePaths.SHARD_HEX_DIGITS
                         && dirName.chars().allMatch(c -> "0123456789abcdef".indexOf(c) >= 0)) {
                     continue;
                 }
 
                 // Check if this is a flat namespace (has namespace.json)
-                if (!Files.exists(entry.resolve(StorageLayout.FILE_NAMESPACE))) {
+                if (!Files.exists(entry.resolve(StoragePaths.FILE_NAMESPACE))) {
                     continue;
                 }
 
                 // Compute sharded target path
-                Path shardedTarget = StorageLayout.namespaceDirSharded(basePath, dirName);
+                Path shardedTarget = StoragePaths.namespaceDirSharded(basePath, dirName);
 
                 if (Files.exists(shardedTarget)) {
                     log.warn("[Migration] Sharded target already exists for '{}': {} - skipping",

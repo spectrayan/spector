@@ -12,6 +12,14 @@
  */
 package com.spectrayan.spector.memory.graph;
 
+import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
+
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
+import com.spectrayan.spector.memory.kernel.region.RegionSizeSpec;
+
+import com.spectrayan.spector.memory.kernel.region.RegionId;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -32,7 +40,7 @@ class EntityDirectoryTest {
     @Test
     @DisplayName("fanFactor calculates degree-derived factor")
     void fanFactor_calculation() {
-        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
         try (EntityDirectory dir = new EntityDirectory(64, reg)) {
             int alice = dir.intern("Alice", "PERSON");
             assertThat(dir.fanFactor(alice)).isEqualTo(1.0f);
@@ -51,7 +59,7 @@ class EntityDirectoryTest {
         Path edir = tmp.resolve("runtime").resolve("entity-directory.edir");
         Files.createDirectories(edir.getParent());
 
-        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
         int aliceId;
         int soloId;
         int savedCount;
@@ -75,7 +83,7 @@ class EntityDirectoryTest {
         assertThat(Files.exists(edir)).isTrue();
 
         // Reload from the .edir container + sidecar and assert logical equality.
-        TypeRegistryMemory reg2 = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+        TypeRegistryMemory reg2 = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
         try (EntityDirectory reloaded = EntityDirectory.load(edir, 64, reg2)) {
             assertThat(reloaded.entityCount()).isEqualTo(savedCount);
             assertThat(reloaded.findEntity("Alice")).isEqualTo(aliceId);
@@ -91,7 +99,7 @@ class EntityDirectoryTest {
     @Test
     @DisplayName("intern allocates a dense id space and dedups by normalized name")
     void intern_denseIdsAndDedup() {
-        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
         EntityDirectory dir = new EntityDirectory(16, reg);
         try {
             int a = dir.intern("Kubernetes", "TECHNOLOGY");
@@ -115,16 +123,16 @@ class EntityDirectoryTest {
     @DisplayName("fromBundle gracefully clamps capacity when reopened with larger requested capacity than physical region")
     void fromBundle_gracefullyClampsToPhysicalRegion(@TempDir Path tmp) {
         Path bundlePath = tmp.resolve("runtime.bundle");
-        java.util.List<com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec> specs = java.util.List.of(
-                new com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec(
-                        com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_DIRECTORY,
+        java.util.List<com.spectrayan.spector.memory.kernel.region.RegionSizeSpec> specs = java.util.List.of(
+                new com.spectrayan.spector.memory.kernel.region.RegionSizeSpec(
+                        com.spectrayan.spector.memory.kernel.region.RegionId.ENTITY_DIRECTORY,
                         8192, 100, 64, 0x45444952, 1, false),
-                new com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec(
-                        com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_NAMES,
+                new com.spectrayan.spector.memory.kernel.region.RegionSizeSpec(
+                        com.spectrayan.spector.memory.kernel.region.RegionId.ENTITY_NAMES,
                         16384, 1, 8, 0x45444952, 1, true)
         );
 
-        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
 
         // First pass: create the bundle with 100 entity capacity
         try (com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle bundle =
@@ -153,16 +161,16 @@ class EntityDirectoryTest {
     @DisplayName("fromBundle links and rebuilds reverse index correctly across reopen")
     void fromBundle_linksAndRebuildsReverseIndexCorrectly(@TempDir Path tmp) {
         Path bundlePath = tmp.resolve("runtime.bundle");
-        java.util.List<com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec> specs = java.util.List.of(
-                new com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec(
-                        com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_DIRECTORY,
+        java.util.List<com.spectrayan.spector.memory.kernel.region.RegionSizeSpec> specs = java.util.List.of(
+                new com.spectrayan.spector.memory.kernel.region.RegionSizeSpec(
+                        com.spectrayan.spector.memory.kernel.region.RegionId.ENTITY_DIRECTORY,
                         8192, 100, 64, 0x45444952, 1, false),
-                new com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec(
-                        com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_NAMES,
+                new com.spectrayan.spector.memory.kernel.region.RegionSizeSpec(
+                        com.spectrayan.spector.memory.kernel.region.RegionId.ENTITY_NAMES,
                         16384, 1, 8, 0x45444952, 1, true)
         );
 
-        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
 
         // First pass: intern and link
         try (com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle bundle =

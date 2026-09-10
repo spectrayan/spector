@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.synapse.scan;
 
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
 
 import java.util.ArrayList;

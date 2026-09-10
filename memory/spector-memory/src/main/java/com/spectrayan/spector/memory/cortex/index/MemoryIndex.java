@@ -12,10 +12,12 @@
  */
 package com.spectrayan.spector.memory.cortex.index;
 
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
+
 /**
- * Backward-compatibility alias for {@link IndexRecordMemory}.
+ * Backward-compatibility alias for {@link IndexEntryMemory}.
  */
-public class MemoryIndex extends IndexRecordMemory {
+public class MemoryIndex extends IndexEntryMemory {
     public MemoryIndex() {
         super();
     }

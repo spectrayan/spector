@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;

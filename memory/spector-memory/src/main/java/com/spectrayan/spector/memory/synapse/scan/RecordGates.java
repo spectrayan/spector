@@ -12,11 +12,13 @@
  */
 package com.spectrayan.spector.memory.synapse.scan;
 
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 
-import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isPinned;
-import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isResolved;
+import static com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.isPinned;
+import static com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.isResolved;
 
 /**
  * High-speed candidate screening and gating predicates for off-heap segment scan (Phases 1-4).

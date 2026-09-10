@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
+import com.spectrayan.spector.memory.kernel.store.EngramRegion;
+
 import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -28,15 +30,15 @@ import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.memory.error.SpectorPartitionFrozenException;
-import com.spectrayan.spector.memory.kernel.FloatUnaryOperator;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.memory.kernel.engram.FloatUnaryOperator;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -46,17 +48,17 @@ import com.spectrayan.spector.memory.synapse.DecayStrategy;
 
 /**
  * Base implementation for all engram memory stores in Spector Memory,
- * extending {@link AbstractRecordMemory} directly and implementing {@link EngramMemory}.
+ * extending {@link AbstractRecordMemory} directly and implementing {@link EngramRegion}.
  *
  * <p>Standardizes on Kernel 64-byte {@link RegionPreamble} for header management and
  * implements full type-safe contracts for SWMR visibility and off-heap memory management.</p>
  *
  * @param <L> the fixed-stride engram layout type
- * @see EngramMemory for the common interface
+ * @see EngramRegion for the common interface
  */
 public abstract class AbstractEngramMemory<L extends FixedEngramLayout> 
         extends AbstractRecordMemory<L> 
-        implements EngramMemory {
+        implements EngramRegion {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractEngramMemory.class);
 

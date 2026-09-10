@@ -12,11 +12,11 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
-import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 
@@ -171,9 +171,9 @@ public record PartitionSummary(
         long dirEndMs = Long.MAX_VALUE;
         if (dir != null && dir.getFileName() != null) {
             String dirName = dir.getFileName().toString();
-            if (StorageLayout.isPartitionDir(dirName)) {
+            if (StoragePaths.isPartitionDir(dirName)) {
                 try {
-                    long epochSecs = StorageLayout.parsePartitionEpoch(dirName);
+                    long epochSecs = StoragePaths.parsePartitionEpoch(dirName);
                     if (epochSecs > 0) {
                         dirStartMs = epochSecs * 1000L;
                     }

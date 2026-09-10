@@ -12,9 +12,11 @@
  */
 package com.spectrayan.spector.memory.cortex.index;
 
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
+
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
-import com.spectrayan.spector.memory.kernel.codec.FormatId;
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory.MemoryLocation;
+import com.spectrayan.spector.memory.kernel.migration.FormatId;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 import org.junit.jupiter.api.DisplayName;
@@ -37,7 +39,7 @@ class MidxV7MigrationTest {
     @DisplayName("MidxV6ToV7Step converts v6 schema version to 7 and writes high-water mark")
     void migratesV6ToV7Header() {
         Path midxPath = tempDir.resolve("v6_store.midx");
-        IndexRecordMemory index = new IndexRecordMemory();
+        IndexEntryMemory index = new IndexEntryMemory();
 
         index.register("id-1", new MemoryLocation(MemoryType.EPISODIC, 100L, 0), "text 1", MemorySource.USER_STATED, EMPTY_TAGS);
         index.register("id-2", new MemoryLocation(MemoryType.SEMANTIC, 200L, 1), "text 2", MemorySource.USER_STATED, EMPTY_TAGS);
@@ -47,7 +49,7 @@ class MidxV7MigrationTest {
         assertThat(step.from()).isEqualTo(FormatId.smkm(6));
         assertThat(step.to()).isEqualTo(FormatId.smkm(7));
 
-        IndexRecordMemory reloaded = IndexRecordMemory.load(midxPath);
+        IndexEntryMemory reloaded = IndexEntryMemory.load(midxPath);
         assertThat(reloaded.graphSlotHighWater()).isGreaterThanOrEqualTo(2);
         assertThat(reloaded.idAt(0)).isEqualTo("id-1");
         assertThat(reloaded.idAt(1)).isEqualTo("id-2");

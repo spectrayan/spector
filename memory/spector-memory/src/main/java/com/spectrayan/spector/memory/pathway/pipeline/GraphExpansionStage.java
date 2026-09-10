@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.pipeline;
 
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
+
 import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorHebbianException;
 import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
@@ -32,14 +34,14 @@ import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.EpisodicHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.*;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+import static com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -312,7 +314,7 @@ public final class GraphExpansionStage {
 
                 var activated = hebbianGraph.activateNeighbors(memIdx, maxDepth);
                 for (var edge : activated) {
-                    String neighborId = ((com.spectrayan.spector.memory.cortex.index.IndexRecordMemory) index).idAt(edge.neighborIndex());
+                    String neighborId = ((com.spectrayan.spector.memory.cortex.index.IndexEntryMemory) index).idAt(edge.neighborIndex());
                     if (neighborId == null) continue;
                     if (!existingIds.contains(neighborId) && matchesFilters(neighborId, options)) {
                         float neighborSim = computeNeighborSimilarity(neighborId, queryVector);
@@ -578,7 +580,7 @@ public final class GraphExpansionStage {
 
                 if (reachableMemories != null) {
                     for (int memIdx : reachableMemories) {
-                        String memId = ((com.spectrayan.spector.memory.cortex.index.IndexRecordMemory) index).idAt(memIdx);
+                        String memId = ((com.spectrayan.spector.memory.cortex.index.IndexEntryMemory) index).idAt(memIdx);
                         if (memId == null) continue;
                         if (!existingIds.contains(memId) && matchesFilters(memId, options)) {
                             float neighborSim = computeNeighborSimilarity(memId, queryVector);
@@ -610,7 +612,7 @@ public final class GraphExpansionStage {
                                                 hyperEntityGraph.findHyperedgesForEntityAndPredicate(v.entityId(), e.type());
                                         for (var sib : siblingEdges) {
                                             if (sib.memoryIdx() >= 0) {
-                                                String memId = ((com.spectrayan.spector.memory.cortex.index.IndexRecordMemory) index).idAt(sib.memoryIdx());
+                                                String memId = ((com.spectrayan.spector.memory.cortex.index.IndexEntryMemory) index).idAt(sib.memoryIdx());
                                                 if (memId != null && !existingIds.contains(memId) && matchesFilters(memId, options)) {
                                                     float neighborSim = computeNeighborSimilarity(memId, queryVector);
                                                     float entityAtten = graphScoringPolicy.entityHopAttenuation();
@@ -627,7 +629,7 @@ public final class GraphExpansionStage {
                                                 for (var sibVert : sib.vertices()) {
                                                     if (sibVert.entityId() >= 0 && sibVert.entityId() != entityId) {
                                                         int[] directMems = entityDirectory.memoriesForEntity(sibVert.entityId());
-                                                        if (directMems != null && index instanceof com.spectrayan.spector.memory.cortex.index.IndexRecordMemory irm) {
+                                                        if (directMems != null && index instanceof com.spectrayan.spector.memory.cortex.index.IndexEntryMemory irm) {
                                                             for (int dm : directMems) {
                                                                 String dMemId = irm.idAt(dm);
                                                                 if (dMemId != null && !existingIds.contains(dMemId) && matchesFilters(dMemId, options)) {
@@ -673,7 +675,7 @@ public final class GraphExpansionStage {
                                 for (int r = 0; r < refCount; r++) {
                                     int memIdx = entityDirectory.memoryRefAt(correctorEntityId, r);
                                     if (memIdx >= 0) {
-                                        String memId = ((com.spectrayan.spector.memory.cortex.index.IndexRecordMemory) index).idAt(memIdx);
+                                        String memId = ((com.spectrayan.spector.memory.cortex.index.IndexEntryMemory) index).idAt(memIdx);
                                         if (memId != null && !existingIds.contains(memId) && matchesFilters(memId, options)) {
                                             float neighborSim = computeNeighborSimilarity(memId, queryVector);
                                             float entityScore = neighborSim
@@ -706,7 +708,7 @@ public final class GraphExpansionStage {
                                          Set<String> existingIds,
                                          Map<String, CognitiveResult> graphCandidates,
                                          float[] queryVector, float attenuation, RecallOptions options) {
-        String chainId = ((com.spectrayan.spector.memory.cortex.index.IndexRecordMemory) index).idAt(chainIdx);
+        String chainId = ((com.spectrayan.spector.memory.cortex.index.IndexEntryMemory) index).idAt(chainIdx);
         if (chainId == null) return;
         if (!existingIds.contains(chainId) && matchesFilters(chainId, options)) {
             float neighborSim = computeNeighborSimilarity(chainId, queryVector);

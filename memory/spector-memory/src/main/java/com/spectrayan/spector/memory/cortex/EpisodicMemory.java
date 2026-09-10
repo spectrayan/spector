@@ -12,15 +12,21 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeaderLayout;
+
+import com.spectrayan.spector.memory.kernel.store.EngramRegion;
+
 import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-import com.spectrayan.spector.memory.kernel.layout.EpisodeCodec;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.store.codec.EpisodeCodec;
+import com.spectrayan.spector.memory.kernel.engram.EpisodicHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractAppendMemory;
 import com.spectrayan.spector.memory.model.ConversationRole;
@@ -56,7 +62,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * @see EpisodicLayout
  * @see EpisodeCodec
  */
-public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> implements EngramMemory {
+public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> implements EngramRegion {
 
     private static final Logger log = LoggerFactory.getLogger(EpisodicMemory.class);
 
@@ -562,7 +568,7 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
         return decayed;
     }
 
-    // ── EngramMemory Implementation (ADR-0030) ──
+    // ── EngramRegion Implementation (ADR-0030) ──
 
     @Override
     public MemoryType type() {
@@ -635,13 +641,13 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
         MemorySegment seg = segment();
         if (seg == null) return null;
         int stride = RegionPreamble.readRecordStride(seg, 0L);
-        int vecBytes = stride > com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout.HEADER_BYTES
-                ? stride - com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout.HEADER_BYTES : 0;
-        if (vecBytes <= 0 || offset + com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout.HEADER_BYTES + vecBytes > seg.byteSize()) {
+        int vecBytes = stride > com.spectrayan.spector.memory.kernel.engram.EncodingHeaderLayout.HEADER_BYTES
+                ? stride - com.spectrayan.spector.memory.kernel.engram.EncodingHeaderLayout.HEADER_BYTES : 0;
+        if (vecBytes <= 0 || offset + com.spectrayan.spector.memory.kernel.engram.EncodingHeaderLayout.HEADER_BYTES + vecBytes > seg.byteSize()) {
             return null;
         }
         byte[] vec = new byte[vecBytes];
-        MemorySegment.copy(seg, ValueLayout.JAVA_BYTE, offset + com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout.HEADER_BYTES,
+        MemorySegment.copy(seg, ValueLayout.JAVA_BYTE, offset + com.spectrayan.spector.memory.kernel.engram.EncodingHeaderLayout.HEADER_BYTES,
                 MemorySegment.ofArray(vec), ValueLayout.JAVA_BYTE, 0, vecBytes);
         return vec;
     }
@@ -651,8 +657,8 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
      */
     public boolean isTombstoned(long offset) {
         if (isFixedRecordLayout()) {
-            if (offset >= 0 && offset + com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout.HEADER_BYTES <= segment().byteSize()) {
-                byte flags = segment().get(ValueLayout.JAVA_BYTE, offset + com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.OFFSET_FLAGS);
+            if (offset >= 0 && offset + com.spectrayan.spector.memory.kernel.engram.EncodingHeaderLayout.HEADER_BYTES <= segment().byteSize()) {
+                byte flags = segment().get(ValueLayout.JAVA_BYTE, offset + com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.OFFSET_FLAGS);
                 return EncodingHeaderFields.isTombstoned(flags);
             }
             return false;
@@ -668,8 +674,8 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
      */
     public EncodingHeader readHeader(long offset) {
         if (isFixedRecordLayout()) {
-            if (offset >= 0 && offset + com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout.HEADER_BYTES <= segment().byteSize()) {
-                return com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout.INSTANCE.readHeader(segment(), offset);
+            if (offset >= 0 && offset + com.spectrayan.spector.memory.kernel.engram.EncodingHeaderLayout.HEADER_BYTES <= segment().byteSize()) {
+                return com.spectrayan.spector.memory.kernel.engram.EncodingHeaderLayout.INSTANCE.readHeader(segment(), offset);
             }
             return null;
         }

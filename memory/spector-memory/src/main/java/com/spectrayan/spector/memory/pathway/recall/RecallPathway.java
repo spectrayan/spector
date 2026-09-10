@@ -23,20 +23,20 @@ import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout;
+import com.spectrayan.spector.memory.kernel.engram.EpisodicHeaderLayout;
 import com.spectrayan.spector.memory.model.EngramSource;
 import com.spectrayan.spector.memory.model.EpisodeRecord;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.graph.hebbian.CoActivationAssociativePriorProvider;
 import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
-import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory;
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 import com.spectrayan.spector.memory.synapse.scan.RecordGates;
 import java.nio.charset.StandardCharsets;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -92,8 +92,8 @@ import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.sync.ReplaySnapshot;
 import com.spectrayan.spector.memory.sync.WalReplayer;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
@@ -196,7 +196,7 @@ public final class RecallPathway {
                         0.2f,
                         offset -> {
                             if (this.index != null) {
-                                String id = ((com.spectrayan.spector.memory.cortex.index.IndexRecordMemory) this.index).idAt((int) (offset / 164));
+                                String id = ((com.spectrayan.spector.memory.cortex.index.IndexEntryMemory) this.index).idAt((int) (offset / 164));
                                 if (id != null) return this.index.tags(id);
                             }
                             return null;

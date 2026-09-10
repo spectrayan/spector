@@ -12,7 +12,20 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.bundle.BundleFileLayoutCalculator;
+
+import com.spectrayan.spector.memory.kernel.bundle.BundleFileLayout;
+
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.memory.kernel.region.RegionId;
+import com.spectrayan.spector.memory.kernel.region.RegionEntry;
+import com.spectrayan.spector.memory.kernel.region.RegionSizeSpec;
+import com.spectrayan.spector.memory.kernel.layout.RegionLayout;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -28,7 +41,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
 
@@ -62,7 +75,7 @@ import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
  *
  * @since 1.2.0
  * @see BundleDirectory
- * @see BundleLayoutCalculator
+ * @see BundleFileLayoutCalculator
  */
 public final class PartitionBundle implements AbstractBundle {
 
@@ -157,8 +170,8 @@ public final class PartitionBundle implements AbstractBundle {
                             StrengthLayout.INSTANCE.schemaVersion(), false)
             );
 
-            BundleLayoutCalculator.BundleComputedLayout computed =
-                    BundleLayoutCalculator.compute(BundleSubHeader.MAGIC_PARTITION, specs);
+            BundleFileLayoutCalculator.BundleComputedLayout computed =
+                    BundleFileLayoutCalculator.compute(BundleSubHeader.MAGIC_PARTITION, specs);
 
             long totalFileSize = computed.totalFileSize();
             BundleDirectory dir = computed.directory();
@@ -259,8 +272,8 @@ public final class PartitionBundle implements AbstractBundle {
                             StrengthLayout.INSTANCE.schemaVersion(), false)
             );
 
-            BundleLayoutCalculator.BundleComputedLayout computed =
-                    BundleLayoutCalculator.compute(BundleSubHeader.MAGIC_PARTITION, specs);
+            BundleFileLayoutCalculator.BundleComputedLayout computed =
+                    BundleFileLayoutCalculator.compute(BundleSubHeader.MAGIC_PARTITION, specs);
 
             long totalSize = computed.totalFileSize();
             BundleDirectory dir = computed.directory();
@@ -344,73 +357,73 @@ public final class PartitionBundle implements AbstractBundle {
     // ── Generic RegionOpener Implementation ──
 
     @Override
-    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> com.spectrayan.spector.memory.kernel.shape.RecordMemory<L> openRecord(RegionId id, L layout) {
+    public <L extends com.spectrayan.spector.memory.kernel.layout.RegionLayout> com.spectrayan.spector.memory.kernel.shape.RecordMemory<L> openRecord(RegionId id, L layout) {
         RegionRef ref = regionRef(id);
         int count = hasRegion(id) ? (int) RegionPreamble.readCount(currentSlice(id), 0L) : 0;
-        return new com.spectrayan.spector.memory.kernel.shape.DefaultRecordMemory<>(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), layout, 0, ref, count, bundlePath != null, bundlePath);
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultRecordMemory<>(com.spectrayan.spector.memory.kernel.id.MemoryId.of("bundle", id.name()), layout, 0, ref, count, bundlePath != null, bundlePath);
     }
 
     @Override
-    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> com.spectrayan.spector.memory.kernel.shape.AppendMemory<L> openAppend(RegionId id, L layout) {
+    public <L extends com.spectrayan.spector.memory.kernel.layout.RegionLayout> com.spectrayan.spector.memory.kernel.shape.AppendMemory<L> openAppend(RegionId id, L layout) {
         RegionRef ref = regionRef(id);
         int count = hasRegion(id) ? (int) RegionPreamble.readCount(currentSlice(id), 0L) : 0;
-        return new com.spectrayan.spector.memory.kernel.shape.DefaultAppendMemory<>(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), layout, 0, ref, count, bundlePath != null, bundlePath);
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultAppendMemory<>(com.spectrayan.spector.memory.kernel.id.MemoryId.of("bundle", id.name()), layout, 0, ref, count, bundlePath != null, bundlePath);
     }
 
     @Override
-    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> com.spectrayan.spector.memory.kernel.shape.GraphMemory<L> openGraph(RegionId id, L layout) {
+    public <L extends com.spectrayan.spector.memory.kernel.layout.RegionLayout> com.spectrayan.spector.memory.kernel.shape.GraphMemory<L> openGraph(RegionId id, L layout) {
         RegionRef ref = regionRef(id);
         int count = hasRegion(id) ? (int) RegionPreamble.readCount(currentSlice(id), 0L) : 0;
-        return new com.spectrayan.spector.memory.kernel.shape.DefaultGraphMemory<>(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), layout, 1000, 2000, ref, count, bundlePath != null, bundlePath);
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultGraphMemory<>(com.spectrayan.spector.memory.kernel.id.MemoryId.of("bundle", id.name()), layout, 1000, 2000, ref, count, bundlePath != null, bundlePath);
     }
 
     @Override
-    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> com.spectrayan.spector.memory.kernel.shape.ChainMemory<L> openChain(RegionId id, L layout) {
+    public <L extends com.spectrayan.spector.memory.kernel.layout.RegionLayout> com.spectrayan.spector.memory.kernel.shape.ChainMemory<L> openChain(RegionId id, L layout) {
         RegionRef ref = regionRef(id);
         int count = hasRegion(id) ? (int) RegionPreamble.readCount(currentSlice(id), 0L) : 0;
-        return new com.spectrayan.spector.memory.kernel.shape.DefaultChainMemory<>(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), layout, 0, ref, count, bundlePath != null, bundlePath);
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultChainMemory<>(com.spectrayan.spector.memory.kernel.id.MemoryId.of("bundle", id.name()), layout, 0, ref, count, bundlePath != null, bundlePath);
     }
 
     @Override
-    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> com.spectrayan.spector.memory.kernel.shape.HashTableMemory<L> openHashTable(RegionId id, L layout) {
+    public <L extends com.spectrayan.spector.memory.kernel.layout.RegionLayout> com.spectrayan.spector.memory.kernel.shape.HashTableMemory<L> openHashTable(RegionId id, L layout) {
         RegionRef ref = regionRef(id);
         int count = hasRegion(id) ? (int) RegionPreamble.readCount(currentSlice(id), 0L) : 0;
-        return new com.spectrayan.spector.memory.kernel.shape.DefaultHashTableMemory<>(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), layout, 0, ref, count, bundlePath != null, bundlePath);
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultHashTableMemory<>(com.spectrayan.spector.memory.kernel.id.MemoryId.of("bundle", id.name()), layout, 0, ref, count, bundlePath != null, bundlePath);
     }
 
     @Override
     public com.spectrayan.spector.memory.kernel.shape.RegistryMemory openRegistry(RegionId id) {
         RegionRef ref = regionRef(id);
         int count = hasRegion(id) ? (int) RegionPreamble.readCount(currentSlice(id), 0L) : 0;
-        return new com.spectrayan.spector.memory.kernel.shape.DefaultRegistryMemory(com.spectrayan.spector.memory.kernel.MemoryId.of("bundle", id.name()), new com.spectrayan.spector.memory.kernel.layout.RegistryLayout(), 0, ref, count, bundlePath != null, bundlePath);
+        return new com.spectrayan.spector.memory.kernel.shape.DefaultRegistryMemory(com.spectrayan.spector.memory.kernel.id.MemoryId.of("bundle", id.name()), new com.spectrayan.spector.memory.kernel.layout.RegistryLayout(), 0, ref, count, bundlePath != null, bundlePath);
     }
 
     @Override
-    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.RecordMemory<L>> tryOpenRecord(RegionId id, L layout) {
+    public <L extends com.spectrayan.spector.memory.kernel.layout.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.RecordMemory<L>> tryOpenRecord(RegionId id, L layout) {
         if (!hasRegion(id)) return java.util.Optional.empty();
         return java.util.Optional.of(openRecord(id, layout));
     }
 
     @Override
-    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.AppendMemory<L>> tryOpenAppend(RegionId id, L layout) {
+    public <L extends com.spectrayan.spector.memory.kernel.layout.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.AppendMemory<L>> tryOpenAppend(RegionId id, L layout) {
         if (!hasRegion(id)) return java.util.Optional.empty();
         return java.util.Optional.of(openAppend(id, layout));
     }
 
     @Override
-    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.GraphMemory<L>> tryOpenGraph(RegionId id, L layout) {
+    public <L extends com.spectrayan.spector.memory.kernel.layout.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.GraphMemory<L>> tryOpenGraph(RegionId id, L layout) {
         if (!hasRegion(id)) return java.util.Optional.empty();
         return java.util.Optional.of(openGraph(id, layout));
     }
 
     @Override
-    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.ChainMemory<L>> tryOpenChain(RegionId id, L layout) {
+    public <L extends com.spectrayan.spector.memory.kernel.layout.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.ChainMemory<L>> tryOpenChain(RegionId id, L layout) {
         if (!hasRegion(id)) return java.util.Optional.empty();
         return java.util.Optional.of(openChain(id, layout));
     }
 
     @Override
-    public <L extends com.spectrayan.spector.memory.kernel.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.HashTableMemory<L>> tryOpenHashTable(RegionId id, L layout) {
+    public <L extends com.spectrayan.spector.memory.kernel.layout.RegionLayout> java.util.Optional<com.spectrayan.spector.memory.kernel.shape.HashTableMemory<L>> tryOpenHashTable(RegionId id, L layout) {
         if (!hasRegion(id)) return java.util.Optional.empty();
         return java.util.Optional.of(openHashTable(id, layout));
     }

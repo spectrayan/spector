@@ -12,7 +12,13 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.RegionLayout;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
+import com.spectrayan.spector.memory.kernel.engram.EpisodicHeaderLayout;
+
+import com.spectrayan.spector.memory.kernel.layout.RegionLayout;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;

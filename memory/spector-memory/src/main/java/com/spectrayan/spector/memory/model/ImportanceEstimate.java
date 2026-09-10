@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 /**
  * Result of a pre-ingestion importance estimate — computed without side effects.
  *

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import com.spectrayan.spector.memory.cortex.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.aisme.continuity.IdentityTrajectorySnapshot;
 import com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon;
@@ -26,7 +28,7 @@ import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import com.spectrayan.spector.memory.cortex.consolidation.EagerConsolidator;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.EngramMemory;
+import com.spectrayan.spector.memory.kernel.store.EngramRegion;
 import com.spectrayan.spector.memory.cortex.ContinuityMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
@@ -57,18 +59,18 @@ import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.config.properties.CircadianProperties;
 import com.spectrayan.spector.memory.kernel.id.IdStrategy;
 import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
-import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory;
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
 import com.spectrayan.spector.memory.cortex.interference.SemanticDeduplicator;
-import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.shape.Memory;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.model.EpisodeRecord;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
@@ -183,7 +185,7 @@ import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.config.properties.CircadianProperties;
 import com.spectrayan.spector.memory.cortex.consolidation.BatchConsolidator;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory.MemoryLocation;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 
 import com.spectrayan.spector.memory.cortex.interference.SemanticDeduplicator;
@@ -213,9 +215,9 @@ import com.spectrayan.spector.memory.cortex.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.memory.synapse.ActRActivation;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.namespace.NamespaceQuotas;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
@@ -245,7 +247,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.memory.error.SpectorGraphDecayException;
 import com.spectrayan.spector.memory.kernel.id.IdStrategy;
 import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 
 /**
@@ -437,7 +439,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.graphFacade = bundle.graphFacade();
         if (this.coActivationTracker != null && this.index != null && this.coActivationTracker.invertedIndexEntryCount() == 0) {
             java.util.Map<Integer, java.util.Collection<String>> tagMap = new java.util.HashMap<>();
-            for (java.util.Map.Entry<String, com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation> entry : this.index.locationMap().entrySet()) {
+            for (java.util.Map.Entry<String, com.spectrayan.spector.memory.cortex.index.IndexEntryMemory.MemoryLocation> entry : this.index.locationMap().entrySet()) {
                 String entryId = entry.getKey();
                 int slot = entry.getValue().graphSlot();
                 String[] memoryTags = this.index.tags(entryId);
@@ -1799,7 +1801,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public CompactionResult vacuum(MemoryType tier) {
         CognitiveMemoryRouter router = partitionManager.cognitiveRouter();
-        EngramMemory store = router.get(tier);
+        EngramRegion store = router.get(tier);
         if (store == null) {
             log.warn("Vacuum: tier {} is not compactable", tier);
             return null;
@@ -1817,7 +1819,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         CognitiveMemoryRouter router = partitionManager.cognitiveRouter();
         java.util.Map<MemoryType, Float> ratios = new java.util.EnumMap<>(MemoryType.class);
         for (MemoryType type : MemoryType.values()) {
-            EngramMemory store = router.get(type);
+            EngramRegion store = router.get(type);
             if (store != null) {
                 ratios.put(type, store.tombstoneRatio());
             }

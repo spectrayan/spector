@@ -35,7 +35,7 @@ import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 import net.jqwik.api.constraints.IntRange;
 import net.jqwik.api.lifecycle.AfterTry;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import net.jqwik.api.lifecycle.BeforeTry;
 
 /**
@@ -57,7 +57,7 @@ import net.jqwik.api.lifecycle.BeforeTry;
  * {@code partitions/} (including nested partition subdirectories) with random byte
  * content, seeded under a fresh temp data root per try. The namespace id is the
  * {@code User_Id} itself (no {@code user-} prefix), matching
- * {@link StorageLayout#namespaceDirSharded(Path, String)}.</p>
+ * {@link StoragePaths#namespaceDirSharded(Path, String)}.</p>
  *
  * <p><b>Validates: Requirements 17.4, 17.5</b></p>
  */
@@ -80,7 +80,7 @@ class LayoutMigrationIdempotencyPropertyTest {
 
     /**
      * Valid {@code User_Id} / namespace id values accepted by
-     * {@link StorageLayout#validateNamespaceId(String)}: non-blank, length 1..256,
+     * {@link StoragePaths#validateNamespaceId(String)}: non-blank, length 1..256,
      * free of {@code '/'}, {@code '\\'}, {@code '.'}, the null byte, and any C0
      * control character. Mixes realistic 13-char TSID-style ids with longer
      * arbitrary valid ids.
@@ -106,7 +106,7 @@ class LayoutMigrationIdempotencyPropertyTest {
     @Provide
     Arbitrary<Map<String, byte[]>> flatFixtures() {
         Arbitrary<String> topDir = Arbitraries.of(
-                StorageLayout.DIR_RUNTIME, StorageLayout.DIR_PARTITIONS);
+                StoragePaths.DIR_RUNTIME, StoragePaths.DIR_PARTITIONS);
         // Partition-style subdirectory (e.g. 000_1717430400) or a direct file.
         Arbitrary<String> subPath = Arbitraries.oneOf(
                 Arbitraries.strings().withChars("abcdefghij0123456789").ofMinLength(1).ofMaxLength(12),

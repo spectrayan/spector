@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.pathway.pipeline.graph;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory;
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -64,7 +64,7 @@ class TemporalFactWeavingStageTest {
     void testFastZeroLlmWeaving() {
         when(tkg.factCount()).thenReturn(5);
 
-        IndexRecordMemory.MemoryLocation loc = new IndexRecordMemory.MemoryLocation(MemoryType.SEMANTIC, 0L, 7);
+        IndexEntryMemory.MemoryLocation loc = new IndexEntryMemory.MemoryLocation(MemoryType.SEMANTIC, 0L, 7);
         when(index.locate("mem-100")).thenReturn(loc);
 
         // Slot 7 is linked to entity ID 3

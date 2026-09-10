@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
@@ -38,7 +38,7 @@ import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import java.nio.file.Path;
 
 /**
@@ -92,7 +92,7 @@ public final class PersistenceManager {
 
         // ── Phase 1: Persist to disk (DISK mode only) ──
         if (persistenceMode == MemoryPersistenceMode.DISK && persistencePath != null) {
-            Path bundlePath = StorageLayout.runtimeBundleFile(persistencePath);
+            Path bundlePath = StoragePaths.runtimeBundleFile(persistencePath);
 
             // 1. MemoryIndex
             saveIndex(index, bundlePath);

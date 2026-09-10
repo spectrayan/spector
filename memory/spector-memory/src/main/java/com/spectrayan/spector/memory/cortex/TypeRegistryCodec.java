@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
-import com.spectrayan.spector.memory.kernel.codec.Codec;
-import com.spectrayan.spector.memory.kernel.codec.CodecStep;
+import com.spectrayan.spector.memory.kernel.migration.FormatCodec;
+import com.spectrayan.spector.memory.kernel.migration.CodecStep;
 import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
 
 import java.lang.foreign.MemorySegment;
@@ -23,7 +23,7 @@ import java.util.Set;
 /**
  * Codec binding for TypeRegistryMemory format.
  */
-public final class TypeRegistryCodec implements Codec<RegistryLayout> {
+public final class TypeRegistryCodec implements FormatCodec<RegistryLayout> {
 
     private final RegistryLayout layout = new RegistryLayout();
 

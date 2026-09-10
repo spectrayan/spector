@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.Instant;
@@ -398,7 +400,7 @@ public final class MemoryDto {
      * Request for tag-based memory browsing (no vector search).
      *
      * <p>Delegates to {@link com.spectrayan.spector.memory.SpectorMemory#browse(String...)}
-     * which uses an inverted tag index ({@code IndexRecordMemory.tagToIds}) for
+     * which uses an inverted tag index ({@code IndexEntryMemory.tagToIds}) for
      * O(1) exact tag matching with AND semantics.</p>
      *
      * @param tags  tag strings to filter by — all must match (AND semantics)

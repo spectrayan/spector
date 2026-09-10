@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.synapse.identity;
 
+import com.spectrayan.spector.memory.kernel.region.RegionId;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -27,8 +29,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spectrayan.spector.memory.kernel.identity.IdentityBundle;
-import com.spectrayan.spector.memory.kernel.identity.IdentityRegionId;
+import com.spectrayan.spector.memory.kernel.bundle.identity.IdentityBundle;
+import com.spectrayan.spector.memory.kernel.bundle.identity.IdentityRegionId;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.synapse.catalog.AccountCatalog;

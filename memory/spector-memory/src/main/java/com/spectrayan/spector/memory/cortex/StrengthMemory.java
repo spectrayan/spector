@@ -12,10 +12,10 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
-import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout.StrengthState;
-import com.spectrayan.spector.memory.kernel.FloatUnaryOperator;
+import com.spectrayan.spector.memory.kernel.engram.FloatUnaryOperator;
 import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
 import com.spectrayan.spector.memory.model.MemoryType;
 

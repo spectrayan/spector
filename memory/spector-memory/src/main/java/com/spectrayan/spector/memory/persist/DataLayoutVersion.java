@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.persist;
 
-import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.shape.Memory;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -22,7 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import org.slf4j.Logger;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -48,7 +48,7 @@ import org.slf4j.LoggerFactory;
  * {@link #write(Path, int)} mutates the filesystem.</p>
  *
  * @see LayoutMigrator
- * @see StorageLayout
+ * @see StoragePaths
  */
 public final class DataLayoutVersion {
 

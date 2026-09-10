@@ -12,8 +12,10 @@
  */
 package com.spectrayan.spector.memory.cortex.index;
 
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
+
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory.MemoryLocation;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 import org.junit.jupiter.api.DisplayName;
@@ -35,7 +37,7 @@ class GlobalGraphIndexTest {
     @Test
     @DisplayName("graphSlot is monotonically increasing and never reused across deletions")
     void monotonicSlotAllocationAcrossDeletions() {
-        IndexRecordMemory index = new IndexRecordMemory();
+        IndexEntryMemory index = new IndexEntryMemory();
 
         int slot0 = index.allocateGraphSlot();
         int slot1 = index.allocateGraphSlot();
@@ -71,7 +73,7 @@ class GlobalGraphIndexTest {
     @DisplayName("MIDX v7 header persists graphSlotHighWater across save/load")
     void headerPersistsGraphSlotHighWater() {
         Path midxPath = tempDir.resolve("test_highwater.midx");
-        IndexRecordMemory index = new IndexRecordMemory();
+        IndexEntryMemory index = new IndexEntryMemory();
 
         int slot0 = index.allocateGraphSlot(); // 0
         int slot1 = index.allocateGraphSlot(); // 1
@@ -84,7 +86,7 @@ class GlobalGraphIndexTest {
         index.remove("mem-1"); // high-water remains 3
         index.save(midxPath);
 
-        IndexRecordMemory loaded = IndexRecordMemory.load(midxPath);
+        IndexEntryMemory loaded = IndexEntryMemory.load(midxPath);
         assertThat(loaded.graphSlotHighWater()).isEqualTo(3);
         assertThat(loaded.idAt(0)).isEqualTo("mem-0");
         assertThat(loaded.idAt(1)).isNull();

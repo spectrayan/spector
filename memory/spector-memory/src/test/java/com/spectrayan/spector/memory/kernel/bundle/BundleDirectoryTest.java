@@ -12,8 +12,11 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
+import com.spectrayan.spector.memory.kernel.region.RegionId;
+import com.spectrayan.spector.memory.kernel.region.RegionEntry;
+
 import org.junit.jupiter.api.Test;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.List;

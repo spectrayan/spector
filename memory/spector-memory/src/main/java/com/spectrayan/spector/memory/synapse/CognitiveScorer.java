@@ -12,9 +12,11 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreFusionMode;
@@ -30,7 +32,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
 
-import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.*;
+import static com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.*;
 
 /**
  * Fused SIMD cognitive scoring loop — the heart of Spector Memory's performance.
@@ -190,10 +192,10 @@ public final class CognitiveScorer {
                     continue;
                 }
                 if (!options.allowSimulated()) {
-                    if (layout.readSourceCode(segment, offset) == com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.SOURCE_SIMULATED) {
+                    if (layout.readSourceCode(segment, offset) == com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.SOURCE_SIMULATED) {
                         continue;
                     }
-                    if (com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isSimulated(cFlags)) {
+                    if (com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.isSimulated(cFlags)) {
                         continue;
                     }
                 }

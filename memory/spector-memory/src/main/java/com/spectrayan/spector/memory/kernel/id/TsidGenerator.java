@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel.id;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 

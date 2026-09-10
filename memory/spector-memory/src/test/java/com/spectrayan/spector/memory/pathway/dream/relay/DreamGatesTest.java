@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
 import org.junit.jupiter.api.Test;

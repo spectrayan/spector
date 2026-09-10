@@ -12,9 +12,11 @@
  */
 package com.spectrayan.spector.memory.session;
 
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-import com.spectrayan.spector.memory.kernel.layout.EpisodeCodec;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.store.codec.EpisodeCodec;
+import com.spectrayan.spector.memory.kernel.engram.EpisodicHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
 import java.lang.foreign.ValueLayout;
 
@@ -56,7 +58,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * all sessions, this costs ~800 KB of heap. At 1M turns, ~8 MB.</p>
  *
  * @since 1.3.0
- * @see com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout
+ * @see com.spectrayan.spector.memory.kernel.engram.EpisodicHeaderLayout
  */
 public final class EpisodicSessionIndex {
 

@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
 /**
  * Top-level in-memory representation of an episodic conversation turn.
  *
@@ -85,13 +89,13 @@ public record EpisodeRecord(
      * Checks if this episodic record is logically tombstoned.
      */
     public boolean isTombstoned() {
-        return (flags & com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.FLAG_TOMBSTONE) != 0;
+        return (flags & com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.FLAG_TOMBSTONE) != 0;
     }
 
     /**
      * Checks if this episodic record has been consolidated into semantic memory.
      */
     public boolean isConsolidated() {
-        return (flags & com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.FLAG_CONSOLIDATED) != 0;
+        return (flags & com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.FLAG_CONSOLIDATED) != 0;
     }
 }

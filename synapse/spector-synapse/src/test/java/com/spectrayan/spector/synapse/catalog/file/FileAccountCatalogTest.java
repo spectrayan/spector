@@ -28,7 +28,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import com.spectrayan.spector.synapse.catalog.Account;
 import com.spectrayan.spector.synapse.catalog.Grant;
 import com.spectrayan.spector.synapse.catalog.GrantRole;
@@ -152,7 +152,7 @@ class FileAccountCatalogTest {
         catalog.getOrCreateAccount(ACCOUNT_ID);
         NamespaceRecord created = catalog.createNamespace(ACCOUNT_ID, "reset-target", NamespaceType.PROJECT);
 
-        Path nsDir = StorageLayout.namespaceDirSharded(tempDir, created.namespaceId());
+        Path nsDir = StoragePaths.namespaceDirSharded(tempDir, created.namespaceId());
         Path dummyFile = nsDir.resolve("dummy.txt");
         Files.writeString(dummyFile, "test data");
         assertThat(Files.exists(dummyFile)).isTrue();

@@ -15,13 +15,13 @@ package com.spectrayan.spector.memory.graph.hebbian;
 import com.spectrayan.spector.memory.cortex.adaptor.RunningStats;
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
+import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
-import com.spectrayan.spector.memory.kernel.layout.CoActivationMetadataFields;
+import com.spectrayan.spector.memory.kernel.store.field.CoActivationMetadataFields;
 import com.spectrayan.spector.memory.kernel.shape.AbstractHashTableMemory;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -49,7 +49,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * traversal for Hebbian learning.
  *
  * <p>Extends {@link AbstractHashTableMemory} with
- * {@link com.spectrayan.spector.memory.kernel.MemoryShape#HASHTABLE} shape,
+ * {@link com.spectrayan.spector.memory.kernel.shape.MemoryShape#HASHTABLE} shape,
  * hosting two compound open-addressing hash tables ({@link OffHeapPairTable}
  * for undirected co-occurrence and {@link OffHeapEdgeTable} for directed STDP)
  * plus a tag → memory inverted index for Cross-Capture Graph traversal.</p>

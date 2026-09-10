@@ -12,13 +12,15 @@
  */
 package com.spectrayan.spector.memory.kernel.shape;
 
-import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.RegionLayout;
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
+
+import com.spectrayan.spector.memory.kernel.shape.Memory;
+import com.spectrayan.spector.memory.kernel.layout.RegionLayout;
 import java.lang.foreign.MemorySegment;
 
 /**
  * Shape interface for fixed-stride record storage (like database tables).
- * Backs structures like IndexRecordMemory, SymbolTable, etc.
+ * Backs structures like IndexEntryMemory, SymbolTable, etc.
  *
  * @param <L> the memory layout type
  */

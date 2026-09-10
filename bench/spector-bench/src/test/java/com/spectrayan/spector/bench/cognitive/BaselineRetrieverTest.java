@@ -26,9 +26,9 @@ import org.junit.jupiter.api.Test;
 
 import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 
 /**
  * Unit tests for {@link BaselineRetriever} verifying:

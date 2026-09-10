@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.memory.aisme.relay;
 
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.spectrayan.spector.memory.aisme.narrative.NarrativeSelfEngine;
@@ -100,7 +104,7 @@ class ConstructiveSimulationRelayTest {
         assertThat(signal.candidates()).hasSize(3);
         CognitiveResult simulated = signal.candidates().get(2);
         assertThat(simulated.id()).isNotNull().hasSize(13);
-        assertThat(com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isSimulated(simulated.consolidationFlags())).isTrue();
+        assertThat(com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.isSimulated(simulated.consolidationFlags())).isTrue();
         assertThat(simulated.text()).contains("[Constructive Simulation");
         assertThat(simulated.synapticTags()).contains("simulated", "counterfactual", "constructive");
         assertThat(simulated.memoryType()).isEqualTo(MemoryType.EPISODIC);

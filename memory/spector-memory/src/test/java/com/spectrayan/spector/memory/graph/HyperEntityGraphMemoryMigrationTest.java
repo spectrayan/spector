@@ -14,8 +14,8 @@ package com.spectrayan.spector.memory.graph;
 
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory.HyperEdge;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
 import com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout;
 
 import org.junit.jupiter.api.DisplayName;

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.reflect.relay;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import com.spectrayan.spector.commons.template.TemplateEngine;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.cortex.ProvenanceMemory;

@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.e2e;
 
 import com.spectrayan.spector.memory.*;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.model.*;
 
 import org.junit.jupiter.api.*;
@@ -119,7 +119,7 @@ class PersistenceE2ETest extends AbstractE2ETest {
             diskMemory.close();
 
             // 3. Verify persistence files exist
-            assertThat(Files.exists(StorageLayout.runtimeBundleFile(testDataDir)))
+            assertThat(Files.exists(StoragePaths.runtimeBundleFile(testDataDir)))
                     .as("Runtime storage bundle should exist").isTrue();
 
             // 4. Reload from disk

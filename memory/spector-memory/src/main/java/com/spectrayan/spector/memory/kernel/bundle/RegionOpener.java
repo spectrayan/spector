@@ -12,7 +12,9 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
-import com.spectrayan.spector.memory.kernel.RegionLayout;
+import com.spectrayan.spector.memory.kernel.region.RegionId;
+
+import com.spectrayan.spector.memory.kernel.layout.RegionLayout;
 import com.spectrayan.spector.memory.kernel.shape.AppendMemory;
 import com.spectrayan.spector.memory.kernel.shape.ChainMemory;
 import com.spectrayan.spector.memory.kernel.shape.GraphMemory;

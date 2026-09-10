@@ -20,11 +20,11 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.memory.cortex.EngramMemory;
+import com.spectrayan.spector.memory.kernel.store.EngramRegion;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 
 /**
@@ -49,14 +49,14 @@ public final class DuplicateDetector {
     /**
      * Associates a partition sequence number with a tier memory store.
      */
-    public record PartitionStore(int partitionSeq, EngramMemory store) {}
+    public record PartitionStore(int partitionSeq, EngramRegion store) {}
 
     private record ScannedEntry(int partitionSeq, int recordIndex, String id, float[] decodedVector) {}
 
     /**
      * Scans the given store for duplicate pairs.
      */
-    public List<DuplicatePair> findDuplicates(EngramMemory store, MemoryIndex index, ScalarQuantizer quantizer) {
+    public List<DuplicatePair> findDuplicates(EngramRegion store, MemoryIndex index, ScalarQuantizer quantizer) {
         if (store == null) return List.of();
         int partitionSeq = index != null ? index.activePartitionSeq() : 0;
         return findDuplicatesAcrossPartitions(List.of(new PartitionStore(partitionSeq, store)), index, quantizer);
@@ -77,7 +77,7 @@ public final class DuplicateDetector {
         List<ScannedEntry> entries = new ArrayList<>();
 
         for (PartitionStore ps : partitionStores) {
-            EngramMemory store = ps.store();
+            EngramRegion store = ps.store();
             if (store == null) continue;
             int recordCount = store.visibleCount();
             if (recordCount == 0) continue;

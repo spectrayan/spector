@@ -15,10 +15,10 @@ package com.spectrayan.spector.memory.pathway.reflect.relay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.AbstractEngramMemory;
-import com.spectrayan.spector.memory.cortex.EngramMemory;
+import com.spectrayan.spector.memory.kernel.store.EngramRegion;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.ImportanceContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
@@ -39,7 +39,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
     private static final Logger log = LoggerFactory.getLogger(SoulDriftRefusionRelay.class);
 
     private record DriftCandidate(
-            EngramMemory store,
+            EngramRegion store,
             long offset,
             float encodingSurprise,
             float oldImportance,
@@ -114,12 +114,12 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         var handles = signal.partitionManager().snapshot();
         for (var handle : handles) {
             if (handle.router() == null) continue;
-            EngramMemory[] stores = new EngramMemory[]{
+            EngramRegion[] stores = new EngramRegion[]{
                     handle.router().semantic(),
                     handle.router().working()
             };
 
-            for (EngramMemory store : stores) {
+            for (EngramRegion store : stores) {
                 if (store != null) {
                     int size = store.size();
 
@@ -152,7 +152,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         return accumulator;
     }
 
-    private void scanStore(EngramMemory store, short currentSoulVersion,
+    private void scanStore(EngramRegion store, short currentSoulVersion,
                            PriorityQueue<DriftCandidate> heap, ReflectSignal signal) {
         if (store == null) return;
         int size = store.size();
@@ -176,7 +176,7 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
     }
 
     private void refuseMemory(DriftCandidate candidate, short targetVersion, ReflectSignal signal) {
-        EngramMemory store = candidate.store();
+        EngramRegion store = candidate.store();
         if (store == null) return;
         long offset = candidate.offset();
 

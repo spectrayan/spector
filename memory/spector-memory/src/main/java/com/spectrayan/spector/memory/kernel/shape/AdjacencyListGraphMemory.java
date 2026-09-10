@@ -14,9 +14,9 @@ package com.spectrayan.spector.memory.kernel.shape;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorInternalException;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.RegionLayout;
-import com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.memory.kernel.layout.RegionLayout;
+import com.spectrayan.spector.memory.kernel.store.field.AdjacencyListFields;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,13 +26,13 @@ import java.nio.file.Path;
 import java.util.NoSuchElementException;
 import java.util.PrimitiveIterator;
 
-import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields.EDGE_HEADER_BYTES;
-import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields.EDGE_OFF_NEXT;
-import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields.EDGE_OFF_TARGET;
-import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields.VERTEX_OFF_DEGREE;
-import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields.VERTEX_OFF_EDGE_HEAD;
-import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields.VERTEX_OFF_FLAGS;
-import static com.spectrayan.spector.memory.kernel.layout.AdjacencyListFields.VERTEX_STRIDE;
+import static com.spectrayan.spector.memory.kernel.store.field.AdjacencyListFields.EDGE_HEADER_BYTES;
+import static com.spectrayan.spector.memory.kernel.store.field.AdjacencyListFields.EDGE_OFF_NEXT;
+import static com.spectrayan.spector.memory.kernel.store.field.AdjacencyListFields.EDGE_OFF_TARGET;
+import static com.spectrayan.spector.memory.kernel.store.field.AdjacencyListFields.VERTEX_OFF_DEGREE;
+import static com.spectrayan.spector.memory.kernel.store.field.AdjacencyListFields.VERTEX_OFF_EDGE_HEAD;
+import static com.spectrayan.spector.memory.kernel.store.field.AdjacencyListFields.VERTEX_OFF_FLAGS;
+import static com.spectrayan.spector.memory.kernel.store.field.AdjacencyListFields.VERTEX_STRIDE;
 
 /**
  * Bundled <b>reference</b> graph memory over the kernel {@link AbstractGraphMemory} substrate.

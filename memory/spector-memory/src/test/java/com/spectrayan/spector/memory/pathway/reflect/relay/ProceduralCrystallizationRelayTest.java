@@ -12,8 +12,10 @@
  */
 package com.spectrayan.spector.memory.pathway.reflect.relay;
 
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -106,7 +108,7 @@ class ProceduralCrystallizationRelayTest {
                 eq(MemoryType.PROCEDURAL),
                 eq(new String[]{"procedural", "crystallized", "skill"}),
                 eq(MemorySource.REFLECTED),
-                any(com.spectrayan.spector.memory.kernel.layout.EncodingHeader.class)
+                any(com.spectrayan.spector.memory.kernel.engram.EncodingHeader.class)
         );
 
         verify(hyperEntityGraph).addHyperedge(
@@ -158,14 +160,14 @@ class ProceduralCrystallizationRelayTest {
         boolean result = relay.transmit(signal);
 
         assertThat(result).isTrue();
-        org.mockito.ArgumentCaptor<com.spectrayan.spector.memory.kernel.layout.EncodingHeader> captor =
-                org.mockito.ArgumentCaptor.forClass(com.spectrayan.spector.memory.kernel.layout.EncodingHeader.class);
+        org.mockito.ArgumentCaptor<com.spectrayan.spector.memory.kernel.engram.EncodingHeader> captor =
+                org.mockito.ArgumentCaptor.forClass(com.spectrayan.spector.memory.kernel.engram.EncodingHeader.class);
         verify(rememberPathway).ingestCognitiveWithHeader(
                 anyString(), anyString(), eq(new float[]{0.3f, 0.4f}), eq(MemoryType.PROCEDURAL), any(), eq(MemorySource.REFLECTED), captor.capture()
         );
 
         var header = captor.getValue();
-        assertThat(com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isCrystallized(header.consolidationFlags())).isTrue();
+        assertThat(com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.isCrystallized(header.consolidationFlags())).isTrue();
         assertThat(header.soulVersion()).isEqualTo((short) 4);
     }
 }

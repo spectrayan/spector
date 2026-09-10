@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import static org.assertj.core.api.Assertions.*;
 
 import java.util.List;

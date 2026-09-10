@@ -12,15 +12,17 @@
  */
 package com.spectrayan.spector.memory.pathway.wander.relay;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.cortex.EngramMemory;
+import com.spectrayan.spector.memory.kernel.store.EngramRegion;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.core.similarity.CosineSimilarity;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,7 +78,7 @@ public final class AutobiographicalSamplingRelay implements SynapticRelay<Wander
         return true;
     }
 
-    private int sampleFromStore(EngramMemory store, ScalarQuantizer quantizer, WanderSignal signal, int limit, String prefix) {
+    private int sampleFromStore(EngramRegion store, ScalarQuantizer quantizer, WanderSignal signal, int limit, String prefix) {
         if (store == null) {
             return 0;
         }

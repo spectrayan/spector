@@ -21,9 +21,9 @@ import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+import com.spectrayan.spector.memory.kernel.region.RegionId;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
@@ -45,7 +45,7 @@ import com.spectrayan.spector.memory.cortex.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
 import com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 
 /**

@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

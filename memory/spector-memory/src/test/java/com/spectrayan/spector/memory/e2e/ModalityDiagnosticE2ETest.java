@@ -12,9 +12,11 @@
  */
 package com.spectrayan.spector.memory.e2e;
 
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.*;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 
 import org.junit.jupiter.api.*;
 import org.slf4j.Logger;

@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.bench.cognitive.longmemeval;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;

@@ -24,10 +24,10 @@ import java.util.Locale;
 
 import java.util.concurrent.locks.ReentrantLock;
 
-import com.spectrayan.spector.memory.kernel.AbstractMemory;
-import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.shape.AbstractMemory;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
 import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
 
 /**
  * Abstract base class for small string-to-int registries.

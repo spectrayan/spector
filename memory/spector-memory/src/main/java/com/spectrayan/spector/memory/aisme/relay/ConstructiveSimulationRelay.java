@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.memory.aisme.relay;
 
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.aisme.narrative.NarrativeSelfEngine;
 import com.spectrayan.spector.memory.aisme.pcmn.PredictiveCodingNetwork;
@@ -185,7 +189,7 @@ public final class ConstructiveSimulationRelay implements SynapticRelay<RecallSi
                                         "simulation", "counterfactual_recombination",
                                         "alignSim", String.valueOf(alignSim)
                                 ),
-                                com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.FLAG_SIMULATED
+                                com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.FLAG_SIMULATED
                         );
                         candidates.add(simResult);
                         signal.attributes().put("simVec:" + simId, simVec);

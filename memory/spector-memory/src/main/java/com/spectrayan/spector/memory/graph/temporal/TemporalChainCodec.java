@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.graph.temporal;
 
-import com.spectrayan.spector.memory.kernel.codec.Codec;
-import com.spectrayan.spector.memory.kernel.codec.CodecStep;
+import com.spectrayan.spector.memory.kernel.migration.FormatCodec;
+import com.spectrayan.spector.memory.kernel.migration.CodecStep;
 import com.spectrayan.spector.memory.kernel.layout.TemporalLayout;
 
 import java.lang.foreign.MemorySegment;
@@ -23,7 +23,7 @@ import java.util.Set;
 /**
  * Codec binding for TemporalChainMemory format.
  */
-public final class TemporalChainCodec implements Codec<TemporalLayout> {
+public final class TemporalChainCodec implements FormatCodec<TemporalLayout> {
 
     private final TemporalLayout layout = new TemporalLayout();
 

@@ -12,10 +12,14 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-import com.spectrayan.spector.memory.kernel.layout.EpisodeCodec;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
+import com.spectrayan.spector.memory.kernel.store.EngramRegion;
+
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.store.codec.EpisodeCodec;
+import com.spectrayan.spector.memory.kernel.engram.EpisodicHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
 import com.spectrayan.spector.memory.model.ConversationRole;
 import com.spectrayan.spector.memory.model.EngramSource;
@@ -218,7 +222,7 @@ class EpisodicMemoryTest {
 
 
     @Test
-    @DisplayName("EpisodicMemory satisfies EngramMemory contract")
+    @DisplayName("EpisodicMemory satisfies EngramRegion contract")
     void episodicMemoryEngramContract() {
         assertEquals(com.spectrayan.spector.memory.model.MemoryType.EPISODIC, episodicMemory.type());
         assertEquals(0, episodicMemory.visibleCount());
@@ -226,7 +230,7 @@ class EpisodicMemoryTest {
 
         long offset = episodicMemory.appendTurn(
                 ConversationRole.USER, 1, 1000L, 123L,
-                "Testing EngramMemory contract".getBytes(), (short) 1, 10, 0, 0, 999L, (short) 1,
+                "Testing EngramRegion contract".getBytes(), (short) 1, 10, 0, 0, 999L, (short) 1,
                 SourceModality.TEXT, 0.75f, (byte) 15, (byte) 30, EngramSource.EXPERIENCED
         );
 

@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.RegionLayout;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.layout.RegionLayout;
 
 /**
  * Memory layout for nodes/relations in the Hyper Entity Graph — the single source of truth for

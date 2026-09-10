@@ -12,8 +12,19 @@
  */
 package com.spectrayan.spector.memory.kernel;
 
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.util.XxHash64;
+
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
+
+import com.spectrayan.spector.memory.kernel.region.RegionEntry;
+
+import com.spectrayan.spector.memory.kernel.store.field.AdjacencyListFields;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeaderLayout;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
+import com.spectrayan.spector.memory.kernel.layout.RegionLayout;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -79,10 +90,7 @@ class KernelNamingRulesTest {
     private static final Set<String> PANAMA_TYPES =
             Set.of("MemoryLayout", "MemorySegment", "ValueLayout", "Arena");
 
-    private static final Set<String> SHAPE_TOKEN_ALLOWLIST = Set.of(
-            // Requirements §6 decision 6: out of scope, IndexRecordMemory & MemoryIndex keep their names
-            "IndexRecordMemory"
-    );
+    private static final Set<String> SHAPE_TOKEN_ALLOWLIST = Set.of();
 
     /**
      * Names where a size-like suffix is part of an algorithm name, not a storage format version.
@@ -92,15 +100,7 @@ class KernelNamingRulesTest {
      */
     private static final Set<String> SIZE_SUFFIX_ALLOWLIST = Set.of("XxHash64");
 
-    private static final Set<String> LAYOUT_ALLOWLIST = Set.of(
-            // ADR-0030: EncodingHeaderLayout and its per-tier subclasses are engram header codecs, not RegionLayouts
-            "EncodingHeaderLayout",
-            "SemanticProceduralHeaderLayout",
-            "SemanticHeaderLayout",
-            "ProceduralHeaderLayout",
-            "EpisodicHeaderLayout",
-            "WorkingHeaderLayout"
-    );
+    private static final Set<String> LAYOUT_ALLOWLIST = Set.of();
 
     private static final Pattern SIZE_OR_VERSION_SUFFIX = Pattern.compile(".*(64|128|V\\d+)$");
 
@@ -260,34 +260,51 @@ class KernelNamingRulesTest {
     // ── Rule 6 ──
 
     /**
-     * A {@code *Layout} type in {@code kernel.layout} must actually be a region layout.
+     * Every type in {@code kernel.layout} must implement the region-layout contract.
      *
-     * <p>{@code AdjacencyListLayout} and {@code CoActivationMetadataLayout} carry the suffix but do not
-     * implement the contract — both are plain constants classes. Constants-only helpers belong under
-     * {@code *Fields}, address computation under {@code *Accessor}, variable-length framing under
-     * {@code *Codec}.</p>
-     *
-     * <p>Scoped to {@code kernel.layout}: {@code BundleLayout} lives in {@code kernel.bundle}, and
-     * {@code StorageLayout} in {@code kernel} is a third, unrelated sense of "layout" (filesystem
-     * paths) that is deliberately out of scope.</p>
+     * <p>Constants-only helpers belong under {@code *Fields}, address computation under
+     * {@code *Accessor}, variable-length framing under {@code *Codec}, and header codecs under
+     * {@code kernel.engram}.</p>
      */
     @Test
-    @DisplayName("Rule 6: a *Layout type in kernel.layout implements the region-layout contract")
+    @DisplayName("Rule 6: every type in kernel.layout implements the region-layout contract")
     void layoutSuffixMeansRegionLayout() {
         List<String> violations = ALL_TYPES.stream()
                 .filter(fqn -> packageOf(fqn).equals(LAYOUT_PKG))
-                .filter(fqn -> simpleName(fqn).endsWith("Layout"))
+                .filter(fqn -> !fqn.contains("$"))
                 .filter(fqn -> !LAYOUT_ALLOWLIST.contains(simpleName(fqn)))
                 .filter(fqn -> {
                     Class<?> type = load(fqn);
                     // A type that cannot be loaded is reported rather than silently passed.
-                    return type == null || (!type.isInterface() && !RegionLayout.class.isAssignableFrom(type));
+                    return type == null || !RegionLayout.class.isAssignableFrom(type);
                 })
                 .toList();
 
         assertThat(violations)
-                .as("the Layout suffix must mean 'region record descriptor'; constants-only helpers "
-                        + "belong under *Fields, addressing under *Accessor, framing under *Codec")
+                .as("every type in kernel.layout must implement RegionLayout (requirements R15.2, R15.7)")
+                .isEmpty();
+    }
+
+    // ── Rule 7 ──
+
+    /**
+     * No {@code *Store} type may exist anywhere in the kernel.
+     *
+     * <p>{@code *Memory} is the settled vocabulary for a thing that holds memories. {@code *Store} is
+     * prior naming that was deliberately replaced by "memory" to keep the kernel's vocabulary
+     * distinct from database terminology (requirements R16.1).</p>
+     */
+    @Test
+    @DisplayName("Rule 7: no *Store type in kernel packages")
+    void noStoreInKernel() {
+        List<String> violations = ALL_TYPES.stream()
+                .filter(KernelNamingRulesTest::isAuthorNamed)
+                .filter(fqn -> packageOf(fqn).startsWith(KERNEL_PKG))
+                .filter(fqn -> simpleName(fqn).endsWith("Store"))
+                .toList();
+
+        assertThat(violations)
+                .as("Store is prior naming replaced by Memory; *Store types are banned in the kernel (requirements R16.1)")
                 .isEmpty();
     }
 
@@ -326,10 +343,10 @@ class KernelNamingRulesTest {
         // the rule set.
         assertThat(ALL_TYPES)
                 .as("known types must be visible to the rules")
-                .contains(KERNEL_PKG + ".RegionLayout",
-                        LAYOUT_PKG + ".EncodingHeaderLayout",
+                .contains(LAYOUT_PKG + ".RegionLayout",
+                        KERNEL_PKG + ".engram.EncodingHeaderLayout",
                         LAYOUT_PKG + ".StrengthLayout",
-                        LAYOUT_PKG + ".AdjacencyListFields");
+                        KERNEL_PKG + ".store.field.AdjacencyListFields");
     }
 
     /**
@@ -358,9 +375,16 @@ class KernelNamingRulesTest {
                 .filter(f -> SHAPE_TOKEN_SUFFIX.matcher(simpleName(f)).matches())
                 .count();
 
+        long storeTypes = ALL_TYPES.stream()
+                .filter(KernelNamingRulesTest::isAuthorNamed)
+                .filter(f -> packageOf(f).startsWith(KERNEL_PKG))
+                .filter(f -> simpleName(f).endsWith("Store"))
+                .count();
+
         assertThat(sizeOrVersion).as("expected no size or version tokens in kernel types").isEqualTo(0);
         assertThat(panamaShadow).as("expected no kernel types shadowing Panama").isEqualTo(0);
         assertThat(shapeTokens).as("expected no remaining non-allowlisted stores with shape tokens")
                 .isEqualTo(0);
+        assertThat(storeTypes).as("expected no *Store types in kernel packages").isEqualTo(0);
     }
 }

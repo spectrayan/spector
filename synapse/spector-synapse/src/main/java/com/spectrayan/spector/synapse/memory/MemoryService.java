@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -514,7 +516,7 @@ public class MemoryService {
      * Tag-based memory browsing — no vector search.
      *
      * <p>Delegates to {@link com.spectrayan.spector.memory.SpectorMemory#browse(String...)}
-     * which uses the inverted tag index ({@code IndexRecordMemory.tagToIds}) for
+     * which uses the inverted tag index ({@code IndexEntryMemory.tagToIds}) for
      * O(1) exact tag matching with AND semantics. Results are sorted by timestamp
      * (oldest first) for chronological session replay.</p>
      */

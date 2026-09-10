@@ -12,11 +12,13 @@
  */
 package com.spectrayan.spector.memory.graph.hebbian;
 
+import com.spectrayan.spector.memory.kernel.migration.FormatCodec;
+
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianEdge;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.codec.Codecs;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.memory.kernel.migration.Codecs;
 import com.spectrayan.spector.memory.kernel.layout.HebbianLayout;
 
 import org.junit.jupiter.api.DisplayName;

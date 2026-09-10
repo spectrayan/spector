@@ -25,11 +25,11 @@ import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
-import com.spectrayan.spector.memory.kernel.SystemMemoryId;
-import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
+import com.spectrayan.spector.memory.kernel.region.RegionId;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import java.nio.file.Path;
@@ -169,7 +169,7 @@ public final class CognitiveGraphBuilder {
             TypeRegistryMemory entityTypeRegistry;
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
                 entityTypeRegistry = cortex.runtimeBundle().openRegistry(
-                        com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_TYPES,
+                        com.spectrayan.spector.memory.kernel.region.RegionId.ENTITY_TYPES,
                         SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
             } else {
                 entityTypeRegistry = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
@@ -188,7 +188,7 @@ public final class CognitiveGraphBuilder {
         TypeRegistryMemory predRegistry;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
             predRegistry = cortex.runtimeBundle().openRegistry(
-                    com.spectrayan.spector.memory.kernel.bundle.RegionId.RELATION_TYPES,
+                    com.spectrayan.spector.memory.kernel.region.RegionId.RELATION_TYPES,
                     SystemMemoryId.RELATION_TYPE, null);
         } else {
             predRegistry = new TypeRegistryMemory(SystemMemoryId.RELATION_TYPE);

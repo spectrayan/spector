@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -325,7 +327,7 @@ class MemoryRegistryTest {
     void failClosed_unsafeUserId_rejectedAndCachesNothing() {
         MemoryRegistry registry = buildRegistry(true, 512, mock(EmbeddingProvider.class));
 
-        // Since #438 StorageLayout.validateNamespaceId throws the typed domain exception
+        // Since #438 StoragePaths.validateNamespaceId throws the typed domain exception
         // (SpectorValidationException, SPE-100-013) before any path resolution. The fail-closed
         // contract — unsafe id rejected, nothing cached, shared instance never consulted — is
         // preserved regardless of the concrete exception type.

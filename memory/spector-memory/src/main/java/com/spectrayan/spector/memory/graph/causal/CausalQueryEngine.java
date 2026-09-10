@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.graph.causal;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory.HyperEdge;

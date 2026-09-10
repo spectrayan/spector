@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.synapse.catalog.exception;
 
+import com.spectrayan.spector.memory.kernel.region.RegionId;
+
 import com.spectrayan.spector.commons.error.ErrorCode;
 
 /**

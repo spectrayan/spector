@@ -29,14 +29,14 @@ import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.EngramMemory;
+import com.spectrayan.spector.memory.kernel.store.EngramRegion;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -217,7 +217,7 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
 
     private void processTask(ScopedTask<EagerConsolidationPayload> task) {
         EagerConsolidationPayload payload = task.payload();
-        EngramMemory store;
+        EngramRegion store;
         try {
             store = cognitiveRouter.get(payload.type());
         } catch (RuntimeException e) {

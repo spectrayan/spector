@@ -12,7 +12,9 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 
 import com.spectrayan.spector.memory.model.SourceModality;
 

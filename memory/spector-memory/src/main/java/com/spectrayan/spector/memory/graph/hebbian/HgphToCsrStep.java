@@ -13,9 +13,9 @@
 package com.spectrayan.spector.memory.graph.hebbian;
 
 import com.spectrayan.spector.memory.graph.EdgeImportance;
-import com.spectrayan.spector.memory.kernel.codec.FormatId;
-import com.spectrayan.spector.memory.kernel.codec.MigrationContext;
-import com.spectrayan.spector.memory.kernel.codec.RewriteFileStep;
+import com.spectrayan.spector.memory.kernel.migration.FormatId;
+import com.spectrayan.spector.memory.kernel.migration.MigrationContext;
+import com.spectrayan.spector.memory.kernel.migration.RewriteFileStep;
 
 import java.io.IOException;
 import java.nio.file.Path;

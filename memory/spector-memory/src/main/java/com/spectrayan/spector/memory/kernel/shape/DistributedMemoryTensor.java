@@ -16,7 +16,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.simd.RandomFeatureProjector;
 import com.spectrayan.spector.core.similarity.DotProduct;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;

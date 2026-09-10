@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel.shape;
 
-import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.RegionLayout;
+import com.spectrayan.spector.memory.kernel.shape.Memory;
+import com.spectrayan.spector.memory.kernel.layout.RegionLayout;
 
 /**
  * Shape interface for sequential linked prev/next structures.

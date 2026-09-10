@@ -12,8 +12,12 @@
  */
 package com.spectrayan.spector.memory.graph;
 
-import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isPinned;
-import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isResolved;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
+import static com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.isPinned;
+import static com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.isResolved;
 
 /**
  * Neuroscience-informed edge importance scoring for graph eviction decisions.

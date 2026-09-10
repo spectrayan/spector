@@ -12,9 +12,14 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
+import com.spectrayan.spector.memory.kernel.bundle.compat.LegacyV3BundleFormat;
+
+import com.spectrayan.spector.memory.kernel.region.RegionId;
+import com.spectrayan.spector.memory.kernel.region.RegionSizeSpec;
+
 import com.spectrayan.spector.memory.cortex.StrengthMemory;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -57,7 +62,7 @@ import java.util.List;
  *
  * @since 1.1.0
  * @see PartitionBundle
- * @see StorageLayout
+ * @see StoragePaths
  */
 public final class BundleMigrationCli {
 
@@ -106,30 +111,30 @@ public final class BundleMigrationCli {
      */
     @SuppressWarnings("removal")
     public static MigrationResult migrateRuntime(Path basePath, int dimensions) {
-        Path runtimeDir = StorageLayout.runtimeDir(basePath);
+        Path runtimeDir = StoragePaths.runtimeDir(basePath);
         if (!Files.isDirectory(runtimeDir)) {
             log.info("BundleMigration: no runtime/ directory at {} — skipping", basePath);
             return new MigrationResult(MigrationResult.Status.SKIPPED, 1, 0, 1, "No runtime/ directory");
         }
 
-        Path runtimeBundleFile = StorageLayout.runtimeBundleFile(basePath);
+        Path runtimeBundleFile = StoragePaths.runtimeBundleFile(basePath);
         if (Files.exists(runtimeBundleFile)) {
             log.info("BundleMigration: runtime.bundle already exists at {} — skipping", runtimeDir);
             return new MigrationResult(MigrationResult.Status.ALREADY_MIGRATED, 1, 0, 1, "runtime.bundle already present");
         }
 
-        Path workingFile = LegacyV3Layout.workingMem(basePath);
-        Path coactFile = LegacyV3Layout.coactivationTracker(basePath);
-        Path indexFile = LegacyV3Layout.indexMidxRuntime(basePath);
-        Path hebbianFile = LegacyV3Layout.hebbianGraphRuntime(basePath);
-        Path temporalFile = LegacyV3Layout.temporalChainRuntime(basePath);
-        Path tfactsFile = LegacyV3Layout.temporalFactsRuntime(basePath);
-        Path edirFile = LegacyV3Layout.entityDirectoryRuntime(basePath);
-        Path hyegFile = LegacyV3Layout.hyperEntityGraphRuntime(basePath);
-        Path etypesFile = LegacyV3Layout.entityTypesRuntime(basePath);
-        Path rtypesFile = LegacyV3Layout.relationTypesRuntime(basePath);
-        Path bm25File = LegacyV3Layout.bm25BidxRuntime(basePath);
-        Path ckptFile = LegacyV3Layout.checkpointMeta(basePath);
+        Path workingFile = LegacyV3BundleFormat.workingMem(basePath);
+        Path coactFile = LegacyV3BundleFormat.coactivationTracker(basePath);
+        Path indexFile = LegacyV3BundleFormat.indexMidxRuntime(basePath);
+        Path hebbianFile = LegacyV3BundleFormat.hebbianGraphRuntime(basePath);
+        Path temporalFile = LegacyV3BundleFormat.temporalChainRuntime(basePath);
+        Path tfactsFile = LegacyV3BundleFormat.temporalFactsRuntime(basePath);
+        Path edirFile = LegacyV3BundleFormat.entityDirectoryRuntime(basePath);
+        Path hyegFile = LegacyV3BundleFormat.hyperEntityGraphRuntime(basePath);
+        Path etypesFile = LegacyV3BundleFormat.entityTypesRuntime(basePath);
+        Path rtypesFile = LegacyV3BundleFormat.relationTypesRuntime(basePath);
+        Path bm25File = LegacyV3BundleFormat.bm25BidxRuntime(basePath);
+        Path ckptFile = LegacyV3BundleFormat.checkpointMeta(basePath);
 
         boolean hasAny = Files.exists(workingFile) || Files.exists(coactFile) || Files.exists(indexFile)
                 || Files.exists(hebbianFile) || Files.exists(temporalFile) || Files.exists(tfactsFile)
@@ -378,7 +383,7 @@ public final class BundleMigrationCli {
      * @return aggregate migration result
      */
     public static MigrationResult migrateAll(Path basePath, int dimensions) {
-        Path partitionsDir = StorageLayout.partitionsDir(basePath);
+        Path partitionsDir = StoragePaths.partitionsDir(basePath);
         if (!Files.isDirectory(partitionsDir)) {
             log.info("BundleMigration: no partitions/ directory at {} — skipping", basePath);
             return new MigrationResult(MigrationResult.Status.SKIPPED, 0, 0, 0,
@@ -440,7 +445,7 @@ public final class BundleMigrationCli {
      */
     @SuppressWarnings("removal")
     public static MigrationResult migratePartition(Path partitionDir, int dimensions) {
-        Path bundleFile = StorageLayout.partitionBundleFile(partitionDir);
+        Path bundleFile = StoragePaths.partitionBundleFile(partitionDir);
 
         // Guard: already migrated
         if (Files.exists(bundleFile)) {
@@ -451,10 +456,10 @@ public final class BundleMigrationCli {
         }
 
         // V3 source files
-        Path semanticFile = LegacyV3Layout.semanticMem(partitionDir);
-        Path episodicFile = LegacyV3Layout.episodicMem(partitionDir);
-        Path proceduralFile = LegacyV3Layout.proceduralMem(partitionDir);
-        Path textFile = LegacyV3Layout.textDat(partitionDir);
+        Path semanticFile = LegacyV3BundleFormat.semanticMem(partitionDir);
+        Path episodicFile = LegacyV3BundleFormat.episodicMem(partitionDir);
+        Path proceduralFile = LegacyV3BundleFormat.proceduralMem(partitionDir);
+        Path textFile = LegacyV3BundleFormat.textDat(partitionDir);
 
         // Guard: no V3 files at all
         boolean hasAny = Files.exists(semanticFile) || Files.exists(episodicFile)
@@ -745,14 +750,14 @@ public final class BundleMigrationCli {
         try (var stream = Files.newDirectoryStream(partitionsDir)) {
             for (Path dir : stream) {
                 if (Files.isDirectory(dir)
-                        && StorageLayout.isPartitionDir(dir.getFileName().toString())) {
+                        && StoragePaths.isPartitionDir(dir.getFileName().toString())) {
                     dirs.add(dir);
                 }
             }
         }
         dirs.sort((a, b) -> {
-            int seqA = StorageLayout.parsePartitionSeqNo(a.getFileName().toString());
-            int seqB = StorageLayout.parsePartitionSeqNo(b.getFileName().toString());
+            int seqA = StoragePaths.parsePartitionSeqNo(a.getFileName().toString());
+            int seqB = StoragePaths.parsePartitionSeqNo(b.getFileName().toString());
             return Integer.compare(seqA, seqB);
         });
         return dirs;
@@ -860,7 +865,7 @@ public final class BundleMigrationCli {
      */
     @SuppressWarnings("removal")
     private static void dryRunReport(Path basePath, int dimensions) {
-        Path partitionsDir = StorageLayout.partitionsDir(basePath);
+        Path partitionsDir = StoragePaths.partitionsDir(basePath);
         if (!Files.isDirectory(partitionsDir)) {
             System.out.println("No partitions/ directory found at " + basePath);
             return;
@@ -880,25 +885,25 @@ public final class BundleMigrationCli {
         System.out.println("-".repeat(90));
 
         for (Path dir : dirs) {
-            Path bundleFile = StorageLayout.partitionBundleFile(dir);
+            Path bundleFile = StoragePaths.partitionBundleFile(dir);
             String status;
             if (Files.exists(bundleFile)) {
                 status = "MIGRATED";
             } else {
-                boolean hasAny = Files.exists(LegacyV3Layout.semanticMem(dir))
-                        || Files.exists(LegacyV3Layout.episodicMem(dir))
-                        || Files.exists(LegacyV3Layout.proceduralMem(dir))
-                        || Files.exists(LegacyV3Layout.textDat(dir));
+                boolean hasAny = Files.exists(LegacyV3BundleFormat.semanticMem(dir))
+                        || Files.exists(LegacyV3BundleFormat.episodicMem(dir))
+                        || Files.exists(LegacyV3BundleFormat.proceduralMem(dir))
+                        || Files.exists(LegacyV3BundleFormat.textDat(dir));
                 status = hasAny ? "PENDING" : "EMPTY";
             }
 
             System.out.printf("%-25s  %-10s  %-12s  %-12s  %-12s  %-12s%n",
                     dir.getFileName(),
                     status,
-                    fileSize(LegacyV3Layout.semanticMem(dir)),
-                    fileSize(LegacyV3Layout.episodicMem(dir)),
-                    fileSize(LegacyV3Layout.proceduralMem(dir)),
-                    fileSize(LegacyV3Layout.textDat(dir)));
+                    fileSize(LegacyV3BundleFormat.semanticMem(dir)),
+                    fileSize(LegacyV3BundleFormat.episodicMem(dir)),
+                    fileSize(LegacyV3BundleFormat.proceduralMem(dir)),
+                    fileSize(LegacyV3BundleFormat.textDat(dir)));
         }
     }
 

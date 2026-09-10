@@ -13,15 +13,15 @@
 package com.spectrayan.spector.memory.synapse;
 
 import com.spectrayan.spector.memory.cortex.StrengthMemory;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderLayout;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeaderLayout;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout.StrengthState;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
-import com.spectrayan.spector.memory.kernel.layout.compat.LegacyEncodingHeaderReader;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.compat.LegacyEncodingHeaderReader;
 import com.spectrayan.spector.memory.model.MemoryType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

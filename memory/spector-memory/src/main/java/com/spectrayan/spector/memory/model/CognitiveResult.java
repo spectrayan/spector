@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
 import com.spectrayan.spector.memory.cortex.MemorySource;
 
 import java.util.Map;
@@ -304,13 +308,13 @@ public record CognitiveResult(
      */
     public boolean isSimulated() {
         return (source != null && source.toEngramSource() == EngramSource.SIMULATED)
-                || com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isSimulated(consolidationFlags);
+                || com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.isSimulated(consolidationFlags);
     }
 
     /**
      * Returns true if this result was ingested during a dream cycle (ADR-0031).
      */
     public boolean isDreamed() {
-        return com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isDreamed(consolidationFlags);
+        return com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.isDreamed(consolidationFlags);
     }
 }

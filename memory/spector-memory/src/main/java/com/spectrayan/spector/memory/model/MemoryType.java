@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
 /**
  * Cognitive memory type — determines physical routing and storage backend.
  *
@@ -24,7 +28,7 @@ package com.spectrayan.spector.memory.model;
  * </ul>
  *
  * <p>The ordinal values (0–3) are encoded as 2 bits in the flags byte of the
- * {@link com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields synaptic header}.</p>
+ * {@link com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields synaptic header}.</p>
  */
 public enum MemoryType {
 

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
+import com.spectrayan.spector.memory.kernel.engram.ProceduralHeaderLayout;
+
 /**
  * Dedicated record layout for the Procedural memory tier (ADR-0030).
  *

@@ -12,12 +12,18 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.memory.kernel.store.codec.EpisodeCodec;
+
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
 /**
  * Conversation role — identifies the author/purpose of an episodic chat turn.
  *
  * <h3>Binary Encoding</h3>
  * <p>Stored in the {@code valence} byte (offset 2) of the
- * {@link com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields synaptic header}
+ * {@link com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields synaptic header}
  * when the record's {@link MemoryType} is {@code EPISODIC}. The same byte offset
  * is used for emotional valence in SEMANTIC/PROCEDURAL records — the
  * {@code MemoryType} bits in the flags byte (bits 1-2) determine interpretation.</p>
@@ -29,7 +35,7 @@ package com.spectrayan.spector.memory.model;
  *
  * @since 1.3.0
  * @see MemoryType#EPISODIC
- * @see com.spectrayan.spector.memory.kernel.layout.EpisodeCodec
+ * @see com.spectrayan.spector.memory.kernel.store.codec.EpisodeCodec
  */
 public enum ConversationRole {
 

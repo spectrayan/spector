@@ -18,7 +18,7 @@ import com.spectrayan.spector.index.text.BM25Index;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.text.StemmingAnalyzer;
 import com.spectrayan.spector.memory.kernel.bundle.BundleManager;
-import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.kernel.region.RegionId;
 import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 

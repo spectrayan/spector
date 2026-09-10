@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
-import com.spectrayan.spector.memory.kernel.RegionLayout;
+import com.spectrayan.spector.memory.kernel.layout.RegionLayout;
 
 /**
  * A simple RegionLayout implementation for registries.

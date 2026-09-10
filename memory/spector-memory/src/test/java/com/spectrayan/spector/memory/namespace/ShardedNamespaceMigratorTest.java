@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.namespace;
 
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import org.junit.jupiter.api.*;
 
 import java.io.IOException;
@@ -44,13 +44,13 @@ class ShardedNamespaceMigratorTest {
     }
 
     private void createFlatNamespace(String nsId) throws IOException {
-        Path nsDir = StorageLayout.namespaceDir(tempDir, nsId);
+        Path nsDir = StoragePaths.namespaceDir(tempDir, nsId);
         Files.createDirectories(nsDir);
-        Files.writeString(nsDir.resolve(StorageLayout.FILE_NAMESPACE),
+        Files.writeString(nsDir.resolve(StoragePaths.FILE_NAMESPACE),
                 "{\"id\": \"" + nsId + "\"}");
         // Create subdirs like real namespaces
-        Files.createDirectories(nsDir.resolve(StorageLayout.DIR_RUNTIME));
-        Files.createDirectories(nsDir.resolve(StorageLayout.DIR_PARTITIONS));
+        Files.createDirectories(nsDir.resolve(StoragePaths.DIR_RUNTIME));
+        Files.createDirectories(nsDir.resolve(StoragePaths.DIR_PARTITIONS));
     }
 
     @Test
@@ -64,25 +64,25 @@ class ShardedNamespaceMigratorTest {
         assertThat(migrated).isEqualTo(2);
 
         // Flat dirs should no longer exist
-        assertThat(Files.exists(StorageLayout.namespaceDir(tempDir, "agent-alpha"))).isFalse();
-        assertThat(Files.exists(StorageLayout.namespaceDir(tempDir, "agent-beta"))).isFalse();
+        assertThat(Files.exists(StoragePaths.namespaceDir(tempDir, "agent-alpha"))).isFalse();
+        assertThat(Files.exists(StoragePaths.namespaceDir(tempDir, "agent-beta"))).isFalse();
 
         // Sharded dirs should exist
-        assertThat(Files.exists(StorageLayout.namespaceDirSharded(tempDir, "agent-alpha"))).isTrue();
-        assertThat(Files.exists(StorageLayout.namespaceDirSharded(tempDir, "agent-beta"))).isTrue();
+        assertThat(Files.exists(StoragePaths.namespaceDirSharded(tempDir, "agent-alpha"))).isTrue();
+        assertThat(Files.exists(StoragePaths.namespaceDirSharded(tempDir, "agent-beta"))).isTrue();
 
         // Content should be preserved
-        assertThat(Files.exists(StorageLayout.namespaceDirSharded(tempDir, "agent-alpha")
-                .resolve(StorageLayout.FILE_NAMESPACE))).isTrue();
-        assertThat(Files.exists(StorageLayout.namespaceDirSharded(tempDir, "agent-alpha")
-                .resolve(StorageLayout.DIR_RUNTIME))).isTrue();
+        assertThat(Files.exists(StoragePaths.namespaceDirSharded(tempDir, "agent-alpha")
+                .resolve(StoragePaths.FILE_NAMESPACE))).isTrue();
+        assertThat(Files.exists(StoragePaths.namespaceDirSharded(tempDir, "agent-alpha")
+                .resolve(StoragePaths.DIR_RUNTIME))).isTrue();
     }
 
     @Test
     @DisplayName("Skips directories without namespace.json")
     void skipsNonNamespaceDirs() throws IOException {
         // Create a directory without namespace.json
-        Path randomDir = StorageLayout.namespacesDir(tempDir).resolve("random-dir");
+        Path randomDir = StoragePaths.namespacesDir(tempDir).resolve("random-dir");
         Files.createDirectories(randomDir);
 
         int migrated = ShardedNamespaceMigrator.migrateToSharded(tempDir);
@@ -93,9 +93,9 @@ class ShardedNamespaceMigratorTest {
     @DisplayName("Skips already-sharded directories (hex bucket names)")
     void skipsShardBucketDirs() throws IOException {
         // Pre-create a sharded namespace
-        Path shardedDir = StorageLayout.namespaceDirSharded(tempDir, "agent-x");
+        Path shardedDir = StoragePaths.namespaceDirSharded(tempDir, "agent-x");
         Files.createDirectories(shardedDir);
-        Files.writeString(shardedDir.resolve(StorageLayout.FILE_NAMESPACE),
+        Files.writeString(shardedDir.resolve(StoragePaths.FILE_NAMESPACE),
                 "{\"id\": \"agent-x\"}");
 
         int migrated = ShardedNamespaceMigrator.migrateToSharded(tempDir);
@@ -108,16 +108,16 @@ class ShardedNamespaceMigratorTest {
         createFlatNamespace("agent-alpha");
 
         // Pre-create the sharded target
-        Path target = StorageLayout.namespaceDirSharded(tempDir, "agent-alpha");
+        Path target = StoragePaths.namespaceDirSharded(tempDir, "agent-alpha");
         Files.createDirectories(target);
-        Files.writeString(target.resolve(StorageLayout.FILE_NAMESPACE),
+        Files.writeString(target.resolve(StoragePaths.FILE_NAMESPACE),
                 "{\"id\": \"agent-alpha\", \"migrated\": true}");
 
         int migrated = ShardedNamespaceMigrator.migrateToSharded(tempDir);
         assertThat(migrated).isZero();
 
         // Original flat dir should still exist (not moved)
-        assertThat(Files.exists(StorageLayout.namespaceDir(tempDir, "agent-alpha"))).isTrue();
+        assertThat(Files.exists(StoragePaths.namespaceDir(tempDir, "agent-alpha"))).isTrue();
     }
 
     @Test

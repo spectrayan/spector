@@ -12,10 +12,15 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
+import com.spectrayan.spector.memory.kernel.bundle.BundleFileLayout;
+
+import com.spectrayan.spector.memory.kernel.region.RegionId;
+import com.spectrayan.spector.memory.kernel.region.RegionEntry;
+
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorServerException;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
 
 import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
@@ -55,8 +60,8 @@ public final class BundleDirectory {
         if (RegionPreamble.readShape(masterSegment, HEADER_OFFSET) != MemoryShape.BUNDLE) {
             throw new SpectorServerException(ErrorCode.ARGUMENT_INVALID, "MemoryShape is not BUNDLE");
         }
-        if (RegionPreamble.readLayoutId(masterSegment, HEADER_OFFSET) != BundleLayout.LAYOUT_ID) {
-            throw new SpectorServerException(ErrorCode.ARGUMENT_INVALID, "LayoutId does not match BundleLayout");
+        if (RegionPreamble.readLayoutId(masterSegment, HEADER_OFFSET) != BundleFileLayout.LAYOUT_ID) {
+            throw new SpectorServerException(ErrorCode.ARGUMENT_INVALID, "LayoutId does not match BundleFileLayout");
         }
         if (!BundleSubHeader.isValid(masterSegment)) {
             throw new SpectorServerException(ErrorCode.RECORD_CRC_CORRUPTED, "Invalid BundleSubHeader CRC");
@@ -78,8 +83,8 @@ public final class BundleDirectory {
      */
     public void write(MemorySegment masterSegment) {
         long now = System.currentTimeMillis();
-        RegionPreamble.write(masterSegment, HEADER_OFFSET, BundleLayout.SCHEMA_VERSION, MemoryShape.BUNDLE, 
-                           0, maxRegions, entries.size(), BundleLayout.REGION_ENTRY_STRIDE, BundleLayout.LAYOUT_ID, 
+        RegionPreamble.write(masterSegment, HEADER_OFFSET, BundleFileLayout.SCHEMA_VERSION, MemoryShape.BUNDLE, 
+                           0, maxRegions, entries.size(), BundleFileLayout.REGION_ENTRY_STRIDE, BundleFileLayout.LAYOUT_ID, 
                            now, now);
         
         long maxEnd = directorySize();
@@ -90,7 +95,7 @@ public final class BundleDirectory {
             }
         }
         
-        BundleSubHeader.write(masterSegment, bundleMagic, BundleLayout.SCHEMA_VERSION, maxEnd, 
+        BundleSubHeader.write(masterSegment, bundleMagic, BundleFileLayout.SCHEMA_VERSION, maxEnd, 
                               0L, 0, maxRegions, dataStartOffset(maxRegions));
                               
         for (int i = 0; i < maxRegions; i++) {

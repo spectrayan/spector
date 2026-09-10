@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.e2e;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import com.spectrayan.spector.provider.generation.GenerationOptions;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;

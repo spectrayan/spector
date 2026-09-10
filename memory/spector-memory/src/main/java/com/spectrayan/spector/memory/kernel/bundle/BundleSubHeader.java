@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;

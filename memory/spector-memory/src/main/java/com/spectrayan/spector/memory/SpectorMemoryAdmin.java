@@ -26,7 +26,7 @@ import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
-import com.spectrayan.spector.memory.kernel.Memory;
+import com.spectrayan.spector.memory.kernel.shape.Memory;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;

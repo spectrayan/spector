@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.reflect;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.template.TemplateEngine;
 import com.spectrayan.spector.config.SpectorPropertyConstants;

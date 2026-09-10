@@ -14,11 +14,11 @@ package com.spectrayan.spector.memory.cortex.insula;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorMemoryException;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
-import com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec;
-import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.kernel.region.RegionSizeSpec;
+import com.spectrayan.spector.memory.kernel.region.RegionId;
 import com.spectrayan.spector.memory.kernel.layout.InsularLayout;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

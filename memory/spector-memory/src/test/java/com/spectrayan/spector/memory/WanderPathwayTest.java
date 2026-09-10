@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import com.spectrayan.spector.memory.pathway.wander.WanderPathway;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;

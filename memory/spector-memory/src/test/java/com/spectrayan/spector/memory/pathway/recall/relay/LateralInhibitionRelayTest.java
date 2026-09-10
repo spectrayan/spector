@@ -12,8 +12,10 @@
  */
 package com.spectrayan.spector.memory.pathway.recall.relay;
 
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;

@@ -12,6 +12,12 @@
  */
 package com.spectrayan.spector.memory.bootstrap;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.cortex.adaptor.ProfileAdaptor;
@@ -40,10 +46,10 @@ import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
-import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.shape.Memory;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
-import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.kernel.region.RegionId;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
@@ -104,7 +110,7 @@ import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
 import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
@@ -245,7 +251,7 @@ public final class SpectorMemoryFactory {
         //  WAL 
         MemoryWal wal;
         if (cortex.isDisk() && cortex.basePath() != null) {
-            wal = new MemoryWal(StorageLayout.walDir(cortex.basePath()));
+            wal = new MemoryWal(StoragePaths.walDir(cortex.basePath()));
         } else {
             wal = new MemoryWal();
         }
@@ -584,7 +590,7 @@ public final class SpectorMemoryFactory {
             for (int i = 0; i < storeSize; i++) {
                 long recordOff = baseOffset + (long) i * stride;
                 byte flags = recLayout.readFlags(seg, recordOff);
-                if (com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.isTombstoned(flags)) {
+                if (com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.isTombstoned(flags)) {
                     continue;
                 }
 

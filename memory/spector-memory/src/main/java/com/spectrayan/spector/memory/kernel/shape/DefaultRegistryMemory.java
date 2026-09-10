@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.shape;
 
-import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
 import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
 import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
 

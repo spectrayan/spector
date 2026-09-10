@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
 /**
  * Preset cognitive scoring profiles for thalamic modulation.
  *

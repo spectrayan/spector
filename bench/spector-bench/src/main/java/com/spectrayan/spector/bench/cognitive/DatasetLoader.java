@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Files;

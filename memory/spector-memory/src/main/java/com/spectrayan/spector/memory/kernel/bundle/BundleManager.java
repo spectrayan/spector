@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
+import com.spectrayan.spector.memory.kernel.region.RegionId;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

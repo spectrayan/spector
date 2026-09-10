@@ -12,10 +12,12 @@
  */
 package com.spectrayan.spector.memory.cortex.index;
 
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.codec.FormatId;
-import com.spectrayan.spector.memory.kernel.codec.InPlaceHeaderStep;
-import com.spectrayan.spector.memory.kernel.codec.MigrationContext;
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
+
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.migration.FormatId;
+import com.spectrayan.spector.memory.kernel.migration.InPlaceHeaderStep;
+import com.spectrayan.spector.memory.kernel.migration.MigrationContext;
 import com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout;
 
 import java.lang.foreign.MemorySegment;
@@ -38,7 +40,7 @@ import org.slf4j.LoggerFactory;
  * {@code CognitiveGraphBuilder}) must detect the v6→v7 migration and clear/rebuild
  * the graph structures. This step emits a {@code WARN} log to signal the condition.</p>
  *
- * @see IndexRecordMemory
+ * @see IndexEntryMemory
  * @see IndexEntryLayout
  */
 public final class MidxV6ToV7Step extends InPlaceHeaderStep {

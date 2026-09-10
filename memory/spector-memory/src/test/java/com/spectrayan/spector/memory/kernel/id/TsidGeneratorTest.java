@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel.id;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.RepeatedTest;
 

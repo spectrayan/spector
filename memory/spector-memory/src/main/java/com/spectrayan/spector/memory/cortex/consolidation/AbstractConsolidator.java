@@ -13,15 +13,15 @@
 package com.spectrayan.spector.memory.cortex.consolidation;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.cortex.EngramMemory;
+import com.spectrayan.spector.memory.kernel.store.EngramRegion;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -100,7 +100,7 @@ public abstract class AbstractConsolidator implements Consolidator {
             CognitiveRecord recordA,
             CognitiveRecord recordB,
             com.spectrayan.spector.memory.persist.PartitionManager partitionManager,
-            EngramMemory store,
+            EngramRegion store,
             ScalarQuantizer quantizer,
             EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
@@ -137,7 +137,7 @@ public abstract class AbstractConsolidator implements Consolidator {
     protected boolean evaluateAndResolvePair(
             CognitiveRecord recordA,
             CognitiveRecord recordB,
-            EngramMemory store,
+            EngramRegion store,
             ScalarQuantizer quantizer,
             EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
@@ -158,7 +158,7 @@ public abstract class AbstractConsolidator implements Consolidator {
             CognitiveRecord recordA,
             CognitiveRecord recordB,
             com.spectrayan.spector.memory.persist.PartitionManager partitionManager,
-            EngramMemory store,
+            EngramRegion store,
             ScalarQuantizer quantizer,
             RememberPathway rememberPathway,
             MemoryIndex index,
@@ -207,7 +207,7 @@ public abstract class AbstractConsolidator implements Consolidator {
     protected void mergeDuplicate(
             CognitiveRecord recordA,
             CognitiveRecord recordB,
-            EngramMemory store,
+            EngramRegion store,
             ScalarQuantizer quantizer,
             RememberPathway rememberPathway,
             MemoryIndex index,
@@ -221,7 +221,7 @@ public abstract class AbstractConsolidator implements Consolidator {
     protected void tombstoneRecord(
             CognitiveRecord record,
             com.spectrayan.spector.memory.persist.PartitionManager partitionManager,
-            EngramMemory fallbackStore,
+            EngramRegion fallbackStore,
             MemoryIndex index,
             MemoryWal wal) {
 
@@ -248,7 +248,7 @@ public abstract class AbstractConsolidator implements Consolidator {
      */
     protected void tombstoneRecord(
             CognitiveRecord record,
-            EngramMemory store,
+            EngramRegion store,
             MemoryIndex index,
             MemoryWal wal) {
         tombstoneRecord(record, null, store, index, wal);

@@ -36,7 +36,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.spring.autoconfigure.SpectorConfigProperties;
@@ -62,7 +62,7 @@ import net.jqwik.api.lifecycle.BeforeContainer;
  * {@code namespace}/{@code workspace_id}/{@code agent_id} values,
  * {@link MemoryRegistry#resolveForCurrentRequest()} (and {@link MemoryRegistry#resolveFor}
  * ) routes to the instance rooted at
- * {@link StorageLayout#namespaceDirSharded(Path, String) namespaceDirSharded(base, userId)} — i.e.
+ * {@link StoragePaths#namespaceDirSharded(Path, String) namespaceDirSharded(base, userId)} — i.e.
  * resolution is a <em>pure function of the authenticated {@code userId}</em>. Adversarial client
  * params can never change which user's memory is returned, and the sharded directory that keys the
  * routing for user A never equals user B's and is always a descendant of the base.</p>
@@ -85,7 +85,7 @@ import net.jqwik.api.lifecycle.BeforeContainer;
  *       <em>no</em> namespace/workspace_id/agent_id parameter — its only routing key is the
  *       authenticated {@code userId}.</li>
  *   <li><b>Path-derivation isolation</b> — the registry's routing key,
- *       {@code StorageLayout.namespaceDirSharded(base, userId)}, is asserted directly: for A != B
+ *       {@code StoragePaths.namespaceDirSharded(base, userId)}, is asserted directly: for A != B
  *       the sharded dirs differ and neither is an ancestor of the other, and A's dir is always a
  *       strict descendant of the base (no traversal escape).</li>
  * </ol>
@@ -135,7 +135,7 @@ class MemoryRegistryRoutingPropertyTest {
     /**
      * Valid {@code User_Id} values: non-blank identifiers from a safe alphabet (alphanumeric plus
      * {@code -} and {@code _}) constrained to 1..256 characters. These are safe to route and to
-     * shard via {@link StorageLayout#namespaceDirSharded(Path, String)}.
+     * shard via {@link StoragePaths#namespaceDirSharded(Path, String)}.
      */
     @Provide
     Arbitrary<String> validUserIds() {
@@ -241,15 +241,15 @@ class MemoryRegistryRoutingPropertyTest {
 
     /**
      * Requirements 9.3, 11.2, 11.3 — the registry's routing key,
-     * {@link StorageLayout#namespaceDirSharded(Path, String)}, isolates users at the path level:
+     * {@link StoragePaths#namespaceDirSharded(Path, String)}, isolates users at the path level:
      * for A != B the sharded dirs are distinct and neither is an ancestor of the other, each is a
      * strict descendant of the base (no traversal escape), and each terminates in its own userId.
      * This is the path-derivation guarantee the registry relies on for {@code buildInstance}.
      */
     @Property
     void shardedRoutingKeyIsolatesUsersAtPathLevel(@ForAll("distinctUserPairs") String[] users) {
-        Path dirA = StorageLayout.namespaceDirSharded(base, users[0]).toAbsolutePath().normalize();
-        Path dirB = StorageLayout.namespaceDirSharded(base, users[1]).toAbsolutePath().normalize();
+        Path dirA = StoragePaths.namespaceDirSharded(base, users[0]).toAbsolutePath().normalize();
+        Path dirB = StoragePaths.namespaceDirSharded(base, users[1]).toAbsolutePath().normalize();
 
         assertThat(dirA).isNotEqualTo(dirB);
         assertThat(dirA.startsWith(dirB)).as("A's dir must not be a descendant of B's").isFalse();
@@ -270,8 +270,8 @@ class MemoryRegistryRoutingPropertyTest {
      */
     @Property
     void shardedRoutingKeyIsDeterministic(@ForAll("validUserIds") String userId) {
-        Path first = StorageLayout.namespaceDirSharded(base, userId);
-        Path second = StorageLayout.namespaceDirSharded(base, userId);
+        Path first = StoragePaths.namespaceDirSharded(base, userId);
+        Path second = StoragePaths.namespaceDirSharded(base, userId);
         assertThat(first).isEqualTo(second);
     }
 

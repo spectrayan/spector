@@ -12,11 +12,15 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
+
+import com.spectrayan.spector.memory.kernel.store.EngramRegion;
+
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.cortex.index.IndexRecordMemory.MemoryLocation;
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory.MemoryLocation;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.model.EpisodeRecord;
@@ -26,14 +30,14 @@ import java.util.Objects;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
-import com.spectrayan.spector.memory.kernel.FloatUnaryOperator;
+import com.spectrayan.spector.memory.kernel.engram.FloatUnaryOperator;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 
 /**
  * Cognitive record memory store registry and polymorphic routing — zero switch statements.
  *
  * <h3>Design Pattern: Strategy + Registry</h3>
- * <p>Holds an {@code EnumMap<MemoryType, EngramMemory>} for fixed-stride tiers and provides direct
+ * <p>Holds an {@code EnumMap<MemoryType, EngramRegion>} for fixed-stride tiers and provides direct
  * typed access to {@link EpisodicMemory} (variable-length append log). Realizes R5.1 (single wrapper per
  * region slice), R5.2 (unconditional store registration), and R5.3 (layout-mismatch fence).</p>
  *
@@ -41,7 +45,7 @@ import com.spectrayan.spector.memory.synapse.DecayStrategy;
  */
 public final class CognitiveMemoryRouter implements AutoCloseable {
 
-    private final EnumMap<MemoryType, EngramMemory> stores = new EnumMap<>(MemoryType.class);
+    private final EnumMap<MemoryType, EngramRegion> stores = new EnumMap<>(MemoryType.class);
 
     // ── Typed accessors for store-specific operations ──
     private final WorkingMemory workingStore;
@@ -86,12 +90,12 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     // ══════════════════════════════════════════════════════════════
 
     /**
-     * Returns the {@link EngramMemory} for a given memory type.
+     * Returns the {@link EngramRegion} for a given memory type.
      *
      * @throws SpectorValidationException if no store is registered for the type
      */
-    public EngramMemory get(MemoryType type) {
-        EngramMemory store = stores.get(type);
+    public EngramRegion get(MemoryType type) {
+        EngramRegion store = stores.get(type);
         if (store == null) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "storeType", type);
         }
@@ -125,7 +129,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      * Returns the layout for a given memory type.
      */
     public FixedEngramLayout layoutFor(MemoryType type) {
-        EngramMemory store = stores.get(type);
+        EngramRegion store = stores.get(type);
         return store != null && store.layout() instanceof FixedEngramLayout fel ? fel : null;
     }
 
@@ -133,7 +137,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      * Returns the record count for a given memory type.
      */
     public int countFor(MemoryType type) {
-        EngramMemory store = stores.get(type);
+        EngramRegion store = stores.get(type);
         return store != null ? store.size() : 0;
     }
 
@@ -153,7 +157,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      */
     public int totalCount() {
         int total = 0;
-        for (EngramMemory store : stores.values()) {
+        for (EngramRegion store : stores.values()) {
             if (store != null) {
                 total += store.size();
             }
@@ -190,7 +194,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
             }
             return;
         }
-        EngramMemory store = stores.get(loc.type());
+        EngramRegion store = stores.get(loc.type());
         if (store != null) {
             store.tombstone(loc.offset());
         }
@@ -215,7 +219,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
             }
             return;
         }
-        EngramMemory store = stores.get(loc.type());
+        EngramRegion store = stores.get(loc.type());
         if (store != null) {
             store.markResolved(loc.offset());
         }
@@ -229,7 +233,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
             }
             return;
         }
-        EngramMemory store = stores.get(loc.type());
+        EngramRegion store = stores.get(loc.type());
         if (store != null) {
             store.markUnresolved(loc.offset());
         }
@@ -242,7 +246,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
 
     /** Marks the record at the given memory type and byte offset as contradicted. */
     public void markContradicted(MemoryType type, long offset) {
-        EngramMemory store = stores.get(type);
+        EngramRegion store = stores.get(type);
         if (store != null) {
             store.markContradicted(offset);
         }
@@ -255,7 +259,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
         if (loc.type() == MemoryType.EPISODIC) {
             return episodicStore != null && episodicStore.isTombstoned(loc.offset());
         }
-        EngramMemory store = stores.get(loc.type());
+        EngramRegion store = stores.get(loc.type());
         return store != null && store.isTombstoned(loc.offset());
     }
 
@@ -274,7 +278,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
         if (loc.type() == MemoryType.EPISODIC) {
             return episodicStore != null ? episodicStore.readFlags(loc.offset()) : 0;
         }
-        EngramMemory store = stores.get(loc.type());
+        EngramRegion store = stores.get(loc.type());
         return store != null ? store.readFlags(loc.offset()) : 0;
     }
 
@@ -288,7 +292,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
                     ? episodicStore.readVector(loc.offset())
                     : null;
         }
-        EngramMemory store = stores.get(loc.type());
+        EngramRegion store = stores.get(loc.type());
         return store != null ? store.readVector(loc.offset()) : null;
     }
 
@@ -297,14 +301,14 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      */
     public void writeLastRecallProfile(MemoryLocation loc, byte profileOrdinal) {
         if (strengthStore != null && loc.type() != MemoryType.WORKING && layoutFor(loc.type()) != null) {
-            EngramMemory store = stores.get(loc.type());
+            EngramRegion store = stores.get(loc.type());
             if (store != null) {
                 int slotIndex = (int) ((loc.offset() - store.dataOffset()) / layoutFor(loc.type()).stride());
                 long strengthOff = strengthStore.strengthOffset(loc.type(), slotIndex);
                 StrengthLayout.INSTANCE.writeLastRecallProfile(strengthStore.segment(), strengthOff, profileOrdinal);
             }
         } else {
-            EngramMemory store = stores.get(loc.type());
+            EngramRegion store = stores.get(loc.type());
             if (store instanceof AbstractEngramMemory<?> aem) {
                 aem.writeLastRecallProfile(loc.offset(), profileOrdinal);
             }
@@ -319,13 +323,13 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
             return -1;
         }
         if (strengthStore != null && loc.type() != MemoryType.WORKING && layoutFor(loc.type()) != null) {
-            EngramMemory store = stores.get(loc.type());
+            EngramRegion store = stores.get(loc.type());
             if (store != null) {
                 int slotIndex = (int) ((loc.offset() - store.dataOffset()) / layoutFor(loc.type()).stride());
                 return strengthStore.readLastRecallProfile(loc.type(), slotIndex);
             }
         }
-        EngramMemory store = stores.get(loc.type());
+        EngramRegion store = stores.get(loc.type());
         if (store instanceof AbstractEngramMemory<?> aem) {
             return aem.readLastRecallProfile(loc.offset());
         }
@@ -342,7 +346,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
             }
             return;
         }
-        EngramMemory store = stores.get(loc.type());
+        EngramRegion store = stores.get(loc.type());
         if (store instanceof AbstractEngramMemory<?> abstractStore) {
             FixedEngramLayout layout = layoutFor(loc.type());
             if (layout == null) return;
@@ -376,7 +380,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
         if (loc.type() == MemoryType.EPISODIC) {
             return episodicStore != null ? episodicStore.readImportance(loc.offset()) : 0f;
         }
-        EngramMemory store = stores.get(loc.type());
+        EngramRegion store = stores.get(loc.type());
         return store instanceof AbstractEngramMemory<?> abstractStore ? abstractStore.readImportance(loc.offset()) : 0f;
     }
 
@@ -392,7 +396,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
             episodicStore.writeImportance(loc.offset(), newVal);
             return newVal;
         }
-        EngramMemory store = stores.get(loc.type());
+        EngramRegion store = stores.get(loc.type());
         if (!(store instanceof AbstractEngramMemory<?> abstractStore)) return 0f;
         FixedEngramLayout layout = layoutFor(loc.type());
         if (layout == null) return 0f;
@@ -424,7 +428,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
             return new CognitiveRecordBody(h, quantizedVec, 0, (byte) 0);
         }
         FixedEngramLayout layout = layoutFor(loc.type());
-        EngramMemory store = stores.get(loc.type());
+        EngramRegion store = stores.get(loc.type());
         if (layout == null || store == null) return null;
 
         long offset = loc.offset();
@@ -513,7 +517,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      * Used by {@code CheckpointEngine} before recording a WAL checkpoint.
      */
     public void forceAll() {
-        for (EngramMemory store : stores.values()) {
+        for (EngramRegion store : stores.values()) {
             if (store.isPersistent() && !store.isFrozen()) {
                 store.force();
             }

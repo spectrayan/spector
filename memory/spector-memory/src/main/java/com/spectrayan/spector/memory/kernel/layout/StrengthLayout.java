@@ -12,9 +12,13 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeaderLayout;
+
 import com.spectrayan.spector.config.SpectorPropertyConstants;
-import com.spectrayan.spector.memory.kernel.FloatUnaryOperator;
-import com.spectrayan.spector.memory.kernel.RegionLayout;
+import com.spectrayan.spector.memory.kernel.engram.FloatUnaryOperator;
+import com.spectrayan.spector.memory.kernel.layout.RegionLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 

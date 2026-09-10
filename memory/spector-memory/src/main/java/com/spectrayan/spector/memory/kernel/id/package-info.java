@@ -32,3 +32,5 @@
  * }</pre>
  */
 package com.spectrayan.spector.memory.kernel.id;
+
+import com.spectrayan.spector.memory.kernel.id.MemoryId;

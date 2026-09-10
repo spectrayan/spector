@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.api;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.neuromod.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;

@@ -12,12 +12,16 @@
  */
 package com.spectrayan.spector.memory.synapse.scan;
 
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
 import com.spectrayan.spector.memory.model.ScoreFusionMode;
 import com.spectrayan.spector.memory.synapse.AssociativePriorProvider;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 import com.spectrayan.spector.memory.synapse.QueryAssociativeContext;
 
-import static com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields.memoryTypeOrdinal;
+import static com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.memoryTypeOrdinal;
 
 /**
  * Fused SIMD cognitive score composition, dynamic mass calculation, and mass-dilated log recency (Phase 6).

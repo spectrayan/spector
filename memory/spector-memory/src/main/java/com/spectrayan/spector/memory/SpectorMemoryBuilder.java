@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import com.spectrayan.spector.commons.cache.SpectorCacheManager;
 import com.spectrayan.spector.commons.chunker.ChunkConfig;
 import com.spectrayan.spector.commons.chunker.MarkdownChunker;

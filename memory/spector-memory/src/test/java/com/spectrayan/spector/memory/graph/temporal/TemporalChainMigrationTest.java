@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.graph.temporal;
 
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

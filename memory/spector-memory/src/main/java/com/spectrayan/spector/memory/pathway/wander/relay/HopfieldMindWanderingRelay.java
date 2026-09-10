@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.wander.relay;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.aisme.hopfield.AttractorState;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;

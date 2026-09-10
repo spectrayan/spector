@@ -12,8 +12,10 @@
  */
 package com.spectrayan.spector.memory.cortex.index;
 
-import com.spectrayan.spector.memory.kernel.codec.Codec;
-import com.spectrayan.spector.memory.kernel.codec.CodecStep;
+import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
+
+import com.spectrayan.spector.memory.kernel.migration.FormatCodec;
+import com.spectrayan.spector.memory.kernel.migration.CodecStep;
 import com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout;
 
 import java.lang.foreign.MemorySegment;
@@ -21,9 +23,9 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Codec binding for IndexRecordMemory format.
+ * Codec binding for IndexEntryMemory format.
  */
-public final class IndexRecordCodec implements Codec<IndexEntryLayout> {
+public final class IndexRecordCodec implements FormatCodec<IndexEntryLayout> {
 
     private final IndexEntryLayout layout = new IndexEntryLayout();
 

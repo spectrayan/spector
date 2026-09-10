@@ -12,8 +12,10 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+
 import com.spectrayan.spector.memory.cortex.insula.InsularCortex;
-import com.spectrayan.spector.memory.kernel.RegionLayout;
+import com.spectrayan.spector.memory.kernel.layout.RegionLayout;
 
 /**
  * On-disk layout for the {@link InsularCortex} self-model region.

@@ -26,7 +26,7 @@ import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.InsulaSelfModel;
@@ -372,12 +372,12 @@ public class NamespaceResolver implements AutoCloseable {
 
     /**
      * Builds a {@link SpectorMemory} instance for the given namespaceId.
-     * Directory path: {@code StorageLayout.namespaceDirSharded(basePath, namespaceId)}.
+     * Directory path: {@code StoragePaths.namespaceDirSharded(basePath, namespaceId)}.
      * Mirrors the former {@code MemoryRegistry.buildInstance(userId)} exactly —
      * since namespaceId == userId for default namespaces, the directory is identical.
      */
     private SpectorMemory buildInstance(String namespaceId) {
-        Path dir = StorageLayout.namespaceDirSharded(basePath(), namespaceId);
+        Path dir = StoragePaths.namespaceDirSharded(basePath(), namespaceId);
 
         EmbeddingProvider embedder = embedderProvider.getIfAvailable();
         if (embedder == null) {
@@ -472,7 +472,7 @@ public class NamespaceResolver implements AutoCloseable {
         // exists for this namespace's owner. Post-migration, IdentityPlane supplies the soul
         // stack at bind time — Region 24 is not authoritative (ADR-0029 §23.6).
         try {
-            StorageLayout.validateNamespaceId(namespaceId);
+            StoragePaths.validateNamespaceId(namespaceId);
             Path idBundlePath = com.spectrayan.spector.synapse.identity.IdentityPaths.accountIdentityBundle(basePath(), namespaceId);
             if (java.nio.file.Files.exists(idBundlePath)) {
                 return built;

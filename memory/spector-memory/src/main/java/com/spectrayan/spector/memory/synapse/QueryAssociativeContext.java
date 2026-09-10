@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import java.util.List;
 
 /**

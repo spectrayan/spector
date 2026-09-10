@@ -22,11 +22,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.memory.cortex.AbstractEngramMemory;
-import com.spectrayan.spector.memory.cortex.EngramMemory;
+import com.spectrayan.spector.memory.kernel.store.EngramRegion;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
@@ -76,7 +76,7 @@ public final class VacuumCompactor {
      * @param index   the memory index (for offset remapping)
      * @return the compaction result (null if no compaction needed)
      */
-    public static CompactionResult compact(EngramMemory store, MemoryType type,
+    public static CompactionResult compact(EngramRegion store, MemoryType type,
                                             MemoryIndex index) {
         if (!(store instanceof AbstractEngramMemory<?> aem)) {
             log.warn("Vacuum: store for {} is not an AbstractEngramMemory, cannot compact", type);
@@ -86,7 +86,7 @@ public final class VacuumCompactor {
 
         FixedEngramLayout layout = (FixedEngramLayout) store.layout();
         int totalRecords = store.size();
-        long baseOffset = store.isPersistent() ? EngramMemory.METADATA_PREAMBLE_BYTES : 0;
+        long baseOffset = store.isPersistent() ? EngramRegion.METADATA_PREAMBLE_BYTES : 0;
         int stride = layout.stride();
         MemorySegment sourceSegment = aem.segment();
 
@@ -171,7 +171,7 @@ public final class VacuumCompactor {
      * @param threshold the tombstone ratio threshold (e.g., 0.20 for 20%)
      * @return true if compaction is recommended
      */
-    public static boolean shouldCompact(EngramMemory store, float threshold) {
+    public static boolean shouldCompact(EngramRegion store, float threshold) {
         if (store.size() == 0) return false;
         return store.tombstoneRatio() >= threshold;
     }

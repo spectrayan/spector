@@ -12,8 +12,14 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeaderLayout;
+
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.kernel.RegionLayout;
+import com.spectrayan.spector.memory.kernel.layout.RegionLayout;
 import com.spectrayan.spector.memory.model.EngramSource;
 import com.spectrayan.spector.memory.model.SourceModality;
 

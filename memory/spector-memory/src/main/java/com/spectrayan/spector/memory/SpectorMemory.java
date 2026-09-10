@@ -12,7 +12,9 @@
  */
 package com.spectrayan.spector.memory;
 
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.aisme.continuity.IdentityTrajectorySnapshot;
 import com.spectrayan.spector.memory.api.MemoryAdminView;
 import com.spectrayan.spector.memory.api.MemoryRecall;
@@ -33,7 +35,7 @@ import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
-import com.spectrayan.spector.memory.kernel.Memory;
+import com.spectrayan.spector.memory.kernel.shape.Memory;
 import com.spectrayan.spector.memory.model.EpisodeRecord;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.model.AgentSoul;

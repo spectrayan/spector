@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.sync;
 
 import com.spectrayan.spector.events.EventBus;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
@@ -238,7 +238,7 @@ public final class CheckpointEngine {
 
         // Step 3: Persist cognitive graphs
         if (basePath != null) {
-            Path bundlePath = StorageLayout.runtimeBundleFile(basePath);
+            Path bundlePath = StoragePaths.runtimeBundleFile(basePath);
             saveGraph("HebbianGraph", () ->
                     hebbianGraph.save(bundlePath));
             saveGraph("TemporalChain", () ->

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.namespace;
 
-import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,7 +55,7 @@ class SpectorNamespaceManagerTest {
         assertThat(Files.isDirectory(ctx.directory())).isTrue();
         assertThat(Files.isDirectory(ctx.runtimeDir())).isTrue();
         assertThat(Files.isDirectory(ctx.partitionsDir())).isTrue();
-        assertThat(Files.exists(ctx.directory().resolve(StorageLayout.FILE_NAMESPACE))).isTrue();
+        assertThat(Files.exists(ctx.directory().resolve(StoragePaths.FILE_NAMESPACE))).isTrue();
     }
 
     @Test
@@ -63,8 +63,8 @@ class SpectorNamespaceManagerTest {
         var config = NamespaceConfig.withQuotas("test-ns", 1000, 10, 1024 * 1024);
         manager.createNamespace(config);
 
-        Path configPath = StorageLayout.namespaceDir(tempDir, "test-ns")
-                .resolve(StorageLayout.FILE_NAMESPACE);
+        Path configPath = StoragePaths.namespaceDir(tempDir, "test-ns")
+                .resolve(StoragePaths.FILE_NAMESPACE);
         String json = Files.readString(configPath);
 
         assertThat(json).contains("\"id\": \"test-ns\"");
@@ -115,12 +115,12 @@ class SpectorNamespaceManagerTest {
     @Test
     void discovers_existing_namespaces_on_restart() throws IOException {
         // Create namespace directories manually (with namespace.json marker files)
-        Path nsDir = StorageLayout.namespacesDir(tempDir);
+        Path nsDir = StoragePaths.namespacesDir(tempDir);
         Files.createDirectories(nsDir.resolve("agent-alpha"));
-        Files.writeString(nsDir.resolve("agent-alpha").resolve(StorageLayout.FILE_NAMESPACE),
+        Files.writeString(nsDir.resolve("agent-alpha").resolve(StoragePaths.FILE_NAMESPACE),
                 "{\"id\":\"agent-alpha\"}");
         Files.createDirectories(nsDir.resolve("agent-beta"));
-        Files.writeString(nsDir.resolve("agent-beta").resolve(StorageLayout.FILE_NAMESPACE),
+        Files.writeString(nsDir.resolve("agent-beta").resolve(StoragePaths.FILE_NAMESPACE),
                 "{\"id\":\"agent-beta\"}");
 
         // Re-create manager to trigger discovery

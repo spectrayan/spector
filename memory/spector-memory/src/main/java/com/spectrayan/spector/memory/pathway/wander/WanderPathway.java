@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold;
 import com.spectrayan.spector.memory.cortex.ContinuityMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.kernel.Memory;
+import com.spectrayan.spector.memory.kernel.shape.Memory;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.pathway.simulation.relay.SpacetimeSeedRelay;

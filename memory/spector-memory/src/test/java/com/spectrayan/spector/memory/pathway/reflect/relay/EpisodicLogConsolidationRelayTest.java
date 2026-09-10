@@ -26,7 +26,7 @@ import com.spectrayan.spector.provider.generation.GenerationOptions;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.model.LlmRequest;
 import com.spectrayan.spector.provider.model.LlmResponse;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 import com.spectrayan.spector.memory.pathway.reflect.ReflectCheckpoint;
 import com.spectrayan.spector.memory.pathway.reflect.ReflectFilter;

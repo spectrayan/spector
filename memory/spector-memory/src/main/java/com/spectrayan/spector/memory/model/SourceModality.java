@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+
 /**
  * Source modality — what the memory originally was before ingestion.
  *
@@ -27,7 +31,7 @@ package com.spectrayan.spector.memory.model;
  *
  * <h3>Binary Encoding</h3>
  * <p>Encoded as 2 bits (bits 6-7) in the flags byte of the
- * {@link com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields synaptic header}.
+ * {@link com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields synaptic header}.
  * This enables SIMD hardware to instantly filter by modality (e.g., "search
  * only text memories") without touching the metadata payload.</p>
  *

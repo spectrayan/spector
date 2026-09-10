@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.bench.cognitive.generator;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

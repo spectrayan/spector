@@ -14,10 +14,10 @@ package com.spectrayan.spector.memory.kernel.shape;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
-import com.spectrayan.spector.memory.kernel.AbstractMemory;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.RegionLayout;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.shape.AbstractMemory;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.memory.kernel.layout.RegionLayout;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
 
 import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
 

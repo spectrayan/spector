@@ -12,8 +12,12 @@
  */
 package com.spectrayan.spector.memory.kernel;
 
-import com.spectrayan.spector.memory.kernel.bundle.BundleLayout;
-import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+
+import com.spectrayan.spector.memory.kernel.region.RegionEntry;
+
+import com.spectrayan.spector.memory.kernel.bundle.BundleFileLayout;
+import com.spectrayan.spector.memory.kernel.region.RegionId;
 import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.memory.kernel.layout.InsularLayout;
 import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
@@ -179,7 +183,7 @@ class PersistedIdentityPinTest {
             actual.put("EpisodicLayout", hex(EpisodicLayout.INSTANCE.layoutId()));
             actual.put("ContinuityLayout", hex(ContinuityLayout.SINGLETON.layoutId()));
             actual.put("InsularLayout", hex(InsularLayout.SINGLETON.layoutId()));
-            actual.put("BundleLayout", hex(BundleLayout.LAYOUT_ID));
+            actual.put("BundleFileLayout", hex(BundleFileLayout.LAYOUT_ID));
             actual.put("TextBlobLayout", hex(new TextBlobLayout().layoutId()));
             actual.put("IdBlobLayout", hex(new IdBlobLayout().layoutId()));
             actual.put("IndexEntryLayout", hex(new IndexEntryLayout().layoutId()));
@@ -198,7 +202,7 @@ class PersistedIdentityPinTest {
             expected.put("EpisodicLayout", "0x4550494C 'EPIL'");
             expected.put("ContinuityLayout", "0x434F4E54 'CONT'");
             expected.put("InsularLayout", "0x494E534C 'INSL'");
-            expected.put("BundleLayout", "0x42554E44 'BUND'");
+            expected.put("BundleFileLayout", "0x42554E44 'BUND'");
             expected.put("TextBlobLayout", "0x54585442 'TXTB'");
             expected.put("IdBlobLayout", "0x4944504C 'IDPL'");
             expected.put("IndexEntryLayout", "0x4D494458 'MIDX'");
@@ -273,7 +277,7 @@ class PersistedIdentityPinTest {
                     .as("entity directory node stride").isEqualTo(64);
             assertThat(new HebbianLayout().recordStride())
                     .as("hebbian edge stride").isEqualTo(12);
-            assertThat(BundleLayout.REGION_ENTRY_STRIDE)
+            assertThat(BundleFileLayout.REGION_ENTRY_STRIDE)
                     .as("bundle directory entry stride").isEqualTo(64);
 
             // Variable-length regions advertise stride 0 and must keep doing so: a non-zero value

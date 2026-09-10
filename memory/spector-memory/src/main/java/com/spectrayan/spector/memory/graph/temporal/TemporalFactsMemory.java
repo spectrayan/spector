@@ -12,15 +12,15 @@
  */
 package com.spectrayan.spector.memory.graph.temporal;
 
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.TemporalFactLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractAppendMemory;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
-import com.spectrayan.spector.memory.kernel.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
 import java.nio.file.Path;
 
 /**

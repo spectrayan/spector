@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
-import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
 import com.spectrayan.spector.memory.kernel.layout.ProvenanceLayout;
 import com.spectrayan.spector.memory.kernel.layout.ProvenanceLayout.ProvenanceState;
 import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;

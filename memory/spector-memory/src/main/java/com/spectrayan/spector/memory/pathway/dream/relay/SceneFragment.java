@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
+import com.spectrayan.spector.memory.kernel.id.MemoryId;
+
 /**
  * Record representing an entity/role/affect decomposed fragment.
  * Biological analog: Granular representation of memory components (engram cells) 

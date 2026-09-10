@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.bench.conformance;
 
+import com.spectrayan.spector.memory.kernel.engram.EpisodicHeaderLayout;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -48,8 +50,8 @@ import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EncodingHeaderFields;
+import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.BigFiveTraits;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -676,7 +678,7 @@ public final class MfConformanceHarness {
                                         cFlags,
                                         engSource
                                 );
-                                com.spectrayan.spector.memory.kernel.layout.EpisodicHeaderLayout.INSTANCE.writeHeaderRecord(
+                                com.spectrayan.spector.memory.kernel.engram.EpisodicHeaderLayout.INSTANCE.writeHeaderRecord(
                                         episodic.segment(), episodic.dataOffset() + loc.offset(), updated
                                 );
                             }
