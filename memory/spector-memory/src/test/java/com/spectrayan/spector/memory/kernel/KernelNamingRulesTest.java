@@ -51,20 +51,17 @@ import static org.assertj.core.api.Assertions.assertThat;
  *       <td>{@code AdjacencyListLayout}, {@code CoActivationMetadataLayout} → {@code *Fields}</td></tr>
  * </table>
  *
- * <h3>Why this does not use ArchUnit</h3>
+ * <h3>Independent Enforcement Mechanism (D4b / R11.8)</h3>
  *
- * <p>ArchUnit 1.4.0 (the version already declared in {@code synapse/spector-mcp}) bundles an ASM that
- * cannot parse <b>class file major version 69</b>, which is what Java 25 emits. It does not throw — it
- * silently imports <b>zero</b> classes, so every rule passes vacuously. Three import strategies were
- * tried and all returned zero: {@code importPackages(...)} classpath scanning,
- * {@code getProtectionDomain().getCodeSource()}, and an explicit {@code importPath("target/classes")}
- * verified to contain 768 class files.</p>
- *
- * <p>These rules are name predicates plus one {@code implements} check, so they need no bytecode
- * library: class names come from the file tree and the one type check uses reflection. That also keeps
- * the module free of a test dependency it cannot currently use.</p>
+ * <p>Historically, ArchUnit 1.4.0 could not parse <b>class file major version 69</b> (Java 25) and silently
+ * imported zero classes (see #734). While ArchUnit was upgraded to 1.4.2+ (which adds Java 25/26 support),
+ * this reflection-based test is deliberately retained alongside ArchUnit. The two mechanisms share no
+ * failure mode, ensuring that naming and layout contracts remain guarded even if bytecode parsing or rule
+ * configurations diverge.</p>
  *
  * @see <a href="https://github.com/spectrayan/spector/issues/732">#732</a>
+ * @see <a href="https://github.com/spectrayan/spector/issues/734">#734</a>
+ * @see <a href="https://github.com/spectrayan/spector/issues/793">#793</a>
  */
 @DisplayName("Kernel naming rules (engram-layout-unification)")
 class KernelNamingRulesTest {

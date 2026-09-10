@@ -69,7 +69,11 @@
             <artifactId>logback-classic</artifactId>
             <scope>runtime</scope>
         </dependency>
-        <!-- ── Test dependencies ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-test-support</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
@@ -78,7 +82,6 @@
         <dependency>
             <groupId>com.tngtech.archunit</groupId>
             <artifactId>archunit-junit5</artifactId>
-            <version>1.4.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
