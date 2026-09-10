@@ -102,7 +102,7 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
         final List<CognitiveResult> allResults = signal.candidates();
 
         final List<Callable<List<CognitiveResult>>> scanTasks = new ArrayList<>();
-        scan(new ParallelScanEmitter(scanTasks, queryVector, rawQuery, options, nowMs, scoreFunc, episodicScoreFunc, semanticRecallStrategy),
+        scan(signal, new ParallelScanEmitter(scanTasks, queryVector, rawQuery, options, nowMs, scoreFunc, episodicScoreFunc, semanticRecallStrategy),
                 targetTypes, options, nowMs);
 
         if (!scanTasks.isEmpty()) {
@@ -113,7 +113,7 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
                 }
             } catch (final ConcurrentExecutionException e) {
                 log.error("Parallel tier scan failed: {}", e.getMessage(), e);
-                allResults.addAll(sequentialScan(queryVector, rawQuery, options, nowMs, targetTypes));
+                allResults.addAll(sequentialScan(signal, queryVector, rawQuery, options, nowMs, targetTypes));
             } catch (final InterruptedException e) {
                 Thread.currentThread().interrupt();
                 log.warn("Recall interrupted during parallel scan");
@@ -123,9 +123,16 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
         return true;
     }
 
-    private void scan(final ScanEmitter emitter, final MemoryType[] targetTypes, final RecallOptions options, final long nowMs) {
-        final List<PartitionHandle> snapshot = partitionRegistry.snapshot();
-        final CognitiveMemoryRouter active = partitionRegistry.activeRouter();
+    private void scan(final RecallSignal signal, final ScanEmitter emitter, final MemoryType[] targetTypes, final RecallOptions options, final long nowMs) {
+        final PartitionRegistry effectiveRegistry = signal != null && signal.partitionRegistry() != null
+                ? signal.partitionRegistry()
+                : this.partitionRegistry;
+        if (effectiveRegistry == null) {
+            return;
+        }
+
+        final List<PartitionHandle> snapshot = effectiveRegistry.snapshot();
+        final CognitiveMemoryRouter active = effectiveRegistry.activeRouter();
         final boolean singlePartition = snapshot.size() == 1;
         final int activeSeq = snapshot.get(snapshot.size() - 1).seq();
         final boolean semanticHnswAvailable = semanticRecallStrategy != null && semanticRecallStrategy.isAvailable();
@@ -148,10 +155,10 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
         }
     }
 
-    private List<CognitiveResult> sequentialScan(final float[] queryVector, final String rawQuery,
+    private List<CognitiveResult> sequentialScan(final RecallSignal signal, final float[] queryVector, final String rawQuery,
                                                  final RecallOptions options, final long nowMs, final MemoryType[] targetTypes) {
         final List<CognitiveResult> results = new ArrayList<>();
-        scan(new SequentialScanEmitter(results, queryVector, rawQuery, options, nowMs, scoreFunc, episodicScoreFunc, semanticRecallStrategy),
+        scan(signal, new SequentialScanEmitter(results, queryVector, rawQuery, options, nowMs, scoreFunc, episodicScoreFunc, semanticRecallStrategy),
                 targetTypes, options, nowMs);
         return results;
     }

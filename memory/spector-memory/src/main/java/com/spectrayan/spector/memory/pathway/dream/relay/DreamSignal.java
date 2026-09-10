@@ -105,6 +105,7 @@ public final class DreamSignal {
 
     private final Instant startTime;
     private final ReentrantLock sceneLock = new ReentrantLock();
+    private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
 
     private DreamSignal(Builder builder) {
         this.mode = builder.mode;
@@ -144,6 +145,7 @@ public final class DreamSignal {
         this.hyperEntityGraph = builder.hyperEntityGraph;
         this.embeddingProvider = builder.embeddingProvider;
         this.hopfieldNetwork = builder.hopfieldNetwork;
+        this.kernel = builder.kernel;
 
         final long now = System.currentTimeMillis();
         if (builder.simulationTimeMs > 0L) {
@@ -222,6 +224,8 @@ public final class DreamSignal {
     public HyperEntityGraphMemory hyperEntityGraph() { return hyperEntityGraph; }
     public EmbeddingProvider embeddingProvider() { return embeddingProvider; }
     public ContinuousHopfieldNetwork hopfieldNetwork() { return hopfieldNetwork; }
+    public com.spectrayan.spector.kernel.api.NamespaceKernel kernel() { return kernel; }
+    public void kernel(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel) { this.kernel = kernel; }
 
     public AtomicInteger dreamsGenerated() { return dreamsGenerated; }
     public AtomicInteger dreamsIngested() { return dreamsIngested; }
@@ -310,6 +314,7 @@ public final class DreamSignal {
         private EmbeddingProvider embeddingProvider;
         private ContinuousHopfieldNetwork hopfieldNetwork;
         private MemoryIdGenerator idGenerator;
+        private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
 
         private long simulationTimeMs = 0L;
         private float[] queryTau = null;
@@ -345,6 +350,7 @@ public final class DreamSignal {
         public Builder recencyLambda(float lambda) { this.recencyLambda = lambda; return this; }
         public Builder allowFuture(boolean allow) { this.allowFuture = allow; return this; }
         public Builder candidateSeeds(List<com.spectrayan.spector.memory.model.CognitiveResult> seeds) { this.candidateSeeds = seeds; return this; }
+        public Builder kernel(com.spectrayan.spector.kernel.api.NamespaceKernel kernel) { this.kernel = kernel; return this; }
 
         public DreamSignal build() {
             return new DreamSignal(this);

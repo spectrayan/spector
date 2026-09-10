@@ -195,16 +195,33 @@ public final class DreamPathway implements AutoCloseable {
     }
 
     /**
-     * Convenience method to execute a dream cycle with soul contexts and salience profile.
+     * Executes a dream cycle for an explicit namespace kernel and populated signal.
+     *
+     * @param kernel the namespace kernel
+     * @param signal the dream signal
+     * @return the dream report
      */
-    public DreamReport dream(
-            DreamMode mode,
-            PartitionManager pm,
-            AismeProperties aismeConfig,
-            SoulContext primarySoul,
-            List<SoulContext> soulContexts,
-            SalienceProfile salienceProfile) {
+    public DreamReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel, final DreamSignal signal) {
+        Objects.requireNonNull(signal, "signal cannot be null");
+        if (kernel != null) {
+            signal.kernel(kernel);
+        }
+        return conduct(signal);
+    }
+
+    /**
+     * Executes a dream cycle for an explicit namespace kernel with soul contexts and salience profile.
+     */
+    public DreamReport execute(
+            final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
+            final DreamMode mode,
+            final PartitionManager pm,
+            final AismeProperties aismeConfig,
+            final SoulContext primarySoul,
+            final List<SoulContext> soulContexts,
+            final SalienceProfile salienceProfile) {
         DreamSignal signal = DreamSignal.builder()
+                .kernel(kernel)
                 .mode(mode)
                 .config(dreamProperties)
                 .partitionManager(pm != null ? pm : partitionManager)
@@ -223,6 +240,19 @@ public final class DreamPathway implements AutoCloseable {
                 .build();
 
         return conduct(signal);
+    }
+
+    /**
+     * Convenience method to execute a dream cycle with soul contexts and salience profile.
+     */
+    public DreamReport dream(
+            DreamMode mode,
+            PartitionManager pm,
+            AismeProperties aismeConfig,
+            SoulContext primarySoul,
+            List<SoulContext> soulContexts,
+            SalienceProfile salienceProfile) {
+        return execute(null, mode, pm, aismeConfig, primarySoul, soulContexts, salienceProfile);
     }
 
     /**

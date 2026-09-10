@@ -91,6 +91,7 @@ public final class ReflectSignal {
     private final float identityAnchorEta;
     private final float identityLyapunovThreshold;
     private final com.spectrayan.spector.memory.aisme.lifespan.LifespanRetentionController lifespanController;
+    private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
 
     // ── Batch & Sweep Orchestration Context ────────────────────────
     private final ReflectSweepSpec sweepSpec;
@@ -157,6 +158,7 @@ public final class ReflectSignal {
         this.identityAnchorEta = builder.identityAnchorEta;
         this.identityLyapunovThreshold = builder.identityLyapunovThreshold;
         this.lifespanController = builder.lifespanController;
+        this.kernel = builder.kernel;
 
         this.sweepSpec = builder.sweepSpec != null ? builder.sweepSpec : ReflectSweepSpec.fullCycle();
         this.checkpointStore = builder.checkpointStore;
@@ -170,7 +172,8 @@ public final class ReflectSignal {
         return new Builder();
     }
 
-    // ── Getters & Accessors ────────────────────────────────────────
+    public com.spectrayan.spector.kernel.api.NamespaceKernel kernel() { return kernel; }
+    public void kernel(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel) { this.kernel = kernel; }
 
     public ReflectSweepSpec sweepSpec() { return sweepSpec; }
     public ReflectCheckpointStore checkpointStore() { return checkpointStore; }
@@ -368,10 +371,12 @@ public final class ReflectSignal {
         private float identityAnchorEta = 0.0001f;
         private float identityLyapunovThreshold = 0.15f;
         private com.spectrayan.spector.memory.aisme.lifespan.LifespanRetentionController lifespanController;
+        private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
         private ReflectSweepSpec sweepSpec = ReflectSweepSpec.fullCycle();
         private ReflectCheckpointStore checkpointStore;
         private ReflectCheckpoint checkpoint;
 
+        public Builder kernel(com.spectrayan.spector.kernel.api.NamespaceKernel kernel) { this.kernel = kernel; return this; }
         public Builder sweepSpec(ReflectSweepSpec sweepSpec) { this.sweepSpec = sweepSpec; return this; }
         public Builder checkpointStore(ReflectCheckpointStore checkpointStore) { this.checkpointStore = checkpointStore; return this; }
         public Builder checkpoint(ReflectCheckpoint checkpoint) { this.checkpoint = checkpoint; return this; }

@@ -335,6 +335,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final SpectorNamespaceManager namespaceManager;
     private final String namespaceId;
     private final java.util.concurrent.atomic.AtomicInteger activeLeases = new java.util.concurrent.atomic.AtomicInteger(0);
+    private final boolean sharedPathways;
 
     //  ID Generation 
     private final MemoryIdGenerator idGenerator;
@@ -488,6 +489,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.dreamPathway = bundle.dreamPathway();
         this.aismeBundle = bundle.aismeBundle();
         this.hook = builder.hook() != null ? builder.hook() : MemoryObservationHook.NOOP;
+        this.sharedPathways = builder.sharedPathways();
 
         //  Quartz Memory Scheduler (In-Memory Multi-Tenant Background Scheduling & Auditing)
         if (builder.scheduler() != null) {
@@ -1108,7 +1110,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 }
                 options = optBuilder.build();
             }
-            List<CognitiveResult> storeResults = recallPathway.recall(queryText, options);
+            var signal = com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal.forTextQuery(queryText, options);
+            bindRecallSignalContext(signal);
+            List<CognitiveResult> storeResults = recallPathway.execute(null, signal);
             String sessionId = MemoryScope.sessionId();
             storeResults = sessionBufferManager.merge(sessionId, queryText, options, storeResults, embeddingProvider, () -> 0);
             return storeResults;
@@ -1728,6 +1732,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public ScalarQuantizer quantizer() { return quantizer; }
     @Override public RememberPathway rememberPathway() { return rememberPathway; }
     @Override public RecallPathway recallPathway() { return recallPathway; }
+    public boolean sharedPathways() { return sharedPathways; }
     @Override public CognitiveMemoryRouter cognitiveRouter() { return partitionManager.cognitiveRouter(); }
     @Override public MemoryIndex index() { return index; }
     @Override public LateralEvaluator lateralEvaluator() { return lateralEvaluator; }
@@ -1737,6 +1742,25 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public com.spectrayan.spector.index.VectorIndex semanticIndex() { return semanticIndex; }
     @Override public TemporalKnowledgeGraph temporalKnowledgeGraph() { return temporalKnowledgeGraph; }
     @Override public HyperEntityGraphMemory hyperEntityGraph() { return hyperEntityGraph; }
+    public DreamPathway dreamPathway() { return dreamPathway; }
+    public WanderPathway wanderPathway() { return wanderPathway; }
+
+    public void bindRecallSignalContext(com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal signal) {
+        if (signal == null) return;
+        signal.partitionRegistry(this.partitionManager);
+        signal.index(this.index);
+        signal.bm25Index(this.bm25Index);
+        signal.hebbianGraph(this.hebbianGraph);
+        signal.temporalChain(this.temporalChain);
+        signal.temporalKnowledgeGraph(this.temporalKnowledgeGraph);
+        signal.entityDirectory(this.entityDirectory);
+        signal.hyperEntityGraph(this.hyperEntityGraph);
+        signal.quantizer(this.quantizer);
+        signal.coActivationTracker(this.coActivationTracker);
+        signal.suppressionSet(this.suppressionSet);
+        signal.habituationPenalty(this.habituationPenalty);
+        signal.prospectiveScheduler(this.prospectiveScheduler);
+    }
 
     //  listAll implementations 
 
@@ -1999,32 +2023,34 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
         }
 
-        if (rememberPathway != null) {
-            try {
-                rememberPathway.close();
-            } catch (Exception e) {
-                log.warn("Failed to close RememberPathway on close", e);
+        if (!sharedPathways) {
+            if (rememberPathway != null) {
+                try {
+                    rememberPathway.close();
+                } catch (Exception e) {
+                    log.warn("Failed to close RememberPathway on close", e);
+                }
             }
-        }
-        if (reflectPathway != null) {
-            try {
-                reflectPathway.close();
-            } catch (Exception e) {
-                log.warn("Failed to close ReflectPathway on close", e);
+            if (reflectPathway != null) {
+                try {
+                    reflectPathway.close();
+                } catch (Exception e) {
+                    log.warn("Failed to close ReflectPathway on close", e);
+                }
             }
-        }
-        if (wanderPathway != null) {
-            try {
-                wanderPathway.close();
-            } catch (Exception e) {
-                log.warn("Failed to close WanderPathway on close", e);
+            if (wanderPathway != null) {
+                try {
+                    wanderPathway.close();
+                } catch (Exception e) {
+                    log.warn("Failed to close WanderPathway on close", e);
+                }
             }
-        }
-        if (decidePathway != null) {
-            try {
-                decidePathway.close();
-            } catch (Exception e) {
-                log.warn("Failed to close DecidePathway on close", e);
+            if (decidePathway != null) {
+                try {
+                    decidePathway.close();
+                } catch (Exception e) {
+                    log.warn("Failed to close DecidePathway on close", e);
+                }
             }
         }
 

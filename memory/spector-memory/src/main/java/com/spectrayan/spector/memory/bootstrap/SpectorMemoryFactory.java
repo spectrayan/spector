@@ -291,7 +291,9 @@ public final class SpectorMemoryFactory {
 
         //  Ingestion target (RememberPathway) 
         int activePartitionIndex = 0;
-        RememberPathway rememberPathway = new RememberPathway.Builder()
+        RememberPathway rememberPathway = builder.rememberPathway() != null
+                ? builder.rememberPathway()
+                : new RememberPathway.Builder()
                 .namespaceId(builder.namespaceId())
                 .cortex(cortex)
                 .bio(bio)
@@ -310,7 +312,7 @@ public final class SpectorMemoryFactory {
                 .normalizeAtIngest(true)
                 .build();
 
-        if (builder.salienceProfileProvider() != null) {
+        if (builder.rememberPathway() == null && builder.salienceProfileProvider() != null) {
             SalienceProfile effective = builder.salienceProfileProvider().effectiveProfile();
             if (effective != null && !effective.isNeutral()) {
                 rememberPathway.setSalienceProfile(effective);
@@ -322,7 +324,9 @@ public final class SpectorMemoryFactory {
                 builder, cortex, retrieval, index, graphs, rememberPathway);
 
         partitionManager.setRememberPathway(rememberPathway);
-        rememberPathway.setPartitionRollCallback(partitionManager::rollPartition);
+        if (builder.rememberPathway() == null) {
+            rememberPathway.setPartitionRollCallback(partitionManager::rollPartition);
+        }
 
         //  WAL Recovery 
         com.spectrayan.spector.kernel.bundle.RegionRef ckptRef = cortex.useBundleMode() && cortex.runtimeBundle() != null
@@ -388,7 +392,9 @@ public final class SpectorMemoryFactory {
         }
 
         //  Recall Pathway (#561 — relay-based engine) 
-        RecallPathway recallPathway = new RecallPathway.Builder()
+        RecallPathway recallPathway = builder.recallPathway() != null
+                ? builder.recallPathway()
+                : new RecallPathway.Builder()
                 .embeddingProvider(embeddingProvider)
                 .cortex(cortex)
                 .bio(bio)
@@ -406,7 +412,7 @@ public final class SpectorMemoryFactory {
                 .salienceProfileProvider(builder.salienceProfileProvider())
                 .build();
 
-        if (bio.coActivationTracker() != null) {
+        if (builder.recallPathway() == null && bio.coActivationTracker() != null) {
             recallPathway.addListener(new com.spectrayan.spector.memory.pathway.pipeline.HebbianCoActivationListener(bio.coActivationTracker()));
         }
 
@@ -422,7 +428,9 @@ public final class SpectorMemoryFactory {
                 : com.spectrayan.spector.kernel.id.IdStrategy.TSID.createGenerator());
 
         //  Reflect Pathway (#503 / ADR-0007)
-        ReflectPathway reflectPathway = ReflectPathway.builder()
+        ReflectPathway reflectPathway = builder.reflectPathway() != null
+                ? builder.reflectPathway()
+                : ReflectPathway.builder()
                 .embeddingProvider(embeddingProvider)
                 .textGenerator(builder.llmProvider())
                 .importanceProvider(importanceProvider)
@@ -451,14 +459,18 @@ public final class SpectorMemoryFactory {
                 .build();
 
         // Express Pathway (#602)
-        ExpressPathway expressPathway = ExpressPathway.builder().build();
+        ExpressPathway expressPathway = builder.expressPathway() != null
+                ? builder.expressPathway()
+                : ExpressPathway.builder().build();
 
         ReinforcementHandler reinforcementHandler = new ReinforcementHandler(
                 bio.valenceTracker(), graphs.hebbianGraph(), bio.lateralEvaluator(), recallPathway,
                 wal, twoFactorConfig, profileAdaptor);
 
         //  Wander Pathway (#609 / AISME Phase 10 — DMN & Longitudinal Continuity)
-        WanderPathway wanderPathway = WanderPathway.builder()
+        WanderPathway wanderPathway = builder.wanderPathway() != null
+                ? builder.wanderPathway()
+                : WanderPathway.builder()
                 .quantizer(cortex.quantizer())
                 .embeddingProvider(embeddingProvider)
                 .mentalStateTracker(aismeBundle != null ? aismeBundle.mentalStateTracker() : null)
@@ -471,11 +483,13 @@ public final class SpectorMemoryFactory {
                 .build();
 
         //  Decide Pathway (#611 / AISME Phase 11 — Expected Free Energy G(π) Policy Engine)
-        DecidePathway decidePathway = (aismeBundle != null && aismeBundle.policyInferenceEngine() != null)
-                ? DecidePathway.builder()
-                        .policyInferenceEngine(aismeBundle.policyInferenceEngine())
-                        .build()
-                : null;
+        DecidePathway decidePathway = builder.decidePathway() != null
+                ? builder.decidePathway()
+                : ((aismeBundle != null && aismeBundle.policyInferenceEngine() != null)
+                        ? DecidePathway.builder()
+                                .policyInferenceEngine(aismeBundle.policyInferenceEngine())
+                                .build()
+                        : null);
 
         //  Dream Pathway (#679, #681 / Soul-Conditioned Generative Dreaming)
         com.spectrayan.spector.memory.model.SoulContext dreamPrimarySoul =
@@ -489,7 +503,9 @@ public final class SpectorMemoryFactory {
             dreamActiveSouls = java.util.List.of();
         }
 
-        DreamPathway dreamPathway = DreamPathway.builder()
+        DreamPathway dreamPathway = builder.dreamPathway() != null
+                ? builder.dreamPathway()
+                : DreamPathway.builder()
                 .dreamProperties(memProps.getDream())
                 .partitionManager(partitionManager)
                 .aismeConfig(aismeConfig)

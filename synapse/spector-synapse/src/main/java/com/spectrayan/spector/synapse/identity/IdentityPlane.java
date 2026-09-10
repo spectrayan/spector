@@ -30,6 +30,8 @@ import com.spectrayan.spector.memory.model.InsulaSelfModel;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorMemoryException;
 import com.spectrayan.spector.synapse.catalog.AccountCatalog;
 import com.spectrayan.spector.synapse.catalog.GrantAction;
 
@@ -67,7 +69,7 @@ public class IdentityPlane {
             return Optional.empty();
         }
         try (var handle = identityCache.openAccount(accountId)) {
-            return handle != null ? handle.bundle().readSoul() : Optional.empty();
+            return handle != null ? readSoulFromBundle(handle.bundle()) : Optional.empty();
         }
     }
 
@@ -86,7 +88,7 @@ public class IdentityPlane {
             return Optional.empty();
         }
         try (var handle = identityCache.openAccount(accountId)) {
-            return handle != null ? handle.bundle().readSalience() : Optional.empty();
+            return handle != null ? readSalienceFromBundle(handle.bundle()) : Optional.empty();
         }
     }
 
@@ -171,7 +173,7 @@ public class IdentityPlane {
         }
         try (var handle = identityCache.openAccount(accountId)) {
             if (handle != null) {
-                handle.bundle().writeSalience(salience);
+                writeSalienceToBundle(handle.bundle(), salience);
                 log.debug("[IdentityPlane] Updated salience profile");
             }
         }
@@ -238,7 +240,7 @@ public class IdentityPlane {
                         log.info("[IdentityPlane] Migrated Region 24 soul to identity.bundle for account {}", accountId);
                     }
                     if (model.salience() != null && catalog.authorizeIdentity(accountId, accountId, IdentityRegionId.SALIENCE.name(), GrantAction.WRITE)) {
-                        bundle.writeSalience(model.salience());
+                        writeSalienceToBundle(bundle, model.salience());
                         log.info("[IdentityPlane] Migrated Region 24 salience to identity.bundle for account {}", accountId);
                     }
                 }
@@ -251,9 +253,20 @@ public class IdentityPlane {
     private Optional<SoulContext> readSoulFromBundle(IdentityBundle bundle) {
         return bundle.readRaw(IdentityRegionId.SOUL).flatMap(bytes -> {
             try {
-                return Optional.of(MAPPER.readValue(bytes, SoulContext.class));
+                return Optional.of(mapper.readValue(bytes, SoulContext.class));
             } catch (Exception e) {
                 log.warn("Failed to deserialize SoulContext: {}", e.getMessage());
+                return Optional.empty();
+            }
+        });
+    }
+
+    private Optional<SalienceProfile> readSalienceFromBundle(IdentityBundle bundle) {
+        return bundle.readRaw(IdentityRegionId.SALIENCE).flatMap(bytes -> {
+            try {
+                return Optional.of(mapper.readValue(bytes, SalienceProfile.class));
+            } catch (Exception e) {
+                log.warn("Failed to deserialize SalienceProfile: {}", e.getMessage());
                 return Optional.empty();
             }
         });
@@ -265,15 +278,14 @@ public class IdentityPlane {
         }
         return bundle.readRaw(IdentityRegionId.ORG_DIR).flatMap(bytes -> {
             try {
-                var type = MAPPER.getTypeFactory()
-                        .constructCollectionType(List.class, com.spectrayan.spector.memory.model.OrgUnitSoul.class);
-                List<com.spectrayan.spector.memory.model.OrgUnitSoul> orgSouls = MAPPER.readValue(bytes, type);
+                var type = mapper.getTypeFactory()
+                        .constructCollectionType(List.class, SoulContext.class);
+                List<SoulContext> orgSouls = mapper.readValue(bytes, type);
                 return orgSouls.stream()
                         .filter(s -> orgUnitId.equals(s.id()))
-                        .map(s -> (SoulContext) s)
                         .findFirst();
             } catch (Exception e) {
-                log.warn("Failed to deserialize OrgUnitSoul list from ORG_DIR");
+                log.warn("Failed to deserialize OrgUnitSoul list from ORG_DIR: {}", e.getMessage());
                 return Optional.empty();
             }
         });
@@ -285,11 +297,25 @@ public class IdentityPlane {
             return;
         }
         try {
-            byte[] bytes = MAPPER.writeValueAsBytes(soul);
+            byte[] bytes = mapper.writeValueAsBytes(soul);
             bundle.writeRaw(IdentityRegionId.SOUL, bytes);
         } catch (Exception e) {
             throw new SpectorMemoryException(ErrorCode.GRAPH_PERSISTENCE_FAILED, "IdentityPlane",
                     "Failed to serialize SoulContext: " + e.getMessage());
+        }
+    }
+
+    private void writeSalienceToBundle(IdentityBundle bundle, SalienceProfile salience) {
+        if (salience == null) {
+            bundle.clearRegion(IdentityRegionId.SALIENCE);
+            return;
+        }
+        try {
+            byte[] bytes = mapper.writeValueAsBytes(salience);
+            bundle.writeRaw(IdentityRegionId.SALIENCE, bytes);
+        } catch (Exception e) {
+            throw new SpectorMemoryException(ErrorCode.GRAPH_PERSISTENCE_FAILED, "IdentityPlane",
+                    "Failed to serialize SalienceProfile: " + e.getMessage());
         }
     }
 

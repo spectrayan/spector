@@ -36,8 +36,10 @@ public final class SortAndTruncateRelay implements SynapticRelay<RecallSignal> {
     public boolean transmit(final RecallSignal signal) {
         List<CognitiveResult> allResults = signal.candidates();
         
-        if (suppressionSet != null) {
-            allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
+        final SuppressionSet ss = (signal != null && signal.suppressionSet() != null)
+                ? signal.suppressionSet() : suppressionSet;
+        if (ss != null) {
+            allResults.removeIf(r -> ss.isSuppressed(r.id()));
         }
         
         allResults.sort(Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));

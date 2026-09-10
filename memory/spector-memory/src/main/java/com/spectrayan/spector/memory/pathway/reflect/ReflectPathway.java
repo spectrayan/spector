@@ -196,35 +196,49 @@ public final class ReflectPathway implements AutoCloseable {
         }
     }
 
-    public CircadianProperties policy() {
-        return policy;
+    /**
+     * Executes the reflection pathway for an explicit namespace kernel and populated signal.
+     *
+     * @param kernel the namespace kernel
+     * @param signal the populated reflection signal
+     * @return the resulting {@link ReflectReport}
+     */
+    public ReflectReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel, final ReflectSignal signal) {
+        Objects.requireNonNull(signal, "ReflectSignal cannot be null");
+        if (kernel != null) {
+            signal.kernel(kernel);
+        }
+        return conduct(signal);
     }
 
     /**
-     * Convenience method to execute a sleep reflection cycle.
+     * Executes a sleep reflection cycle for an explicit namespace kernel.
      */
-    public ReflectReport reflect(final PartitionManager partitionManager,
+    public ReflectReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
+                                 final PartitionManager partitionManager,
                                  final MemoryIndex index,
                                  final RememberPathway rememberPathway,
                                  final SalienceProfile salienceProfile) {
-        return reflect(partitionManager, index, rememberPathway, salienceProfile, this.episodicSessionIndex);
+        return execute(kernel, partitionManager, index, rememberPathway, salienceProfile, this.episodicSessionIndex);
     }
 
     /**
-     * Executes a sleep reflection cycle with explicit session index for prior-turn context.
+     * Executes a sleep reflection cycle with explicit session index for an explicit namespace kernel.
      */
-    public ReflectReport reflect(final PartitionManager partitionManager,
+    public ReflectReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
+                                 final PartitionManager partitionManager,
                                  final MemoryIndex index,
                                  final RememberPathway rememberPathway,
                                  final SalienceProfile salienceProfile,
                                  final EpisodicSessionIndex sessionIndex) {
-        return reflect(partitionManager, index, rememberPathway, salienceProfile, sessionIndex, ReflectSweepSpec.fullCycle(), null);
+        return execute(kernel, partitionManager, index, rememberPathway, salienceProfile, sessionIndex, ReflectSweepSpec.fullCycle(), null);
     }
 
     /**
-     * Executes a reflection cycle with an explicit sweep specification and checkpoint store.
+     * Executes a reflection cycle with an explicit sweep specification, checkpoint store, and namespace kernel.
      */
-    public ReflectReport reflect(final PartitionManager partitionManager,
+    public ReflectReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
+                                 final PartitionManager partitionManager,
                                  final MemoryIndex index,
                                  final RememberPathway rememberPathway,
                                  final SalienceProfile salienceProfile,
@@ -238,6 +252,7 @@ public final class ReflectPathway implements AutoCloseable {
         }
 
         ReflectSignal signal = ReflectSignal.builder()
+                .kernel(kernel)
                 .partitionManager(partitionManager)
                 .index(index)
                 .quantizer(quantizer)
@@ -278,6 +293,44 @@ public final class ReflectPathway implements AutoCloseable {
                 .build();
 
         return conduct(signal);
+    }
+
+    public CircadianProperties policy() {
+        return policy;
+    }
+
+    /**
+     * Convenience method to execute a sleep reflection cycle.
+     */
+    public ReflectReport reflect(final PartitionManager partitionManager,
+                                 final MemoryIndex index,
+                                 final RememberPathway rememberPathway,
+                                 final SalienceProfile salienceProfile) {
+        return execute(null, partitionManager, index, rememberPathway, salienceProfile);
+    }
+
+    /**
+     * Executes a sleep reflection cycle with explicit session index for prior-turn context.
+     */
+    public ReflectReport reflect(final PartitionManager partitionManager,
+                                 final MemoryIndex index,
+                                 final RememberPathway rememberPathway,
+                                 final SalienceProfile salienceProfile,
+                                 final EpisodicSessionIndex sessionIndex) {
+        return execute(null, partitionManager, index, rememberPathway, salienceProfile, sessionIndex);
+    }
+
+    /**
+     * Executes a reflection cycle with an explicit sweep specification and checkpoint store.
+     */
+    public ReflectReport reflect(final PartitionManager partitionManager,
+                                 final MemoryIndex index,
+                                 final RememberPathway rememberPathway,
+                                 final SalienceProfile salienceProfile,
+                                 final EpisodicSessionIndex sessionIndex,
+                                 final ReflectSweepSpec sweepSpec,
+                                 final com.spectrayan.spector.memory.pathway.reflect.spi.ReflectCheckpointStore checkpointStore) {
+        return execute(null, partitionManager, index, rememberPathway, salienceProfile, sessionIndex, sweepSpec, checkpointStore);
     }
 
     @Override

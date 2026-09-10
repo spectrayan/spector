@@ -132,6 +132,16 @@ public final class SpectorMemoryBuilder {
     private com.spectrayan.spector.config.properties.AismeProperties aismeConfig;
     private com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor reflectSweepExecutor;
 
+    // ── Shared Pathway Engines (ADR-0029 / Task 10.4) ───────────
+    private com.spectrayan.spector.memory.pathway.remember.RememberPathway rememberPathway;
+    private com.spectrayan.spector.memory.pathway.recall.RecallPathway recallPathway;
+    private com.spectrayan.spector.memory.pathway.reflect.ReflectPathway reflectPathway;
+    private com.spectrayan.spector.memory.pathway.express.ExpressPathway expressPathway;
+    private com.spectrayan.spector.memory.pathway.dream.DreamPathway dreamPathway;
+    private com.spectrayan.spector.memory.pathway.decide.DecidePathway decidePathway;
+    private com.spectrayan.spector.memory.pathway.wander.WanderPathway wanderPathway;
+    private boolean sharedPathways = false;
+
     // ==============================================================
     // CONSTRUCTORS & FACTORY
     // ==============================================================
@@ -528,6 +538,46 @@ public final class SpectorMemoryBuilder {
         return this;
     }
 
+    public SpectorMemoryBuilder rememberPathway(com.spectrayan.spector.memory.pathway.remember.RememberPathway pathway) {
+        this.rememberPathway = pathway;
+        return this;
+    }
+
+    public SpectorMemoryBuilder recallPathway(com.spectrayan.spector.memory.pathway.recall.RecallPathway pathway) {
+        this.recallPathway = pathway;
+        return this;
+    }
+
+    public SpectorMemoryBuilder reflectPathway(com.spectrayan.spector.memory.pathway.reflect.ReflectPathway pathway) {
+        this.reflectPathway = pathway;
+        return this;
+    }
+
+    public SpectorMemoryBuilder expressPathway(com.spectrayan.spector.memory.pathway.express.ExpressPathway pathway) {
+        this.expressPathway = pathway;
+        return this;
+    }
+
+    public SpectorMemoryBuilder dreamPathway(com.spectrayan.spector.memory.pathway.dream.DreamPathway pathway) {
+        this.dreamPathway = pathway;
+        return this;
+    }
+
+    public SpectorMemoryBuilder decidePathway(com.spectrayan.spector.memory.pathway.decide.DecidePathway pathway) {
+        this.decidePathway = pathway;
+        return this;
+    }
+
+    public SpectorMemoryBuilder wanderPathway(com.spectrayan.spector.memory.pathway.wander.WanderPathway pathway) {
+        this.wanderPathway = pathway;
+        return this;
+    }
+
+    public SpectorMemoryBuilder sharedPathways(boolean shared) {
+        this.sharedPathways = shared;
+        return this;
+    }
+
     // ==============================================================
     // BUILD
     // ==============================================================
@@ -616,4 +666,12 @@ public final class SpectorMemoryBuilder {
     public com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor reflectSweepExecutor() {
         return reflectSweepExecutor;
     }
+    public com.spectrayan.spector.memory.pathway.remember.RememberPathway rememberPathway() { return rememberPathway; }
+    public com.spectrayan.spector.memory.pathway.recall.RecallPathway recallPathway() { return recallPathway; }
+    public com.spectrayan.spector.memory.pathway.reflect.ReflectPathway reflectPathway() { return reflectPathway; }
+    public com.spectrayan.spector.memory.pathway.express.ExpressPathway expressPathway() { return expressPathway; }
+    public com.spectrayan.spector.memory.pathway.dream.DreamPathway dreamPathway() { return dreamPathway; }
+    public com.spectrayan.spector.memory.pathway.decide.DecidePathway decidePathway() { return decidePathway; }
+    public com.spectrayan.spector.memory.pathway.wander.WanderPathway wanderPathway() { return wanderPathway; }
+    public boolean sharedPathways() { return sharedPathways; }
 }

@@ -74,9 +74,23 @@ public class RecallCandidateGatherer {
                                    List<BM25Candidate> bm25Hits,
                                    RecallOptions options,
                                    PartitionRegistry partitionRegistry) {
+        fuseBM25Candidates(vectorResults, bm25Hits, options, partitionRegistry, this.index);
+    }
+
+    /**
+     * Fuses BM25 text search candidates with existing vector recall results using Reciprocal Rank Fusion (RRF),
+     * supporting an explicit MemoryIndex override for multi-tenant engine sharing.
+     */
+    @SuppressWarnings("deprecation")
+    public void fuseBM25Candidates(List<CognitiveResult> vectorResults,
+                                   List<BM25Candidate> bm25Hits,
+                                   RecallOptions options,
+                                   PartitionRegistry partitionRegistry,
+                                   MemoryIndex overrideIndex) {
         if (bm25Hits == null || bm25Hits.isEmpty()) return;
         final int RRF_K = 60;
         final long nowMs = System.currentTimeMillis();
+        final MemoryIndex effectiveIndex = overrideIndex != null ? overrideIndex : this.index;
 
         Map<String, CognitiveResult> existingById = new LinkedHashMap<>(vectorResults.size());
         Map<String, Float> rrfScores = new LinkedHashMap<>(vectorResults.size() + bm25Hits.size());
@@ -115,8 +129,8 @@ public class RecallCandidateGatherer {
                 float provenanceBoost = isPureTextSearch ? 1.0f
                         : (existing.source() != null ? (0.8f + 0.2f * existing.source().confidenceWeight()) : 1.0f);
                 vectorResults.add(existing.withScore(rrfScore * tierBoost * provenanceBoost));
-            } else if (index != null) {
-                MemoryLocation loc = index.locate(id);
+            } else if (effectiveIndex != null) {
+                MemoryLocation loc = effectiveIndex.locate(id);
                 if (loc == null) continue;
 
                 MemoryType type = loc.type();

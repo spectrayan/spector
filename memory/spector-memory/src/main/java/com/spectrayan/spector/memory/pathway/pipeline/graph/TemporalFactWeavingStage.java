@@ -52,11 +52,29 @@ public final class TemporalFactWeavingStage {
         this.index = index;
     }
     
+    private TemporalKnowledgeGraph effectiveTkg() {
+        var sig = com.spectrayan.spector.memory.pathway.recall.RecallPathway.activeSignal();
+        return (sig != null && sig.temporalKnowledgeGraph() != null) ? sig.temporalKnowledgeGraph() : this.tkg;
+    }
+
+    private EntityDirectory effectiveEntityDirectory() {
+        var sig = com.spectrayan.spector.memory.pathway.recall.RecallPathway.activeSignal();
+        return (sig != null && sig.entityDirectory() != null) ? sig.entityDirectory() : this.entityDirectory;
+    }
+
+    private MemoryIndex effectiveIndex() {
+        var sig = com.spectrayan.spector.memory.pathway.recall.RecallPathway.activeSignal();
+        return (sig != null && sig.index() != null) ? sig.index() : this.index;
+    }
+    
     public void weave(List<CognitiveResult> candidates, float[] queryVector, RecallOptions options) {
         weave(candidates, queryVector, options, null);
     }
 
     public void weave(List<CognitiveResult> candidates, float[] queryVector, RecallOptions options, String rawQuery) {
+        final TemporalKnowledgeGraph tkg = effectiveTkg();
+        final EntityDirectory entityDirectory = effectiveEntityDirectory();
+        final MemoryIndex index = effectiveIndex();
         if (tkg == null || tkg.factCount() == 0 || candidates.isEmpty()) return;
         
         Instant asOf = options.replayTimestamp() != null ? options.replayTimestamp() : Instant.now();

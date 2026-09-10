@@ -41,7 +41,7 @@ class RegionPepAuthorizationTest {
 
     @Test
     @DisplayName("soulsFor requires INJECT on tenant SOUL and ORG_DIR regions")
-    void testSoulsForRequiresInject() {
+    void testSoulsForRequiresInject() throws Exception {
         IdentityCache cache = mock(IdentityCache.class);
         ObjectMapper mapper = new ObjectMapper();
         AccountCatalog catalog = mock(AccountCatalog.class);
@@ -54,14 +54,15 @@ class RegionPepAuthorizationTest {
                 "org-eng", "engineering", "desc", List.of(), null, (short) 0, null, null);
         SoulContext userSoul = new com.spectrayan.spector.memory.model.UserSoul(
                 "user-1", "user-solo", "desc", null, null);
-
         IdentityBundle tenantBundle = mock(IdentityBundle.class);
-        when(tenantBundle.readSoul()).thenReturn(Optional.of(tenantSoul));
-        when(tenantBundle.readOrgUnitSoul("org-eng")).thenReturn(Optional.of(orgSoul));
+        when(tenantBundle.readRaw(IdentityRegionId.SOUL)).thenReturn(Optional.of(mapper.writeValueAsBytes(tenantSoul)));
+        byte[] orgBytes = mapper.writerFor(new com.fasterxml.jackson.core.type.TypeReference<List<SoulContext>>() {})
+                .writeValueAsBytes(List.of(orgSoul));
+        when(tenantBundle.readRaw(IdentityRegionId.ORG_DIR)).thenReturn(Optional.of(orgBytes));
         when(cache.openTenant("tenant-1")).thenAnswer(inv -> mockHandle(tenantBundle));
 
         IdentityBundle userBundle = mock(IdentityBundle.class);
-        when(userBundle.readSoul()).thenReturn(Optional.of(userSoul));
+        when(userBundle.readRaw(IdentityRegionId.SOUL)).thenReturn(Optional.of(mapper.writeValueAsBytes(userSoul)));
         when(cache.openAccount("user-1")).thenAnswer(inv -> mockHandle(userBundle));
 
         // Permitted on SOUL and ORG_DIR with INJECT
@@ -81,7 +82,7 @@ class RegionPepAuthorizationTest {
 
     @Test
     @DisplayName("soulsFor excludes tenant souls when INJECT grant is denied")
-    void testSoulsForDeniedInject() {
+    void testSoulsForDeniedInject() throws Exception {
         IdentityCache cache = mock(IdentityCache.class);
         ObjectMapper mapper = new ObjectMapper();
         AccountCatalog catalog = mock(AccountCatalog.class);
@@ -91,7 +92,7 @@ class RegionPepAuthorizationTest {
         SoulContext userSoul = new com.spectrayan.spector.memory.model.UserSoul(
                 "user-1", "user-solo", "desc", null, null);
         IdentityBundle userBundle = mock(IdentityBundle.class);
-        when(userBundle.readSoul()).thenReturn(Optional.of(userSoul));
+        when(userBundle.readRaw(IdentityRegionId.SOUL)).thenReturn(Optional.of(mapper.writeValueAsBytes(userSoul)));
         when(cache.openAccount("user-1")).thenAnswer(inv -> mockHandle(userBundle));
 
         // Deny INJECT on tenant SOUL
@@ -107,7 +108,7 @@ class RegionPepAuthorizationTest {
 
     @Test
     @DisplayName("primarySoulFor and salienceFor require READ permission")
-    void testReadRequiresReadAction() {
+    void testReadRequiresReadAction() throws Exception {
         IdentityCache cache = mock(IdentityCache.class);
         ObjectMapper mapper = new ObjectMapper();
         AccountCatalog catalog = mock(AccountCatalog.class);
@@ -117,8 +118,8 @@ class RegionPepAuthorizationTest {
         SoulContext userSoul = new com.spectrayan.spector.memory.model.UserSoul(
                 "user-1", "user-solo", "desc", null, null);
         IdentityBundle userBundle = mock(IdentityBundle.class);
-        when(userBundle.readSoul()).thenReturn(Optional.of(userSoul));
-        when(userBundle.readSalience()).thenReturn(Optional.of(SalienceProfile.NEUTRAL));
+        when(userBundle.readRaw(IdentityRegionId.SOUL)).thenReturn(Optional.of(mapper.writeValueAsBytes(userSoul)));
+        when(userBundle.readRaw(IdentityRegionId.SALIENCE)).thenReturn(Optional.of(mapper.writeValueAsBytes(SalienceProfile.NEUTRAL)));
         when(cache.openAccount("user-1")).thenAnswer(inv -> mockHandle(userBundle));
 
         when(catalog.authorizeIdentity("user-1", "user-1", IdentityRegionId.SOUL.name(), GrantAction.READ))

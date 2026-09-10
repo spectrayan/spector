@@ -213,4 +213,58 @@ class NamespaceResolverHotCapTest {
 
         resolver.close();
     }
+
+    @Test
+    @DisplayName("Task 10.5 Isolation gate: 101st bind evicts idle, not leased (R13.5)")
+    void test101stBindEvictsIdleNotLeased() {
+        Account account = new Account(
+                ACCOUNT_ID, PrincipalKind.HUMAN, AccountProfile.HUMAN_SOLO,
+                "Capacity User", new AccountQuotas(200, -1, -1, -1),
+                new AccountFlags(true, true, true), "ns-0", Instant.now()
+        );
+        when(catalog.getOrCreateAccount(ACCOUNT_ID)).thenReturn(account);
+
+        // Mock 101 namespace records
+        for (int i = 0; i <= 100; i++) {
+            String nsId = "ns-" + i;
+            String slug = "proj-" + i;
+            NamespaceRecord record = new NamespaceRecord(
+                    nsId, slug, ACCOUNT_ID, NamespaceType.PROJECT,
+                    NamespaceStatus.ACTIVE, "Project " + i, "", null, Instant.now(), null
+            );
+            when(catalog.resolve(ACCOUNT_ID, slug)).thenReturn(Optional.of(record));
+            when(catalog.resolve(ACCOUNT_ID, nsId)).thenReturn(Optional.of(record));
+        }
+
+        // Resolver configured with maxInstances = 100
+        NamespaceResolver resolver = new NamespaceResolver(
+                catalog, synapseProps, embedderProvider, null, null,
+                objectMapperProvider, null, null, null, null, null, 100
+        );
+
+        // Bind first 100 instances
+        for (int i = 0; i < 100; i++) {
+            resolver.resolve(ACCOUNT_ID, "proj-" + i);
+        }
+        assertThat(resolver.cachedInstanceCount()).isEqualTo(100);
+
+        // Acquire lease on oldest instance (proj-0)
+        DefaultSpectorMemory dsm0 = (DefaultSpectorMemory) resolver.resolve(ACCOUNT_ID, "proj-0");
+        dsm0.acquireLease();
+        try {
+            assertThat(dsm0.hasActiveLeases()).isTrue();
+
+            // 101st bind: should evict an unleased idle instance (proj-1), NOT the leased proj-0
+            resolver.resolve(ACCOUNT_ID, "proj-100");
+
+            assertThat(resolver.cachedInstanceCount()).isEqualTo(100);
+            assertThat(resolver.isHot("ns-0")).isTrue();
+            assertThat(resolver.isHot("ns-100")).isTrue();
+            assertThat(resolver.isHot("ns-1")).isFalse();
+        } finally {
+            dsm0.releaseLease();
+        }
+
+        resolver.close();
+    }
 }
