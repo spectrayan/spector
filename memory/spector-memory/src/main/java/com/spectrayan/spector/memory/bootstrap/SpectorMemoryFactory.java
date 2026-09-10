@@ -202,6 +202,19 @@ public final class SpectorMemoryFactory {
         var twoFactorConfig = com.spectrayan.spector.config.properties.TwoFactorProperties.from(
                 memProps.getTwofactor());
 
+        // ── AISME Predictive Coding Fail-Fast (R12.3) ──
+        if (aismeConfig != null && aismeConfig.enabled() && aismeConfig.enablePredictiveCoding()
+                && memProps.getMaxNamespaces() > 8) {
+            int dims = memProps.getDimensions();
+            long perNamespaceBytes = (long) (4 - 1) * dims * dims * Float.BYTES;
+            double perNamespaceMiB = perNamespaceBytes / (1024.0 * 1024.0);
+            throw new SpectorValidationException(ErrorCode.CONFIG_VALUE_INVALID,
+                    String.format("PredictiveCodingNetwork allocates %.2f MiB per namespace for tier weights at %d dimensions. "
+                            + "AISME predictive coding cannot be enabled when maxNamespaces=%d (> 8). "
+                            + "Reduce maxNamespaces <= 8 or set spector.memory.aisme.enable-predictive-coding=false to prevent OOM.",
+                            perNamespaceMiB, dims, memProps.getMaxNamespaces()));
+        }
+
         com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager = builder.cacheManager() != null
                 ? builder.cacheManager()
                 : com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager();
@@ -214,7 +227,9 @@ public final class SpectorMemoryFactory {
                 && builder.properties().provider() != null
                 && builder.properties().provider().getEmbedding() != null
                 && builder.properties().provider().getEmbedding().isSequential();
-        ParallelEmbeddingPipeline parallelPipeline = new ParallelEmbeddingPipeline(embeddingProvider, sequential);
+        ParallelEmbeddingPipeline parallelPipeline = builder.parallelEmbeddingPipeline() != null
+                ? builder.parallelEmbeddingPipeline()
+                : new ParallelEmbeddingPipeline(embeddingProvider, sequential);
         int batchSize = (builder.properties() != null && builder.properties().provider() != null
                 && builder.properties().provider().getEmbedding() != null)
                 ? builder.properties().provider().getEmbedding().getBatchSize() : 32;

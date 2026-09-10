@@ -158,6 +158,7 @@ public final class E2EMemoryContext {
         var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
                 .setPathwayEnabled(pathwayEnabled)
                 .setDimensions(dims)
+                .setMaxNamespaces(1)
                 .setWorkingCapacity(50)
                 .setEpisodicPartitionCapacity(500)
                 .setSemanticCapacity(200)

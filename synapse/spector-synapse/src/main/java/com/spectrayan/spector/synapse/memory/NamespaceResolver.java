@@ -31,6 +31,7 @@ import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.InsulaSelfModel;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.ParallelEmbeddingPipeline;
 import com.spectrayan.spector.provider.embedding.generic.DenseDerivedSparseProvider;
 import com.spectrayan.spector.provider.embedding.generic.DenseDerivedTokenProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
@@ -100,6 +101,18 @@ public class NamespaceResolver implements AutoCloseable {
     private final ReentrantLock coldPathLock = new ReentrantLock();
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
+
+    // ── Composition Hoists (R12.2) ──────────────────────────────
+    private volatile EmbeddingProvider hoistedEmbeddingProvider;
+    private volatile ParallelEmbeddingPipeline hoistedPipeline;
+
+    public ParallelEmbeddingPipeline hoistedPipeline() {
+        return hoistedPipeline;
+    }
+
+    public EmbeddingProvider hoistedEmbeddingProvider() {
+        return hoistedEmbeddingProvider;
+    }
 
     /**
      * Creates a new namespace resolver.
@@ -330,6 +343,33 @@ public class NamespaceResolver implements AutoCloseable {
     // Instance building — same logic as former MemoryRegistry
     // ══════════════════════════════════════════════════════════════
 
+    private void ensureHoistedEmbeddingPipeline(EmbeddingProvider rawEmbedder, com.spectrayan.spector.config.SpectorProperties spectorProps) {
+        if (this.hoistedPipeline == null && rawEmbedder != null) {
+            synchronized (this) {
+                if (this.hoistedPipeline == null) {
+                    org.springframework.cache.CacheManager springCacheManager = cacheManagerProvider != null
+                            ? cacheManagerProvider.getIfAvailable() : null;
+                    com.spectrayan.spector.commons.cache.SpectorCacheManager globalCacheManager;
+                    if (springCacheManager != null) {
+                        globalCacheManager = com.spectrayan.spector.spring.cache.SpringSpectorCacheManagerAdapter.builder(springCacheManager)
+                                .errorHandler(com.spectrayan.spector.commons.cache.SpectorCacheErrorHandler.LOGGING)
+                                .build();
+                    } else {
+                        globalCacheManager = com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager();
+                    }
+                    this.hoistedEmbeddingProvider = com.spectrayan.spector.provider.embedding.CachingEmbeddingProvider.wrap(
+                            rawEmbedder, globalCacheManager);
+
+                    boolean sequential = spectorProps != null
+                            && spectorProps.provider() != null
+                            && spectorProps.provider().getEmbedding() != null
+                            && spectorProps.provider().getEmbedding().isSequential();
+                    this.hoistedPipeline = new ParallelEmbeddingPipeline(this.hoistedEmbeddingProvider, sequential);
+                }
+            }
+        }
+    }
+
     /**
      * Builds a {@link SpectorMemory} instance for the given namespaceId.
      * Directory path: {@code StorageLayout.namespaceDirSharded(basePath, namespaceId)}.
@@ -356,9 +396,12 @@ public class NamespaceResolver implements AutoCloseable {
             }
         }
 
+        ensureHoistedEmbeddingPipeline(embedder, spectorProps);
+
         var builder = SpectorMemoryBuilder.createEmpty()
                 .fromProperties(spectorProps)
-                .embeddingProvider(embedder)
+                .embeddingProvider(hoistedEmbeddingProvider != null ? hoistedEmbeddingProvider : embedder)
+                .parallelEmbeddingPipeline(hoistedPipeline)
                 .persistence(dir);
 
         if (textGen != null) {

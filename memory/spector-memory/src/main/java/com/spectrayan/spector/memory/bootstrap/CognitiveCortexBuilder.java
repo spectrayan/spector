@@ -145,14 +145,8 @@ public final class CognitiveCortexBuilder {
             quantizer = ScalarQuantizer.fromBounds(memProps.getDimensions(), defaultMins, defaultMaxs);
         }
 
-        //  Namespace Manager 
-        SpectorNamespaceManager namespaceManager;
-        if (isDisk && basePath != null) {
-            namespaceManager = new SpectorNamespaceManager(basePath);
-            log.info("NamespaceManager initialized: {} namespaces discovered", namespaceManager.count());
-        } else {
-            namespaceManager = null;
-        }
+        // ── Namespace Manager (R12.1: Hoisted/injected process-wide, never constructed per bind) ──
+        SpectorNamespaceManager namespaceManager = builder.namespaceManager();
 
         //  Partition layout 
         int quantizedVecBytes = memProps.getDimensions();

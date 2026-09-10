@@ -131,7 +131,9 @@ public final class AismeBuilder {
         final FreeEnergyCalculator freeEnergyCalculator = new FreeEnergyCalculator();
         final ContinuousHopfieldNetwork hopfieldNetwork = new ContinuousHopfieldNetwork();
         final CognitiveManifold cognitiveManifold = new CognitiveManifold(dimensions);
-        final PredictiveCodingNetwork predictiveCodingNetwork = new PredictiveCodingNetwork(dimensions, 4);
+        final PredictiveCodingNetwork predictiveCodingNetwork = cfg.enablePredictiveCoding()
+                ? new PredictiveCodingNetwork(dimensions, 4)
+                : null;
         final NarrativeSelfEngine narrativeSelfEngine = new NarrativeSelfEngine(soul, dimensions);
         final GlobalWorkspace globalWorkspace = new GlobalWorkspace(cfg.globalWorkspaceCapacity());
         final ConsciousnessContinuityEvaluator continuityEvaluator = new ConsciousnessContinuityEvaluator(

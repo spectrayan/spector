@@ -37,12 +37,14 @@ import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
+import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.pathway.pipeline.GraphScoringPolicy;
 import com.spectrayan.spector.memory.pathway.pipeline.TagExtractor;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.scheduler.MemoryScheduler;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.ParallelEmbeddingPipeline;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.TokenEmbeddingProvider;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
@@ -102,6 +104,8 @@ public final class SpectorMemoryBuilder {
     private List<SensoryExtractor> sensoryExtractors = List.of();
     private AssetStore assetStore;
     private SpectorCacheManager cacheManager;
+    private SpectorNamespaceManager namespaceManager;
+    private ParallelEmbeddingPipeline parallelEmbeddingPipeline;
     private MemoryScheduler scheduler;
     private org.quartz.Scheduler customQuartzScheduler;
     private Executor suppliedExecutor;
@@ -339,6 +343,11 @@ public final class SpectorMemoryBuilder {
         return this;
     }
 
+    public SpectorMemoryBuilder parallelEmbeddingPipeline(ParallelEmbeddingPipeline pipeline) {
+        this.parallelEmbeddingPipeline = pipeline;
+        return this;
+    }
+
     public SpectorMemoryBuilder llmProvider(LlmProvider p) {
         this.llmProvider = p;
         return this;
@@ -404,6 +413,11 @@ public final class SpectorMemoryBuilder {
 
     public SpectorMemoryBuilder cacheManager(SpectorCacheManager cacheManager) {
         this.cacheManager = cacheManager;
+        return this;
+    }
+
+    public SpectorMemoryBuilder namespaceManager(SpectorNamespaceManager namespaceManager) {
+        this.namespaceManager = namespaceManager;
         return this;
     }
 
@@ -557,6 +571,7 @@ public final class SpectorMemoryBuilder {
     public boolean managedByRegistry() { return managedByRegistry; }
     public boolean useBundleMode() { return useBundleMode; }
     public EmbeddingProvider embeddingProvider() { return embeddingProvider; }
+    public ParallelEmbeddingPipeline parallelEmbeddingPipeline() { return parallelEmbeddingPipeline; }
     public LlmProvider llmProvider() { return llmProvider; }
     public LlmProvider LlmProvider() { return llmProvider; }
     public SparseEmbeddingProvider sparseEmbeddingProvider() { return sparseEmbeddingProvider; }
@@ -571,6 +586,7 @@ public final class SpectorMemoryBuilder {
     public List<SensoryExtractor> sensoryExtractors() { return sensoryExtractors; }
     public AssetStore assetStore() { return assetStore; }
     public SpectorCacheManager cacheManager() { return cacheManager; }
+    public SpectorNamespaceManager namespaceManager() { return namespaceManager; }
     public MemoryScheduler scheduler() { return scheduler; }
     public org.quartz.Scheduler customQuartzScheduler() { return customQuartzScheduler; }
     public Executor suppliedExecutor() { return suppliedExecutor; }
