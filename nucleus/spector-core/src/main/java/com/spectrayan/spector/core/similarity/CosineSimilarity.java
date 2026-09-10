@@ -107,7 +107,7 @@ public final class CosineSimilarity {
         float normB = sumNormB.reduceLanes(VectorOperators.ADD);
 
         float denom = (float) Math.sqrt((double) normA * normB);
-        return denom == 0.0f ? 0.0f : dot / denom;
+        return (denom <= 0.0f || Float.isNaN(denom)) ? 0.0f : dot / denom;
     }
 
 

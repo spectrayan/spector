@@ -63,6 +63,13 @@ class CosineSimilarityTest {
     }
 
     @Test
+    void nanInputReturnsZero() {
+        float[] a = {Float.NaN, 0f, 0f};
+        float[] b = {1f, 2f, 3f};
+        assertThat(CosineSimilarity.compute(a, b)).isEqualTo(0.0f);
+    }
+
+    @Test
     void scalingDoesNotAffectResult() {
         float[] a = {1f, 2f, 3f};
         float[] b = {10f, 20f, 30f};
