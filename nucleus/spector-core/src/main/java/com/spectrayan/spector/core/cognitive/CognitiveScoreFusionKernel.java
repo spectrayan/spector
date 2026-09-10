@@ -1,0 +1,228 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.spectrayan.spector.core.cognitive;
+
+/**
+ * Pure mathematical kernel for Spector's unified 6-phase cognitive score fusion formula
+ * (ADR-0033 Domain 14, #34).
+ *
+ * <p>Purity Tier: T1 (Pure Static, Deterministic).</p>
+ */
+public final class CognitiveScoreFusionKernel {
+
+    private CognitiveScoreFusionKernel() {}
+
+    /**
+     * Immutable parameter carrier for query-scoped cognitive fusion weights and modes.
+     */
+    public record FusionParams(
+            float strictness,
+            float beta,
+            float alpha,
+            float sExponent,
+            float tagRelevanceBoost,
+            float hyperfocusBoost,
+            float associativePriorDelta,
+            float lambda,
+            boolean additiveMode,
+            boolean twoFactorEnabled,
+            boolean pureSimilarity,
+            boolean valenceAlign) {
+
+        public static final FusionParams DEFAULT = new FusionParams(
+                1.0f,   // strictness
+                0.5f,   // beta
+                0.7f,   // alpha
+                0.3f,   // sExponent
+                0.2f,   // tagRelevanceBoost
+                1.5f,   // hyperfocusBoost
+                0.3f,   // associativePriorDelta
+                1.0f,   // lambda
+                false,  // additiveMode
+                true,   // twoFactorEnabled
+                false,  // pureSimilarity
+                false   // valenceAlign
+        );
+    }
+
+    // ── Phase 1: Vector Distance to Similarity ──
+
+    public static float similarity(final float l2dist, final float strictness) {
+        return 1.0f / (1.0f + l2dist * strictness);
+    }
+
+    // ── Phase 2: Importance, Recency Decay & Storage Strength ──
+
+    public static float importanceDecayFactor(
+            final float importance, final float beta, final float decay, final float storageBoost) {
+        final float importanceNorm = importance / 10.0f;
+        return 1.0f + beta * importanceNorm * decay * storageBoost;
+    }
+
+    // ── Phase 3: Mood-Congruent Valence Alignment ──
+
+    public static float applyValenceAlignment(
+            final float score, final boolean valenceAlign, final byte queryValence, final byte valence) {
+        if (!valenceAlign) {
+            return score;
+        }
+        final float valenceMultiplier = 1.0f - (Math.abs(queryValence - valence) / 255.0f);
+        return score * valenceMultiplier;
+    }
+
+    // ── Phase 4: Synaptic Tag Overlap Relevance ──
+
+    public static float applyTagRelevance(
+            final float score, final float tagOverlap, final float tagRelevanceBoost, final boolean additive) {
+        if (additive) {
+            return score;
+        }
+        return score * (1.0f + tagOverlap * tagRelevanceBoost);
+    }
+
+    // ── Phase 5: Attentional Hyperfocus Modulation ──
+
+    public static float applyHyperfocus(
+            final float score, final boolean focusMatch, final float hyperfocusBoost) {
+        if (focusMatch && hyperfocusBoost != 1.0f) {
+            return score * hyperfocusBoost;
+        }
+        return score;
+    }
+
+    // ── Phase 6: Graph Associative Prior Injection ──
+
+    public static float applyAssociativePrior(
+            final float score, final float prior, final float delta, final boolean additive) {
+        if (additive) {
+            return score + delta * prior;
+        }
+        return score * (1.0f + delta * prior);
+    }
+
+    /**
+     * Computes the complete 6-phase fused cognitive score for a candidate memory.
+     */
+    public static float computeFusedScore(
+            final float l2dist,
+            final long timestampMs,
+            final long nowMs,
+            final float cognitiveMass,
+            final byte arousal,
+            final float storageStrength,
+            final boolean hasStorageStrength,
+            final int recallCount,
+            final float importance,
+            final float tagOverlap,
+            final byte valence,
+            final byte queryValence,
+            final boolean focusMatch,
+            final boolean zeroTimeDecay,
+            final float associativePrior,
+            final FusionParams params) {
+
+        final FusionParams p = (params != null) ? params : FusionParams.DEFAULT;
+
+        final float sim = similarity(l2dist, p.strictness());
+        if (p.pureSimilarity()) {
+            return sim;
+        }
+
+        final float decay = MassDilatedDecayKernel.compute(
+                timestampMs, nowMs, cognitiveMass, arousal, recallCount, zeroTimeDecay, p.lambda());
+
+        float storageBoost = 1.0f;
+        if (hasStorageStrength && p.twoFactorEnabled() && storageStrength > 1.0f) {
+            storageBoost = CognitiveMassKernel.fastStorageBoost(storageStrength, p.sExponent());
+        }
+
+        final float impDecayFactor = importanceDecayFactor(importance, p.beta(), decay, storageBoost);
+
+        float baseScore;
+        if (p.additiveMode()) {
+            final float baseSimilarity = p.alpha() * sim + (1.0f - p.alpha()) * tagOverlap;
+            baseScore = baseSimilarity * impDecayFactor;
+        } else {
+            baseScore = sim * impDecayFactor;
+        }
+
+        if (p.valenceAlign()) {
+            baseScore = applyValenceAlignment(baseScore, true, queryValence, valence);
+        }
+
+        float finalScore = applyTagRelevance(baseScore, tagOverlap, p.tagRelevanceBoost(), p.additiveMode());
+
+        finalScore = applyHyperfocus(finalScore, focusMatch, p.hyperfocusBoost());
+
+        if (associativePrior != 0.0f) {
+            finalScore = applyAssociativePrior(finalScore, associativePrior, p.associativePriorDelta(), p.additiveMode());
+        }
+
+        return finalScore;
+    }
+
+    /**
+     * Batch fused cognitive score computation across candidate records (Principle 3).
+     */
+    public static void computeFusedScores(
+            final float[] l2dists,
+            final long[] timestampsMs,
+            final float[] cognitiveMasses,
+            final byte[] arousals,
+            final float[] storageStrengths,
+            final boolean[] hasStorageStrength,
+            final int[] recallCounts,
+            final float[] importances,
+            final float[] tagOverlaps,
+            final byte[] valences,
+            final boolean[] focusMatches,
+            final boolean[] zeroTimeDecays,
+            final float[] associativePriors,
+            final long nowMs,
+            final byte queryValence,
+            final FusionParams params,
+            final float[] outScores,
+            final int count) {
+
+        if (outScores == null || count <= 0) {
+            return;
+        }
+
+        final FusionParams p = (params != null) ? params : FusionParams.DEFAULT;
+        final int limit = Math.min(count, outScores.length);
+
+        for (int i = 0; i < limit; i++) {
+            final float l2dist = (l2dists != null && i < l2dists.length) ? l2dists[i] : 0.0f;
+            final long timestampMs = (timestampsMs != null && i < timestampsMs.length) ? timestampsMs[i] : nowMs;
+            final float cognitiveMass = (cognitiveMasses != null && i < cognitiveMasses.length) ? cognitiveMasses[i] : 0.0f;
+            final byte arousal = (arousals != null && i < arousals.length) ? arousals[i] : 0;
+            final float storageStrength = (storageStrengths != null && i < storageStrengths.length) ? storageStrengths[i] : 1.0f;
+            final boolean hasStorage = (hasStorageStrength != null && i < hasStorageStrength.length) && hasStorageStrength[i];
+            final int recallCount = (recallCounts != null && i < recallCounts.length) ? recallCounts[i] : 0;
+            final float importance = (importances != null && i < importances.length) ? importances[i] : 5.0f;
+            final float tagOverlap = (tagOverlaps != null && i < tagOverlaps.length) ? tagOverlaps[i] : 0.0f;
+            final byte valence = (valences != null && i < valences.length) ? valences[i] : 0;
+            final boolean focusMatch = (focusMatches != null && i < focusMatches.length) && focusMatches[i];
+            final boolean zeroTimeDecay = (zeroTimeDecays != null && i < zeroTimeDecays.length) && zeroTimeDecays[i];
+            final float prior = (associativePriors != null && i < associativePriors.length) ? associativePriors[i] : 0.0f;
+
+            outScores[i] = computeFusedScore(
+                    l2dist, timestampMs, nowMs, cognitiveMass, arousal, storageStrength,
+                    hasStorage, recallCount, importance, tagOverlap, valence, queryValence,
+                    focusMatch, zeroTimeDecay, prior, p);
+        }
+    }
+}

@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.index.text;
 
+import com.spectrayan.spector.core.similarity.BM25Kernel;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.hnsw.NeighborQueue;
 
@@ -306,8 +307,7 @@ public class BM25Index implements KeywordIndex {
                 int tf = tfs[i];
                 int docLen = docLens[docIndex];
 
-                float tfNorm = (tf * k1PlusOne) / (tf + c1 + c2 * docLen);
-                float termScore = idf * tfNorm;
+                float termScore = BM25Kernel.scoreTerm(tf, docLen, (float) avgDocLength, k1, b, idf);
 
                 if (scores[docIndex] == 0f) {
                     touched[touchedCount++] = docIndex;
@@ -394,9 +394,7 @@ public class BM25Index implements KeywordIndex {
      * @return IDF score
      */
     private float computeIdf(int docFreq, int numDocs) {
-        return (float) Math.log(
-                ((double) numDocs - docFreq + 0.5) / (docFreq + 0.5) + 1.0
-        );
+        return BM25Kernel.idf(docFreq, numDocs);
     }
 
     private void recalcAvgDocLength() {

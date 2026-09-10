@@ -1,0 +1,120 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.spectrayan.spector.core.similarity;
+
+/**
+ * Pure mathematical kernel for Okapi BM25 term weighting and document frequency (ADR-0033 Domain 11, #28).
+ *
+ * <p>Purity Tier: T1 (Pure Static, Deterministic).</p>
+ */
+public final class BM25Kernel {
+
+    public static final float DEFAULT_K1 = 1.2f;
+    public static final float DEFAULT_B = 0.75f;
+
+    private BM25Kernel() {}
+
+    /**
+     * Computes the Robertson-Spärck Jones BM25 Inverse Document Frequency (IDF):
+     * <p>{@code IDF(n, N) = ln(1 + (N - n + 0.5) / (n + 0.5))}</p>
+     *
+     * @param docFreq   number of documents containing the term \(n\)
+     * @param totalDocs total number of documents in corpus \(N\)
+     * @return non-negative IDF score
+     */
+    public static float idf(final int docFreq, final int totalDocs) {
+        if (totalDocs <= 0 || docFreq < 0) {
+            return 0.0f;
+        }
+        return (float) Math.log(
+                ((double) totalDocs - docFreq + 0.5) / (docFreq + 0.5) + 1.0
+        );
+    }
+
+    /**
+     * Computes BM25 single term score:
+     * <p>{@code score = IDF · (tf · (k1 + 1)) / (tf + k1 · (1 - b + b · (L / L_avg)))}</p>
+     *
+     * @param tf        term frequency in the document
+     * @param docLen    length of the document in tokens
+     * @param avgDocLen average document length in tokens
+     * @param k1        term frequency saturation parameter (typically 1.2)
+     * @param b         length normalization parameter (typically 0.75)
+     * @param idf       precomputed term IDF
+     * @return term contribution score
+     */
+    public static float scoreTerm(
+            final int tf,
+            final int docLen,
+            final float avgDocLen,
+            final float k1,
+            final float b,
+            final float idf) {
+        if (tf <= 0 || idf <= 0.0f) {
+            return 0.0f;
+        }
+
+        final float lenNorm = (avgDocLen > 0.0f) ? (docLen / avgDocLen) : 1.0f;
+        final float denom = tf + k1 * (1.0f - b + b * lenNorm);
+        if (denom <= 0.0f) {
+            return 0.0f;
+        }
+
+        return idf * ((tf * (k1 + 1.0f)) / denom);
+    }
+
+    /**
+     * Batch term scoring across multiple candidate documents (Principle 3).
+     *
+     * @param tfs        term frequencies per document
+     * @param docLens    lengths per document
+     * @param avgDocLen  average document length
+     * @param k1         BM25 k1 parameter
+     * @param b          BM25 b parameter
+     * @param idf        term IDF
+     * @param outScores  output array for computed term scores
+     * @param count      number of documents to process
+     */
+    public static void scoreTerms(
+            final int[] tfs,
+            final int[] docLens,
+            final float avgDocLen,
+            final float k1,
+            final float b,
+            final float idf,
+            final float[] outScores,
+            final int count) {
+        if (tfs == null || docLens == null || outScores == null || count <= 0) {
+            return;
+        }
+
+        final int limit = Math.min(count, Math.min(tfs.length, Math.min(docLens.length, outScores.length)));
+        final float k1PlusOne = k1 + 1.0f;
+        final float c1 = k1 * (1.0f - b);
+        final float c2 = (avgDocLen > 0.0f) ? (k1 * b / avgDocLen) : 0.0f;
+
+        for (int i = 0; i < limit; i++) {
+            final int tf = tfs[i];
+            if (tf <= 0) {
+                outScores[i] = 0.0f;
+                continue;
+            }
+            final int docLen = docLens[i];
+            final float denom = tf + c1 + c2 * docLen;
+            outScores[i] = (denom > 0.0f) ? idf * ((tf * k1PlusOne) / denom) : 0.0f;
+        }
+    }
+}
