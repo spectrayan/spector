@@ -15,6 +15,7 @@ package com.spectrayan.spector.memory.pathway.recall.relay;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -96,7 +97,7 @@ public final class LateralInhibitionRelay implements SynapticRelay<RecallSignal>
             if (vectors[i] == null) continue;
             for (int j = i + 1; j < maxCandidates; j++) {
                 if (vectors[j] == null) continue;
-                float sim = cosineSimilarity(vectors[i], vectors[j]);
+                float sim = CosineSimilarity.compute(vectors[i], vectors[j]);
                 if (sim >= threshold) {
                     if (clusterId[i] == -1 && clusterId[j] == -1) {
                         clusterId[i] = nextCluster;
@@ -211,24 +212,6 @@ public final class LateralInhibitionRelay implements SynapticRelay<RecallSignal>
         );
 
         candidates.set(idx, r.withScoreAndBreakdown(newScore, newBd));
-    }
-
-    private static float cosineSimilarity(float[] a, float[] b) {
-        if (a == null || b == null || a.length != b.length || a.length == 0) {
-            return 0.0f;
-        }
-        float dot = 0.0f;
-        float normA = 0.0f;
-        float normB = 0.0f;
-        for (int i = 0; i < a.length; i++) {
-            dot += a[i] * b[i];
-            normA += a[i] * a[i];
-            normB += b[i] * b[i];
-        }
-        if (normA <= 0.0f || normB <= 0.0f) {
-            return 0.0f;
-        }
-        return dot / (float) (Math.sqrt(normA) * Math.sqrt(normB));
     }
 
     @Override

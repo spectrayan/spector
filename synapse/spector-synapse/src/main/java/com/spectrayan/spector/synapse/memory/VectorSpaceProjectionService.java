@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
+import com.spectrayan.spector.core.similarity.DotProduct;
+import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.events.EmbeddingProjectionTelemetry.ProjectedPoint;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
@@ -125,13 +127,13 @@ public class VectorSpaceProjectionService {
             for (int d = 0; d < dimension; d++) {
                 w[d] = (float) rnd.nextGaussian();
             }
-            normalize(w);
+            w = VectorOps.normalize(w);
 
             // 15 power iterations
             for (int iter = 0; iter < 15; iter++) {
                 float[] next = new float[dimension];
                 for (int i = 0; i < n; i++) {
-                    float dot = dotProduct(centered[i], w);
+                    float dot = DotProduct.compute(centered[i], w);
                     for (int d = 0; d < dimension; d++) {
                         next[d] += dot * centered[i][d];
                     }
@@ -139,18 +141,13 @@ public class VectorSpaceProjectionService {
 
                 // Orthogonalize against prior principal components (Gram-Schmidt)
                 for (int prev = 0; prev < k; prev++) {
-                    float proj = dotProduct(next, components[prev]);
+                    float proj = DotProduct.compute(next, components[prev]);
                     for (int d = 0; d < dimension; d++) {
                         next[d] -= proj * components[prev][d];
                     }
                 }
 
-                float norm = (float) Math.sqrt(dotProduct(next, next));
-                if (norm > 1e-7f) {
-                    for (int d = 0; d < dimension; d++) {
-                        w[d] = next[d] / norm;
-                    }
-                }
+                w = VectorOps.normalize(next);
             }
 
             components[k] = w;
@@ -158,7 +155,7 @@ public class VectorSpaceProjectionService {
             // Estimate component variance
             float varSum = 0;
             for (int i = 0; i < n; i++) {
-                float dot = dotProduct(centered[i], w);
+                float dot = DotProduct.compute(centered[i], w);
                 varSum += dot * dot;
             }
             variances[k] = varSum / n;
@@ -168,9 +165,9 @@ public class VectorSpaceProjectionService {
         float[][] projected = new float[n][3];
         float maxAbsX = 1e-4f, maxAbsY = 1e-4f, maxAbsZ = 1e-4f;
         for (int i = 0; i < n; i++) {
-            projected[i][0] = dotProduct(centered[i], components[0]);
-            projected[i][1] = dotProduct(centered[i], components[1]);
-            projected[i][2] = dotProduct(centered[i], components[2]);
+            projected[i][0] = DotProduct.compute(centered[i], components[0]);
+            projected[i][1] = DotProduct.compute(centered[i], components[1]);
+            projected[i][2] = DotProduct.compute(centered[i], components[2]);
 
             maxAbsX = Math.max(maxAbsX, Math.abs(projected[i][0]));
             maxAbsY = Math.max(maxAbsY, Math.abs(projected[i][1]));
@@ -238,29 +235,11 @@ public class VectorSpaceProjectionService {
             centered[d] = queryVector[d] - meanVector[d];
         }
 
-        float qx = dotProduct(centered, principalComponents[0]) * coordinateScale[0];
-        float qy = dotProduct(centered, principalComponents[1]) * coordinateScale[1];
-        float qz = dotProduct(centered, principalComponents[2]) * coordinateScale[2];
+        float qx = DotProduct.compute(centered, principalComponents[0]) * coordinateScale[0];
+        float qy = DotProduct.compute(centered, principalComponents[1]) * coordinateScale[1];
+        float qz = DotProduct.compute(centered, principalComponents[2]) * coordinateScale[2];
 
         return new float[]{qx, qy, qz};
-    }
-
-    private static float dotProduct(float[] a, float[] b) {
-        float sum = 0;
-        int len = Math.min(a.length, b.length);
-        for (int i = 0; i < len; i++) {
-            sum += a[i] * b[i];
-        }
-        return sum;
-    }
-
-    private static void normalize(float[] v) {
-        float norm = (float) Math.sqrt(dotProduct(v, v));
-        if (norm > 1e-7f) {
-            for (int i = 0; i < v.length; i++) {
-                v[i] /= norm;
-            }
-        }
     }
 
     private static List<ProjectedPoint> generateDeterministicLayout(List<CognitiveRecord> records) {

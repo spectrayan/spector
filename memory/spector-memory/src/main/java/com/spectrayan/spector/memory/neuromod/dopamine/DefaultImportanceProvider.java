@@ -57,16 +57,17 @@ public final class DefaultImportanceProvider implements ImportanceProvider {
         float nearestDistance = ctx.nearestDistance();
 
         // Step 3: Compute novelty
+        int warmup = surpriseDetector.warmupSamples();
         if (ctx.readOnly()) {
             // Read-only peek — don't modify Welford stats
-            zScore = surpriseDetector.stats().count() >= 20
+            zScore = surpriseDetector.stats().isWarm(warmup)
                     ? surpriseDetector.stats().zScore(nearestDistance) : 0.0;
-            noveltyOnlyImportance = surpriseDetector.stats().count() >= 20
+            noveltyOnlyImportance = surpriseDetector.stats().isWarm(warmup)
                     ? SurpriseDetector.zScoreToImportance(zScore) : 1.0f;
         } else {
             // Compute and update stats
             noveltyOnlyImportance = surpriseDetector.computeImportance(nearestDistance);
-            zScore = surpriseDetector.stats().count() >= 20
+            zScore = surpriseDetector.stats().isWarm(warmup)
                     ? surpriseDetector.stats().zScore(nearestDistance) : 0.0;
         }
 

@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.aisme.homeostasis;
 
+import com.spectrayan.spector.core.math.SdeEulerSolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,39 +85,12 @@ public final class HomeostaticCore {
             int dim = h.length;
             float[] nextH = new float[dim];
 
+            float[] stdNormal = new float[dim];
             for (int i = 0; i < dim; i++) {
-                float aTerm = 0;
-                for (int j = 0; j < dim; j++) {
-                    aTerm += aPerson[i][j] * h[j];
-                }
-
-                float bTerm = 0;
-                if (externalInput != null) {
-                    int bDim = Math.min(dim, bInput[i].length);
-                    for (int j = 0; j < bDim; j++) {
-                        if (j < externalInput.length) {
-                            bTerm += bInput[i][j] * externalInput[j];
-                        }
-                    }
-                }
-
-                float cTerm = 0;
-                if (recallInfluence != null) {
-                    int cDim = Math.min(dim, cRecall[i].length);
-                    for (int j = 0; j < cDim; j++) {
-                        if (j < recallInfluence.length) {
-                            cTerm += cRecall[i][j] * recallInfluence[j];
-                        }
-                    }
-                }
-
-                float noise = (float) ThreadLocalRandom.current().nextGaussian() * sigma[i];
-
-                nextH[i] = h[i] + dt * (aTerm + bTerm + cTerm + noise);
-                
-                // Clamp all state values to [-1, 1]
-                nextH[i] = Math.max(-1.0f, Math.min(1.0f, nextH[i]));
+                stdNormal[i] = (float) ThreadLocalRandom.current().nextGaussian();
             }
+
+            SdeEulerSolver.stepEulerMaruyama(h, aPerson, bInput, externalInput, cRecall, recallInfluence, sigma, dt, stdNormal, nextH);
 
             InteroceptiveState oldState = currentState;
             currentState = InteroceptiveState.fromVector(

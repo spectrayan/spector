@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
+import com.spectrayan.spector.core.math.SoftmaxKernel;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 
@@ -31,14 +32,6 @@ import java.util.List;
  *       maximizing precision.</li>
  *   <li><b>\(T = 1.0\) (Identity)</b>: Preserves the original cognitive scoring distribution.</li>
  * </ul>
- *
- * <h3>Numerical Stability</h3>
- * <p>To prevent exponential overflow or underflow with large scores, the computation
- * shifts scores by the maximum scaled score:
- * \[\text{shift} = \max_j (s_j / T)\]
- * \[w_i = \exp(s_i / T - \text{shift})\]
- * \[p_i = \frac{w_i}{\sum_j w_j}\]
- * Rescaled score: \(s'_i = p_i \times \text{totalOriginalScore}\).</p>
  */
 public final class TemperatureSoftmax {
 
@@ -55,37 +48,16 @@ public final class TemperatureSoftmax {
         if (Math.abs(temperature - 1.0f) < 1e-4f) return; // T = 1.0 is identity
 
         int n = results.size();
-        float temp = Math.max(0.01f, temperature);
-
-        float maxScaled = -Float.MAX_VALUE;
-        float totalOriginalScore = 0.0f;
+        float[] scores = new float[n];
         for (int i = 0; i < n; i++) {
-            float s = results.get(i).score();
-            totalOriginalScore += s;
-            float scaled = s / temp;
-            if (scaled > maxScaled) {
-                maxScaled = scaled;
-            }
+            scores[i] = results.get(i).score();
         }
 
-        double sumExp = 0.0;
-        double[] expWeights = new double[n];
-        for (int i = 0; i < n; i++) {
-            float scaled = results.get(i).score() / temp;
-            double w = Math.exp(scaled - maxScaled);
-            expWeights[i] = w;
-            sumExp += w;
-        }
-
-        if (sumExp <= 0.0 || Double.isNaN(sumExp)) return;
-
-        // Scale factor: redistribute totalOriginalScore proportionally according to softmax probability
-        double scaleMultiplier = totalOriginalScore > 0 ? totalOriginalScore : 1.0;
+        SoftmaxKernel.applySoftmaxTemperature(scores, temperature);
 
         for (int i = 0; i < n; i++) {
             CognitiveResult r = results.get(i);
-            double prob = expWeights[i] / sumExp;
-            float newScore = (float) (prob * scaleMultiplier);
+            float newScore = scores[i];
 
             ScoreBreakdown bd = r.breakdown() != null
                     ? new ScoreBreakdown(

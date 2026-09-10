@@ -15,29 +15,36 @@
  */
 package com.spectrayan.spector.kernel.score;
 
+import com.spectrayan.spector.core.cognitive.ValenceMath;
+
+/**
+ * Valence constants and outcome adjustment utilities.
+ *
+ * @deprecated Use {@link ValenceMath} instead. Scheduled for removal in 0.3.0.
+ */
+@Deprecated(since = "0.1.0-beta", forRemoval = true)
 public final class Valence {
     private Valence() {}
 
-    public static final byte STRONGLY_POSITIVE = 100;
-    public static final byte POSITIVE = 50;
-    public static final byte NEUTRAL = 0;
-    public static final byte NEGATIVE = -50;
-    public static final byte STRONGLY_NEGATIVE = -100;
+    public static final byte STRONGLY_POSITIVE = ValenceMath.STRONGLY_POSITIVE;
+    public static final byte POSITIVE = ValenceMath.POSITIVE;
+    public static final byte NEUTRAL = ValenceMath.NEUTRAL;
+    public static final byte NEGATIVE = ValenceMath.NEGATIVE;
+    public static final byte STRONGLY_NEGATIVE = ValenceMath.STRONGLY_NEGATIVE;
 
     public static byte clamp(int value) {
-        return (byte) Math.max(Byte.MIN_VALUE, Math.min(Byte.MAX_VALUE, value));
+        return ValenceMath.clamp(value);
     }
 
     public static boolean isPositive(byte valence) {
-        return valence > 10;
+        return ValenceMath.isPositive(valence);
     }
 
     public static boolean isNegative(byte valence) {
-        return valence < -10;
+        return ValenceMath.isNegative(valence);
     }
 
     public static byte blend(byte existing, byte newValue, float alpha) {
-        float blended = existing * (1.0f - alpha) + newValue * alpha;
-        return clamp(Math.round(blended));
+        return ValenceMath.blend(existing, newValue, alpha);
     }
 }

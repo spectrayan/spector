@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.provider.embedding.generic;
 
+import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
@@ -87,7 +88,7 @@ public class DenseDerivedSparseProvider implements SparseEmbeddingProvider {
         for (String term : terms) {
             float[] termVector = termVectorCache.get(term);
             if (termVector != null) {
-                float cosine = cosineSimilarity(termVector, docVector);
+                float cosine = CosineSimilarity.compute(termVector, docVector);
                 float sim = Math.max(0.0f, cosine);
                 if (sim >= weightThreshold) {
                     weights.put(term, sim);
@@ -135,17 +136,5 @@ public class DenseDerivedSparseProvider implements SparseEmbeddingProvider {
         }
         return new ArrayList<>(uniqueTerms);
     }
-
-    private float cosineSimilarity(float[] v1, float[] v2) {
-        if (v1.length != v2.length) return 0.0f;
-        double dot = 0.0;
-        double norm1 = 0.0;
-        double norm2 = 0.0;
-        for (int i = 0; i < v1.length; i++) {
-            dot += v1[i] * v2[i];
-            norm1 += v1[i] * v1[i];
-            norm2 += v2[i] * v2[i];
-        }
-        return norm1 > 0 && norm2 > 0 ? (float) (dot / (Math.sqrt(norm1) * Math.sqrt(norm2))) : 0.0f;
-    }
 }
+

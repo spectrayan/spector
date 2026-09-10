@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.score;
 
+import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
@@ -127,7 +128,7 @@ public final class EdgeImportance {
 
         // Signal 1: Weight — Hebbian LTP ("cells that fire together wire together")
         // Sigmoid normalization: maps co-recall count to [0, 1]
-        float weightSignal = (float) (1.0 / (1.0 + Math.exp(-weight + 3.0)));
+        float weightSignal = VectorOps.sigmoid(weight - 3.0f);
 
         // Signal 2: Recency — STC theory (early-LTP without consolidation decays)
         // Exponential decay with ~50 cycle half-life (ln(2)/72 ≈ 0.0096)
@@ -193,7 +194,7 @@ public final class EdgeImportance {
      */
     public float scoreStructural(float weight, int currentCycle, int lastCycle,
                                  int bridgeScore, int sharedNeighbors) {
-        float weightSignal = (float) (1.0 / (1.0 + Math.exp(-weight + 3.0)));
+        float weightSignal = VectorOps.sigmoid(weight - 3.0f);
         float recencySignal = (float) Math.exp(-(currentCycle - lastCycle) / 72.0);
         float bridgeSignal = bridgeScore / 255.0f;
         float redundancy = 1.0f / (1.0f + sharedNeighbors * 0.3f);

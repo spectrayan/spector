@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.session;
 
+import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.kernel.api.MemoryType;
@@ -51,7 +52,7 @@ public class SessionWriteBuffer {
 
         List<CognitiveResult> results = new ArrayList<>();
         for (BufferedEntry entry : entries) {
-            float score = cosineSimilarity(queryVector, entry.vector());
+            float score = CosineSimilarity.compute(queryVector, entry.vector());
             if (score >= minScore) {
                 // Approximate representation of CognitiveResult for buffered entries
                 results.add(new CognitiveResult(
@@ -83,18 +84,5 @@ public class SessionWriteBuffer {
     public boolean isEmpty() {
         return entries.isEmpty();
     }
-
-    private float cosineSimilarity(float[] vectorA, float[] vectorB) {
-        if (vectorA == null || vectorB == null || vectorA.length != vectorB.length) return 0f;
-        float dotProduct = 0;
-        float normA = 0;
-        float normB = 0;
-        for (int i = 0; i < vectorA.length; i++) {
-            dotProduct += vectorA[i] * vectorB[i];
-            normA += vectorA[i] * vectorA[i];
-            normB += vectorB[i] * vectorB[i];
-        }
-        if (normA == 0 || normB == 0) return 0;
-        return (float) (dotProduct / (Math.sqrt(normA) * Math.sqrt(normB)));
-    }
 }
+

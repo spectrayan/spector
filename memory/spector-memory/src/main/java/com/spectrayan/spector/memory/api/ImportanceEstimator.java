@@ -111,9 +111,10 @@ public final class ImportanceEstimator {
             }
 
             // Step 3: Compute novelty (read-only peek  --  don't modify Welford stats)
-            double zScore = surpriseDetector.stats().count() >= 20
+            int warmup = surpriseDetector.warmupSamples();
+            double zScore = surpriseDetector.stats().isWarm(warmup)
                     ? surpriseDetector.stats().zScore(nearestDist) : 0.0;
-            float noveltyOnlyImportance = surpriseDetector.stats().count() >= 20
+            float noveltyOnlyImportance = surpriseDetector.stats().isWarm(warmup)
                     ? SurpriseDetector.zScoreToImportance(zScore) : 1.0f;
             float noveltyNorm = Math.clamp(noveltyOnlyImportance / 10.0f, 0f, 1f);
 

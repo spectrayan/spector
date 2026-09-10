@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.graph;
 
+import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.kernel.bundle.RegionRef;
 import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
@@ -170,7 +171,7 @@ public class EntityDirectory extends com.spectrayan.spector.kernel.graph.EntityD
                 String typeB = entityType(idB);
                 if (!typeA.equals(typeB)) continue;
 
-                float sim = cosineSimilarity(embeddings[i], embeddings[j]);
+                float sim = CosineSimilarity.compute(embeddings[i], embeddings[j]);
                 if (sim >= cosineThreshold) {
                     String nameB = entries.get(j).getKey();
 
@@ -193,18 +194,6 @@ public class EntityDirectory extends com.spectrayan.spector.kernel.graph.EntityD
             }
         }
         return mergeCount;
-    }
-
-    private static float cosineSimilarity(float[] a, float[] b) {
-        if (a == null || b == null || a.length != b.length) return 0f;
-        float dot = 0f, normA = 0f, normB = 0f;
-        for (int i = 0; i < a.length; i++) {
-            dot += a[i] * b[i];
-            normA += a[i] * a[i];
-            normB += b[i] * b[i];
-        }
-        if (normA == 0f || normB == 0f) return 0f;
-        return (float) (dot / (Math.sqrt(normA) * Math.sqrt(normB)));
     }
 
     public static int levenshteinDistance(String a, String b) {
