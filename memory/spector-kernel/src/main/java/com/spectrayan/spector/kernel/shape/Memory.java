@@ -50,14 +50,20 @@ public interface Memory<L extends RegionLayout> extends AutoCloseable {
      * Region-scoped arena; sub-slices must not outlive it. 
      * 
      * @return The arena managing the lifecycle of the underlying memory segment.
+     * @deprecated Use the typed shape methods or {@link com.spectrayan.spector.kernel.unsafe.RawBundleAccess} instead.
+     *             Scheduled for removal in a future release (R13.3).
      */
+    @Deprecated(forRemoval = true)
     Arena arena();
     
     /** 
      * Root segment; kernels sub-slice this for records/adjacency/etc. 
      * 
      * @return The root memory segment backing this memory.
+     * @deprecated Use the typed shape methods or {@link com.spectrayan.spector.kernel.unsafe.RawBundleAccess} instead.
+     *             Scheduled for removal in a future release (R13.3).
      */
+    @Deprecated(forRemoval = true)
     MemorySegment segment();
     
     /** 

@@ -277,6 +277,16 @@ public class IndexEntryMemory extends AbstractRecordMemory<IndexEntryLayout> {
         return texts.getOrDefault(id, "");
     }
 
+    /** Package-private accessor for testing inline on-heap texts retention (R13.4). */
+    int inlineTextCount() {
+        return texts.size();
+    }
+
+    /** Package-private check if an ID has an inline text entry on heap (R13.4). */
+    boolean hasInlineText(String id) {
+        return texts.containsKey(id);
+    }
+
     private TextBlobMemory resolveTextStore(int partition) {
         var resolver = this.textResolver;
         if (resolver != null) {
