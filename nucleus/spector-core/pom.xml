@@ -24,6 +24,48 @@
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-commons</artifactId>
         </dependency>
+
+        <!-- ── Test Dependencies ── -->
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>enforce-banned-dependencies</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <rules>
+                        <bannedDependencies>
+                            <excludes>
+                                <exclude>com.spectrayan:spector-kernel</exclude>
+                                <exclude>com.spectrayan:spector-memory</exclude>
+                                <exclude>com.spectrayan:spector-index</exclude>
+                                <exclude>com.spectrayan:spector-config</exclude>
+                                <exclude>com.spectrayan:spector-events</exclude>
+                                <exclude>com.spectrayan:spector-providers</exclude>
+                                <exclude>com.spectrayan:spector-synapse</exclude>
+                            </excludes>
+                            <message>ADR-0033 Principle 1 violation: spector-core must not depend on upstream storage, memory, config, index, or provider modules.</message>
+                        </bannedDependencies>
+                    </rules>
+                    <fail>true</fail>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>
