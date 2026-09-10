@@ -11,23 +11,26 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex;
+import com.spectrayan.spector.kernel.score.Valence;
+import com.spectrayan.spector.kernel.store.SemanticMemory;
+import com.spectrayan.spector.kernel.store.StrengthMemory;
 
 import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
 
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.VectorIndex;
-import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory.MemoryLocation;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.SemanticLayout;
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.layout.SemanticLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.model.ScoringMode;
-import com.spectrayan.spector.memory.model.SourceModality;
-import com.spectrayan.spector.memory.synapse.DecayStrategy;
+import com.spectrayan.spector.kernel.api.SourceModality;
+import com.spectrayan.spector.kernel.score.DecayStrategy;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 import com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion;
 import com.spectrayan.spector.memory.synapse.scan.RecordGates;

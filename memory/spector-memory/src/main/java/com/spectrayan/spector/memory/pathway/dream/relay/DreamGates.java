@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
-import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.id.MemoryId;
 
 import com.spectrayan.spector.commons.pathway.Specification;
 

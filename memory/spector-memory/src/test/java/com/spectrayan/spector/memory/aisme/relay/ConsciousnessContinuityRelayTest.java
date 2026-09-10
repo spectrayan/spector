@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.spectrayan.spector.memory.aisme.phi.ConsciousnessContinuityEvaluator;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal;
 

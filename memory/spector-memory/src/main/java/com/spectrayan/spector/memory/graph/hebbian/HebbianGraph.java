@@ -11,6 +11,8 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.graph.hebbian;
+import com.spectrayan.spector.kernel.store.HebbianEdge;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,8 +20,8 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
-import com.spectrayan.spector.memory.graph.BridgeDetector;
-import com.spectrayan.spector.memory.graph.EdgeImportance;
+import com.spectrayan.spector.kernel.score.BridgeDetector;
+import com.spectrayan.spector.kernel.score.EdgeImportance;
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -130,7 +132,7 @@ public final class HebbianGraph implements HebbianGraphBase {
     public interface DecayModulator extends com.spectrayan.spector.memory.graph.hebbian.DecayModulator {
     }
 
-    private volatile com.spectrayan.spector.memory.graph.hebbian.DecayModulator decayModulator;
+    private volatile com.spectrayan.spector.kernel.store.DecayModulator decayModulator;
 
     private final Arena arena;
     private final MemorySegment segment;
@@ -517,7 +519,7 @@ public final class HebbianGraph implements HebbianGraphBase {
      *
      * @param modulator per-node modifier (null = uniform decay)
      */
-    public void setDecayModulator(com.spectrayan.spector.memory.graph.hebbian.DecayModulator modulator) {
+    public void setDecayModulator(com.spectrayan.spector.kernel.store.DecayModulator modulator) {
         this.decayModulator = modulator;
     }
 
@@ -576,13 +578,21 @@ public final class HebbianGraph implements HebbianGraphBase {
      * @param metrics     optional metrics collector (may be {@code null})
      * @return number of edges that dropped below threshold and were removed
      */
+    @Override
+    public int decayEdges(float decayFactor, com.spectrayan.spector.kernel.store.GraphHealthSink metrics) {
+        if (metrics instanceof GraphHealthMetrics ghm) {
+            return decayEdges(decayFactor, ghm);
+        }
+        return decayEdges(decayFactor);
+    }
+
     public int decayEdges(float decayFactor, GraphHealthMetrics metrics) {
         graphLock.lock();
         try {
             currentCycle++;
             int removed = 0;
             float removalThreshold = 0.01f;
-            com.spectrayan.spector.memory.graph.hebbian.DecayModulator mod = this.decayModulator; // snapshot volatile
+            com.spectrayan.spector.kernel.store.DecayModulator mod = this.decayModulator; // snapshot volatile
             int activeNodes = 0;
 
             for (int node = 0; node < capacity; node++) {

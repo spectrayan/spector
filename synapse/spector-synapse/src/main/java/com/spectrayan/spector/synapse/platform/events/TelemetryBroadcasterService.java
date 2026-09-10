@@ -13,7 +13,7 @@
 package com.spectrayan.spector.synapse.platform.events;
 
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.synapse.memory.MemoryRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -37,7 +37,7 @@
     <dependencies>
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-memory</artifactId>
+            <artifactId>spector-kernel</artifactId>
         </dependency>
 
         <!-- Testing dependencies -->

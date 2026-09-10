@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.model.enactment;
 
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 import java.util.List;
 

@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import com.spectrayan.spector.memory.kernel.bundle.identity.IdentityBundle;
+import com.spectrayan.spector.kernel.bundle.identity.IdentityBundle;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 
 /**

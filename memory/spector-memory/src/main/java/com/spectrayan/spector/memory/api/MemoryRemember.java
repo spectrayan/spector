@@ -14,11 +14,11 @@ package com.spectrayan.spector.memory.api;
 
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.model.ConversationRole;
+import com.spectrayan.spector.kernel.api.ConversationRole;
 import com.spectrayan.spector.memory.model.ImportanceResult;
 import com.spectrayan.spector.memory.model.RememberContext;
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.model.SourceModality;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.api.SourceModality;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 
 import java.nio.file.Path;

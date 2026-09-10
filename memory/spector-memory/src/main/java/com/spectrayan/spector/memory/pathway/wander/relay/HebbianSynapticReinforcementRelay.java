@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pathway.wander.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

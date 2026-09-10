@@ -14,7 +14,7 @@ package com.spectrayan.spector.synapse.agent.tools;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.synapse.catalog.GrantRole;
 import com.spectrayan.spector.synapse.memory.FederatedRecallHit;
 import com.spectrayan.spector.synapse.memory.FederatedRecallRequest;

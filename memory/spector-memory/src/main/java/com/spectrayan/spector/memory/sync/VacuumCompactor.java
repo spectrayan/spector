@@ -21,13 +21,13 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.memory.cortex.AbstractEngramMemory;
-import com.spectrayan.spector.memory.kernel.store.EngramRegion;
+import com.spectrayan.spector.kernel.store.AbstractEngramMemory;
+import com.spectrayan.spector.kernel.store.EngramRegion;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
  * Compacts a tier store by removing tombstoned records and reclaiming space.

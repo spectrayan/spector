@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.bench.cognitive.mindspan;
+import com.spectrayan.spector.kernel.store.HebbianEdge;
 
 import com.spectrayan.spector.bench.cognitive.CachedEmbeddingProvider;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
@@ -26,13 +27,12 @@ import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianEdge;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.config.properties.CircadianProperties;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;

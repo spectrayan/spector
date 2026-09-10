@@ -11,16 +11,18 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.score.Valence;
 
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 
 import com.spectrayan.spector.memory.api.CognitiveProfileConfig;
 
 import com.spectrayan.spector.memory.model.*;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.synapse.DecayStrategy;
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.score.DecayStrategy;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import org.junit.jupiter.api.AfterEach;

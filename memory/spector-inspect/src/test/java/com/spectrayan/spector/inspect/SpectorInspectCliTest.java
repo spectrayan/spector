@@ -15,10 +15,10 @@
  */
 package com.spectrayan.spector.inspect;
 
-import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
-import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
-import com.spectrayan.spector.memory.kernel.region.RegionId;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
+import com.spectrayan.spector.kernel.shape.MemoryShape;
+import com.spectrayan.spector.kernel.bundle.PartitionBundle;
+import com.spectrayan.spector.kernel.region.RegionId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

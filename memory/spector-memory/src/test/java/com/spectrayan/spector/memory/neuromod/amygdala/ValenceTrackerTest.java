@@ -11,11 +11,12 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.neuromod.amygdala;
+import com.spectrayan.spector.kernel.score.Valence;
 
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import org.junit.jupiter.api.Test;
 
 import java.lang.foreign.Arena;

@@ -11,26 +11,26 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.bootstrap;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
 import com.spectrayan.spector.memory.graph.OntologyConfig;
-import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.id.MemoryId;
-import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
-import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
-import com.spectrayan.spector.memory.kernel.region.RegionId;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
+import com.spectrayan.spector.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.id.SystemMemoryId;
+import com.spectrayan.spector.kernel.region.RegionId;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -115,7 +115,7 @@ public final class CognitiveGraphBuilder {
                 ? memProps.getTemporalChainCapacity() : graphCapacity;
         TemporalChainMemory temporalChain;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-            temporalChain = cortex.runtimeBundle().openTemporalChain(temporalCapacity);
+            temporalChain = com.spectrayan.spector.kernel.store.TemporalChainMemory.fromRegionRef(cortex.runtimeBundle().regionRef(RegionId.TEMPORAL_CHAIN), temporalCapacity, cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew());
         } else {
             temporalChain = new TemporalChainMemory(temporalCapacity);
         }
@@ -150,7 +150,7 @@ public final class CognitiveGraphBuilder {
             int hyperCap = memProps.getEntityGraphCapacity();
             int hyperEdgeCap = hyperCap * 2;
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-                hyperEntityGraph = cortex.runtimeBundle().openHyperGraph(hyperCap, hyperEdgeCap);
+                hyperEntityGraph = com.spectrayan.spector.kernel.store.HyperEntityGraphMemory.fromRegionRef(cortex.runtimeBundle().regionRef(RegionId.HYPERGRAPH), hyperCap, hyperEdgeCap, cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew());
             } else {
                 hyperEntityGraph = new HyperEntityGraphMemory(hyperCap, hyperEdgeCap);
             }
@@ -169,14 +169,14 @@ public final class CognitiveGraphBuilder {
             TypeRegistryMemory entityTypeRegistry;
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
                 entityTypeRegistry = cortex.runtimeBundle().openRegistry(
-                        com.spectrayan.spector.memory.kernel.region.RegionId.ENTITY_TYPES,
+                        com.spectrayan.spector.kernel.region.RegionId.ENTITY_TYPES,
                         SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
             } else {
                 entityTypeRegistry = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
             }
 
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-                entityDirectory = cortex.runtimeBundle().openEntityDirectory(dirCap, entityTypeRegistry);
+                entityDirectory = com.spectrayan.spector.memory.graph.EntityDirectory.fromRegionRefs(cortex.runtimeBundle().regionRef(RegionId.ENTITY_DIRECTORY), cortex.runtimeBundle().regionRef(RegionId.ENTITY_NAMES), dirCap, entityTypeRegistry, cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew());
             } else {
                 entityDirectory = new EntityDirectory(dirCap, entityTypeRegistry);
             }
@@ -188,14 +188,14 @@ public final class CognitiveGraphBuilder {
         TypeRegistryMemory predRegistry;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
             predRegistry = cortex.runtimeBundle().openRegistry(
-                    com.spectrayan.spector.memory.kernel.region.RegionId.RELATION_TYPES,
+                    com.spectrayan.spector.kernel.region.RegionId.RELATION_TYPES,
                     SystemMemoryId.RELATION_TYPE, null);
         } else {
             predRegistry = new TypeRegistryMemory(SystemMemoryId.RELATION_TYPE);
         }
 
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-            temporalKnowledgeGraph = cortex.runtimeBundle().openTemporalKnowledgeGraph(predRegistry);
+            temporalKnowledgeGraph = com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph.fromRegionRef(predRegistry, cortex.runtimeBundle().regionRef(RegionId.TEMPORAL_FACTS), cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew());
         } else {
             temporalKnowledgeGraph = new TemporalKnowledgeGraph(predRegistry);
         }

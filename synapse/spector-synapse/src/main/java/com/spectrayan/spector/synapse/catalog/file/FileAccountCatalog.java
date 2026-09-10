@@ -14,7 +14,7 @@ package com.spectrayan.spector.synapse.catalog.file;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.synapse.catalog.*;
 import com.spectrayan.spector.synapse.catalog.exception.*;
 import org.slf4j.Logger;
@@ -682,7 +682,7 @@ public class FileAccountCatalog implements AccountCatalog {
         }
 
         Grant grant = new Grant(
-                new com.spectrayan.spector.memory.kernel.id.TsidGenerator().generate(),
+                new com.spectrayan.spector.kernel.id.TsidGenerator().generate(),
                 GrantObjectType.NAMESPACE,
                 record.namespaceId(),
                 granteeAccountId,

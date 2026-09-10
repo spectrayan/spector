@@ -11,10 +11,12 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.model;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.score.Valence;
 
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 
 /**
  * Preset cognitive scoring profiles for thalamic modulation.

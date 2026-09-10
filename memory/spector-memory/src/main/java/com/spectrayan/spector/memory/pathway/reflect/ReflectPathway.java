@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.pathway.reflect;
 
-import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.id.MemoryId;
 
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.template.TemplateEngine;
@@ -25,14 +25,14 @@ import com.spectrayan.spector.memory.aisme.relay.ManifoldConsolidationRelay;
 import com.spectrayan.spector.memory.aisme.relay.SoftIdentityAnchorRelay;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
-import com.spectrayan.spector.memory.cortex.ProvenanceMemory;
+import com.spectrayan.spector.kernel.store.ProvenanceMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.TypeNormalizer;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
-import com.spectrayan.spector.memory.kernel.id.MemoryIdGenerator;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
+import com.spectrayan.spector.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.pathway.reflect.relay.CrossLayerPromotionRelay;

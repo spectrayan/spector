@@ -11,34 +11,35 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.persist;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.sync.MemoryWal;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.sync.MemoryWal;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import java.nio.file.Path;
 
 /**
@@ -84,7 +85,7 @@ public final class PersistenceManager {
                               HebbianGraphBase hebbianGraph,
                               TemporalChainMemory temporalChain,
                               EntityDirectory entityDirectory,
-                              com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
+                              com.spectrayan.spector.kernel.store.HyperEntityGraphMemory hyperEntityGraph,
                               CoActivationMemory coActivationTracker,
                               com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                               CognitiveMemoryRouter cognitiveRouter,

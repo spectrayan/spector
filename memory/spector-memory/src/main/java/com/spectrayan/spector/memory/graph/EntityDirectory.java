@@ -11,6 +11,8 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.graph;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,12 +21,12 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.memory.persist.DataEncryptor;
 import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
-import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.id.MemoryId;
-import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
-import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
-import com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout;
-import com.spectrayan.spector.memory.kernel.shape.AbstractGraphMemory;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
+import com.spectrayan.spector.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.shape.MemoryShape;
+import com.spectrayan.spector.kernel.id.SystemMemoryId;
+import com.spectrayan.spector.kernel.layout.EntityDirectoryLayout;
+import com.spectrayan.spector.kernel.shape.AbstractGraphMemory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 
@@ -46,19 +48,19 @@ import java.util.PrimitiveIterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.ADJ_ENTRY_BYTES;
-import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.ADJ_OFF_MEM_IDX;
-import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.ADJ_OFF_WEIGHT;
-import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.DATA_START;
-import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.ENTITY_NODE_BYTES;
-import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.ENT_OFF_ADJ_CAPACITY;
-import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.ENT_OFF_ADJ_COUNT;
-import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.ENT_OFF_ADJ_OFFSET;
-import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.ENT_OFF_NAME_HASH;
-import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.ENT_OFF_TYPE;
-import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.ENT_OFF_MERGED_INTO;
-import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.SUB_OFF_ADJ_CAPACITY;
-import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.SUB_OFF_ADJ_HWM;
+import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ADJ_ENTRY_BYTES;
+import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ADJ_OFF_MEM_IDX;
+import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ADJ_OFF_WEIGHT;
+import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.DATA_START;
+import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ENTITY_NODE_BYTES;
+import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ENT_OFF_ADJ_CAPACITY;
+import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ENT_OFF_ADJ_COUNT;
+import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ENT_OFF_ADJ_OFFSET;
+import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ENT_OFF_NAME_HASH;
+import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ENT_OFF_TYPE;
+import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ENT_OFF_MERGED_INTO;
+import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.SUB_OFF_ADJ_CAPACITY;
+import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.SUB_OFF_ADJ_HWM;
 
 /**
  * Kernel-substrate companion that owns entity <b>identity</b> and entity&rarr;memory adjacency,
@@ -181,8 +183,8 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     }
 
     public static EntityDirectory fromRegionRefs(
-            com.spectrayan.spector.memory.kernel.bundle.RegionRef entityDirRef,
-            com.spectrayan.spector.memory.kernel.bundle.RegionRef entityNamesRef,
+            com.spectrayan.spector.kernel.bundle.RegionRef entityDirRef,
+            com.spectrayan.spector.kernel.bundle.RegionRef entityNamesRef,
             int entityCapacity, TypeRegistryMemory entityTypeRegistry,
             Path bundlePath, boolean isNew) {
         MemorySegment entityRegionSlice = entityDirRef.resolve();
@@ -200,8 +202,8 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         return new EntityDirectory(entityDirRef, entityNamesRef, resolvedCap, entityTypeRegistry, bundlePath, isNew);
     }
 
-    private EntityDirectory(com.spectrayan.spector.memory.kernel.bundle.RegionRef entityDirRef,
-                            com.spectrayan.spector.memory.kernel.bundle.RegionRef entityNamesRef,
+    private EntityDirectory(com.spectrayan.spector.kernel.bundle.RegionRef entityDirRef,
+                            com.spectrayan.spector.kernel.bundle.RegionRef entityNamesRef,
                             int entityCapacity, TypeRegistryMemory entityTypeRegistry,
                             Path bundlePath, boolean isNew) {
         super(MEMORY_ID, LAYOUT, entityCapacity, entityDirRef,

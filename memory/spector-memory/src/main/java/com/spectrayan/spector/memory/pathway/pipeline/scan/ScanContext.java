@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pathway.pipeline.scan;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
  * Immutable per-recall context shared by every {@link TierScanStrategy}.

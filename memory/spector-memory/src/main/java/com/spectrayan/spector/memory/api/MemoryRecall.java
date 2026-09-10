@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.api;
 
-import com.spectrayan.spector.memory.model.EpisodeRecord;
+import com.spectrayan.spector.kernel.api.EpisodeRecord;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;

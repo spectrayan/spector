@@ -15,13 +15,13 @@
  */
 package com.spectrayan.spector.inspect;
 
-import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
-import com.spectrayan.spector.memory.kernel.bundle.BundleDirectory;
-import com.spectrayan.spector.memory.kernel.bundle.BundleSubHeader;
-import com.spectrayan.spector.memory.kernel.region.RegionEntry;
-import com.spectrayan.spector.memory.kernel.region.RegionId;
-import com.spectrayan.spector.memory.kernel.bundle.BundleFileLayout;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
+import com.spectrayan.spector.kernel.shape.MemoryShape;
+import com.spectrayan.spector.kernel.bundle.BundleDirectory;
+import com.spectrayan.spector.kernel.bundle.BundleSubHeader;
+import com.spectrayan.spector.kernel.region.RegionEntry;
+import com.spectrayan.spector.kernel.region.RegionId;
+import com.spectrayan.spector.kernel.bundle.BundleFileLayout;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;

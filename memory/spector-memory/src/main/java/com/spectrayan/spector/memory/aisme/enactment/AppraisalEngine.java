@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.aisme.enactment;
+import com.spectrayan.spector.kernel.score.Valence;
 
 import com.spectrayan.spector.memory.aisme.AismeBundle;
 import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;

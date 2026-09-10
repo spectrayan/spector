@@ -11,10 +11,14 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
+import com.spectrayan.spector.kernel.store.ProceduralMemory;
+import com.spectrayan.spector.kernel.store.SemanticMemory;
+import com.spectrayan.spector.kernel.store.WorkingMemory;
 
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -159,15 +163,15 @@ class MemoryPersistenceTest {
 
         // Register 3 entries with different types and tags
         original.register("mem-1",
-                new MemoryIndex.MemoryLocation(MemoryType.EPISODIC, 64L, 0),
+                new MemoryLocation(MemoryType.EPISODIC, 64L, 0),
                 "The cat sat on the mat", MemorySource.OBSERVED, new String[]{"animal", "location"});
 
         original.register("mem-2",
-                new MemoryIndex.MemoryLocation(MemoryType.SEMANTIC, 128L, -1),
+                new MemoryLocation(MemoryType.SEMANTIC, 128L, -1),
                 "Java 25 supports Panama FFM API", MemorySource.USER_STATED, new String[]{"java", "panama"});
 
         original.register("mem-3",
-                new MemoryIndex.MemoryLocation(MemoryType.PROCEDURAL, 0L, -1),
+                new MemoryLocation(MemoryType.PROCEDURAL, 0L, -1),
                 "Use ScalarQuantizer for 8-bit encoding", MemorySource.PROCEDURAL, new String[]{});
 
         // Save

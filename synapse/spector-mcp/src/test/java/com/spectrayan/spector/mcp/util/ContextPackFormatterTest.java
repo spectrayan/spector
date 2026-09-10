@@ -27,7 +27,7 @@ import com.spectrayan.spector.mcp.util.ContextPackFormatter.ContextPackInput;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.FactHistory;
 import com.spectrayan.spector.memory.model.FactHistory.FactSnapshot;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
  * Unit tests for {@link ContextPackFormatter}.

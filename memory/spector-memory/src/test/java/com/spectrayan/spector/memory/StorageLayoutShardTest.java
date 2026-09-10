@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import org.junit.jupiter.api.io.TempDir;
 
 /**

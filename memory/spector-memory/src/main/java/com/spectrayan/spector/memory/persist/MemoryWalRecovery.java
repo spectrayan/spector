@@ -11,54 +11,57 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.persist;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 
 import com.spectrayan.spector.memory.bootstrap.SpectorMemoryFactory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.error.SpectorWalCorruptionException;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.shape.Memory;
-import com.spectrayan.spector.memory.kernel.id.MemoryId;
-import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
-import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.shape.AppendMemory;
-import com.spectrayan.spector.memory.kernel.shape.RecordMemory;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.shape.Memory;
+import com.spectrayan.spector.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.id.SystemMemoryId;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.shape.AppendMemory;
+import com.spectrayan.spector.kernel.shape.RecordMemory;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.sync.CheckpointEngine;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.memory.sync.WalRecoveryDispatcher;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 import com.spectrayan.spector.memory.error.SpectorWalCorruptionException;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.shape.Memory;
-import com.spectrayan.spector.memory.kernel.id.MemoryId;
-import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
-import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.shape.Memory;
+import com.spectrayan.spector.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.id.SystemMemoryId;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.sync.CheckpointEngine;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.memory.sync.WalRecoveryDispatcher;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 
 import java.nio.ByteBuffer;
@@ -99,7 +102,7 @@ public final class MemoryWalRecovery {
             RememberPathway cognitiveTarget,
             Path basePath,
             int activePartitionSeq,
-            com.spectrayan.spector.memory.kernel.bundle.RegionRef checkpointRef) {
+            com.spectrayan.spector.kernel.bundle.RegionRef checkpointRef) {
 
         if (wal == null || !wal.isPersistent()) {
             return;
@@ -171,7 +174,7 @@ public final class MemoryWalRecovery {
 
         long countBeforeRecovery = 0;
         Memory<?> textMem = memories.get(textId);
-        if (textMem instanceof com.spectrayan.spector.memory.kernel.shape.AppendMemory<?> am) {
+        if (textMem instanceof com.spectrayan.spector.kernel.shape.AppendMemory<?> am) {
             countBeforeRecovery = am.appendCursor();
         }
 
@@ -197,7 +200,7 @@ public final class MemoryWalRecovery {
                         long recordId = buf.getLong();
                         MemoryId targetId = MemoryId.parse(event.memoryId());
                         Memory<?> target = memories.get(targetId);
-                        if (target instanceof com.spectrayan.spector.memory.kernel.shape.RecordMemory<?> rm) {
+                        if (target instanceof com.spectrayan.spector.kernel.shape.RecordMemory<?> rm) {
                             lastRecordOffset = rm.recordOffset(recordId);
                             String pathName = targetId.memoryName();
                             try {
@@ -230,8 +233,8 @@ public final class MemoryWalRecovery {
                                 stride = target.layout().recordStride();
                             }
                             int storeIndex = (int) (lastRecordOffset / stride);
-                            com.spectrayan.spector.memory.cortex.index.MemoryIndex.MemoryLocation loc =
-                                    new com.spectrayan.spector.memory.cortex.index.MemoryIndex.MemoryLocation(
+                            com.spectrayan.spector.kernel.api.MemoryLocation loc =
+                                    new com.spectrayan.spector.kernel.api.MemoryLocation(
                                             lastRecordType, lastRecordOffset, -1, activePartitionSeq,
                                             lastTextOffset, lastTextLength);
 

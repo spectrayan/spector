@@ -19,12 +19,12 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory.MemoryLocation;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
 
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import java.util.List;
 
 /**

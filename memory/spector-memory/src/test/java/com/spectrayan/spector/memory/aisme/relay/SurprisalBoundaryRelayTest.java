@@ -22,7 +22,7 @@ import com.spectrayan.spector.memory.aisme.segmentation.EpisodicSegment;
 import com.spectrayan.spector.memory.aisme.segmentation.SurprisalBoundaryDetector;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;

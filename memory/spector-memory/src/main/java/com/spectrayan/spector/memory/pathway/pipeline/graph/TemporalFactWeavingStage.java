@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.pipeline.graph;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
@@ -79,7 +80,7 @@ public final class TemporalFactWeavingStage {
 
                 // Priority 1: Fast O(1) off-heap lookup via EntityDirectory index slot
                 if (entityDirectory != null && index != null) {
-                    MemoryIndex.MemoryLocation loc = index.locate(candidate.id());
+                    MemoryLocation loc = index.locate(candidate.id());
                     if (loc != null) {
                         int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
                         List<Integer> slotEntityIds = CadpContradictionResolver.findEntitiesForSlot(entityDirectory, slot);

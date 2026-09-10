@@ -37,7 +37,7 @@ import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 import net.jqwik.api.lifecycle.AfterTry;
-import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import net.jqwik.api.lifecycle.BeforeTry;
 
 /**

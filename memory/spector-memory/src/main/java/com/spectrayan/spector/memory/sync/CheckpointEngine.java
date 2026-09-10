@@ -11,18 +11,19 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.sync;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
 
 import com.spectrayan.spector.events.EventBus;
-import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -105,7 +106,7 @@ public final class CheckpointEngine {
     private final Path partitionDir;                   // nullable â€” active partition dir for graph saves
     private final Path basePath;                       // nullable â€” persistence root for coactivation
     private final MemorySegment checkpointRegion;      // nullable — V4 bundle CHECKPOINT region slice
-    private final com.spectrayan.spector.memory.kernel.bundle.RegionRef checkpointRef;
+    private final com.spectrayan.spector.kernel.bundle.RegionRef checkpointRef;
 
     // ── Event Bus (replaces CheckpointListener) ──
     private volatile EventBus<SpectorLifecycleEvent> eventBus;
@@ -192,7 +193,7 @@ public final class CheckpointEngine {
                             CoActivationMemory coActivationTracker,
                             com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                             Path partitionDir, Path basePath,
-                            com.spectrayan.spector.memory.kernel.bundle.RegionRef checkpointRef) {
+                            com.spectrayan.spector.kernel.bundle.RegionRef checkpointRef) {
         this.cognitiveRouter = cognitiveRouter;
         this.wal = wal;
         this.checkpointMetaPath = checkpointMetaPath;

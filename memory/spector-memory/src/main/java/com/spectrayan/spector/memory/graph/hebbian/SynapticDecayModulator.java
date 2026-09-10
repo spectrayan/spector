@@ -16,11 +16,11 @@ import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
 
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory.MemoryLocation;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
-import com.spectrayan.spector.memory.kernel.engram.EpisodicHeaderLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.engram.EpisodicHeaderLayout;
 
 import java.lang.foreign.MemorySegment;
 import java.util.List;

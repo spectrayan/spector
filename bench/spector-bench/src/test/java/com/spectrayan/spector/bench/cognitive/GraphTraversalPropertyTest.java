@@ -16,7 +16,7 @@
 package com.spectrayan.spector.bench.cognitive;
 
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;

@@ -11,12 +11,13 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.pipeline.scan;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
 
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.kernel.store.EngramRegion;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.store.EngramRegion;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
  * Produces the scan work for a single memory tier given a {@link PartitionHandle}.
@@ -49,7 +50,7 @@ public interface TierScanStrategy {
         public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
             if (!CognitiveMemoryRouter.shouldScan(MemoryType.EPISODIC, ctx.targetTypes())) return;
             if (handle.router() == null || handle.router().episodic() == null) return;
-            com.spectrayan.spector.memory.cortex.EpisodicMemory episodic = handle.router().episodic();
+            com.spectrayan.spector.kernel.store.EpisodicMemory episodic = handle.router().episodic();
             if (episodic.unconsolidatedTurnOffsets().isEmpty()) return;
             emitter.emitEpisodicScan(episodic, handle.seq());
         }

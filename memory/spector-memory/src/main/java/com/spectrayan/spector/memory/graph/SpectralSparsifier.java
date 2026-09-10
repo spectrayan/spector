@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.graph;
+import com.spectrayan.spector.kernel.score.BridgeDetector;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.bootstrap;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
 
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.neuromod.amygdala.ValenceTracker;
@@ -19,11 +20,10 @@ import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.neuromod.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
-import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
-import com.spectrayan.spector.memory.kernel.region.RegionId;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.region.RegionId;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
@@ -39,13 +39,13 @@ import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.neuromod.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
 import com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler;
-import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 
 /**
@@ -101,7 +101,7 @@ public final class BiologicalSubsystemsBuilder {
 
         CoActivationMemory coActivationTracker;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-            coActivationTracker = cortex.runtimeBundle().openCoActivation(10_000, 20_000);
+            coActivationTracker = CoActivationMemory.fromRegionRef(cortex.runtimeBundle().regionRef(RegionId.COACTIVATION), 10_000, 20_000, cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew(), cortex.runtimeBundle().checkpointRef() != null ? cortex.runtimeBundle().checkpointRef().resolve() : null);
         } else {
             coActivationTracker = new CoActivationMemory();
         }

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.namespace;
 
-import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 import org.junit.jupiter.api.*;
 
 import java.io.IOException;

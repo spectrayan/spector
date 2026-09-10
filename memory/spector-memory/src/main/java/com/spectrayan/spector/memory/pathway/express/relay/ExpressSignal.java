@@ -16,7 +16,7 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.aisme.homeostasis.InteroceptiveState;
 import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.memory.model.PersonaContext;
-import com.spectrayan.spector.memory.model.SourceModality;
+import com.spectrayan.spector.kernel.api.SourceModality;
 
 import com.spectrayan.spector.core.spacetime.ExpressTense;
 import com.spectrayan.spector.core.spacetime.SpacetimeSimulationMode;

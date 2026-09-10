@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.bench.cognitive;
+import com.spectrayan.spector.kernel.score.Valence;
 
 import java.util.List;
 

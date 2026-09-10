@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.pathway.pipeline.pruning;
 
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.PartitionSummary;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

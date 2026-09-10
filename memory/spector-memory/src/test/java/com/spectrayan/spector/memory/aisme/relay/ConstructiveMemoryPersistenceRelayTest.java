@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.aisme.relay;
 
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -23,9 +23,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal;
@@ -74,8 +74,8 @@ class ConstructiveMemoryPersistenceRelayTest {
         boolean ok = relay.transmit(signal);
 
         assertThat(ok).isTrue();
-        org.mockito.ArgumentCaptor<com.spectrayan.spector.memory.kernel.engram.EncodingHeader> headerCaptor =
-                org.mockito.ArgumentCaptor.forClass(com.spectrayan.spector.memory.kernel.engram.EncodingHeader.class);
+        org.mockito.ArgumentCaptor<com.spectrayan.spector.kernel.engram.EncodingHeader> headerCaptor =
+                org.mockito.ArgumentCaptor.forClass(com.spectrayan.spector.kernel.engram.EncodingHeader.class);
         verify(target, times(1)).ingestCognitiveWithHeader(
                 anyString(), anyString(), any(float[].class), eq(MemoryType.EPISODIC), any(), eq(MemorySource.INFERRED), headerCaptor.capture());
 
@@ -119,7 +119,7 @@ class ConstructiveMemoryPersistenceRelayTest {
                 CognitiveResult.RetrievalMode.STANDARD,
                 null,
                 null,
-                com.spectrayan.spector.memory.model.SourceModality.TEXT,
+                com.spectrayan.spector.kernel.api.SourceModality.TEXT,
                 Map.of("simulation", "counterfactual_recombination"),
                 consolidationFlags
         );

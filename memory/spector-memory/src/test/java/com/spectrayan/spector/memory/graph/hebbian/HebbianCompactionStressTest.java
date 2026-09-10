@@ -11,9 +11,11 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.graph.hebbian;
+import com.spectrayan.spector.kernel.store.HebbianEdge;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 
-import com.spectrayan.spector.memory.graph.EdgeImportance;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianEdge;
+import com.spectrayan.spector.kernel.score.EdgeImportance;
+import com.spectrayan.spector.kernel.store.HebbianEdge;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.pipeline.graph;
 
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 
 /**
  * Expands recalled candidate nodes along Hebbian co-activation edges and temporal chain links.

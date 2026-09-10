@@ -12,17 +12,17 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
-import com.spectrayan.spector.memory.cortex.StrengthMemory;
-import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
-import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeaderLayout;
-import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
-import com.spectrayan.spector.memory.kernel.layout.StrengthLayout.StrengthState;
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
-import com.spectrayan.spector.memory.kernel.engram.compat.LegacyEncodingHeaderReader;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.store.StrengthMemory;
+import com.spectrayan.spector.kernel.shape.MemoryShape;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeaderLayout;
+import com.spectrayan.spector.kernel.layout.StrengthLayout;
+import com.spectrayan.spector.kernel.layout.StrengthLayout.StrengthState;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.engram.compat.LegacyEncodingHeaderReader;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

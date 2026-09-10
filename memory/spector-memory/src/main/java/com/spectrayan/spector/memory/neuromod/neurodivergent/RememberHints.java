@@ -11,6 +11,8 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.neuromod.neurodivergent;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.score.Valence;
 
 /**
  * Optional LLM-provided cognitive hints for ingestion-time importance tuning.

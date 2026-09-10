@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.aisme.lifespan;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
@@ -130,7 +131,7 @@ class LifespanRetentionControllerTest {
                 "mem-1",
                 "Flashbulb invariant memory",
                 new float[]{0.1f, 0.2f},
-                com.spectrayan.spector.memory.model.MemoryType.EPISODIC,
+                com.spectrayan.spector.kernel.api.MemoryType.EPISODIC,
                 new String[]{"soul:covenant"},
                 com.spectrayan.spector.memory.cortex.MemorySource.OBSERVED,
                 null,

@@ -11,9 +11,10 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.pipeline.scan;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
 
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 import java.lang.foreign.MemorySegment;
 import java.util.function.IntSupplier;
@@ -33,5 +34,5 @@ public interface ScanEmitter {
     void emitSemanticHnsw();
 
     /** Emits an episodic log scan of the given store. */
-    void emitEpisodicScan(com.spectrayan.spector.memory.cortex.EpisodicMemory episodic, int partitionSeq);
+    void emitEpisodicScan(com.spectrayan.spector.kernel.store.EpisodicMemory episodic, int partitionSeq);
 }

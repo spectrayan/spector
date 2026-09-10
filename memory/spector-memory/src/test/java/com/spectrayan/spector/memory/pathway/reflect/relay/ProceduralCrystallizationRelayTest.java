@@ -12,10 +12,10 @@
  */
 package com.spectrayan.spector.memory.pathway.reflect.relay;
 
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
 
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -33,13 +33,13 @@ import org.junit.jupiter.api.Test;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicMemory;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.model.EpisodeRecord;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.api.EpisodeRecord;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
@@ -108,7 +108,7 @@ class ProceduralCrystallizationRelayTest {
                 eq(MemoryType.PROCEDURAL),
                 eq(new String[]{"procedural", "crystallized", "skill"}),
                 eq(MemorySource.REFLECTED),
-                any(com.spectrayan.spector.memory.kernel.engram.EncodingHeader.class)
+                any(com.spectrayan.spector.kernel.engram.EncodingHeader.class)
         );
 
         verify(hyperEntityGraph).addHyperedge(
@@ -160,14 +160,14 @@ class ProceduralCrystallizationRelayTest {
         boolean result = relay.transmit(signal);
 
         assertThat(result).isTrue();
-        org.mockito.ArgumentCaptor<com.spectrayan.spector.memory.kernel.engram.EncodingHeader> captor =
-                org.mockito.ArgumentCaptor.forClass(com.spectrayan.spector.memory.kernel.engram.EncodingHeader.class);
+        org.mockito.ArgumentCaptor<com.spectrayan.spector.kernel.engram.EncodingHeader> captor =
+                org.mockito.ArgumentCaptor.forClass(com.spectrayan.spector.kernel.engram.EncodingHeader.class);
         verify(rememberPathway).ingestCognitiveWithHeader(
                 anyString(), anyString(), eq(new float[]{0.3f, 0.4f}), eq(MemoryType.PROCEDURAL), any(), eq(MemorySource.REFLECTED), captor.capture()
         );
 
         var header = captor.getValue();
-        assertThat(com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.isCrystallized(header.consolidationFlags())).isTrue();
+        assertThat(com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.isCrystallized(header.consolidationFlags())).isTrue();
         assertThat(header.soulVersion()).isEqualTo((short) 4);
     }
 }

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.synapse.security;
 
-import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

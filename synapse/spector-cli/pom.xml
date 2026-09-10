@@ -52,7 +52,11 @@
             <artifactId>picocli</artifactId>
         </dependency>
 
-        <!-- ── Spector Memory (embedded cognitive memory) ── -->
+        <!-- ── Spector Kernel & Memory (embedded cognitive memory) ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-kernel</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-memory</artifactId>

@@ -11,8 +11,9 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 
-import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.id.MemoryId;
 
 import com.spectrayan.spector.memory.pathway.wander.WanderPathway;
 
@@ -23,8 +24,8 @@ import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
 import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold;
-import com.spectrayan.spector.memory.cortex.ContinuityMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.kernel.store.ContinuityMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.pathway.wander.relay.WanderReport;

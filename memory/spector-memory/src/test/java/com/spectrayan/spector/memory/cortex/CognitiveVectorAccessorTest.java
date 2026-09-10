@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -19,7 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 class CognitiveVectorAccessorTest {
 
@@ -60,7 +61,7 @@ class CognitiveVectorAccessorTest {
         when(quantizer.mins()).thenReturn(mins);
         when(quantizer.scales()).thenReturn(scales);
 
-        MemoryIndex.MemoryLocation loc = new MemoryIndex.MemoryLocation(MemoryType.SEMANTIC, 100L, 0);
+        MemoryLocation loc = new MemoryLocation(MemoryType.SEMANTIC, 100L, 0);
         when(index.locate("mem-123")).thenReturn(loc);
         when(registry.routerFor(0)).thenReturn(router);
 
@@ -86,7 +87,7 @@ class CognitiveVectorAccessorTest {
         when(quantizer.mins()).thenReturn(new float[]{0.0f});
         when(quantizer.scales()).thenReturn(new float[]{1.0f});
 
-        MemoryIndex.MemoryLocation loc = new MemoryIndex.MemoryLocation(MemoryType.EPISODIC, 100L, 0);
+        MemoryLocation loc = new MemoryLocation(MemoryType.EPISODIC, 100L, 0);
         when(index.locate("epi-123")).thenReturn(loc);
 
         CognitiveVectorAccessor accessor = new CognitiveVectorAccessor(index, registry, quantizer);

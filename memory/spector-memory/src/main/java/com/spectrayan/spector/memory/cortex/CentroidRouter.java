@@ -12,9 +12,9 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.error.ErrorCode;
@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
  * splitting partitions that exceed a variance threshold — analogous to
  * hippocampal neurogenesis.</p>
  *
- * @see com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields#OFFSET_CENTROID_ID
+ * @see com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields#OFFSET_CENTROID_ID
  */
 public final class CentroidRouter {
 

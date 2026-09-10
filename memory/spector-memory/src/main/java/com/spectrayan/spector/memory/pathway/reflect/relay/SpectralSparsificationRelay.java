@@ -11,13 +11,15 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.reflect.relay;
+import com.spectrayan.spector.kernel.store.HebbianEdge;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
-import com.spectrayan.spector.memory.graph.BridgeDetector;
+import com.spectrayan.spector.kernel.score.BridgeDetector;
 import com.spectrayan.spector.memory.graph.SparsificationPlan;
 import com.spectrayan.spector.memory.graph.SpectralSparsifier;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianEdge;
+import com.spectrayan.spector.kernel.store.HebbianEdge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

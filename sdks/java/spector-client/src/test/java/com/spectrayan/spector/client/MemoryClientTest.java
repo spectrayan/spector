@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.client;
 
-import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.id.MemoryId;
 
 import com.spectrayan.spector.client.api.MemoryClient;
 import com.spectrayan.spector.client.exception.MemoryNotFoundException;

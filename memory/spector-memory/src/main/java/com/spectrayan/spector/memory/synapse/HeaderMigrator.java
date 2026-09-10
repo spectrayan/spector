@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.synapse;
+import com.spectrayan.spector.kernel.store.AbstractEngramMemory;
 
 import java.io.IOException;
 import java.lang.foreign.Arena;
@@ -31,17 +32,17 @@ import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.memory.cortex.StrengthMemory;
+import com.spectrayan.spector.kernel.store.StrengthMemory;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
-import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
-import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeaderLayout;
-import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
-import com.spectrayan.spector.memory.kernel.engram.compat.LegacyEncodingHeaderReader;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.shape.MemoryShape;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeaderLayout;
+import com.spectrayan.spector.kernel.layout.StrengthLayout;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.engram.compat.LegacyEncodingHeaderReader;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
  * One-time migration tool for converting store files between header layout versions.

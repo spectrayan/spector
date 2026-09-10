@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.pathway.remember.relay;
 
-import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.id.MemoryId;
 
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;

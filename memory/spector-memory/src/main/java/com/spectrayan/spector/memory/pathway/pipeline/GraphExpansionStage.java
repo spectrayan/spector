@@ -11,6 +11,9 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.pipeline;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
+import com.spectrayan.spector.kernel.score.Valence;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
 
 import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
 
@@ -21,27 +24,27 @@ import com.spectrayan.spector.memory.cortex.consolidation.CadpContradictionResol
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.CognitiveResult.RetrievalMode;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.model.ScoringMode;
-import com.spectrayan.spector.memory.model.SourceModality;
+import com.spectrayan.spector.kernel.api.SourceModality;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.engram.EpisodicHeaderLayout;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.EpisodicHeaderLayout;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
-import static com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.*;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import static com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,7 +85,7 @@ public final class GraphExpansionStage {
     private final TemporalChainMemory temporalChain;
     /** Identity companion (ADR-0003 #455). When present, identity reads (findEntity/fanFactor) route here. */
     private final EntityDirectory entityDirectory;
-    private final com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph;
+    private final com.spectrayan.spector.kernel.store.HyperEntityGraphMemory hyperEntityGraph;
     private final EntityExtractor entityExtractor;
     private final GraphScoringPolicy graphScoringPolicy;
     private final MemoryIndex index;
@@ -90,12 +93,12 @@ public final class GraphExpansionStage {
     private final float[] calibrationMins;
     private final float[] calibrationScales;
     private final com.spectrayan.spector.memory.model.SalienceProfile salienceProfile;
-    private final com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory coActivationTracker;
+    private final com.spectrayan.spector.kernel.store.CoActivationMemory coActivationTracker;
 
     public GraphExpansionStage(HebbianGraphBase hebbianGraph,
                         TemporalChainMemory temporalChain,
                         EntityDirectory entityDirectory,
-                        com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
+                        com.spectrayan.spector.kernel.store.HyperEntityGraphMemory hyperEntityGraph,
                         EntityExtractor entityExtractor,
                         GraphScoringPolicy graphScoringPolicy,
                         MemoryIndex index,
@@ -103,7 +106,7 @@ public final class GraphExpansionStage {
                         float[] calibrationMins,
                         float[] calibrationScales,
                         com.spectrayan.spector.memory.model.SalienceProfile salienceProfile,
-                        com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory coActivationTracker) {
+                        com.spectrayan.spector.kernel.store.CoActivationMemory coActivationTracker) {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.entityDirectory = entityDirectory;
@@ -121,7 +124,7 @@ public final class GraphExpansionStage {
     public GraphExpansionStage(HebbianGraphBase hebbianGraph,
                         TemporalChainMemory temporalChain,
                         EntityDirectory entityDirectory,
-                        com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
+                        com.spectrayan.spector.kernel.store.HyperEntityGraphMemory hyperEntityGraph,
                         EntityExtractor entityExtractor,
                         GraphScoringPolicy graphScoringPolicy,
                         MemoryIndex index,
@@ -137,7 +140,7 @@ public final class GraphExpansionStage {
     public GraphExpansionStage(HebbianGraphBase hebbianGraph,
                         TemporalChainMemory temporalChain,
                         EntityDirectory entityDirectory,
-                        com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
+                        com.spectrayan.spector.kernel.store.HyperEntityGraphMemory hyperEntityGraph,
                         EntityExtractor entityExtractor,
                         GraphScoringPolicy graphScoringPolicy,
                         MemoryIndex index,
@@ -305,7 +308,7 @@ public final class GraphExpansionStage {
             List<CognitiveResult> seeds = allResults.subList(0, Math.min(seedLimit, allResults.size()));
 
             for (CognitiveResult seed : seeds) {
-                MemoryIndex.MemoryLocation loc = index.locate(seed.id());
+                MemoryLocation loc = index.locate(seed.id());
                 if (loc == null) continue;
 
                 int memIdx = loc.graphSlot();
@@ -354,7 +357,7 @@ public final class GraphExpansionStage {
 
     /**
      * Layer 4: Synaptic Tagging & Capture (STC) Cross-Capture Graph.
-     * Traverses tag co-occurrence matrix and inverted index via {@link com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory}.
+     * Traverses tag co-occurrence matrix and inverted index via {@link com.spectrayan.spector.kernel.store.CoActivationMemory}.
      */
     private void expandCrossCaptureSTC(List<CognitiveResult> allResults,
                                        Set<String> existingIds,
@@ -402,7 +405,7 @@ public final class GraphExpansionStage {
                             : topScore * saturatedScore * 0.4f;
 
                     MemoryType resolvedType = MemoryType.SEMANTIC;
-                    MemoryIndex.MemoryLocation loc = index.locate(neighborId);
+                    MemoryLocation loc = index.locate(neighborId);
                     if (loc != null && loc.type() != null) {
                         resolvedType = loc.type();
                     }
@@ -430,7 +433,7 @@ public final class GraphExpansionStage {
             List<CognitiveResult> seeds = allResults.subList(0, Math.min(20, allResults.size()));
 
             for (CognitiveResult seed : seeds) {
-                MemoryIndex.MemoryLocation loc = index.locate(seed.id());
+                MemoryLocation loc = index.locate(seed.id());
                 if (loc == null) continue;
 
                 int memIdx = loc.graphSlot();
@@ -512,7 +515,7 @@ public final class GraphExpansionStage {
             }
             Set<Integer> collectedEntityIds = new HashSet<>();
             for (CognitiveResult s : semanticSeeds) {
-                MemoryIndex.MemoryLocation loc = index.locate(s.id());
+                MemoryLocation loc = index.locate(s.id());
                 if (loc != null) {
                     int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
                     List<Integer> seedEntityIds = com.spectrayan.spector.memory.cortex.consolidation.CadpContradictionResolver
@@ -765,7 +768,7 @@ public final class GraphExpansionStage {
         byte valence = 0;
         MemoryType resolvedType = type;
         try {
-            MemoryIndex.MemoryLocation loc = index != null ? index.locate(memId) : null;
+            MemoryLocation loc = index != null ? index.locate(memId) : null;
             if (loc != null) {
                 if (loc.type() != null) {
                     resolvedType = loc.type();
@@ -797,7 +800,7 @@ public final class GraphExpansionStage {
     float computeNeighborSimilarity(String memoryId, float[] queryVector) {
         if (queryVector == null) return 0f;
         try {
-            MemoryIndex.MemoryLocation loc = index.locate(memoryId);
+            MemoryLocation loc = index.locate(memoryId);
             if (loc == null || loc.type() == MemoryType.EPISODIC) return 0f;
 
             // #443: resolve the neighbor's vector by the partition it actually lives in.
@@ -819,7 +822,7 @@ public final class GraphExpansionStage {
     }
 
     private boolean matchesFilters(String neighborId, RecallOptions options) {
-        MemoryIndex.MemoryLocation loc = index.locate(neighborId);
+        MemoryLocation loc = index.locate(neighborId);
         if (loc == null) return false;
 
         // 1. Memory Type Gating

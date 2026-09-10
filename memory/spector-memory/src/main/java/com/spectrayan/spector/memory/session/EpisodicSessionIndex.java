@@ -11,13 +11,14 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.session;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
 
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
-import com.spectrayan.spector.memory.kernel.store.codec.EpisodeCodec;
-import com.spectrayan.spector.memory.kernel.engram.EpisodicHeaderLayout;
-import com.spectrayan.spector.memory.kernel.layout.EpisodicLayout;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.store.codec.EpisodeCodec;
+import com.spectrayan.spector.kernel.engram.EpisodicHeaderLayout;
+import com.spectrayan.spector.kernel.layout.EpisodicLayout;
 import java.lang.foreign.ValueLayout;
 
 import org.slf4j.Logger;
@@ -58,9 +59,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * all sessions, this costs ~800 KB of heap. At 1M turns, ~8 MB.</p>
  *
  * @since 1.3.0
- * @see com.spectrayan.spector.memory.kernel.engram.EpisodicHeaderLayout
+ * @see com.spectrayan.spector.kernel.engram.EpisodicHeaderLayout
  */
-public final class EpisodicSessionIndex {
+public final class EpisodicSessionIndex implements com.spectrayan.spector.kernel.store.EpisodicIndexRebuilder {
 
     private static final Logger log = LoggerFactory.getLogger(EpisodicSessionIndex.class);
 
@@ -172,7 +173,7 @@ public final class EpisodicSessionIndex {
      *
      * <p>Note: this only removes the in-memory index entry. The underlying
      * mmap records must be separately tombstoned via
-     * {@link com.spectrayan.spector.memory.cortex.EpisodicMemory#tombstone}.</p>
+     * {@link com.spectrayan.spector.kernel.store.EpisodicMemory#tombstone}.</p>
      *
      * @param sessionId the 8B TSID hash
      * @return the removed offset list, or null if session was unknown

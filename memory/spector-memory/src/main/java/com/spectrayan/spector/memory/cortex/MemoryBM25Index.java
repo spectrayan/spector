@@ -11,16 +11,17 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex;
+import com.spectrayan.spector.kernel.store.TextBlobMemory;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.index.text.BM25Index;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.text.StemmingAnalyzer;
-import com.spectrayan.spector.memory.kernel.bundle.BundleManager;
-import com.spectrayan.spector.memory.kernel.region.RegionId;
-import com.spectrayan.spector.memory.kernel.bundle.RegionRef;
-import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
+import com.spectrayan.spector.kernel.bundle.BundleManager;
+import com.spectrayan.spector.kernel.region.RegionId;
+import com.spectrayan.spector.kernel.bundle.RegionRef;
+import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
 
 import java.lang.foreign.MemorySegment;
 

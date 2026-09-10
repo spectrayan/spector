@@ -11,18 +11,20 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.synapse;
+import com.spectrayan.spector.kernel.score.DecayStrategy;
+import com.spectrayan.spector.kernel.score.Valence;
 
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreFusionMode;
 import com.spectrayan.spector.memory.model.ScoringMode;
-import com.spectrayan.spector.memory.cortex.StrengthMemory;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.store.StrengthMemory;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion;
 import com.spectrayan.spector.memory.synapse.scan.FlatMinHeap;
 import com.spectrayan.spector.memory.synapse.scan.RecordGates;
@@ -32,7 +34,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
 
-import static com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.*;
+import static com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.*;
 
 /**
  * Fused SIMD cognitive scoring loop — the heart of Spector Memory's performance.
@@ -192,10 +194,10 @@ public final class CognitiveScorer {
                     continue;
                 }
                 if (!options.allowSimulated()) {
-                    if (layout.readSourceCode(segment, offset) == com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.SOURCE_SIMULATED) {
+                    if (layout.readSourceCode(segment, offset) == com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.SOURCE_SIMULATED) {
                         continue;
                     }
-                    if (com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.isSimulated(cFlags)) {
+                    if (com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.isSimulated(cFlags)) {
                         continue;
                     }
                 }

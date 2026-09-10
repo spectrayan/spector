@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pathway.pipeline.pruning;
 
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 
 import java.util.List;

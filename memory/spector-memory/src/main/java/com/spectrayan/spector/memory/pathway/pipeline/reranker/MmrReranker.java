@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.pipeline.reranker;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
@@ -101,7 +102,7 @@ public class MmrReranker {
     private float[] decodeVector(String memoryId) {
         if (calibrationMins == null) return null;
         int length = calibrationMins.length;
-        MemoryIndex.MemoryLocation loc = index.locate(memoryId);
+        MemoryLocation loc = index.locate(memoryId);
         if (loc == null) return null;
         CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
         if (router == null) return null;
@@ -117,7 +118,7 @@ public class MmrReranker {
     }
     
     private float computeSimilarity(float[] diVector, String memoryId) {
-        MemoryIndex.MemoryLocation loc = index.locate(memoryId);
+        MemoryLocation loc = index.locate(memoryId);
         if (loc == null) return 0f;
         CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
         if (router == null) return 0f;

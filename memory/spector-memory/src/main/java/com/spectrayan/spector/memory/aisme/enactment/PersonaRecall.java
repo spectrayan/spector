@@ -17,7 +17,7 @@ import com.spectrayan.spector.memory.aisme.AismeBundle;
 import com.spectrayan.spector.memory.aisme.workspace.GlobalWorkspace;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.enactment.EnactMode;
 import com.spectrayan.spector.memory.model.enactment.EngramCitation;
@@ -269,7 +269,7 @@ public final class PersonaRecall {
         // Filter out synthetic rows if FACT or REPLAY mode (ADR-0031 Invariant I2)
         if (!allowSynthetic) {
             consciousAccess = consciousAccess.stream()
-                    .filter(cr -> cr.source() == null || cr.source().toEngramSource() != com.spectrayan.spector.memory.model.EngramSource.SIMULATED)
+                    .filter(cr -> cr.source() == null || cr.source().toEngramSource() != com.spectrayan.spector.kernel.api.EngramSource.SIMULATED)
                     .filter(cr -> !cr.isSimulated() && !cr.isDreamed())
                     .toList();
         }

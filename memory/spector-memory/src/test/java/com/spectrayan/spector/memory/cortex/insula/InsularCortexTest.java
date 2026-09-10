@@ -11,15 +11,16 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex.insula;
+import com.spectrayan.spector.kernel.store.InsulaMemory;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorMemoryException;
-import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
-import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
-import com.spectrayan.spector.memory.kernel.region.RegionSizeSpec;
-import com.spectrayan.spector.memory.kernel.region.RegionId;
-import com.spectrayan.spector.memory.kernel.layout.InsularLayout;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
+import com.spectrayan.spector.kernel.shape.MemoryShape;
+import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
+import com.spectrayan.spector.kernel.region.RegionSizeSpec;
+import com.spectrayan.spector.kernel.region.RegionId;
+import com.spectrayan.spector.kernel.layout.InsularLayout;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -50,7 +51,7 @@ class InsularCortexTest {
 
     @Test
     void heapFactoryBehavesCorrectly() {
-        try (InsularCortex insula = InsularCortex.heap()) {
+        try (InsulaMemory insula = InsulaMemory.heap()) {
             assertThat(insula.isPresent()).isFalse();
             assertThat(insula.size()).isEqualTo(0);
             assertThat(insula.capacity()).isEqualTo(1);
@@ -100,7 +101,7 @@ class InsularCortexTest {
 
     @Test
     void putThrowsWhenPayloadExceedsCapacity() {
-        try (InsularCortex insula = InsularCortex.heap()) {
+        try (InsulaMemory insula = InsulaMemory.heap()) {
             byte[] hugePayload = new byte[1024 * 1024]; // entire segment size
             assertThatThrownBy(() -> insula.put(hugePayload))
                     .isInstanceOf(SpectorMemoryException.class)
@@ -110,7 +111,7 @@ class InsularCortexTest {
 
     @Test
     void getThrowsWhenChecksumMismatch() {
-        try (InsularCortex insula = InsularCortex.heap()) {
+        try (InsulaMemory insula = InsulaMemory.heap()) {
             insula.put(TEST_JSON);
 
             // Manually corrupt one byte of the JSON payload in the segment
@@ -139,18 +140,18 @@ class InsularCortexTest {
                 )
         );
 
-        // 1. Create bundle and initialize InsularCortex
+        // 1. Create bundle and initialize InsulaMemory
         try (RuntimeBundle bundle = RuntimeBundle.Init.mmap(bundlePath, specs)) {
-            try (InsularCortex insula = bundle.openInsula()) {
+            try (InsulaMemory insula = bundle.openInsula()) {
                 assertThat(insula.isPresent()).isFalse();
                 insula.put(TEST_JSON);
                 assertThat(insula.isPresent()).isTrue();
             }
         }
 
-        // 2. Reopen bundle and load InsularCortex
+        // 2. Reopen bundle and load InsulaMemory
         try (RuntimeBundle reopened = RuntimeBundle.Init.open(bundlePath)) {
-            try (InsularCortex insula = reopened.openInsula()) {
+            try (InsulaMemory insula = reopened.openInsula()) {
                 assertThat(insula.isPresent()).isTrue();
                 assertThat(insula.version()).isEqualTo(1);
                 Optional<byte[]> retrieved = insula.get();

@@ -11,10 +11,11 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.graph;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory.HyperEdge;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory.HyperEdgeVertex;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory.HyperEdge;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory.HyperEdgeVertex;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

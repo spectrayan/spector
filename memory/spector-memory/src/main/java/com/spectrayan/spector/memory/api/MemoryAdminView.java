@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.api;
 
 import com.spectrayan.spector.memory.SpectorMemoryAdmin;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.memory.scheduler.MemoryScheduler;

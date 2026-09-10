@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.synapse.identity;
 
-import com.spectrayan.spector.memory.kernel.region.RegionId;
+import com.spectrayan.spector.kernel.region.RegionId;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,8 +24,8 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.kernel.bundle.identity.IdentityBundle;
-import com.spectrayan.spector.memory.kernel.bundle.identity.IdentityRegionId;
+import com.spectrayan.spector.kernel.bundle.identity.IdentityBundle;
+import com.spectrayan.spector.kernel.bundle.identity.IdentityRegionId;
 import com.spectrayan.spector.memory.model.InsulaSelfModel;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
@@ -106,7 +106,7 @@ public class IdentityPlane {
                 try (var handle = identityCache.openTenant(tenantId)) {
                     if (handle != null) {
                         IdentityBundle tenantBundle = handle.bundle();
-                        tenantBundle.readSoul().ifPresent(stack::add);
+                        readSoulFromBundle(tenantBundle).ifPresent(stack::add);
 
                         // Process org unit souls from tenant ORG_DIR region (ADR-0029 §2.5.2)
                         if (orgUnitIds != null && !orgUnitIds.isEmpty()) {
@@ -115,7 +115,7 @@ public class IdentityPlane {
                                     continue;
                                 }
                                 if (catalog.authorizeIdentity(accountId, tenantId, IdentityRegionId.ORG_DIR.name(), GrantAction.INJECT)) {
-                                    tenantBundle.readOrgUnitSoul(orgUnitId).ifPresent(stack::add);
+                                    readOrgUnitSoulFromBundle(tenantBundle, orgUnitId).ifPresent(stack::add);
                                 }
                             }
                         }
@@ -149,7 +149,7 @@ public class IdentityPlane {
         }
         try (var handle = identityCache.openAccount(accountId)) {
             if (handle != null) {
-                handle.bundle().writeSoul(soul);
+                writeSoulToBundle(handle.bundle(), soul);
                 log.debug("[IdentityPlane] Updated primary soul");
             }
         }
@@ -193,7 +193,7 @@ public class IdentityPlane {
         }
         try (var handle = identityCache.openTenant(tenantId)) {
             if (handle != null) {
-                handle.bundle().writeSoul(soul);
+                writeSoulToBundle(handle.bundle(), soul);
                 log.debug("[IdentityPlane] Updated primary soul for tenant");
             }
         }
@@ -234,7 +234,7 @@ public class IdentityPlane {
                 InsulaSelfModel model = mapper.readValue(insulaBytes.get(), InsulaSelfModel.class);
                 if (model != null) {
                     if (model.soul() != null) {
-                        bundle.writeSoul(model.soul());
+                        writeSoulToBundle(bundle, model.soul());
                         log.info("[IdentityPlane] Migrated Region 24 soul to identity.bundle for account {}", accountId);
                     }
                     if (model.salience() != null && catalog.authorizeIdentity(accountId, accountId, IdentityRegionId.SALIENCE.name(), GrantAction.WRITE)) {
@@ -247,4 +247,50 @@ public class IdentityPlane {
             log.warn("[IdentityPlane] Non-fatal Region 24 migration check failed for account {}: {}", accountId, e.getMessage());
         }
     }
+
+    private Optional<SoulContext> readSoulFromBundle(IdentityBundle bundle) {
+        return bundle.readRaw(IdentityRegionId.SOUL).flatMap(bytes -> {
+            try {
+                return Optional.of(MAPPER.readValue(bytes, SoulContext.class));
+            } catch (Exception e) {
+                log.warn("Failed to deserialize SoulContext: {}", e.getMessage());
+                return Optional.empty();
+            }
+        });
+    }
+
+    private Optional<SoulContext> readOrgUnitSoulFromBundle(IdentityBundle bundle, String orgUnitId) {
+        if (orgUnitId == null || orgUnitId.isBlank()) {
+            return Optional.empty();
+        }
+        return bundle.readRaw(IdentityRegionId.ORG_DIR).flatMap(bytes -> {
+            try {
+                var type = MAPPER.getTypeFactory()
+                        .constructCollectionType(List.class, com.spectrayan.spector.memory.model.OrgUnitSoul.class);
+                List<com.spectrayan.spector.memory.model.OrgUnitSoul> orgSouls = MAPPER.readValue(bytes, type);
+                return orgSouls.stream()
+                        .filter(s -> orgUnitId.equals(s.id()))
+                        .map(s -> (SoulContext) s)
+                        .findFirst();
+            } catch (Exception e) {
+                log.warn("Failed to deserialize OrgUnitSoul list from ORG_DIR");
+                return Optional.empty();
+            }
+        });
+    }
+
+    private void writeSoulToBundle(IdentityBundle bundle, SoulContext soul) {
+        if (soul == null) {
+            bundle.clearRegion(IdentityRegionId.SOUL);
+            return;
+        }
+        try {
+            byte[] bytes = MAPPER.writeValueAsBytes(soul);
+            bundle.writeRaw(IdentityRegionId.SOUL, bytes);
+        } catch (Exception e) {
+            throw new SpectorMemoryException(ErrorCode.GRAPH_PERSISTENCE_FAILED, "IdentityPlane",
+                    "Failed to serialize SoulContext: " + e.getMessage());
+        }
+    }
+
 }

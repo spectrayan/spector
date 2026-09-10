@@ -81,4 +81,19 @@ public record IdentityTrajectorySnapshot(
             anchorDistance = 0.0f;
         }
     }
+
+    public com.spectrayan.spector.kernel.store.ContinuityRecord toContinuityRecord() {
+        return new com.spectrayan.spector.kernel.store.ContinuityRecord(
+                timestamp, phiCc, traceG, priorDrift, valence, arousal, energy, soulVersion,
+                anchorDistance, lyapunovStable
+        );
+    }
+
+    public static IdentityTrajectorySnapshot fromContinuityRecord(com.spectrayan.spector.kernel.store.ContinuityRecord rec) {
+        return new IdentityTrajectorySnapshot(
+                rec.timestamp(), rec.phiCc(), rec.traceG(), rec.priorDrift(),
+                rec.valence(), rec.arousal(), rec.energy(), rec.soulVersion(),
+                rec.anchorDistance(), rec.lyapunovStable()
+        );
+    }
 }

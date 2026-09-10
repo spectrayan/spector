@@ -12,19 +12,20 @@
  */
 package com.spectrayan.spector.memory.cortex.index;
 
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.TextBlobMemory;
+import com.spectrayan.spector.kernel.store.TextBlobMemory;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
-import com.spectrayan.spector.memory.kernel.id.MemoryId;
-import com.spectrayan.spector.memory.kernel.shape.MemoryShape;
-import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
-import com.spectrayan.spector.memory.kernel.shape.DefaultRecordMemory;
-import com.spectrayan.spector.memory.kernel.shape.DefaultAppendMemory;
-import com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout;
-import com.spectrayan.spector.memory.kernel.layout.IdBlobLayout;
+import com.spectrayan.spector.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.shape.MemoryShape;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
+import com.spectrayan.spector.kernel.id.SystemMemoryId;
+import com.spectrayan.spector.kernel.shape.DefaultRecordMemory;
+import com.spectrayan.spector.kernel.shape.DefaultAppendMemory;
+import com.spectrayan.spector.kernel.layout.IndexEntryLayout;
+import com.spectrayan.spector.kernel.layout.IdBlobLayout;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,8 +43,8 @@ import java.lang.foreign.ValueLayout;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
-import com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout;
+import com.spectrayan.spector.kernel.shape.AbstractRecordMemory;
+import com.spectrayan.spector.kernel.layout.IndexEntryLayout;
 
 /**
  * Centralized ID → metadata index for cognitive memories.
@@ -121,37 +122,7 @@ public class IndexEntryMemory extends AbstractRecordMemory<IndexEntryLayout> {
         }
     }
 
-    /**
-     * Tracks where a memory is physically stored.
-     *
-     * <p><b>issue #443 (Phase 2):</b> {@code colocatedPartition} identifies the DISK
-     * partition the record's tier store + {@code text.dat} live in. As of Phase 2 it is
-     * <b>persisted</b> to the {@code .midx} v6 slot at {@code [40:4]}, so recall fan-out
-     * and direct-resolve work across partitions after restart.</p>
-     *
-     * <p>{@code graphSlot} is the semantic HNSW / Hebbian graph node slot (persisted at
-     * {@code [24:4]}). It was misnamed {@code partitionIndex} through v5 — the rename in
-     * Phase 2 ends the misnomer; its behaviour is unchanged (it never identified the
-     * colocated partition).</p>
-     */
-    public record MemoryLocation(MemoryType type, long offset, int graphSlot,
-                                  int colocatedPartition, long textOffset, int textLength) {
-
-        /** Convenience ctor — colocatedPartition defaults to 0, no text position. */
-        public MemoryLocation(MemoryType type, long offset, int graphSlot) {
-            this(type, offset, graphSlot, 0, -1L, -1);
-        }
-
-        /** Convenience ctor — colocatedPartition defaults to 0. */
-        public MemoryLocation(MemoryType type, long offset, int graphSlot,
-                              long textOffset, int textLength) {
-            this(type, offset, graphSlot, 0, textOffset, textLength);
-        }
-
-        public boolean hasTextPosition() {
-            return textOffset >= 0 && textLength >= 0;
-        }
-    }
+    // MemoryLocation relocated to com.spectrayan.spector.kernel.api.MemoryLocation per R5.2
 
     public IndexEntryMemory() {
         super(SystemMemoryId.INDEX.id(), new IndexEntryLayout(), 100_000,
@@ -577,8 +548,8 @@ public class IndexEntryMemory extends AbstractRecordMemory<IndexEntryLayout> {
 
     private transient MemorySegment bundleMidxSlice;
     private transient MemorySegment bundleIdplSlice;
-    private transient com.spectrayan.spector.memory.kernel.bundle.RegionRef bundleMidxRef;
-    private transient com.spectrayan.spector.memory.kernel.bundle.RegionRef bundleIdplRef;
+    private transient com.spectrayan.spector.kernel.bundle.RegionRef bundleMidxRef;
+    private transient com.spectrayan.spector.kernel.bundle.RegionRef bundleIdplRef;
     private transient boolean bundleManaged = false;
 
     private MemorySegment midxSegment() {
@@ -589,8 +560,8 @@ public class IndexEntryMemory extends AbstractRecordMemory<IndexEntryLayout> {
         return bundleIdplRef != null ? bundleIdplRef.resolve() : bundleIdplSlice;
     }
 
-    public static MemoryIndex fromRegionRefs(com.spectrayan.spector.memory.kernel.bundle.RegionRef midxRef,
-                                             com.spectrayan.spector.memory.kernel.bundle.RegionRef idplRef,
+    public static MemoryIndex fromRegionRefs(com.spectrayan.spector.kernel.bundle.RegionRef midxRef,
+                                             com.spectrayan.spector.kernel.bundle.RegionRef idplRef,
                                              Path bundlePath, boolean isNew) {
         IndexEntryMemory idx = new MemoryIndex();
         idx.bundleMidxRef = midxRef;

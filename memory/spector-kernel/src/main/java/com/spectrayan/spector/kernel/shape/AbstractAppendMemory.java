@@ -1,0 +1,139 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.spectrayan.spector.kernel.shape;
+
+import java.nio.channels.FileChannel;
+import java.nio.file.Path;
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import java.util.concurrent.locks.ReentrantLock;
+
+import com.spectrayan.spector.kernel.shape.AbstractMemory;
+import com.spectrayan.spector.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.layout.RegionLayout;
+import com.spectrayan.spector.kernel.shape.MemoryShape;
+
+/**
+ * Abstract base class for append-only log structures.
+ */
+public abstract class AbstractAppendMemory<L extends RegionLayout>
+        extends AbstractMemory<L> implements AppendMemory<L> {
+
+    private final ReentrantLock appendLock = new ReentrantLock();
+
+    protected AbstractAppendMemory(MemoryId id, L layout, int capacity, long segmentBytes) {
+        super(id, layout, capacity, segmentBytes);
+    }
+
+    protected AbstractAppendMemory(MemoryId id, L layout, int capacity, long segmentBytes, Path filePath) {
+        super(id, layout, capacity, segmentBytes, filePath);
+    }
+
+    protected AbstractAppendMemory(MemoryId id, L layout, int capacity,
+                                   Arena arena, MemorySegment segment, int count,
+                                   boolean persistent, Path filePath, FileChannel fileChannel) {
+        super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel);
+    }
+
+    protected AbstractAppendMemory(MemoryId id, L layout, int capacity,
+                                   Arena arena, MemorySegment segment, int count,
+                                   boolean persistent, Path filePath, FileChannel fileChannel,
+                                   boolean bundleManaged) {
+        super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel, bundleManaged);
+    }
+
+    protected AbstractAppendMemory(MemoryId id, L layout, int capacity,
+                                   com.spectrayan.spector.kernel.bundle.RegionRef regionRef, int count,
+                                   boolean persistent, Path filePath) {
+        super(id, layout, capacity, regionRef, count, persistent, filePath);
+    }
+
+    @Override
+    public MemoryShape shape() {
+        return MemoryShape.APPEND;
+    }
+
+    @Override
+    public long append(MemorySegment bytes) {
+        appendLock.lock();
+        try {
+            long len = bytes.byteSize();
+            // Check capacity bounds (here count stores the append cursor position in bytes)
+            if (dataOffset() + count + 4 + len > segment().byteSize()) {
+                throw new IndexOutOfBoundsException("Append memory full: cursor=" + count + ", request=" + (4 + len));
+            }
+
+            if (wal != null && !bypassWal) {
+                byte[] rawBytes = new byte[(int) len];
+                MemorySegment.copy(bytes, 0, MemorySegment.ofArray(rawBytes), 0, len);
+                wal.appendAppend(id.toString(), rawBytes);
+            }
+
+            long writeOffset = dataOffset() + count;
+            // Write 4B length prefix
+            segment().set(ValueLayout.JAVA_INT_UNALIGNED, writeOffset, (int) len);
+            // Copy payload
+            MemorySegment.copy(bytes, 0, segment(), writeOffset + 4, len);
+
+            long payloadOffset = count + 4;
+            count += (int) (4 + len);
+            persistCount();
+            return payloadOffset;
+        } finally {
+            appendLock.unlock();
+        }
+    }
+
+    @Override
+    public MemorySegment read(long offset, int length) {
+        if (dataOffset() + offset + length > segment().byteSize()) {
+            throw new IndexOutOfBoundsException("Read out of bounds: offset=" + offset + ", len=" + length);
+        }
+        return segment().asSlice(dataOffset() + offset, length);
+    }
+
+    @Override
+    public long appendCursor() {
+        return count;
+    }
+
+    @Override
+    public Iterator<MemorySegment> replay(long fromOffset) {
+        return new Iterator<MemorySegment>() {
+            private long cursor = fromOffset;
+
+            @Override
+            public boolean hasNext() {
+                // Since we store length prefix (4B) before the record, there must be at least 4 bytes left
+                return cursor + 4 <= count;
+            }
+
+            @Override
+            public MemorySegment next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+                int len = segment().get(ValueLayout.JAVA_INT_UNALIGNED, dataOffset() + cursor);
+                MemorySegment slice = segment().asSlice(dataOffset() + cursor + 4, len);
+                cursor += 4 + len;
+                return slice;
+            }
+        };
+    }
+}

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.graph.temporal;
 
-import com.spectrayan.spector.memory.kernel.layout.TemporalFactLayout;
+import com.spectrayan.spector.kernel.layout.TemporalFactLayout;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;

@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 
 import com.spectrayan.spector.memory.graph.EntityType;
 import com.spectrayan.spector.memory.graph.hebbian.HebbianGraph;
-import com.spectrayan.spector.memory.graph.temporal.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;

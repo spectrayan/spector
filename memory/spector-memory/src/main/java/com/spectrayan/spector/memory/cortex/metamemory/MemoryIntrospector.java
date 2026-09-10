@@ -11,9 +11,10 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex.metamemory;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
 
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +41,7 @@ import java.util.Set;
  * </ul>
  *
  * <h3>Gap Detection</h3>
- * <p>Uses {@link com.spectrayan.spector.memory.graph.hebbian.CoActivationMemory} to find topics that frequently co-occur with
+ * <p>Uses {@link com.spectrayan.spector.kernel.store.CoActivationMemory} to find topics that frequently co-occur with
  * the queried tags but have zero memories in the current result set. These are
  * "knowledge holes" — related domains where the agent lacks information.</p>
  *

@@ -13,7 +13,7 @@
 package com.spectrayan.spector.synapse.memory;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
  * Shared utility for safely parsing MemoryType and MemorySource enums.

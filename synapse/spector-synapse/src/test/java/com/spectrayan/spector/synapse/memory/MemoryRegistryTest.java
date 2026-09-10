@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
-import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;

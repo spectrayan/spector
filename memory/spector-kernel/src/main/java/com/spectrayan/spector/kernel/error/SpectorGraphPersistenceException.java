@@ -1,0 +1,39 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.spectrayan.spector.kernel.error;
+
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorMemoryException;
+
+public class SpectorGraphPersistenceException extends SpectorMemoryException {
+    private final String graphType;
+    private final String path;
+
+    public SpectorGraphPersistenceException(String graphType, Object path) {
+        super(ErrorCode.GRAPH_PERSISTENCE_FAILED, graphType, path);
+        this.graphType = graphType;
+        this.path = String.valueOf(path);
+    }
+
+    public SpectorGraphPersistenceException(String graphType, Object path, Throwable cause) {
+        super(ErrorCode.GRAPH_PERSISTENCE_FAILED, cause, graphType, path);
+        this.graphType = graphType;
+        this.path = String.valueOf(path);
+    }
+
+    public String graphType() { return graphType; }
+    public String path() { return path; }
+}

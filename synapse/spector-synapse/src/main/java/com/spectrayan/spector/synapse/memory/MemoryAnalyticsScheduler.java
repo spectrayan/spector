@@ -24,7 +24,7 @@ import org.springframework.stereotype.Service;
 
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.GraphStats;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
  * Background scheduler that periodically captures memory diagnostic telemetry

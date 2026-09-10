@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.bench.cognitive.mindspan;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 import com.spectrayan.spector.bench.cognitive.CachedEmbeddingProvider;
 import com.spectrayan.spector.config.properties.MemoryProperties;
@@ -152,7 +153,7 @@ public class MindSpanSynapseReextractionTest {
 
             // Execute re-extraction batch specifically targeting SEMANTIC memories using the Synapse SPI pattern
             System.out.println("Invoking enricher.reextractBatch(5, MemoryType.SEMANTIC)...");
-            int reextracted = enricher.reextractBatch(5, com.spectrayan.spector.memory.model.MemoryType.SEMANTIC);
+            int reextracted = enricher.reextractBatch(5, com.spectrayan.spector.kernel.api.MemoryType.SEMANTIC);
             System.out.printf("Successfully re-extracted %d SEMANTIC memories via Gemini LLM (lastError: %s)\n",
                     reextracted, enricher.stats().lastError());
 

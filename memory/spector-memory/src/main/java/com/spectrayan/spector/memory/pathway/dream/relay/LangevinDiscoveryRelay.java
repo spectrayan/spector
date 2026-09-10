@@ -12,12 +12,12 @@
  */
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
-import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.id.MemoryId;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.core.spi.AcceleratorRegistry;
-import com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor;
+import com.spectrayan.spector.kernel.shape.DistributedMemoryTensor;
 import com.spectrayan.spector.memory.model.SoulContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

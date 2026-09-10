@@ -11,6 +11,8 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.model;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.score.Valence;
 
 import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.config.model.TextSearchMode;

@@ -11,8 +11,9 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.synapse;
+import com.spectrayan.spector.kernel.score.DecayStrategy;
 
-import com.spectrayan.spector.memory.kernel.layout.StrengthLayout;
+import com.spectrayan.spector.kernel.layout.StrengthLayout;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;

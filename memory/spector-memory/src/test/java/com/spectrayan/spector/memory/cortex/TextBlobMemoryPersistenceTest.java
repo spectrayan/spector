@@ -11,12 +11,13 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex;
+import com.spectrayan.spector.kernel.store.TextBlobMemory;
 
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.storage.StoragePaths;
-import com.spectrayan.spector.memory.cortex.TextBlobMemory.TextEntry;
-import com.spectrayan.spector.memory.cortex.TextBlobMemory.TextPosition;
-import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
+import com.spectrayan.spector.kernel.store.TextBlobMemory.TextEntry;
+import com.spectrayan.spector.kernel.store.TextBlobMemory.TextPosition;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

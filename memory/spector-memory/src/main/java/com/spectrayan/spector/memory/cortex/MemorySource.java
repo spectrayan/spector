@@ -89,16 +89,16 @@ public enum MemorySource {
     }
 
     /**
-     * Maps this high-level provenance source to its canonical NF7 {@link com.spectrayan.spector.memory.model.EngramSource}.
+     * Maps this high-level provenance source to its canonical NF7 {@link com.spectrayan.spector.kernel.api.EngramSource}.
      *
      * @return corresponding EngramSource
      */
-    public com.spectrayan.spector.memory.model.EngramSource toEngramSource() {
+    public com.spectrayan.spector.kernel.api.EngramSource toEngramSource() {
         return switch (this) {
-            case USER_STATED, OBSERVED -> com.spectrayan.spector.memory.model.EngramSource.EXPERIENCED;
-            case REFLECTED, PROCEDURAL -> com.spectrayan.spector.memory.model.EngramSource.DISTILLED;
-            case DREAMED, THOUGHT_EXPERIMENT, LANGEVIN_DISCOVERY, INFERRED -> com.spectrayan.spector.memory.model.EngramSource.SIMULATED;
-            case TRANSFERRED -> com.spectrayan.spector.memory.model.EngramSource.REHEARSED;
+            case USER_STATED, OBSERVED -> com.spectrayan.spector.kernel.api.EngramSource.EXPERIENCED;
+            case REFLECTED, PROCEDURAL -> com.spectrayan.spector.kernel.api.EngramSource.DISTILLED;
+            case DREAMED, THOUGHT_EXPERIMENT, LANGEVIN_DISCOVERY, INFERRED -> com.spectrayan.spector.kernel.api.EngramSource.SIMULATED;
+            case TRANSFERRED -> com.spectrayan.spector.kernel.api.EngramSource.REHEARSED;
         };
     }
 }

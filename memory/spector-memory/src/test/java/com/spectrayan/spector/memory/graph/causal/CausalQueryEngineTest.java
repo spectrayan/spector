@@ -14,10 +14,10 @@ package com.spectrayan.spector.memory.graph.causal;
 
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory.HyperEdge;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory.HyperEdge;
 import com.spectrayan.spector.memory.graph.OntologyConfig;
-import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
+import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.graph.temporal.TemporalFact;

@@ -55,10 +55,10 @@ public final class ResultFormatter {
         status.put("version", version);
         if (memory != null) {
             status.put("totalMemories", memory.totalMemories());
-            status.put("workingCount", memory.memoryCount(com.spectrayan.spector.memory.model.MemoryType.WORKING));
-            status.put("episodicCount", memory.memoryCount(com.spectrayan.spector.memory.model.MemoryType.EPISODIC));
-            status.put("semanticCount", memory.memoryCount(com.spectrayan.spector.memory.model.MemoryType.SEMANTIC));
-            status.put("proceduralCount", memory.memoryCount(com.spectrayan.spector.memory.model.MemoryType.PROCEDURAL));
+            status.put("workingCount", memory.memoryCount(com.spectrayan.spector.kernel.api.MemoryType.WORKING));
+            status.put("episodicCount", memory.memoryCount(com.spectrayan.spector.kernel.api.MemoryType.EPISODIC));
+            status.put("semanticCount", memory.memoryCount(com.spectrayan.spector.kernel.api.MemoryType.SEMANTIC));
+            status.put("proceduralCount", memory.memoryCount(com.spectrayan.spector.kernel.api.MemoryType.PROCEDURAL));
             status.put("walSize", memory.admin().wal().size());
             status.put("suppressedCount", memory.admin().suppression().size());
             status.put("pendingReminders", memory.admin().prospective().pendingCount());

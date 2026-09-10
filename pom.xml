@@ -81,6 +81,7 @@
         <!-- ── Memory: Cognitive engine (flagship) ── -->
         <module>memory/spector-provider-api</module>
         <module>memory/spector-providers</module>
+        <module>memory/spector-kernel</module>
         <module>memory/spector-ingestion</module>
         <module>memory/spector-memory</module>
         <module>memory/spector-inspect</module>
@@ -230,6 +231,11 @@
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-commons</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-kernel</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>

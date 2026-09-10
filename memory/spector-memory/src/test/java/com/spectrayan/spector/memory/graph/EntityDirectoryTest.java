@@ -11,14 +11,15 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.graph;
+import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
 
-import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
+import com.spectrayan.spector.kernel.id.SystemMemoryId;
 
-import com.spectrayan.spector.memory.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.id.MemoryId;
 
-import com.spectrayan.spector.memory.kernel.region.RegionSizeSpec;
+import com.spectrayan.spector.kernel.region.RegionSizeSpec;
 
-import com.spectrayan.spector.memory.kernel.region.RegionId;
+import com.spectrayan.spector.kernel.region.RegionId;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,7 +41,7 @@ class EntityDirectoryTest {
     @Test
     @DisplayName("fanFactor calculates degree-derived factor")
     void fanFactor_calculation() {
-        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
         try (EntityDirectory dir = new EntityDirectory(64, reg)) {
             int alice = dir.intern("Alice", "PERSON");
             assertThat(dir.fanFactor(alice)).isEqualTo(1.0f);
@@ -59,7 +60,7 @@ class EntityDirectoryTest {
         Path edir = tmp.resolve("runtime").resolve("entity-directory.edir");
         Files.createDirectories(edir.getParent());
 
-        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
         int aliceId;
         int soloId;
         int savedCount;
@@ -83,7 +84,7 @@ class EntityDirectoryTest {
         assertThat(Files.exists(edir)).isTrue();
 
         // Reload from the .edir container + sidecar and assert logical equality.
-        TypeRegistryMemory reg2 = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+        TypeRegistryMemory reg2 = TypeRegistryMemory.seeded(com.spectrayan.spector.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
         try (EntityDirectory reloaded = EntityDirectory.load(edir, 64, reg2)) {
             assertThat(reloaded.entityCount()).isEqualTo(savedCount);
             assertThat(reloaded.findEntity("Alice")).isEqualTo(aliceId);
@@ -99,7 +100,7 @@ class EntityDirectoryTest {
     @Test
     @DisplayName("intern allocates a dense id space and dedups by normalized name")
     void intern_denseIdsAndDedup() {
-        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
         EntityDirectory dir = new EntityDirectory(16, reg);
         try {
             int a = dir.intern("Kubernetes", "TECHNOLOGY");
@@ -123,21 +124,21 @@ class EntityDirectoryTest {
     @DisplayName("fromBundle gracefully clamps capacity when reopened with larger requested capacity than physical region")
     void fromBundle_gracefullyClampsToPhysicalRegion(@TempDir Path tmp) {
         Path bundlePath = tmp.resolve("runtime.bundle");
-        java.util.List<com.spectrayan.spector.memory.kernel.region.RegionSizeSpec> specs = java.util.List.of(
-                new com.spectrayan.spector.memory.kernel.region.RegionSizeSpec(
-                        com.spectrayan.spector.memory.kernel.region.RegionId.ENTITY_DIRECTORY,
+        java.util.List<com.spectrayan.spector.kernel.region.RegionSizeSpec> specs = java.util.List.of(
+                new com.spectrayan.spector.kernel.region.RegionSizeSpec(
+                        com.spectrayan.spector.kernel.region.RegionId.ENTITY_DIRECTORY,
                         8192, 100, 64, 0x45444952, 1, false),
-                new com.spectrayan.spector.memory.kernel.region.RegionSizeSpec(
-                        com.spectrayan.spector.memory.kernel.region.RegionId.ENTITY_NAMES,
+                new com.spectrayan.spector.kernel.region.RegionSizeSpec(
+                        com.spectrayan.spector.kernel.region.RegionId.ENTITY_NAMES,
                         16384, 1, 8, 0x45444952, 1, true)
         );
 
-        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
 
         // First pass: create the bundle with 100 entity capacity
-        try (com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle bundle =
-                     com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.mmap(bundlePath, specs)) {
-            EntityDirectory dir = bundle.openEntityDirectory(100, reg);
+        try (com.spectrayan.spector.kernel.bundle.RuntimeBundle bundle =
+                     com.spectrayan.spector.kernel.bundle.RuntimeBundle.Init.mmap(bundlePath, specs)) {
+            EntityDirectory dir = EntityDirectory.fromRegionRefs(bundle.regionRef(RegionId.ENTITY_DIRECTORY), bundle.regionRef(RegionId.ENTITY_NAMES), 100, reg, bundle.bundlePath(), bundle.isNew());
             dir.intern("Alice", "PERSON");
             dir.intern("Bob", "PERSON");
             assertThat(dir.entityCount()).isEqualTo(2);
@@ -146,13 +147,13 @@ class EntityDirectoryTest {
         }
 
         // Second pass: reopen the bundle but request 50,000 capacity (as if upgraded in properties)
-        try (com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle reopened =
-                     com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.open(bundlePath)) {
-            EntityDirectory dir = reopened.openEntityDirectory(50_000, reg);
+        try (com.spectrayan.spector.kernel.bundle.RuntimeBundle reopened =
+                     com.spectrayan.spector.kernel.bundle.RuntimeBundle.Init.open(bundlePath)) {
+            EntityDirectory dir = EntityDirectory.fromRegionRefs(reopened.regionRef(RegionId.ENTITY_DIRECTORY), reopened.regionRef(RegionId.ENTITY_NAMES), 50_000, reg, reopened.bundlePath(), reopened.isNew());
             assertThat(dir.entityCount()).isEqualTo(2);
             assertThat(dir.findEntity("Alice")).isEqualTo(0);
             assertThat(dir.findEntity("Bob")).isEqualTo(1);
-            assertThat(dir.capacity()).isLessThanOrEqualTo((int) ((8192 - com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.DATA_START) / com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.ENTITY_NODE_BYTES));
+            assertThat(dir.capacity()).isLessThanOrEqualTo((int) ((8192 - com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.DATA_START) / com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ENTITY_NODE_BYTES));
             dir.close();
         }
     }
@@ -161,21 +162,21 @@ class EntityDirectoryTest {
     @DisplayName("fromBundle links and rebuilds reverse index correctly across reopen")
     void fromBundle_linksAndRebuildsReverseIndexCorrectly(@TempDir Path tmp) {
         Path bundlePath = tmp.resolve("runtime.bundle");
-        java.util.List<com.spectrayan.spector.memory.kernel.region.RegionSizeSpec> specs = java.util.List.of(
-                new com.spectrayan.spector.memory.kernel.region.RegionSizeSpec(
-                        com.spectrayan.spector.memory.kernel.region.RegionId.ENTITY_DIRECTORY,
+        java.util.List<com.spectrayan.spector.kernel.region.RegionSizeSpec> specs = java.util.List.of(
+                new com.spectrayan.spector.kernel.region.RegionSizeSpec(
+                        com.spectrayan.spector.kernel.region.RegionId.ENTITY_DIRECTORY,
                         8192, 100, 64, 0x45444952, 1, false),
-                new com.spectrayan.spector.memory.kernel.region.RegionSizeSpec(
-                        com.spectrayan.spector.memory.kernel.region.RegionId.ENTITY_NAMES,
+                new com.spectrayan.spector.kernel.region.RegionSizeSpec(
+                        com.spectrayan.spector.kernel.region.RegionId.ENTITY_NAMES,
                         16384, 1, 8, 0x45444952, 1, true)
         );
 
-        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.kernel.id.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
 
         // First pass: intern and link
-        try (com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle bundle =
-                     com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.mmap(bundlePath, specs)) {
-            EntityDirectory dir = bundle.openEntityDirectory(100, reg);
+        try (com.spectrayan.spector.kernel.bundle.RuntimeBundle bundle =
+                     com.spectrayan.spector.kernel.bundle.RuntimeBundle.Init.mmap(bundlePath, specs)) {
+            EntityDirectory dir = EntityDirectory.fromRegionRefs(bundle.regionRef(RegionId.ENTITY_DIRECTORY), bundle.regionRef(RegionId.ENTITY_NAMES), 100, reg, bundle.bundlePath(), bundle.isNew());
             int e1 = dir.intern("Quantum Engine", "PROJECT");
             int e2 = dir.intern("DeepMind", "ORGANIZATION");
 
@@ -192,9 +193,9 @@ class EntityDirectoryTest {
         }
 
         // Second pass: reopen from existing bundle and verify reverse index is restored
-        try (com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle reopened =
-                     com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.open(bundlePath)) {
-            EntityDirectory dir = reopened.openEntityDirectory(100, reg);
+        try (com.spectrayan.spector.kernel.bundle.RuntimeBundle reopened =
+                     com.spectrayan.spector.kernel.bundle.RuntimeBundle.Init.open(bundlePath)) {
+            EntityDirectory dir = EntityDirectory.fromRegionRefs(reopened.regionRef(RegionId.ENTITY_DIRECTORY), reopened.regionRef(RegionId.ENTITY_NAMES), 100, reg, reopened.bundlePath(), reopened.isNew());
             assertThat(dir.entityCount()).isEqualTo(2);
 
             int e1 = dir.findEntity("quantum engine");

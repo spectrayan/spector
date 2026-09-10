@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.bench.conformance;
 
-import com.spectrayan.spector.memory.kernel.engram.EpisodicHeaderLayout;
+import com.spectrayan.spector.kernel.engram.EpisodicHeaderLayout;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -49,15 +49,15 @@ import com.spectrayan.spector.bench.conformance.model.MfValenceWindow;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.kernel.layout.EngramLayout;
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.BigFiveTraits;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.PersonaContext;
 import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -654,10 +654,10 @@ public final class MfConformanceHarness {
                                     flags = (byte) (flags & ~EncodingHeaderFields.FLAG_RESOLVED);
                                 }
                                 byte cFlags = existing.consolidationFlags();
-                                com.spectrayan.spector.memory.model.EngramSource engSource = existing.source();
+                                com.spectrayan.spector.kernel.api.EngramSource engSource = existing.source();
                                 if ("simulated".equalsIgnoreCase(record.source())) {
                                     cFlags = EncodingHeaderFields.withSimulated(cFlags, true);
-                                    engSource = com.spectrayan.spector.memory.model.EngramSource.SIMULATED;
+                                    engSource = com.spectrayan.spector.kernel.api.EngramSource.SIMULATED;
                                 }
                                 EncodingHeader updated = new EncodingHeader(
                                         record.timestampMs(),
@@ -678,7 +678,7 @@ public final class MfConformanceHarness {
                                         cFlags,
                                         engSource
                                 );
-                                com.spectrayan.spector.memory.kernel.engram.EpisodicHeaderLayout.INSTANCE.writeHeaderRecord(
+                                com.spectrayan.spector.kernel.engram.EpisodicHeaderLayout.INSTANCE.writeHeaderRecord(
                                         episodic.segment(), episodic.dataOffset() + loc.offset(), updated
                                 );
                             }
@@ -704,10 +704,10 @@ public final class MfConformanceHarness {
                                 flags = (byte) (flags & ~EncodingHeaderFields.FLAG_RESOLVED);
                             }
                             byte cFlags = existing.consolidationFlags();
-                            com.spectrayan.spector.memory.model.EngramSource engSource = existing.source();
+                            com.spectrayan.spector.kernel.api.EngramSource engSource = existing.source();
                             if ("simulated".equalsIgnoreCase(record.source())) {
                                 cFlags = EncodingHeaderFields.withSimulated(cFlags, true);
-                                engSource = com.spectrayan.spector.memory.model.EngramSource.SIMULATED;
+                                engSource = com.spectrayan.spector.kernel.api.EngramSource.SIMULATED;
                             }
                             EncodingHeader updated = new EncodingHeader(
                                     record.timestampMs(),

@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory;
+import com.spectrayan.spector.kernel.score.EdgeImportance;
 
 import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.config.properties.MemoryProperties;

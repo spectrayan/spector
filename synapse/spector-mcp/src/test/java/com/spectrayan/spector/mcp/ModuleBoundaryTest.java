@@ -112,7 +112,7 @@ class ModuleBoundaryTest {
         ArchRule rule = noClasses()
                 .that().resideInAPackage("com.spectrayan.spector.mcp..")
                 .should().dependOnClassesThat()
-                .resideInAPackage("com.spectrayan.spector.memory.kernel..")
+                .resideInAPackage("com.spectrayan.spector.kernel..")
                 .allowEmptyShould(true)
                 .because("MCP tools must not access low-level kernel memory layouts (see #581)");
 

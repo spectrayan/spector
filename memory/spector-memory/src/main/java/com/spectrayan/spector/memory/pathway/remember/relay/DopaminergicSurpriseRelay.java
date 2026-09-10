@@ -12,15 +12,15 @@
  */
 package com.spectrayan.spector.memory.pathway.remember.relay;
 
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
-import com.spectrayan.spector.memory.cortex.WorkingMemory;
+import com.spectrayan.spector.kernel.store.WorkingMemory;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.model.ImportanceContext;
 import com.spectrayan.spector.memory.model.ImportanceResult;
@@ -53,7 +53,7 @@ public final class DopaminergicSurpriseRelay implements SynapticRelay<RememberSi
     public boolean transmit(final RememberSignal signal) {
         if (signal.header() != null) {
             signal.importance(signal.header().importance());
-            signal.flashbulb((signal.header().flags() & com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields.FLAG_PINNED) != 0);
+            signal.flashbulb((signal.header().flags() & com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.FLAG_PINNED) != 0);
             return true;
         }
         final float[] vector = signal.vector();

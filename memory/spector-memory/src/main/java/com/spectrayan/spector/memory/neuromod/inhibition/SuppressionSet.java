@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.neuromod.inhibition;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

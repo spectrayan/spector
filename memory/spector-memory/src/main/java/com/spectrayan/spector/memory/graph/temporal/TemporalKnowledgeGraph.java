@@ -11,8 +11,10 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.graph.temporal;
+import com.spectrayan.spector.kernel.store.TemporalChainMemory;
+import com.spectrayan.spector.kernel.store.TemporalFactsMemory;
 
-import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -31,11 +33,11 @@ import java.util.zip.CRC32C;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
-import com.spectrayan.spector.memory.kernel.id.MemoryId;
-import com.spectrayan.spector.memory.kernel.id.SystemMemoryId;
-import com.spectrayan.spector.memory.kernel.layout.TemporalFactLayout;
-import com.spectrayan.spector.memory.kernel.shape.DefaultAppendMemory;
+import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
+import com.spectrayan.spector.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.id.SystemMemoryId;
+import com.spectrayan.spector.kernel.layout.TemporalFactLayout;
+import com.spectrayan.spector.kernel.shape.DefaultAppendMemory;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.graph.temporal.index.SubjectIndex;
 import com.spectrayan.spector.memory.graph.temporal.index.ValidTimeIndex;
@@ -171,13 +173,13 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
     }
 
     public static TemporalKnowledgeGraph fromRegionRef(TypeRegistryMemory predicateRegistry,
-                                                        com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef,
+                                                        com.spectrayan.spector.kernel.bundle.RegionRef regionRef,
                                                         Path bundlePath, boolean isNew) {
         return new TemporalKnowledgeGraph(predicateRegistry, regionRef, bundlePath, isNew);
     }
 
     private TemporalKnowledgeGraph(TypeRegistryMemory predicateRegistry,
-                                   com.spectrayan.spector.memory.kernel.bundle.RegionRef regionRef,
+                                   com.spectrayan.spector.kernel.bundle.RegionRef regionRef,
                                    Path bundlePath, boolean isNew) {
         this.factLog = TemporalFactsMemory.fromRegionRef(regionRef, bundlePath, isNew);
         this.predicateRegistry = predicateRegistry;
@@ -189,7 +191,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
             if (java.nio.file.Files.exists(legacyPath)) {
                 log.info("Migrating legacy standalone temporal-facts.tfacts to bundle region...");
                 try {
-                    TemporalKnowledgeGraph legacy = new TemporalKnowledgeGraph(legacyPath, java.nio.file.Files.size(legacyPath) - com.spectrayan.spector.memory.kernel.region.RegionPreamble.PREAMBLE_BYTES, predicateRegistry);
+                    TemporalKnowledgeGraph legacy = new TemporalKnowledgeGraph(legacyPath, java.nio.file.Files.size(legacyPath) - com.spectrayan.spector.kernel.region.RegionPreamble.PREAMBLE_BYTES, predicateRegistry);
                     long factCount = legacy.factLog.size();
                     for (long i = 0; i < factCount; i++) {
                         MemorySegment factSeg = legacy.factLog.read(i * 64, 64);
@@ -219,7 +221,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
             if (java.nio.file.Files.exists(legacyPath)) {
                 log.info("Migrating legacy standalone temporal-facts.tfacts to bundle region...");
                 try {
-                    TemporalKnowledgeGraph legacy = new TemporalKnowledgeGraph(legacyPath, java.nio.file.Files.size(legacyPath) - com.spectrayan.spector.memory.kernel.region.RegionPreamble.PREAMBLE_BYTES, predicateRegistry);
+                    TemporalKnowledgeGraph legacy = new TemporalKnowledgeGraph(legacyPath, java.nio.file.Files.size(legacyPath) - com.spectrayan.spector.kernel.region.RegionPreamble.PREAMBLE_BYTES, predicateRegistry);
                     long factCount = legacy.factLog.size();
                     for (long i = 0; i < factCount; i++) {
                         MemorySegment factSeg = legacy.factLog.read(i * 64, 64);

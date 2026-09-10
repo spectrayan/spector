@@ -11,15 +11,17 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.graph.hebbian;
+import com.spectrayan.spector.kernel.store.HebbianEdge;
+import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 
-import com.spectrayan.spector.memory.kernel.migration.FormatCodec;
+import com.spectrayan.spector.kernel.migration.FormatCodec;
 
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
-import com.spectrayan.spector.memory.graph.hebbian.HebbianEdge;
-import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
-import com.spectrayan.spector.memory.kernel.id.MemoryId;
-import com.spectrayan.spector.memory.kernel.migration.Codecs;
-import com.spectrayan.spector.memory.kernel.layout.HebbianLayout;
+import com.spectrayan.spector.kernel.store.HebbianEdge;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
+import com.spectrayan.spector.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.migration.Codecs;
+import com.spectrayan.spector.kernel.layout.HebbianLayout;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -203,7 +205,7 @@ class HebbianGraphMemoryMigrationTest {
         int edgeCap = le.getInt(64);             // sub-header edgeCapacity (offset 64)
         int cycle = le.getInt(68);               // sub-header currentCycle (offset 68)
         // DATA_START now lives solely on HebbianLayout — single source consumed by impl + test.
-        int dataStart = (int) com.spectrayan.spector.memory.kernel.layout.HebbianLayout.DATA_START; // 80
+        int dataStart = (int) com.spectrayan.spector.kernel.layout.HebbianLayout.DATA_START; // 80
         byte[] slab = Arrays.copyOfRange(all, dataStart, all.length);
 
         ByteBuffer hdr = ByteBuffer.allocate(HebbianGraphMemory.HCSR_HEADER_BYTES); // big-endian

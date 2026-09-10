@@ -11,12 +11,13 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex;
+import com.spectrayan.spector.kernel.store.SemanticMemory;
 
-import com.spectrayan.spector.memory.kernel.region.RegionPreamble;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
 
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.kernel.engram.EncodingHeader;
-import com.spectrayan.spector.memory.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -75,7 +76,7 @@ class AbstractEngramMemoryTest {
         try (SemanticMemory store = new SemanticMemory(128, 100, file)) {
             // SMKM magic is 0x534D4B4D
             int magic = store.segment().get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
-            assertThat(magic).isEqualTo(com.spectrayan.spector.memory.kernel.region.RegionPreamble.MAGIC);
+            assertThat(magic).isEqualTo(com.spectrayan.spector.kernel.region.RegionPreamble.MAGIC);
             int version = store.segment().get(java.lang.foreign.ValueLayout.JAVA_INT, 4);
             assertThat(version).isEqualTo(1);
         }

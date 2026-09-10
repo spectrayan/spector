@@ -16,7 +16,7 @@
 package com.spectrayan.spector.bench.conformance.model;
 
 import java.util.List;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
  * Record representing a single corpus trace in the MF-001 Conformance Test Suite.

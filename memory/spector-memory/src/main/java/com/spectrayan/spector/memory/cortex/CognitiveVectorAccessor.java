@@ -11,13 +11,14 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 
 import java.util.Objects;
 import java.util.function.Function;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
  * Encapsulates point vector retrieval and scalar dequantization from partitioned off-heap memory.
@@ -72,7 +73,7 @@ public final class CognitiveVectorAccessor implements Function<String, float[]> 
             return null;
         }
 
-        MemoryIndex.MemoryLocation loc = index.locate(memoryId);
+        MemoryLocation loc = index.locate(memoryId);
         if (loc == null || loc.type() == MemoryType.EPISODIC) {
             return null;
         }
