@@ -33,17 +33,16 @@ import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
-import com.spectrayan.spector.memory.kernel.AbstractMemory;
 import java.util.concurrent.locks.ReentrantLock;
-import com.spectrayan.spector.memory.kernel.shape.ChainMemory;
+import com.spectrayan.spector.memory.kernel.shape.AbstractChainMemory;
 import com.spectrayan.spector.memory.kernel.layout.TemporalLayout;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 
 /**
  * Off-heap temporal causal chain linking memories within a session,
- * implementing {@link ChainMemory<TemporalLayout>} directly.
+ * extending {@link AbstractChainMemory} directly.
  */
-public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, AutoCloseable {
+public final class TemporalChainMemory extends AbstractChainMemory<TemporalLayout> implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(TemporalChainMemory.class);
 
@@ -59,7 +58,6 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
     private static final long OFF_SESSION = 8;
     private static final long OFF_EPOCH_SEC = 12;
 
-    private final TemporalChainBacking backing;
     private final ReentrantLock lock = new ReentrantLock();
 
     /**
@@ -68,12 +66,9 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
      * @param capacity maximum number of nodes (memories)
      */
     public TemporalChainMemory(int capacity) {
-        TemporalLayout layout = new TemporalLayout();
-        MemoryId id = SystemMemoryId.TEMPORAL_CHAIN.id();
-        long dataBytes = (long) NODE_BYTES * capacity;
-        this.backing = new TemporalChainBacking(id, layout, capacity, dataBytes);
+        super(SystemMemoryId.TEMPORAL_CHAIN.id(), new TemporalLayout(), capacity, (long) NODE_BYTES * capacity);
 
-        MemorySegment seg = backing.segment();
+        MemorySegment seg = segment;
         for (int i = 0; i < capacity; i++) {
             long offset = (long) i * NODE_BYTES;
             seg.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
@@ -83,7 +78,7 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
         }
 
         log.info("TemporalChainMemory initialized (heap): capacity={}, memory={}KB",
-                capacity, dataBytes / 1024);
+                capacity, ((long) NODE_BYTES * capacity) / 1024);
     }
 
     /**
@@ -103,36 +98,35 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
         }
 
         try {
-            // 1. Perform in-place TPCH -> SMKM migration if needed
             checkAndMigrateHeader(filePath, capacity);
-
-            // 2. Open using standard SMKM format
-            TemporalLayout layout = new TemporalLayout();
-            MemoryId id = SystemMemoryId.TEMPORAL_CHAIN.id();
-            long dataBytes = (long) NODE_BYTES * capacity;
-            boolean isNew = !Files.exists(filePath) || Files.size(filePath) < RegionPreamble.PREAMBLE_BYTES;
-
-            this.backing = new TemporalChainBacking(id, layout, capacity, dataBytes, filePath);
-
-            if (isNew) {
-                MemorySegment seg = backing.segment();
-                long base = backing.dataOffset();
-                for (int i = 0; i < capacity; i++) {
-                    long offset = base + (long) i * NODE_BYTES;
-                    seg.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
-                    seg.set(ValueLayout.JAVA_INT, offset + OFF_NEXT, NO_LINK);
-                    seg.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
-                    seg.set(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC, 0);
-                }
-                backing.flush();
-            }
-
-            log.info("TemporalChainMemory initialized (mmap): capacity={}, file={}",
-                    backing.capacity(), filePath.getFileName());
-
         } catch (IOException e) {
             throw new SpectorGraphPersistenceException("TemporalChainMemory", filePath, e);
         }
+
+        boolean isNew;
+        try {
+            isNew = !Files.exists(filePath) || Files.size(filePath) < RegionPreamble.PREAMBLE_BYTES;
+        } catch (IOException e) {
+            isNew = true;
+        }
+
+        super(SystemMemoryId.TEMPORAL_CHAIN.id(), new TemporalLayout(), capacity, (long) NODE_BYTES * capacity, filePath);
+
+        if (isNew) {
+            MemorySegment seg = segment;
+            long base = dataOffset();
+            for (int i = 0; i < capacity; i++) {
+                long offset = base + (long) i * NODE_BYTES;
+                seg.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
+                seg.set(ValueLayout.JAVA_INT, offset + OFF_NEXT, NO_LINK);
+                seg.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
+                seg.set(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC, 0);
+            }
+            flush();
+        }
+
+        log.info("TemporalChainMemory initialized (mmap): capacity={}, file={}",
+                capacity(), filePath.getFileName());
     }
 
     /**
@@ -150,17 +144,17 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
     }
 
     private TemporalChainMemory(Arena arena, MemorySegment regionSlice, int capacity, Path bundlePath, boolean isNew) {
-        TemporalLayout layout = new TemporalLayout();
-        MemoryId id = SystemMemoryId.TEMPORAL_CHAIN.id();
-        long dataBytes = (long) NODE_BYTES * capacity;
-        this.backing = new TemporalChainBacking(id, layout, capacity, arena, regionSlice, isNew);
+        super(SystemMemoryId.TEMPORAL_CHAIN.id(), new TemporalLayout(), capacity,
+                arena, regionSlice,
+                isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0L),
+                true, bundlePath, null, true);
 
         if (isNew) {
             long now = System.currentTimeMillis();
-            RegionPreamble.write(backing.segment(), 0L, layout.schemaVersion(), MemoryShape.CHAIN, 1,
+            RegionPreamble.write(segment, 0L, layout.schemaVersion(), MemoryShape.CHAIN, 1,
                     capacity, 0L, layout.recordStride(), layout.layoutId(), now, now);
-            MemorySegment seg = backing.segment();
-            long base = backing.dataOffset();
+            MemorySegment seg = segment;
+            long base = dataOffset();
             for (int i = 0; i < capacity; i++) {
                 long offset = base + (long) i * NODE_BYTES;
                 seg.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
@@ -168,7 +162,7 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
                 seg.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
                 seg.set(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC, 0);
             }
-            backing.flush();
+            flush();
         }
 
         // Migrate legacy standalone temporal chain if it exists
@@ -177,11 +171,12 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
             if (Files.exists(legacyPath)) {
                 log.info("Migrating legacy standalone temporal_chain.dat to bundle region...");
                 TemporalChainMemory legacy = new TemporalChainMemory(legacyPath, capacity);
-                MemorySegment.copy(legacy.backing.segment(), legacy.backing.dataOffset(),
-                                   this.backing.segment(), this.backing.dataOffset(),
+                long dataBytes = (long) NODE_BYTES * capacity;
+                MemorySegment.copy(legacy.segment, legacy.dataOffset(),
+                                   this.segment, this.dataOffset(),
                                    dataBytes);
-                MemorySegment.copy(legacy.backing.segment(), 0L, this.backing.segment(), 0L, RegionPreamble.PREAMBLE_BYTES);
-                this.backing.flush();
+                MemorySegment.copy(legacy.segment, 0L, this.segment, 0L, RegionPreamble.PREAMBLE_BYTES);
+                this.flush();
                 try {
                     legacy.close();
                     Files.deleteIfExists(legacyPath);
@@ -234,76 +229,28 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
         }
     }
 
-    public void bindWal(MemoryWal wal) {
-        backing.bindWal(wal);
-    }
-
-    public void setBypassWal(boolean bypass) {
-        backing.setBypassWal(bypass);
-    }
-
-    @Override
-    public MemoryId id() {
-        return backing.id();
-    }
-
-    @Override
-    public TemporalLayout layout() {
-        return backing.layout();
-    }
-
-    @Override
-    public MemoryShape shape() {
-        return MemoryShape.CHAIN;
-    }
-
-    @Override
-    public Arena arena() {
-        return backing.arena();
-    }
-
-    @Override
-    public MemorySegment segment() {
-        return backing.segment();
-    }
-
-    @Override
-    public int capacity() {
-        return backing.capacity();
-    }
-
-    @Override
-    public int size() {
-        return backing.size();
-    }
-
-    @Override
-    public int schemaVersion() {
-        return backing.schemaVersion();
-    }
-
     @Override
     public void flush() {
-        if (backing.isPersistent()) {
-            RegionPreamble.writeCount(backing.segment(), 0, chainLength());
+        if (isPersistent()) {
+            RegionPreamble.writeCount(segment, 0, chainLength());
         }
-        backing.flush();
+        super.flush();
     }
 
     @Override
     public void link(int nodeId, int nextId) {
         linkNodes(nodeId, nextId, 0, (int) (System.currentTimeMillis() / 1000));
-        MemoryWal wal = backing.getWal();
-        if (wal != null && !backing.isBypassWal()) {
-            wal.appendChainLink(backing.id().toString(), nodeId, nextId, 0);
+        MemoryWal currentWal = getWal();
+        if (currentWal != null && !isBypassWal()) {
+            currentWal.appendChainLink(id().toString(), nodeId, nextId, 0);
         }
     }
 
     public void link(int nodeIdx, int prevIdx, int sessionId) {
         linkNodes(prevIdx, nodeIdx, sessionId, (int) (System.currentTimeMillis() / 1000));
-        MemoryWal wal = backing.getWal();
-        if (wal != null && !backing.isBypassWal()) {
-            wal.appendChainLink(backing.id().toString(), nodeIdx, prevIdx, sessionId);
+        MemoryWal currentWal = getWal();
+        if (currentWal != null && !isBypassWal()) {
+            currentWal.appendChainLink(id().toString(), nodeIdx, prevIdx, sessionId);
         }
     }
 
@@ -319,7 +266,7 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
 
     @Override
     public int head() {
-        for (int i = 0; i < backing.capacity(); i++) {
+        for (int i = 0; i < capacity(); i++) {
             if (isLinked(i) && getPrevIndex(i) == NO_LINK) {
                 return i;
             }
@@ -329,7 +276,7 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
 
     @Override
     public int tail() {
-        for (int i = 0; i < backing.capacity(); i++) {
+        for (int i = 0; i < capacity(); i++) {
             if (isLinked(i) && getNextIndex(i) == NO_LINK) {
                 return i;
             }
@@ -340,7 +287,7 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
     @Override
     public int chainLength() {
         int count = 0;
-        for (int i = 0; i < backing.capacity(); i++) {
+        for (int i = 0; i < capacity(); i++) {
             if (isLinked(i)) count++;
         }
         return count;
@@ -357,10 +304,10 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
             boundsCheck(prevIdx);
             boundsCheck(nextIdx);
 
-            long prevOff = backing.dataOffset() + (long) prevIdx * NODE_BYTES;
-            long nextOff = backing.dataOffset() + (long) nextIdx * NODE_BYTES;
+            long prevOff = dataOffset() + (long) prevIdx * NODE_BYTES;
+            long nextOff = dataOffset() + (long) nextIdx * NODE_BYTES;
 
-            MemorySegment seg = backing.segment();
+            MemorySegment seg = segment;
             seg.set(ValueLayout.JAVA_INT, prevOff + OFF_NEXT, nextIdx);
             if (sessionId > 0) {
                 seg.set(ValueLayout.JAVA_INT, prevOff + OFF_SESSION, sessionId);
@@ -383,26 +330,26 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
 
     public int getPrevIndex(int nodeIdx) {
         boundsCheck(nodeIdx);
-        long off = backing.dataOffset() + (long) nodeIdx * NODE_BYTES;
-        return backing.segment().get(ValueLayout.JAVA_INT, off + OFF_PREV);
+        long off = dataOffset() + (long) nodeIdx * NODE_BYTES;
+        return segment.get(ValueLayout.JAVA_INT, off + OFF_PREV);
     }
 
     public int getNextIndex(int nodeIdx) {
         boundsCheck(nodeIdx);
-        long off = backing.dataOffset() + (long) nodeIdx * NODE_BYTES;
-        return backing.segment().get(ValueLayout.JAVA_INT, off + OFF_NEXT);
+        long off = dataOffset() + (long) nodeIdx * NODE_BYTES;
+        return segment.get(ValueLayout.JAVA_INT, off + OFF_NEXT);
     }
 
     public int getSessionId(int nodeIdx) {
         boundsCheck(nodeIdx);
-        long off = backing.dataOffset() + (long) nodeIdx * NODE_BYTES;
-        return backing.segment().get(ValueLayout.JAVA_INT, off + OFF_SESSION);
+        long off = dataOffset() + (long) nodeIdx * NODE_BYTES;
+        return segment.get(ValueLayout.JAVA_INT, off + OFF_SESSION);
     }
 
     public int getEpochSec(int nodeIdx) {
         boundsCheck(nodeIdx);
-        long off = backing.dataOffset() + (long) nodeIdx * NODE_BYTES;
-        return backing.segment().get(ValueLayout.JAVA_INT, off + OFF_EPOCH_SEC);
+        long off = dataOffset() + (long) nodeIdx * NODE_BYTES;
+        return segment.get(ValueLayout.JAVA_INT, off + OFF_EPOCH_SEC);
     }
 
     public int[] followForward(int startIdx, int maxSteps) {
@@ -438,7 +385,7 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
         try {
             long cutoffSec = epochSecCutoff > 10_000_000_000L ? epochSecCutoff / 1000 : epochSecCutoff;
             int count = 0;
-            for (int i = 0; i < backing.capacity(); i++) {
+            for (int i = 0; i < capacity(); i++) {
                 if (isLinked(i)) {
                     int epochSec = getEpochSec(i);
                     if (epochSec > 0 && epochSec < cutoffSec) {
@@ -461,7 +408,7 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
             }
             long cutoffSec = epochSecCutoff > 10_000_000_000L ? epochSecCutoff / 1000 : epochSecCutoff;
             int count = 0;
-            for (int i = 0; i < backing.capacity(); i++) {
+            for (int i = 0; i < capacity(); i++) {
                 if (isLinked(i)) {
                     int epochSec = getEpochSec(i);
                     if (epochSec > 0 && epochSec < cutoffSec) {
@@ -487,19 +434,19 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
             int n = getNextIndex(nodeIdx);
 
             if (p != NO_LINK) {
-                long pOff = backing.dataOffset() + (long) p * NODE_BYTES;
-                backing.segment().set(ValueLayout.JAVA_INT, pOff + OFF_NEXT, n);
+                long pOff = dataOffset() + (long) p * NODE_BYTES;
+                segment.set(ValueLayout.JAVA_INT, pOff + OFF_NEXT, n);
             }
             if (n != NO_LINK) {
-                long nOff = backing.dataOffset() + (long) n * NODE_BYTES;
-                backing.segment().set(ValueLayout.JAVA_INT, nOff + OFF_PREV, p);
+                long nOff = dataOffset() + (long) n * NODE_BYTES;
+                segment.set(ValueLayout.JAVA_INT, nOff + OFF_PREV, p);
             }
 
-            long selfOff = backing.dataOffset() + (long) nodeIdx * NODE_BYTES;
-            backing.segment().set(ValueLayout.JAVA_INT, selfOff + OFF_PREV, NO_LINK);
-            backing.segment().set(ValueLayout.JAVA_INT, selfOff + OFF_NEXT, NO_LINK);
-            backing.segment().set(ValueLayout.JAVA_INT, selfOff + OFF_SESSION, 0);
-            backing.segment().set(ValueLayout.JAVA_INT, selfOff + OFF_EPOCH_SEC, 0);
+            long selfOff = dataOffset() + (long) nodeIdx * NODE_BYTES;
+            segment.set(ValueLayout.JAVA_INT, selfOff + OFF_PREV, NO_LINK);
+            segment.set(ValueLayout.JAVA_INT, selfOff + OFF_NEXT, NO_LINK);
+            segment.set(ValueLayout.JAVA_INT, selfOff + OFF_SESSION, 0);
+            segment.set(ValueLayout.JAVA_INT, selfOff + OFF_EPOCH_SEC, 0);
         } finally {
             lock.unlock();
         }
@@ -509,10 +456,10 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
         lock.lock();
         try {
             flush();
-            if (!backing.isBundleManaged() && backing.isPersistent() && backing.filePath() != null && !backing.filePath().equals(targetPath)) {
+            if (!isBundleManaged() && isPersistent() && filePath() != null && !filePath().equals(targetPath)) {
                 try {
                     Files.createDirectories(targetPath.getParent());
-                    Files.copy(backing.filePath(), targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    Files.copy(filePath(), targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                 } catch (IOException e) {
                     throw new SpectorGraphPersistenceException("TemporalChainMemory", targetPath, e);
                 }
@@ -523,37 +470,9 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
     }
 
     private void boundsCheck(int nodeIdx) {
-        if (nodeIdx < 0 || nodeIdx >= backing.capacity()) {
+        if (nodeIdx < 0 || nodeIdx >= capacity()) {
             throw new IndexOutOfBoundsException(
-                    "TemporalChain node index out of bounds: " + nodeIdx + " (capacity=" + backing.capacity() + ")");
-        }
-    }
-
-    @Override
-    public void close() {
-        backing.close();
-    }
-
-    public TemporalChainBacking backing() {
-        return backing;
-    }
-
-    public static final class TemporalChainBacking extends AbstractMemory<TemporalLayout> {
-        TemporalChainBacking(MemoryId id, TemporalLayout layout, int capacity, long dataBytes) {
-            super(id, layout, capacity, dataBytes);
-        }
-
-        TemporalChainBacking(MemoryId id, TemporalLayout layout, int capacity, long dataBytes, Path filePath) {
-            super(id, layout, capacity, dataBytes, filePath);
-        }
-
-        TemporalChainBacking(MemoryId id, TemporalLayout layout, int capacity, Arena arena, MemorySegment regionSlice, boolean isNew) {
-            super(id, layout, capacity, arena, regionSlice, 0, true, null, null, true); // bundleManaged = true
-        }
-
-        @Override
-        public MemoryShape shape() {
-            return MemoryShape.CHAIN;
+                    "TemporalChain node index out of bounds: " + nodeIdx + " (capacity=" + capacity() + ")");
         }
     }
 }

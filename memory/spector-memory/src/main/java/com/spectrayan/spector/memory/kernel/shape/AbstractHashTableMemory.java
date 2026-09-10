@@ -44,7 +44,7 @@ import java.nio.file.Path;
  * @param <L> the type of memory layout used by this memory
  * @see MemoryShape#HASHTABLE
  */
-public abstract class AbstractHashTableMemory<L extends RegionLayout> extends AbstractMemory<L> {
+public abstract class AbstractHashTableMemory<L extends RegionLayout> extends AbstractMemory<L> implements HashTableMemory<L> {
 
     protected AbstractHashTableMemory(MemoryId id, L layout, int capacity, long segmentBytes) {
         super(id, layout, capacity, segmentBytes);

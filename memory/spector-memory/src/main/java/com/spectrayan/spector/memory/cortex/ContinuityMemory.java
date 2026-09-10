@@ -15,13 +15,12 @@ package com.spectrayan.spector.memory.cortex;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorMemoryException;
 import com.spectrayan.spector.memory.aisme.continuity.IdentityTrajectorySnapshot;
-import com.spectrayan.spector.memory.kernel.Memory;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.ContinuityLayout;
-import com.spectrayan.spector.memory.sync.MemoryWal;
+import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +29,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -57,19 +55,10 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * @since 1.2.0
  */
-public final class ContinuityMemory implements Memory<ContinuityLayout>, AutoCloseable {
+public final class ContinuityMemory extends AbstractRecordMemory<ContinuityLayout> implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(ContinuityMemory.class);
 
-    private final MemoryId id;
-    private final ContinuityLayout layout = ContinuityLayout.SINGLETON;
-    private final Arena arena;
-    private final MemorySegment segment;
-    private final int capacity;
-    private final boolean persistent;
-    private final boolean bundleManaged;
-    private final FileChannel fileChannel;
-    private final Path filePath;
     private final ReentrantLock writeLock = new ReentrantLock();
 
     private ContinuityMemory(
@@ -81,14 +70,11 @@ public final class ContinuityMemory implements Memory<ContinuityLayout>, AutoClo
             boolean bundleManaged,
             FileChannel fileChannel,
             Path filePath) {
-        this.id = id;
-        this.arena = arena;
-        this.segment = segment;
-        this.capacity = capacity;
-        this.persistent = persistent;
-        this.bundleManaged = bundleManaged;
-        this.fileChannel = fileChannel;
-        this.filePath = filePath;
+        super(id, ContinuityLayout.SINGLETON, capacity, arena, segment,
+                (persistent || segment != null) && RegionPreamble.isValid(segment, 0L)
+                        ? (int) Math.min(ContinuityLayout.readTotalSnapshots(segment), capacity)
+                        : 0,
+                persistent, filePath, fileChannel, bundleManaged);
     }
 
     // ── Factory Methods ──
@@ -206,6 +192,11 @@ public final class ContinuityMemory implements Memory<ContinuityLayout>, AutoClo
         }
     }
 
+    @Override
+    public long dataOffset() {
+        return ContinuityLayout.DATA_START;
+    }
+
     // ── Core Operations ──
 
     /**
@@ -240,6 +231,7 @@ public final class ContinuityMemory implements Memory<ContinuityLayout>, AutoClo
             ContinuityLayout.writeHeadIndex(segment, nextHead);
             ContinuityLayout.writeTotalSnapshots(segment, total + 1);
             ContinuityLayout.writeLastSnapshotTimestamp(segment, snapshot.timestamp());
+            this.count = Math.min(total + 1, capacity);
 
             if (persistent && !bundleManaged) {
                 segment.asSlice(recordOff, ContinuityLayout.RECORD_STRIDE).force();
@@ -323,42 +315,10 @@ public final class ContinuityMemory implements Memory<ContinuityLayout>, AutoClo
         );
     }
 
-    // ── Memory Interface Implementation ──
-
-    @Override
-    public MemoryId id() {
-        return id;
-    }
-
-    @Override
-    public ContinuityLayout layout() {
-        return layout;
-    }
-
-    @Override
-    public MemorySegment segment() {
-        return segment;
-    }
-
-    @Override
-    public Arena arena() {
-        return arena;
-    }
-
-    @Override
-    public int capacity() {
-        return capacity;
-    }
-
     @Override
     public int size() {
         int total = ContinuityLayout.readTotalSnapshots(segment);
         return Math.min(total, capacity);
-    }
-
-    @Override
-    public int schemaVersion() {
-        return ContinuityLayout.SCHEMA_VERSION;
     }
 
     public int totalSnapshots() {
@@ -369,49 +329,7 @@ public final class ContinuityMemory implements Memory<ContinuityLayout>, AutoClo
         return ContinuityLayout.readLastSnapshotTimestamp(segment);
     }
 
-    public boolean isPersistent() {
-        return persistent;
-    }
-
-    public boolean isBundleManaged() {
-        return bundleManaged;
-    }
-
-    @Override
-    public MemoryShape shape() {
-        return MemoryShape.RECORD;
-    }
-
-    @Override
-    public void bindWal(MemoryWal wal) {
-        // WAL binding for continuity records
-    }
-
-    @Override
-    public void flush() {
-        if (persistent && segment != null) {
-            segment.force();
-        }
-    }
-
     public void sync() {
         flush();
-    }
-
-    @Override
-    public void close() {
-        if (persistent && segment != null) {
-            segment.force();
-        }
-        if (!bundleManaged && arena != null && arena.scope().isAlive()) {
-            arena.close();
-        }
-        if (fileChannel != null && fileChannel.isOpen()) {
-            try {
-                fileChannel.close();
-            } catch (IOException e) {
-                log.warn("Failed to close fileChannel for ContinuityMemory: {}", e.getMessage());
-            }
-        }
     }
 }

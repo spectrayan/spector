@@ -21,7 +21,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
-import java.util.Locale;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -31,25 +30,21 @@ import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.RegionPreamble;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
-import com.spectrayan.spector.memory.kernel.shape.RegistryMemory;
 import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
+import com.spectrayan.spector.memory.kernel.shape.AbstractRegistryMemory;
 import com.spectrayan.spector.memory.kernel.shape.DefaultRegistryMemory;
-import com.spectrayan.spector.commons.error.ErrorCode;
-import com.spectrayan.spector.commons.error.SpectorStorageException;
 
 /**
- * Thread-safe, open-schema string ↔ integer type registry, backed by the Memory Kernel shape RegistryMemory.
+ * Thread-safe, open-schema string ↔ integer type registry, extending {@link AbstractRegistryMemory}.
  */
-public final class TypeRegistryMemory implements RegistryMemory {
+public final class TypeRegistryMemory extends AbstractRegistryMemory {
 
     private static final Logger log = LoggerFactory.getLogger(TypeRegistryMemory.class);
 
     /** Legacy File magic: "TREG" in ASCII. */
     private static final int LEGACY_FILE_MAGIC = 0x54524547;
-    private static final int LEGACY_FILE_VERSION = 1;
 
     private final String label;
-    private volatile DefaultRegistryMemory backing;
 
     /**
      * Creates a new empty registry (volatile).
@@ -57,9 +52,24 @@ public final class TypeRegistryMemory implements RegistryMemory {
      * @param systemMemoryId system memory identifier containing the label for logging
      */
     public TypeRegistryMemory(SystemMemoryId systemMemoryId) {
+        super(systemMemoryId.id(), new RegistryLayout(), 1024, 256 * 1024);
         this.label = systemMemoryId.id().memoryName();
-        RegistryLayout layout = new RegistryLayout();
-        this.backing = new DefaultRegistryMemory(systemMemoryId.id(), layout, 1024, 256 * 1024);
+    }
+
+    /**
+     * Creates or opens a file-backed registry.
+     */
+    public TypeRegistryMemory(SystemMemoryId systemMemoryId, Path filePath) {
+        super(systemMemoryId.id(), new RegistryLayout(), 0, 0, filePath);
+        this.label = systemMemoryId.id().memoryName();
+    }
+
+    private TypeRegistryMemory(SystemMemoryId systemMemoryId, RegistryLayout layout, int capacity,
+                               Arena arena, MemorySegment segment, int count,
+                               boolean persistent, Path filePath, FileChannel fileChannel,
+                               boolean bundleManaged) {
+        super(systemMemoryId.id(), layout, capacity, arena, segment, count, persistent, filePath, fileChannel, bundleManaged);
+        this.label = systemMemoryId.id().memoryName();
     }
 
     public static TypeRegistryMemory seeded(SystemMemoryId systemMemoryId, String... seedTypes) {
@@ -78,107 +88,25 @@ public final class TypeRegistryMemory implements RegistryMemory {
         return intern(name);
     }
 
-    // ── RegistryMemory Delegation ──
-
-    @Override
-    public int intern(String name) {
-        return backing.intern(name);
-    }
-
-    @Override
-    public void putDirect(String name, int id) {
-        backing.putDirect(name, id);
-    }
-
     @Override
     public String nameOf(int id) {
-        String name = backing.nameOf(id);
+        String name = super.nameOf(id);
         return name != null ? name : "UNKNOWN";
-    }
-
-    @Override
-    public int idOf(String name) {
-        return backing.idOf(name);
-    }
-
-    @Override
-    public Map<String, Integer> entries() {
-        return backing.entries();
-    }
-
-    @Override
-    public MemoryId id() {
-        return backing.id();
-    }
-
-    @Override
-    public RegistryLayout layout() {
-        return backing.layout();
-    }
-
-    @Override
-    public Arena arena() {
-        return backing.arena();
-    }
-
-    @Override
-    public MemorySegment segment() {
-        return backing.segment();
-    }
-
-    @Override
-    public int size() {
-        return backing.size();
-    }
-
-    @Override
-    public int capacity() {
-        return backing.capacity();
-    }
-
-    @Override
-    public int schemaVersion() {
-        return backing.schemaVersion();
-    }
-
-
-
-    @Override
-    public MemoryShape shape() {
-        return backing.shape();
-    }
-
-    @Override
-    public void flush() {
-        backing.flush();
-    }
-
-    @Override
-    public void close() {
-        backing.close();
     }
 
     // ── Persistence: save / load with transparent legacy support ──
 
-    private transient MemorySegment bundleSlice;
-    private transient boolean bundleManaged = false;
-
     public static TypeRegistryMemory fromBundle(SystemMemoryId systemMemoryId, Arena arena, MemorySegment regionSlice, Path bundlePath, boolean isNew, String... seedTypes) {
-        TypeRegistryMemory reg = new TypeRegistryMemory(systemMemoryId);
-        reg.bundleSlice = regionSlice;
-        reg.bundleManaged = true;
-
-        reg.backing.close();
         RegistryLayout layout = new RegistryLayout();
-        reg.backing = new DefaultRegistryMemory(systemMemoryId.id(), layout, 1024, arena, regionSlice,
-                isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0L),
-                true, bundlePath, null, true); // bundleManaged=true
-
         if (isNew) {
             long now = System.currentTimeMillis();
             RegionPreamble.write(regionSlice, 0L, layout.schemaVersion(), MemoryShape.REGISTRY, 0,
                     (int) regionSlice.byteSize(), 0, 0, layout.layoutId(), now, now);
         }
+
+        TypeRegistryMemory reg = new TypeRegistryMemory(systemMemoryId, layout, 1024, arena, regionSlice,
+                isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0L),
+                true, bundlePath, null, true);
 
         for (String seed : seedTypes) {
             reg.intern(seed);
@@ -196,9 +124,9 @@ public final class TypeRegistryMemory implements RegistryMemory {
                     Map<String, Integer> currentEntries = legacy.entries();
                     currentEntries.entrySet().stream()
                             .sorted(Map.Entry.comparingByValue())
-                            .forEach(entry -> reg.backing.putDirect(entry.getKey(), entry.getValue()));
-                    reg.backing.flush();
-                    legacy.backing.close();
+                            .forEach(entry -> reg.putDirect(entry.getKey(), entry.getValue()));
+                    reg.flush();
+                    legacy.close();
                     Files.deleteIfExists(legacyPath);
                 } catch (Exception e) {
                     log.warn("Failed to migrate legacy {} registry: {}", reg.label, e.getMessage());
@@ -211,19 +139,19 @@ public final class TypeRegistryMemory implements RegistryMemory {
     }
 
     public void save(Path filePath) throws IOException {
-        if (bundleManaged) {
+        if (isBundleManaged()) {
             long now = System.currentTimeMillis();
-            RegionPreamble.write(bundleSlice, 0L, backing.layout().schemaVersion(), MemoryShape.REGISTRY, 0,
-                    backing.capacity(), backing.size(), backing.layout().recordStride(), backing.layout().layoutId(), now, now);
-            backing.flush();
-            log.info("{} registry saved to bundle: {} types", label, backing.size());
+            RegionPreamble.write(segment, 0L, layout().schemaVersion(), MemoryShape.REGISTRY, 0,
+                    capacity(), size(), layout().recordStride(), layout().layoutId(), now, now);
+            flush();
+            log.info("{} registry saved to bundle: {} types", label, size());
             return;
         }
 
         Files.deleteIfExists(filePath);
         Files.createDirectories(filePath.getParent());
 
-        MemoryId registryId = backing.id();
+        MemoryId registryId = id();
         RegistryLayout layout = new RegistryLayout();
 
         // Calculate total size required for the new persistent registry memory segment
@@ -267,12 +195,8 @@ public final class TypeRegistryMemory implements RegistryMemory {
             boolean isStandard = (magic == RegionPreamble.MAGIC || magic == 0x4D4B4D53);
             boolean isLegacy = (magic == LEGACY_FILE_MAGIC || magic == 0x47455254);
 
-            TypeRegistryMemory registry = new TypeRegistryMemory(systemMemoryId);
-
             if (isStandard) {
-                RegistryLayout layout = new RegistryLayout();
-                registry.backing.close();
-                registry.backing = new DefaultRegistryMemory(systemMemoryId.id(), layout, 0, 0, filePath);
+                TypeRegistryMemory registry = new TypeRegistryMemory(systemMemoryId, filePath);
 
                 // Ensure all seed types are present (e.g. if new seed types were added)
                 for (String seed : seedTypes) {
@@ -281,6 +205,7 @@ public final class TypeRegistryMemory implements RegistryMemory {
                 log.info("{} registry loaded (SMKM V1): {} types from {}", label, registry.size(), filePath.getFileName());
                 return registry;
             } else if (isLegacy) {
+                TypeRegistryMemory registry = new TypeRegistryMemory(systemMemoryId);
                 // Read legacy file format
                 try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
                     ByteBuffer header = ByteBuffer.allocate(12);
@@ -306,7 +231,7 @@ public final class TypeRegistryMemory implements RegistryMemory {
                         idBuf.flip();
                         int id = idBuf.getInt();
 
-                        registry.backing.putDirect(name, id);
+                        registry.putDirect(name, id);
                     }
                 }
 
