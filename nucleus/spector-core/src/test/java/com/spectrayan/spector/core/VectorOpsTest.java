@@ -186,6 +186,26 @@ class VectorOpsTest {
         }
     }
 
+    // ─────────────── Sigmoid ───────────────
+
+    @Test
+    void sigmoidAtZeroReturnsHalf() {
+        assertThat(VectorOps.sigmoid(0.0f)).isCloseTo(0.5f, within(1e-6f));
+    }
+
+    @Test
+    void sigmoidSymmetry() {
+        float x = 2.5f;
+        assertThat(VectorOps.sigmoid(-x)).isCloseTo(1.0f - VectorOps.sigmoid(x), within(1e-6f));
+    }
+
+    @Test
+    void sigmoidBoundsAndExtremes() {
+        assertThat(VectorOps.sigmoid(-100.0f)).isCloseTo(0.0f, within(1e-6f));
+        assertThat(VectorOps.sigmoid(100.0f)).isCloseTo(1.0f, within(1e-6f));
+        assertThat(VectorOps.sigmoid(1.0f)).isGreaterThan(VectorOps.sigmoid(0.0f));
+    }
+
     // ── Helpers ──
 
     private static float[] randomVector(int dim, long seed) {

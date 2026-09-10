@@ -20,6 +20,7 @@ import com.spectrayan.spector.core.similarity.VectorOps;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.core.math.SoftmaxKernel;
 import com.spectrayan.spector.core.simd.SimdCapability;
 
 import jdk.incubator.vector.FloatVector;
@@ -79,32 +80,7 @@ public final class HopfieldKernel {
         if (n == 0) {
             return;
         }
-
-        // Find max for numerical stability
-        float maxScaled = logits[0] * beta;
-        for (int i = 1; i < n; i++) {
-            float scaled = logits[i] * beta;
-            if (scaled > maxScaled) {
-                maxScaled = scaled;
-            }
-        }
-
-        float sumExp = 0.0f;
-        for (int i = 0; i < n; i++) {
-            float expVal = (float) Math.exp(logits[i] * beta - maxScaled);
-            outWeights[i] = expVal;
-            sumExp += expVal;
-        }
-
-        if (sumExp > 0.0f) {
-            float invSum = 1.0f / sumExp;
-            for (int i = 0; i < n; i++) {
-                outWeights[i] *= invSum;
-            }
-        } else {
-            float uniform = 1.0f / n;
-            Arrays.fill(outWeights, uniform);
-        }
+        SoftmaxKernel.computeProbabilitiesScaled(logits, beta, outWeights);
     }
 
     /**

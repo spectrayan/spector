@@ -421,4 +421,16 @@ public final class VectorOps {
             }
         }
     }
+
+    // ─────────────────────── Activation Functions ───────────────────────
+
+    /**
+     * Standard logistic sigmoid activation function: 1.0 / (1.0 + exp(-x)).
+     *
+     * @param x input scalar
+     * @return activation value in range (0.0, 1.0)
+     */
+    public static float sigmoid(float x) {
+        return (float) (1.0 / (1.0 + Math.exp(-x)));
+    }
 }
