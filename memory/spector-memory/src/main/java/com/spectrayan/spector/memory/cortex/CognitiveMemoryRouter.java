@@ -100,6 +100,19 @@ public final class CognitiveMemoryRouter implements com.spectrayan.spector.kerne
      *
      * @throws SpectorValidationException if no store is registered for the type
      */
+
+    @Override
+    public com.spectrayan.spector.kernel.api.HeaderCursor cursor(MemoryType tier) {
+        if (tier == MemoryType.EPISODIC && episodicMemory != null) {
+            return episodicMemory.cursor(strengthMemory);
+        }
+        EngramRegion region = stores.get(tier);
+        if (region instanceof com.spectrayan.spector.kernel.store.AbstractEngramMemory<?> aem) {
+            return aem.cursor(strengthMemory);
+        }
+        throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "tier", "Cursor not supported for " + tier);
+    }
+
     public EngramRegion get(MemoryType type) {
         EngramRegion store = stores.get(type);
         if (store == null) {
@@ -360,35 +373,26 @@ public final class CognitiveMemoryRouter implements com.spectrayan.spector.kerne
      * Reinforces a cognitive memory record (valence, LTP, ACT-R, and two-factor storage strength).
      */
     public void reinforce(MemoryLocation loc, byte valence, float learningRate, float sGain, float sMax) {
-        if (loc.type() == MemoryType.EPISODIC) {
-            if (episodicMemory != null) {
-                episodicMemory.reinforceValence(loc.offset(), valence, learningRate);
-            }
-            return;
-        }
-        EngramRegion store = stores.get(loc.type());
-        if (store instanceof AbstractEngramMemory<?> abstractStore) {
-            FixedEngramLayout layout = layoutFor(loc.type());
-            if (layout == null) return;
+        try (var cursor = cursor(loc.type())) {
+            if (cursor == null) return;
+            cursor.seekOffset(loc.offset());
 
-            abstractStore.reinforceValence(loc.offset(), valence, learningRate);
+            byte currentValence = cursor.valence();
+            byte blended = com.spectrayan.spector.kernel.score.Valence.blend(currentValence, valence, learningRate);
+            cursor.valenceRelease(blended);
 
-            int slotIndex = (int) ((loc.offset() - abstractStore.dataOffset()) / layout.stride());
-            long creationTs = abstractStore.readTimestamp(loc.offset());
-            long nowMs = System.currentTimeMillis();
+            if (loc.type() != MemoryType.EPISODIC) {
+                long creationTs = cursor.timestampMs();
+                long nowMs = System.currentTimeMillis();
 
-            if (strengthMemory != null && loc.type() != MemoryType.WORKING) {
-                strengthMemory.incrementAgentRecallCount(loc.type(), slotIndex);
-                strengthMemory.recordRecall(loc.type(), slotIndex, creationTs, nowMs, (byte) 0, 0);
+                cursor.addActivationCount(1);
+                cursor.recordActRRecall(creationTs, nowMs);
 
                 int rawBucket = DecayStrategy.ageToBucket(creationTs, nowMs);
                 float currentR = DecayStrategy.decay(rawBucket);
                 float deltaS = sGain * (1.0f - currentR);
-                strengthMemory.casStorageStrength(loc.type(), slotIndex,
-                        currentS -> Math.min(sMax,
-                                Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MIN, currentS + deltaS)));
-            } else {
-                abstractStore.reinforceInSitu(loc.offset(), creationTs, nowMs, sGain, sMax);
+                cursor.updateStorageStrength(currentS -> Math.min(sMax,
+                        Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MIN, currentS + deltaS)));
             }
         }
     }

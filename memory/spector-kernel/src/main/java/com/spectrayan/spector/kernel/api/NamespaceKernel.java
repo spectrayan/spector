@@ -52,6 +52,10 @@ public interface NamespaceKernel extends AutoCloseable {
     // ── Dispatches on MemoryType and resolves physical locations ──
     EngramMemory engramMemory();
 
+    default HeaderCursor cursor(MemoryType tier) {
+        return engramMemory().cursor(tier);
+    }
+
     // ── Single-region memories returned as their shape interfaces ──
     AppendMemory<TextBlobLayout> textMemory();
 

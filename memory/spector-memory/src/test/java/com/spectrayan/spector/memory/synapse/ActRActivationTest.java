@@ -11,9 +11,10 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.synapse;
-import com.spectrayan.spector.kernel.score.DecayStrategy;
 
 import com.spectrayan.spector.kernel.layout.StrengthLayout;
+import com.spectrayan.spector.kernel.score.DecayStrategy;
+import com.spectrayan.spector.kernel.store.DefaultHeaderCursor;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -41,15 +42,18 @@ class ActRActivationTest {
             MemorySegment seg = arena.allocate(AUDIT_RECORD_SIZE);
             long creationMs = 1_000_000_000L;
 
-            // Record 3 recalls at different times (fills first 3 slots)
-            ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 10_000L);
-            ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 20_000L);
-            ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 30_000L);
+            try (var cursor = DefaultHeaderCursor.forSegment(seg, AUDIT_RECORD_SIZE)) {
+                cursor.seek(0);
+                // Record 3 recalls at different times (fills first 3 slots)
+                ActRActivation.recordRecall(cursor, creationMs, creationMs + 10_000L);
+                ActRActivation.recordRecall(cursor, creationMs, creationMs + 20_000L);
+                ActRActivation.recordRecall(cursor, creationMs, creationMs + 30_000L);
 
-            int[] timestamps = ActRActivation.readRecallTimestamps(seg, 0);
-            assertThat(timestamps[0]).isEqualTo(10);  // 10 seconds
-            assertThat(timestamps[1]).isEqualTo(20);  // 20 seconds
-            assertThat(timestamps[2]).isEqualTo(30);  // 30 seconds
+                int[] timestamps = ActRActivation.readRecallTimestamps(cursor);
+                assertThat(timestamps[0]).isEqualTo(10);  // 10 seconds
+                assertThat(timestamps[1]).isEqualTo(20);  // 20 seconds
+                assertThat(timestamps[2]).isEqualTo(30);  // 30 seconds
+            }
         }
     }
 
@@ -59,18 +63,21 @@ class ActRActivationTest {
             MemorySegment seg = arena.allocate(AUDIT_RECORD_SIZE);
             long creationMs = 1_000_000_000L;
 
-            // Fill all 8 slots
-            for (int i = 1; i <= 8; i++) {
-                ActRActivation.recordRecall(seg, 0, creationMs, creationMs + (i * 10_000L));
+            try (var cursor = DefaultHeaderCursor.forSegment(seg, AUDIT_RECORD_SIZE)) {
+                cursor.seek(0);
+                // Fill all 8 slots
+                for (int i = 1; i <= 8; i++) {
+                    ActRActivation.recordRecall(cursor, creationMs, creationMs + (i * 10_000L));
+                }
+
+                // 9th recall should overwrite oldest (slot 0 = 10s)
+                ActRActivation.recordRecall(cursor, creationMs, creationMs + 90_000L);
+
+                int[] timestamps = ActRActivation.readRecallTimestamps(cursor);
+                assertThat(timestamps[0]).isEqualTo(90);  // overwritten
+                assertThat(timestamps[1]).isEqualTo(20);
+                assertThat(timestamps[2]).isEqualTo(30);
             }
-
-            // 9th recall should overwrite oldest (slot 0 = 10s)
-            ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 90_000L);
-
-            int[] timestamps = ActRActivation.readRecallTimestamps(seg, 0);
-            assertThat(timestamps[0]).isEqualTo(90);  // overwritten
-            assertThat(timestamps[1]).isEqualTo(20);
-            assertThat(timestamps[2]).isEqualTo(30);
         }
     }
 
@@ -79,9 +86,12 @@ class ActRActivationTest {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment seg = arena.allocate(AUDIT_RECORD_SIZE);
 
-            int[] timestamps = ActRActivation.readRecallTimestamps(seg, 0);
-            for (int ts : timestamps) {
-                assertThat(ts).isZero();
+            try (var cursor = DefaultHeaderCursor.forSegment(seg, AUDIT_RECORD_SIZE)) {
+                cursor.seek(0);
+                int[] timestamps = ActRActivation.readRecallTimestamps(cursor);
+                for (int ts : timestamps) {
+                    assertThat(ts).isZero();
+                }
             }
         }
     }
@@ -97,10 +107,13 @@ class ActRActivationTest {
             long creation = System.currentTimeMillis() - 86_400_000L; // 1 day ago
             long now = System.currentTimeMillis();
 
-            float activation = ActRActivation.computeBaseLevelActivation(
-                    seg, 0, creation, now, 0.15f);
+            try (var cursor = DefaultHeaderCursor.forSegment(seg, AUDIT_RECORD_SIZE)) {
+                cursor.seek(0);
+                float activation = ActRActivation.computeBaseLevelActivation(
+                        cursor, creation, now, 0.15f);
 
-            assertThat(activation).isEqualTo(-1.0f);
+                assertThat(activation).isEqualTo(-1.0f);
+            }
         }
     }
 
@@ -111,13 +124,16 @@ class ActRActivationTest {
             long now = System.currentTimeMillis();
             long creation = now - 86_400_000L; // 1 day ago
 
-            // Recall 5 minutes ago
-            ActRActivation.recordRecall(seg, 0, creation, now - 300_000L);
+            try (var cursor = DefaultHeaderCursor.forSegment(seg, AUDIT_RECORD_SIZE)) {
+                cursor.seek(0);
+                // Recall 5 minutes ago
+                ActRActivation.recordRecall(cursor, creation, now - 300_000L);
 
-            float activation = ActRActivation.computeBaseLevelActivation(
-                    seg, 0, creation, now, 0.15f);
+                float activation = ActRActivation.computeBaseLevelActivation(
+                        cursor, creation, now, 0.15f);
 
-            assertThat(activation).isGreaterThan(0.3f);
+                assertThat(activation).isGreaterThan(0.3f);
+            }
         }
     }
 
@@ -128,13 +144,16 @@ class ActRActivationTest {
             long now = System.currentTimeMillis();
             long creation = now - 30L * 86_400_000L; // 30 days ago
 
-            // Only recall was 25 days ago
-            ActRActivation.recordRecall(seg, 0, creation, creation + 5L * 86_400_000L);
+            try (var cursor = DefaultHeaderCursor.forSegment(seg, AUDIT_RECORD_SIZE)) {
+                cursor.seek(0);
+                // Only recall was 25 days ago
+                ActRActivation.recordRecall(cursor, creation, creation + 5L * 86_400_000L);
 
-            float activation = ActRActivation.computeBaseLevelActivation(
-                    seg, 0, creation, now, 0.15f);
+                float activation = ActRActivation.computeBaseLevelActivation(
+                        cursor, creation, now, 0.15f);
 
-            assertThat(activation).isLessThan(0.6f);
+                assertThat(activation).isLessThan(0.6f);
+            }
         }
     }
 
@@ -146,52 +165,61 @@ class ActRActivationTest {
             long now = System.currentTimeMillis();
             long creation = now - 7L * 86_400_000L; // 1 week ago
 
-            // Memory recalled once (1 day ago)
-            ActRActivation.recordRecall(segOnce, 0, creation, now - 86_400_000L);
+            try (var cursorOnce = DefaultHeaderCursor.forSegment(segOnce, AUDIT_RECORD_SIZE);
+                 var cursorFour = DefaultHeaderCursor.forSegment(segFour, AUDIT_RECORD_SIZE)) {
+                cursorOnce.seek(0);
+                cursorFour.seek(0);
 
-            // Memory recalled 3 times (at days 1, 3, 6)
-            ActRActivation.recordRecall(segFour, 0, creation, creation + 1L * 86_400_000L);
-            ActRActivation.recordRecall(segFour, 0, creation, creation + 3L * 86_400_000L);
-            ActRActivation.recordRecall(segFour, 0, creation, creation + 6L * 86_400_000L);
+                // Memory recalled once (1 day ago)
+                ActRActivation.recordRecall(cursorOnce, creation, now - 86_400_000L);
 
-            float activationOnce = ActRActivation.computeBaseLevelActivation(
-                    segOnce, 0, creation, now, 0.15f);
-            float activationFour = ActRActivation.computeBaseLevelActivation(
-                    segFour, 0, creation, now, 0.15f);
+                // Memory recalled 3 times (at days 1, 3, 6)
+                ActRActivation.recordRecall(cursorFour, creation, creation + 1L * 86_400_000L);
+                ActRActivation.recordRecall(cursorFour, creation, creation + 3L * 86_400_000L);
+                ActRActivation.recordRecall(cursorFour, creation, creation + 6L * 86_400_000L);
 
-            assertThat(activationFour).isGreaterThan(activationOnce);
+                float activationOnce = ActRActivation.computeBaseLevelActivation(
+                        cursorOnce, creation, now, 0.15f);
+                float activationFour = ActRActivation.computeBaseLevelActivation(
+                        cursorFour, creation, now, 0.15f);
+
+                assertThat(activationFour).isGreaterThan(activationOnce);
+            }
         }
     }
 
     @Test
     void spacedRecallsBeatMassedRecalls() {
-        // The spacing effect: recalls distributed over time create a broader
-        // activation footprint that survives longer than massed practice.
-        // We test this by measuring at day 90 — well after the last recall.
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment segSpaced = arena.allocate(AUDIT_RECORD_SIZE);
             MemorySegment segMassed = arena.allocate(AUDIT_RECORD_SIZE);
             long now = System.currentTimeMillis();
             long creation = now - 90L * 86_400_000L; // 90 days ago
 
-            // Spaced: recalls spread across days 30, 50, 85
-            ActRActivation.recordRecall(segSpaced, 0, creation, creation + 30L * 86_400_000L);
-            ActRActivation.recordRecall(segSpaced, 0, creation, creation + 50L * 86_400_000L);
-            ActRActivation.recordRecall(segSpaced, 0, creation, creation + 85L * 86_400_000L);
+            try (var cursorSpaced = DefaultHeaderCursor.forSegment(segSpaced, AUDIT_RECORD_SIZE);
+                 var cursorMassed = DefaultHeaderCursor.forSegment(segMassed, AUDIT_RECORD_SIZE)) {
+                cursorSpaced.seek(0);
+                cursorMassed.seek(0);
 
-            // Massed: all 3 recalls on day 10 (within 1 minute)
-            ActRActivation.recordRecall(segMassed, 0, creation, creation + 10L * 86_400_000L);
-            ActRActivation.recordRecall(segMassed, 0, creation, creation + 10L * 86_400_000L + 15_000L);
-            ActRActivation.recordRecall(segMassed, 0, creation, creation + 10L * 86_400_000L + 30_000L);
+                // Spaced: recalls spread across days 30, 50, 85
+                ActRActivation.recordRecall(cursorSpaced, creation, creation + 30L * 86_400_000L);
+                ActRActivation.recordRecall(cursorSpaced, creation, creation + 50L * 86_400_000L);
+                ActRActivation.recordRecall(cursorSpaced, creation, creation + 85L * 86_400_000L);
 
-            float activationSpaced = ActRActivation.computeBaseLevelActivation(
-                    segSpaced, 0, creation, now, 0.15f);
-            float activationMassed = ActRActivation.computeBaseLevelActivation(
-                    segMassed, 0, creation, now, 0.15f);
+                // Massed: all 3 recalls on day 10 (within 1 minute)
+                ActRActivation.recordRecall(cursorMassed, creation, creation + 10L * 86_400_000L);
+                ActRActivation.recordRecall(cursorMassed, creation, creation + 10L * 86_400_000L + 15_000L);
+                ActRActivation.recordRecall(cursorMassed, creation, creation + 10L * 86_400_000L + 30_000L);
 
-            assertThat(activationSpaced)
-                    .as("Spaced recalls should produce higher activation than massed recalls (spacing effect)")
-                    .isGreaterThan(activationMassed);
+                float activationSpaced = ActRActivation.computeBaseLevelActivation(
+                        cursorSpaced, creation, now, 0.15f);
+                float activationMassed = ActRActivation.computeBaseLevelActivation(
+                        cursorMassed, creation, now, 0.15f);
+
+                assertThat(activationSpaced)
+                        .as("Spaced recalls should produce higher activation than massed recalls (spacing effect)")
+                        .isGreaterThan(activationMassed);
+            }
         }
     }
 
@@ -202,12 +230,15 @@ class ActRActivationTest {
             long now = System.currentTimeMillis();
             long creation = now - 1000L; // 1 second ago
 
-            ActRActivation.recordRecall(seg, 0, creation, now);
+            try (var cursor = DefaultHeaderCursor.forSegment(seg, AUDIT_RECORD_SIZE)) {
+                cursor.seek(0);
+                ActRActivation.recordRecall(cursor, creation, now);
 
-            float activation = ActRActivation.computeBaseLevelActivation(
-                    seg, 0, creation, now, 0.15f);
+                float activation = ActRActivation.computeBaseLevelActivation(
+                        cursor, creation, now, 0.15f);
 
-            assertThat(activation).isBetween(0.0f, 1.0f);
+                assertThat(activation).isBetween(0.0f, 1.0f);
+            }
         }
     }
 
@@ -222,13 +253,16 @@ class ActRActivationTest {
             long now = System.currentTimeMillis();
             long creation = now - 2L * 86_400_000L; // 2 days ago
 
-            // No recall timestamps recorded — should use bucket fallback
-            float decay = ActRActivation.computeDecayWithActR(
-                    seg, 0, creation, now, 0, 0.15f);
+            try (var cursor = DefaultHeaderCursor.forSegment(seg, AUDIT_RECORD_SIZE)) {
+                cursor.seek(0);
+                // No recall timestamps recorded — should use bucket fallback
+                float decay = ActRActivation.computeDecayWithActR(
+                        cursor, creation, now, 0, 0.15f);
 
-            // Bucket 3 (1-3 days) fallback
-            float expectedBucket = DecayStrategy.computeDecay(creation, now, 0);
-            assertThat(decay).isEqualTo(expectedBucket);
+                // Bucket 3 (1-3 days) fallback
+                float expectedBucket = DecayStrategy.computeDecay(creation, now, 0);
+                assertThat(decay).isEqualTo(expectedBucket);
+            }
         }
     }
 
@@ -239,25 +273,28 @@ class ActRActivationTest {
             long now = System.currentTimeMillis();
             long creation = now - 7L * 86_400_000L; // 1 week ago
 
-            // Record a recent recall
-            ActRActivation.recordRecall(seg, 0, creation, now - 3_600_000L);
+            try (var cursor = DefaultHeaderCursor.forSegment(seg, AUDIT_RECORD_SIZE)) {
+                cursor.seek(0);
+                // Record a recent recall
+                ActRActivation.recordRecall(cursor, creation, now - 3_600_000L);
 
-            float decay = ActRActivation.computeDecayWithActR(
-                    seg, 0, creation, now, 1, 0.15f);
+                float decay = ActRActivation.computeDecayWithActR(
+                        cursor, creation, now, 1, 0.15f);
 
-            // Should NOT equal the bucket fallback (different computation)
-            float bucketFallback = DecayStrategy.computeDecay(creation, now, 1);
-            assertThat(decay).isGreaterThan(0.0f).isLessThanOrEqualTo(1.0f);
+                // Should NOT equal the bucket fallback (different computation)
+                float bucketFallback = DecayStrategy.computeDecay(creation, now, 1);
+                assertThat(decay).isGreaterThan(0.0f).isLessThanOrEqualTo(1.0f);
+            }
         }
     }
 
     @Test
-    void nullSegmentFallsBackGracefully() {
+    void nullCursorFallsBackGracefully() {
         long now = System.currentTimeMillis();
         long creation = now - 86_400_000L;
 
         float decay = ActRActivation.computeDecayWithActR(
-                null, 0, creation, now, 0, 0.15f);
+                null, creation, now, 0, 0.15f);
 
         assertThat(decay).isEqualTo(DecayStrategy.computeDecay(creation, now, 0));
     }

@@ -12,32 +12,22 @@
  */
 package com.spectrayan.spector.memory.pathway.reflect;
 
-import com.spectrayan.spector.memory.cortex.adaptor.ProfileAdaptor;
-import com.spectrayan.spector.memory.neuromod.amygdala.Valence;
-import com.spectrayan.spector.memory.neuromod.amygdala.ValenceTracker;
-import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.PartitionRegistry;
-import com.spectrayan.spector.kernel.store.HebbianGraphBase;
-import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
-import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.kernel.shape.Memory;
-import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.kernel.engram.EpisodicHeaderLayout;
-import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
-import com.spectrayan.spector.memory.model.CognitiveProfile;
-import com.spectrayan.spector.kernel.api.MemoryType;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
-import com.spectrayan.spector.memory.pathway.recall.RecallPathway;
-import com.spectrayan.spector.memory.synapse.ActRActivation;
-import com.spectrayan.spector.kernel.score.DecayStrategy;
-import com.spectrayan.spector.memory.sync.MemoryWal;
-import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.kernel.api.HeaderCursor;
 import com.spectrayan.spector.kernel.api.MemoryLocation;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.store.HebbianGraphBase;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.cortex.PartitionRegistry;
+import com.spectrayan.spector.memory.cortex.adaptor.ProfileAdaptor;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
+import com.spectrayan.spector.memory.neuromod.amygdala.ValenceTracker;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
+import com.spectrayan.spector.memory.pathway.recall.RecallPathway;
+import com.spectrayan.spector.memory.sync.MemoryWal;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -179,34 +169,38 @@ public final class ReinforcementHandler {
         CognitiveMemoryRouter cognitiveRouter = partitionRegistry.routerFor(loc.colocatedPartition());
         if (cognitiveRouter == null) return;
 
-        float oldImportance = cognitiveRouter.readImportance(loc);
-        float finalImportance = cognitiveRouter.casImportance(loc, currentImportance -> {
-            float newImportance;
-            if (updatedHints != null && !updatedHints.isEmpty()) {
-                // Re-fuse importance with updated ICNU hints
-                float noveltyApprox = Math.min(1.0f, currentImportance / 5.0f);
-                float refusedImportance = IcnuWeights.DEFAULT.fuse(updatedHints, noveltyApprox);
-                // Blend 50/50 with current importance to avoid wild swings
-                newImportance = 0.5f * currentImportance + 0.5f * refusedImportance;
-            } else {
-                // Degree centrality boost from Hebbian graph
-                int graphIdx = loc.graphSlot();
-                if (graphIdx >= 0 && hebbianGraph != null) {
-                    var edges = hebbianGraph.neighbors(graphIdx);
-                    int degree = edges.size();
-                    // Logarithmic boost: +5% per edge, capped at +30%
-                    float boost = Math.min(0.30f, degree * 0.05f);
-                    newImportance = Math.min(10.0f, currentImportance * (1.0f + boost));
+        try (HeaderCursor cursor = cognitiveRouter.cursor(loc.type())) {
+            if (cursor == null) return;
+            cursor.seekOffset(loc.offset());
+            float oldImportance = cursor.importance();
+            float finalImportance = cursor.updateImportance(currentImportance -> {
+                float newImportance;
+                if (updatedHints != null && !updatedHints.isEmpty()) {
+                    // Re-fuse importance with updated ICNU hints
+                    float noveltyApprox = Math.min(1.0f, currentImportance / 5.0f);
+                    float refusedImportance = IcnuWeights.DEFAULT.fuse(updatedHints, noveltyApprox);
+                    // Blend 50/50 with current importance to avoid wild swings
+                    newImportance = 0.5f * currentImportance + 0.5f * refusedImportance;
                 } else {
-                    newImportance = currentImportance; // no graph data, no change
+                    // Degree centrality boost from Hebbian graph
+                    int graphIdx = loc.graphSlot();
+                    if (graphIdx >= 0 && hebbianGraph != null) {
+                        var edges = hebbianGraph.neighbors(graphIdx);
+                        int degree = edges.size();
+                        // Logarithmic boost: +5% per edge, capped at +30%
+                        float boost = Math.min(0.30f, degree * 0.05f);
+                        newImportance = Math.min(10.0f, currentImportance * (1.0f + boost));
+                    } else {
+                        newImportance = currentImportance; // no graph data, no change
+                    }
                 }
-            }
-            return newImportance;
-        });
+                return newImportance;
+            });
 
-        if (Math.abs(finalImportance - oldImportance) > 0.001f) {
-            log.debug("Reinforce re-fusion: '{}' importance {} → {}",
-                    memoryId, oldImportance, finalImportance);
+            if (Math.abs(finalImportance - oldImportance) > 0.001f) {
+                log.debug("Reinforce re-fusion: '{}' importance {} → {}",
+                        memoryId, oldImportance, finalImportance);
+            }
         }
     }
 }

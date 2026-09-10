@@ -25,6 +25,9 @@ import com.spectrayan.spector.kernel.engram.EncodingHeader;
  */
 public interface EngramMemory extends AutoCloseable {
 
+    /** Opens a reusable, thread-confined HeaderCursor for the given tier (R6.2). */
+    HeaderCursor cursor(MemoryType tier);
+
     /**
      * Appends a pre-quantized engram record with its encoding header to the specified tier.
      *

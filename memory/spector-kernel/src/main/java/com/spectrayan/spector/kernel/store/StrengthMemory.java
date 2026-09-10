@@ -280,6 +280,43 @@ public final class StrengthMemory extends AbstractRecordMemory<StrengthLayout> {
     /**
      * Atomically increments the explicit agent recall count for (tier, slotIndex).
      */
+
+    public int addAgentRecallCount(MemoryType tier, int slotIndex, int delta) {
+        long offset = strengthOffset(tier, slotIndex);
+        return (int) StrengthLayout.VAR_HANDLE_AGENT_RECALL_COUNT.getAndAdd(
+                segment(), offset + StrengthLayout.OFFSET_AGENT_RECALL_COUNT, delta) + delta;
+    }
+
+    public void writeAgentRecallCount(MemoryType tier, int slotIndex, int count) {
+        long offset = strengthOffset(tier, slotIndex);
+        layout.writeAgentRecallCount(segment(), offset, count);
+    }
+
+    public void writeStorageStrength(MemoryType tier, int slotIndex, float strength) {
+        long offset = strengthOffset(tier, slotIndex);
+        layout.writeStorageStrength(segment(), offset, strength);
+    }
+
+    public void writeEffectiveImportance(MemoryType tier, int slotIndex, float importance) {
+        long offset = strengthOffset(tier, slotIndex);
+        layout.writeEffectiveImportance(segment(), offset, importance);
+    }
+
+    public int[] readActRTimestamps(MemoryType tier, int slotIndex) {
+        long offset = strengthOffset(tier, slotIndex);
+        return layout.readActRTimestamps(segment(), offset);
+    }
+
+    public void writeLastRecallValence(MemoryType tier, int slotIndex, byte valence) {
+        long offset = strengthOffset(tier, slotIndex);
+        layout.writeLastRecallValence(segment(), offset, valence);
+    }
+
+    public void writeSpectorRecallCount(MemoryType tier, int slotIndex, int count) {
+        long offset = strengthOffset(tier, slotIndex);
+        layout.writeSpectorRecallCount(segment(), offset, count);
+    }
+
     public int incrementAgentRecallCount(MemoryType tier, int slotIndex) {
         long offset = strengthOffset(tier, slotIndex);
         return layout.incrementAgentRecallCount(segment(), offset);

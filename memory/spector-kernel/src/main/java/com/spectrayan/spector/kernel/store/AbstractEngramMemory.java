@@ -328,6 +328,19 @@ public abstract class AbstractEngramMemory<L extends FixedEngramLayout>
     /**
      * Reads the quantized vector for a record slot into a heap byte array, or returns null if tombstoned.
      */
+
+    public com.spectrayan.spector.kernel.api.HeaderCursor cursor() {
+        return cursor(null);
+    }
+
+    public com.spectrayan.spector.kernel.api.HeaderCursor cursor(StrengthMemory strengthMemory) {
+        if (regionRef != null) {
+            return new DefaultHeaderCursor(regionRef, layout, type(), capacity, dataOffset(), strengthMemory);
+        } else {
+            return new DefaultHeaderCursor(segment(), layout, type(), capacity, dataOffset(), strengthMemory);
+        }
+    }
+
     public byte[] readQuantizedVector(int slot) {
         if (slot < 0 || slot >= visibleCount()) {
             return null;

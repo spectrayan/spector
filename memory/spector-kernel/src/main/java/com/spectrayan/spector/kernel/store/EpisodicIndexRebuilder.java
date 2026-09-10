@@ -15,9 +15,9 @@
  */
 package com.spectrayan.spector.kernel.store;
 
-import java.lang.foreign.MemorySegment;
+import com.spectrayan.spector.kernel.api.HeaderCursor;
 
 @FunctionalInterface
 public interface EpisodicIndexRebuilder {
-    int rebuild(MemorySegment segment, long startOffset, long endOffset);
+    int rebuild(HeaderCursor cursor, long startOffset, long endOffset);
 }

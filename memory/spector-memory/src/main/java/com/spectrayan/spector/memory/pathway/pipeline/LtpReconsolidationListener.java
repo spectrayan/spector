@@ -12,19 +12,16 @@
  */
 package com.spectrayan.spector.memory.pathway.pipeline;
 
-import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
-
 import com.spectrayan.spector.config.SpectorPropertyConstants;
-import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.kernel.api.HeaderCursor;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.kernel.api.MemoryLocation;
+import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
-import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
 
-import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import java.util.List;
 
 /**
@@ -34,7 +31,7 @@ import java.util.List;
  * <p>Each time a memory is successfully recalled, its synaptic strength increases.
  * In Spector's model, this manifests as:</p>
  * <ul>
- *   <li><b>ACT-R recall timestamps</b>: recorded in the 4-slot ring buffer in
+ *   <li><b>ACT-R recall timestamps</b>: recorded in the 8-slot ring buffer in
  *       the strength region. These enable the full ACT-R base-level activation
  *       computation: {@code B_i = ln(Σ t_j^{-d})}.</li>
  *   <li><b>Recall count</b>: incremented only on explicit {@code reinforce()}
@@ -42,8 +39,8 @@ import java.util.List;
  * </ul>
  *
  * <h3>Design Pattern: Observer</h3>
- * <p>Previously hardcoded in SpectorMemory.recall() Step 7, now a standalone
- * listener registered with {@code RecallPipeline#addListener}.</p>
+ * <p>Registered with {@code RecallPipeline#addListener}, operating strictly via
+ * {@link HeaderCursor} with zero raw segment access (R6.4).</p>
  */
 public final class LtpReconsolidationListener implements RecallListener {
 
@@ -69,24 +66,21 @@ public final class LtpReconsolidationListener implements RecallListener {
         for (CognitiveResult r : results) {
             MemoryLocation loc = index.locate(r.id());
             if (loc != null) {
-                // #443: resolve the header segment by the memory's colocated partition.
+                // #443: resolve the header cursor by the memory's colocated partition.
                 CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
-                if (router != null && router.strength() != null) {
-                    FixedEngramLayout layout = router.layoutFor(loc.type());
-                    if (layout != null) {
-                        EncodingHeader header = router.readHeader(loc);
-                        if (header != null) {
-                            int slotIndex = (int) (loc.offset() / layout.stride());
-                            long creationMs = header.timestampMs();
-                            router.strength().recordRecall(loc.type(), slotIndex, creationMs, nowMs, (byte) 0, 0);
+                if (router != null) {
+                    try (HeaderCursor cursor = router.cursor(loc.type())) {
+                        if (cursor != null) {
+                            cursor.seekOffset(loc.offset());
+                            long creationMs = cursor.timestampMs();
+                            cursor.recordActRRecall(creationMs, nowMs);
 
-                            long lastAutoLtp = router.strength().readStrengthState(loc.type(), slotIndex).lastAutoLtp();
+                            long lastAutoLtp = cursor.lastAccessEpochMs();
                             if (nowMs - lastAutoLtp >= AUTO_LTP_COOLDOWN_MS) {
-                                router.strength().incrementSpectorRecallCount(loc.type(), slotIndex);
-                                router.strength().casStorageStrength(loc.type(), slotIndex,
-                                        s -> Math.min(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MAX,
-                                                s + SpectorPropertyConstants.DEFAULT_MEMORY_AUTO_LTP_STORAGE_INCREMENT));
-                                router.strength().writeLastAutoLtp(loc.type(), slotIndex, nowMs);
+                                cursor.spectorRecallCount(cursor.spectorRecallCount() + 1);
+                                cursor.updateStorageStrength(s -> Math.min(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MAX,
+                                        s + SpectorPropertyConstants.DEFAULT_MEMORY_AUTO_LTP_STORAGE_INCREMENT));
+                                cursor.lastAccessEpochMs(nowMs);
                             }
                         }
                     }

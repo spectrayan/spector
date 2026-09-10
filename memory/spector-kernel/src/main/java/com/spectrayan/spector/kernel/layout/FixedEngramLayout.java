@@ -86,6 +86,35 @@ public interface FixedEngramLayout extends RegionLayout {
 
     // ── Write operations (delegate to headerLayout) ──
 
+
+    default byte readHeaderVersion(MemorySegment segment, long offset) {
+        return headerLayout().readHeaderVersion(segment, offset);
+    }
+
+    default void writeFlags(MemorySegment segment, long offset, byte flags) {
+        headerLayout().writeFlags(segment, offset, flags);
+    }
+
+    default void writeExactNorm(MemorySegment segment, long offset, float exactNorm) {
+        headerLayout().writeExactNorm(segment, offset, exactNorm);
+    }
+
+    default void writeCentroidId(MemorySegment segment, long offset, short centroidId) {
+        headerLayout().writeCentroidId(segment, offset, centroidId);
+    }
+
+    default void writeSourceCode(MemorySegment segment, long offset, byte sourceCode) {
+        headerLayout().writeSourceCode(segment, offset, sourceCode);
+    }
+
+    default boolean compareAndSetValence(MemorySegment segment, long offset, byte expected, byte update) {
+        return headerLayout().compareAndSetValence(segment, offset, expected, update);
+    }
+
+    default void writeValenceRelease(MemorySegment segment, long offset, byte valence) {
+        headerLayout().writeValenceRelease(segment, offset, valence);
+    }
+
     default void writeHeader(MemorySegment segment, long offset, EncodingHeader header) {
         headerLayout().writeHeader(segment, offset, header);
     }

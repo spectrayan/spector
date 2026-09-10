@@ -68,6 +68,19 @@ public class DefaultEngramMemory implements EngramMemory {
     /**
      * Package-private accessor for internal region lookup.
      */
+
+    @Override
+    public com.spectrayan.spector.kernel.api.HeaderCursor cursor(MemoryType tier) {
+        EngramRegion region = regionFor(tier);
+        if (tier == MemoryType.EPISODIC && region instanceof EpisodicMemory em) {
+            return em.cursor(strengthMemory);
+        }
+        if (region instanceof AbstractEngramMemory<?> aem) {
+            return aem.cursor(strengthMemory);
+        }
+        throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "tier", "Cursor not supported for " + tier);
+    }
+
     EngramRegion regionFor(MemoryType type) {
         EngramRegion region = memories.get(type);
         if (region == null) {

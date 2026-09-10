@@ -58,8 +58,8 @@ class KernelSealBoundaryTest {
         ArchRule rule = noClasses()
                 .that().resideInAPackage("com.spectrayan.spector.memory..")
                 .and(not(nameMatching(".*("
-                        // Group 5: HeaderCursor scheduled conversions
-                        + "ActRActivation|ValenceTracker|EpisodicSessionIndex|HeaderMigrator|"
+                        // Group 5: HeaderCursor scheduled conversions (ActRActivation, ValenceTracker, EpisodicSessionIndex converted!)
+                        + "HeaderMigrator|"
                         // Group 6: Scan Pipeline scheduled conversions
                         + "CognitiveScorer|SemanticRecallStrategy|SemanticDeduplicator|MemoryBM25Index|"
                         + "RecallPathway|GraphExpansionStage|RecallCandidateGatherer|ColBERTTokenCache|"

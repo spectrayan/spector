@@ -77,6 +77,19 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
     /**
      * Creates a volatile (heap-backed) episodic memory store with given capacity and buffer size.
      */
+
+    public com.spectrayan.spector.kernel.api.HeaderCursor cursor() {
+        return cursor(null);
+    }
+
+    public com.spectrayan.spector.kernel.api.HeaderCursor cursor(StrengthMemory strengthMemory) {
+        if (regionRef != null) {
+            return new DefaultHeaderCursor(regionRef, layout(), dataOffset(), capacity(), strengthMemory);
+        } else {
+            return new DefaultHeaderCursor(segment(), layout(), dataOffset(), capacity(), strengthMemory);
+        }
+    }
+
     public EpisodicMemory(int capacity, long capacityBytes) {
         super(SystemMemoryId.EPISODIC.id(), EpisodicLayout.INSTANCE, capacity, capacityBytes);
     }
@@ -375,7 +388,9 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
      * Rebuilds session index from this store's mmap region.
      */
     public int rebuildSessionIndex(EpisodicIndexRebuilder sessionIndex) {
-        return sessionIndex.rebuild(segment(), dataOffset(), dataOffset() + count);
+        try (var cur = cursor()) {
+            return sessionIndex.rebuild(cur, dataOffset(), dataOffset() + count);
+        }
     }
 
     /**

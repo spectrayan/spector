@@ -83,7 +83,9 @@ public class EncodingHeaderLayout {
 
     public static final VarHandle VAR_HANDLE_SYNAPTIC_TAGS_LO = LAYOUT_SYNAPTIC_TAGS.varHandle();
     public static final VarHandle VAR_HANDLE_SYNAPTIC_TAGS_HI = LAYOUT_SYNAPTIC_TAGS.varHandle();
+    public static final VarHandle VAR_HANDLE_VALENCE = LAYOUT_VALENCE.varHandle();
     public static final VarHandle VAR_HANDLE_IMPORTANCE_V2    = LAYOUT_IMPORTANCE.varHandle();
+    public static final VarHandle VAR_HANDLE_INT = ValueLayout.JAVA_INT.varHandle();
 
     /** Header size in bytes (64 bytes, 1 CPU cache line). */
     public static final int HEADER_BYTES = EncodingHeaderFields.HEADER_BYTES;
@@ -201,6 +203,50 @@ public class EncodingHeaderLayout {
 
     // ── Field writes ──
 
+
+    public byte readHeaderVersion(MemorySegment seg, long off) {
+        return seg.get(LAYOUT_HEADER_VERSION, off + OFFSET_HEADER_VERSION);
+    }
+
+    public void writeFlags(MemorySegment seg, long off, byte flags) {
+        seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, flags);
+    }
+
+    public void writeExactNorm(MemorySegment seg, long off, float exactNorm) {
+        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, off + OFFSET_V2_EXACT_NORM, exactNorm);
+    }
+
+    public void writeCentroidId(MemorySegment seg, long off, short centroidId) {
+        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_V2_CENTROID_ID, centroidId);
+    }
+
+    public void writeSourceCode(MemorySegment seg, long off, byte sourceCode) {
+        seg.set(LAYOUT_SOURCE, off + OFFSET_V2_SOURCE, sourceCode);
+    }
+
+    public boolean compareAndSetValence(MemorySegment seg, long off, byte expected, byte update) {
+        long wordOff = off + (OFFSET_VALENCE & ~3L);
+        int byteIndex = (int) (OFFSET_VALENCE & 3L);
+        int shift = java.nio.ByteOrder.nativeOrder() == java.nio.ByteOrder.LITTLE_ENDIAN
+                ? (byteIndex * 8)
+                : ((3 - byteIndex) * 8);
+        int mask = 0xFF << shift;
+        int expectedBits = (expected & 0xFF) << shift;
+        int updateBits = (update & 0xFF) << shift;
+
+        while (true) {
+            int currentWord = (int) VAR_HANDLE_INT.getVolatile(seg, wordOff);
+            if ((currentWord & mask) != expectedBits) {
+                return false;
+            }
+            int nextWord = (currentWord & ~mask) | updateBits;
+            int witness = (int) VAR_HANDLE_INT.compareAndExchange(seg, wordOff, currentWord, nextWord);
+            if (witness == currentWord) {
+                return true;
+            }
+        }
+    }
+
     public void writeArousal(MemorySegment seg, long off, byte arousal) {
         seg.set(LAYOUT_AROUSAL, off + OFFSET_AROUSAL, arousal);
     }
@@ -310,7 +356,7 @@ public class EncodingHeaderLayout {
     }
 
     public void writeValenceRelease(MemorySegment seg, long off, byte valence) {
-        seg.set(LAYOUT_VALENCE, off + OFFSET_VALENCE, valence);
+        VAR_HANDLE_VALENCE.setRelease(seg, off + OFFSET_VALENCE, valence);
     }
 
     public int readSpectorRecallCount(MemorySegment seg, long off) {

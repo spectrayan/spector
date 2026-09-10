@@ -11,21 +11,15 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.session;
-import com.spectrayan.spector.kernel.store.EpisodicMemory;
 
-import com.spectrayan.spector.kernel.engram.EncodingHeader;
-
+import com.spectrayan.spector.kernel.api.HeaderCursor;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
-import com.spectrayan.spector.kernel.store.codec.EpisodeCodec;
-import com.spectrayan.spector.kernel.engram.EpisodicHeaderLayout;
 import com.spectrayan.spector.kernel.layout.EpisodicLayout;
-import java.lang.foreign.ValueLayout;
+import com.spectrayan.spector.kernel.store.EpisodicIndexRebuilder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.foreign.MemorySegment;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +42,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *       byte offset to the session's list — O(1) amortized.</li>
  *   <li><b>Read path</b>: {@link #paginate(long, int, int)}, {@link #tailTurns(long, int)}
  *       — O(1) index lookup + O(pageSize) sublist copy.</li>
- *   <li><b>Startup</b>: {@link #rebuild(MemorySegment, long, long)} scans the
+ *   <li><b>Startup</b>: {@link #rebuild(HeaderCursor, long, long)} scans the
  *       episodic region sequentially, reading each 64B header to extract
  *       {@code session_id} and {@code body_length}, recording offsets.
  *       One-time O(N) linear scan.</li>
@@ -59,7 +53,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * all sessions, this costs ~800 KB of heap. At 1M turns, ~8 MB.</p>
  *
  * @since 1.3.0
- * @see com.spectrayan.spector.kernel.engram.EpisodicHeaderLayout
  */
 public final class EpisodicSessionIndex implements com.spectrayan.spector.kernel.store.EpisodicIndexRebuilder {
 
@@ -204,47 +197,46 @@ public final class EpisodicSessionIndex implements com.spectrayan.spector.kernel
      * @param writePosition current write cursor position (exclusive end)
      * @return the number of live (non-tombstoned) records indexed
      */
-    public int rebuild(MemorySegment segment, long dataOffset, long writePosition) {
+    @Override
+    public int rebuild(HeaderCursor cursor, long dataOffset, long writePosition) {
         clear();
         int liveCount = 0;
         int tombstoneCount = 0;
-        long cursor = dataOffset;
+        long pos = dataOffset;
 
-        while (cursor + EpisodicLayout.FIXED_OVERHEAD_BYTES <= writePosition) {
-            if (!EpisodicHeaderLayout.INSTANCE.isOptionBRecord(segment, cursor)) {
+        while (pos + EpisodicLayout.FIXED_OVERHEAD_BYTES <= writePosition) {
+            cursor.seekOffset(pos);
+            if (!cursor.isOptionBRecord()) {
                 break;
             }
-            int payloadBytes = EpisodicHeaderLayout.INSTANCE.readPayloadBytes(segment, cursor);
+            int payloadBytes = cursor.payloadBytes();
             if (payloadBytes < 0) {
-                log.warn("Negative payloadBytes {} at offset {} — stopping rebuild", payloadBytes, cursor);
+                log.warn("Negative payloadBytes {} at offset {} — stopping rebuild", payloadBytes, pos);
                 break;
             }
-            long recordEnd = cursor + EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
+            long recordEnd = pos + EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
             if (recordEnd > writePosition) {
                 log.warn("Record at offset {} extends beyond write position ({} > {}) — stopping rebuild",
-                        cursor, recordEnd, writePosition);
+                        pos, recordEnd, writePosition);
                 break;
             }
-            byte flags = EpisodicHeaderLayout.INSTANCE.readFlagsRecord(segment, cursor);
-            long headerSessionId = EpisodicHeaderLayout.INSTANCE.readSessionIdRecord(segment, cursor);
+            byte flags = cursor.flags();
+            long headerSessionId = cursor.sessionId();
             long sessionId;
             if (headerSessionId != 0L) {
                 sessionId = headerSessionId;
             } else {
-                long payloadOffset = cursor + EpisodicLayout.FIXED_OVERHEAD_BYTES;
-                sessionId = (payloadBytes >= EpisodeCodec.PAYLOAD_METADATA_BYTES)
-                        ? segment.get(ValueLayout.JAVA_LONG_UNALIGNED, payloadOffset + EpisodeCodec.OFFSET_SESSION_ID)
-                        : 0L;
+                sessionId = cursor.fallbackSessionId(payloadBytes);
             }
 
             if (!EncodingHeaderFields.isTombstoned(flags)) {
-                appendTurn(sessionId, cursor - dataOffset);
+                appendTurn(sessionId, pos - dataOffset);
                 liveCount++;
             } else {
                 tombstoneCount++;
             }
 
-            cursor = recordEnd;
+            pos = recordEnd;
         }
 
         log.info("Rebuilt episodic session index: {} live records, {} tombstoned, {} sessions",
