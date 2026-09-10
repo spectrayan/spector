@@ -39,28 +39,35 @@ class KernelSealBoundaryTest {
     private static JavaClasses memoryClasses;
 
     static final Set<String> DEFERRED_FOREIGN_CLASSES_FQN = Set.of(
-            // Group 6: Scan Pipeline scheduled conversions
+            // Group 11.1: EntityDirectory and serializer off-heap carving (https://github.com/spectrayan/spector/issues/797)
+            "com.spectrayan.spector.memory.graph.EntityDirectory",
+            "com.spectrayan.spector.memory.graph.EntityDirectorySerializer",
+            // Group 11.2: HebbianGraph & SynapticDecayModulator off-heap carving (https://github.com/spectrayan/spector/issues/798)
+            "com.spectrayan.spector.memory.graph.hebbian.HebbianGraph",
+            "com.spectrayan.spector.memory.graph.hebbian.SynapticDecayModulator",
+            // Group 11.3: TemporalKnowledgeGraph & TemporalFact off-heap carving (https://github.com/spectrayan/spector/issues/799)
+            "com.spectrayan.spector.memory.graph.temporal.TemporalFact",
+            "com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph",
+            // Group 11.4: Auxiliary off-heap indexing and deduplication (https://github.com/spectrayan/spector/issues/800)
+            "com.spectrayan.spector.memory.cortex.index.IndexEntryMemory",
             "com.spectrayan.spector.memory.cortex.MemoryBM25Index",
             "com.spectrayan.spector.memory.cortex.interference.SemanticDeduplicator",
             "com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory",
-            "com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionStage",
-            "com.spectrayan.spector.memory.pathway.pipeline.gatherer.RecallCandidateGatherer",
+            // Group 11.5: Decouple recall pathways and scorer from raw MemorySegment (https://github.com/spectrayan/spector/issues/801)
             "com.spectrayan.spector.memory.synapse.CognitiveScorer",
-            // Group 7: Graph & Table APIs scheduled conversions
-            "com.spectrayan.spector.memory.cortex.index.IndexEntryMemory",
-            "com.spectrayan.spector.memory.graph.EntityDirectory",
-            "com.spectrayan.spector.memory.graph.EntityDirectorySerializer",
-            "com.spectrayan.spector.memory.graph.hebbian.HebbianGraph",
-            "com.spectrayan.spector.memory.graph.hebbian.SynapticDecayModulator",
-            "com.spectrayan.spector.memory.graph.temporal.TemporalFact",
-            "com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph"
+            "com.spectrayan.spector.memory.pathway.pipeline.GraphExpansionStage",
+            "com.spectrayan.spector.memory.pathway.pipeline.gatherer.RecallCandidateGatherer"
     );
 
     static final Set<String> DEFERRED_ARENA_CLASSES_FQN = Set.of(
-            "com.spectrayan.spector.memory.cortex.index.IndexEntryMemory",
+            // Group 11.1: EntityDirectory (https://github.com/spectrayan/spector/issues/797)
             "com.spectrayan.spector.memory.graph.EntityDirectory",
+            // Group 11.2: HebbianGraph (https://github.com/spectrayan/spector/issues/798)
             "com.spectrayan.spector.memory.graph.hebbian.HebbianGraph",
+            // Group 11.3: TemporalKnowledgeGraph (https://github.com/spectrayan/spector/issues/799)
             "com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph",
+            // Group 11.4: IndexEntryMemory & DreamJournalMemory (https://github.com/spectrayan/spector/issues/800)
+            "com.spectrayan.spector.memory.cortex.index.IndexEntryMemory",
             "com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory"
     );
 

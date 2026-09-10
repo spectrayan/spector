@@ -38,7 +38,7 @@ public final class SlabScanner {
 
     private SlabScanner() {}
 
-    public static void scan(
+    public static long scan(
             final MemorySegment segment,
             final int recordCount,
             final FixedEngramLayout layout,
@@ -52,6 +52,7 @@ public final class SlabScanner {
             final int partitionSeq,
             final SlotVisitor visitor) {
 
+        long distanceComputations = 0L;
         final int stride = layout.stride();
         final boolean hasArousal = layout.headerLayout().version() >= 2;
         final boolean hasStorageStrength = hasArousal;
@@ -166,6 +167,7 @@ public final class SlabScanner {
             final float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
                     queryVector, segment, layout.vectorOffset(offset),
                     effectiveMins, effectiveScales, layout.quantizedVecBytes());
+            distanceComputations++;
 
             // Pack HeaderBits and dispatch to visitor
             final long headerBits = HeaderBits.pack(
@@ -176,5 +178,6 @@ public final class SlabScanner {
 
             visitor.accept(i, partitionSeq, offset, headerBits, l2dist, timestamp, recordTagsLo);
         }
+        return distanceComputations;
     }
 }

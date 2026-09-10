@@ -31,7 +31,7 @@ import com.spectrayan.spector.kernel.api.MemoryType;
  *
  * @since 1.5.0
  */
-public interface EngramRegion extends AutoCloseable {
+public sealed interface EngramRegion extends AutoCloseable permits AbstractEngramMemory, EpisodicMemory {
 
     /** Size of the {@link RegionPreamble} region prologue in bytes. */
     int METADATA_PREAMBLE_BYTES = RegionPreamble.PREAMBLE_BYTES;

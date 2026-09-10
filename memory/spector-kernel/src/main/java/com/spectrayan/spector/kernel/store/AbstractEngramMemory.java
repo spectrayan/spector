@@ -52,9 +52,10 @@ import com.spectrayan.spector.kernel.score.DecayStrategy;
  * @param <L> the fixed-stride engram layout type
  * @see EngramRegion for the common interface
  */
-public abstract class AbstractEngramMemory<L extends FixedEngramLayout> 
+public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout> 
         extends AbstractRecordMemory<L> 
-        implements EngramRegion {
+        implements EngramRegion
+        permits WorkingMemory, SemanticMemory, ProceduralMemory {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractEngramMemory.class);
 
