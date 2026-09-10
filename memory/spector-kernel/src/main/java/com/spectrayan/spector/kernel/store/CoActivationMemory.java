@@ -16,6 +16,7 @@
 package com.spectrayan.spector.kernel.store;
 
 import com.spectrayan.spector.core.cognitive.ActRActivationKernel;
+import com.spectrayan.spector.core.cognitive.StdpPlasticityKernel;
 import com.spectrayan.spector.kernel.score.ProfileSlot;
 import java.util.EnumMap;
 
@@ -74,10 +75,10 @@ public final class CoActivationMemory extends AbstractHashTableMemory<CoActivati
     private static final Logger log = LoggerFactory.getLogger(CoActivationMemory.class);
 
     // ── STDP Constants ──
-    private static final float A_PLUS = 0.1f;
-    private static final float A_MINUS = 0.05f;
-    private static final float TAU_PLUS = 30000f;
-    private static final float TAU_MINUS = 30000f;
+    private static final float A_PLUS = StdpPlasticityKernel.DEFAULT_A_PLUS;
+    private static final float A_MINUS = StdpPlasticityKernel.DEFAULT_A_MINUS;
+    private static final float TAU_PLUS = StdpPlasticityKernel.DEFAULT_TAU_PLUS;
+    private static final float TAU_MINUS = StdpPlasticityKernel.DEFAULT_TAU_MINUS;
     static final float MIN_WEIGHT = 0.0f;
     static final float MAX_WEIGHT = 1.0f;
 
@@ -472,10 +473,10 @@ public final class CoActivationMemory extends AbstractHashTableMemory<CoActivati
             registerTag(tagBefore, hashBefore);
             registerTag(tagAfter, hashAfter);
 
-            float dW_causal = A_PLUS * (float) Math.exp(-dt / TAU_PLUS);
+            float dW_causal = StdpPlasticityKernel.computeCausalDeltaWeight(dt, A_PLUS, TAU_PLUS);
             edgeTable.update(hashBefore, hashAfter, dW_causal, timeAfter);
 
-            float dW_anti = -A_MINUS * (float) Math.exp(-dt / TAU_MINUS);
+            float dW_anti = StdpPlasticityKernel.computeAntiCausalDeltaWeight(dt, A_MINUS, TAU_MINUS);
             edgeTable.update(hashAfter, hashBefore, dW_anti, timeAfter);
 
             log.trace("STDP: {}→{} Δt={}ms, causal ΔW={}, anti-causal ΔW={}",

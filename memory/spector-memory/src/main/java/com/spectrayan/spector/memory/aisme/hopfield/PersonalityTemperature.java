@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.aisme.hopfield;
 
+import com.spectrayan.spector.core.cognitive.HopfieldKernel;
 import com.spectrayan.spector.memory.aisme.homeostasis.InteroceptiveState;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 
@@ -67,9 +68,6 @@ public final class PersonalityTemperature {
             }
         }
 
-        // Modulate with arousal: high arousal sharpens focus, low arousal broadens associations
-        float clampedArousal = Math.max(-1.0f, Math.min(1.0f, arousal));
-        float arousalMultiplier = 1.0f + (0.5f * clampedArousal);
-        return Math.max(0.2f, baseBeta * arousalMultiplier);
+        return HopfieldKernel.deriveBeta(baseBeta, arousal);
     }
 }

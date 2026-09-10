@@ -164,38 +164,46 @@ public record PersonalityModifiers(
         return new PersonalityModifiers(
                 // Neuroticism amplifies valence extremes:
                 // N=0 → 0.85 (dampened), N=50 → 1.0 (neutral), N=100 → 1.15 (amplified)
-                1.0f + (b5.neuroticism() - 50f) / 100f * 0.3f,
+                com.spectrayan.spector.core.cognitive.PersonalityTraitKernel.linearModulate(
+                        b5.neuroticism(), 50f, 100f, 0.3f, 1.0f),
 
                 // Self-regulation compresses arousal (inverted: high reg = lower multiplier):
                 // SR=100 → 0.85 (compressed), SR=50 → 1.0 (neutral), SR=1 → 1.15 (expanded)
-                1.15f - (eq.selfRegulation() / 100f) * 0.3f,
+                com.spectrayan.spector.core.cognitive.PersonalityTraitKernel.linearModulate(
+                        eq.selfRegulation(), 0f, 100f, -0.3f, 1.15f),
 
                 // Openness increases novelty affinity:
                 // O=0 → 0.85, O=50 → 1.0, O=100 → 1.15
-                0.85f + (b5.openness() / 100f) * 0.3f,
+                com.spectrayan.spector.core.cognitive.PersonalityTraitKernel.linearModulate(
+                        b5.openness(), 0f, 100f, 0.3f, 0.85f),
 
                 // Agreeableness buffers negative valence (inverted: high = more buffering = lower mult):
                 // A=100 → 0.85 (strong buffer), A=50 → 1.0 (neutral), A=0 → 1.15 (no buffer)
-                1.15f - (b5.agreeableness() / 100f) * 0.3f,
+                com.spectrayan.spector.core.cognitive.PersonalityTraitKernel.linearModulate(
+                        b5.agreeableness(), 0f, 100f, -0.3f, 1.15f),
 
                 // Conscientiousness enables positive reappraisal:
                 // C=0 → 0.85, C=50 → 1.0, C=100 → 1.15
-                0.85f + (b5.conscientiousness() / 100f) * 0.3f,
+                com.spectrayan.spector.core.cognitive.PersonalityTraitKernel.linearModulate(
+                        b5.conscientiousness(), 0f, 100f, 0.3f, 0.85f),
 
                 // Motivation boosts goal-relevant importance:
                 // M=1 → ~0.85, M=50 → 1.0, M=100 → 1.15
-                0.85f + (eq.motivation() / 100f) * 0.3f,
+                com.spectrayan.spector.core.cognitive.PersonalityTraitKernel.linearModulate(
+                        eq.motivation(), 0f, 100f, 0.3f, 0.85f),
 
                 // Empathy + social skills enrich social memory:
                 // avg(E,S)=1 → ~0.85, avg=50 → 1.0, avg=100 → 1.15
-                0.85f + ((eq.empathy() + eq.socialSkills()) / 200f) * 0.3f,
+                com.spectrayan.spector.core.cognitive.PersonalityTraitKernel.linearModulate(
+                        eq.empathy() + eq.socialSkills(), 0f, 200f, 0.3f, 0.85f),
 
                 // Stress response encoding quality — direct from enum:
                 stress.encodingQuality(),
 
                 // Self-relevance master weight — average of self-awareness + motivation:
                 // avg(SA,M)=1 → ~0.85, avg=50 → 1.0, avg=100 → 1.15
-                0.85f + ((eq.selfAwareness() + eq.motivation()) / 200f) * 0.3f
+                com.spectrayan.spector.core.cognitive.PersonalityTraitKernel.linearModulate(
+                        eq.selfAwareness() + eq.motivation(), 0f, 200f, 0.3f, 0.85f)
         );
     }
 

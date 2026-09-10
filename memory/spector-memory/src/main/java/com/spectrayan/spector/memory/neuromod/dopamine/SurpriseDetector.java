@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.neuromod.dopamine;
 
+import com.spectrayan.spector.core.cognitive.DopaminergicSurpriseKernel;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -125,12 +126,7 @@ public final class SurpriseDetector {
      * </pre>
      */
     public static float zScoreToImportance(double zScore) {
-        // Shifted sigmoid: σ(k · (z - center))
-        // center=1.0: moderate novelty is the midpoint
-        // steepness=1.2: gradual transition, not a cliff
-        float sigmoid = VectorOps.sigmoid((float) (1.2 * (zScore - 1.0)));
-        // Scale to [0.05, 10.0]
-        return 0.05f + sigmoid * 9.95f;
+        return DopaminergicSurpriseKernel.zScoreToImportance(zScore);
     }
 
     /**

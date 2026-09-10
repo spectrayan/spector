@@ -149,6 +149,20 @@ public final class HopfieldKernel {
         return (-1.0f / beta) * lse + 0.5f * normSq;
     }
 
+    /**
+     * Derives the adaptive inverse temperature beta from base beta and normalized arousal.
+     * High arousal sharpens focus (tighter attractor basins), low arousal broadens associative search.
+     *
+     * @param baseBeta baseline inverse temperature
+     * @param arousal  normalized arousal in [-1.0, 1.0]
+     * @return modulated positive beta >= 0.2f
+     */
+    public static float deriveBeta(final float baseBeta, final float arousal) {
+        final float clampedArousal = Math.clamp(arousal, -1.0f, 1.0f);
+        final float arousalMultiplier = 1.0f + (0.5f * clampedArousal);
+        return Math.max(0.2f, baseBeta * arousalMultiplier);
+    }
+
     private static void validateInputs(float[] state, float[][] patterns, float[] outDots) {
         if (state == null || patterns == null || outDots == null) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Arguments must not be null");
