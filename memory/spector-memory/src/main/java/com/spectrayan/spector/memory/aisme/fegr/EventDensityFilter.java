@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.aisme.fegr;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.core.cognitive.EventDensityKernel;
 import com.spectrayan.spector.core.cognitive.FreeEnergyKernel;
 import com.spectrayan.spector.config.properties.AismeProperties;
 
@@ -106,7 +107,8 @@ public final class EventDensityFilter {
                 selfModel.observationPrecision()
         );
 
-        float eventDensity = (alphaKl * kl) + (betaGradient * gradNorm) + (gammaSurprise * surprisal);
+        float eventDensity = EventDensityKernel.computeEventDensity(
+                kl, gradNorm, surprisal, alphaKl, betaGradient, gammaSurprise);
         boolean isSalient = eventDensity >= threshold;
         float samplingRate = rateController.computeSamplingRate(eventDensity);
 

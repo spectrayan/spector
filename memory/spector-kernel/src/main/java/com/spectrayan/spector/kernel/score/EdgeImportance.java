@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.score;
 
+import com.spectrayan.spector.core.cognitive.EdgeImportanceKernel;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
@@ -28,25 +29,29 @@ import static com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.is
  *
  * <h3>Biological Grounding</h3>
  * <p>Each signal in the scoring formula maps to a well-established biological
- * mechanism for synaptic pruning and potentiation:</p>
- * <ul>
- *   <li><b>Weight (Hebbian LTP)</b> — "cells that fire together wire together"</li>
- *   <li><b>Recency (STC theory)</b> — early-LTP without consolidation decays</li>
- *   <li><b>Bridge score</b> — hub neurons with high betweenness centrality</li>
- *   <li><b>Redundancy</b> — synaptic competition prunes redundant connections</li>
- *   <li><b>Memory importance (ACT-R)</b> — base-level activation transfers to edges</li>
- *   <li><b>Arousal (amygdala)</b> — emotionally intense edges resist pruning</li>
- *   <li><b>Valence congruence</b> — mood-congruent memories form stronger bonds</li>
- *   <li><b>Storage strength (Two-Factor)</b> — deeply encoded memories protect edges</li>
- *   <li><b>Zeigarnik protection</b> — unfinished tasks keep their network active</li>
- * </ul>
+ * mechanism of synaptic plasticity, maintenance, or pruning:</p>
+ * <ol>
+ *   <li><b>Weight</b> (Hebbian LTP): Frequently co-recalled memories have strong
+ *       synaptic connections that should be preserved.</li>
+ *   <li><b>Recency</b> (Synaptic Tagging &amp; Capture): Recently activated edges
+ *       are in an early-LTP state and decay exponentially unless consolidated.</li>
+ *   <li><b>Bridge Score</b> (Betweenness Centrality): Edges that connect otherwise-
+ *       disconnected graph clusters act like critical neural pathways between brain regions.</li>
+ *   <li><b>Redundancy</b> (Synaptic Competition): Edges with many alternative paths
+ *       (high shared neighbor count) are pruned first, freeing capacity.</li>
+ *   <li><b>Memory Importance</b> (ACT-R Base-Level Transfer): High-importance memories
+ *       transfer protection to their incident edges.</li>
+ *   <li><b>Arousal</b> (Amygdala Modulation): Emotionally intense memories form
+ *       more durable associations.</li>
+ *   <li><b>Valence Congruence</b> (Mood-Congruent Bonding): Memories of similar emotional
+ *       valence are more likely to be co-retrieved.</li>
+ *   <li><b>Storage Strength</b> (Two-Factor Memory): Memories with high storage strength
+ *       have entrenched associations that resist decay.</li>
+ *   <li><b>Zeigarnik Protection</b> (Task Completion): Edges involving unresolved
+ *       intentions or pinned memories receive eviction immunity.</li>
+ * </ol>
  *
- * <h3>Performance</h3>
- * <p>All computations are branch-free arithmetic (~20 cycles total). Memory-derived
- * signals require off-heap header reads at the call site but are NOT performed inside
- * this scorer. This class is a pure function — no I/O, no locks, no state.</p>
- *
- * @see BridgeDetector
+ * <p>All signals are normalized to [0, 1] before weighted linear combination.</p>
  */
 public final class EdgeImportance {
 
@@ -61,6 +66,7 @@ public final class EdgeImportance {
     private final float wValence;
     private final float wStorage;
     private final float wZeigarnik;
+    private final float[] weightsArray;
 
     /** Default signal weights — neuroscience-informed initial tuning. */
     public static final EdgeImportance DEFAULT = new EdgeImportance(
@@ -93,6 +99,9 @@ public final class EdgeImportance {
         this.wValence = wValence;
         this.wStorage = wStorage;
         this.wZeigarnik = wZeigarnik;
+        this.weightsArray = new float[] {
+                wWeight, wRecency, wBridge, wRedundancy, wImportance, wArousal, wValence, wStorage, wZeigarnik
+        };
     }
 
     /**
@@ -126,56 +135,13 @@ public final class EdgeImportance {
                        float storageStrengthA, float storageStrengthB,
                        byte flagsA, byte flagsB) {
 
-        // Signal 1: Weight — Hebbian LTP ("cells that fire together wire together")
-        // Sigmoid normalization: maps co-recall count to [0, 1]
-        float weightSignal = VectorOps.sigmoid(weight - 3.0f);
+        boolean isProtectedA = !isResolved(flagsA) || isPinned(flagsA);
+        boolean isProtectedB = !isResolved(flagsB) || isPinned(flagsB);
 
-        // Signal 2: Recency — STC theory (early-LTP without consolidation decays)
-        // Exponential decay with ~50 cycle half-life (ln(2)/72 ≈ 0.0096)
-        float recencySignal = (float) Math.exp(-(currentCycle - lastCycle) / 72.0);
-
-        // Signal 3: Bridge score — hub neurons with high betweenness centrality
-        float bridgeSignal = bridgeScore / 255.0f;
-
-        // Signal 4: Redundancy — synaptic competition (prune redundant connections)
-        // More shared neighbors = lower importance (this edge is replaceable)
-        float redundancy = 1.0f / (1.0f + sharedNeighbors * 0.3f);
-
-        // Signal 5: Memory importance — ACT-R base-level activation transfer
-        // High-importance memories transfer protection to their edges
-        float avgImportance = (importanceA + importanceB) / 2.0f;
-        float importanceSignal = Math.min(1.0f, avgImportance / 10.0f);
-
-        // Signal 6: Arousal — amygdala-mediated connection strengthening
-        // If EITHER memory is emotionally intense, the edge is protected
-        int arousalMax = Math.max(
-                Byte.toUnsignedInt(arousalA), Byte.toUnsignedInt(arousalB));
-        float arousalSignal = arousalMax / 255.0f;
-
-        // Signal 7: Valence congruence — mood-congruent memory bonding (Bower, 1981)
-        // Same-valence memories form stronger associations
-        float valenceDiff = Math.abs(valenceA - valenceB) / 255.0f;
-        float valenceCongruence = 1.0f - valenceDiff;
-
-        // Signal 8: Storage strength — Two-Factor Memory resilience (Bjork & Bjork)
-        // Deeply encoded memories protect their connections
-        float avgStorage = (storageStrengthA + storageStrengthB) / 2.0f;
-        float storageSignal = Math.min(1.0f, Math.max(0.0f, (avgStorage - 1.0f) / 4.0f));
-
-        // Signal 9: Zeigarnik protection — unfinished tasks keep their network active
-        boolean eitherUnresolved = !isResolved(flagsA) || !isResolved(flagsB);
-        boolean eitherPinned = isPinned(flagsA) || isPinned(flagsB);
-        float protectionBoost = (eitherUnresolved || eitherPinned) ? 0.2f : 0.0f;
-
-        return wWeight     * weightSignal
-             + wRecency    * recencySignal
-             + wBridge     * bridgeSignal
-             + wRedundancy * redundancy
-             + wImportance * importanceSignal
-             + wArousal    * arousalSignal
-             + wValence    * valenceCongruence
-             + wStorage    * storageSignal
-             + wZeigarnik  * protectionBoost;
+        return EdgeImportanceKernel.score(
+                weight, currentCycle, lastCycle, bridgeScore, sharedNeighbors,
+                importanceA, importanceB, arousalA, arousalB, valenceA, valenceB,
+                storageStrengthA, storageStrengthB, isProtectedA, isProtectedB, weightsArray);
     }
 
     /**
@@ -194,18 +160,7 @@ public final class EdgeImportance {
      */
     public float scoreStructural(float weight, int currentCycle, int lastCycle,
                                  int bridgeScore, int sharedNeighbors) {
-        float weightSignal = VectorOps.sigmoid(weight - 3.0f);
-        float recencySignal = (float) Math.exp(-(currentCycle - lastCycle) / 72.0);
-        float bridgeSignal = bridgeScore / 255.0f;
-        float redundancy = 1.0f / (1.0f + sharedNeighbors * 0.3f);
-
-        // Redistribute neuroscience weights to structural signals
-        float totalStructural = wWeight + wRecency + wBridge + wRedundancy;
-        if (totalStructural <= 0.0f) totalStructural = 1.0f;
-
-        return (wWeight / totalStructural)     * weightSignal
-             + (wRecency / totalStructural)    * recencySignal
-             + (wBridge / totalStructural)     * bridgeSignal
-             + (wRedundancy / totalStructural) * redundancy;
+        return EdgeImportanceKernel.scoreStructural(
+                weight, currentCycle, lastCycle, bridgeScore, sharedNeighbors, weightsArray);
     }
 }
