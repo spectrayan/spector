@@ -20,9 +20,6 @@ import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
-import com.spectrayan.spector.kernel.engram.EpisodicHeaderLayout;
-
-import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 /**
@@ -112,27 +109,20 @@ public final class SynapticDecayModulator implements DecayModulator {
         var episodic = cognitiveRouter.episodic();
         if (episodic == null) return;
 
-        MemorySegment segment = episodic.segment();
-        long base = episodic.dataOffset();
         List<Long> offsets = episodic.unconsolidatedTurnOffsets();
         int count = Math.min(offsets.size(), capacity);
 
         for (int i = 0; i < count; i++) {
             try {
-                long offset = base + offsets.get(i);
-                if (EpisodicHeaderLayout.INSTANCE.isOptionBRecord(segment, offset)) {
-                    byte flags = EpisodicHeaderLayout.INSTANCE.readFlagsRecord(segment, offset);
-                    if (EncodingHeaderFields.isTombstoned(flags)) continue;
+                var snap = episodic.readTurnHeaderSnapshot(offsets.get(i));
+                if (snap.isOptionB()) {
+                    if (snap.tombstoned()) continue;
 
-                    float importance = EpisodicHeaderLayout.INSTANCE.readImportanceRecord(segment, offset);
-                    byte arousal = EpisodicHeaderLayout.INSTANCE.readArousalRecord(segment, offset);
-                    byte valence = EpisodicHeaderLayout.INSTANCE.readValenceRecord(segment, offset);
-
-                    float normArousal = (arousal & 0xFF) / 255.0f;
-                    float normValence = Math.abs(valence) / 127.0f;
+                    float normArousal = (snap.arousal() & 0xFF) / 255.0f;
+                    float normValence = Math.abs(snap.valence()) / 127.0f;
 
                     float modifier = 1.0f
-                            + 0.3f * importance
+                            + 0.3f * snap.importance()
                             + 0.2f * normArousal
                             + 0.1f * normValence;
 

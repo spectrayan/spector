@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.aisme.fegr.MentalStatePosterior;
 import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
 import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;
 import com.spectrayan.spector.memory.aisme.homeostasis.InteroceptiveState;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.kernel.api.MemoryType;

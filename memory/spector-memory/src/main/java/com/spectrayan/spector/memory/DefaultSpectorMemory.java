@@ -35,14 +35,14 @@ import com.spectrayan.spector.kernel.store.EngramRegion;
 import com.spectrayan.spector.kernel.store.ContinuityMemory;
 import com.spectrayan.spector.kernel.store.EpisodicMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.pathway.decide.relay.DecideReport;
 import com.spectrayan.spector.memory.pathway.decide.relay.DecideSignal;
 import com.spectrayan.spector.memory.neuromod.dopamine.DefaultImportanceProvider;
 import com.spectrayan.spector.memory.neuromod.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
+import com.spectrayan.spector.kernel.api.DreamMode;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
 import com.spectrayan.spector.memory.error.SpectorGraphDecayException;
 import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
@@ -66,7 +66,6 @@ import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 import com.spectrayan.spector.kernel.store.InsulaMemory;
-import com.spectrayan.spector.memory.cortex.interference.SemanticDeduplicator;
 import com.spectrayan.spector.kernel.shape.Memory;
 import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
@@ -129,7 +128,7 @@ import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.VacuumCompactor;
 import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.kernel.store.TemporalChainMemory;
-import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
+import com.spectrayan.spector.kernel.store.TemporalFact;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.pathway.wander.relay.WanderReport;
 
@@ -168,7 +167,7 @@ import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTReranker;
 import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTTokenCache;
 import com.spectrayan.spector.memory.neuromod.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
@@ -191,7 +190,6 @@ import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 
-import com.spectrayan.spector.memory.cortex.interference.SemanticDeduplicator;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.cortex.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
@@ -225,7 +223,7 @@ import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.namespace.NamespaceQuotas;
 import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
-import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
+import com.spectrayan.spector.kernel.store.TemporalFact;
 
 
 import org.slf4j.Logger;
@@ -1240,11 +1238,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public com.spectrayan.spector.memory.pathway.dream.relay.DreamReport dream(
-            com.spectrayan.spector.memory.pathway.dream.relay.DreamMode mode) {
+            com.spectrayan.spector.kernel.api.DreamMode mode) {
         acquireLease();
         try {
             if (dreamPathway != null) {
-                return dreamPathway.dream(mode != null ? mode : com.spectrayan.spector.memory.pathway.dream.relay.DreamMode.REM, partitionManager, null);
+                return dreamPathway.dream(mode != null ? mode : com.spectrayan.spector.kernel.api.DreamMode.REM, partitionManager, null);
             }
             return com.spectrayan.spector.memory.pathway.dream.relay.DreamReport.empty();
         } finally {
@@ -1254,7 +1252,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public com.spectrayan.spector.memory.pathway.dream.relay.DreamReport dream() {
-        return dream(com.spectrayan.spector.memory.pathway.dream.relay.DreamMode.REM);
+        return dream(com.spectrayan.spector.kernel.api.DreamMode.REM);
     }
 
     @Override

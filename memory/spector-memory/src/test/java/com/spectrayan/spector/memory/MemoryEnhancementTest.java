@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.api.CognitiveProfileConfig;
 
 import com.spectrayan.spector.memory.model.*;
 
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.kernel.score.DecayStrategy;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;

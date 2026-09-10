@@ -22,10 +22,10 @@ import com.spectrayan.spector.memory.api.MemoryRecall;
 import com.spectrayan.spector.memory.api.MemoryReflection;
 import com.spectrayan.spector.memory.api.MemoryRemember;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.pathway.decide.relay.DecideReport;
 import com.spectrayan.spector.memory.pathway.decide.relay.DecideSignal;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
+import com.spectrayan.spector.kernel.api.DreamMode;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
 import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
 import com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal;
@@ -69,11 +69,11 @@ import com.spectrayan.spector.memory.scheduler.MemoryScheduler;
 import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.kernel.store.TemporalChainMemory;
-import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
+import com.spectrayan.spector.kernel.store.TemporalFact;
 import com.spectrayan.spector.memory.pathway.wander.relay.WanderReport;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.kernel.store.CoActivationMemory;
@@ -101,7 +101,7 @@ import com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.cortex.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.kernel.store.TemporalChainMemory;
-import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
+import com.spectrayan.spector.kernel.store.TemporalFact;
 import com.spectrayan.spector.kernel.api.ConversationRole;
 import com.spectrayan.spector.kernel.api.SourceModality;
 import com.spectrayan.spector.memory.api.MemoryAdminView;
@@ -350,7 +350,7 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * @param mode dreaming mode (REM, DAYDREAM, THOUGHT_EXPERIMENT)
      * @return resulting dream report
      */
-    default com.spectrayan.spector.memory.pathway.dream.relay.DreamReport dream(com.spectrayan.spector.memory.pathway.dream.relay.DreamMode mode) {
+    default com.spectrayan.spector.memory.pathway.dream.relay.DreamReport dream(com.spectrayan.spector.kernel.api.DreamMode mode) {
         return com.spectrayan.spector.memory.pathway.dream.relay.DreamReport.empty();
     }
 
@@ -360,7 +360,7 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * @return resulting dream report
      */
     default com.spectrayan.spector.memory.pathway.dream.relay.DreamReport dream() {
-        return dream(com.spectrayan.spector.memory.pathway.dream.relay.DreamMode.REM);
+        return dream(com.spectrayan.spector.kernel.api.DreamMode.REM);
     }
 
     /**

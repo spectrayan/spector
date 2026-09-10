@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.cortex.consolidation;
 import com.spectrayan.spector.kernel.api.MemoryLocation;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.kernel.store.SemanticMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.kernel.api.MemoryType;

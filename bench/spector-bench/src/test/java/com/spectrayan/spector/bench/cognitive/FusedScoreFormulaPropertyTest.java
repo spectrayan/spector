@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
+import com.spectrayan.spector.kernel.store.EngramRegion;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.List;
@@ -112,8 +114,7 @@ class FusedScoreFormulaPropertyTest {
                     .synapticFilter("test-tag")
                     .build();
 
-            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
-                    segment, corpusSize, layout, queryVec, options, nowMs);
+            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(EngramRegion.of(segment, corpusSize, layout), queryVec, options, nowMs);
 
             if (!results.isEmpty()) {
                 float actualScore = results.getFirst().score();

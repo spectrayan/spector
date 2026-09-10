@@ -19,7 +19,7 @@ import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.spectrayan.spector.memory.aisme.narrative.NarrativeSelfEngine;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;

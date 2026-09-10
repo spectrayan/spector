@@ -1,22 +1,25 @@
 /*
  * Copyright 2026 Spectrayan
  *
- * Licensed under the Business Source License 1.1 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     https://github.com/spectrayan/spector/blob/main/spector-memory/LICENSE
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Change Date: May 27, 2030
- * Change License: Apache License, Version 2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-package com.spectrayan.spector.memory.cortex.interference;
+package com.spectrayan.spector.kernel.scan;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.kernel.layout.EngramLayout;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
-import com.spectrayan.spector.memory.synapse.IdentityCalibration;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,7 +81,7 @@ public final class SemanticDeduplicator {
      * @return the index of the nearest duplicate (if within radius), or empty
      */
     public Optional<Integer> findDuplicate(float[] newVector, MemorySegment segment,
-                                            int recordCount, EngramLayout layout) {
+                                            int recordCount, FixedEngramLayout layout) {
         return findDuplicate(newVector, segment, recordCount, layout, 0L, null, null);
     }
 
@@ -94,7 +97,7 @@ public final class SemanticDeduplicator {
      * @return the index of the nearest duplicate (if within radius), or empty
      */
     public Optional<Integer> findDuplicate(float[] newVector, MemorySegment segment,
-                                            int recordCount, EngramLayout layout,
+                                            int recordCount, FixedEngramLayout layout,
                                             long baseOffset) {
         return findDuplicate(newVector, segment, recordCount, layout, baseOffset, null, null);
     }
@@ -118,7 +121,7 @@ public final class SemanticDeduplicator {
      * @return the index of the nearest duplicate (if within radius), or empty
      */
     public Optional<Integer> findDuplicate(float[] newVector, MemorySegment segment,
-                                            int recordCount, EngramLayout layout,
+                                            int recordCount, FixedEngramLayout layout,
                                             long baseOffset, float[] mins, float[] scales) {
         float minDistance = Float.MAX_VALUE;
         int minIndex = -1;
@@ -163,7 +166,7 @@ public final class SemanticDeduplicator {
      *
      * <p>Updates: timestamp (refresh), importance (max), synaptic tags (OR).</p>
      */
-    public void merge(MemorySegment segment, long offset, EngramLayout layout,
+    public void merge(MemorySegment segment, long offset, FixedEngramLayout layout,
                        EncodingHeader newHeader) {
         // Refresh timestamp to current time
         layout.writeTimestamp(segment, offset, newHeader.timestampMs());
@@ -179,5 +182,4 @@ public final class SemanticDeduplicator {
         log.debug("Merged memory at offset {}: importance {} → {}", offset,
                 existingImportance, mergedImportance);
     }
-
 }

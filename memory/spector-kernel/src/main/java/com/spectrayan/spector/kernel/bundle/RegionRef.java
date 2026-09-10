@@ -128,6 +128,14 @@ public final class RegionRef {
         bundle.ensureCapacity(id, requiredBytes);
     }
 
+    /**
+     * Returns the byte size of this region slice, or 0 if unmapped or null.
+     */
+    public long byteSize() {
+        MemorySegment slice = resolve();
+        return slice != null ? slice.byteSize() : 0L;
+    }
+
     @Override
     public String toString() {
         return "RegionRef[" + id + "@gen" + generation() + "]";

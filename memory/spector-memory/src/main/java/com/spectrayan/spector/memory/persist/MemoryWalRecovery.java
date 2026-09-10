@@ -17,7 +17,7 @@ import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 
 import com.spectrayan.spector.memory.bootstrap.SpectorMemoryFactory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.error.SpectorWalCorruptionException;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
@@ -42,7 +42,7 @@ import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 
 import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;

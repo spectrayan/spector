@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.e2e;
 
 import com.spectrayan.spector.kernel.api.MemoryType;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

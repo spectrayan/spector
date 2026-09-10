@@ -41,7 +41,7 @@ import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.kernel.api.EpisodeRecord;
 import com.spectrayan.spector.kernel.store.EpisodicMemory;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.model.CognitiveResult;

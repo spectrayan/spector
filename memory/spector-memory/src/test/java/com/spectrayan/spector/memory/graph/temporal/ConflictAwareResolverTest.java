@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.graph.temporal;
 
+import com.spectrayan.spector.kernel.store.TemporalFact;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;

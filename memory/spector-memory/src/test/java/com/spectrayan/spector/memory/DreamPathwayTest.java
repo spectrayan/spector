@@ -11,6 +11,8 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory;
+
+import com.spectrayan.spector.kernel.api.TriageOutcome;
 import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 
 import com.spectrayan.spector.kernel.id.MemoryId;
@@ -19,7 +21,7 @@ import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
+import com.spectrayan.spector.kernel.api.DreamMode;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamSignal;
 import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
@@ -224,7 +226,7 @@ class DreamPathwayTest {
             assertThat(signal.salienceProfile()).isEqualTo(profile);
             assertThat(signal.constructedScenes()).isNotEmpty();
             // At least one constructed scene aligns with soul and gets IDENTITY
-            assertThat(signal.survivingScenes()).anyMatch(s -> s.triageOutcome() == DreamSignal.TriageOutcome.IDENTITY);
+            assertThat(signal.survivingScenes()).anyMatch(s -> s.triageOutcome() == TriageOutcome.IDENTITY);
         }
     }
 }

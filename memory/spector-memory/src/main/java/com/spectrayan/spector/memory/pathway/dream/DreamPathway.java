@@ -34,7 +34,7 @@ import com.spectrayan.spector.memory.pathway.dream.relay.DreamGateRelay;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamGates;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamIngestionRelay;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamJournalRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
+import com.spectrayan.spector.kernel.api.DreamMode;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamSignal;
 import com.spectrayan.spector.memory.pathway.dream.relay.EfeTriageRelay;

@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
+import com.spectrayan.spector.kernel.api.DreamMode;
+import com.spectrayan.spector.kernel.api.TriageOutcome;
+
 import com.spectrayan.spector.kernel.id.MemoryId;
 
 import com.spectrayan.spector.memory.persist.PartitionManager;
@@ -49,9 +52,6 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public final class DreamSignal {
 
-    public enum TriageOutcome {
-        EPISTEMIC, PRAGMATIC, IDENTITY, NOISE
-    }
 
     public record DreamScene(
             String id,

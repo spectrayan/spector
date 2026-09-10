@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.api;
 import com.spectrayan.spector.memory.aisme.continuity.IdentityTrajectorySnapshot;
 import com.spectrayan.spector.memory.pathway.decide.relay.DecideReport;
 import com.spectrayan.spector.memory.pathway.decide.relay.DecideSignal;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
+import com.spectrayan.spector.kernel.api.DreamMode;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
 import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
 import com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal;

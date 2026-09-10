@@ -67,7 +67,7 @@ class ModuleBoundaryTest {
                         )
                         // Pre-existing boundary defects unmasked by ArchUnit 1.4.2 upgrade (#734, #793):
                         // 1. MemorySource currently resides in cortex; moving to kernel.api in Group 4 (R5.2)
-                        .and(not(equivalentTo(com.spectrayan.spector.memory.cortex.MemorySource.class)))
+                        .and(not(equivalentTo(com.spectrayan.spector.kernel.api.MemorySource.class)))
                         // 2. ProspectiveScheduler is returned by SpectorMemoryAdmin.prospective()
                         .and(not(equivalentTo(com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler.class)))
                 )

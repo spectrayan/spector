@@ -21,7 +21,7 @@ import com.spectrayan.spector.memory.aisme.privacy.DifferentialPrivacyEngine;
 import com.spectrayan.spector.memory.aisme.privacy.EdgeAnonymizer;
 import com.spectrayan.spector.memory.aisme.relay.DifferentialPrivacyRelay;
 import com.spectrayan.spector.memory.aisme.relay.EdgeAnonymizationRelay;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;

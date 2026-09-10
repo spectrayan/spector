@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.store;
 
+import java.lang.foreign.MemorySegment;
 import java.nio.file.Path;
 
 import com.spectrayan.spector.kernel.layout.RegionLayout;
@@ -22,6 +23,8 @@ import com.spectrayan.spector.kernel.region.RegionPreamble;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.scan.ScanFilter;
+import com.spectrayan.spector.kernel.scan.SlotVisitor;
 
 /**
  * Standardized interface for engram memory stores in Spector Memory (ADR-0030).
@@ -31,7 +34,7 @@ import com.spectrayan.spector.kernel.api.MemoryType;
  *
  * @since 1.5.0
  */
-public sealed interface EngramRegion extends AutoCloseable permits AbstractEngramMemory, EpisodicMemory {
+public sealed interface EngramRegion extends AutoCloseable permits AbstractEngramMemory, EpisodicMemory, SegmentEngramRegion {
 
     /** Size of the {@link RegionPreamble} region prologue in bytes. */
     int METADATA_PREAMBLE_BYTES = RegionPreamble.PREAMBLE_BYTES;
@@ -177,6 +180,42 @@ public sealed interface EngramRegion extends AutoCloseable permits AbstractEngra
     }
 
 
+
+    /**
+     * Scans this engram region with the given filter and visitor.
+     */
+    void scan(float[] query, float[] mins, float[] scales, ScanFilter filter,
+              StrengthMemory strengthStore, int partitionSeq, SlotVisitor visitor);
+
+    /**
+     * Scans this engram region with the given filter and visitor using default partition 0.
+     */
+    default void scan(float[] query, float[] mins, float[] scales, ScanFilter filter,
+                      SlotVisitor visitor) {
+        scan(query, mins, scales, filter, null, 0, visitor);
+    }
+
+    /**
+     * Creates an engram region view over an existing memory segment.
+     */
+    static EngramRegion of(MemorySegment segment, int recordCount, FixedEngramLayout layout) {
+        return new SegmentEngramRegion(segment, recordCount, layout);
+    }
+
+    /**
+     * Creates an engram region view over an existing memory segment with explicit data offset.
+     */
+    static EngramRegion of(MemorySegment segment, int recordCount, FixedEngramLayout layout, long dataOffset) {
+        return new SegmentEngramRegion(segment, recordCount, layout, MemoryType.WORKING, dataOffset);
+    }
+
+    /**
+     * Creates an engram region view over an existing memory segment with explicit memory tier and data offset.
+     */
+    static EngramRegion of(MemorySegment segment, int recordCount, FixedEngramLayout layout,
+                           MemoryType type, long dataOffset) {
+        return new SegmentEngramRegion(segment, recordCount, layout, type, dataOffset);
+    }
 
     /**
      * Closes the memory store and releases off-heap resources.

@@ -178,7 +178,7 @@ public final class ConstructiveSimulationRelay implements SynapticRelay<RecallSi
                                 0,
                                 (byte) ((r1.valence() + r2.valence()) / 2),
                                 com.spectrayan.spector.kernel.api.MemoryType.EPISODIC,
-                                com.spectrayan.spector.memory.cortex.MemorySource.INFERRED,
+                                com.spectrayan.spector.kernel.api.MemorySource.INFERRED,
                                 new String[]{"simulated", "counterfactual", "constructive"},
                                 1.0f,
                                 1.0f,

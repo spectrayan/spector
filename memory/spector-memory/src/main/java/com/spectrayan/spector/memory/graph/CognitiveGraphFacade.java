@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.model.GraphTraversalResult.DiscoveredEntity
 import com.spectrayan.spector.memory.model.GraphTraversalResult.RelationalPath;
 import com.spectrayan.spector.memory.model.GraphTraversalResult.PathNode;
 import com.spectrayan.spector.memory.model.GraphTraversalResult.GroundingMemory;
-import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
+import com.spectrayan.spector.kernel.store.TemporalFact;
 import java.time.Instant;
 
 import com.spectrayan.spector.commons.cache.SpectorCache;

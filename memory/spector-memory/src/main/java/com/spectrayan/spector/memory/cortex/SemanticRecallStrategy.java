@@ -11,6 +11,8 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.cortex;
+
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.kernel.score.Valence;
 import com.spectrayan.spector.kernel.store.SemanticMemory;
 import com.spectrayan.spector.kernel.store.StrengthMemory;

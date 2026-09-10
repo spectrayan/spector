@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.scheduler.jobs;
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.config.properties.AismeProperties;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamMode;
+import com.spectrayan.spector.kernel.api.DreamMode;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
 import com.spectrayan.spector.commons.concurrent.OnPlane;
 import com.spectrayan.spector.commons.concurrent.ThreadPlane;

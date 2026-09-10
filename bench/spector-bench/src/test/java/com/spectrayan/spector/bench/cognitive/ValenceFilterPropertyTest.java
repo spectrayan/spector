@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.bench.cognitive;
+
+import com.spectrayan.spector.kernel.store.EngramRegion;
 import com.spectrayan.spector.kernel.score.Valence;
 
 import java.lang.foreign.Arena;
@@ -83,8 +85,7 @@ class ValenceFilterPropertyTest {
                     .maxValence(range.max())
                     .build();
 
-            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
-                    segment, corpusSize, layout, queryVec, options, System.currentTimeMillis());
+            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(EngramRegion.of(segment, corpusSize, layout), queryVec, options, System.currentTimeMillis());
 
             // Verify all results have valence within range
             for (CognitiveScorer.ScoredRecord result : results) {

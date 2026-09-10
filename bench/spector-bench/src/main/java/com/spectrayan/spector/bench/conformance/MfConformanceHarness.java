@@ -48,7 +48,7 @@ import com.spectrayan.spector.bench.conformance.model.MfValenceWindow;
 
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.kernel.layout.EngramLayout;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;

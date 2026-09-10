@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.pathway.pipeline.graph;
 import com.spectrayan.spector.kernel.api.MemoryLocation;
 
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
-import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
+import com.spectrayan.spector.kernel.store.TemporalFact;
 import com.spectrayan.spector.memory.cortex.consolidation.CadpContradictionResolver;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractor;

@@ -16,7 +16,7 @@ import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index.BM25Candidate;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
@@ -33,7 +33,6 @@ import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.config.model.TextSearchMode;
 import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 
-import java.lang.foreign.MemorySegment;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;

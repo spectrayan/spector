@@ -1,19 +1,22 @@
 /*
  * Copyright 2026 Spectrayan
  *
- * Licensed under the Business Source License 1.1 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     https://github.com/spectrayan/spector/blob/main/spector-memory/LICENSE
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Change Date: May 27, 2030
- * Change License: Apache License, Version 2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-package com.spectrayan.spector.memory.graph;
+package com.spectrayan.spector.kernel.graph;
 
-import com.spectrayan.spector.memory.persist.DataEncryptor;
-import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
+import com.spectrayan.spector.kernel.storage.PayloadEncryptor;
+import com.spectrayan.spector.kernel.error.SpectorGraphPersistenceException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +45,7 @@ final class EntityDirectorySerializer {
     private EntityDirectorySerializer() {} // utility class
 
     /** Writes the directory's name index as a sidecar next to its {@code .edir} container. */
-    static void saveNameIndexSidecar(EntityDirectory directory, Path filePath, DataEncryptor encryptor) {
+    static void saveNameIndexSidecar(EntityDirectory directory, Path filePath, PayloadEncryptor encryptor) {
         Path parent = filePath.getParent();
         if (parent == null) return;
         try {
@@ -68,7 +71,7 @@ final class EntityDirectorySerializer {
      * Loads the {@value EntityDirectory#NAME_INDEX_SIDECAR} sidecar next to a directory container,
      * or an empty map when absent.
      */
-    static ConcurrentHashMap<String, Integer> loadNameIndexSidecar(Path graphFile, DataEncryptor encryptor) {
+    static ConcurrentHashMap<String, Integer> loadNameIndexSidecar(Path graphFile, PayloadEncryptor encryptor) {
         Path parent = graphFile.getParent();
         Path nameIndexPath = parent != null ? parent.resolve(EntityDirectory.NAME_INDEX_SIDECAR) : null;
         if (nameIndexPath == null || !Files.exists(nameIndexPath)) {
@@ -86,7 +89,7 @@ final class EntityDirectorySerializer {
     // ── Name-index byte codec ──
 
     private static void writeNameIndex(FileChannel ch, ConcurrentHashMap<String, Integer> nameIndex,
-                                       boolean encrypt, DataEncryptor encryptor) throws IOException {
+                                       boolean encrypt, PayloadEncryptor encryptor) throws IOException {
         ByteArrayOutputStream nameStream = new ByteArrayOutputStream();
         ByteBuffer nameCountBuf = ByteBuffer.allocate(4);
         nameCountBuf.putInt(nameIndex.size());
@@ -111,7 +114,7 @@ final class EntityDirectorySerializer {
         ch.write(flagBuf);
 
         if (encrypt) {
-            byte[] encrypted = encryptor.encryptText(nameIndexBytes);
+            byte[] encrypted = encryptor.encrypt(nameIndexBytes);
             ByteBuffer blobLenBuf = ByteBuffer.allocate(4);
             blobLenBuf.putInt(encrypted.length);
             blobLenBuf.flip();
@@ -123,7 +126,7 @@ final class EntityDirectorySerializer {
     }
 
     private static ConcurrentHashMap<String, Integer> readNameIndex(
-            FileChannel ch, DataEncryptor encryptor) throws IOException {
+            FileChannel ch, PayloadEncryptor encryptor) throws IOException {
         ByteBuffer flagBuf = ByteBuffer.allocate(1);
         ch.read(flagBuf);
         flagBuf.flip();
@@ -145,7 +148,7 @@ final class EntityDirectorySerializer {
                 log.error("EntityDirectory name index is encrypted but no encryptor available — names will be empty");
                 return new ConcurrentHashMap<>();
             }
-            return parseNameIndexBytes(encryptor.decryptText(encrypted));
+            return parseNameIndexBytes(encryptor.decrypt(encrypted));
         } else if (flag == 0x00) {
             return readNameIndexFromChannel(ch);
         } else {

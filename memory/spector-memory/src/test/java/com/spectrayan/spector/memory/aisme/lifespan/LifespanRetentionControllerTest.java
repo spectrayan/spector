@@ -133,7 +133,7 @@ class LifespanRetentionControllerTest {
                 new float[]{0.1f, 0.2f},
                 com.spectrayan.spector.kernel.api.MemoryType.EPISODIC,
                 new String[]{"soul:covenant"},
-                com.spectrayan.spector.memory.cortex.MemorySource.OBSERVED,
+                com.spectrayan.spector.kernel.api.MemorySource.OBSERVED,
                 null,
                 com.spectrayan.spector.memory.model.SalienceProfile.NEUTRAL,
                 (short) 1

@@ -49,7 +49,17 @@ import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
  *
  * @see NoopDataEncryptor
  */
-public interface DataEncryptor {
+public interface DataEncryptor extends com.spectrayan.spector.kernel.storage.PayloadEncryptor {
+
+    @Override
+    default byte[] encrypt(byte[] plaintext) {
+        return encryptPayload(plaintext);
+    }
+
+    @Override
+    default byte[] decrypt(byte[] ciphertext) {
+        return decryptPayload(ciphertext);
+    }
 
     /**
      * Encrypts raw text content for persistent storage in {@code text.dat}.

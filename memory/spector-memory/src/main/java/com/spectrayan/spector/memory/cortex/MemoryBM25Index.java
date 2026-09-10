@@ -23,8 +23,6 @@ import com.spectrayan.spector.kernel.region.RegionId;
 import com.spectrayan.spector.kernel.bundle.RegionRef;
 import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
 
-import java.lang.foreign.MemorySegment;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -281,7 +279,7 @@ public final class MemoryBM25Index implements AutoCloseable {
             if (written == -1) {
                 // Payload exceeds current capacity -> dynamically ensure capacity
                 log.info("BM25 index exceeded region capacity; ensuring expanded capacity");
-                bm25Ref.ensureCapacity(bm25Ref.resolve().byteSize() + 1);
+                bm25Ref.ensureCapacity(bm25Ref.byteSize() + 1);
 
                 // Retry write into expanded slice
                 written = partition(0).saveToRegion(bm25Ref.resolve());

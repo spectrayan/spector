@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.cortex.index;
 
 import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.kernel.api.MemoryType;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -139,8 +139,9 @@ class IndexTextRetentionRegressionTest {
             MemorySegment midxSlice = bundleSeg.asSlice(0, 131072);
             MemorySegment idplSlice = bundleSeg.asSlice(131072, 131072);
 
-            MemoryIndex migrated = IndexEntryMemory.fromBundle(
-                    arena, midxSlice, idplSlice, bundleFile, true);
+            com.spectrayan.spector.kernel.store.IndexEntryMemory migrated =
+                    com.spectrayan.spector.kernel.store.IndexEntryMemory.fromBundle(
+                            arena, midxSlice, idplSlice, bundleFile, true);
 
             // 3. Verify texts.putAll path populated inline texts
             assertThat(migrated.size()).isEqualTo(2);

@@ -66,7 +66,7 @@ class MemoryFederatedRecallToolTest {
                 (short) 1,
                 (byte) 0,
                 MemoryType.SEMANTIC,
-                com.spectrayan.spector.memory.cortex.MemorySource.OBSERVED,
+                com.spectrayan.spector.kernel.api.MemorySource.OBSERVED,
                 new String[]{"federation"},
                 1.0f,
                 1.0f

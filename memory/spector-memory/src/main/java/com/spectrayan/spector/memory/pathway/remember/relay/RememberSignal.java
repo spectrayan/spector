@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.pathway.remember.relay;
 
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.kernel.api.MemoryType;

@@ -16,7 +16,7 @@ import com.spectrayan.spector.kernel.api.SourceModality;
 
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 

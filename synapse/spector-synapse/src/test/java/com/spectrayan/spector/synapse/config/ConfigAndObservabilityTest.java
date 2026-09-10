@@ -72,7 +72,7 @@ class ConfigAndObservabilityTest {
 
         var rec = new com.spectrayan.spector.memory.model.CognitiveRecord(
                 "mem-1", "Test memory content", com.spectrayan.spector.kernel.api.MemoryType.SEMANTIC,
-                com.spectrayan.spector.memory.cortex.MemorySource.USER_STATED, new String[]{"test"},
+                com.spectrayan.spector.kernel.api.MemorySource.USER_STATED, new String[]{"test"},
                 System.currentTimeMillis(), 0L, 1.0f, 5.0f, 1, 1, (short)0,
                 (byte)0, (byte)0, 1.0f, (byte)0, (byte)0, null, -1, 0L, Map.of(), false
         );

@@ -11,1275 +11,191 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.graph;
-import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
-import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
 
+import com.spectrayan.spector.kernel.bundle.RegionRef;
+import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
+import com.spectrayan.spector.memory.persist.DataEncryptor;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.commons.error.ErrorCode;
-import com.spectrayan.spector.memory.persist.DataEncryptor;
-import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
-import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
-import com.spectrayan.spector.kernel.region.RegionPreamble;
-import com.spectrayan.spector.kernel.id.MemoryId;
-import com.spectrayan.spector.kernel.shape.MemoryShape;
-import com.spectrayan.spector.kernel.id.SystemMemoryId;
-import com.spectrayan.spector.kernel.layout.EntityDirectoryLayout;
-import com.spectrayan.spector.kernel.shape.AbstractGraphMemory;
-import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
-import com.spectrayan.spector.provider.generation.LlmProvider;
-
-import java.io.IOException;
-import java.lang.foreign.Arena;
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.PrimitiveIterator;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
-import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ADJ_ENTRY_BYTES;
-import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ADJ_OFF_MEM_IDX;
-import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ADJ_OFF_WEIGHT;
-import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.DATA_START;
-import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ENTITY_NODE_BYTES;
-import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ENT_OFF_ADJ_CAPACITY;
-import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ENT_OFF_ADJ_COUNT;
-import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ENT_OFF_ADJ_OFFSET;
-import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ENT_OFF_NAME_HASH;
-import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ENT_OFF_TYPE;
-import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.ENT_OFF_MERGED_INTO;
-import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.SUB_OFF_ADJ_CAPACITY;
-import static com.spectrayan.spector.kernel.layout.EntityDirectoryLayout.SUB_OFF_ADJ_HWM;
 
 /**
- * Kernel-substrate companion that owns entity <b>identity</b> and entity&rarr;memory adjacency,
- * introduced for the hypergraph graduation (ADR-0003, #455).
+ * High-level entity directory subclass providing semantic entity resolution,
+ * Levenshtein fuzzy matching, embedding similarity, and LLM adjudication.
  *
- * <h3>Why this exists</h3>
- * <p>{@code HyperEntityGraphMemory} stores n-ary hyperedges but does <em>not</em> own entity
- * identity: the name&harr;id index, per-entity type, and the entity&rarr;memory adjacency
- * (crucially including <b>single-entity</b> memories, which never produce a hyperedge because
- * {@code addHyperedge} requires &ge;2 vertices) all lived only in the legacy
- * entity graph. {@code EntityDirectory} absorbs exactly that identity surface —
- * it provides identity minus the binary edge / traversal machinery — so the binary
- * graph can be retired without losing identity or single-entity adjacency.</p>
- *
- * <h3>Ownership split</h3>
- * <ul>
- *   <li><b>EntityDirectory</b> — name&harr;id, entity type, entity&rarr;memory adjacency, the dense
- *       entity-id space (allocated by {@link #intern}).</li>
- *   <li><b>HyperEntityGraphMemory</b> — n-ary topology (hyperedges) over that id space.</li>
- * </ul>
- *
- * <h3>Concurrency (#435 SWMR)</h3>
- * <p>Extends {@link AbstractGraphMemory} and uses the substrate {@link java.util.concurrent.locks.StampedLock}
- * in single-writer / multiple-reader mode. All mutators take the write lock; adjacency readers take a
- * <b>validated</b> read lock (never optimistic) because {@code compactAdjacency}/{@code ensureAdjSegmentCapacity}
- * reassign the {@link #adjacencySegment} field. The lock is non-reentrant, so public wrappers delegate to
- * unlocked {@code *Locked} cores.</p>
- *
- * <h3>Reuse</h3>
- * <p>The region-doubling entity&rarr;memory adjacency mechanics ({@code ADJ_OFF_*}, block-doubling,
- * {@code compactAdjacency}) are reproduced here over the
- * identity-only {@link EntityDirectoryLayout}. The name-index codec is shared via
- * {@link EntityDirectorySerializer}.</p>
- *
- * @see HyperEntityGraphMemory
+ * <p>Contains zero {@code java.lang.foreign.*} imports — off-heap layouts,
+ * segments, arenas, and mmap persistence are fully sealed in
+ * {@link com.spectrayan.spector.kernel.graph.EntityDirectory}.</p>
  */
-public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> {
+public class EntityDirectory extends com.spectrayan.spector.kernel.graph.EntityDirectory {
 
     private static final Logger log = LoggerFactory.getLogger(EntityDirectory.class);
 
-    /** Kernel identity for the entity directory. */
-    private static final MemoryId MEMORY_ID = SystemMemoryId.ENTITY_DIRECTORY.id();
-    /** Shared record layout — identifies directory records inside an SMKM container. */
-    private static final EntityDirectoryLayout LAYOUT = new EntityDirectoryLayout();
+    private static final ThreadLocal<int[]> LEV_PREV = ThreadLocal.withInitial(() -> new int[256]);
+    private static final ThreadLocal<int[]> LEV_CURR = ThreadLocal.withInitial(() -> new int[256]);
 
-    /** Name of the name-index sidecar written next to {@code entity-directory.edir}. */
-    static final String NAME_INDEX_SIDECAR = "entity-directory-names.idx";
-
-    /** Default adjacency slots allocated per entity on first link. */
-    static final int DEFAULT_ADJ_PER_ENTITY = 8;
-    /** Maximum adjacency entries per entity (for mmap pre-allocation). */
-    static final int MAX_ADJ_PER_ENTITY = 64;
-
-    /** LTP weight increment when an entity is re-mentioned in a memory. */
-    private static final float LTP_REINFORCEMENT = 0.2f;
-    /** Initial weight for a new entity→memory link. */
-    private static final float INITIAL_LINK_WEIGHT = 1.0f;
-
-    // ── Segments: the entity node slab is the kernel segment(); the adjacency slab is directory-owned. ──
-    private final MemorySegment entitySegment;
-    private MemorySegment adjacencySegment;
-    private final int entityCapacity;
-    private int entityCount;
-    private int adjSegmentCapacity;  // total entries the adjacency segment can hold
-    private int adjHighWaterMark;    // next free entry index in adjacency segment
-
-    private volatile long lastCompactionEpochMs = 0L;
-    private volatile long bytesReclaimedLastCycle = 0L;
-
-    /** On-heap name→entityId index for O(1) lookup (case-insensitive). */
-    private final ConcurrentHashMap<String, Integer> nameIndex = new ConcurrentHashMap<>();
-
-    /** Reverse lookup from memory slot to entity IDs. */
-    private final ConcurrentHashMap<Integer, Set<Integer>> memoryToEntities = new ConcurrentHashMap<>();
-
-    private final boolean fileBacked;
-    private final MemorySegment headerSegment;
-    private final MemorySegment rawAdjacencyRegion;
-    private final Path mmapFilePath;
-
-    /** Optional encryptor for name index persistence (set by enterprise layer). */
-    private volatile DataEncryptor dataEncryptor;
-
-    /** Open-schema entity type registry (String ↔ int) — shared with the companion graphs. */
-    private final TypeRegistryMemory entityTypeRegistryMemory;
-
-    private final MemoryId memoryId;
-
-    // ══════════════════════════════════════════════════════════════
-    // CONSTRUCTORS
-    // ══════════════════════════════════════════════════════════════
-
-    /** Creates a new heap-backed directory with the given entity type registry. */
     public EntityDirectory(int entityCapacity, TypeRegistryMemory entityTypeRegistry) {
-        this(Init.heap(entityCapacity, entityTypeRegistry));
+        super(entityCapacity, entityTypeRegistry);
     }
 
     public EntityDirectory(Path filePath, int entityCapacity, TypeRegistryMemory entityTypeRegistry) {
-        this(Init.mmap(filePath, entityCapacity, entityTypeRegistry));
+        super(filePath, entityCapacity, entityTypeRegistry);
     }
 
-    private transient boolean bundleManaged = false;
-
-    public static EntityDirectory fromBundle(Arena arena, MemorySegment entityRegionSlice, MemorySegment adjacencyRegionSlice,
-                                             int entityCapacity, TypeRegistryMemory entityTypeRegistry,
-                                             Path bundlePath, boolean isNew) {
-        long availableBytes = Math.max(0L, entityRegionSlice.byteSize() - DATA_START);
-        int maxCapFromRegion = (int) (availableBytes / ENTITY_NODE_BYTES);
-        int resolvedCap;
-        if (isNew) {
-            resolvedCap = Math.min(entityCapacity, maxCapFromRegion);
-        } else {
-            int preambleCap = (int) RegionPreamble.readCapacity(entityRegionSlice, 0L);
-            resolvedCap = preambleCap > 0 ? Math.min(preambleCap, maxCapFromRegion) : Math.min(entityCapacity, maxCapFromRegion);
-            if (resolvedCap <= 0) {
-                resolvedCap = maxCapFromRegion;
-            }
-        }
-        return new EntityDirectory(arena, entityRegionSlice, adjacencyRegionSlice, resolvedCap, entityTypeRegistry, bundlePath, isNew);
+    protected EntityDirectory(RegionRef entityDirRef,
+                              RegionRef entityNamesRef,
+                              int entityCapacity, TypeRegistryMemory entityTypeRegistry,
+                              Path bundlePath, boolean isNew) {
+        super(entityDirRef, entityNamesRef, entityCapacity, entityTypeRegistry, bundlePath, isNew);
     }
 
     public static EntityDirectory fromRegionRefs(
-            com.spectrayan.spector.kernel.bundle.RegionRef entityDirRef,
-            com.spectrayan.spector.kernel.bundle.RegionRef entityNamesRef,
+            RegionRef entityDirRef,
+            RegionRef entityNamesRef,
             int entityCapacity, TypeRegistryMemory entityTypeRegistry,
             Path bundlePath, boolean isNew) {
-        MemorySegment entityRegionSlice = entityDirRef.resolve();
-        MemorySegment adjacencyRegionSlice = entityNamesRef.resolve();
-        int resolvedCap = entityCapacity;
-        if (!isNew) {
-            int preambleCap = (int) RegionPreamble.readCapacity(entityRegionSlice, 0L);
-            long availableBytes = Math.max(0L, entityRegionSlice.byteSize() - DATA_START);
-            int maxCapFromRegion = (int) (availableBytes / ENTITY_NODE_BYTES);
-            resolvedCap = preambleCap > 0 ? Math.min(preambleCap, maxCapFromRegion) : Math.min(entityCapacity, maxCapFromRegion);
-            if (resolvedCap <= 0) {
-                resolvedCap = maxCapFromRegion;
-            }
+        com.spectrayan.spector.kernel.graph.EntityDirectory kDir =
+                com.spectrayan.spector.kernel.graph.EntityDirectory.fromRegionRefs(
+                        entityDirRef, entityNamesRef, entityCapacity, entityTypeRegistry, bundlePath, isNew);
+        return new EntityDirectory(entityDirRef, entityNamesRef, kDir.capacity(), entityTypeRegistry, bundlePath, isNew);
+    }
+
+    public static EntityDirectory load(Path filePath, int defaultEntityCap,
+                                       TypeRegistryMemory entityTypeRegistry) {
+        return load(filePath, defaultEntityCap, entityTypeRegistry, (DataEncryptor) null);
+    }
+
+    public static EntityDirectory load(Path filePath, int defaultEntityCap,
+                                       TypeRegistryMemory entityTypeRegistry, DataEncryptor encryptor) {
+        com.spectrayan.spector.kernel.graph.EntityDirectory kDir =
+                com.spectrayan.spector.kernel.graph.EntityDirectory.load(filePath, defaultEntityCap, entityTypeRegistry, encryptor);
+        EntityDirectory dir = new EntityDirectory(filePath, defaultEntityCap, entityTypeRegistry);
+        dir.nameIndexInternal().putAll(kDir.nameIndexInternal());
+        if (encryptor != null) {
+            dir.setDataEncryptor(encryptor);
         }
-        return new EntityDirectory(entityDirRef, entityNamesRef, resolvedCap, entityTypeRegistry, bundlePath, isNew);
-    }
-
-    private EntityDirectory(com.spectrayan.spector.kernel.bundle.RegionRef entityDirRef,
-                            com.spectrayan.spector.kernel.bundle.RegionRef entityNamesRef,
-                            int entityCapacity, TypeRegistryMemory entityTypeRegistry,
-                            Path bundlePath, boolean isNew) {
-        super(MEMORY_ID, LAYOUT, entityCapacity, entityDirRef,
-              isNew ? 0 : (int) RegionPreamble.readCount(entityDirRef.resolve(), 0L),
-              true, bundlePath);
-        this.bundleManaged = true;
-        MemorySegment entityRegionSlice = entityDirRef.resolve();
-        MemorySegment adjacencyRegionSlice = entityNamesRef.resolve();
-        this.rawAdjacencyRegion = adjacencyRegionSlice;
-        long availableBytes = Math.max(0L, entityRegionSlice.byteSize() - DATA_START);
-        int maxCapFromRegion = (int) (availableBytes / ENTITY_NODE_BYTES);
-        this.entityCapacity = Math.min(entityCapacity, maxCapFromRegion);
-        this.headerSegment = entityRegionSlice.asSlice(0, DATA_START);
-        this.entitySegment = entityRegionSlice.asSlice(DATA_START, (long) ENTITY_NODE_BYTES * this.entityCapacity);
-        this.fileBacked = true;
-        this.mmapFilePath = bundlePath;
-        this.memoryId = MEMORY_ID;
-        this.entityTypeRegistryMemory = entityTypeRegistry;
-
-        long headerStart = RegionPreamble.PREAMBLE_BYTES;
-        int initialAdjCap = adjacencyRegionSlice.get(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_CAPACITY);
-        int adjHwm = adjacencyRegionSlice.get(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_HWM);
-        long availableAdjBytes = Math.max(0L, adjacencyRegionSlice.byteSize() - DATA_START);
-        int maxAdjCap = (int) (availableAdjBytes / ADJ_ENTRY_BYTES);
-
-        if (isNew) {
-            this.entityCount = 0;
-            writeSmkmHeaderToSegment(this.headerSegment, this.entityCapacity, 0, 0, 0);
-            writeSmkmHeaderToSegment(adjacencyRegionSlice.asSlice(0, DATA_START), 0, 0, 0, 0);
-
-            long reservedForNames = 32L * this.entityCapacity;
-            long availableForAdj = Math.max(0, adjacencyRegionSlice.byteSize() - DATA_START - reservedForNames);
-            int adjCap = (int) (availableForAdj / ADJ_ENTRY_BYTES);
-            adjacencyRegionSlice.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_CAPACITY, adjCap);
-            adjacencyRegionSlice.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_HWM, 0);
-            this.adjSegmentCapacity = adjCap;
-            this.adjHighWaterMark = 0;
-            this.entitySegment.fill((byte) 0);
-            this.adjacencySegment = adjacencyRegionSlice.asSlice(DATA_START, (long) ADJ_ENTRY_BYTES * adjCap);
-            this.adjacencySegment.fill((byte) 0);
-        } else {
-            this.entityCount = (int) RegionPreamble.readCount(entityRegionSlice, 0L);
-            this.adjSegmentCapacity = Math.min(initialAdjCap, maxAdjCap);
-            this.adjHighWaterMark = adjHwm;
-            this.adjacencySegment = adjacencyRegionSlice.asSlice(DATA_START, (long) ADJ_ENTRY_BYTES * this.adjSegmentCapacity);
-        }
-
-        if (!isNew && bundlePath != null) {
-            try {
-                long nameIndexOffset = DATA_START + (long) adjSegmentCapacity * ADJ_ENTRY_BYTES;
-                ConcurrentHashMap<String, Integer> names = EntityDirectorySerializer.loadNameIndexFromRegion(
-                        adjacencyRegionSlice, nameIndexOffset);
-                if (names != null && !names.isEmpty()) {
-                    this.nameIndex.putAll(names);
-                } else {
-                    names = EntityDirectorySerializer.loadNameIndexSidecar(bundlePath, null);
-                    if (names != null && !names.isEmpty()) {
-                        this.nameIndex.putAll(names);
-                    }
-                }
-            } catch (Exception e) {
-                log.warn("Failed to load name index from bundle region: {}", e.getMessage());
-            }
-        }
-        rebuildReverseIndex();
-    }
-
-    private EntityDirectory(Arena arena, MemorySegment entityRegionSlice, MemorySegment adjacencyRegionSlice,
-                            int entityCapacity, TypeRegistryMemory entityTypeRegistry,
-                            Path bundlePath, boolean isNew) {
-        super(MEMORY_ID, LAYOUT, entityCapacity, arena, entityRegionSlice,
-              isNew ? 0 : (int) RegionPreamble.readCount(entityRegionSlice, 0L),
-              true, bundlePath, null, true); // bundleManaged=true
-        this.bundleManaged = true;
-        this.rawAdjacencyRegion = adjacencyRegionSlice;
-        long availableBytes = Math.max(0L, entityRegionSlice.byteSize() - DATA_START);
-        int maxCapFromRegion = (int) (availableBytes / ENTITY_NODE_BYTES);
-        this.entityCapacity = Math.min(entityCapacity, maxCapFromRegion);
-        this.headerSegment = entityRegionSlice.asSlice(0, DATA_START);
-        this.entitySegment = entityRegionSlice.asSlice(DATA_START, (long) ENTITY_NODE_BYTES * this.entityCapacity);
-        this.fileBacked = true;
-        this.mmapFilePath = bundlePath;
-        this.memoryId = MEMORY_ID;
-        this.entityTypeRegistryMemory = entityTypeRegistry;
-
-        long headerStart = RegionPreamble.PREAMBLE_BYTES;
-        int initialAdjCap = adjacencyRegionSlice.get(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_CAPACITY);
-        int adjHwm = adjacencyRegionSlice.get(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_HWM);
-        long availableAdjBytes = Math.max(0L, adjacencyRegionSlice.byteSize() - DATA_START);
-        int maxAdjCap = (int) (availableAdjBytes / ADJ_ENTRY_BYTES);
-
-        if (isNew) {
-            this.entityCount = 0;
-            writeSmkmHeaderToSegment(this.headerSegment, this.entityCapacity, 0, 0, 0);
-            writeSmkmHeaderToSegment(adjacencyRegionSlice.asSlice(0, DATA_START), 0, 0, 0, 0);
-
-            long reservedForNames = 32L * this.entityCapacity;
-            long availableForAdj = Math.max(0, adjacencyRegionSlice.byteSize() - DATA_START - reservedForNames);
-            int adjCap = (int) (availableForAdj / ADJ_ENTRY_BYTES);
-            adjacencyRegionSlice.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_CAPACITY, adjCap);
-            adjacencyRegionSlice.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_HWM, 0);
-            this.adjSegmentCapacity = adjCap;
-            this.adjHighWaterMark = 0;
-            this.entitySegment.fill((byte) 0);
-            this.adjacencySegment = adjacencyRegionSlice.asSlice(DATA_START, (long) ADJ_ENTRY_BYTES * adjCap);
-            this.adjacencySegment.fill((byte) 0);
-        } else {
-            this.entityCount = (int) RegionPreamble.readCount(entityRegionSlice, 0L);
-            this.adjSegmentCapacity = Math.min(initialAdjCap, maxAdjCap);
-            this.adjHighWaterMark = adjHwm;
-            this.adjacencySegment = adjacencyRegionSlice.asSlice(DATA_START, (long) ADJ_ENTRY_BYTES * this.adjSegmentCapacity);
-        }
-
-        // Load names: try V4 bundle region first, then V3 sidecar
-        if (!isNew && bundlePath != null) {
-            try {
-                long nameIndexOffset = DATA_START
-                        + (long) adjSegmentCapacity * ADJ_ENTRY_BYTES;
-                ConcurrentHashMap<String, Integer> names = EntityDirectorySerializer.loadNameIndexFromRegion(
-                        adjacencyRegionSlice, nameIndexOffset);
-                if (names != null && !names.isEmpty()) {
-                    this.nameIndex.putAll(names);
-                } else {
-                    // V3 fallback: load from sidecar file
-                    names = EntityDirectorySerializer.loadNameIndexSidecar(bundlePath, null);
-                    if (names != null) {
-                        this.nameIndex.putAll(names);
-                    }
-                }
-            } catch (Exception e) {
-                log.warn("Failed to load EntityDirectory name index: {}", e.getMessage());
-            }
-        }
-
-        // Migrate legacy standalone EntityDirectory if it exists
-        if (isNew && bundlePath != null) {
-            Path legacyPath = bundlePath.resolveSibling("entity_directory.dat");
-            if (Files.exists(legacyPath)) {
-                log.info("Migrating legacy standalone entity_directory.dat to bundle region...");
-                try {
-                    EntityDirectory legacy = EntityDirectory.load(legacyPath, entityCapacity, entityTypeRegistry, null);
-                    MemorySegment.copy(legacy.entitySegment, 0, this.entitySegment, 0, legacy.entitySegment.byteSize());
-                    MemorySegment.copy(legacy.adjacencySegment, 0, this.adjacencySegment, 0, legacy.adjacencySegment.byteSize());
-
-                    this.entityCount = legacy.entityCount;
-                    this.adjSegmentCapacity = legacy.adjSegmentCapacity;
-                    this.adjHighWaterMark = legacy.adjHighWaterMark;
-                    this.nameIndex.putAll(legacy.nameIndex);
-
-                    save(legacyPath);
-                    legacy.close();
-                    Files.deleteIfExists(legacyPath);
-                } catch (Exception e) {
-                    log.warn("Failed to migrate legacy entity_directory.dat: {}", e.getMessage());
-                }
-            }
-        }
-
-        log.info("EntityDirectory initialized (bundle): entities={}/{}, adjCap={}",
-                entityCount, entityCapacity, adjSegmentCapacity);
-        rebuildReverseIndex();
-    }
-
-    /**
-     * Single delegating constructor. Wraps the pre-built arena + entity node slab as the kernel
-     * substrate {@link #segment()} and adopts the directory-owned region-doubling adjacency slab.
-     */
-    private EntityDirectory(Init init) {
-        super(MEMORY_ID, LAYOUT, init.entityCapacity, init.arena, init.entitySegment, init.entityCount,
-                init.persistent, init.filePath, null);
-        this.entitySegment = init.entitySegment;
-        this.adjacencySegment = init.adjacencySegment;
-        this.entityCapacity = init.entityCapacity;
-        this.entityCount = init.entityCount;
-        this.adjSegmentCapacity = init.adjSegmentCapacity;
-        this.adjHighWaterMark = init.adjHighWaterMark;
-        this.fileBacked = init.persistent;
-        this.headerSegment = init.headerSegment;
-        this.rawAdjacencyRegion = null;
-        this.mmapFilePath = init.filePath;
-        this.memoryId = MEMORY_ID;
-        this.entityTypeRegistryMemory = init.entityTypeRegistry;
-        if (init.nameIndex != null && !init.nameIndex.isEmpty()) {
-            this.nameIndex.putAll(init.nameIndex);
-        }
-        log.info("EntityDirectory initialized ({}): entities={}/{}, adjCap={}, file={}",
-                init.persistent ? "mmap" : "heap", entityCount, entityCapacity, adjSegmentCapacity,
-                mmapFilePath != null ? mmapFilePath.getFileName() : "<heap>");
-        rebuildReverseIndex();
-    }
-
-    /** Immutable bundle of everything the delegating constructor needs. */
-    private record Init(int entityCapacity, int entityCount, Arena arena,
-                        MemorySegment entitySegment, MemorySegment adjacencySegment,
-                        int adjSegmentCapacity, int adjHighWaterMark,
-                        boolean persistent, Path filePath, MemorySegment headerSegment,
-                        TypeRegistryMemory entityTypeRegistry,
-                        ConcurrentHashMap<String, Integer> nameIndex) {
-
-        static Init heap(int entityCapacity, TypeRegistryMemory entityTypeRegistry) {
-            Arena arena = Arena.ofShared();
-            MemorySegment entitySegment = arena.allocate((long) ENTITY_NODE_BYTES * entityCapacity);
-            int adjCap = entityCapacity * DEFAULT_ADJ_PER_ENTITY;
-            MemorySegment adjacencySegment = arena.allocate((long) ADJ_ENTRY_BYTES * adjCap);
-            entitySegment.fill((byte) 0);
-            adjacencySegment.fill((byte) 0);
-            return new Init(entityCapacity, 0, arena, entitySegment, adjacencySegment, adjCap, 0,
-                    false, null, null, entityTypeRegistry, null);
-        }
-
-        static Init mmap(Path filePath, int defaultEntityCap, TypeRegistryMemory entityTypeRegistry) {
-            Path parent = filePath.getParent();
-            try {
-                if (parent != null) {
-                    Files.createDirectories(parent);
-                }
-                boolean exists = Files.exists(filePath) && Files.size(filePath) >= 4;
-                int entityCap;
-                int entityCount;
-                int adjCap;
-                int adjHwm;
-                FileChannel ch = FileChannel.open(filePath,
-                        StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
-
-                if (exists && ch.size() < DATA_START) {
-                    throw new IOException("SMKM entity-directory file truncated: size=" + ch.size()
-                            + " < " + DATA_START + ": " + filePath);
-                }
-
-                if (!exists) {
-                    entityCap = defaultEntityCap;
-                    entityCount = 0;
-                    adjCap = defaultEntityCap * MAX_ADJ_PER_ENTITY;
-                    adjHwm = 0;
-                    writeSmkmHeaderToChannel(ch, entityCap, entityCount, adjCap, adjHwm);
-                    long total = DATA_START + (long) ENTITY_NODE_BYTES * entityCap
-                            + (long) ADJ_ENTRY_BYTES * adjCap;
-                    if (ch.size() < total) {
-                        ch.position(total - 1);
-                        ch.write(ByteBuffer.wrap(new byte[]{0}));
-                    }
-                    ch.force(true);
-                } else {
-                    try (Arena tmpArena = Arena.ofConfined()) {
-                        MemorySegment head = tmpArena.allocate(DATA_START);
-                        ByteBuffer hb = head.asByteBuffer();
-                        ch.position(0);
-                        while (hb.hasRemaining() && ch.read(hb) >= 0) {
-                            // fill header
-                        }
-                        if (!RegionPreamble.isValid(head, 0L)
-                                || RegionPreamble.readShape(head, 0L) != MemoryShape.GRAPH
-                                || RegionPreamble.readLayoutId(head, 0L) != LAYOUT.layoutId()) {
-                            throw new IOException("invalid SMKM entity-directory header: " + filePath);
-                        }
-                        entityCap = (int) RegionPreamble.readCapacity(head, 0L);
-                        entityCount = (int) RegionPreamble.readCount(head, 0L);
-                        adjCap = head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_CAPACITY);
-                        adjHwm = head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_HWM);
-                    }
-                }
-
-                long entityBytes = (long) ENTITY_NODE_BYTES * entityCap;
-                long adjBytes = (long) ADJ_ENTRY_BYTES * adjCap;
-                Arena arena = Arena.ofShared();
-                long offset = DATA_START;
-                MemorySegment entitySegment = ch.map(FileChannel.MapMode.READ_WRITE, offset, entityBytes, arena);
-                offset += entityBytes;
-                MemorySegment adjacencySegment = ch.map(FileChannel.MapMode.READ_WRITE, offset, adjBytes, arena);
-                MemorySegment headerSegment = ch.map(FileChannel.MapMode.READ_WRITE, 0, DATA_START, arena);
-                ch.close();
-
-                return new Init(entityCap, entityCount, arena, entitySegment, adjacencySegment, adjCap, adjHwm,
-                        true, filePath, headerSegment, entityTypeRegistry, null);
-            } catch (IOException e) {
-                throw new SpectorGraphPersistenceException("EntityDirectory", filePath, e);
-            }
-        }
-    }
-
-    // ══════════════════════════════════════════════════════════════
-    // IDENTITY MUTATORS
-    // ══════════════════════════════════════════════════════════════
-
-    /**
-     * Interns an entity, allocating a dense id on first sight or returning the existing id.
-     *
-     * <p>Entity names are case-insensitive and normalized to lowercase. This is the id-provider
-     * entry point consumed by {@code HyperEntityGraphMemory} for hyperedge vertices.</p>
-     *
-     * @param name entity name
-     * @param type entity type
-     * @return entity id (index into the node slab), or -1 if rejected
-     */
-    public int intern(String name, String type) {
-        if (name == null || name.isBlank()) return -1;
-        if (type == null || type.isBlank()) type = "OTHER";
-
-        String normalized = name.trim().toLowerCase(Locale.ROOT);
-        Integer existing = nameIndex.get(normalized);
-        if (existing != null) return existing;
-
-        long stamp = lock.writeLock();
-        try {
-            // Re-check under the lock (another writer may have interned the same name).
-            existing = nameIndex.get(normalized);
-            if (existing != null) return existing;
-            if (entityCount >= entityCapacity) {
-                log.warn("EntityDirectory full ({} entities), rejecting intern request", entityCapacity);
-                return -1;
-            }
-            int entityId = entityCount;
-            // Write-ahead: log the mutation before applying it.
-            if (wal != null && !bypassWal) {
-                wal.appendGraphAddNode(memoryId.toString(), entityId, normalized, type);
-            }
-            writeEntityNode(entityId, normalized, type);
-            entityCount++;
-            persistCount();
-            nameIndex.put(normalized, entityId);
-            log.trace("Directory entity interned: id={}, type={}", entityId, type);
-            return entityId;
-        } finally {
-            lock.unlockWrite(stamp);
-        }
-    }
-
-    /** Writes the identity fields of an entity node at {@code entityId} (caller holds the write lock). */
-    private void writeEntityNode(int entityId, String normalizedName, String type) {
-        long offset = (long) entityId * ENTITY_NODE_BYTES;
-        int typeId = entityTypeRegistryMemory.getOrRegister(type);
-        entitySegment.set(ValueLayout.JAVA_INT, offset + ENT_OFF_TYPE, typeId);
-        entitySegment.set(ValueLayout.JAVA_LONG, offset + ENT_OFF_NAME_HASH, normalizedName.hashCode());
-        entitySegment.set(ValueLayout.JAVA_INT, offset + ENT_OFF_ADJ_OFFSET, -1); // no adj block yet
-        entitySegment.set(ValueLayout.JAVA_INT, offset + ENT_OFF_ADJ_COUNT, 0);
-        entitySegment.set(ValueLayout.JAVA_INT, offset + ENT_OFF_ADJ_CAPACITY, 0);
-        entitySegment.set(ValueLayout.JAVA_INT, offset + ENT_OFF_MERGED_INTO, -1);
-    }
-
-    /**
-     * Links an entity to a memory index (unlimited associations, region-doubling growth).
-     *
-     * <p>If the entity is already linked to this memory, the link weight is reinforced by
-     * {@value #LTP_REINFORCEMENT} (LTP). Otherwise a new adjacency entry is created with weight
-     * {@value #INITIAL_LINK_WEIGHT}. This is what preserves single-entity adjacency.</p>
-     *
-     * @param entityId  entity id
-     * @param memoryIdx index of the memory that mentions this entity
-     */
-    public void linkEntityToMemory(int entityId, int memoryIdx) {
-        long stamp = lock.writeLock();
-        try {
-            if (wal != null && !bypassWal) {
-                wal.appendGraphLinkMemory(memoryId.toString(), entityId, memoryIdx);
-            }
-            linkEntityToMemoryLocked(entityId, memoryIdx, INITIAL_LINK_WEIGHT, true);
-        } finally {
-            lock.unlockWrite(stamp);
-        }
-    }
-
-    /**
-     * Core of {@link #linkEntityToMemory}; the caller must hold the write lock.
-     *
-     * @param reinforceOnDuplicate when {@code true}, a re-mention reinforces the existing weight (LTP);
-     *                             when {@code false}, a duplicate is ignored (used by derive/copy paths)
-     */
-    private void linkEntityToMemoryLocked(int entityId, int memoryIdx, float initialWeight,
-                                          boolean reinforceOnDuplicate) {
-        if (entityId < 0 || entityId >= entityCount) return;
-        long entOffset = (long) entityId * ENTITY_NODE_BYTES;
-        int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
-        int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
-        int adjCap = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_CAPACITY);
-
-        if (adjOff >= 0) {
-            for (int i = 0; i < adjCnt; i++) {
-                long adjEntryOff = (long) (adjOff + i) * ADJ_ENTRY_BYTES;
-                int existingIdx = adjacencySegment.get(ValueLayout.JAVA_INT, adjEntryOff + ADJ_OFF_MEM_IDX);
-                if (existingIdx == memoryIdx) {
-                    if (reinforceOnDuplicate) {
-                        float w = adjacencySegment.get(ValueLayout.JAVA_FLOAT, adjEntryOff + ADJ_OFF_WEIGHT);
-                        adjacencySegment.set(ValueLayout.JAVA_FLOAT, adjEntryOff + ADJ_OFF_WEIGHT,
-                                w + LTP_REINFORCEMENT);
-                    }
-                    return;
-                }
-            }
-        }
-
-        if (adjCap == 0) {
-            adjCap = DEFAULT_ADJ_PER_ENTITY;
-            ensureAdjSegmentCapacity(adjHighWaterMark + adjCap);
-            adjOff = adjHighWaterMark;
-            entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET, adjOff);
-            entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_CAPACITY, adjCap);
-            adjHighWaterMark += adjCap;
-        } else if (adjCnt >= adjCap) {
-            int newCap = adjCap * 2;
-            ensureAdjSegmentCapacity(adjHighWaterMark + newCap);
-            int currentAdjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
-            int newOff = adjHighWaterMark;
-            MemorySegment.copy(adjacencySegment, (long) currentAdjOff * ADJ_ENTRY_BYTES,
-                    adjacencySegment, (long) newOff * ADJ_ENTRY_BYTES,
-                    (long) adjCnt * ADJ_ENTRY_BYTES);
-            adjOff = newOff;
-            adjCap = newCap;
-            entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET, adjOff);
-            entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_CAPACITY, adjCap);
-            adjHighWaterMark += newCap;
-        }
-
-        long entryOff = (long) (adjOff + adjCnt) * ADJ_ENTRY_BYTES;
-        adjacencySegment.set(ValueLayout.JAVA_INT, entryOff + ADJ_OFF_MEM_IDX, memoryIdx);
-        adjacencySegment.set(ValueLayout.JAVA_FLOAT, entryOff + ADJ_OFF_WEIGHT, initialWeight);
-        entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT, adjCnt + 1);
-
-        memoryToEntities.computeIfAbsent(memoryIdx, k -> ConcurrentHashMap.newKeySet()).add(entityId);
-    }
-
-    /**
-     * Ensures the adjacency segment can hold at least {@code requiredEntries} entries, doubling
-     * (heap) or throwing (mmap, pre-allocated at max). Must be called under the write lock — it
-     * reassigns {@link #adjacencySegment}.
-     *
-     * <p><b>IMPORTANT</b>: Calls {@link #compactAdjacencyLocked()} (lock-free) instead of the
-     * public {@link #compactAdjacency()} to avoid {@link java.util.concurrent.locks.StampedLock}
-     * reentrancy deadlock — {@code StampedLock} is NOT reentrant, and this method is always called
-     * from within an already-held write lock.</p>
-     */
-    private void ensureAdjSegmentCapacity(int requiredEntries) {
-        if (requiredEntries <= adjSegmentCapacity) return;
-        if (fileBacked) {
-            compactAdjacencyLocked();
-            if (requiredEntries <= adjSegmentCapacity) return;
-            throw new SpectorEntityGraphException(
-                    ErrorCode.CAPACITY_EXCEEDED,
-                    "adjacency segment exhausted (mmap); increase MAX_ADJ_PER_ENTITY (currently "
-                            + MAX_ADJ_PER_ENTITY + ")",
-                    adjSegmentCapacity, requiredEntries);
-        }
-        int newCapacity = Math.max(adjSegmentCapacity * 2, requiredEntries);
-        MemorySegment newSeg = arena.allocate((long) ADJ_ENTRY_BYTES * newCapacity);
-        newSeg.fill((byte) 0);
-        MemorySegment.copy(adjacencySegment, 0, newSeg, 0, (long) ADJ_ENTRY_BYTES * adjHighWaterMark);
-        adjacencySegment = newSeg;
-        int oldCap = adjSegmentCapacity;
-        adjSegmentCapacity = newCapacity;
-        log.info("EntityDirectory adjacency segment grown: {} → {} entries", oldCap, newCapacity);
-    }
-
-    // ══════════════════════════════════════════════════════════════
-    // IDENTITY READS
-    // ══════════════════════════════════════════════════════════════
-
-    /**
-     * Finds an entity by name (case-insensitive).
-     *
-     * @param name entity name
-     * @return entity id, or -1 if not found
-     */
-    public int findEntity(String name) {
-        if (name == null || name.isBlank()) return -1;
-        String normalized = name.trim().toLowerCase(Locale.ROOT);
-        Integer id = nameIndex.get(normalized);
-        return id != null ? id : -1;
-    }
-
-    /** Returns the memory indices that reference an entity. */
-    public int[] memoriesForEntity(int entityId) {
-        // Validated read lock (NOT optimistic): compactAdjacency()/ensureAdjSegmentCapacity()
-        // reassign the adjacencySegment field under the write lock (#435 hazard).
-        long stamp = lock.readLock();
-        try {
-            return memoriesForEntityLocked(entityId);
-        } finally {
-            lock.unlockRead(stamp);
-        }
-    }
-
-    /** Core of {@link #memoriesForEntity}; the caller must hold at least the read lock. */
-    private int[] memoriesForEntityLocked(int entityId) {
-        if (entityId < 0 || entityId >= entityCount) return new int[0];
-        long entOffset = (long) entityId * ENTITY_NODE_BYTES;
-        int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
-        int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
-        if (adjOff < 0 || adjCnt == 0) return new int[0];
-        int[] result = new int[adjCnt];
-        for (int i = 0; i < adjCnt; i++) {
-            long adjEntryOff = (long) (adjOff + i) * ADJ_ENTRY_BYTES;
-            result[i] = adjacencySegment.get(ValueLayout.JAVA_INT, adjEntryOff + ADJ_OFF_MEM_IDX);
-        }
-        return result;
-    }
-
-    /** Returns the number of memory references for an entity (zero-alloc). */
-    public int memoryRefCount(int entityId) {
-        if (entityId < 0 || entityId >= entityCount) return 0;
-        return entitySegment.get(ValueLayout.JAVA_INT,
-                (long) entityId * ENTITY_NODE_BYTES + ENT_OFF_ADJ_COUNT);
-    }
-
-    /** Returns the memory index at a specific reference position, or -1 if out of bounds. */
-    public int memoryRefAt(int entityId, int refIndex) {
-        if (entityId < 0 || entityId >= entityCount) return -1;
-        long stamp = lock.readLock();
-        try {
-            long entOffset = (long) entityId * ENTITY_NODE_BYTES;
-            int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
-            int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
-            if (adjOff < 0 || refIndex < 0 || refIndex >= adjCnt) return -1;
-            return adjacencySegment.get(ValueLayout.JAVA_INT,
-                    (long) (adjOff + refIndex) * ADJ_ENTRY_BYTES + ADJ_OFF_MEM_IDX);
-        } finally {
-            lock.unlockRead(stamp);
-        }
-    }
-
-    /** Returns the weight of a specific entity→memory reference, or 0 if out of bounds. */
-    public float memoryRefWeight(int entityId, int refIndex) {
-        if (entityId < 0 || entityId >= entityCount) return 0f;
-        long stamp = lock.readLock();
-        try {
-            long entOffset = (long) entityId * ENTITY_NODE_BYTES;
-            int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
-            int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
-            if (adjOff < 0 || refIndex < 0 || refIndex >= adjCnt) return 0f;
-            return adjacencySegment.get(ValueLayout.JAVA_FLOAT,
-                    (long) (adjOff + refIndex) * ADJ_ENTRY_BYTES + ADJ_OFF_WEIGHT);
-        } finally {
-            lock.unlockRead(stamp);
-        }
-    }
-
-    /**
-     * Returns true if any entity references the given memory index.
-     *
-     * @param memoryIdx the monotonic graphSlot of the memory
-     * @return true if at least one entity is linked to this memory
-     */
-    public boolean hasMemoryRef(int memoryIdx) {
-        if (memoryIdx < 0 || entityCount == 0) return false;
-        long stamp = lock.readLock();
-        try {
-            for (int i = 0; i < entityCount; i++) {
-                long entOffset = (long) i * ENTITY_NODE_BYTES;
-                int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
-                int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
-                if (adjOff < 0 || adjCnt <= 0) continue;
-                for (int r = 0; r < adjCnt; r++) {
-                    int refMem = adjacencySegment.get(ValueLayout.JAVA_INT,
-                            (long) (adjOff + r) * ADJ_ENTRY_BYTES + ADJ_OFF_MEM_IDX);
-                    if (refMem == memoryIdx) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        } finally {
-            lock.unlockRead(stamp);
-        }
-    }
-
-    public boolean hasMemoryRefOptimistic(int memoryIdx) {
-        if (memoryIdx < 0 || entityCount == 0) return false;
-        long stamp = lock.tryOptimisticRead();
-        boolean found = false;
-        
-        Set<Integer> entities = memoryToEntities.get(memoryIdx);
-        if (entities != null && !entities.isEmpty()) {
-            found = true;
-        } else {
-            for (int i = 0; i < entityCount; i++) {
-                long entOffset = (long) i * ENTITY_NODE_BYTES;
-                int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
-                int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
-                if (adjOff < 0 || adjCnt <= 0) continue;
-                for (int r = 0; r < adjCnt; r++) {
-                    int refMem = adjacencySegment.get(ValueLayout.JAVA_INT,
-                            (long) (adjOff + r) * ADJ_ENTRY_BYTES + ADJ_OFF_MEM_IDX);
-                    if (refMem == memoryIdx) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (found) break;
-            }
-        }
-        if (lock.validate(stamp)) {
-            return found;
-        }
-        return hasMemoryRef(memoryIdx);
-    }
-
-    /**
-     * Returns all entity names for a memory slot in a single readLock acquisition.
-     * Uses the reverse index for O(1) lookup.
-     */
-    public Map<Integer, String> entitiesForMemory(int memorySlot) {
-        if (memorySlot < 0 || entityCount == 0) return Map.of();
-        Set<Integer> entities = memoryToEntities.get(memorySlot);
-        if (entities == null || entities.isEmpty()) return Map.of();
-        
-        long stamp = lock.readLock();
-        try {
-            Map<Integer, String> result = new java.util.HashMap<>();
-            for (int e : entities) {
-                result.put(e, entityName(e));
-            }
-            return result;
-        } finally {
-            lock.unlockRead(stamp);
-        }
-    }
-
-    /**
-     * Removes all references to the specified memory slot from all entities.
-     *
-     * @param memorySlot the memory index to unlink
-     * @return the number of entity-to-memory links removed
-     */
-    public int unlinkMemory(int memorySlot) {
-        if (memorySlot < 0 || entityCount == 0) return 0;
-        
-        // 1. Read phase: use the reverse index to find affected entities (no write lock needed)
-        Set<Integer> affected = memoryToEntities.remove(memorySlot);
-        if (affected == null || affected.isEmpty()) return 0;
-        
-        int removedCount = 0;
-        // 2. Short write phase: compact only the affected adjacency entries
-        long stamp = lock.writeLock();
-        try {
-            for (int e : affected) {
-                if (e < 0 || e >= entityCount) continue;
-                long entOffset = (long) e * ENTITY_NODE_BYTES;
-                int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
-                int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
-                if (adjOff < 0 || adjCnt <= 0) continue;
-
-                int newCount = 0;
-                for (int i = 0; i < adjCnt; i++) {
-                    long srcOff = (long) (adjOff + i) * ADJ_ENTRY_BYTES;
-                    int memIdx = adjacencySegment.get(ValueLayout.JAVA_INT, srcOff + ADJ_OFF_MEM_IDX);
-
-                    if (memIdx == memorySlot) {
-                        removedCount++;
-                    } else {
-                        if (newCount < i) {
-                            long dstOff = (long) (adjOff + newCount) * ADJ_ENTRY_BYTES;
-                            float weight = adjacencySegment.get(ValueLayout.JAVA_FLOAT, srcOff + ADJ_OFF_WEIGHT);
-                            adjacencySegment.set(ValueLayout.JAVA_INT, dstOff + ADJ_OFF_MEM_IDX, memIdx);
-                            adjacencySegment.set(ValueLayout.JAVA_FLOAT, dstOff + ADJ_OFF_WEIGHT, weight);
-                        }
-                        newCount++;
-                    }
-                }
-                if (newCount != adjCnt) {
-                    entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT, newCount);
-                }
-            }
-            return removedCount;
-        } finally {
-            lock.unlockWrite(stamp);
-        }
-    }
-
-    private void rebuildReverseIndex() {
-        memoryToEntities.clear();
-        for (int i = 0; i < entityCount; i++) {
-            long entOffset = (long) i * ENTITY_NODE_BYTES;
-            int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
-            int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
-            if (adjOff < 0 || adjCnt <= 0) continue;
-            for (int r = 0; r < adjCnt; r++) {
-                int refMem = adjacencySegment.get(ValueLayout.JAVA_INT,
-                        (long) (adjOff + r) * ADJ_ENTRY_BYTES + ADJ_OFF_MEM_IDX);
-                memoryToEntities.computeIfAbsent(refMem, k -> ConcurrentHashMap.newKeySet()).add(i);
-            }
-        }
-    }
-
-    /**
-     * Returns the ACT-R fan-effect attenuation factor {@code 1/sqrt(refCount)} for an entity.
-     * Calculates the degree-derived factor so expansion scoring is unchanged.
-     */
-    public float fanFactor(int entityId) {
-        int refCnt = memoryRefCount(entityId);
-        if (refCnt <= 1) return 1.0f;
-        return 1.0f / (float) Math.sqrt(refCnt);
-    }
-
-    /** Returns the entity type name for an entity id. */
-    public String entityType(int entityId) {
-        if (entityId < 0 || entityId >= entityCount) return "OTHER";
-        int typeId = entitySegment.get(ValueLayout.JAVA_INT,
-                (long) entityId * ENTITY_NODE_BYTES + ENT_OFF_TYPE);
-        return entityTypeRegistryMemory.nameOf(typeId);
-    }
-
-    /** Returns the entity name string for an entity id. */
-    public String entityName(int entityId) {
-        for (Map.Entry<String, Integer> entry : nameIndex.entrySet()) {
-            if (entry.getValue() == entityId) {
-                return entry.getKey();
-            }
-        }
-        return "Entity#" + entityId;
-    }
-
-    /** Returns the number of entities in the directory. */
-    public int entityCount() {
-        return entityCount;
-    }
-
-    /** Returns a copy of the name index for inspection/debugging. */
-    public Map<String, Integer> nameIndex() {
-        return Map.copyOf(nameIndex);
-    }
-
-    /** Package-private mutable view for the serializer sidecar hydrate path. */
-    ConcurrentHashMap<String, Integer> nameIndexInternal() {
-        return nameIndex;
-    }
-
-    /** Returns the shared entity type registry. */
-    public TypeRegistryMemory entityTypeRegistry() {
-        return entityTypeRegistryMemory;
-    }
-
-    /** Returns the adjacency segment high water mark (for diagnostics). */
-    public int adjHighWaterMark() {
-        return adjHighWaterMark;
-    }
-
-    /** Sets the data encryptor for name index encryption. */
-    public void setDataEncryptor(DataEncryptor encryptor) {
-        this.dataEncryptor = encryptor;
-    }
-
-    /** Returns the current data encryptor (for diagnostics). */
-    public DataEncryptor dataEncryptor() {
-        return dataEncryptor;
-    }
-
-    // ══════════════════════════════════════════════════════════════
-    // REFLECTION-CYCLE OPERATIONS (identity-level dedup + LTD)
-    // ══════════════════════════════════════════════════════════════
-
-    /**
-     * Decays all entity→memory adjacency weights and prunes weak links (LTD).
-     *
-     * @param decayFactor    multiplicative factor per cycle
-     * @param pruneThreshold links with weight below this after decay are removed
-     * @return number of adjacency entries pruned
-     */
-    public int decayAdjacencyWeights(float decayFactor, float pruneThreshold) {
-        long stamp = lock.writeLock();
-        try {
-            int totalPruned = 0;
-            for (int e = 0; e < entityCount; e++) {
-                long entOffset = (long) e * ENTITY_NODE_BYTES;
-                int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
-                int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
-                if (adjOff < 0 || adjCnt == 0) continue;
-                int newCount = 0;
-                for (int i = 0; i < adjCnt; i++) {
-                    long srcOff = (long) (adjOff + i) * ADJ_ENTRY_BYTES;
-                    float weight = adjacencySegment.get(ValueLayout.JAVA_FLOAT, srcOff + ADJ_OFF_WEIGHT);
-                    float decayed = weight * decayFactor;
-                    if (decayed >= pruneThreshold) {
-                        if (newCount < i) {
-                            long dstOff = (long) (adjOff + newCount) * ADJ_ENTRY_BYTES;
-                            int memIdx = adjacencySegment.get(ValueLayout.JAVA_INT, srcOff + ADJ_OFF_MEM_IDX);
-                            adjacencySegment.set(ValueLayout.JAVA_INT, dstOff + ADJ_OFF_MEM_IDX, memIdx);
-                            adjacencySegment.set(ValueLayout.JAVA_FLOAT, dstOff + ADJ_OFF_WEIGHT, decayed);
-                        } else {
-                            adjacencySegment.set(ValueLayout.JAVA_FLOAT, srcOff + ADJ_OFF_WEIGHT, decayed);
-                        }
-                        newCount++;
-                    } else {
-                        totalPruned++;
-                    }
-                }
-                entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT, newCount);
-            }
-            if (totalPruned > 0) {
-                log.info("EntityDirectory LTD: pruned {} weak links below {}", totalPruned, pruneThreshold);
-            }
-            return totalPruned;
-        } finally {
-            lock.unlockWrite(stamp);
-        }
-    }
-
-    /**
-     * Compacts the adjacency segment by defragmenting per-entity blocks.
-     *
-     * @return bytes reclaimed by compaction
-     */
-    public long compactAdjacency() {
-        long stamp = lock.writeLock();
-        try {
-            return compactAdjacencyLocked();
-        } finally {
-            lock.unlockWrite(stamp);
-        }
-    }
-
-    /**
-     * Lock-free compaction of the adjacency segment. Must be called under the write lock.
-     *
-     * <p>Extracted from {@link #compactAdjacency()} so that callers already holding the write lock
-     * (e.g., {@link #ensureAdjSegmentCapacity(int)}) can invoke compaction without hitting a
-     * {@link java.util.concurrent.locks.StampedLock} reentrancy deadlock.</p>
-     *
-     * @return bytes reclaimed by compaction
-     */
-    private long compactAdjacencyLocked() {
-            long oldUsed = (long) adjHighWaterMark * ADJ_ENTRY_BYTES;
-            int liveEntries = 0;
-            for (int e = 0; e < entityCount; e++) {
-                liveEntries += entitySegment.get(ValueLayout.JAVA_INT,
-                        (long) e * ENTITY_NODE_BYTES + ENT_OFF_ADJ_COUNT);
-            }
-            if (liveEntries == 0) {
-                adjHighWaterMark = 0;
-                return oldUsed;
-            }
-            int newCapacity = Math.max(adjSegmentCapacity, (int) (liveEntries * 1.5));
-            MemorySegment newSeg;
-            Arena tempArena = null;
-            if (fileBacked) {
-                tempArena = Arena.ofConfined();
-                newSeg = tempArena.allocate((long) ADJ_ENTRY_BYTES * adjSegmentCapacity);
-            } else {
-                newSeg = arena.allocate((long) ADJ_ENTRY_BYTES * newCapacity);
-            }
-            newSeg.fill((byte) 0);
-
-            int writePos = 0;
-            for (int e = 0; e < entityCount; e++) {
-                long entOffset = (long) e * ENTITY_NODE_BYTES;
-                int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
-                int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
-                if (adjOff < 0 || adjCnt == 0) {
-                    entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET, -1);
-                    entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_CAPACITY, 0);
-                    continue;
-                }
-                MemorySegment.copy(adjacencySegment, (long) adjOff * ADJ_ENTRY_BYTES,
-                        newSeg, (long) writePos * ADJ_ENTRY_BYTES,
-                        (long) adjCnt * ADJ_ENTRY_BYTES);
-                entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET, writePos);
-                int newEntityCap = Math.max(adjCnt, DEFAULT_ADJ_PER_ENTITY);
-                if (writePos + (adjCnt * 2) <= (fileBacked ? adjSegmentCapacity : newCapacity)) {
-                    newEntityCap = Math.max(adjCnt * 2, DEFAULT_ADJ_PER_ENTITY);
-                }
-                entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_CAPACITY, newEntityCap);
-                writePos += newEntityCap;
-            }
-
-            if (fileBacked) {
-                MemorySegment.copy(newSeg, 0, adjacencySegment, 0, (long) writePos * ADJ_ENTRY_BYTES);
-                long unusedOffset = (long) writePos * ADJ_ENTRY_BYTES;
-                long unusedBytes = ((long) adjSegmentCapacity * ADJ_ENTRY_BYTES) - unusedOffset;
-                if (unusedBytes > 0) {
-                    adjacencySegment.asSlice(unusedOffset, unusedBytes).fill((byte) 0);
-                }
-                tempArena.close();
-            } else {
-                adjacencySegment = newSeg;
-                adjSegmentCapacity = newCapacity;
-            }
-            adjHighWaterMark = writePos;
-            long reclaimed = Math.max(oldUsed - (long) writePos * ADJ_ENTRY_BYTES, 0L);
-            this.lastCompactionEpochMs = System.currentTimeMillis();
-            this.bytesReclaimedLastCycle = reclaimed;
-            if (reclaimed > 0) {
-                log.info("EntityDirectory adjacency compacted: {} live entries, reclaimed {}KB",
-                        liveEntries, reclaimed / 1024);
-            }
-            return reclaimed;
+        return dir;
     }
 
     /**
      * Merges entities with similar names using Levenshtein distance (identity-level dedup).
-     * Only entity&rarr;memory adjacency is redirected — the directory has no binary edges.
      *
      * @param maxEditDistance maximum Levenshtein distance for merge
+     * @param typeNormalizer  optional type normalizer for cross-type compatibility
      * @return number of entities merged
      */
     public int mergeSimilarEntities(int maxEditDistance, TypeNormalizer typeNormalizer) {
-        long stamp = lock.writeLock();
-        try {
-            if (maxEditDistance <= 0 || entityCount < 2) return 0;
-            Set<Integer> merged = new HashSet<>();
-            int mergeCount = 0;
-            List<Map.Entry<String, Integer>> entries = new ArrayList<>(nameIndex.entrySet());
-            for (int i = 0; i < entries.size(); i++) {
-                if (merged.contains(entries.get(i).getValue())) continue;
-                String nameA = entries.get(i).getKey();
-                int idA = entries.get(i).getValue();
-                for (int j = i + 1; j < entries.size(); j++) {
-                    if (merged.contains(entries.get(j).getValue())) continue;
-                    String nameB = entries.get(j).getKey();
-                    int idB = entries.get(j).getValue();
-                    String typeA = entityType(idA);
-                    String typeB = entityType(idB);
-                    if (typeNormalizer != null) {
-                        if (!typeNormalizer.areMergeCompatible(typeA, typeB)) continue;
-                    } else {
-                        if (!typeA.equals(typeB)) continue;
-                    }
-                    int dist = levenshteinDistance(nameA, nameB);
-                    if (dist > 0 && dist <= maxEditDistance) {
-                        int canonical = nameA.length() <= nameB.length() ? idA : idB;
-                        int duplicate = canonical == idA ? idB : idA;
-                        int[] dupRefs = memoriesForEntityLocked(duplicate);
-                        for (int memIdx : dupRefs) {
-                            linkEntityToMemoryLocked(canonical, memIdx, INITIAL_LINK_WEIGHT, true);
-                        }
-                        long dupOffset = (long) duplicate * ENTITY_NODE_BYTES;
-                        entitySegment.set(ValueLayout.JAVA_INT, dupOffset + ENT_OFF_ADJ_COUNT, 0);
-                        merged.add(duplicate);
-                        mergeCount++;
-                    }
+        if (maxEditDistance <= 0 || entityCount() < 2) return 0;
+        Set<Integer> merged = new HashSet<>();
+        int mergeCount = 0;
+        List<Map.Entry<String, Integer>> entries = new ArrayList<>(nameIndexInternal().entrySet());
+        for (int i = 0; i < entries.size(); i++) {
+            if (merged.contains(entries.get(i).getValue())) continue;
+            String nameA = entries.get(i).getKey();
+            int idA = entries.get(i).getValue();
+            for (int j = i + 1; j < entries.size(); j++) {
+                if (merged.contains(entries.get(j).getValue())) continue;
+                String nameB = entries.get(j).getKey();
+                int idB = entries.get(j).getValue();
+                String typeA = entityType(idA);
+                String typeB = entityType(idB);
+                if (typeNormalizer != null) {
+                    if (!typeNormalizer.areMergeCompatible(typeA, typeB)) continue;
+                } else {
+                    if (!typeA.equals(typeB)) continue;
+                }
+                int dist = levenshteinDistance(nameA, nameB);
+                if (dist > 0 && dist <= maxEditDistance) {
+                    int canonical = nameA.length() <= nameB.length() ? idA : idB;
+                    int duplicate = canonical == idA ? idB : idA;
+                    mergeEntity(duplicate, canonical);
+                    merged.add(duplicate);
+                    mergeCount++;
                 }
             }
-            if (mergeCount > 0) {
-                log.info("EntityDirectory merged {} similar entities", mergeCount);
-            }
-            return mergeCount;
-        } finally {
-            lock.unlockWrite(stamp);
         }
-    }
-
-    /**
-     * Set the mergedInto pointer on a duplicate entity and re-link its memories.
-     */
-    public void mergeEntity(int duplicateId, int canonicalId) {
-        long stamp = lock.writeLock();
-        try {
-            if (duplicateId < 0 || duplicateId >= entityCount || canonicalId < 0 || canonicalId >= entityCount) return;
-            if (duplicateId == canonicalId) return;
-
-            long dupOffset = (long) duplicateId * ENTITY_NODE_BYTES;
-            entitySegment.set(ValueLayout.JAVA_INT, dupOffset + ENT_OFF_MERGED_INTO, canonicalId);
-
-            int[] dupRefs = memoriesForEntityLocked(duplicateId);
-            for (int memIdx : dupRefs) {
-                linkEntityToMemoryLocked(canonicalId, memIdx, INITIAL_LINK_WEIGHT, true);
-            }
-            entitySegment.set(ValueLayout.JAVA_INT, dupOffset + ENT_OFF_ADJ_COUNT, 0);
-        } finally {
-            lock.unlockWrite(stamp);
+        if (mergeCount > 0) {
+            log.info("EntityDirectory merged {} similar entities", mergeCount);
         }
-    }
-
-    /**
-     * Clear the mergedInto pointer.
-     */
-    public void unmergeEntity(int entityId) {
-        long stamp = lock.writeLock();
-        try {
-            if (entityId < 0 || entityId >= entityCount) return;
-            long offset = (long) entityId * ENTITY_NODE_BYTES;
-            entitySegment.set(ValueLayout.JAVA_INT, offset + ENT_OFF_MERGED_INTO, -1);
-        } finally {
-            lock.unlockWrite(stamp);
-        }
-    }
-
-    /**
-     * Resolves the canonical entity ID by following mergedInto pointers.
-     */
-    public int resolveEntity(int entityId) {
-        if (entityId < 0 || entityId >= entityCount) return -1;
-        long stamp = lock.readLock();
-        try {
-            int current = entityId;
-            int iterations = 0;
-            while (iterations++ < 10) { // Limit to prevent cycles
-                long offset = (long) current * ENTITY_NODE_BYTES;
-                int mergedInto = entitySegment.get(ValueLayout.JAVA_INT, offset + ENT_OFF_MERGED_INTO);
-                if (mergedInto == -1) {
-                    return current;
-                }
-                current = mergedInto;
-            }
-            return current;
-        } finally {
-            lock.unlockRead(stamp);
-        }
+        return mergeCount;
     }
 
     /**
      * Merges entities using embeddings and LLM adjudication.
      */
-    public int mergeSimilarEntities(EmbeddingProvider embedder, LlmProvider adjudicator, float cosineThreshold, boolean shadowMode, TypeNormalizer typeNormalizer) {
-        if (embedder == null || adjudicator == null || entityCount < 2) return 0;
-        
-        long stamp = lock.writeLock();
+    public int mergeSimilarEntities(EmbeddingProvider embedder, LlmProvider adjudicator,
+                                    float cosineThreshold, boolean shadowMode,
+                                    TypeNormalizer typeNormalizer) {
+        if (embedder == null || adjudicator == null || entityCount() < 2) return 0;
+
+        LlmEntityAdjudicator llmAdjudicator = new LlmEntityAdjudicator(adjudicator);
+        Set<Integer> merged = new HashSet<>();
+        int mergeCount = 0;
+        List<Map.Entry<String, Integer>> entries = new ArrayList<>(nameIndexInternal().entrySet());
+
+        List<String> namesToEmbed = new ArrayList<>();
+        for (Map.Entry<String, Integer> entry : entries) {
+            namesToEmbed.add(entry.getKey());
+        }
+
+        float[][] embeddings = null;
         try {
-            LlmEntityAdjudicator llmAdjudicator = new LlmEntityAdjudicator(adjudicator);
-            Set<Integer> merged = new HashSet<>();
-            int mergeCount = 0;
-            List<Map.Entry<String, Integer>> entries = new ArrayList<>(nameIndex.entrySet());
-            
-            // Collect embeddings for all names
-            List<String> namesToEmbed = new ArrayList<>();
-            for (Map.Entry<String, Integer> entry : entries) {
-                namesToEmbed.add(entry.getKey());
+            List<com.spectrayan.spector.provider.embedding.EmbeddingResult> results = embedder.embedBatch(namesToEmbed);
+            embeddings = new float[results.size()][];
+            for (int i = 0; i < results.size(); i++) {
+                embeddings[i] = results.get(i).vector();
             }
-            
-            float[][] embeddings = null;
-            try {
-                java.util.List<com.spectrayan.spector.provider.embedding.EmbeddingResult> results = embedder.embedBatch(namesToEmbed);
-                embeddings = new float[results.size()][];
-                for (int i = 0; i < results.size(); i++) {
-                    embeddings[i] = results.get(i).vector();
-                }
-            } catch (Exception e) {
-                log.warn("Failed to embed entity names for resolution", e);
-                return 0;
-            }
-            
-            for (int i = 0; i < entries.size(); i++) {
-                int idA = entries.get(i).getValue();
-                if (merged.contains(idA)) continue;
-                String nameA = entries.get(i).getKey();
-                String typeA = entityType(idA);
-                
-                for (int j = i + 1; j < entries.size(); j++) {
-                    int idB = entries.get(j).getValue();
-                    if (merged.contains(idB)) continue;
-                    String typeB = entityType(idB);
-                    if (!typeA.equals(typeB)) continue;
-                    
-                    float sim = cosineSimilarity(embeddings[i], embeddings[j]);
-                    if (sim >= cosineThreshold) {
-                        String nameB = entries.get(j).getKey();
-                        
-                        if (shadowMode) {
-                            log.info("[EntityResolution:Shadow] Proposed merge: entityIdA={}, entityIdB={}, typeA={}, typeB={}, sim={}", idA, idB, typeA, typeB, sim);
-                            continue;
-                        }
-                        
-                        var result = llmAdjudicator.adjudicate(nameA, typeA, nameB, typeB, List.of());
-                        if (result.shouldMerge()) {
-                            int canonical = nameA.length() <= nameB.length() ? idA : idB;
-                            int duplicate = canonical == idA ? idB : idA;
-                            
-                            // Re-link manually as we hold the write lock
-                            int[] dupRefs = memoriesForEntityLocked(duplicate);
-                            for (int memIdx : dupRefs) {
-                                linkEntityToMemoryLocked(canonical, memIdx, INITIAL_LINK_WEIGHT, true);
-                            }
-                            long dupOffset = (long) duplicate * ENTITY_NODE_BYTES;
-                            entitySegment.set(ValueLayout.JAVA_INT, dupOffset + ENT_OFF_ADJ_COUNT, 0);
-                            entitySegment.set(ValueLayout.JAVA_INT, dupOffset + ENT_OFF_MERGED_INTO, canonical);
-                            
-                            merged.add(duplicate);
-                            mergeCount++;
-                            log.info("Entity resolution merged duplicate entity ID {} into canonical entity ID {}", duplicate, canonical);
-                        }
+        } catch (Exception e) {
+            log.warn("Failed to embed entity names for resolution", e);
+            return 0;
+        }
+
+        for (int i = 0; i < entries.size(); i++) {
+            int idA = entries.get(i).getValue();
+            if (merged.contains(idA)) continue;
+            String nameA = entries.get(i).getKey();
+            String typeA = entityType(idA);
+
+            for (int j = i + 1; j < entries.size(); j++) {
+                int idB = entries.get(j).getValue();
+                if (merged.contains(idB)) continue;
+                String typeB = entityType(idB);
+                if (!typeA.equals(typeB)) continue;
+
+                float sim = cosineSimilarity(embeddings[i], embeddings[j]);
+                if (sim >= cosineThreshold) {
+                    String nameB = entries.get(j).getKey();
+
+                    if (shadowMode) {
+                        log.info("[EntityResolution:Shadow] Proposed merge: entityIdA={}, entityIdB={}, typeA={}, typeB={}, sim={}",
+                                idA, idB, typeA, typeB, sim);
+                        continue;
+                    }
+
+                    var result = llmAdjudicator.adjudicate(nameA, typeA, nameB, typeB, List.of());
+                    if (result.shouldMerge()) {
+                        int canonical = nameA.length() <= nameB.length() ? idA : idB;
+                        int duplicate = canonical == idA ? idB : idA;
+                        mergeEntity(duplicate, canonical);
+                        merged.add(duplicate);
+                        mergeCount++;
+                        log.info("Entity resolution merged duplicate entity ID {} into canonical entity ID {}", duplicate, canonical);
                     }
                 }
             }
-            return mergeCount;
-        } finally {
-            lock.unlockWrite(stamp);
         }
+        return mergeCount;
     }
-    
-    private float cosineSimilarity(float[] a, float[] b) {
+
+    private static float cosineSimilarity(float[] a, float[] b) {
         if (a == null || b == null || a.length != b.length) return 0f;
         float dot = 0f, normA = 0f, normB = 0f;
         for (int i = 0; i < a.length; i++) {
@@ -1291,10 +207,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         return (float) (dot / (Math.sqrt(normA) * Math.sqrt(normB)));
     }
 
-    private static final ThreadLocal<int[]> LEV_PREV = ThreadLocal.withInitial(() -> new int[256]);
-    private static final ThreadLocal<int[]> LEV_CURR = ThreadLocal.withInitial(() -> new int[256]);
-
-    static int levenshteinDistance(String a, String b) {
+    public static int levenshteinDistance(String a, String b) {
         int lenA = a.length(), lenB = b.length();
         if (lenA == 0) return lenB;
         if (lenB == 0) return lenA;
@@ -1317,314 +230,5 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
             int[] tmp = prev; prev = curr; curr = tmp;
         }
         return prev[lenB];
-    }
-
-    /**
-     * Resets all entities and adjacency data by zero-filling segments. The arena is retained
-     * (unlike {@link #close()}) so the directory remains usable. Used by privacy wipe.
-     */
-    public void reset() {
-        long stamp = lock.writeLock();
-        try {
-            int entitiesBefore = entityCount;
-            entitySegment.fill((byte) 0);
-            adjacencySegment.fill((byte) 0);
-            nameIndex.clear();
-            entityCount = 0;
-            adjHighWaterMark = 0;
-            persistCount();
-            log.info("EntityDirectory reset: {} entities cleared", entitiesBefore);
-        } finally {
-            lock.unlockWrite(stamp);
-        }
-    }
-
-    // ══════════════════════════════════════════════════════════════
-    // PERSISTENCE: SMKM container + name-index sidecar
-    // ══════════════════════════════════════════════════════════════
-
-    /** Saves the directory to its SMKM container plus the {@code entity-directory-names.idx} sidecar. */
-    public void save(Path filePath) {
-        save(filePath, this.dataEncryptor);
-    }
-
-    /** Saves the directory with optional name-index encryption. */
-    public void save(Path filePath, DataEncryptor encryptor) {
-        if (bundleManaged) {
-            long stamp = lock.readLock();
-            try {
-                writeSmkmHeaderToSegment(headerSegment, entityCapacity, entityCount,
-                        adjSegmentCapacity, adjHighWaterMark);
-                headerSegment.force();
-                entitySegment.force();
-
-                if (rawAdjacencyRegion != null) {
-                    writeSmkmHeaderToSegment(rawAdjacencyRegion.asSlice(0, DATA_START), 0, 0,
-                            adjSegmentCapacity, adjHighWaterMark);
-                    adjacencySegment.force();
-                    rawAdjacencyRegion.force();
-
-                    Path path = filePath != null ? filePath : mmapFilePath;
-                    if (path != null) {
-                        // V4 bundle path: write name index to ENTITY_NAMES region after adjacency data
-                        long nameIndexOffset = DATA_START
-                                + (long) adjSegmentCapacity * ADJ_ENTRY_BYTES;
-                        int written = EntityDirectorySerializer.saveNameIndexToRegion(
-                                rawAdjacencyRegion, nameIndexOffset, nameIndex);
-                        if (written < 0) {
-                            // Fallback to sidecar file if region too small
-                            EntityDirectorySerializer.saveNameIndexSidecar(this, path, encryptor);
-                        }
-                    }
-                }
-            } finally {
-                lock.unlockRead(stamp);
-            }
-            return;
-        }
-        if (fileBacked && filePath.equals(mmapFilePath)) {
-            long stamp = lock.readLock();
-            try {
-                writeSmkmHeaderToSegment(headerSegment, entityCapacity, entityCount,
-                        adjSegmentCapacity, adjHighWaterMark);
-                headerSegment.force();
-                entitySegment.force();
-                adjacencySegment.force();
-            } finally {
-                lock.unlockRead(stamp);
-            }
-            EntityDirectorySerializer.saveNameIndexSidecar(this, filePath, encryptor);
-            log.info("EntityDirectory flushed (SMKM mmap): entities={}/{}, adjHwm={}",
-                    entityCount, entityCapacity, adjHighWaterMark);
-            return;
-        }
-        writeSmkmFile(filePath);
-        EntityDirectorySerializer.saveNameIndexSidecar(this, filePath, encryptor);
-    }
-
-    /** Writes this directory as a fresh SMKM container at {@code filePath}. */
-    private void writeSmkmFile(Path filePath) {
-        Path parent = filePath.getParent();
-        long stamp = lock.readLock();
-        try {
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            long entityBytes = (long) ENTITY_NODE_BYTES * entityCapacity;
-            long adjBytes = (long) ADJ_ENTRY_BYTES * adjSegmentCapacity;
-            try (FileChannel ch = FileChannel.open(filePath,
-                    StandardOpenOption.CREATE, StandardOpenOption.WRITE,
-                    StandardOpenOption.TRUNCATE_EXISTING)) {
-                writeSmkmHeaderToChannel(ch, entityCapacity, entityCount,
-                        adjSegmentCapacity, adjHighWaterMark);
-                ch.position(DATA_START);
-                writeSegmentFully(ch, entitySegment, entityBytes);
-                writeSegmentFully(ch, adjacencySegment, adjBytes);
-                ch.force(true);
-            }
-            log.info("EntityDirectory saved (SMKM): entities={}, adjHwm={} -> {}",
-                    entityCount, adjHighWaterMark, filePath);
-        } catch (IOException e) {
-            throw new SpectorGraphPersistenceException("EntityDirectory", filePath, e);
-        } finally {
-            lock.unlockRead(stamp);
-        }
-    }
-
-    /**
-     * Loads a directory from disk, or returns a fresh (heap) directory if the file is absent.
-     * A present-but-unreadable file throws {@link SpectorGraphPersistenceException} — never a silent
-     * empty directory (#432/#433 discipline).
-     *
-     * @param filePath           path to the {@code entity-directory.edir} container
-     * @param defaultEntityCap   entity capacity if the file doesn't exist
-     * @param entityTypeRegistry the shared entity type registry
-     * @return an EntityDirectory (loaded or fresh)
-     */
-    public static EntityDirectory load(Path filePath, int defaultEntityCap,
-                                       TypeRegistryMemory entityTypeRegistry) {
-        return load(filePath, defaultEntityCap, entityTypeRegistry, null);
-    }
-
-    /** Loads a directory with optional name-index decryption. */
-    public static EntityDirectory load(Path filePath, int defaultEntityCap,
-                                       TypeRegistryMemory entityTypeRegistry, DataEncryptor encryptor) {
-        if (filePath == null || !Files.exists(filePath)) {
-            log.info("EntityDirectory file not found, creating fresh: {}", filePath);
-            return new EntityDirectory(defaultEntityCap, entityTypeRegistry);
-        }
-        try {
-            long size = Files.size(filePath);
-            if (size < 4) {
-                throw new IOException("file too small to contain a magic number: " + size + " bytes");
-            }
-            int beMagic = peekMagicBE(filePath);
-            int leMagic = Integer.reverseBytes(beMagic);
-            if (leMagic != RegionPreamble.MAGIC) {
-                throw new IOException("Unrecognized EntityDirectory file magic: 0x"
-                        + Integer.toHexString(beMagic) + " (expected SMKM 0x"
-                        + Integer.toHexString(RegionPreamble.MAGIC) + "): " + filePath);
-            }
-            EntityDirectory dir = new EntityDirectory(filePath, defaultEntityCap, entityTypeRegistry);
-            ConcurrentHashMap<String, Integer> names =
-                    EntityDirectorySerializer.loadNameIndexSidecar(filePath, encryptor);
-            if (names != null && !names.isEmpty()) {
-                dir.nameIndexInternal().putAll(names);
-            }
-            dir.setDataEncryptor(encryptor);
-            return dir;
-        } catch (SpectorGraphPersistenceException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("Failed to load EntityDirectory from {} (file present but unreadable)", filePath, e);
-            throw new SpectorGraphPersistenceException("EntityDirectory", filePath, e);
-        }
-    }
-
-    // ── SMKM header helpers ──
-
-    private static int peekMagicBE(Path filePath) throws IOException {
-        try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
-            ByteBuffer buf = ByteBuffer.allocate(4);
-            if (ch.read(buf) < 4) {
-                throw new IOException("file too small to contain a magic number: " + filePath);
-            }
-            buf.flip();
-            return buf.getInt();
-        }
-    }
-
-    private static void writeSmkmHeaderToChannel(FileChannel ch, int entityCap, int entityCount,
-                                                 int adjCap, int adjHwm) throws IOException {
-        try (Arena confined = Arena.ofConfined()) {
-            MemorySegment head = confined.allocate(DATA_START);
-            long now = System.currentTimeMillis();
-            RegionPreamble.write(head, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
-                    entityCap, entityCount, ENTITY_NODE_BYTES, LAYOUT.layoutId(), now, now);
-            head.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_CAPACITY, adjCap);
-            head.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_HWM, adjHwm);
-            ByteBuffer buf = head.asByteBuffer();
-            ch.position(0);
-            while (buf.hasRemaining()) {
-                ch.write(buf);
-            }
-        }
-    }
-
-    /** Writes the SMKM header directly to a memory-mapped header segment (no FileChannel needed). */
-    private static void writeSmkmHeaderToSegment(MemorySegment header, int entityCap, int entityCount,
-                                                 int adjCap, int adjHwm) {
-        long now = System.currentTimeMillis();
-        RegionPreamble.write(header, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
-                entityCap, entityCount, ENTITY_NODE_BYTES, LAYOUT.layoutId(), now, now);
-        header.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_CAPACITY, adjCap);
-        header.set(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_HWM, adjHwm);
-    }
-
-    private static void writeSegmentFully(FileChannel ch, MemorySegment seg, long bytes)
-            throws IOException {
-        long written = 0;
-        int chunk = 64 * 1024;
-        while (written < bytes) {
-            int toWrite = (int) Math.min(chunk, bytes - written);
-            ByteBuffer buf = seg.asSlice(written, toWrite).asByteBuffer().asReadOnlyBuffer();
-            ch.write(buf);
-            written += toWrite;
-        }
-    }
-
-    // ── Package-private accessors for EntityDirectorySerializer ──
-
-    int entityCapacityInternal() { return entityCapacity; }
-
-    // ══════════════════════════════════════════════════════════════
-    // KERNEL INTEGRATION — the directory has no entity↔entity edges
-    // ══════════════════════════════════════════════════════════════
-
-    @Override
-    public int size() {
-        return entityCount;
-    }
-
-    @Override
-    public void flush() {
-        if (entitySegment != null && entitySegment.isMapped()) entitySegment.force();
-        if (adjacencySegment != null && adjacencySegment.isMapped()) adjacencySegment.force();
-    }
-
-    @Override
-    public int addEdge(int fromNode, int toNode, MemorySegment edgeBytes) {
-        // The directory owns identity + entity→memory adjacency only; it has no entity→entity edges.
-        return -1;
-    }
-
-    @Override
-    public void removeEdge(int edgeId) {
-        // No entity→entity edges to remove.
-    }
-
-    @Override
-    public PrimitiveIterator.OfInt neighbours(int nodeId) {
-        return java.util.stream.IntStream.empty().iterator();
-    }
-
-    @Override
-    public int edgeCount() {
-        return 0;
-    }
-
-    @Override
-    public int nodeCount() {
-        return entityCount;
-    }
-
-    public MemoryId memoryId() {
-        return memoryId;
-    }
-
-    @Override
-    public MemorySegment headerSegment() {
-        return headerSegment;
-    }
-
-    /**
-     * Captures a read-only telemetry snapshot of entity directory health and fragmentation (MR-08).
-     */
-    public GraphStructureHealthSnapshot structureHealthSnapshot() {
-        long stamp = lock.readLock();
-        try {
-            long allocBytes = (long) entityCapacity * ENTITY_NODE_BYTES + (long) adjSegmentCapacity * ADJ_ENTRY_BYTES;
-            long liveBytes = (long) entityCount * ENTITY_NODE_BYTES + (long) adjHighWaterMark * ADJ_ENTRY_BYTES;
-            float fragRatio = allocBytes > 0 ? 1.0f - ((float) liveBytes / (float) allocBytes) : 0.0f;
-            float loadFactor = entityCapacity > 0 ? (float) entityCount / (float) entityCapacity : 0.0f;
-
-            return new GraphStructureHealthSnapshot(
-                    "entity-directory",
-                    allocBytes,
-                    liveBytes,
-                    Math.max(0.0f, fragRatio),
-                    loadFactor,
-                    1,
-                    Float.NaN,
-                    lastCompactionEpochMs,
-                    bytesReclaimedLastCycle
-            );
-        } finally {
-            lock.unlockRead(stamp);
-        }
-    }
-
-    @Override
-    public void close() {
-        log.info("EntityDirectory closing (entities={}, adjEntries={}, fileBacked={})",
-                entityCount, adjHighWaterMark, fileBacked);
-        if (fileBacked && headerSegment != null) {
-            entitySegment.force();
-            adjacencySegment.force();
-            headerSegment.force();
-        }
-        if (!bundleManaged && arena != null) {
-            arena.close();
-        }
     }
 }

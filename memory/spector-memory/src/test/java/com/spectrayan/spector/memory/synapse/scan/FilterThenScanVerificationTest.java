@@ -25,6 +25,7 @@ import com.spectrayan.spector.kernel.score.DecayStrategy;
 import com.spectrayan.spector.kernel.score.RecordGates;
 import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.kernel.store.EngramRegion;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -145,7 +146,7 @@ public class FilterThenScanVerificationTest {
 
             // Perform scan
             List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
-                    segment, recordCount, LAYOUT, queryVector, options, nowMs
+                    EngramRegion.of(segment, recordCount, LAYOUT), queryVector, options, nowMs
             );
 
             // A post-filter implementation would have picked top-3 (0, 1, 2) and filtered them out -> empty!
@@ -242,15 +243,16 @@ public class FilterThenScanVerificationTest {
             float[] queryVector = new float[DIMS];
 
             // Warmup
+            final EngramRegion region = EngramRegion.of(segment, recordCount, LAYOUT);
             for (int w = 0; w < 200; w++) {
-                CognitiveScorer.score(segment, recordCount, LAYOUT, queryVector, options, nowMs);
+                CognitiveScorer.score(region, queryVector, options, nowMs);
             }
 
             // Measurement
             final int iterations = 500;
             long start = System.nanoTime();
             for (int m = 0; m < iterations; m++) {
-                CognitiveScorer.score(segment, recordCount, LAYOUT, queryVector, options, nowMs);
+                CognitiveScorer.score(region, queryVector, options, nowMs);
             }
             long totalNanos = System.nanoTime() - start;
             double p50Micros = (double) totalNanos / (iterations * 1000.0);

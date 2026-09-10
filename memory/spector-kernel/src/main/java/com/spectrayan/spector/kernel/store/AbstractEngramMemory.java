@@ -31,9 +31,13 @@ import com.spectrayan.spector.kernel.id.MemoryId;
 import com.spectrayan.spector.kernel.shape.MemoryShape;
 import com.spectrayan.spector.kernel.region.RegionPreamble;
 import com.spectrayan.spector.kernel.id.SystemMemoryId;
+import com.spectrayan.spector.kernel.bundle.RegionLease;
 import com.spectrayan.spector.kernel.bundle.RegionRef;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.scan.ScanFilter;
+import com.spectrayan.spector.kernel.scan.SlabScanner;
+import com.spectrayan.spector.kernel.scan.SlotVisitor;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.kernel.shape.AbstractRecordMemory;
@@ -541,5 +545,24 @@ public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout>
 
     protected void setCount(int c) {
         this.count = c;
+    }
+
+    @Override
+    public void scan(float[] query, float[] mins, float[] scales, ScanFilter filter,
+                     StrengthMemory strengthStore, int partitionSeq, SlotVisitor visitor) {
+        if (!(layout instanceof FixedEngramLayout fixedLayout)) {
+            return;
+        }
+        RegionRef ref = regionRef();
+        RegionLease lease = ref != null ? ref.lease() : null;
+        try {
+            MemorySegment seg = lease != null ? lease.slab() : segment();
+            SlabScanner.scan(seg, visibleCount(), fixedLayout, query, mins, scales, filter,
+                    strengthStore, type(), dataOffset(), partitionSeq, visitor);
+        } finally {
+            if (lease != null) {
+                lease.close();
+            }
+        }
     }
 }

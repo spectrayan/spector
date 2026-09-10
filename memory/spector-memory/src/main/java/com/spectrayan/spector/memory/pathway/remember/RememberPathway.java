@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.bootstrap.CognitiveCortexBuilder;
 import com.spectrayan.spector.memory.bootstrap.CognitiveGraphBuilder;
 import com.spectrayan.spector.memory.bootstrap.RetrievalIndexBuilder;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.kernel.store.TextBlobMemory;
 import com.spectrayan.spector.kernel.store.WorkingMemory;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;

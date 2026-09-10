@@ -11,6 +11,8 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.graph.temporal;
+
+import com.spectrayan.spector.kernel.store.TemporalFact;
 import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 
 import org.junit.jupiter.api.AfterEach;

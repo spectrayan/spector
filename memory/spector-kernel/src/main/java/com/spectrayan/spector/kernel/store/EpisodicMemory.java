@@ -431,6 +431,26 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
         return offsets;
     }
 
+    public record TurnHeaderSnapshot(boolean isOptionB, boolean tombstoned, float importance, byte arousal, byte valence) {}
+
+    /**
+     * Reads a snapshot of the header fields at a relative offset from dataOffset().
+     */
+    public TurnHeaderSnapshot readTurnHeaderSnapshot(long relativeOffset) {
+        long offset = dataOffset() + relativeOffset;
+        MemorySegment seg = segment();
+        var headerLayout = layout().headerLayout();
+        if (headerLayout.isOptionBRecord(seg, offset)) {
+            byte flags = headerLayout.readFlagsRecord(seg, offset);
+            boolean tombstoned = EncodingHeaderFields.isTombstoned(flags);
+            float importance = headerLayout.readImportanceRecord(seg, offset);
+            byte arousal = headerLayout.readArousalRecord(seg, offset);
+            byte valence = headerLayout.readValenceRecord(seg, offset);
+            return new TurnHeaderSnapshot(true, tombstoned, importance, arousal, valence);
+        }
+        return new TurnHeaderSnapshot(false, false, 0f, (byte) 0, (byte) 0);
+    }
+
     /**
      * Directly scans the episodic log slab for consolidated turn offsets belonging to the given session.
      *
@@ -723,5 +743,13 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
 
     public void writeImportance(long offset, float importance) {
         EpisodicHeaderLayout.INSTANCE.writeImportanceRecord(segment(), offset, importance);
+    }
+
+    @Override
+    public void scan(float[] query, float[] mins, float[] scales,
+                     com.spectrayan.spector.kernel.scan.ScanFilter filter,
+                     StrengthMemory strengthStore, int partitionSeq,
+                     com.spectrayan.spector.kernel.scan.SlotVisitor visitor) {
+        throw new UnsupportedOperationException("EpisodicMemory is log-structured and scanned via cursor");
     }
 }

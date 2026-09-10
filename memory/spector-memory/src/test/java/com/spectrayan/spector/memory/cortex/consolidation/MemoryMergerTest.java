@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.cortex.consolidation;
 import com.spectrayan.spector.kernel.score.Valence;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;

@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.graph.OntologyConfig;
 import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
-import com.spectrayan.spector.memory.graph.temporal.TemporalFact;
+import com.spectrayan.spector.kernel.store.TemporalFact;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

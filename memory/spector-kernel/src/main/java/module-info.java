@@ -36,6 +36,10 @@ module com.spectrayan.spector.kernel {
     exports com.spectrayan.spector.kernel.scratch;
     exports com.spectrayan.spector.kernel.score;
     exports com.spectrayan.spector.kernel.sync;
+    exports com.spectrayan.spector.kernel.graph;
+    exports com.spectrayan.spector.kernel.store;
+    exports com.spectrayan.spector.kernel.bundle;
+    exports com.spectrayan.spector.kernel.scan;
 
     // Qualified export for offline tooling only (R10.2, R11.5)
     exports com.spectrayan.spector.kernel.unsafe to

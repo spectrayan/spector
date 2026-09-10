@@ -34,7 +34,7 @@ import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.kernel.api.SourceModality;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
@@ -49,7 +49,6 @@ import static com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.foreign.MemorySegment;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;

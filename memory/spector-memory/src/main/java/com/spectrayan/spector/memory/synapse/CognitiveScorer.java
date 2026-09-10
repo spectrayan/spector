@@ -11,31 +11,14 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.synapse;
-import com.spectrayan.spector.kernel.score.DecayStrategy;
-import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
-import com.spectrayan.spector.kernel.score.Valence;
 
-import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
-
-import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.kernel.layout.EngramLayout;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
-import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.model.ScoreFusionMode;
-import com.spectrayan.spector.memory.model.ScoringMode;
-import com.spectrayan.spector.kernel.store.StrengthMemory;
-import com.spectrayan.spector.kernel.api.MemoryType;
-import com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion;
-import com.spectrayan.spector.memory.synapse.scan.FlatMinHeap;
 import com.spectrayan.spector.kernel.score.RecordGates;
+import com.spectrayan.spector.kernel.store.EngramRegion;
+import com.spectrayan.spector.kernel.store.StrengthMemory;
+import com.spectrayan.spector.memory.model.RecallOptions;
 
-import java.lang.foreign.MemorySegment;
-import java.util.Comparator;
 import java.util.List;
-import java.util.PriorityQueue;
-
-import static com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.*;
 
 /**
  * Fused SIMD cognitive scoring loop — the heart of Spector Memory's performance.
@@ -47,8 +30,8 @@ import static com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.*;
  *   Phase 2:     Synaptic tag &amp; hyperfocus gate  (~1 cycle)  — {@link RecordGates#isTagGated}
  *   Phase 3:     Valence range filter            (~2 cycles) — {@link RecordGates#isValenceGated}
  *   Phase 4:     Age decay with high-mass exempt (~2 cycles) — {@link RecordGates#isStaleAndWeak}
- *   Phase 5:     Zero-copy SIMD L2 distance      (~200 cyc)  — {@link SimilarityFunction#computeQuantizedFromSegment}
- *   Phase 6:     Fused mass-dilated score        (~7 cycles) — {@link CognitiveScoreFusion#computeFusedScore}
+ *   Phase 5:     Zero-copy SIMD L2 distance      (~200 cyc)  — {@link com.spectrayan.spector.core.similarity.SimilarityFunction#computeQuantizedFromSegment}
+ *   Phase 6:     Fused mass-dilated score        (~7 cycles) — {@link com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion#computeFusedScore}
  * </pre>
  */
 public final class CognitiveScorer {
@@ -77,64 +60,52 @@ public final class CognitiveScorer {
     }
 
     /**
-     * Scans a memory segment and returns the top-K scored records.
+     * Scans an engram region and returns the top-K scored records.
      */
     public static List<ScoredRecord> score(
-            final MemorySegment segment, final int recordCount, final FixedEngramLayout layout,
+            final EngramRegion region,
             final float[] queryVector, final RecallOptions options, final long nowMs) {
-        return score(segment, recordCount, layout, queryVector, options, nowMs, 0L, null, null);
+        return score(region, queryVector, options, nowMs, null, null, null, null, null);
     }
 
     /**
-     * Scans a memory segment and returns the top-K scored records with base offset.
+     * Scans an engram region using calibrated scalar quantization parameters.
      */
     public static List<ScoredRecord> score(
-            final MemorySegment segment, final int recordCount, final FixedEngramLayout layout,
-            final float[] queryVector, final RecallOptions options, final long nowMs, final long baseOffset) {
-        return score(segment, recordCount, layout, queryVector, options, nowMs, baseOffset, null, null);
-    }
-
-    /**
-     * Scans a memory segment using calibrated scalar quantization parameters.
-     */
-    public static List<ScoredRecord> score(
-            final MemorySegment segment, final int recordCount, final FixedEngramLayout layout,
-            final float[] queryVector, final RecallOptions options, final long nowMs, final long baseOffset,
+            final EngramRegion region,
+            final float[] queryVector, final RecallOptions options, final long nowMs,
             final float[] mins, final float[] scales) {
-        return score(segment, recordCount, layout, queryVector, options, nowMs, baseOffset, mins, scales, null, null);
+        return score(region, queryVector, options, nowMs, mins, scales, null, null, null);
     }
 
     /**
      * Full scan entrypoint with calibrated distance and early associative prior (MR-06).
      */
     public static List<ScoredRecord> score(
-            final MemorySegment segment, final int recordCount, final FixedEngramLayout layout,
-            final float[] queryVector, final RecallOptions options, final long nowMs, final long baseOffset,
+            final EngramRegion region,
+            final float[] queryVector, final RecallOptions options, final long nowMs,
             final float[] mins, final float[] scales,
             final AssociativePriorProvider priorProvider,
             final QueryAssociativeContext priorContext) {
-        return score(segment, recordCount, layout, queryVector, options, nowMs, baseOffset,
-                mins, scales, priorProvider, priorContext, null, null);
+        return score(region, queryVector, options, nowMs, mins, scales, priorProvider, priorContext, null);
     }
 
     /**
      * Full scan entrypoint with calibrated distance, early associative prior, and authoritative strength region.
      */
     public static List<ScoredRecord> score(
-            final MemorySegment segment, final int recordCount, final FixedEngramLayout layout,
-            final float[] queryVector, final RecallOptions options, final long nowMs, final long baseOffset,
+            final EngramRegion region,
+            final float[] queryVector, final RecallOptions options, final long nowMs,
             final float[] mins, final float[] scales,
             final AssociativePriorProvider priorProvider,
             final QueryAssociativeContext priorContext,
-            final StrengthMemory strengthStore,
-            final MemoryType tier) {
+            final StrengthMemory strengthStore) {
 
         final com.spectrayan.spector.kernel.scan.ScanFilter filter = createScanFilter(options, nowMs);
         final com.spectrayan.spector.memory.synapse.scan.CognitiveScoreVisitor visitor =
                 new com.spectrayan.spector.memory.synapse.scan.CognitiveScoreVisitor(options, nowMs, priorProvider, priorContext);
 
-        com.spectrayan.spector.kernel.scan.SlabScanner.scan(
-                segment, recordCount, layout, queryVector, mins, scales, filter, strengthStore, tier, baseOffset, 0, visitor);
+        region.scan(queryVector, mins, scales, filter, strengthStore, 0, visitor);
 
         return visitor.drain();
     }

@@ -115,9 +115,9 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
         if (preserved != null) {
             long synapticTags = signal.synapticTags() != 0 ? signal.synapticTags() : preserved.synapticTags();
             final com.spectrayan.spector.kernel.api.EngramSource engramSource;
-            if (signal.source() == com.spectrayan.spector.memory.cortex.MemorySource.DREAMED
-                    || signal.source() == com.spectrayan.spector.memory.cortex.MemorySource.THOUGHT_EXPERIMENT
-                    || signal.source() == com.spectrayan.spector.memory.cortex.MemorySource.LANGEVIN_DISCOVERY
+            if (signal.source() == com.spectrayan.spector.kernel.api.MemorySource.DREAMED
+                    || signal.source() == com.spectrayan.spector.kernel.api.MemorySource.THOUGHT_EXPERIMENT
+                    || signal.source() == com.spectrayan.spector.kernel.api.MemorySource.LANGEVIN_DISCOVERY
                     || preserved.source() == com.spectrayan.spector.kernel.api.EngramSource.SIMULATED) {
                 // R6.2: dream/simulate may write at most simulated
                 engramSource = com.spectrayan.spector.kernel.api.EngramSource.SIMULATED;

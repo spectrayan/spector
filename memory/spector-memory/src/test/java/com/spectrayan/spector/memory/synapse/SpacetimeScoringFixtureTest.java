@@ -72,7 +72,7 @@ class SpacetimeScoringFixtureTest {
                     .build();
 
             final List<ScoredRecord> results = CognitiveScorer.score(
-                    store.segment(), 2, layout, queryVec, optsDefault, now, 0L, null, null);
+                    store, queryVec, optsDefault, now);
 
             // Future memory MUST be rejected before entering heap
             assertThat(results).hasSize(1);
@@ -100,7 +100,7 @@ class SpacetimeScoringFixtureTest {
                     .build();
 
             final List<ScoredRecord> results = CognitiveScorer.score(
-                    store.segment(), 1, layout, queryVec, optsDmn, now, 0L, null, null);
+                    store, queryVec, optsDmn, now);
 
             assertThat(results).hasSize(1);
             assertThat(results.get(0).header().timestampMs()).isEqualTo(futureHeader.timestampMs());
@@ -151,7 +151,7 @@ class SpacetimeScoringFixtureTest {
                     .build();
 
             final List<ScoredRecord> results = CognitiveScorer.score(
-                    store.segment(), 2, layout, queryVec, opts, now, 0L, null, null, null, null, strengthStore, MemoryType.SEMANTIC);
+                    store, queryVec, opts, now, null, null, null, null, strengthStore);
 
             // Only the high-mass memory survives Phase 4 screening despite I < 1.0
             assertThat(results).hasSize(1);

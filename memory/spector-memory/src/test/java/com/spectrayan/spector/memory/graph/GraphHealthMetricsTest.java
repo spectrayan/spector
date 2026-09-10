@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.graph;
 import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
 import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
-
+import com.spectrayan.spector.kernel.store.GraphStructureHealthSnapshot;
 import com.spectrayan.spector.kernel.id.MemoryId;
 
 import com.spectrayan.spector.kernel.store.HebbianGraphMemory;

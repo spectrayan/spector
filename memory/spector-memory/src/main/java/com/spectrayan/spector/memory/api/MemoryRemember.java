@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.api;
 
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.kernel.api.ConversationRole;
 import com.spectrayan.spector.memory.model.ImportanceResult;
 import com.spectrayan.spector.memory.model.RememberContext;

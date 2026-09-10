@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.bootstrap;
 
-import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.kernel.shape.Memory;
 import com.spectrayan.spector.kernel.region.RegionPreamble;
@@ -51,7 +50,7 @@ public final class MemoryIndexBuilder {
         //  Memory Index 
         MemoryIndex index;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-            index = com.spectrayan.spector.memory.cortex.index.IndexEntryMemory.fromRegionRefs(cortex.runtimeBundle().regionRef(RegionId.INDEX_MIDX), cortex.runtimeBundle().regionRef(RegionId.INDEX_IDPL), cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew());
+            index = MemoryIndex.fromRegionRefs(cortex.runtimeBundle().regionRef(RegionId.INDEX_MIDX), cortex.runtimeBundle().regionRef(RegionId.INDEX_IDPL), cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew());
         } else {
             index = new MemoryIndex();
         }

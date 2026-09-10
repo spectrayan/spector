@@ -17,6 +17,7 @@ import com.spectrayan.spector.kernel.store.SemanticMemory;
 import com.spectrayan.spector.kernel.store.WorkingMemory;
 
 import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 

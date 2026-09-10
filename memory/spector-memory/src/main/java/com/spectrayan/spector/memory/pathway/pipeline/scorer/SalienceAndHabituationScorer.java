@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pathway.pipeline.scorer;
 import com.spectrayan.spector.kernel.store.CoActivationMemory;
 
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.kernel.store.CoActivationMemory;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;

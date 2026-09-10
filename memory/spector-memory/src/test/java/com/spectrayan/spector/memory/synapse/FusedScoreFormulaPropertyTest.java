@@ -79,12 +79,8 @@ class FusedScoreFormulaPropertyTest {
                 .alpha(0.2f)
                 .build();
 
-        List<ScoredRecord> res1 = CognitiveScorer.score(
-                store.segment(), 1, layout, queryVec, opts1, now, 0L, null, null
-        );
-        List<ScoredRecord> res2 = CognitiveScorer.score(
-                store.segment(), 1, layout, queryVec, opts2, now, 0L, null, null
-        );
+        List<ScoredRecord> res1 = CognitiveScorer.score(store, queryVec, opts1, now);
+        List<ScoredRecord> res2 = CognitiveScorer.score(store, queryVec, opts2, now);
 
         assertThat(res1).hasSize(1);
         assertThat(res2).hasSize(1);
@@ -134,15 +130,9 @@ class FusedScoreFormulaPropertyTest {
                 .alpha(0.5f) // 50-50
                 .build();
 
-        List<ScoredRecord> resVec = CognitiveScorer.score(
-                store.segment(), 1, layout, queryVec, optsVectorDominant, now, 0L, null, null
-        );
-        List<ScoredRecord> resTag = CognitiveScorer.score(
-                store.segment(), 1, layout, queryVec, optsTagDominant, now, 0L, null, null
-        );
-        List<ScoredRecord> resBalanced = CognitiveScorer.score(
-                store.segment(), 1, layout, queryVec, optsBalanced, now, 0L, null, null
-        );
+        List<ScoredRecord> resVec = CognitiveScorer.score(store, queryVec, optsVectorDominant, now);
+        List<ScoredRecord> resTag = CognitiveScorer.score(store, queryVec, optsTagDominant, now);
+        List<ScoredRecord> resBalanced = CognitiveScorer.score(store, queryVec, optsBalanced, now);
 
         float scoreVec = resVec.get(0).score();
         float scoreTag = resTag.get(0).score();

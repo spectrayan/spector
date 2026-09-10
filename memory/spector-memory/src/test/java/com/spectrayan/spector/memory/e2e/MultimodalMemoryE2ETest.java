@@ -23,7 +23,7 @@ import com.spectrayan.spector.ingestion.sensory.AssetStore;
 import com.spectrayan.spector.ingestion.sensory.LocalAssetStore;
 import com.spectrayan.spector.ingestion.sensory.OllamaVisionExtractor;
 import com.spectrayan.spector.ingestion.sensory.SensoryExtractor;
-import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.test.judge.JudgeVerdict;
 import com.spectrayan.spector.test.judge.LlmAssertions;

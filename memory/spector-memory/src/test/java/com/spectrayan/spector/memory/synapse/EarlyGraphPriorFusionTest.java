@@ -82,7 +82,7 @@ class EarlyGraphPriorFusionTest {
                 .build();
 
         List<ScoredRecord> withoutPrior = CognitiveScorer.score(
-                store.segment(), 2, layout, queryVector, baseOpts, nowMs, 0L, null, null, provider, ctx);
+                store, queryVector, baseOpts, nowMs, null, null, provider, ctx);
 
         assertThat(withoutPrior).hasSize(2);
         // Without prior, Record 0 is top ranked due to higher vector similarity
@@ -95,7 +95,7 @@ class EarlyGraphPriorFusionTest {
                 .build();
 
         List<ScoredRecord> withPrior = CognitiveScorer.score(
-                store.segment(), 2, layout, queryVector, withPriorOpts, nowMs, 0L, null, null, provider, ctx);
+                store, queryVector, withPriorOpts, nowMs, null, null, provider, ctx);
 
         assertThat(withPrior).hasSize(2);
         // With prior, Record 1 gets boosted above Record 0
@@ -116,10 +116,10 @@ class EarlyGraphPriorFusionTest {
                 .build();
 
         List<ScoredRecord> results1 = CognitiveScorer.score(
-                store.segment(), 2, layout, queryVector, defaultOpts, nowMs, 0L, null, null);
+                store, queryVector, defaultOpts, nowMs);
 
         List<ScoredRecord> results2 = CognitiveScorer.score(
-                store.segment(), 2, layout, queryVector, defaultOpts, nowMs, 0L, null, null, provider, ctx);
+                store, queryVector, defaultOpts, nowMs, null, null, provider, ctx);
 
         assertThat(results1.size()).isEqualTo(results2.size());
         for (int i = 0; i < results1.size(); i++) {
@@ -141,7 +141,7 @@ class EarlyGraphPriorFusionTest {
                 .build();
 
         List<ScoredRecord> baseResults = CognitiveScorer.score(
-                store.segment(), 2, layout, queryVector, baseAdditive, nowMs, 0L, null, null);
+                store, queryVector, baseAdditive, nowMs);
 
         RecallOptions priorAdditive = RecallOptions.builder()
                 .topK(2)
@@ -151,7 +151,7 @@ class EarlyGraphPriorFusionTest {
                 .build();
 
         List<ScoredRecord> priorResults = CognitiveScorer.score(
-                store.segment(), 2, layout, queryVector, priorAdditive, nowMs, 0L, null, null, provider, ctx);
+                store, queryVector, priorAdditive, nowMs, null, null, provider, ctx);
 
         assertThat(priorResults).hasSize(2);
         // Record 0 has base score + delta * 0.5 = baseScore + 0.05
