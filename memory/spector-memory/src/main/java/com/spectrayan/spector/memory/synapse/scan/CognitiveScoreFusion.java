@@ -16,6 +16,8 @@ import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 
+import com.spectrayan.spector.core.cognitive.CognitiveMassKernel;
+import com.spectrayan.spector.core.cognitive.MassDilatedDecayKernel;
 import com.spectrayan.spector.memory.model.ScoreFusionMode;
 import com.spectrayan.spector.memory.synapse.AssociativePriorProvider;
 import com.spectrayan.spector.kernel.score.CognitiveMass;
@@ -47,7 +49,7 @@ public final class CognitiveScoreFusion {
      */
     public static float computeCognitiveMass(
             final float importance, final byte arousal, final float storageStrength) {
-        return com.spectrayan.spector.kernel.score.CognitiveMass.computeCognitiveMass(importance, arousal, storageStrength);
+        return CognitiveMassKernel.computeMass(importance, arousal, storageStrength);
     }
 
     /**
@@ -88,21 +90,8 @@ public final class CognitiveScoreFusion {
             final long timestampMs, final long nowMs, final float cognitiveMass,
             final byte arousal, final int agentRecallCount, final boolean zeroTimeDecay,
             final float lambda) {
-
-        if (zeroTimeDecay || lambda <= 0.0f) {
-            final float reconsolidationBoost = 1.0f + 0.05f * Math.min(agentRecallCount, 10);
-            return Math.min(1.0f, 1.0f * DecayStrategy.arousalModifier(arousal) * reconsolidationBoost);
-        }
-
-        final double elapsedDays = Math.max(0.0, (nowMs - timestampMs) / MS_PER_DAY);
-        final float logTerm = (float) Math.log1p(elapsedDays);
-        final float massDenominator = 1.0f + Math.max(0.0f, cognitiveMass);
-
-        final float dilatedDecay = 1.0f / (1.0f + ((lambda * logTerm) / massDenominator));
-        final float reconsolidationBoost = 1.0f + 0.05f * Math.min(agentRecallCount, 10);
-        final float finalDecay = dilatedDecay * DecayStrategy.arousalModifier(arousal) * reconsolidationBoost;
-
-        return Math.min(1.0f, Math.max(0.0f, finalDecay));
+        return MassDilatedDecayKernel.compute(
+                timestampMs, nowMs, cognitiveMass, arousal, agentRecallCount, zeroTimeDecay, lambda);
     }
 
     /**

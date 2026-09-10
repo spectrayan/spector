@@ -41,10 +41,10 @@ import com.spectrayan.spector.kernel.score.DecayStrategy;
  * {@code σ(ln(x)) = x / (x + 1)} — a single float division.
  * Total: ~35 CPU cycles for 8 recall slots.</p>
  *
- * @see DecayStrategy
- * @see StrengthLayout
- * @see HeaderCursor
+ * @see com.spectrayan.spector.core.cognitive.ActRActivationKernel
+ * @deprecated Use {@link com.spectrayan.spector.core.cognitive.ActRActivationKernel} in {@code spector-core} instead.
  */
+@Deprecated(since = "0.1.0-beta", forRemoval = true)
 public final class ActRActivation {
 
     private ActRActivation() {}

@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.store;
 
+import com.spectrayan.spector.core.cognitive.ActRActivationKernel;
 import com.spectrayan.spector.kernel.score.ProfileSlot;
 import java.util.EnumMap;
 
@@ -720,7 +721,7 @@ public final class CoActivationMemory extends AbstractHashTableMemory<CoActivati
                 if (degree == 0) continue;
 
                 float idf = (float) Math.log(1.0 + (double) corpusN / (double) (degree + 1));
-                float fanFactor = 1.0f / (float) Math.pow(degree, 0.50f);
+                float fanFactor = ActRActivationKernel.fanFactor(degree);
                 float saturatedCoOccurrence = Math.min((float) neighbor.coOccurrenceCount(), 20.0f);
                 float baseScore = saturatedCoOccurrence * fanFactor * idf;
 
