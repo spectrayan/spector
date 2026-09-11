@@ -830,25 +830,22 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
 
         int start = getOffset(node);
         int end = getOffset(node + 1);
-        int csrCount = end - start;
-        if (csrCount > 0) {
-            float[] weights = new float[csrCount];
-            short[] lastCycles = new short[csrCount];
-            byte[] bridgeScores = new byte[csrCount];
-            for (int i = 0; i < csrCount; i++) {
-                long edgeOff = (long) (start + i) * EDGE_BYTES;
-                weights[i] = edges.get(ValueLayout.JAVA_FLOAT, edgeOff + EDGE_OFF_WEIGHT);
-                lastCycles[i] = edges.get(ValueLayout.JAVA_SHORT, edgeOff + EDGE_OFF_LAST_CYCLE);
-                bridgeScores[i] = edges.get(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_BRIDGE_SCORE);
-            }
-            float[] scores = new float[csrCount];
-            edgeImportance.scoreStructuralBatch(weights, currentCycle, lastCycles, bridgeScores, null, scores, csrCount);
-            for (int i = 0; i < csrCount; i++) {
-                if (scores[i] < minScore) {
-                    minScore = scores[i];
-                    minCsrIdx = start + i;
-                    minOvIdx = -1;
-                }
+        // Single-pass, zero-allocation scan. This runs on the hot edge-insertion path, so the
+        // struct-of-arrays batch seam is deliberately NOT used here: scoreStructural is scalar
+        // (Math.exp dominated) and offers no vectorization gain, while marshalling into arrays
+        // would cost four allocations and three passes per insertion. See ADR-0033 Principle 3.
+        for (int i = start; i < end; i++) {
+            long edgeOff = (long) i * EDGE_BYTES;
+            float weight = edges.get(ValueLayout.JAVA_FLOAT, edgeOff + EDGE_OFF_WEIGHT);
+            short lastCycle = edges.get(ValueLayout.JAVA_SHORT, edgeOff + EDGE_OFF_LAST_CYCLE);
+            byte bridge = edges.get(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_BRIDGE_SCORE);
+            float score = edgeImportance.scoreStructural(
+                    weight, currentCycle, Short.toUnsignedInt(lastCycle),
+                    Byte.toUnsignedInt(bridge), 0);
+            if (score < minScore) {
+                minScore = score;
+                minCsrIdx = i;
+                minOvIdx = -1;
             }
         }
 

@@ -17,9 +17,9 @@ import com.spectrayan.spector.kernel.score.Valence;
 import com.spectrayan.spector.kernel.store.SemanticMemory;
 import com.spectrayan.spector.kernel.store.StrengthMemory;
 
-import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
 
 import com.spectrayan.spector.core.cognitive.CognitiveMassKernel;
+import com.spectrayan.spector.core.cognitive.CognitiveScoreFusionKernel;
 import com.spectrayan.spector.core.cognitive.MassDilatedDecayKernel;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.VectorIndex;
@@ -34,9 +34,7 @@ import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.kernel.api.SourceModality;
-import com.spectrayan.spector.kernel.score.DecayStrategy;
 import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
-import com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion;
 import com.spectrayan.spector.kernel.score.RecordGates;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,7 +77,7 @@ public final class SemanticRecallStrategy {
      *
      * @param vectorIndex       the HNSW/IVF index backing semantic memory
      * @param partitionRegistry the partition registry for partition resolution
-     * @param memoryIndex       the ID → metadata index for location lookups
+     * @param memoryIndex       the ID â†’ metadata index for location lookups
      */
     public SemanticRecallStrategy(VectorIndex vectorIndex,
                                   PartitionRegistry partitionRegistry,
@@ -90,7 +88,7 @@ public final class SemanticRecallStrategy {
     }
 
     /**
-     * Executes a fused semantic recall: HNSW search → partition-aware cognitive re-ranking.
+     * Executes a fused semantic recall: HNSW search â†’ partition-aware cognitive re-ranking.
      *
      * @param queryVector the embedded query vector
      * @param options     recall configuration
@@ -253,8 +251,10 @@ public final class SemanticRecallStrategy {
             rawDecays = new float[count];
             MassDilatedDecayKernel.computeBatch(
                     timestamps, cognitiveMasses, arousals, recallCounts, zeroTimeDecays, nowMs, 1.0f, decays, count);
+            // Raw (unmodulated) decay: null arousals/recallCounts substitute neutral defaults,
+            // avoiding a throwaway zero-filled byte[count] and int[count] per query.
             MassDilatedDecayKernel.computeBatch(
-                    timestamps, cognitiveMasses, new byte[count], new int[count], zeroTimeDecays, nowMs, 1.0f, rawDecays, count);
+                    timestamps, cognitiveMasses, null, null, zeroTimeDecays, nowMs, 1.0f, rawDecays, count);
         }
 
         for (int i = 0; i < count; i++) {
@@ -263,6 +263,9 @@ public final class SemanticRecallStrategy {
             float decay;
             float rawDecay;
 
+            // Computed once and reused by both the score and the breakdown below.
+            float tagOverlap = 0.0f;
+
             if (pureSimilarity) {
                 finalScore = c.similarity;
                 decay = 1.0f;
@@ -270,9 +273,9 @@ public final class SemanticRecallStrategy {
             } else {
                 decay = decays[i];
                 rawDecay = rawDecays[i];
-                final float baseScore = alpha * c.similarity + beta * (c.importance / 10.0f) * decay;
-                final float tagOverlap = SynapticTagEncoder.overlapRatio(c.recordTags, queryTagMask);
-                finalScore = baseScore * (1.0f + tagOverlap * tagRelevanceBoost);
+                tagOverlap = SynapticTagEncoder.overlapRatio(c.recordTags, queryTagMask);
+                finalScore = CognitiveScoreFusionKernel.computeLinearBlendScore(
+                        c.similarity, c.importance, decay, tagOverlap, alpha, beta, tagRelevanceBoost);
             }
 
             String text = memoryIndex.text(c.id);
@@ -288,8 +291,7 @@ public final class SemanticRecallStrategy {
                 breakdown = new ScoreBreakdown(c.similarity, 0f, 1.0f, 1.0f, 1.0f, 1.0f, finalScore);
             } else {
                 float importanceDecay = c.importance * decay;
-                float tagOverlapForBd = SynapticTagEncoder.overlapRatio(c.recordTags, queryTagMask);
-                float tagBoostFactor = 1.0f + tagOverlapForBd * tagRelevanceBoost;
+                float tagBoostFactor = 1.0f + tagOverlap * tagRelevanceBoost;
                 breakdown = new ScoreBreakdown(
                         c.similarity, importanceDecay, tagBoostFactor,
                         1.0f, 1.0f, 1.0f, finalScore);
@@ -306,7 +308,7 @@ public final class SemanticRecallStrategy {
         // Sort by fused score descending
         results.sort(Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
 
-        log.debug("Semantic partition-aware fused recall: {} HNSW candidates → {} after filtering",
+        log.debug("Semantic partition-aware fused recall: {} HNSW candidates â†’ {} after filtering",
                 hnswResults.length, results.size());
 
         return results;

@@ -208,15 +208,66 @@ public final class CognitiveGraphFacade {
 
     private GraphNeighborhood computeOverview(int maxNodes, Function<String, CognitiveRecord> inspector) {
         try {
-            List<String> allIds = new java.util.ArrayList<>(index.orderedIds());
-            java.util.Collections.reverse(allIds);
-            allIds = allIds.stream().limit(maxNodes).toList();
-            if (allIds.isEmpty()) return GraphNeighborhood.empty(null);
-            var allIdsSet = new HashSet<>(allIds);
+            List<String> allOrdered = new java.util.ArrayList<>(index.orderedIds());
+            if (allOrdered.isEmpty()) return GraphNeighborhood.empty(null);
 
             Map<Integer, String> slotToId = new LinkedHashMap<>();
             Map<String, Integer> idToSlot = new LinkedHashMap<>();
             index.buildGraphSlotMappings(slotToId, idToSlot);
+
+            Set<String> selected = new java.util.LinkedHashSet<>();
+            List<String> reversed = new ArrayList<>(allOrdered);
+            java.util.Collections.reverse(reversed);
+
+            // 1. Seed with recent memories
+            int seedLimit = Math.min(Math.max(10, maxNodes / 2), reversed.size());
+            for (int i = 0; i < seedLimit && selected.size() < maxNodes; i++) {
+                selected.add(reversed.get(i));
+            }
+
+            // 2. Expand with connected neighbors (Hebbian & Entity) to form cohesive clusters
+            for (String id : new ArrayList<>(selected)) {
+                if (selected.size() >= maxNodes) break;
+                int slot = idToSlot.getOrDefault(id, -1);
+                if (slot < 0) continue;
+
+                if (hebbianGraph != null) {
+                    try {
+                        var neighbors = hebbianGraph.neighbors(slot);
+                        for (var edge : neighbors) {
+                            String nid = slotToId.get(edge.neighborIndex());
+                            if (nid != null) {
+                                selected.add(nid);
+                                if (selected.size() >= maxNodes) break;
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                if (entityDirectory != null && selected.size() < maxNodes) {
+                    try {
+                        for (int eid : entityDirectory.entitiesForMemory(slot).keySet()) {
+                            for (int mSlot : entityDirectory.memoriesForEntity(eid)) {
+                                String mid = slotToId.get(mSlot);
+                                if (mid != null) {
+                                    selected.add(mid);
+                                    if (selected.size() >= maxNodes) break;
+                                }
+                            }
+                            if (selected.size() >= maxNodes) break;
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            // 3. Fill remaining slots with chronological memories
+            for (String id : reversed) {
+                if (selected.size() >= maxNodes) break;
+                selected.add(id);
+            }
+
+            List<String> allIds = new ArrayList<>(selected);
+            var allIdsSet = new HashSet<>(allIds);
 
             List<GraphNode> nodes = buildNodes(allIds, idToSlot, inspector);
             List<GraphEdge> edges = new ArrayList<>();

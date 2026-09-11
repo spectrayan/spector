@@ -52,16 +52,10 @@ import static com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.is
 public final class EdgeImportance {
 
     // ── Configurable signal weights (sum to 1.0) ──
+    // Held as a single array rather than nine fields: it is the exact wire format
+    // EdgeImportanceKernel expects, so passing it costs no marshalling per call.
+    // Index order is fixed by EdgeImportanceKernel.IDX_* constants.
 
-    private final float wWeight;
-    private final float wRecency;
-    private final float wBridge;
-    private final float wRedundancy;
-    private final float wImportance;
-    private final float wArousal;
-    private final float wValence;
-    private final float wStorage;
-    private final float wZeigarnik;
     private final float[] weightsArray;
 
     /** Default signal weights — neuroscience-informed initial tuning. */
@@ -86,18 +80,18 @@ public final class EdgeImportance {
     public EdgeImportance(float wWeight, float wRecency, float wBridge,
                           float wRedundancy, float wImportance, float wArousal,
                           float wValence, float wStorage, float wZeigarnik) {
-        this.wWeight = wWeight;
-        this.wRecency = wRecency;
-        this.wBridge = wBridge;
-        this.wRedundancy = wRedundancy;
-        this.wImportance = wImportance;
-        this.wArousal = wArousal;
-        this.wValence = wValence;
-        this.wStorage = wStorage;
-        this.wZeigarnik = wZeigarnik;
         this.weightsArray = new float[] {
                 wWeight, wRecency, wBridge, wRedundancy, wImportance, wArousal, wValence, wStorage, wZeigarnik
         };
+    }
+
+    /**
+     * Returns a defensive copy of the configured signal weights.
+     *
+     * @return 9-element weight array in {@code EdgeImportanceKernel.IDX_*} order
+     */
+    public float[] weights() {
+        return weightsArray.clone();
     }
 
     /**
@@ -161,7 +155,14 @@ public final class EdgeImportance {
     }
 
     /**
-     * Batch calculation of structural edge importance (Principle 3).
+     * Batch calculation of structural edge importance (ADR-0033 Principle 3).
+     *
+     * <p><b>Intended for offline sweeps only</b> — consolidation/reflection-cycle pruning where
+     * many edges are scored in one pass and the struct-of-arrays marshalling cost is amortised.
+     * It is deliberately <b>not</b> used by the hot edge-insertion eviction path
+     * ({@code replaceLowestImportance}), which scans the {@code MemorySegment} inline with zero
+     * allocations: {@code scoreStructural} is scalar and {@code Math.exp}-dominated, so batching
+     * there would add four allocations and three passes for no vectorization gain.</p>
      */
     public void scoreStructuralBatch(
             float[] weights,

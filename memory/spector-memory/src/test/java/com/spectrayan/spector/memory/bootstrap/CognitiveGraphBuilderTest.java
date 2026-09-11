@@ -184,7 +184,7 @@ class CognitiveGraphBuilderTest {
             assertThat(admin.temporalKnowledgeGraph())
                     .as("TemporalKnowledgeGraph must be populated from v2-memory")
                     .isNotNull();
-            assertThat(admin.temporalKnowledgeGraph().factCount()).isEqualTo(74397);
+            assertThat(admin.temporalKnowledgeGraph().factCount()).isEqualTo(77465);
 
             TopologyStats stats = admin.graph().topologyStats();
             assertThat(stats).isNotNull();

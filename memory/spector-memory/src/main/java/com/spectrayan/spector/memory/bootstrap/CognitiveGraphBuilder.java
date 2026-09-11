@@ -33,9 +33,13 @@ import com.spectrayan.spector.kernel.region.RegionId;
 import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import com.spectrayan.spector.kernel.layout.HyperEntityLayout;
+import com.spectrayan.spector.memory.graph.DictionaryEntityExtractor;
+import com.spectrayan.spector.memory.graph.ExtractedEntity;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -120,41 +124,6 @@ public final class CognitiveGraphBuilder {
             temporalChain = new TemporalChainMemory(temporalCapacity);
         }
 
-        EntityExtractionMode extractionMode = EntityExtractionMode.NONE;
-        if (builder.entityExtractor() != null) {
-            extractionMode = EntityExtractionMode.CUSTOM;
-        } else if (entityProps.getExtractionMode() != null && !entityProps.getExtractionMode().isBlank()) {
-            try {
-                extractionMode = EntityExtractionMode.valueOf(entityProps.getExtractionMode().toUpperCase(java.util.Locale.ROOT));
-            } catch (Exception ignored) {}
-        }
-
-        EntityExtractor entityExtractor;
-        if (extractionMode == EntityExtractionMode.LLM
-                && builder.llmProvider() != null) {
-            entityExtractor = new LlmEntityExtractor(
-                    builder.llmProvider(),
-                    entityProps.getMaxPerMemory(), entityProps.getMaxRelationsPerMemory(),
-                    builder.llmGenerationOptions());
-        } else if (extractionMode == EntityExtractionMode.CUSTOM
-                && builder.entityExtractor() != null) {
-            entityExtractor = builder.entityExtractor();
-        } else {
-            entityExtractor = NoOpEntityExtractor.INSTANCE;
-        }
-
-        HyperEntityGraphMemory hyperEntityGraph;
-        int hyperCap = memProps.getEntityGraphCapacity();
-        int hyperEdgeCap = hyperCap * 2;
-        if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.HYPERGRAPH)) {
-            boolean isNew = cortex.runtimeBundle().isNew()
-                    || !com.spectrayan.spector.kernel.region.RegionPreamble.isValid(cortex.runtimeBundle().regionRef(RegionId.HYPERGRAPH).resolve(), 0L);
-            hyperEntityGraph = com.spectrayan.spector.kernel.store.HyperEntityGraphMemory.fromRegionRef(
-                    cortex.runtimeBundle().regionRef(RegionId.HYPERGRAPH), hyperCap, hyperEdgeCap, cortex.runtimeBundle().bundlePath(), isNew);
-        } else {
-            hyperEntityGraph = new HyperEntityGraphMemory(hyperCap, hyperEdgeCap);
-        }
-
         OntologyConfig ontConfig = builder.ontologyConfig() != null
                 ? builder.ontologyConfig()
                 : OntologyConfig.defaultInstance();
@@ -200,12 +169,60 @@ public final class CognitiveGraphBuilder {
             temporalKnowledgeGraph = new TemporalKnowledgeGraph(predRegistry);
         }
 
+        HyperEntityGraphMemory hyperEntityGraph;
+        int hyperCap = memProps.getEntityGraphCapacity();
+        int hyperEdgeCap = hyperCap * 2;
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.HYPERGRAPH)) {
+            boolean isNew = cortex.runtimeBundle().isNew()
+                    || !com.spectrayan.spector.kernel.region.RegionPreamble.isValid(cortex.runtimeBundle().regionRef(RegionId.HYPERGRAPH).resolve(), 0L);
+            hyperEntityGraph = com.spectrayan.spector.kernel.store.HyperEntityGraphMemory.fromRegionRef(
+                    cortex.runtimeBundle().regionRef(RegionId.HYPERGRAPH), hyperCap, hyperEdgeCap, cortex.runtimeBundle().bundlePath(), isNew);
+        } else {
+            hyperEntityGraph = new HyperEntityGraphMemory(hyperCap, hyperEdgeCap);
+        }
+
+        EntityExtractionMode extractionMode = EntityExtractionMode.DICTIONARY;
+        if (builder.entityExtractor() != null) {
+            extractionMode = EntityExtractionMode.CUSTOM;
+        } else if (entityProps.getExtractionMode() != null && !entityProps.getExtractionMode().isBlank()) {
+            try {
+                extractionMode = EntityExtractionMode.valueOf(entityProps.getExtractionMode().toUpperCase(java.util.Locale.ROOT));
+            } catch (Exception ignored) {}
+        }
+
+        EntityExtractor entityExtractor;
+        if (extractionMode == EntityExtractionMode.LLM
+                && builder.llmProvider() != null && builder.llmProvider().isAvailable()) {
+            entityExtractor = new LlmEntityExtractor(
+                    builder.llmProvider(),
+                    entityProps.getMaxPerMemory(), entityProps.getMaxRelationsPerMemory(),
+                    builder.llmGenerationOptions());
+        } else if (extractionMode == EntityExtractionMode.CUSTOM
+                && builder.entityExtractor() != null) {
+            entityExtractor = builder.entityExtractor();
+        } else if (extractionMode != EntityExtractionMode.NONE && entityDirectory != null) {
+            entityExtractor = new DictionaryEntityExtractor(entityDirectory, temporalKnowledgeGraph, ontConfig,
+                    entityProps.getMaxPerMemory() > 0 ? entityProps.getMaxPerMemory() : 15);
+        } else {
+            entityExtractor = NoOpEntityExtractor.INSTANCE;
+        }
+
         // Auto-heal temporal chain if historical memories exist but chain is unlinked
         if (temporalChain != null && temporalChain.chainLength() == 0 && index != null && index.size() > 1) {
             try {
                 backfillTemporalChain(temporalChain, index);
             } catch (Exception e) {
                 log.warn("[CognitiveGraphBuilder] Failed to backfill temporal causal chain: {}", e.getMessage(), e);
+            }
+        }
+
+        // Auto-heal / refresh entity-to-memory reverse index if historical memories exist but reverse index is unlinked
+        if (entityDirectory != null && index != null && index.size() > 0
+                && !entityDirectory.nameIndex().isEmpty() && entityDirectory.reverseIndexSize() == 0) {
+            try {
+                refreshEntityMemoryIndex(entityDirectory, hyperEntityGraph, temporalKnowledgeGraph, ontConfig, index);
+            } catch (Exception e) {
+                log.warn("[CognitiveGraphBuilder] Failed to refresh entity-to-memory reverse index: {}", e.getMessage(), e);
             }
         }
 
@@ -217,6 +234,75 @@ public final class CognitiveGraphBuilder {
         return new CognitiveGraphs(
                 hebbianGraph, temporalChain, entityExtractor, entityDirectory,
                 hyperEntityGraph, temporalKnowledgeGraph, graphFacade);
+    }
+
+    private static void refreshEntityMemoryIndex(EntityDirectory entityDirectory,
+                                                HyperEntityGraphMemory hyperEntityGraph,
+                                                TemporalKnowledgeGraph temporalKnowledgeGraph,
+                                                OntologyConfig ontConfig,
+                                                MemoryIndex index) {
+        log.info("[CognitiveGraphBuilder] Auto-refreshing entity-to-memory index for {} memories against {} known entities...",
+                index.size(), entityDirectory.entityCount());
+
+        Map<String, Integer> idToSlot = new LinkedHashMap<>();
+        Map<Integer, String> slotToId = new LinkedHashMap<>();
+        index.buildGraphSlotMappings(slotToId, idToSlot);
+
+        DictionaryEntityExtractor extractor = new DictionaryEntityExtractor(
+                entityDirectory, temporalKnowledgeGraph, ontConfig, 15);
+
+        int totalLinked = 0;
+        int hyperedgesCreated = 0;
+        long startTime = System.currentTimeMillis();
+
+        for (String id : index.allIds()) {
+            int slot = idToSlot.getOrDefault(id, -1);
+            if (slot < 0) continue;
+            String text = index.text(id);
+            if (text == null || text.isBlank()) continue;
+
+            String[] tags = index.tags(id);
+            String content = (tags != null && tags.length > 0)
+                    ? text + " " + String.join(" ", tags)
+                    : text;
+
+            List<ExtractedEntity> extracted = extractor.extract(id, content);
+            if (extracted == null || extracted.isEmpty()) continue;
+
+            List<Integer> entityIds = new ArrayList<>(extracted.size());
+            for (ExtractedEntity entity : extracted) {
+                int eid = entityDirectory.intern(entity.name(), entity.typeName());
+                if (eid >= 0) {
+                    entityDirectory.linkEntityToMemory(eid, slot);
+                    entityIds.add(eid);
+                    totalLinked++;
+                }
+            }
+
+            if (hyperEntityGraph != null && entityIds.size() >= 2) {
+                int[] vertexArr = entityIds.stream().mapToInt(Integer::intValue).toArray();
+                if (vertexArr.length > HyperEntityLayout.MAX_VERTICES_PER_EDGE) {
+                    int[] truncated = new int[HyperEntityLayout.MAX_VERTICES_PER_EDGE];
+                    System.arraycopy(vertexArr, 0, truncated, 0, HyperEntityLayout.MAX_VERTICES_PER_EDGE);
+                    vertexArr = truncated;
+                }
+                int[] roles = new int[vertexArr.length];
+                roles[0] = HyperEntityGraphMemory.ROLE_SUBJECT;
+                for (int i = 1; i < roles.length; i++) {
+                    roles[i] = HyperEntityGraphMemory.ROLE_CONTEXT;
+                }
+                hyperEntityGraph.addHyperedge(vertexArr, roles, 0, 1.0f, slot, System.currentTimeMillis());
+                hyperedgesCreated++;
+            }
+        }
+
+        entityDirectory.flush();
+        if (hyperEntityGraph != null) {
+            hyperEntityGraph.flush();
+        }
+
+        log.info("[CognitiveGraphBuilder] Entity-to-memory index refresh complete: {} links and {} hyperedges established across {} memories in {}ms",
+                totalLinked, hyperedgesCreated, index.size(), (System.currentTimeMillis() - startTime));
     }
 
     private static void backfillTemporalChain(TemporalChainMemory temporalChain, MemoryIndex index) {

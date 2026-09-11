@@ -25,6 +25,9 @@ public enum EntityExtractionMode {
     /** LLM-powered extraction via LlmProvider. */
     LLM,
 
+    /** Dictionary-based extraction using existing EntityDirectory and TemporalKnowledgeGraph. */
+    DICTIONARY,
+
     /** Custom EntityExtractor provided via Builder. */
     CUSTOM
 }

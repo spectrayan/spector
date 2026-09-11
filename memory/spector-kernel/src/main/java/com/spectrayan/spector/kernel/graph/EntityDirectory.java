@@ -938,6 +938,11 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
         return adjHighWaterMark;
     }
 
+    /** Returns the number of distinct memory slots currently indexed in the reverse index. */
+    public int reverseIndexSize() {
+        return memoryToEntities.size();
+    }
+
     /** Sets the data encryptor for name index encryption. */
     public void setDataEncryptor(PayloadEncryptor encryptor) {
         this.dataEncryptor = encryptor;

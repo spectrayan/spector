@@ -12,18 +12,18 @@
  */
 package com.spectrayan.spector.memory.session;
 
-import com.spectrayan.spector.core.similarity.CosineSimilarity;
-import com.spectrayan.spector.kernel.api.MemorySource;
-import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.kernel.api.MemoryType;
-import com.spectrayan.spector.memory.model.RecallOptions;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+
+import com.spectrayan.spector.core.similarity.CosineSimilarity;
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.RecallOptions;
 
 /**
  * Thread-safe ephemeral write buffer for a single session.
@@ -52,7 +52,10 @@ public class SessionWriteBuffer {
 
         List<CognitiveResult> results = new ArrayList<>();
         for (BufferedEntry entry : entries) {
-            float score = CosineSimilarity.compute(queryVector, entry.vector());
+            // computeSafe: buffered entries may carry a vector of a different dimension than the
+            // query if the embedding model changed mid-session. Pre-migration behaviour was to
+            // score such entries 0 and skip them, never to throw out of the recall path.
+            float score = CosineSimilarity.computeSafe(queryVector, entry.vector());
             if (score >= minScore) {
                 // Approximate representation of CognitiveResult for buffered entries
                 results.add(new CognitiveResult(
