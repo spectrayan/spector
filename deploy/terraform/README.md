@@ -23,6 +23,15 @@ module "spector" {
   task_role_arn       = aws_iam_role.ecs_task.arn
   efs_file_system_id  = aws_efs_file_system.spector.id
   efs_access_point_id = aws_efs_access_point.spector.id
+
+  # Provider configuration (optional — defaults to Ollama)
+  embedding_provider  = "openai"
+  embedding_model     = "text-embedding-3-small"
+  embedding_api_key   = var.openai_api_key  # sensitive
+  dimensions          = 1536
+  generation_provider = "openai"
+  generation_model    = "gpt-4o-mini"
+  generation_api_key  = var.openai_api_key
 }
 ```
 

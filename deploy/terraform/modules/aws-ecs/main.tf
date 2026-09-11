@@ -44,7 +44,19 @@ resource "aws_ecs_task_definition" "spector" {
       environment = [
         { name = "SPECTOR_PORT", value = "7070" },
         { name = "SPECTOR_NODE_ID", value = "${var.name}-aws" },
-        { name = "SPECTOR_DIMS", value = tostring(var.dimensions) }
+        { name = "SPECTOR_EMBEDDING_DIMS", value = tostring(var.dimensions) },
+        { name = "SPECTOR_EMBEDDING_PROVIDER", value = var.embedding_provider },
+        { name = "SPECTOR_EMBEDDING_MODEL", value = var.embedding_model },
+        { name = "SPECTOR_EMBEDDING_BASE_URL", value = var.embedding_base_url },
+        { name = "SPECTOR_EMBEDDING_API_KEY", value = var.embedding_api_key },
+        { name = "SPECTOR_GENERATION_PROVIDER", value = var.generation_provider },
+        { name = "SPECTOR_GENERATION_MODEL", value = var.generation_model },
+        { name = "SPECTOR_GENERATION_BASE_URL", value = var.generation_base_url },
+        { name = "SPECTOR_GENERATION_API_KEY", value = var.generation_api_key },
+        { name = "SPECTOR_MEMORY_CAPACITY", value = tostring(var.memory_capacity) },
+        { name = "SPECTOR_ENTITY_EXTRACTION_MODE", value = var.entity_extraction_mode },
+        { name = "SPECTOR_TAG_EXTRACTOR", value = var.tag_extractor },
+        { name = "SPECTOR_TEXT_SEARCH_MODE", value = var.text_search_mode }
       ]
       mountPoints = [
         {

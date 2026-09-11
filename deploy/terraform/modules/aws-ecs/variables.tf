@@ -55,6 +55,80 @@ variable "dimensions" {
   default     = 384
 }
 
+variable "embedding_provider" {
+  description = "Embedding provider type (ollama, openai, google, anthropic, mistral, azure, bedrock, onnx)"
+  type        = string
+  default     = "ollama"
+}
+
+variable "embedding_model" {
+  description = "Embedding model name"
+  type        = string
+  default     = "nomic-embed-text"
+}
+
+variable "embedding_base_url" {
+  description = "Embedding provider base URL"
+  type        = string
+  default     = ""
+}
+
+variable "embedding_api_key" {
+  description = "Embedding provider API key"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "generation_provider" {
+  description = "Generation (LLM) provider type"
+  type        = string
+  default     = "ollama"
+}
+
+variable "generation_model" {
+  description = "Generation model name"
+  type        = string
+  default     = "llama3.2"
+}
+
+variable "generation_base_url" {
+  description = "Generation provider base URL"
+  type        = string
+  default     = ""
+}
+
+variable "generation_api_key" {
+  description = "Generation (LLM) provider API key"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "entity_extraction_mode" {
+  description = "Entity extraction mode (NONE, LLM, DICTIONARY)"
+  type        = string
+  default     = "NONE"
+}
+
+variable "tag_extractor" {
+  description = "Tag extractor mode (content, llm, none)"
+  type        = string
+  default     = "content"
+}
+
+variable "text_search_mode" {
+  description = "Text search mode (HYBRID, VECTOR_ONLY, BM25_ONLY, FULL_STACK)"
+  type        = string
+  default     = "HYBRID"
+}
+
+variable "memory_capacity" {
+  description = "Maximum number of memories"
+  type        = number
+  default     = 10000
+}
+
 variable "execution_role_arn" {
   description = "IAM role ARN for ECS task execution"
   type        = string
