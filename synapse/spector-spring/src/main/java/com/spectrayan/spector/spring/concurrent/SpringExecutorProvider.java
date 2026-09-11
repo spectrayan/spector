@@ -69,7 +69,11 @@ public class SpringExecutorProvider extends AbstractExecutorProvider implements 
             case VIRTUAL -> {
                 if (name != null && !name.isBlank() && !"default".equalsIgnoreCase(name)) {
                     var ex = new SimpleAsyncTaskExecutor("spector-vt-" + name + "-");
-                    ex.setVirtualThreads(true);
+                    try {
+                        ex.setVirtualThreads(true);
+                    } catch (UnsupportedOperationException e) {
+                        ex.setThreadFactory(Thread.ofVirtual().name("spector-vt-" + name + "-", 1).factory());
+                    }
                     yield ex;
                 }
                 yield virtualExecutor;

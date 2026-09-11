@@ -155,7 +155,11 @@ public class SpectorAutoConfiguration {
     @ConditionalOnMissingBean(name = "spectorVirtualExecutor")
     public AsyncTaskExecutor spectorVirtualExecutor() {
         var ex = new SimpleAsyncTaskExecutor("spector-vt-default-");
-        ex.setVirtualThreads(true);
+        try {
+            ex.setVirtualThreads(true);
+        } catch (UnsupportedOperationException e) {
+            ex.setThreadFactory(Thread.ofVirtual().name("spector-vt-default-", 1).factory());
+        }
         ex.setTaskTerminationTimeout(Duration.ofSeconds(10).toMillis());
         return ex;
     }
