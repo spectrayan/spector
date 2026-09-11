@@ -527,7 +527,7 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
             entityCount++;
             persistCount();
             nameIndex.put(normalized, entityId);
-            log.trace("Directory entity interned: id={}, type={}", entityId, type);
+            log.trace("Directory entity interned: id={}", entityId);
             return entityId;
         } finally {
             lock.unlockWrite(stamp);
