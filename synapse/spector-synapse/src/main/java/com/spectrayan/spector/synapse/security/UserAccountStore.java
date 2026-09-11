@@ -138,6 +138,7 @@ public class UserAccountStore {
                     .param("roles", toCsv(roles))
                     .param("scopes", toCsv(scopes))
                     .param("mustChange", mustChangePassword)
+                    .param("tenantId", (String) null)
                     .param("now", now)
                     .update();
         } catch (org.springframework.dao.DuplicateKeyException e) {

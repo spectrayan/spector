@@ -28,10 +28,16 @@ public interface AccountCatalog {
     Account getOrCreateAccount(String accountId);
 
     default Account getOrCreateAccount(String accountId, AccountProfile profile, PrincipalKind kind) {
+        return getOrCreateAccount(accountId, profile, kind, null);
+    }
+
+    default Account getOrCreateAccount(String accountId, AccountProfile profile, PrincipalKind kind, String tenantId) {
         return getOrCreateAccount(accountId);
     }
 
     Account getAccount(String accountId);
+
+    default void assignTenant(String accountId, String tenantId) {}
 
     default void addOrgMember(String accountId, String orgUnitId) {}
 

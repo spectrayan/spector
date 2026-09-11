@@ -122,11 +122,16 @@ public class FileAccountCatalog implements AccountCatalog {
 
     @Override
     public Account getOrCreateAccount(String accountId) {
-        return getOrCreateAccount(accountId, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN);
+        return getOrCreateAccount(accountId, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN, null);
     }
 
     @Override
     public Account getOrCreateAccount(String accountId, AccountProfile profile, PrincipalKind kind) {
+        return getOrCreateAccount(accountId, profile, kind, null);
+    }
+
+    @Override
+    public Account getOrCreateAccount(String accountId, AccountProfile profile, PrincipalKind kind, String tenantId) {
         if (accountId == null || accountId.isBlank()) {
             throw new IllegalArgumentException("accountId must not be null or blank");
         }
@@ -141,7 +146,16 @@ public class FileAccountCatalog implements AccountCatalog {
             Path accountFile = accountDir.resolve(FILE_ACCOUNT);
 
             if (Files.exists(accountFile)) {
-                return objectMapper.readValue(accountFile.toFile(), Account.class);
+                Account account = objectMapper.readValue(accountFile.toFile(), Account.class);
+                if (account.tenantId() != null && tenantId != null && !account.tenantId().equals(tenantId)) {
+                    CatalogSnapshot snapshot = loadSnapshot(accountId);
+                    boolean ownsNamespaces = snapshot.namespaces().values().stream()
+                            .anyMatch(ns -> accountId.equals(ns.ownerAccountId()));
+                    if (ownsNamespaces) {
+                        throw new TenantReassignmentException(accountId, account.tenantId(), tenantId);
+                    }
+                }
+                return account;
             }
 
             Files.createDirectories(accountDir);
@@ -163,7 +177,9 @@ public class FileAccountCatalog implements AccountCatalog {
                         AccountQuotas.forProfile(effProfile),
                         AccountFlags.forProfile(effProfile),
                         accountId,  // defaultNamespaceId == accountId (invariant §12)
-                        Instant.now()
+                        Instant.now(),
+                        tenantId,
+                        false
                 );
                 atomicWrite(accountFile, account);
 
@@ -210,6 +226,45 @@ public class FileAccountCatalog implements AccountCatalog {
     @Override
     public Account getAccount(String accountId) {
         return getOrCreateAccount(accountId);
+    }
+
+    @Override
+    public void assignTenant(String accountId, String tenantId) {
+        Objects.requireNonNull(accountId, "accountId must not be null");
+        ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
+        jvmLock.lock();
+        try {
+            CatalogSnapshot snapshot = loadSnapshot(accountId);
+            Account account = snapshot.account();
+            if (account.tenantId() != null && !account.tenantId().equals(tenantId)) {
+                boolean ownsNamespaces = snapshot.namespaces().values().stream()
+                        .anyMatch(ns -> accountId.equals(ns.ownerAccountId()));
+                if (ownsNamespaces) {
+                    throw new TenantReassignmentException(accountId, account.tenantId(), tenantId);
+                }
+            }
+            Path accountDir = StoragePaths.accountDir(basePath, accountId);
+            Path accountFile = accountDir.resolve(FILE_ACCOUNT);
+            Account updatedAccount = new Account(
+                    account.id(),
+                    account.kind(),
+                    account.profile(),
+                    account.displayName(),
+                    account.quotas(),
+                    account.flags(),
+                    account.defaultNamespaceId(),
+                    account.createdAt(),
+                    tenantId,
+                    account.legalHold()
+            );
+            atomicWrite(accountFile, updatedAccount);
+            snapshotCache.remove(accountId);
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] failed to assign tenant for account {}", accountId, e);
+            throw new RuntimeException("Failed to assign tenant", e);
+        } finally {
+            jvmLock.unlock();
+        }
     }
 
     @Override

@@ -65,6 +65,8 @@ class JdbcUserDetailsServiceTest {
                     failed_login_count    INT          NOT NULL DEFAULT 0,
                     locked_until          TIMESTAMP,
                     last_login_at         TIMESTAMP,
+                    tenant_id             VARCHAR(64),
+                    legal_hold            BOOLEAN      NOT NULL DEFAULT FALSE,
                     created_at            TIMESTAMP    NOT NULL,
                     updated_at            TIMESTAMP    NOT NULL,
                     PRIMARY KEY (user_id),

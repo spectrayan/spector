@@ -108,6 +108,8 @@ public class NamespaceResolver implements AutoCloseable {
     private volatile ParallelEmbeddingPipeline hoistedPipeline;
     private volatile SpectorRuntime runtime;
 
+    private final Path basePath;
+
     public ParallelEmbeddingPipeline hoistedPipeline() {
         return hoistedPipeline;
     }
@@ -165,6 +167,11 @@ public class NamespaceResolver implements AutoCloseable {
         this.observabilityConfigProvider = observabilityConfigProvider;
         this.quartzSchedulerProvider = quartzSchedulerProvider;
         this.maxInstances = Math.max(1, maxInstances);
+        String baseStr = synapseProps.getMemory() != null ? synapseProps.getMemory().getPersistencePath() : null;
+        if (baseStr == null || baseStr.isBlank()) {
+            baseStr = synapseProps.dataDir();
+        }
+        this.basePath = Path.of(baseStr);
         log.info("[NamespaceResolver] initialized: maxInstances={}", this.maxInstances);
     }
 
@@ -528,11 +535,7 @@ public class NamespaceResolver implements AutoCloseable {
     }
 
     private Path basePath() {
-        String path = synapseProps.getMemory().getPersistencePath();
-        if (path == null || path.isBlank()) {
-            path = synapseProps.dataDir();
-        }
-        return Path.of(path);
+        return this.basePath;
     }
 
     private MemoryHandle evictOldestAccountUnleasedLocked(String accountId) {

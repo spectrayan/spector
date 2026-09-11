@@ -129,6 +129,13 @@ public class MemoryRequestBinder {
 
         validateTokenAllowSets(tokenClaims, targetSlug, targetNamespaceId);
 
+        if (tokenClaims.tenantId() != null && !tokenClaims.tenantId().equals(account.tenantId())) {
+            log.warn("[MemoryRequestBinder] Access denied: token tenantId='{}' does not match account tenantId='{}' for account={}",
+                    tokenClaims.tenantId(), account.tenantId(), accountId);
+            throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException(
+                    targetNamespaceId, accountId);
+        }
+
         Optional<com.spectrayan.spector.synapse.catalog.Grant> authGrant =
                 catalog.authorize(accountId, targetNamespaceId, GrantRole.READER);
         if (authGrant.isEmpty()) {

@@ -23,15 +23,18 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
+import com.spectrayan.spector.synapse.catalog.exception.TenantReassignmentException;
+import org.springframework.dao.DataAccessException;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Proves that {@link Account#tenantId()} and {@link Account#legalHold()} are structurally
- * unreachable on main today, even when set directly in the database (Task 0.4, Spec §1.2, Req R2).
- *
- * <p>This test documents the baseline defect prior to Group 1. It will be inverted in Task 1.4.</p>
+ * Verifies that {@link Account#tenantId()} and {@link Account#legalHold()} round-trip correctly
+ * through {@link JdbcAccountCatalog} from the database, missing schema columns fail loudly,
+ * and tenant reassignment is refused when namespaces are owned (Task 1.8, Spec §1.2, Req R2).
  */
-@DisplayName("Task 0.4: Prove Account.tenantId is unreachable on main today")
+@DisplayName("Task 1.8: Account tenantId and legalHold persistence and enforcement")
 class TenantIdDefectVerificationTest {
 
     private JdbcClient jdbc;
@@ -59,8 +62,8 @@ class TenantIdDefectVerificationTest {
     }
 
     @Test
-    @DisplayName("Account.tenantId and legalHold return null/false even when set in DB")
-    void testTenantIdAndLegalHoldAreUnreachableOnCurrentMain() {
+    @DisplayName("Account.tenantId and legalHold round-trip correctly from DB")
+    void testTenantIdAndLegalHoldRoundTripFromDb() {
         catalog.getOrCreateAccount(ACCOUNT_ID);
 
         // Update database directly with tenant_id and legal_hold
@@ -86,13 +89,45 @@ class TenantIdDefectVerificationTest {
         Account account = catalog.getAccount(ACCOUNT_ID);
         assertThat(account).isNotNull();
 
-        // PROOF: find-by-id.sql omits tenant_id and legal_hold, and mapAccountRow swallows the SQLException.
-        // Therefore, account.tenantId() returns null and account.legalHold() returns false!
+        // find-by-id.sql selects tenant_id and legal_hold, and mapAccountRow maps them into Account
         assertThat(account.tenantId())
-                .as("Account.tenantId() is null because find-by-id.sql does not SELECT tenant_id")
-                .isNull();
+                .as("Account.tenantId() equals 'acme' after DB update")
+                .isEqualTo("acme");
         assertThat(account.legalHold())
-                .as("Account.legalHold() is false because find-by-id.sql does not SELECT legal_hold")
-                .isFalse();
+                .as("Account.legalHold() is true after DB update")
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("Missing tenant_id column in database schema fails loudly")
+    void testMissingTenantIdColumnFailsLoudly() {
+        catalog.getOrCreateAccount(ACCOUNT_ID);
+
+        // Drop tenant_id column from users table
+        jdbc.sql("ALTER TABLE users DROP COLUMN tenant_id").update();
+
+        // Attempting to reload account must fail loudly instead of returning null
+        assertThatThrownBy(() -> catalog.getAccount(ACCOUNT_ID))
+                .isInstanceOf(DataAccessException.class);
+    }
+
+    @Test
+    @DisplayName("assignTenant persists tenant and refuses reassignment when account owns namespaces")
+    void testAssignTenantAndReassignmentGuard() {
+        catalog.getOrCreateAccount(ACCOUNT_ID);
+        assertThat(catalog.getAccount(ACCOUNT_ID).tenantId()).isNull();
+
+        // Initial assignment succeeds
+        catalog.assignTenant(ACCOUNT_ID, "acme");
+        assertThat(catalog.getAccount(ACCOUNT_ID).tenantId()).isEqualTo("acme");
+
+        // Attempting to reassign tenant when account owns namespaces throws TenantReassignmentException
+        assertThatThrownBy(() -> catalog.assignTenant(ACCOUNT_ID, "globex"))
+                .isInstanceOf(TenantReassignmentException.class)
+                .hasMessageContaining("Cannot reassign tenant");
+
+        // Idempotent assignment to same tenant succeeds
+        catalog.assignTenant(ACCOUNT_ID, "acme");
+        assertThat(catalog.getAccount(ACCOUNT_ID).tenantId()).isEqualTo("acme");
     }
 }
