@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.core.similarity;
-import com.spectrayan.spector.commons.error.SpectorException;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.simd.SimdCapability;
 
 import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorMask;
 import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.commons.error.ErrorCode;
 
 /**
  * SIMD-accelerated vector utility operations.
@@ -86,7 +85,12 @@ public final class VectorOps {
     /**
      * Normalizes a vector to unit length (L2 normalization) and returns a new array.
      *
-     * <p>If the vector has zero magnitude, returns a zero-filled array.</p>
+     * <p>If and only if the vector has <em>exactly</em> zero magnitude, returns a zero-filled
+     * array. Vectors with a small but non-zero magnitude are normalized normally — callers that
+     * need a tolerance band (e.g. iterative eigen-solvers that must retain the previous iterate)
+     * must apply their own threshold and use {@link #scale(float[], float)} directly. Widening
+     * this guard to a tolerance would silently zero-fill legitimate low-magnitude embeddings on
+     * write paths, rendering the affected records unretrievable.</p>
      *
      * @param v the vector to normalize
      * @return a new array containing the unit vector
@@ -111,7 +115,8 @@ public final class VectorOps {
         validateSlice(dst, dstOffset, length);
 
         float mag = (float) Math.sqrt(magnitudeSquared(src, srcOffset, length));
-        if (mag <= 1e-7f) {
+        // Exact-zero guard only. See normalize(float[]) for why this must not become a tolerance.
+        if (mag == 0.0f || Float.isNaN(mag)) {
             java.util.Arrays.fill(dst, dstOffset, dstOffset + length, 0.0f);
             return;
         }
@@ -423,15 +428,16 @@ public final class VectorOps {
     }
 
     // ─────────────────────── Activation Functions ───────────────────────
-    
+
     /**
      * Standard logistic sigmoid activation function: 1.0 / (1.0 + exp(-x)).
      *
      * @param x input scalar
      * @return activation value in range (0.0, 1.0)
      * @deprecated Relocated to {@link com.spectrayan.spector.core.math.SigmoidKernel#sigmoid(float)}
+     *             — a sigmoid is not a similarity function. Scheduled for removal in 0.3.0.
      */
-    @Deprecated(since = "0.3.0")
+    @Deprecated(since = "0.1.0-beta", forRemoval = true)
     public static float sigmoid(float x) {
         return com.spectrayan.spector.core.math.SigmoidKernel.sigmoid(x);
     }

@@ -16,7 +16,6 @@
 package com.spectrayan.spector.core.cognitive;
 
 import com.spectrayan.spector.core.math.SigmoidKernel;
-import com.spectrayan.spector.core.similarity.VectorOps;
 
 /**
  * Pure mathematical kernel for 9-signal multi-factor synaptic pruning and edge importance (ADR-0033 Domain 5, #13).

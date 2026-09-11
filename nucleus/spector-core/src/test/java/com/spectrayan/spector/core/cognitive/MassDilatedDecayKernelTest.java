@@ -15,11 +15,7 @@
  */
 package com.spectrayan.spector.core.cognitive;
 
-import net.jqwik.api.Arbitraries;
-import net.jqwik.api.Arbitrary;
-import net.jqwik.api.ForAll;
-import net.jqwik.api.Property;
-import net.jqwik.api.Provide;
+import net.jqwik.api.*;
 import net.jqwik.api.constraints.FloatRange;
 import org.junit.jupiter.api.Test;
 

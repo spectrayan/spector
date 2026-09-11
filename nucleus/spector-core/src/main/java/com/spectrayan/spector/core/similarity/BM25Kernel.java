@@ -102,19 +102,19 @@ public final class BM25Kernel {
         }
 
         final int limit = Math.min(count, Math.min(tfs.length, Math.min(docLens.length, outScores.length)));
-        final float k1PlusOne = k1 + 1.0f;
-        final float c1 = k1 * (1.0f - b);
-        final float c2 = (avgDocLen > 0.0f) ? (k1 * b / avgDocLen) : 0.0f;
+
+        // idf is loop-invariant, so its guard is hoisted; everything else delegates to scoreTerm.
+        // Do NOT algebraically refactor the denominator here (e.g. pre-folding k1*(1-b) and
+        // k1*b/avgDocLen): it is mathematically equivalent but NOT bit-identical in float
+        // arithmetic, which breaks batch/scalar parity and silently shifts BM25 rankings.
+        // Enforced by BatchScalarParityTest.bm25BatchMatchesScalar.
+        if (idf <= 0.0f) {
+            java.util.Arrays.fill(outScores, 0, limit, 0.0f);
+            return;
+        }
 
         for (int i = 0; i < limit; i++) {
-            final int tf = tfs[i];
-            if (tf <= 0) {
-                outScores[i] = 0.0f;
-                continue;
-            }
-            final int docLen = docLens[i];
-            final float denom = tf + c1 + c2 * docLen;
-            outScores[i] = (denom > 0.0f) ? idf * ((tf * k1PlusOne) / denom) : 0.0f;
+            outScores[i] = scoreTerm(tfs[i], docLens[i], avgDocLen, k1, b, idf);
         }
     }
 
@@ -151,19 +151,17 @@ public final class BM25Kernel {
             return;
         }
 
-        final float k1PlusOne = k1 + 1.0f;
-        final float c1 = k1 * (1.0f - b);
-        final float c2 = (avgDocLen > 0.0f) ? (k1 * b / avgDocLen) : 0.0f;
+        // See the sibling scoreTerms overload: the denominator must not be algebraically
+        // refactored, or batch and scalar stop being bit-identical.
+        if (idf <= 0.0f) {
+            java.util.Arrays.fill(outScores, outOffset, outOffset + count, 0.0f);
+            return;
+        }
 
         for (int i = 0; i < count; i++) {
-            final int tf = tfs[tfOffset + i];
-            if (tf <= 0) {
-                outScores[outOffset + i] = 0.0f;
-                continue;
-            }
             final int docLen = docLens[docIndices[docIndicesOffset + i]];
-            final float denom = tf + c1 + c2 * docLen;
-            outScores[outOffset + i] = (denom > 0.0f) ? idf * ((tf * k1PlusOne) / denom) : 0.0f;
+            outScores[outOffset + i] = scoreTerm(tfs[tfOffset + i], docLen, avgDocLen, k1, b, idf);
         }
     }
 }
+

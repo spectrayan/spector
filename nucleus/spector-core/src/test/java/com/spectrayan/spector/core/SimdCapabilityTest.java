@@ -16,10 +16,9 @@
 package com.spectrayan.spector.core;
 
 import com.spectrayan.spector.core.simd.SimdCapability;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
-import org.junit.jupiter.api.Test;
 
 /**
  * Smoke test to verify that the Java Vector API is correctly wired

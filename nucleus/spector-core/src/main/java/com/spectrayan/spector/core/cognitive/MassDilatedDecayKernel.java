@@ -65,15 +65,56 @@ public final class MassDilatedDecayKernel {
 
     /**
      * Batch calculation of continuous mass-dilated decay over candidate arrays (Principle 3).
+     *
+     * <p>{@code arousals}, {@code recallCounts} and {@code zeroTimeDecays} are optional: passing
+     * {@code null} substitutes the neutral defaults {@code 0}, {@code 0} and {@code false}
+     * respectively. This lets callers compute an unmodulated "raw" decay curve without allocating
+     * throwaway zero-filled arrays. Null checks are hoisted out of the loop, so the fully-populated
+     * case pays no per-element branch cost.</p>
+     *
+     * @param timestampsMs   creation timestamps in epoch millis (required)
+     * @param cognitiveMasses dynamic cognitive mass per candidate (required)
+     * @param arousals       arousal bytes per candidate, or {@code null} for all-zero
+     * @param recallCounts   agent recall counts per candidate, or {@code null} for all-zero
+     * @param zeroTimeDecays time-decay suspension flags, or {@code null} for all-false
+     * @param nowMs          reference query clock in epoch millis
+     * @param lambda         continuous recency scaling factor
+     * @param outDecays      destination array for computed decay multipliers
+     * @param count          number of candidates to process
      */
     public static void computeBatch(
             final long[] timestampsMs, final float[] cognitiveMasses, final byte[] arousals,
             final int[] recallCounts, final boolean[] zeroTimeDecays,
             final long nowMs, final float lambda, final float[] outDecays, final int count) {
-        for (int i = 0; i < count; i++) {
+
+        if (outDecays == null || timestampsMs == null || cognitiveMasses == null || count <= 0) {
+            return;
+        }
+        final int limit = Math.min(count, Math.min(outDecays.length,
+                Math.min(timestampsMs.length, cognitiveMasses.length)));
+
+        final boolean hasArousals = arousals != null && arousals.length >= limit;
+        final boolean hasRecallCounts = recallCounts != null && recallCounts.length >= limit;
+        final boolean hasZeroTimeDecays = zeroTimeDecays != null && zeroTimeDecays.length >= limit;
+
+        if (hasArousals && hasRecallCounts && hasZeroTimeDecays) {
+            // Fast path: no per-element null or bounds checks.
+            for (int i = 0; i < limit; i++) {
+                outDecays[i] = compute(
+                        timestampsMs[i], nowMs, cognitiveMasses[i], arousals[i],
+                        recallCounts[i], zeroTimeDecays[i], lambda);
+            }
+            return;
+        }
+
+        for (int i = 0; i < limit; i++) {
             outDecays[i] = compute(
-                    timestampsMs[i], nowMs, cognitiveMasses[i], arousals[i],
-                    recallCounts[i], zeroTimeDecays[i], lambda);
+                    timestampsMs[i], nowMs, cognitiveMasses[i],
+                    hasArousals ? arousals[i] : (byte) 0,
+                    hasRecallCounts ? recallCounts[i] : 0,
+                    hasZeroTimeDecays && zeroTimeDecays[i],
+                    lambda);
         }
     }
 }
+

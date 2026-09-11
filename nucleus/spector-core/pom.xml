@@ -55,6 +55,16 @@
                 <configuration>
                     <rules>
                         <bannedDependencies>
+                            <!--
+                              ADR-0033 Principle 5. searchTransitive is deliberately false: this rule
+                              guards spector-core's DIRECTLY declared dependencies. spector-commons
+                              legitimately pulls a large transitive tree (Quartz, Tika/PDFBox,
+                              Handlebars, Caffeine), so a transitive scan would fail the build without
+                              telling us anything about core's own coupling. The actual import-level
+                              boundary — which is what Principle 1 really constrains — is enforced by
+                              CoreBoundaryRulesTest (ArchUnit). Do not flip this to true; tighten the
+                              ArchUnit rule instead.
+                            -->
                             <searchTransitive>false</searchTransitive>
                             <excludes>
                                 <exclude>*</exclude>

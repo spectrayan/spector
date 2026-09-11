@@ -16,15 +16,10 @@
 package com.spectrayan.spector.core;
 
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-
 import com.spectrayan.spector.core.quantization.NonUniformQuantizer;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for {@link NonUniformQuantizer} — calibration, encoding, decoding, and edge cases.

@@ -113,6 +113,79 @@ public final class CognitiveScoreFusionKernel {
         return score * (1.0f + delta * prior);
     }
 
+    // ── Linear-Blend Variant (partition-aware semantic re-ranking) ──
+
+    /**
+     * Computes the linear-blend fused score used by partition-aware semantic re-ranking.
+     *
+     * <p>This is a <b>distinct formula</b> from the 6-phase {@link #computeFusedScore}, not a
+     * special case of it. Where the 6-phase form applies importance and decay as a multiplicative
+     * factor on similarity ({@code sim * (1 + beta * impNorm * decay * storageBoost)}), this form
+     * blends them <b>additively</b>:</p>
+     * <pre>
+     *   base  = alpha * similarity + beta * (importance / 10) * decay
+     *   score = base * (1 + tagOverlap * tagRelevanceBoost)
+     * </pre>
+     *
+     * <p>It is kept here rather than inline at the call site so that every fusion formula in the
+     * product has exactly one implementation (ADR-0033 §5.1). Behaviour is bit-identical to the
+     * pre-migration {@code SemanticRecallStrategy} inline expression — do not "unify" it with the
+     * 6-phase form, as that would change recall rankings.</p>
+     *
+     * @param similarity        normalized similarity in [0, 1]
+     * @param importance        raw importance in [0, 10]
+     * @param decay             mass-dilated decay multiplier in [0, 1]
+     * @param tagOverlap        synaptic tag overlap ratio in [0, 1]
+     * @param alpha             similarity blend weight
+     * @param beta              importance-decay blend weight
+     * @param tagRelevanceBoost multiplicative tag relevance boost coefficient
+     * @return fused linear-blend score
+     */
+    public static float computeLinearBlendScore(
+            final float similarity, final float importance, final float decay,
+            final float tagOverlap, final float alpha, final float beta,
+            final float tagRelevanceBoost) {
+        final float base = alpha * similarity + beta * (importance / 10.0f) * decay;
+        return base * (1.0f + tagOverlap * tagRelevanceBoost);
+    }
+
+    /**
+     * Batch linear-blend fused scoring across candidate records (Principle 3).
+     *
+     * <p>Struct-of-arrays counterpart to
+     * {@link #computeLinearBlendScore(float, float, float, float, float, float, float)}.
+     * Null checks are hoisted out of the loop.</p>
+     *
+     * @param similarities      per-candidate normalized similarities (required)
+     * @param importances       per-candidate raw importances (required)
+     * @param decays            per-candidate decay multipliers (required)
+     * @param tagOverlaps       per-candidate tag overlap ratios, or {@code null} for all-zero
+     * @param alpha             similarity blend weight
+     * @param beta              importance-decay blend weight
+     * @param tagRelevanceBoost multiplicative tag relevance boost coefficient
+     * @param outScores         destination array for fused scores
+     * @param count             number of candidates to process
+     */
+    public static void computeLinearBlendScores(
+            final float[] similarities, final float[] importances, final float[] decays,
+            final float[] tagOverlaps, final float alpha, final float beta,
+            final float tagRelevanceBoost, final float[] outScores, final int count) {
+
+        if (outScores == null || similarities == null || importances == null || decays == null || count <= 0) {
+            return;
+        }
+        final int limit = Math.min(count, Math.min(outScores.length,
+                Math.min(similarities.length, Math.min(importances.length, decays.length))));
+        final boolean hasTagOverlaps = tagOverlaps != null && tagOverlaps.length >= limit;
+
+        for (int i = 0; i < limit; i++) {
+            outScores[i] = computeLinearBlendScore(
+                    similarities[i], importances[i], decays[i],
+                    hasTagOverlaps ? tagOverlaps[i] : 0.0f,
+                    alpha, beta, tagRelevanceBoost);
+        }
+    }
+
     /**
      * Computes the complete 6-phase fused cognitive score for a candidate memory.
      */

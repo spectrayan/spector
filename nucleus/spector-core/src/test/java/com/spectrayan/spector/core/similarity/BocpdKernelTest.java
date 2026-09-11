@@ -15,14 +15,8 @@
  */
 package com.spectrayan.spector.core.similarity;
 
-import com.spectrayan.spector.core.cognitive.BocpdKernel;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.within;
-
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-
+import com.spectrayan.spector.core.cognitive.BocpdKernel;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -30,6 +24,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Arrays;
 import java.util.Random;
+
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Unit tests for SIMD {@link BocpdKernel}.

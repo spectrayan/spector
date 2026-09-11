@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.core.quantization.svasq;
-import com.spectrayan.spector.commons.error.SpectorException;
+
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.commons.error.ErrorCode;
 
 /**
  * SVASQ-4 encoder — FWHT rotation + offset-encoded INT4 quantization with nibble packing.

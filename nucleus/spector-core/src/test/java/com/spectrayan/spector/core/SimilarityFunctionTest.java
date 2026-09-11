@@ -17,11 +17,10 @@ package com.spectrayan.spector.core;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.core.similarity.VectorOps;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
-
-import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link SimilarityFunction} strategy enum.

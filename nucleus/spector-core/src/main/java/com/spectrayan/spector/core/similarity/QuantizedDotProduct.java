@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.core.similarity;
-import com.spectrayan.spector.commons.error.SpectorException;
 
 import com.spectrayan.spector.core.simd.SimdCapability;
-
 import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;

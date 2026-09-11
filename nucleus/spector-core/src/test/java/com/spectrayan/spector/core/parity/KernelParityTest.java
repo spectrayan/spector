@@ -16,14 +16,10 @@
 package com.spectrayan.spector.core.parity;
 
 import com.spectrayan.spector.core.cognitive.CognitiveMassKernel;
-import com.spectrayan.spector.core.cognitive.CognitiveScoreFusionKernel;
 import com.spectrayan.spector.core.cognitive.EdgeImportanceKernel;
 import com.spectrayan.spector.core.cognitive.MassDilatedDecayKernel;
-import com.spectrayan.spector.core.cognitive.PowerLawDecayKernel;
-import com.spectrayan.spector.core.math.EmaTracker;
 import com.spectrayan.spector.core.math.SigmoidKernel;
 import com.spectrayan.spector.core.math.SoftmaxKernel;
-import com.spectrayan.spector.core.math.WelfordAccumulator;
 import com.spectrayan.spector.core.similarity.BM25Kernel;
 import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.core.similarity.DotProduct;
@@ -31,7 +27,6 @@ import com.spectrayan.spector.core.similarity.VectorOps;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
 import java.util.Random;
 
 import static org.assertj.core.api.Assertions.assertThat;

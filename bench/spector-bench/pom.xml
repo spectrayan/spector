@@ -121,6 +121,33 @@
     <!-- Skip tests by default for benchmarks module -->
     <build>
         <plugins>
+            <!--
+              JMH benchmark discovery (ADR-0033 §4 JMH exit criterion).
+
+              JMH generates META-INF/BenchmarkList via its annotation processor. Since JDK 23,
+              javac no longer runs annotation processors that are merely discovered on the
+              classpath (implicit annotation processing was deprecated in JDK 21 and disabled by
+              default thereafter). On JDK 25 that means declaring jmh-generator-annprocess as a
+              `provided` dependency is NOT enough — BenchmarkList is never emitted and
+              `org.openjdk.jmh.Main` fails with "Unable to find the resource: /META-INF/BenchmarkList".
+
+              Declaring the processor explicitly via annotationProcessorPaths re-enables generation
+              without resorting to -proc:full (which would also run every other processor on the
+              classpath). Keep the version aligned with the jmh.version property.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.openjdk.jmh</groupId>
+                            <artifactId>jmh-generator-annprocess</artifactId>
+                            <version>${jmh.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>

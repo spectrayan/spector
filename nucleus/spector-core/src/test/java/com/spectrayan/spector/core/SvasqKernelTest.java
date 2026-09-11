@@ -16,10 +16,6 @@
 package com.spectrayan.spector.core;
 
 import com.spectrayan.spector.core.quantization.svasq.*;
-import com.spectrayan.spector.core.simd.SimdCapability;
-
-import jdk.incubator.vector.VectorSpecies;
-
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +25,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link SvasqSimdKernel} and the full encode → prepare → distance pipeline.

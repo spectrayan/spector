@@ -15,15 +15,11 @@
  */
 package com.spectrayan.spector.core.similarity;
 
-import com.spectrayan.spector.core.cognitive.IntegratedInformationKernel;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.within;
-
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-
+import com.spectrayan.spector.core.cognitive.IntegratedInformationKernel;
 import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Unit tests for {@link IntegratedInformationKernel}.

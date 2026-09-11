@@ -16,13 +16,10 @@
 package com.spectrayan.spector.core;
 
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-
 import com.spectrayan.spector.core.quantization.CrumbPacker;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for {@link CrumbPacker} — packing and unpacking 2-bit values.

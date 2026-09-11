@@ -17,15 +17,16 @@ package com.spectrayan.spector.core;
 
 import com.spectrayan.spector.core.similarity.QuantizedEuclideanDistance;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-
 import org.junit.jupiter.api.*;
-import static org.assertj.core.api.Assertions.*;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.Arrays;
 import java.util.Random;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 /**
  * Tests and benchmarks for {@link QuantizedEuclideanDistance} — the SIMD-accelerated

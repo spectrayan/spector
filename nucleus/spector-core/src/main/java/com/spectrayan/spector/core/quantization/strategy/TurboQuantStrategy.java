@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.core.quantization.strategy;
-import com.spectrayan.spector.commons.error.SpectorException;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.quantization.TurboQuantizer;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
-import com.spectrayan.spector.commons.error.ErrorCode;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
 
 /**
  * Quantization strategy for TurboQuant (random-rotation + optimal scalar quantization).

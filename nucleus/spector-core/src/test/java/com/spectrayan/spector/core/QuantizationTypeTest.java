@@ -16,16 +16,11 @@
 package com.spectrayan.spector.core;
 
 import com.spectrayan.spector.core.quantization.QuantizationType;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Unit tests for {@link QuantizationType} enum including INT4 and INT2 variants.

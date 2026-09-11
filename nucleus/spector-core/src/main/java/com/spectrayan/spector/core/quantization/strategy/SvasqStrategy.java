@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.core.quantization.strategy;
-import com.spectrayan.spector.commons.error.SpectorException;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.quantization.svasq.SvasqEncoder;
-import com.spectrayan.spector.core.quantization.svasq.SvasqParams;
 import com.spectrayan.spector.core.quantization.svasq.SvasqFwht;
+import com.spectrayan.spector.core.quantization.svasq.SvasqParams;
 import com.spectrayan.spector.core.quantization.svasq.SvasqQueryPrep;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
-import com.spectrayan.spector.commons.error.ErrorCode;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
 
 /**
  * Quantization strategy for SVASQ (FWHT-rotated asymmetric INT8 quantization).

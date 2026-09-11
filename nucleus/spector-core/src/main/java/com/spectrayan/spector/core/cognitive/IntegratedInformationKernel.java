@@ -15,9 +15,9 @@
  */
 package com.spectrayan.spector.core.cognitive;
 
-import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.core.similarity.CosineSimilarity;
 
 /**
  * Kernel for Integrated Information Theory (IIT) Gaussian Multi-Information and Phi_CC calculation.

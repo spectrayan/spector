@@ -15,11 +15,10 @@
  */
 package com.spectrayan.spector.core.expression;
 
-import com.spectrayan.spector.core.simd.SimdCapability;
-import jdk.incubator.vector.FloatVector;
-import jdk.incubator.vector.VectorSpecies;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.core.simd.SimdCapability;
+import jdk.incubator.vector.VectorSpecies;
 
 public final class VocalProsodyKernel {
 

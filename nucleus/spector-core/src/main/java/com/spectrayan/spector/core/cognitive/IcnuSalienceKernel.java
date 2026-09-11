@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.core.cognitive;
 
-import com.spectrayan.spector.core.similarity.VectorOps;
+import com.spectrayan.spector.core.math.SigmoidKernel;
 
 /**
  * Pure mathematical kernel for ADHD-informed sigmoid-gated ICNU salience synthesis (ADR-0033 Domain 7).
@@ -75,7 +75,7 @@ public final class IcnuSalienceKernel {
                 + wChallenge * challengeVal
                 + wUrgency * urgencyVal;
 
-        final float gated = VectorOps.sigmoid(steepness * (stimulus - threshold));
+        final float gated = SigmoidKernel.sigmoid(steepness * (stimulus - threshold));
         final float scaled = MIN_IMPORTANCE + gated * IMPORTANCE_SPAN;
         return Math.clamp(scaled, MIN_IMPORTANCE, MAX_IMPORTANCE);
     }

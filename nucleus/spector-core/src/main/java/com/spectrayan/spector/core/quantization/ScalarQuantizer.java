@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.core.quantization;
-import com.spectrayan.spector.commons.error.SpectorException;
+
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 
 import java.util.Arrays;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.commons.error.ErrorCode;
 
 /**
  * Scalar quantizer — maps float32 vectors to int8 (byte) vectors.

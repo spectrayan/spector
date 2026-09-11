@@ -15,10 +15,9 @@
  */
 package com.spectrayan.spector.core.privacy;
 
-import com.spectrayan.spector.core.similarity.VectorOps;
-
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.core.similarity.VectorOps;
 
 import java.util.Random;
 

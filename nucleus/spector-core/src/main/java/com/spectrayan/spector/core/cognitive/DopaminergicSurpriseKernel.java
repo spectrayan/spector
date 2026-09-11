@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.core.cognitive;
 
-import com.spectrayan.spector.core.similarity.VectorOps;
+import com.spectrayan.spector.core.math.SigmoidKernel;
 
 /**
  * Pure mathematical kernel for dopaminergic prediction error scaling, dual spatial-temporal surprise,
@@ -44,7 +44,7 @@ public final class DopaminergicSurpriseKernel {
      * @return importance in [0.05, 10.0]
      */
     public static float zScoreToImportance(final double zScore, final float center, final float steepness) {
-        final float sigmoid = VectorOps.sigmoid((float) (steepness * (zScore - center)));
+        final float sigmoid = SigmoidKernel.sigmoid((float) (steepness * (zScore - center)));
         return MIN_IMPORTANCE + sigmoid * IMPORTANCE_SPAN;
     }
 
