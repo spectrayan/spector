@@ -32,7 +32,7 @@ graph TB
 
 All four memory stores are backed directly by the off-heap `spector-kernel`:
 - **Working Memory**: Hosted in `runtime.bundle` as a contiguous circular buffer for active working context.
-- **Episodic, Semantic, and Procedural Memories**: Hosted in sequential partition bundles (`partitions/{seq}/partition.bundle`) with dedicated 96-byte strength audit regions.
+- **Episodic, Semantic, and Procedural Memories**: Hosted in sequential partition bundles (`partitions/{seq}/partition.bundle`) with dedicated 96-byte strength regions (`RegionId.STRENGTH`).
 - **Engram Storage**: All tiers utilize the unified 64-byte pure encoding header with 128-bit Synaptic Bloom tags for fast candidate pre-screening.
 
 ---

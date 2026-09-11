@@ -176,7 +176,7 @@ Engram Storage Layout:
 | - 128-Bit Synaptic Bloom Filter (Offsets 0x18 - 0x27)       |                       |
 +-------------------------------------------------------------+-----------------------+
 
-Recall Audit Region (Independent 96-Byte Slices):
+Strength Region (Independent 96-Byte Slices, RegionId.STRENGTH):
 +-------------------------------------------------------------------------------------+
 | Strength State (96 Bytes, 32-Byte Aligned)                                          |
 | - Bjork Storage Strength S(t) in [1.0, 5.0]                                         |

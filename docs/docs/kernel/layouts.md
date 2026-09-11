@@ -1,6 +1,6 @@
 ---
 title: "Binary Record Specifications & Synaptic Header"
-description: "Byte-level specifications of Spector's 64-byte cache-line-aligned pure encoding header, 128-bit synaptic Bloom tags, and 96-byte off-heap strength audit state."
+description: "Byte-level specifications of Spector's 64-byte cache-line-aligned pure encoding header, 128-bit synaptic Bloom tags, and 96-byte off-heap strength region."
 ---
 
 # 🧬 Binary Record Specifications & Synaptic Header
@@ -24,7 +24,7 @@ graph TD
         EH --- VEC
     end
 
-    subgraph "Recall Audit Region (Separate Sidecar Region)"
+    subgraph "Strength Region (Dedicated Partition Region)"
         ST["Strength State (96 Bytes)<br/><i>Mutable Access Counters, Storage Strength S(t), ACT-R Ring</i>"]
     end
 
@@ -36,7 +36,7 @@ graph TD
 ```
 
 1. **Pure Encoding Identity**: The primary engram record contains only immutable or read-mostly attributes established during memory ingestion. It remains static during search operations.
-2. **Strength State Audit Region**: All mutable metrics—including Bjork storage strength, explicit agent reinforcement counts, passive auto-LTP retrieval counts, and ACT-R recall timestamp history—are relocated to an independent 96-byte audit region.
+2. **Strength Region**: All mutable metrics—including Bjork storage strength, explicit agent reinforcement counts, passive auto-LTP retrieval counts, and ACT-R recall timestamp history—are relocated to an independent 96-byte record within the dedicated **Strength Region** (`RegionId.STRENGTH`).
 
 ---
 
@@ -121,9 +121,9 @@ flowchart LR
 
 ---
 
-## 96-Byte Strength State (Audit Region)
+## 96-Byte Strength State (Strength Region)
 
-Mutable telemetry is isolated in an independent 96-byte record, aligned to 32 bytes to ensure atomic word updates across concurrent virtual threads:
+Mutable telemetry is isolated in an independent 96-byte record within partition bundles (`RegionId.STRENGTH`), aligned to 32 bytes to ensure atomic word updates across concurrent virtual threads:
 
 ### Wire Diagram (96 Bytes)
 

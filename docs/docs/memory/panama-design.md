@@ -130,14 +130,14 @@ sequenceDiagram
 
 ## Binary Record Format & Telemetry Separation
 
-The cognitive record format uses a **64-byte cache-line-aligned pure encoding header** paired with quantized vector data, while isolating all mutable telemetry into a dedicated 96-byte strength audit region:
+The cognitive record format uses a **64-byte cache-line-aligned pure encoding header** paired with quantized vector data, while isolating all mutable telemetry into a dedicated 96-byte strength region (`RegionId.STRENGTH`):
 
 ```mermaid
 graph LR
     subgraph "Pure Engram Record (64B Cache Line + Vector)"
         H["Pure Encoding Header (64B)"] --> V["INT8 Quantized Vector (NB)"]
     end
-    subgraph "Recall Audit Region"
+    subgraph "Strength Region"
         S["Strength State (96B)"]
     end
     H -.->|Slot Mapping| S

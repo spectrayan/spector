@@ -109,7 +109,7 @@ ${SPECTOR_DATA_DIR}/
 ### Bundle Types
 
 - **`runtime.bundle`**: Single-mmap container for hot, frequently referenced state: working memory ring buffers, the Hebbian association graph, entity directory, temporal chain links, and the somatic self-model (`InsulaMemory`).
-- **`partition.bundle`**: Immutable and time-partitioned memory bundles housing episodic traces, consolidated semantic knowledge, procedural skills, and the dedicated 96-byte recall strength audit region.
+- **`partition.bundle`**: Immutable and time-partitioned memory bundles housing episodic traces, consolidated semantic knowledge, procedural skills, and the dedicated 96-byte strength region (`RegionId.STRENGTH`).
 - **`identity.bundle`**: Houses persistent persona contexts (`UserSoul`, `AgentSoul`, `TenantSoul`, `OrgUnitSoul`), baseline ICNU salience weights, and cryptographic compliance checks outside transient namespace churn.
 
 ---
@@ -144,9 +144,9 @@ Aligned to exactly one CPU cache line (64 bytes) to maximize sequential memory b
 
 Synaptic tags utilize an expanded 128-bit Bloom filter occupying offsets `0x18` through `0x27`. Contextual markers (e.g., `#user-preference`, `#financial-report`) are hashed into this 128-bit space using non-cryptographic MurmurHash3 distributions, reducing pre-screening false positives by ~60× compared to 64-bit filters and enabling sub-microsecond candidate filtering prior to vector similarity scoring.
 
-### 96-Byte Strength State (Audit Region)
+### 96-Byte Strength State (Strength Region)
 
-Mutable dynamics are stored in an independent 96-byte record aligned to 32 bytes:
+Mutable dynamics are stored in an independent 96-byte record aligned to 32 bytes within partition bundles (`RegionId.STRENGTH`):
 - Two-Factor storage strength $S(t) \in [1.0, 5.0]$ (Bjork & Bjork learning model)
 - ACT-R activation ring buffer: 8 relative-second timestamp history slots
 - Explicit agent reinforcement counter vs. passive auto-LTP retrieval counter

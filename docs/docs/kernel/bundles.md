@@ -92,7 +92,7 @@ Partition bundles store long-term, time-partitioned engram traces. As memory gro
 - **Episodic Memory**: Time-ordered event records and narrative history.
 - **Semantic Memory**: Crystallized factual knowledge and concepts.
 - **Procedural Memory**: Multi-step executable skills and behavioural protocols.
-- **Strength Audit State**: Dedicated 96-byte mutable recall telemetry and ACT-R history.
+- **Strength Region**: Dedicated 96-byte mutable recall telemetry and ACT-R history (`RegionId.STRENGTH`).
 
 ### 3. The Identity Bundle (`identity.bundle`)
 

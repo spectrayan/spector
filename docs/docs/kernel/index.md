@@ -77,7 +77,7 @@ The Memory Kernel maintains a strict architectural seal. Native memory segments,
 ### 3. Pure Encoding Identity & Telemetry Separation
 Every stored engram cleanly decouples its immutable creation metadata from high-frequency mutable recall dynamics:
 - **Encoding Header (64 Bytes)**: Contains immutable properties recorded at memory formation (initial valence, arousal, base importance, timestamp, and 128-bit synaptic Bloom tags).
-- **Strength State (96 Bytes)**: Resides in an independent recall audit region. Tracks mutable access counters, long-term potentiation cooldowns, storage strength, and ACT-R recall timestamp history.
+- **Strength State (96 Bytes)**: Resides in the dedicated **Strength Region** (`RegionId.STRENGTH`). Tracks mutable access counters, long-term potentiation cooldowns, storage strength, and ACT-R recall timestamp history.
 
 This complete physical separation prevents CPU cache-line false sharing during parallel multi-threaded scans, ensuring read-heavy search loops remain uninhibited by concurrent memory recall updates.
 
@@ -99,7 +99,7 @@ Every memory namespace (representing an individual user context, an agent conver
 |:---|:---|:---|
 | **Namespace Descriptor** | `cognitive/namespaces/{id}/namespace.json` | Sizing configuration, vector dimensions, and tenant isolation metadata |
 | **Runtime Bundle** | `cognitive/namespaces/{id}/runtime.bundle` | Hot working memory circular buffer, Hebbian graph, entity registries, and dynamic insular somatic markers (`InsulaMemory`) |
-| **Partition Bundles** | `cognitive/namespaces/{id}/partitions/{seq}/partition.bundle` | Time-partitioned episodic chunks, long-term semantic engrams, procedural skills, and 96-byte strength audit state |
+| **Partition Bundles** | `cognitive/namespaces/{id}/partitions/{seq}/partition.bundle` | Time-partitioned episodic chunks, long-term semantic engrams, procedural skills, and the 96-byte strength region |
 | **Write-Ahead Log** | `cognitive/namespaces/{id}/wal.log` | Crash-resilient append-only mutation log with CRC-32 verification |
 
 ### Identity Plane (`identity/`)
