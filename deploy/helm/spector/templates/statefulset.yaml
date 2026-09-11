@@ -45,6 +45,11 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+          {{- if .Values.secretRef.name }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.secretRef.name }}
+          {{- end }}
           volumeMounts:
             - name: data
               mountPath: {{ .Values.persistence.mountPath }}

@@ -75,6 +75,24 @@ spec:
               value: "-Xms2G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:+UnlockDiagnosticVMOptions -XX:+UnlockExperimentalVMOptions --add-modules=jdk.incubator.vector --enable-preview -Djava.lang.foreign.restricted=permit"
             - name: SPECTOR_DATA_DIR
               value: "/data"
+            - name: SPECTOR_EMBEDDING_PROVIDER
+              value: "ollama"
+            - name: SPECTOR_EMBEDDING_MODEL
+              value: "nomic-embed-text"
+            - name: SPECTOR_EMBEDDING_DIMS
+              value: "768"
+            - name: SPECTOR_GENERATION_PROVIDER
+              value: "ollama"
+            - name: SPECTOR_GENERATION_MODEL
+              value: "llama3.2"
+            - name: SPECTOR_MEMORY_CAPACITY
+              value: "10000"
+            - name: SPECTOR_ENTITY_EXTRACTION_MODE
+              value: "NONE"
+            - name: SPECTOR_TAG_EXTRACTOR
+              value: "content"
+            - name: SPECTOR_TEXT_SEARCH_MODE
+              value: "HYBRID"
           resources:
             requests:
               cpu: "4"

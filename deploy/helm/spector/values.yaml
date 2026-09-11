@@ -63,8 +63,28 @@ persistence:
 
 env:
   SPECTOR_PORT: "7070"
-  SPECTOR_DIMS: "384"
   SPECTOR_NODE_ID: "spector-k8s"
+  SPECTOR_DATA_DIR: "/data"
+  # ── Embedding Provider ──
+  SPECTOR_EMBEDDING_PROVIDER: "ollama"
+  SPECTOR_EMBEDDING_MODEL: "nomic-embed-text"
+  SPECTOR_EMBEDDING_BASE_URL: ""
+  SPECTOR_EMBEDDING_DIMS: "768"
+  # ── Generation (LLM) Provider ──
+  SPECTOR_GENERATION_PROVIDER: "ollama"
+  SPECTOR_GENERATION_MODEL: "llama3.2"
+  SPECTOR_GENERATION_BASE_URL: ""
+  # ── Memory ──
+  SPECTOR_MEMORY_CAPACITY: "10000"
+  SPECTOR_ENTITY_EXTRACTION_MODE: "NONE"
+  SPECTOR_TAG_EXTRACTOR: "content"
+  SPECTOR_TEXT_SEARCH_MODE: "HYBRID"
+
+# API keys — use Kubernetes Secrets (not plain env vars)
+secretRef:
+  # Name of an existing Kubernetes Secret containing API keys.
+  # Expected keys: SPECTOR_EMBEDDING_API_KEY, SPECTOR_GENERATION_API_KEY, SPECTOR_API_KEY
+  name: ""
 
 config:
   persistence:

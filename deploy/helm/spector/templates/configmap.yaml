@@ -6,14 +6,33 @@ metadata:
     {{- include "spector.labels" . | nindent 4 }}
 data:
   spector.yml: |
-    server:
-      port: 7070
     spector:
+      mode: MEMORY
+      provider:
+        embedding:
+          type: ${SPECTOR_EMBEDDING_PROVIDER:ollama}
+          model: ${SPECTOR_EMBEDDING_MODEL:nomic-embed-text}
+          base-url: ${SPECTOR_EMBEDDING_BASE_URL:http://localhost:11434}
+          api-key: ${SPECTOR_EMBEDDING_API_KEY:}
+          dimensions: ${SPECTOR_EMBEDDING_DIMS:768}
+          timeout: 120s
+          batch-size: 32
+        generation:
+          type: ${SPECTOR_GENERATION_PROVIDER:ollama}
+          model: ${SPECTOR_GENERATION_MODEL:llama3.2}
+          base-url: ${SPECTOR_GENERATION_BASE_URL:http://localhost:11434}
+          api-key: ${SPECTOR_GENERATION_API_KEY:}
       memory:
-        dimensions: {{ .Values.env.SPECTOR_DIMS | default 384 }}
-        storage-path: /data/memory
-      persistence:
         enabled: true
-        path: /data/memory
-      index:
-        path: /data/index
+        persistence-mode: DISK
+        persistence-path: /data/memory
+        dimensions: ${SPECTOR_EMBEDDING_DIMS:768}
+        capacity: ${SPECTOR_MEMORY_CAPACITY:10000}
+        entity:
+          extraction-mode: ${SPECTOR_ENTITY_EXTRACTION_MODE:NONE}
+        tag-extractor: ${SPECTOR_TAG_EXTRACTOR:content}
+        text-search-mode: ${SPECTOR_TEXT_SEARCH_MODE:HYBRID}
+      hnsw:
+        m: 16
+        ef-construction: 200
+        ef-search: 50
