@@ -156,17 +156,36 @@ public final class SoftmaxKernel {
         }
 
         int n = scores.length;
-        float totalOriginalScore = 0.0f;
-        for (int i = 0; i < n; i++) {
+        float temp = Math.max(0.01f, temperature);
+        float invTemp = 1.0f / temp;
+
+        float maxScaled = scores[0] * invTemp;
+        float totalOriginalScore = scores[0];
+        for (int i = 1; i < n; i++) {
             totalOriginalScore += scores[i];
+            float scaled = scores[i] * invTemp;
+            if (scaled > maxScaled) {
+                maxScaled = scaled;
+            }
         }
 
-        float[] probs = new float[n];
-        computeProbabilities(scores, temperature, probs);
+        double sumExp = 0.0;
+        for (int i = 0; i < n; i++) {
+            float scaled = scores[i] * invTemp;
+            double w = Math.exp(scaled - maxScaled);
+            sumExp += w;
+        }
+
+        // Degenerate check: preserve scores untouched on underflow/overflow/NaN
+        if (sumExp <= 0.0 || Double.isNaN(sumExp)) {
+            return;
+        }
 
         float scaleMultiplier = totalOriginalScore > 0.0f ? totalOriginalScore : 1.0f;
+        double invSumExp = scaleMultiplier / sumExp;
         for (int i = 0; i < n; i++) {
-            scores[i] = probs[i] * scaleMultiplier;
+            float scaled = scores[i] * invTemp;
+            scores[i] = (float) (Math.exp(scaled - maxScaled) * invSumExp);
         }
     }
 

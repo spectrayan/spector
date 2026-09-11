@@ -58,23 +58,11 @@ public final class TemperatureSoftmax {
         for (int i = 0; i < n; i++) {
             CognitiveResult r = results.get(i);
             float newScore = scores[i];
-
-            ScoreBreakdown bd = r.breakdown() != null
-                    ? new ScoreBreakdown(
-                            r.breakdown().similarity(),
-                            r.breakdown().importanceDecay(),
-                            r.breakdown().tagBoostFactor(),
-                            r.breakdown().habituationPenalty(),
-                            r.breakdown().graphBoost(),
-                            r.breakdown().valenceAlignment(),
-                            newScore)
-                    : null;
-
-            results.set(i, new CognitiveResult(
-                    r.id(), r.text(), newScore, r.importance(), r.ageDays(),
-                    r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
-                    r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
-                    r.retrievalMode(), bd, r.trace(), r.sourceModality(), r.metadata()));
+            if (r.breakdown() != null) {
+                results.set(i, r.withScoreAndBreakdown(newScore, r.breakdown().withFinalScore(newScore)));
+            } else {
+                results.set(i, r.withScore(newScore));
+            }
         }
     }
 }

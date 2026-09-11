@@ -97,7 +97,7 @@ public final class LateralInhibitionRelay implements SynapticRelay<RecallSignal>
             if (vectors[i] == null) continue;
             for (int j = i + 1; j < maxCandidates; j++) {
                 if (vectors[j] == null) continue;
-                float sim = CosineSimilarity.compute(vectors[i], vectors[j]);
+                float sim = CosineSimilarity.computeSafe(vectors[i], vectors[j]);
                 if (sim >= threshold) {
                     if (clusterId[i] == -1 && clusterId[j] == -1) {
                         clusterId[i] = nextCluster;

@@ -204,6 +204,48 @@ public final class CognitiveScoreFusionKernel {
         final FusionParams p = (params != null) ? params : FusionParams.DEFAULT;
         final int limit = Math.min(count, outScores.length);
 
+        if (p.pureSimilarity()) {
+            final float strictness = p.strictness();
+            if (l2dists != null && l2dists.length >= limit) {
+                for (int i = 0; i < limit; i++) {
+                    outScores[i] = 1.0f / (1.0f + l2dists[i] * strictness);
+                }
+            } else {
+                for (int i = 0; i < limit; i++) {
+                    final float d = (l2dists != null && i < l2dists.length) ? l2dists[i] : 0.0f;
+                    outScores[i] = 1.0f / (1.0f + d * strictness);
+                }
+            }
+            return;
+        }
+
+        final boolean allArraysPresent = l2dists != null && l2dists.length >= limit
+                && timestampsMs != null && timestampsMs.length >= limit
+                && cognitiveMasses != null && cognitiveMasses.length >= limit
+                && arousals != null && arousals.length >= limit
+                && storageStrengths != null && storageStrengths.length >= limit
+                && hasStorageStrength != null && hasStorageStrength.length >= limit
+                && recallCounts != null && recallCounts.length >= limit
+                && importances != null && importances.length >= limit
+                && tagOverlaps != null && tagOverlaps.length >= limit
+                && valences != null && valences.length >= limit
+                && focusMatches != null && focusMatches.length >= limit
+                && zeroTimeDecays != null && zeroTimeDecays.length >= limit
+                && associativePriors != null && associativePriors.length >= limit;
+
+        if (allArraysPresent) {
+            // Fast path: zero bounds checks and zero null checks per iteration
+            for (int i = 0; i < limit; i++) {
+                outScores[i] = computeFusedScore(
+                        l2dists[i], timestampsMs[i], nowMs, cognitiveMasses[i], arousals[i],
+                        storageStrengths[i], hasStorageStrength[i], recallCounts[i],
+                        importances[i], tagOverlaps[i], valences[i], queryValence,
+                        focusMatches[i], zeroTimeDecays[i], associativePriors[i], p);
+            }
+            return;
+        }
+
+        // Fallback for ragged or partially populated arrays
         for (int i = 0; i < limit; i++) {
             final float l2dist = (l2dists != null && i < l2dists.length) ? l2dists[i] : 0.0f;
             final long timestampMs = (timestampsMs != null && i < timestampsMs.length) ? timestampsMs[i] : nowMs;

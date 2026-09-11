@@ -55,16 +55,16 @@
                 <configuration>
                     <rules>
                         <bannedDependencies>
+                            <searchTransitive>false</searchTransitive>
                             <excludes>
-                                <exclude>com.spectrayan:spector-kernel</exclude>
-                                <exclude>com.spectrayan:spector-memory</exclude>
-                                <exclude>com.spectrayan:spector-index</exclude>
-                                <exclude>com.spectrayan:spector-config</exclude>
-                                <exclude>com.spectrayan:spector-events</exclude>
-                                <exclude>com.spectrayan:spector-providers</exclude>
-                                <exclude>com.spectrayan:spector-synapse</exclude>
+                                <exclude>*</exclude>
                             </excludes>
-                            <message>ADR-0033 Principle 1 violation: spector-core must not depend on upstream storage, memory, config, index, or provider modules.</message>
+                            <includes>
+                                <include>com.spectrayan:spector-commons</include>
+                                <include>org.slf4j:slf4j-api</include>
+                                <include>*:*:*:*:test</include>
+                            </includes>
+                            <message>ADR-0033 Principle 1 violation: spector-core must only depend on spector-commons and slf4j-api.</message>
                         </bannedDependencies>
                     </rules>
                     <fail>true</fail>

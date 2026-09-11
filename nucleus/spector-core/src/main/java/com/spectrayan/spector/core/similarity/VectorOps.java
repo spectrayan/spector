@@ -111,7 +111,7 @@ public final class VectorOps {
         validateSlice(dst, dstOffset, length);
 
         float mag = (float) Math.sqrt(magnitudeSquared(src, srcOffset, length));
-        if (mag == 0.0f) {
+        if (mag <= 1e-7f) {
             java.util.Arrays.fill(dst, dstOffset, dstOffset + length, 0.0f);
             return;
         }
@@ -423,14 +423,16 @@ public final class VectorOps {
     }
 
     // ─────────────────────── Activation Functions ───────────────────────
-
+    
     /**
      * Standard logistic sigmoid activation function: 1.0 / (1.0 + exp(-x)).
      *
      * @param x input scalar
      * @return activation value in range (0.0, 1.0)
+     * @deprecated Relocated to {@link com.spectrayan.spector.core.math.SigmoidKernel#sigmoid(float)}
      */
+    @Deprecated(since = "0.3.0")
     public static float sigmoid(float x) {
-        return (float) (1.0 / (1.0 + Math.exp(-x)));
+        return com.spectrayan.spector.core.math.SigmoidKernel.sigmoid(x);
     }
 }

@@ -16,10 +16,6 @@
 package com.spectrayan.spector.kernel.score;
 
 import com.spectrayan.spector.core.cognitive.EdgeImportanceKernel;
-import com.spectrayan.spector.core.similarity.VectorOps;
-import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
-
-import com.spectrayan.spector.kernel.engram.EncodingHeader;
 
 import static com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.isPinned;
 import static com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.isResolved;
@@ -162,5 +158,49 @@ public final class EdgeImportance {
                                  int bridgeScore, int sharedNeighbors) {
         return EdgeImportanceKernel.scoreStructural(
                 weight, currentCycle, lastCycle, bridgeScore, sharedNeighbors, weightsArray);
+    }
+
+    /**
+     * Batch calculation of structural edge importance (Principle 3).
+     */
+    public void scoreStructuralBatch(
+            float[] weights,
+            int currentCycle,
+            short[] lastCycles,
+            byte[] bridgeScores,
+            int[] sharedNeighbors,
+            float[] outScores,
+            int count) {
+        EdgeImportanceKernel.scoreStructuralBatch(
+                weights, currentCycle, lastCycles, bridgeScores, sharedNeighbors,
+                weightsArray, outScores, count);
+    }
+
+    /**
+     * Batch calculation of full 9-signal neuroscience-informed edge importance (Principle 3).
+     */
+    public void scoreBatch(
+            float[] weights,
+            int currentCycle,
+            int[] lastCycles,
+            int[] bridgeScores,
+            int[] sharedNeighbors,
+            float[] importancesA,
+            float[] importancesB,
+            byte[] arousalsA,
+            byte[] arousalsB,
+            byte[] valencesA,
+            byte[] valencesB,
+            float[] storageStrengthsA,
+            float[] storageStrengthsB,
+            boolean[] isProtectedA,
+            boolean[] isProtectedB,
+            float[] outScores,
+            int count) {
+        EdgeImportanceKernel.scoreBatch(
+                weights, currentCycle, lastCycles, bridgeScores, sharedNeighbors,
+                importancesA, importancesB, arousalsA, arousalsB, valencesA, valencesB,
+                storageStrengthsA, storageStrengthsB, isProtectedA, isProtectedB,
+                weightsArray, outScores, count);
     }
 }

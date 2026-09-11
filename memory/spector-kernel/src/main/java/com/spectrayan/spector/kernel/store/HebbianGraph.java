@@ -494,20 +494,23 @@ public class HebbianGraph implements HebbianGraphBase {
         float minScore = Float.MAX_VALUE;
         int minIndex = -1;
 
-        for (int i = 0; i < degree; i++) {
-            long edgeOffset = nodeOffset + 4 + (long) i * EDGE_BYTES;
-            float weight = segment.get(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT);
-            short lastCycle = segment.get(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE);
-            byte bridgeScore = segment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
-
-            // Use structural-only scoring (no header reads during hot-path insertion)
-            float score = edgeImportance.scoreStructural(
-                    weight, currentCycle, Short.toUnsignedInt(lastCycle),
-                    Byte.toUnsignedInt(bridgeScore), 0);
-
-            if (score < minScore) {
-                minScore = score;
-                minIndex = i;
+        if (degree > 0) {
+            float[] weights = new float[degree];
+            short[] lastCycles = new short[degree];
+            byte[] bridgeScores = new byte[degree];
+            for (int i = 0; i < degree; i++) {
+                long edgeOffset = nodeOffset + 4 + (long) i * EDGE_BYTES;
+                weights[i] = segment.get(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT);
+                lastCycles[i] = segment.get(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE);
+                bridgeScores[i] = segment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
+            }
+            float[] scores = new float[degree];
+            edgeImportance.scoreStructuralBatch(weights, currentCycle, lastCycles, bridgeScores, null, scores, degree);
+            for (int i = 0; i < degree; i++) {
+                if (scores[i] < minScore) {
+                    minScore = scores[i];
+                    minIndex = i;
+                }
             }
         }
 

@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.core.cognitive;
 
+import com.spectrayan.spector.core.math.SigmoidKernel;
 import com.spectrayan.spector.core.similarity.VectorOps;
 
 /**
@@ -90,7 +91,7 @@ public final class EdgeImportanceKernel {
         final float[] w = (weights != null && weights.length >= 9) ? weights : DEFAULT_WEIGHTS;
 
         // Signal 1: Weight — Hebbian LTP
-        final float weightSignal = VectorOps.sigmoid(weight - 3.0f);
+        final float weightSignal = SigmoidKernel.sigmoid(weight - 3.0f);
 
         // Signal 2: Recency — STC theory (decay with ~50 cycle half-life)
         final float recencySignal = (float) Math.exp(-(currentCycle - lastCycle) / 72.0);
@@ -144,7 +145,7 @@ public final class EdgeImportanceKernel {
 
         final float[] w = (weights != null && weights.length >= 4) ? weights : DEFAULT_WEIGHTS;
 
-        final float weightSignal = VectorOps.sigmoid(weight - 3.0f);
+        final float weightSignal = SigmoidKernel.sigmoid(weight - 3.0f);
         final float recencySignal = (float) Math.exp(-(currentCycle - lastCycle) / 72.0);
         final float bridgeSignal = bridgeScore / 255.0f;
         final float redundancy = 1.0f / (1.0f + sharedNeighbors * 0.3f);
@@ -158,5 +159,89 @@ public final class EdgeImportanceKernel {
                 + (w[IDX_RECENCY] / totalStructural) * recencySignal
                 + (w[IDX_BRIDGE] / totalStructural) * bridgeSignal
                 + (w[IDX_REDUNDANCY] / totalStructural) * redundancy;
+    }
+
+    /**
+     * Batch calculation of structural edge importance for graph pruning (Principle 3).
+     *
+     * @param weights co-recall weights per edge
+     * @param currentCycle current reflection cycle counter
+     * @param lastCycles cycles when each edge was last strengthened (short array)
+     * @param bridgeScores structural bridge scores (0-255 byte array)
+     * @param sharedNeighbors common neighbors counts
+     * @param weightsConfig 9-element array of signal weights, or null for default
+     * @param outScores output array for computed edge scores
+     * @param count number of edges to evaluate
+     */
+    public static void scoreStructuralBatch(
+            final float[] weights,
+            final int currentCycle,
+            final short[] lastCycles,
+            final byte[] bridgeScores,
+            final int[] sharedNeighbors,
+            final float[] weightsConfig,
+            final float[] outScores,
+            final int count) {
+        if (outScores == null || count <= 0) {
+            return;
+        }
+        final float[] w = (weightsConfig != null && weightsConfig.length >= 4) ? weightsConfig : DEFAULT_WEIGHTS;
+        final int limit = Math.min(count, outScores.length);
+        for (int i = 0; i < limit; i++) {
+            final float weight = (weights != null && i < weights.length) ? weights[i] : 0.0f;
+            final int lastCycle = (lastCycles != null && i < lastCycles.length) ? Short.toUnsignedInt(lastCycles[i]) : currentCycle;
+            final int bridgeScore = (bridgeScores != null && i < bridgeScores.length) ? Byte.toUnsignedInt(bridgeScores[i]) : 0;
+            final int shared = (sharedNeighbors != null && i < sharedNeighbors.length) ? sharedNeighbors[i] : 0;
+
+            outScores[i] = scoreStructural(weight, currentCycle, lastCycle, bridgeScore, shared, w);
+        }
+    }
+
+    /**
+     * Batch calculation of full 9-signal neuroscience-informed edge importance (Principle 3).
+     */
+    public static void scoreBatch(
+            final float[] weights,
+            final int currentCycle,
+            final int[] lastCycles,
+            final int[] bridgeScores,
+            final int[] sharedNeighbors,
+            final float[] importancesA,
+            final float[] importancesB,
+            final byte[] arousalsA,
+            final byte[] arousalsB,
+            final byte[] valencesA,
+            final byte[] valencesB,
+            final float[] storageStrengthsA,
+            final float[] storageStrengthsB,
+            final boolean[] isProtectedA,
+            final boolean[] isProtectedB,
+            final float[] weightsConfig,
+            final float[] outScores,
+            final int count) {
+        if (outScores == null || count <= 0) {
+            return;
+        }
+        final float[] w = (weightsConfig != null && weightsConfig.length >= 9) ? weightsConfig : DEFAULT_WEIGHTS;
+        final int limit = Math.min(count, outScores.length);
+        for (int i = 0; i < limit; i++) {
+            outScores[i] = score(
+                    weights != null && i < weights.length ? weights[i] : 0.0f,
+                    currentCycle,
+                    lastCycles != null && i < lastCycles.length ? lastCycles[i] : currentCycle,
+                    bridgeScores != null && i < bridgeScores.length ? bridgeScores[i] : 0,
+                    sharedNeighbors != null && i < sharedNeighbors.length ? sharedNeighbors[i] : 0,
+                    importancesA != null && i < importancesA.length ? importancesA[i] : 5.0f,
+                    importancesB != null && i < importancesB.length ? importancesB[i] : 5.0f,
+                    arousalsA != null && i < arousalsA.length ? arousalsA[i] : (byte) 0,
+                    arousalsB != null && i < arousalsB.length ? arousalsB[i] : (byte) 0,
+                    valencesA != null && i < valencesA.length ? valencesA[i] : (byte) 0,
+                    valencesB != null && i < valencesB.length ? valencesB[i] : (byte) 0,
+                    storageStrengthsA != null && i < storageStrengthsA.length ? storageStrengthsA[i] : 1.0f,
+                    storageStrengthsB != null && i < storageStrengthsB.length ? storageStrengthsB[i] : 1.0f,
+                    isProtectedA != null && i < isProtectedA.length && isProtectedA[i],
+                    isProtectedB != null && i < isProtectedB.length && isProtectedB[i],
+                    w);
+        }
     }
 }

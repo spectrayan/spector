@@ -19,6 +19,8 @@ import com.spectrayan.spector.kernel.store.StrengthMemory;
 
 import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
 
+import com.spectrayan.spector.core.cognitive.CognitiveMassKernel;
+import com.spectrayan.spector.core.cognitive.MassDilatedDecayKernel;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.kernel.api.MemoryLocation;
@@ -121,6 +123,8 @@ public final class SemanticRecallStrategy {
 
         List<CognitiveResult> results = new ArrayList<>();
 
+        List<CandidateMatch> candidates = new ArrayList<>();
+
         for (ScoredResult sr : hnswResults) {
             String id = sr.id();
             if (id == null) continue;
@@ -187,12 +191,9 @@ public final class SemanticRecallStrategy {
             }
             if (importance < minImportance) continue;
 
-            float finalScore;
             int agentRecallCount = (strengthStore != null)
                     ? strengthStore.readAgentRecallCount(MemoryType.SEMANTIC, slotIndex)
                     : header.agentRecallCount();
-            float decay;
-            float rawDecay;
 
             float similarity;
             if (sr.score() >= 0.0f && sr.score() <= 1.0f) {
@@ -201,57 +202,105 @@ public final class SemanticRecallStrategy {
                 similarity = 1.0f / (1.0f + Math.max(0.0f, sr.score()));
             }
 
+            final byte arousal = layout.headerLayout().version() >= 2 ? header.arousal() : (byte) 0;
+            final float storage;
+            if (strengthStore != null) {
+                float s = strengthStore.readStorageStrength(MemoryType.SEMANTIC, slotIndex);
+                storage = s > 0.0f ? s : 1.0f;
+            } else if (layout.headerLayout().version() >= 2) {
+                storage = store.readStorageStrength(headerOffset);
+            } else {
+                storage = 1.0f;
+            }
+
+            candidates.add(new CandidateMatch(
+                    id, timestamp, recordTags, valence, importance,
+                    agentRecallCount, similarity, arousal, storage));
+        }
+
+        int count = candidates.size();
+        if (count == 0) {
+            return List.of();
+        }
+
+        final float[] decays;
+        final float[] rawDecays;
+
+        if (pureSimilarity) {
+            decays = null;
+            rawDecays = null;
+        } else {
+            float[] importances = new float[count];
+            byte[] arousals = new byte[count];
+            float[] storages = new float[count];
+            long[] timestamps = new long[count];
+            int[] recallCounts = new int[count];
+            boolean[] zeroTimeDecays = new boolean[count];
+
+            for (int i = 0; i < count; i++) {
+                CandidateMatch c = candidates.get(i);
+                importances[i] = c.importance;
+                arousals[i] = c.arousal;
+                storages[i] = c.storage;
+                timestamps[i] = c.timestamp;
+                recallCounts[i] = c.agentRecallCount;
+            }
+
+            float[] cognitiveMasses = new float[count];
+            CognitiveMassKernel.computeMassBatch(importances, arousals, storages, cognitiveMasses, count);
+
+            decays = new float[count];
+            rawDecays = new float[count];
+            MassDilatedDecayKernel.computeBatch(
+                    timestamps, cognitiveMasses, arousals, recallCounts, zeroTimeDecays, nowMs, 1.0f, decays, count);
+            MassDilatedDecayKernel.computeBatch(
+                    timestamps, cognitiveMasses, new byte[count], new int[count], zeroTimeDecays, nowMs, 1.0f, rawDecays, count);
+        }
+
+        for (int i = 0; i < count; i++) {
+            CandidateMatch c = candidates.get(i);
+            float finalScore;
+            float decay;
+            float rawDecay;
+
             if (pureSimilarity) {
-                finalScore = similarity;
+                finalScore = c.similarity;
                 decay = 1.0f;
                 rawDecay = 1.0f;
             } else {
-                final byte arousal = layout.headerLayout().version() >= 2 ? header.arousal() : (byte) 0;
-                final float storage;
-                if (strengthStore != null) {
-                    float s = strengthStore.readStorageStrength(MemoryType.SEMANTIC, slotIndex);
-                    storage = s > 0.0f ? s : 1.0f;
-                } else if (layout.headerLayout().version() >= 2) {
-                    storage = store.readStorageStrength(headerOffset);
-                } else {
-                    storage = 1.0f;
-                }
-                final float cognitiveMass = CognitiveScoreFusion.computeCognitiveMass(importance, arousal, storage);
-
-                decay = CognitiveScoreFusion.computeMassDilatedDecay(timestamp, nowMs, cognitiveMass, arousal, agentRecallCount, false);
-                rawDecay = CognitiveScoreFusion.computeMassDilatedDecay(timestamp, nowMs, cognitiveMass, (byte) 0, 0, false);
-
-                final float baseScore = alpha * similarity + beta * (importance / 10.0f) * decay;
-                final float tagOverlap = SynapticTagEncoder.overlapRatio(recordTags, queryTagMask);
+                decay = decays[i];
+                rawDecay = rawDecays[i];
+                final float baseScore = alpha * c.similarity + beta * (c.importance / 10.0f) * decay;
+                final float tagOverlap = SynapticTagEncoder.overlapRatio(c.recordTags, queryTagMask);
                 finalScore = baseScore * (1.0f + tagOverlap * tagRelevanceBoost);
             }
 
-            String text = memoryIndex.text(id);
+            String text = memoryIndex.text(c.id);
             if (text == null) text = "";
-            MemorySource source = memoryIndex.source(id);
+            MemorySource source = memoryIndex.source(c.id);
             if (source == null) source = MemorySource.OBSERVED;
-            String[] tags = memoryIndex.tags(id);
+            String[] tags = memoryIndex.tags(c.id);
             if (tags == null) tags = new String[0];
-            float ageDays = (nowMs - timestamp) / (1000f * 60f * 60f * 24f);
+            float ageDays = (nowMs - c.timestamp) / (1000f * 60f * 60f * 24f);
 
             ScoreBreakdown breakdown;
             if (pureSimilarity) {
-                breakdown = new ScoreBreakdown(similarity, 0f, 1.0f, 1.0f, 1.0f, 1.0f, finalScore);
+                breakdown = new ScoreBreakdown(c.similarity, 0f, 1.0f, 1.0f, 1.0f, 1.0f, finalScore);
             } else {
-                float importanceDecay = importance * decay;
-                float tagOverlapForBd = SynapticTagEncoder.overlapRatio(recordTags, queryTagMask);
+                float importanceDecay = c.importance * decay;
+                float tagOverlapForBd = SynapticTagEncoder.overlapRatio(c.recordTags, queryTagMask);
                 float tagBoostFactor = 1.0f + tagOverlapForBd * tagRelevanceBoost;
                 breakdown = new ScoreBreakdown(
-                        similarity, importanceDecay, tagBoostFactor,
+                        c.similarity, importanceDecay, tagBoostFactor,
                         1.0f, 1.0f, 1.0f, finalScore);
             }
 
             results.add(new CognitiveResult(
-                    id, text, finalScore, importance, ageDays,
-                    agentRecallCount, valence, MemoryType.SEMANTIC, source,
+                    c.id, text, finalScore, c.importance, ageDays,
+                    c.agentRecallCount, c.valence, MemoryType.SEMANTIC, source,
                     tags, rawDecay, decay,
                     CognitiveResult.RetrievalMode.STANDARD, breakdown, null,
-                    SourceModality.TEXT, Map.of(), (byte) 0, timestamp));
+                    SourceModality.TEXT, Map.of(), (byte) 0, c.timestamp));
         }
 
         // Sort by fused score descending
@@ -269,4 +318,16 @@ public final class SemanticRecallStrategy {
     public boolean isAvailable() {
         return vectorIndex != null;
     }
+
+    private record CandidateMatch(
+            String id,
+            long timestamp,
+            long recordTags,
+            byte valence,
+            float importance,
+            int agentRecallCount,
+            float similarity,
+            byte arousal,
+            float storage
+    ) {}
 }

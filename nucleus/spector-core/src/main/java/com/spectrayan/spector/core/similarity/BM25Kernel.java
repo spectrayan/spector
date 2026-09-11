@@ -117,4 +117,53 @@ public final class BM25Kernel {
             outScores[i] = (denom > 0.0f) ? idf * ((tf * k1PlusOne) / denom) : 0.0f;
         }
     }
+
+    /**
+     * Batch term scoring across multiple candidate postings using indexed document lengths.
+     *
+     * @param tfs              term frequencies per posting
+     * @param tfOffset         offset into {@code tfs}
+     * @param docIndices       document indices per posting
+     * @param docIndicesOffset offset into {@code docIndices}
+     * @param docLens          global document lengths array
+     * @param avgDocLen        average document length
+     * @param k1               BM25 k1 parameter
+     * @param b                BM25 b parameter
+     * @param idf              term IDF
+     * @param outScores        output array for computed term scores
+     * @param outOffset        offset into output array
+     * @param count            number of postings to process
+     */
+    public static void scoreTerms(
+            final int[] tfs,
+            final int tfOffset,
+            final int[] docIndices,
+            final int docIndicesOffset,
+            final int[] docLens,
+            final float avgDocLen,
+            final float k1,
+            final float b,
+            final float idf,
+            final float[] outScores,
+            final int outOffset,
+            final int count) {
+        if (tfs == null || docIndices == null || docLens == null || outScores == null || count <= 0) {
+            return;
+        }
+
+        final float k1PlusOne = k1 + 1.0f;
+        final float c1 = k1 * (1.0f - b);
+        final float c2 = (avgDocLen > 0.0f) ? (k1 * b / avgDocLen) : 0.0f;
+
+        for (int i = 0; i < count; i++) {
+            final int tf = tfs[tfOffset + i];
+            if (tf <= 0) {
+                outScores[outOffset + i] = 0.0f;
+                continue;
+            }
+            final int docLen = docLens[docIndices[docIndicesOffset + i]];
+            final float denom = tf + c1 + c2 * docLen;
+            outScores[outOffset + i] = (denom > 0.0f) ? idf * ((tf * k1PlusOne) / denom) : 0.0f;
+        }
+    }
 }

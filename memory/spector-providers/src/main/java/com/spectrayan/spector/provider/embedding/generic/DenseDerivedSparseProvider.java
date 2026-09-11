@@ -88,7 +88,7 @@ public class DenseDerivedSparseProvider implements SparseEmbeddingProvider {
         for (String term : terms) {
             float[] termVector = termVectorCache.get(term);
             if (termVector != null) {
-                float cosine = CosineSimilarity.compute(termVector, docVector);
+                float cosine = CosineSimilarity.computeSafeDouble(termVector, docVector);
                 float sim = Math.max(0.0f, cosine);
                 if (sim >= weightThreshold) {
                     weights.put(term, sim);

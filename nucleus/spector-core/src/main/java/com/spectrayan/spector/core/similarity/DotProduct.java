@@ -97,5 +97,24 @@ public final class DotProduct {
         return sum.reduceLanes(jdk.incubator.vector.VectorOperators.ADD);
     }
 
-
+    /**
+     * Computes the dot product over the common prefix length: Math.min(a.length, b.length).
+     *
+     * <p>Safely handles ragged or mismatched vectors by truncating to common dimensions,
+     * matching the pre-migration semantics of VectorSpaceProjectionService.</p>
+     *
+     * @param a first vector
+     * @param b second vector
+     * @return dot product over common prefix, or 0.0f if either is null or empty
+     */
+    public static float computeTruncated(float[] a, float[] b) {
+        if (a == null || b == null) {
+            return 0.0f;
+        }
+        int len = Math.min(a.length, b.length);
+        if (len == 0) {
+            return 0.0f;
+        }
+        return compute(a, 0, b, 0, len);
+    }
 }

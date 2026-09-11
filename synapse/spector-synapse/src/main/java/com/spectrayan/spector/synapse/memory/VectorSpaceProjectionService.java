@@ -133,7 +133,7 @@ public class VectorSpaceProjectionService {
             for (int iter = 0; iter < 15; iter++) {
                 float[] next = new float[dimension];
                 for (int i = 0; i < n; i++) {
-                    float dot = DotProduct.compute(centered[i], w);
+                    float dot = DotProduct.computeTruncated(centered[i], w);
                     for (int d = 0; d < dimension; d++) {
                         next[d] += dot * centered[i][d];
                     }
@@ -141,13 +141,16 @@ public class VectorSpaceProjectionService {
 
                 // Orthogonalize against prior principal components (Gram-Schmidt)
                 for (int prev = 0; prev < k; prev++) {
-                    float proj = DotProduct.compute(next, components[prev]);
+                    float proj = DotProduct.computeTruncated(next, components[prev]);
                     for (int d = 0; d < dimension; d++) {
                         next[d] -= proj * components[prev][d];
                     }
                 }
 
-                w = VectorOps.normalize(next);
+                float norm = (float) Math.sqrt(DotProduct.computeTruncated(next, next));
+                if (norm > 1e-7f) {
+                    w = VectorOps.scale(next, 1.0f / norm);
+                }
             }
 
             components[k] = w;
@@ -155,7 +158,7 @@ public class VectorSpaceProjectionService {
             // Estimate component variance
             float varSum = 0;
             for (int i = 0; i < n; i++) {
-                float dot = DotProduct.compute(centered[i], w);
+                float dot = DotProduct.computeTruncated(centered[i], w);
                 varSum += dot * dot;
             }
             variances[k] = varSum / n;
@@ -165,9 +168,9 @@ public class VectorSpaceProjectionService {
         float[][] projected = new float[n][3];
         float maxAbsX = 1e-4f, maxAbsY = 1e-4f, maxAbsZ = 1e-4f;
         for (int i = 0; i < n; i++) {
-            projected[i][0] = DotProduct.compute(centered[i], components[0]);
-            projected[i][1] = DotProduct.compute(centered[i], components[1]);
-            projected[i][2] = DotProduct.compute(centered[i], components[2]);
+            projected[i][0] = DotProduct.computeTruncated(centered[i], components[0]);
+            projected[i][1] = DotProduct.computeTruncated(centered[i], components[1]);
+            projected[i][2] = DotProduct.computeTruncated(centered[i], components[2]);
 
             maxAbsX = Math.max(maxAbsX, Math.abs(projected[i][0]));
             maxAbsY = Math.max(maxAbsY, Math.abs(projected[i][1]));
@@ -235,9 +238,9 @@ public class VectorSpaceProjectionService {
             centered[d] = queryVector[d] - meanVector[d];
         }
 
-        float qx = DotProduct.compute(centered, principalComponents[0]) * coordinateScale[0];
-        float qy = DotProduct.compute(centered, principalComponents[1]) * coordinateScale[1];
-        float qz = DotProduct.compute(centered, principalComponents[2]) * coordinateScale[2];
+        float qx = DotProduct.computeTruncated(centered, principalComponents[0]) * coordinateScale[0];
+        float qy = DotProduct.computeTruncated(centered, principalComponents[1]) * coordinateScale[1];
+        float qz = DotProduct.computeTruncated(centered, principalComponents[2]) * coordinateScale[2];
 
         return new float[]{qx, qy, qz};
     }

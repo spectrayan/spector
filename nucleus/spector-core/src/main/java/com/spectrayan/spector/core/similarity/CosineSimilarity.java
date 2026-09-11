@@ -110,5 +110,72 @@ public final class CosineSimilarity {
         return (denom <= 0.0f || Float.isNaN(denom)) ? 0.0f : dot / denom;
     }
 
+    /**
+     * Computes cosine similarity returning 0.0f on null, empty, or length mismatch.
+     *
+     * @param a first vector
+     * @param b second vector
+     * @return cosine similarity or 0.0f if inputs are invalid or degenerate
+     */
+    public static float computeSafe(float[] a, float[] b) {
+        if (a == null || b == null || a.length != b.length || a.length == 0) {
+            return 0.0f;
+        }
+        return compute(a, 0, b, 0, a.length);
+    }
 
+    /**
+     * Computes cosine similarity with 64-bit double accumulation for dot product and norms.
+     *
+     * <p>Preserves exact numerical precision for high-dimensional embeddings (e.g. 768–1536 dims)
+     * avoiding float rounding artifacts across threshold boundaries.</p>
+     *
+     * @param a first vector
+     * @param b second vector
+     * @return cosine similarity in range [-1, 1], or 0.0f if degenerate
+     * @throws SpectorValidationException if lengths mismatch or inputs are null
+     */
+    public static float computeDouble(float[] a, float[] b) {
+        if (a == null || b == null) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Vectors cannot be null");
+        }
+        if (a.length != b.length) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "Vector lengths must match: " + a.length + " vs " + b.length);
+        }
+        return computeDouble(a, 0, b, 0, a.length);
+    }
+
+    /**
+     * Computes cosine similarity with 64-bit double accumulation over array slices.
+     */
+    public static float computeDouble(float[] a, int aOffset, float[] b, int bOffset, int length) {
+        VectorOps.validateSliceInputs(a, aOffset, b, bOffset, length);
+        double dot = 0.0;
+        double normA = 0.0;
+        double normB = 0.0;
+        for (int i = 0; i < length; i++) {
+            float va = a[aOffset + i];
+            float vb = b[bOffset + i];
+            dot += (double) (va * vb);
+            normA += (double) (va * va);
+            normB += (double) (vb * vb);
+        }
+        double denom = Math.sqrt(normA) * Math.sqrt(normB);
+        return (denom <= 0.0 || Double.isNaN(denom)) ? 0.0f : (float) (dot / denom);
+    }
+
+    /**
+     * Computes cosine similarity with 64-bit double accumulation, returning 0.0f on null, empty, or length mismatch.
+     *
+     * @param a first vector
+     * @param b second vector
+     * @return cosine similarity or 0.0f if invalid or degenerate
+     */
+    public static float computeSafeDouble(float[] a, float[] b) {
+        if (a == null || b == null || a.length != b.length || a.length == 0) {
+            return 0.0f;
+        }
+        return computeDouble(a, 0, b, 0, a.length);
+    }
 }

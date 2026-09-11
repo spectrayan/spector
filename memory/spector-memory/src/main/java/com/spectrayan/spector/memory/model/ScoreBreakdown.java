@@ -101,6 +101,17 @@ public record ScoreBreakdown(
              1.0f, java.util.List.of());
     }
 
+    /**
+     * Returns a copy of this ScoreBreakdown with an updated finalScore.
+     */
+    public ScoreBreakdown withFinalScore(float newFinalScore) {
+        return new ScoreBreakdown(
+                similarity, importanceDecay, tagBoostFactor, habituationPenalty,
+                graphBoost, valenceAlignment, newFinalScore,
+                epistemicWeight, teleologicalWeight, pragmaticWeight,
+                scoringRegime, inhibitionPenalty, competitorIds);
+    }
+
     /** No breakdown available — used when breakdown cannot be computed. */
     public static final ScoreBreakdown NONE = new ScoreBreakdown(0, 0, 1, 1, 1, 1, 0, 0.0f, 0.0f, 0.0f, ScoringRegime.GENERIC, 1.0f, java.util.List.of());
 

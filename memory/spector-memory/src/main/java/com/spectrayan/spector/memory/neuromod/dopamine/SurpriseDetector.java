@@ -42,6 +42,9 @@ public final class SurpriseDetector {
 
     private final WelfordStats stats;
 
+    /** Default warmup sample count before adaptive z-score importance activates. */
+    public static final int DEFAULT_WARMUP_SAMPLES = 20;
+
     /** Minimum samples required before z-score-based importance kicks in. */
     private final int warmupSamples;
 
@@ -62,7 +65,7 @@ public final class SurpriseDetector {
      * Creates a surprise detector with default warmup (20 samples).
      */
     public SurpriseDetector() {
-        this(20);
+        this(DEFAULT_WARMUP_SAMPLES);
     }
 
     /**
