@@ -56,11 +56,11 @@ graph LR
 
 ## Spector Memory Kernel Shapes
 
-Spector Memory maps high-level cognitive subsystems to a unified storage hierarchy managed by the Spector Memory Kernel (`spector-kernel`). Every off-heap native segment maps to one of seven canonical **Memory Shapes**:
+Spector Memory maps high-level cognitive subsystems to a unified storage hierarchy managed by the Spector Memory Kernel (`spector-kernel`). Every off-heap native segment maps to one of eight canonical **Memory Shapes**:
 
 ```mermaid
 flowchart TD
-    subgraph "Spector Memory Kernel (7 Memory Shapes)"
+    subgraph "Spector Memory Kernel (8 Memory Shapes)"
         RM["RecordMemory<br/><i>Contiguous cache-aligned slots</i>"]
         AM["AppendMemory<br/><i>Sequential cursor log</i>"]
         GM["GraphMemory<br/><i>CSR & dynamic adjacency slabs</i>"]
@@ -68,6 +68,7 @@ flowchart TD
         HM["HashTableMemory<br/><i>O(1) lock-free mapping</i>"]
         YM["RegistryMemory<br/><i>Bidirectional symbol interning</i>"]
         EM["EntityDirectoryMemory<br/><i>Entity ID & name pools</i>"]
+        IM["InsulaMemory<br/><i>Somatic self-model container</i>"]
     end
 
     subgraph "Subsystem Backing"
@@ -78,6 +79,7 @@ flowchart TD
         HM_C["Pairwise Co-Activation Matrix"]
         YM_C["Entity & Relation Type Registries"]
         EM_C["Entity Directory"]
+        IM_C["Dynamic Self-Model & Interoceptive State"]
     end
 
     RM -.-> RM_C
@@ -87,6 +89,7 @@ flowchart TD
     HM -.-> HM_C
     YM -.-> YM_C
     EM -.-> EM_C
+    IM -.-> IM_C
 ```
 
 For full details on the memory shapes, see [Typed Memory Shapes](../kernel/shapes.md).
@@ -149,12 +152,12 @@ For complete byte-level offsets and specifications of the 64-byte encoding heade
 ---
 
 ## Bundle Storage Containers
-
+ 
 Rather than fragmenting data across dozens of flat files, Spector uses the unified **Bundle Architecture**:
-- **`runtime.bundle`**: Single memory-mapped container for working memory, live graphs, and sidecar regions.
+- **`runtime.bundle`**: Single memory-mapped container within a cognitive namespace hosting working memory, live graphs, and the dynamic somatic self-model (`InsulaMemory`).
 - **`partition.bundle`**: Time-partitioned bundles (`partitions/{seq}/partition.bundle`) hosting long-term semantic, procedural, and episodic engrams.
-- **`identity.bundle`**: Dedicated store for agent identity, persona, and system guardrails.
-
+- **`identity.bundle`**: Resides in the decoupled Identity Plane (`identity/accounts/` and `identity/tenants/`), storing user, agent, tenant, and organizational unit personas (`SoulContext`) outside volatile memory churn.
+ 
 For full architectural details, see [Bundle Architecture & Storage Containers](../kernel/bundles.md).
 
 ---

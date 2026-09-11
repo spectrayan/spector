@@ -29,6 +29,7 @@ graph TD
             HM["HashTableMemory<br/><i>O(1) Map</i>"]
             YM["RegistryMemory<br/><i>Symbol Interning</i>"]
             EM["EntityDirectoryMemory<br/><i>Entities & Roles</i>"]
+            IM["InsulaMemory<br/><i>Somatic Self-Model</i>"]
         end
 
         subgraph "Off-Heap Bundle Storage"
@@ -40,8 +41,8 @@ graph TD
 
     SM --> NK
     SYN --> NK
-    NK --> RM & AM & GM & CM & HM & YM & EM
-    RM & AM & GM & CM & HM & YM & EM --> RB & PB & IB
+    NK --> RM & AM & GM & CM & HM & YM & EM & IM
+    RM & AM & GM & CM & HM & YM & EM & IM --> RB & PB & IB
 ```
 
 ---
@@ -57,8 +58,8 @@ graph TD
 3. **Pure Encoding Identity & Telemetry Separation**:
    Engram records separate immutable creation-time metadata (pure 64-byte encoding header with 128-bit Synaptic Bloom tags) from high-frequency mutable recall dynamics (96-byte strength state). This eliminates CPU cache line invalidation and false sharing during parallel SIMD scoring.
 
-4. **Growable Bundle Architecture**:
-   Namespaces store their memory across unified bundle files (`runtime.bundle`, `partition.bundle`, `identity.bundle`). Regions within bundles grow dynamically without downtime or data corruption using atomic header updates and tail reallocation.
+4. **Growable Bundle Architecture & Plane Decoupling**:
+   Data-plane memory is organized into growable bundles (`runtime.bundle`, `partition.bundle`) within cognitive namespaces, while persistent identity definitions (`identity.bundle`) reside in an independent **Identity Plane** (`identity/accounts/` and `identity/tenants/`). Regions grow dynamically without downtime via atomic directory updates.
 
 5. **Crash Durability & WAL Replay**:
    Every state mutation is recorded in an append-only Write-Ahead Log (WAL) with CRC-32 checksums before off-heap segments are updated. On restart, the kernel verifies integrity and replays the log to restore memory state.
@@ -67,38 +68,49 @@ graph TD
 
 ## Memory Shapes
 
-The kernel abstracts physical data organization into seven canonical memory shapes:
+The kernel abstracts physical data organization into eight canonical memory shapes:
 
 | Shape | Access Pattern | Backed Subsystems |
 |:---|:---|:---|
-| **`RecordMemory`** | Fixed-stride, cache-line-aligned slot indexing | Working Memory, Semantic Memory, Procedural Memory, Strength Region, Insula |
+| **`RecordMemory`** | Fixed-stride, cache-line-aligned slot indexing | Working Memory, Semantic Memory, Procedural Memory, Strength Region |
 | **`AppendMemory`** | High-throughput sequential cursor log | Write-Ahead Log (WAL), Text Blob Payloads, Bi-temporal Fact Streams |
 | **`GraphMemory`** | Compressed Sparse Row (CSR) & dynamic adjacency | Hebbian Associative Graph, HyperEntity Knowledge Graph |
 | **`ChainMemory`** | Chronological bidirectional episode links | Temporal Episode Chains |
 | **`HashTableMemory`** | Off-heap lock-free linear probing hash table | Pairwise Co-Activation Matrix |
 | **`RegistryMemory`** | Bi-directional symbol-to-integer interning | Dynamic Entity Types, Relation Types |
 | **`EntityDirectoryMemory`** | Global entity identifier indexing and name pools | Inter-Namespace Entity Resolution |
+| **`InsulaMemory`** | Variable-length single-entry JSON container | Anterior Insular Cortex, Interoceptive Somatic Markers, Task Confidence |
 
 ---
 
 ## Bundle Storage Hierarchy
 
-Each cognitive namespace maintains physical isolation on disk:
+Spector decouples the high-throughput **Cognitive Memory Plane** from the **Identity Plane**:
 
 ```
-namespaces/{namespace_id}/
-├── namespace.json                  # Metadata, dimension spec, and tenant flags
-├── runtime.bundle                  # Hot working memory, graph matrices, and registries
-└── partitions/
-    └── 00000/
-        └── partition.bundle        # Episodic chunks, semantic engrams, and strength state
+${SPECTOR_DATA_DIR}/
+├── cognitive/
+│   └── namespaces/{xx}/{yy}/{namespace_id}/
+│       ├── namespace.json              # Metadata, dimension spec, and tenant flags
+│       ├── runtime.bundle              # Hot working memory, graph matrices, and InsulaMemory
+│       ├── wal.log                     # Write-Ahead Log for crash durability
+│       └── partitions/
+│           └── 00000/
+│               └── partition.bundle    # Episodic chunks, semantic engrams, and strength state
+└── identity/
+    ├── accounts/{aa}/{bb}/{account_id}/
+    │   └── identity.bundle             # User or Agent persona, salience profile, continuity
+    └── tenants/{tt}/{uu}/{tenant_id}/
+        ├── identity.bundle             # Tenant enterprise soul, compliance policies, org directory
+        └── accounts/{aa}/{bb}/{account_id}/
+            └── identity.bundle         # Tenant-scoped account persona
 ```
 
 ### Bundle Types
 
-- **`runtime.bundle`**: Single-mmap container for hot, frequently referenced state: working memory ring buffers, the Hebbian association graph, entity directory, temporal chain links, and somatic insular state.
+- **`runtime.bundle`**: Single-mmap container for hot, frequently referenced state: working memory ring buffers, the Hebbian association graph, entity directory, temporal chain links, and the somatic self-model (`InsulaMemory`).
 - **`partition.bundle`**: Immutable and time-partitioned memory bundles housing episodic traces, consolidated semantic knowledge, procedural skills, and the dedicated 96-byte recall strength audit region.
-- **`identity.bundle`**: Houses persistent agent identity, core personas, beliefs, and cryptographic provenance checks.
+- **`identity.bundle`**: Houses persistent persona contexts (`UserSoul`, `AgentSoul`, `TenantSoul`, `OrgUnitSoul`), baseline ICNU salience weights, and cryptographic compliance checks outside transient namespace churn.
 
 ---
 

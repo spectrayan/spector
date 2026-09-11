@@ -47,20 +47,29 @@ graph TD
 
 ---
 
-## Bundle Types in a Namespace
+## Storage Hierarchy & Bundle Architecture
 
-Every isolated cognitive namespace maintains three distinct types of bundles:
+Spector physically decouples the high-throughput **Cognitive Memory Plane** (where memories and vector graphs reside) from the **Identity Plane** (where persistent personas, souls, and governance rules reside):
 
 ```
-namespaces/{namespace_id}/
-├── namespace.json                  # Tenant parameters, dimension vector size, creation flags
-├── runtime.bundle                  # Hot working buffers, live graphs, and volatile state
-├── identity.bundle                 # Agent persona, core values, system boundary rules
-└── partitions/
-    ├── 00000/
-    │   └── partition.bundle        # Baseline partition: long-term semantic, procedural, strength
-    └── 00001/
-        └── partition.bundle        # Rolled partition: time-bounded episodic chunks
+${SPECTOR_DATA_DIR}/
+├── cognitive/
+│   └── namespaces/{xx}/{yy}/{namespace_id}/
+│       ├── namespace.json              # Tenant parameters, dimension vector size, creation flags
+│       ├── runtime.bundle              # Hot working buffers, live graphs, and InsulaMemory
+│       ├── wal.log                     # Write-Ahead Log for crash durability
+│       └── partitions/
+│           ├── 00000/
+│           │   └── partition.bundle    # Baseline partition: long-term semantic, procedural, strength
+│           └── 00001/
+│               └── partition.bundle    # Rolled partition: time-bounded episodic chunks
+└── identity/
+    ├── accounts/{aa}/{bb}/{account_id}/
+    │   └── identity.bundle             # User or Agent persona, salience profile, continuity
+    └── tenants/{tt}/{uu}/{tenant_id}/
+        ├── identity.bundle             # Tenant enterprise soul, compliance policies, org directory
+        └── accounts/{aa}/{bb}/{account_id}/
+            └── identity.bundle         # Tenant-scoped account persona
 ```
 
 ### 1. The Runtime Bundle (`runtime.bundle`)
@@ -73,7 +82,7 @@ The Runtime Bundle houses high-velocity, hot memory structures updated during ac
 - **Temporal Sequence Chains**: Chronological links tracking session context.
 - **Temporal Facts**: Bi-temporal knowledge timestamps (valid time vs. assertion time).
 - **Entity Directory & Names Pool**: Interned entity names and role registries.
-- **Somatic Insula**: Agent self-state, uncertainty indicators, and urgency levels.
+- **Somatic Insula (`InsulaMemory`)**: Dynamic agent self-state, uncertainty indicators, and urgency levels.
 - **Continuity & Provenance**: Cross-turn session continuity checkpoints.
 
 ### 2. Partition Bundles (`partition.bundle`)
@@ -86,7 +95,178 @@ Partition bundles store long-term, time-partitioned engram traces. As memory gro
 - **Strength Audit State**: Dedicated 96-byte mutable recall telemetry and ACT-R history.
 
 ### 3. The Identity Bundle (`identity.bundle`)
-The Identity Bundle isolates core identity attributes, system guardrails, and cryptographic signatures from volatile memory operations. It remains protected from automated consolidation evictions and memory decay.
+
+The **Identity Bundle** isolates core persona definitions, ethical guardrails, compliance policies, and cryptographic signatures in the dedicated **Identity Plane** (`identity/`):
+- **Stored Under Accounts & Tenants**: Identity bundles are not tied to an individual memory namespace. Instead, they reside under sharded account directories (`identity/accounts/{aa}/{bb}/{accountId}/identity.bundle`) or tenant hierarchies (`identity/tenants/{tt}/{uu}/{tenantId}/identity.bundle`).
+- **Polymorphic Soul Models**: A single identity bundle format accommodates four distinct persona scopes:
+    - **User Soul (`UserSoul`)**: Human user persona, communication preferences, and personalized salience weights.
+    - **Agent Soul (`AgentSoul`)**: Autonomous AI agent persona, core values, system prompt baseline, ethical guardrails, and registered tools.
+    - **Tenant Soul (`TenantSoul`)**: Enterprise organizational persona, compliance retention windows, and global security policies.
+    - **Tenant Org Unit Soul (`OrgUnitSoul`)**: Departmental or team-level sub-souls stored within the tenant bundle's `ORG_DIR` region.
+- **Dedicated File Descriptor & Zero LRU Eviction**: Maps outside the hot data plane, preventing persona definitions from competing with vector memory caches or being evicted during high-load namespace rotations.
+- **Hierarchical Soul Stack**: When an agent runs in a namespace, the `IdentityPlane` resolves and stacks the applicable layers (`TenantSoul` $\to$ `OrgUnitSoul` $\to$ `AgentSoul` / `UserSoul`), ensuring organizational governance precedes individual behavior.
+
+#### Hosted Regions in `identity.bundle`
+
+The container allocates dedicated, 64-byte aligned off-heap slabs for five structural identity domains:
+
+| Region | Identifier | Responsibility |
+|:---|:---|:---|
+| **Soul Context** | `SOUL` (`1`) | Agent/User/Tenant persona, core values, system prompt baseline, and ethical guardrails. |
+| **Salience Profile** | `SALIENCE` (`2`) | Baseline ICNU weights (Interest, Novelty, Utility, Confidence) and cognitive modulation constants. |
+| **Identity Continuity** | `CONTINUITY` (`3`) | Autobiographical narrative trajectory, identity checkpoints, and cross-session lineage. |
+| **Governance Policy** | `POLICY` (`4`) | Tenant compliance rules, security floors, and organizational domain constraints. |
+| **Org Directory** | `ORG_DIR` (`5`) | Organizational unit directory, team hierarchies, and sub-soul definitions. |
+
+---
+
+### The Symbiosis: `identity.bundle` vs. `InsulaMemory`
+
+A common question in cognitive architecture is how an agent reconciles its **permanent identity** with its **moment-to-moment emotional and cognitive state**. Spector solves this through a clean separation between the **Identity Plane** and the **Somatic Self-Model**:
+
+```mermaid
+graph TD
+    subgraph "Identity Plane (identity.bundle)"
+        S1["Soul Region<br/><i>Core persona, values, ethical axioms</i>"]
+        S2["Salience Region<br/><i>Baseline ICNU weights & thresholds</i>"]
+        S3["Continuity Region<br/><i>Autobiographical narrative history</i>"]
+    end
+
+    subgraph "Kernel Runtime (runtime.bundle)"
+        IM["InsulaMemory (RegionId.INSULA)<br/><i>Anterior Insular Cortex Analog</i><br/>- Dynamic Confidence & Uncertainty<br/>- Affective Homeostasis (Valence/Arousal)<br/>- Active Self-Model JSON (CRC-32C)<br/>- Monotonic Version Counter"]
+    end
+
+    subgraph "Cognitive Execution & Recall"
+        SC["Scoring Engine & Recall Pathway"]
+        ACT["Agent Task Execution & Tool Use"]
+    end
+
+    S1 & S2 -->|"Boot Hydration<br/>(Load Invariants)"| IM
+    IM -->|"Modulates Salience & Priority"| SC
+    ACT -->|"Interoceptive Feedback<br/>(Shift Confidence & Stress)"| IM
+    IM -.->|"Soul Evolution / Admin Update<br/>(Atomic Sync & Checkpoint)"| S1
+```
+
+1. **Boot Hydration**: When a namespace starts up, the identity plane reads the immutable persona and baseline salience weights from `identity.bundle` to hydrate `InsulaMemory` in `runtime.bundle`.
+2. **Dynamic Interoception in `InsulaMemory`**: Modeled after the human **Anterior Insular Cortex** (the brain's hub for self-awareness and interoception), `InsulaMemory` maintains a single, versioned JSON self-model. As the agent encounters uncertainty, solves problems, or interacts with users, it mutates its active confidence, arousal, and urgency markers directly within `runtime.bundle` with sub-microsecond latency.
+3. **Integrity & Checkpoints**: Every update to `InsulaMemory` increments a monotonic version number, recomputes a hardware CRC-32C checksum, and writes an atomic state flag. When persona changes are explicitly authorized, the updated soul is validated and committed back to `identity.bundle`.
+
+---
+
+### Client Connectivity & Identity Management
+
+Applications and autonomous agents inspect and manage identity state through Spector's multi-language Client SDKs and REST APIs:
+
+=== "Python"
+
+    ```python
+    from spector import SpectorClient
+
+    client = SpectorClient("http://localhost:7070", api_key="sk-spector-live")
+
+    # Inspect the agent's active soul and somatic self-model
+    soul = client.agents.get_soul()
+    print(f"Agent Persona: {soul.name} (v{soul.soul_version})")
+    print(f"Core Values: {soul.core_values}")
+
+    # Update ethical guardrails and personality traits
+    updated_soul = client.agents.update_soul(
+        name="Nexus-Architect",
+        personality="Precise, pragmatic, and safety-conscious systems engineer",
+        ethical_guardrails=[
+            "Never execute destructive shell commands without human signoff",
+            "Maintain complete audit logging for privileged actions"
+        ]
+    )
+    print(f"Soul successfully updated to version {updated_soul.soul_version}")
+    ```
+
+=== "TypeScript"
+
+    ```typescript
+    import { SpectorClient } from "@spectrayan/spector-client";
+
+    const client = new SpectorClient({
+      baseUrl: "http://localhost:7070",
+      apiKey: "sk-spector-live"
+    });
+
+    // Inspect the agent's active soul and somatic self-model
+    const soul = await client.agents.getSoul();
+    console.log(`Agent Persona: ${soul.name} (v${soul.soulVersion})`);
+
+    // Update ethical guardrails and personality traits
+    const updated = await client.agents.updateSoul({
+      name: "Nexus-Architect",
+      personality: "Precise, pragmatic, and safety-conscious systems engineer",
+      ethicalGuardrails: [
+        "Never execute destructive shell commands without human signoff",
+        "Maintain complete audit logging for privileged actions"
+      ]
+    });
+    console.log(`Soul updated to version ${updated.soulVersion}`);
+    ```
+
+=== "Java Client"
+
+    ```java
+    import com.spectrayan.spector.client.SpectorClient;
+    import com.spectrayan.spector.client.model.AgentSoul;
+    import java.util.List;
+
+    var client = SpectorClient.builder()
+            .endpoint("http://localhost:7070")
+            .apiKey("sk-spector-live")
+            .build();
+
+    // Inspect the agent's active soul and somatic self-model
+    AgentSoul soul = client.agents().getSoul();
+    System.out.println("Agent Persona: " + soul.name() + " v" + soul.soulVersion());
+
+    // Update ethical guardrails and personality traits
+    AgentSoul updated = client.agents().updateSoul(AgentSoul.builder()
+            .name("Nexus-Architect")
+            .personality("Precise, pragmatic, and safety-conscious systems engineer")
+            .ethicalGuardrails(List.of(
+                "Never execute destructive shell commands without human signoff",
+                "Maintain complete audit logging for privileged actions"
+            ))
+            .build());
+    System.out.println("Soul updated to version " + updated.soulVersion());
+    ```
+
+=== "cURL"
+
+    ```bash
+    # Inspect active agent soul
+    curl -X GET "http://localhost:7070/api/v1/agents/soul" \
+      -H "Authorization: Bearer sk-spector-live"
+
+    # Update agent soul and ethical guardrails
+    curl -X PUT "http://localhost:7070/api/v1/agents/soul" \
+      -H "Authorization: Bearer sk-spector-live" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "Nexus-Architect",
+        "personality": "Precise, pragmatic, and safety-conscious systems engineer",
+        "ethicalGuardrails": [
+          "Never execute destructive shell commands without human signoff",
+          "Maintain complete audit logging for privileged actions"
+        ]
+      }'
+    ```
+
+=== "CLI"
+
+    ```bash
+    # Inspect active soul configuration
+    spector agent soul show
+
+    # Update personality and guardrails via CLI
+    spector agent soul set \
+      --name "Nexus-Architect" \
+      --personality "Precise, pragmatic, and safety-conscious systems engineer"
+    ```
 
 ---
 

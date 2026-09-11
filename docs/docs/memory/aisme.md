@@ -18,11 +18,14 @@ flowchart TD
     FERS --> LIR["LateralInhibitionRelay"]
 ```
 
-### 1.1 `SoulContext` Polymorphism
-`SoulContext` provides immutable persona identities supporting:
-- **Agent Soul:** Personality traits, core ethical constraints, and autobiographical narratives.
-- **User Soul:** Interaction preferences, personalized memory salience, and custom ICNU parameters.
-- **Tenant Soul:** Organizational isolation, RBAC governance flags, and compliance retention windows.
+### 1.1 `SoulContext` Polymorphism & Identity Plane Storage
+`SoulContext` provides polymorphic, versioned persona definitions persisted within dedicated **Identity Bundles** (`identity.bundle`) under the sharded Identity Plane (`identity/accounts/` and `identity/tenants/`):
+- **Agent Soul (`AgentSoul`):** Personality traits, core values, system prompt baseline, ethical guardrails, and registered tools.
+- **User Soul (`UserSoul`):** Human interaction preferences, personalized memory salience, and custom ICNU parameters.
+- **Tenant Soul (`TenantSoul`):** Enterprise organizational isolation, RBAC governance flags, and compliance retention windows.
+- **Org Unit Soul (`OrgUnitSoul`):** Departmental or divisional sub-souls stored within the tenant bundle's `ORG_DIR` region.
+
+At runtime, the applicable soul hierarchy (`TenantSoul` $\to$ `OrgUnitSoul` $\to$ `AgentSoul` / `UserSoul`) is assembled into the **Hierarchical Soul Stack** and mounted into the kernel's **`InsulaMemory`** (`RegionId.INSULA` in `runtime.bundle`), powering dynamic interoceptive self-tracking during reasoning.
 
 ### 1.2 `GenerativeSelfModel` & `MentalStateTracker`
 Tracks active beliefs, priors, and goals in embedding space. As new experiences are consolidated during sleep reflection, the autobiographical centroid adapts the generative prior mean with learning rate $\eta = 0.005$.

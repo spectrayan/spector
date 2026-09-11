@@ -40,20 +40,22 @@ graph TB
             CM["ChainMemory<br/><i>Temporal Links</i>"]
             HM["HashTableMemory<br/><i>Collision-Free Index</i>"]
             YM["RegistryMemory<br/><i>Symbol Interning</i>"]
+            EM["EntityDirectoryMemory<br/><i>Entity & Role Indices</i>"]
+            IM["InsulaMemory<br/><i>Somatic Self-Model</i>"]
         end
 
         subgraph "Memory-Mapped Bundles"
-            RB["Runtime Bundle<br/><i>Hot working buffers & live graphs</i>"]
+            RB["Runtime Bundle<br/><i>Hot working buffers, live graphs, & insula</i>"]
             PB["Partition Bundles<br/><i>Episodic traces & semantic engrams</i>"]
-            IB["Identity Bundle<br/><i>Agent persona & core beliefs</i>"]
+            IB["Identity Bundle<br/><i>Agent persona, soul, & compliance</i>"]
         end
     end
 
     PY & TS & JV & REST --> SYN
     SYN --> COG
     COG --> NK
-    NK --> RM & AM & GM & CM & HM & YM
-    RM & AM & GM & CM & HM & YM --> RB & PB & IB
+    NK --> RM & AM & GM & CM & HM & YM & EM & IM
+    RM & AM & GM & CM & HM & YM & EM & IM --> RB & PB & IB
 ```
 
 ---
@@ -79,18 +81,35 @@ Every stored engram cleanly decouples its immutable creation metadata from high-
 
 This complete physical separation prevents CPU cache-line false sharing during parallel multi-threaded scans, ensuring read-heavy search loops remain uninhibited by concurrent memory recall updates.
 
+### 4. Somatic Self-Modeling & The Identity Plane
+In biological systems, the **Anterior Insular Cortex** continuously integrates subjective feelings, interoceptive signals, and cognitive uncertainty into a cohesive model of self. Spector mirrors this neurobiology by separating persistent persona invariants from dynamic runtime somatic markers:
+- **The Identity Plane (`identity.bundle`)**: Houses the agent's persistent soul invariants, ethical axioms, compliance rules, and baseline salience weights outside volatile memory operations, requiring only a single lightweight file descriptor per identity hierarchy.
+- **The Somatic Self-Model (`InsulaMemory`)**: Embedded within `runtime.bundle` (`RegionId.INSULA`), this dedicated memory container tracks the agent's live, instantiated self-model—including dynamic confidence, task uncertainty, and affective homeostasis—as a versioned, CRC-32C validated state updated in sub-microsecond cycles during active reasoning.
+
 ---
 
-## Physical Namespace Isolation
+## Physical Storage Architecture: Cognitive Plane vs. Identity Plane
 
-Every memory namespace (representing an individual user, an autonomous AI agent, or a dedicated workspace) receives its own dedicated directory on disk:
+Spector divides physical on-disk storage into two decoupled planes: the high-throughput **Cognitive Memory Plane** (namespaced data) and the long-term **Identity Plane** (accounts & tenants):
+
+### Cognitive Memory Plane (`cognitive/namespaces/{id}/`)
+Every memory namespace (representing an individual user context, an agent conversation session, or a project workspace) receives its own dedicated off-heap bundle directory:
 
 | Component | Path Pattern | Responsibility |
 |:---|:---|:---|
-| **Namespace Descriptor** | `namespaces/{id}/namespace.json` | Sizing configuration, vector dimensions, tenant isolation metadata |
-| **Runtime Bundle** | `namespaces/{id}/runtime.bundle` | Hot working memory circular buffer, Hebbian graph, entity registries, insular somatic markers |
-| **Partition Bundles** | `namespaces/{id}/partitions/{seq}/partition.bundle` | Time-partitioned episodic chunks, long-term semantic engrams, procedural skills, strength audit state |
-| **Identity Bundle** | `namespaces/{id}/identity.bundle` | Agent persona, core values, system boundary rules, and cryptographic verification |
+| **Namespace Descriptor** | `cognitive/namespaces/{id}/namespace.json` | Sizing configuration, vector dimensions, and tenant isolation metadata |
+| **Runtime Bundle** | `cognitive/namespaces/{id}/runtime.bundle` | Hot working memory circular buffer, Hebbian graph, entity registries, and dynamic insular somatic markers (`InsulaMemory`) |
+| **Partition Bundles** | `cognitive/namespaces/{id}/partitions/{seq}/partition.bundle` | Time-partitioned episodic chunks, long-term semantic engrams, procedural skills, and 96-byte strength audit state |
+| **Write-Ahead Log** | `cognitive/namespaces/{id}/wal.log` | Crash-resilient append-only mutation log with CRC-32 verification |
+
+### Identity Plane (`identity/`)
+Identity bundles are decoupled from transient cognitive namespaces and housed under sharded account and tenant hierarchies:
+
+| Component | Path Pattern | Responsibility |
+|:---|:---|:---|
+| **Account Identity Bundle** | `identity/accounts/{aa}/{bb}/{accountId}/identity.bundle` | End-user or AI agent identity (`UserSoul` or `AgentSoul`), custom salience profiles, and autobiographical continuity |
+| **Tenant Identity Bundle** | `identity/tenants/{tt}/{uu}/{tenantId}/identity.bundle` | Enterprise tenant identity (`TenantSoul`), compliance retention policies (`POLICY`), and organizational unit sub-souls (`OrgUnitSoul` in `ORG_DIR`) |
+| **Tenant Account Bundle** | `identity/tenants/.../accounts/.../identity.bundle` | Tenant-scoped account persona and overrides |
 
 ---
 

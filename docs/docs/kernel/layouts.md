@@ -168,3 +168,48 @@ Mutable telemetry is isolated in an independent 96-byte record, aligned to 32 by
 3. **Dual Recall Counters**:
    - `agent_recall_count`: Incremented when an external agent or user explicitly reinforces an engram (`client.memory.reinforce(...)`).
    - `spector_recall_cnt`: Incremented passively by the system when the engram is retrieved as relevant context during a query, subject to cooldown timers to prevent runaway reinforcement loops.
+
+---
+
+## 32-Byte Insular Sub-Header Layout (`InsularLayout`)
+
+The **Insular Sub-Header** (`InsularLayout`, identifier `0x494E534C` / `'INSL'`) governs the storage of the agent's dynamic self-model within `runtime.bundle` (`RegionId.INSULA`). It sits immediately after the standard 64-byte `RegionPreamble` (starting at byte offset `64`), establishing a 96-byte header boundary before the variable-length JSON self-model begins.
+
+### Wire Diagram (32 Bytes at Offset 64)
+
+```
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|          version (4B)         |        data_length (4B)       |  0x40 (rel 0x00)
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++                       updated_at (8B)                         +  0x48 (rel 0x08)
+|                                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|          checksum (4B)        |          flags (4B)           |  0x50 (rel 0x10)
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                         reserved (8B)                         |  0x58 (rel 0x18)
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++               Variable-Length UTF-8 JSON Payload              +  0x60 (rel 0x20)
+|                                                               |
+```
+
+### Field Specifications
+
+| Offset | Size | Field Name | Type | Description |
+|:---:|:---:|:---|:---|:---|
+| `0x00` | 4B | `version` | int32 | Monotonically increasing version counter incremented on every mutation or clear. |
+| `0x04` | 4B | `data_length` | int32 | Byte length of the active UTF-8 JSON self-model payload. |
+| `0x08` | 8B | `updated_at` | int64 | Epoch milliseconds timestamp when the self-model was last written. |
+| `0x10` | 4B | `checksum` | int32 | CRC-32C checksum computed over the UTF-8 JSON payload bytes. |
+| `0x14` | 4B | `flags` | int32 | Presence indicator: `0` = `FLAG_EMPTY` (no model), `1` = `FLAG_PRESENT`. |
+| `0x18` | 8B | `_reserved` | bytes | Zero-padded reserved block for future interoceptive telemetry fields. |
+| `0x20` | Var | `payload` | bytes | Raw UTF-8 JSON payload containing the active self-model and dynamic salience markers. |
+
+### Data Integrity & Reentrant Protection
+
+1. **Hardware CRC-32C Integrity**: Every write calculates a castagnoli CRC-32C checksum over the JSON payload. On read, the checksum is verified before decoding to guarantee corruption-free state recovery.
+2. **Atomic Region Synchronization**: Upon updating the insular sub-header, the enclosing `RegionPreamble` item count and timestamp are atomically refreshed, and the underlying memory-mapped file slice is flushed (`force()`).
+3. **Capacity Guardrails**: Payloads larger than the allocated region capacity (typically 512 KB in standard namespaces) are rejected immediately to protect contiguous bundle alignment.

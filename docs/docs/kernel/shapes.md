@@ -27,6 +27,7 @@ graph TD
         HM["HashTableMemory<br/><i>O(1) Direct Key-Value Map</i>"]
         YM["RegistryMemory<br/><i>Bidirectional Symbol Interning</i>"]
         EM["EntityDirectoryMemory<br/><i>Entity & Role Identification</i>"]
+        IM["InsulaMemory<br/><i>Somatic Self-Model Container</i>"]
     end
 
     subgraph "Cognitive Subsystem Backing"
@@ -37,6 +38,7 @@ graph TD
         T5["Pairwise Co-Activation Tracker<br/><i>Fast frequency lookups</i>"]
         T6["Entity & Relation Type Namespaces<br/><i>Dynamic schema interning</i>"]
         T7["Agent Identity & External Entities<br/><i>Entity directories</i>"]
+        T8["Dynamic Self-Model & Interoception<br/><i>Single-entry JSON self-state</i>"]
     end
 
     RM --> T1
@@ -46,6 +48,7 @@ graph TD
     HM --> T5
     YM --> T6
     EM --> T7
+    IM --> T8
 ```
 
 ---
@@ -62,7 +65,6 @@ graph TD
   - `SemanticMemory` (crystallized concepts)
   - `ProceduralMemory` (learned operational skills)
   - `StrengthMemory` (96-byte recall dynamics and Bjork storage strength)
-  - `InsularMemory` (interoceptive somatic state)
 
 ---
 
@@ -129,6 +131,19 @@ graph TD
 
 ---
 
+### 8. `InsulaMemory` (Somatic Self-Model Container)
+`InsulaMemory` implements a dedicated single-entry container storing the agent's dynamic, real-time self-model and interoceptive somatic state.
+
+- **Access Pattern**: Single-entry atomic read/write (`put()`, `get()`, `clear()`) of a variable-length JSON self-model payload.
+- **Biological Analog**: The **Anterior Insular Cortex**, which in the human brain integrates visceral interoception, self-awareness, and emotional valence into a unified subjective feeling state.
+- **Integrity & Concurrency**:
+  - Sub-header tracks a monotonic version counter, payload byte length, epoch timestamp, and a hardware-computed CRC-32C checksum.
+  - Concurrency is protected by a thread-safe write lock with zero-copy unaligned read semantics across concurrent Virtual Threads.
+- **Backed Subsystems**:
+  - `InsulaMemory` (active self-model, task confidence, interoceptive stress, and dynamic salience posture within `runtime.bundle` at `RegionId.INSULA`).
+
+---
+
 ## Shape Comparison Summary
 
 | Memory Shape | Record Length | Indexing | Primary Operations | Off-Heap Layout |
@@ -140,3 +155,4 @@ graph TD
 | **`HashTableMemory`** | Fixed entry | Hash key | `get()`, `put()`, `increment()` | Open-addressing probing buffer |
 | **`RegistryMemory`** | Variable | String hash & ID | `intern()`, `resolveId()`, `resolveName()` | String pool + ID lookup table |
 | **`EntityDirectoryMemory`**| Composite | Entity identifier | `lookup()`, `register()`, `listEntities()` | Directory index + name buffer |
+| **`InsulaMemory`** | Variable (1 slot) | Singleton self-model | `put()`, `get()`, `clear()` | 32-byte header + CRC-32C JSON payload |
