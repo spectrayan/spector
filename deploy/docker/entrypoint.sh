@@ -35,7 +35,32 @@ for secret_file in \
     fi
 done
 
+# ── Map short env var aliases to canonical config keys ──
+# SpectorConfigSource.resolveWithEnv() auto-maps dot-path keys to env vars:
+#   spector.provider.embedding.type → SPECTOR_PROVIDER_EMBEDDING_TYPE
+# Users set short names (SPECTOR_EMBEDDING_PROVIDER); map to canonical names.
+alias_env() {
+    short="$1"; canonical="$2"
+    eval "val=\${$short:-}"
+    if [ -n "$val" ]; then
+        eval "existing=\${$canonical:-}"
+        if [ -z "$existing" ]; then
+            export "$canonical"="$val"
+        fi
+    fi
+}
 
+alias_env SPECTOR_EMBEDDING_PROVIDER    SPECTOR_PROVIDER_EMBEDDING_TYPE
+alias_env SPECTOR_EMBEDDING_MODEL       SPECTOR_PROVIDER_EMBEDDING_MODEL
+alias_env SPECTOR_EMBEDDING_BASE_URL    SPECTOR_PROVIDER_EMBEDDING_BASE_URL
+alias_env SPECTOR_EMBEDDING_API_KEY     SPECTOR_PROVIDER_EMBEDDING_API_KEY
+alias_env SPECTOR_EMBEDDING_DIMS        SPECTOR_PROVIDER_EMBEDDING_DIMENSIONS
+alias_env SPECTOR_EMBEDDING_DIMS        SPECTOR_MEMORY_DIMENSIONS
+alias_env SPECTOR_EMBEDDING_TIMEOUT     SPECTOR_PROVIDER_EMBEDDING_TIMEOUT
+alias_env SPECTOR_GENERATION_PROVIDER   SPECTOR_PROVIDER_GENERATION_TYPE
+alias_env SPECTOR_GENERATION_MODEL      SPECTOR_PROVIDER_GENERATION_MODEL
+alias_env SPECTOR_GENERATION_BASE_URL   SPECTOR_PROVIDER_GENERATION_BASE_URL
+alias_env SPECTOR_GENERATION_API_KEY    SPECTOR_PROVIDER_GENERATION_API_KEY
 
 # Ensure data directories exist (if writable)
 mkdir -p /data/index /data/memory /data/tmp 2>/dev/null || true
