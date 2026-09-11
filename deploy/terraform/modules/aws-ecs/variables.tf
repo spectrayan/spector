@@ -160,3 +160,15 @@ variable "log_retention_days" {
   type        = number
   default     = 30
 }
+
+variable "nofile_soft_limit" {
+  description = "Soft limit for open file descriptors (nofile) required for Project Panama FFM off-heap mmap and socket handles"
+  type        = number
+  default     = 65536
+}
+
+variable "nofile_hard_limit" {
+  description = "Hard limit for open file descriptors (nofile) required for Project Panama FFM off-heap mmap and socket handles"
+  type        = number
+  default     = 65536
+}

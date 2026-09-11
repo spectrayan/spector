@@ -65,6 +65,13 @@ resource "aws_ecs_task_definition" "spector" {
           readOnly      = false
         }
       ]
+      ulimits = [
+        {
+          name      = "nofile"
+          softLimit = var.nofile_soft_limit
+          hardLimit = var.nofile_hard_limit
+        }
+      ]
       logConfiguration = {
         logDriver = "awslogs"
         options = {

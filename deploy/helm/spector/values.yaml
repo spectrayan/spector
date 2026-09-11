@@ -27,6 +27,25 @@ securityContext:
   runAsNonRoot: true
   runAsUser: 1000
   runAsGroup: 1000
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+# ── Kernel & OS Tuning (Project Panama FFM off-heap mmap & file descriptor limits) ──
+sysctl:
+  enabled: true
+  # Uses a privileged initContainer to apply sysctls at the host node level.
+  # Standard for managed cloud clusters (EKS, GKE, AKS) where pod-level sysctls are restricted.
+  # Set to false to apply sysctls directly via podSecurityContext.sysctls.
+  useInitContainer: true
+  vmMaxMapCount: 262144
+  fsFileMax: 1048576
+  image:
+    repository: busybox
+    tag: "1.37"
+    pullPolicy: IfNotPresent
 
 service:
   type: ClusterIP
@@ -59,7 +78,31 @@ persistence:
   accessMode: ReadWriteOnce
   size: 10Gi
   mountPath: /data
-  # storageClass: "-"
+  # Storage class name to use for the PersistentVolumeClaim.
+  # Recommended production storage classes by environment:
+  #   AWS EKS:    gp3 (min 3000 IOPS, 125 MB/s) or io2
+  #   GCP GKE:    hyperdisk-balanced or pd-ssd
+  #   Azure AKS:  managed-csi-premium or ultra-disk
+  #   Bare-metal: spector-nvme-local (Local PV with WaitForFirstConsumer)
+  # Leave empty ("") to use the Kubernetes cluster default StorageClass.
+  storageClass: ""
+
+  # Optional: Create a dedicated high-performance StorageClass managed by this Helm chart.
+  createStorageClass: false
+  storageClassName: "spector-high-perf"
+  # CSI Provisioner options:
+  #   AWS:   ebs.csi.aws.com (type: gp3, iops: "3000", throughput: "125")
+  #   GCP:   pd.csi.storage.gke.io (type: pd-ssd)
+  #   Azure: disk.csi.azure.com (skuName: Premium_LRS)
+  #   Local: kubernetes.io/no-provisioner
+  provisioner: "ebs.csi.aws.com"
+  volumeBindingMode: "WaitForFirstConsumer"
+  allowVolumeExpansion: true
+  parameters:
+    type: gp3
+    iops: "3000"
+    throughput: "125"
+    encrypted: "true"
 
 env:
   SPECTOR_PORT: "7070"
