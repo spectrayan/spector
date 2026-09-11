@@ -1,170 +1,199 @@
 ---
-title: "Cortex — Tier Stores"
-description: "The 4-tier cognitive memory architecture: Working, Episodic, Semantic, and Procedural — each modeled after a brain region."
+title: "Cortex — 4-Tier Memory Architecture"
+description: "The 4-tier cognitive memory architecture: Working, Episodic, Semantic, and Procedural — each modeled after a biological brain region and backed by the Spector Memory Kernel."
 ---
 
-# 🧠 Cortex — Tier Stores
+# 🧠 Cortex — 4-Tier Memory Architecture
 
-> **Biological Analog**: The **Cerebral Cortex** — the outer layer of the brain responsible for higher-order cognitive functions. Different cortical regions specialize in different types of memory.
+> **Biological Analog**: The **Cerebral Cortex** — the outer layer of the brain responsible for higher-order cognitive functions. Different cortical regions specialize in distinct memory domains, durations, and consolidation dynamics.
 
 ---
 
 ## The 4-Tier Architecture
 
-Human memory is not a single system. Cognitive science identifies distinct memory systems with different characteristics, durations, and purposes. Spector mirrors this with four tier stores:
+Human memory is not an undifferentiated flat vector store. Cognitive neuroscience identifies distinct memory systems with different characteristics, durations, and consolidation dynamics. Spector mirrors this with four biological memory tiers backed by the off-heap Memory Kernel:
 
 ```mermaid
 graph TB
-    subgraph "TierRouter — Polymorphic Registry"
+    subgraph "Engram Dispatcher (Memory Kernel)"
         direction TB
-        TR["TierStore interface"]:::core
+        DISP["EngramMemory Shape Accessor<br/><i>Polymorphic dispatch over MemoryType</i>"]
     end
     
-    TR --> WM["🧪 Working Memory<br/>WorkingMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Prefrontal Cortex<br/>Volatile circular buffer<br/>~100 records"]:::working
-    TR --> EM["📝 Episodic Memory<br/>EpisodicMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Hippocampus<br/>Time-partitioned files<br/>Unbounded"]:::episodic
-    TR --> SE["🧬 Semantic Memory<br/>SemanticMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Neocortex<br/>Permanent knowledge<br/>~5,000 records"]:::semantic
-    TR --> PR["⚙️ Procedural Memory<br/>ProceduralMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Basal Ganglia<br/>Learned procedures<br/>~500 records"]:::procedural
+    DISP --> WM["🧪 Working Memory<br/>Prefrontal Cortex<br/>━━━━━━━━━━━━━━━━━<br/>Volatile circular buffer<br/>~100 records<br/>runtime.bundle"]
+    DISP --> EM["📝 Episodic Memory<br/>Hippocampus<br/>━━━━━━━━━━━━━━━━━<br/>Time-partitioned bundles<br/>Unbounded history<br/>partition.bundle"]
+    DISP --> SE["🧬 Semantic Memory<br/>Neocortex<br/>━━━━━━━━━━━━━━━━━<br/>Crystallized knowledge<br/>Permanent storage<br/>partition.bundle"]
+    DISP --> PR["⚙️ Procedural Memory<br/>Basal Ganglia<br/>━━━━━━━━━━━━━━━━━<br/>Learned rules & skills<br/>High persistence<br/>partition.bundle"]
 ```
 
 ---
 
-## Polymorphic Tier Routing
+## Tier Dispatch & Kernel Backing
 
-All four stores implement a common `TierStore` interface. The `TierRouter` dispatches operations via an `EnumMap<MemoryType, TierStore>` — zero switch statements, fully polymorphic.
-
-> Adding a new tier (e.g., `FLASH` for ultra-fast scratch memory) requires only: (1) implement `TierStore`, (2) register in `TierRouter`. No changes needed in `SpectorMemory`, `RecallPipeline`, or `CognitiveIngestionTarget`.
+All four memory stores are backed directly by the off-heap `spector-kernel`:
+- **Working Memory**: Hosted in `runtime.bundle` as a contiguous circular buffer for active working context.
+- **Episodic, Semantic, and Procedural Memories**: Hosted in sequential partition bundles (`partitions/{seq}/partition.bundle`) with dedicated 96-byte strength audit regions.
+- **Engram Storage**: All tiers utilize the unified 64-byte pure encoding header with 128-bit Synaptic Bloom tags for fast candidate pre-screening.
 
 ---
 
 ## 🧪 Working Memory (Prefrontal Cortex)
 
-**Biological Analog**: The **Prefrontal Cortex** maintains a limited workspace for active processing. It holds ~7±2 items in biological systems.
+**Biological Analog**: The **Prefrontal Cortex** maintains a limited workspace for active processing and immediate task execution. It holds transient context in biological systems ($7 \pm 2$ chunks).
 
 | Property | Value |
-|---|---|
-| Storage | In-memory segment (volatile) |
-| Capacity | Configurable (default: 100) |
-| Eviction | Circular buffer — oldest entries overwritten |
-| Persistence | **None** — lost on JVM shutdown |
-| Use case | Current task context, recent conversation |
+|:---|:---|
+| **Physical Storage** | Native memory buffer within `runtime.bundle` |
+| **Capacity** | Configurable (default: 100 engrams) |
+| **Eviction Policy** | Circular buffer — oldest entries automatically overwritten |
+| **Persistence** | Session-scoped volatile workspace |
+| **Primary Use Cases** | Active conversation context, current multi-step task parameters, immediate tool results |
 
-Working memory operates as a circular buffer: when the buffer is full, the oldest entry is overwritten by the newest. This mirrors the human prefrontal cortex where only the most recent context is actively maintained.
+Working memory operates as a high-speed circular buffer: when the allocated capacity is reached, new memories overwrite the oldest records. This provides low latency for active dialogue without bloating long-term indexes.
 
-**Special capability**: Synaptic tag search without vector math — Working Memory supports finding memories by tag alone using the 64-bit Bloom filter field, useful for fast context lookups without embedding the query.
+**Synaptic Tag Pre-Screening**: Working Memory supports sub-microsecond candidate filtering via the 128-bit Synaptic Bloom filter, enabling instant tag lookups prior to dense vector calculation.
 
 ---
 
 ## 📝 Episodic Memory (Hippocampus)
 
-**Biological Analog**: The **Hippocampus** encodes autobiographical events as time-ordered traces. New events are appended rapidly (one-trial learning), and during sleep the hippocampus replays sequences for consolidation into cortical memory.
+**Biological Analog**: The **Hippocampus** encodes autobiographical events as time-ordered traces. Events are appended rapidly (one-trial learning), and during consolidation phases, the hippocampus replays sequences for transfer into permanent cortical memory.
 
 | Property | Value |
-|---|---|
-| Storage | Memory-mapped files (persistent) |
-| Capacity | Unbounded (1 partition per day, each up to 10,000 records) |
-| Eviction | Tombstone + compaction |
-| Persistence | **Full** — survives JVM restarts |
-| Use case | "What error did we debug yesterday?", "What did the user say last week?" |
+|:---|:---|
+| **Physical Storage** | Memory-mapped partition bundles (`partitions/{seq}/partition.bundle`) |
+| **Capacity** | Unbounded across sequential partition chunks (default: 10,000 engrams per partition) |
+| **Eviction Policy** | Logical tombstoning with background compaction |
+| **Persistence** | Full — durable across restarts via Write-Ahead Log (WAL) |
+| **Primary Use Cases** | Temporal history ("What occurred in yesterday's session?", "How did the user resolve this error last week?") |
 
 ### Partition Lifecycle
 
-Each episodic partition is a structured memory-mapped file with a binary metadata header:
-
-```
-┌─── Partition File ─────────────────────────────────────────┐
-│ [64B Metadata Header]                                       │
-│   ├── 4B magic (0x45504943 = "EPIC")                       │
-│   ├── 4B version (1)                                        │
-│   ├── 4B count (live records)                               │
-│   ├── 4B tombstoneCount                                     │
-│   ├── 4B capacity                                           │
-│   ├── 4B state (ACTIVE/SEALED/REFLECTABLE/TOMBSTONED/...)  │
-│   ├── 4B stride                                             │
-│   └── 36B reserved                                          │
-│─── [Record 0: Header + Quantized Vector] ──────────────────┤
-│─── [Record 1: Header + Quantized Vector] ──────────────────┤
-│   ...                                                       │
-└─── [Record N-1]  ───────────────────────────────────────────┘
-```
-
-**Partition state machine**:
+Episodic memory partitions progress through a structured lifecycle:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> ACTIVE: Create partition
-    ACTIVE --> SEALED: Day rolls over
-    SEALED --> REFLECTABLE: ReflectDaemon marks eligible
-    REFLECTABLE --> TOMBSTONED: High tombstone ratio
-    TOMBSTONED --> COMPACTED: TombstoneCompactor rebuilds
-    COMPACTED --> [*]: Old partition swapped out
+    [*] --> ACTIVE: Open new partition bundle
+    ACTIVE --> SEALED: Capacity reached (10K engrams)
+    SEALED --> CONSOLIDATING: Sleep consolidation daemon triggered
+    CONSOLIDATING --> CRYSTALLIZED: Knowledge centroids promoted to Semantic
+    CRYSTALLIZED --> ARCHIVED: Sealed historical partition
+    ARCHIVED --> [*]
 ```
+
+1. **Active**: The current partition accepts sequential appends via the Write-Ahead Log.
+2. **Sealed**: When the partition capacity threshold is reached, it is sealed as read-only, and the next partition is initialized.
+3. **Consolidating**: The background consolidation daemon replays related episodic events, identifying common patterns.
+4. **Crystallized**: Abstracted centroids are promoted to the permanent Semantic tier.
 
 ---
 
 ## 🧬 Semantic Memory (Neocortex)
 
-**Biological Analog**: The **Neocortex** stores distilled, permanent world knowledge — facts, concepts, and generalized rules extracted from repeated experience.
-
-### Partitioned Mode (default for DISK persistence)
+**Biological Analog**: The **Neocortex** stores distilled, permanent world knowledge — generalized concepts, domain facts, and rules extracted from repeated experience.
 
 | Property | Value |
-|---|---|
-| Storage | Persistent rolling files |
-| Capacity per partition | Configurable (default: 10,000 records) |
-| Total capacity | Unbounded (new partitions roll automatically) |
-| Eviction | Tombstone + per-partition compaction |
-| Persistence | **Full** — persistent files survive restarts |
-| Recall | Parallel per-partition scan via virtual threads |
-| Use case | "The user prefers dark mode", "Java uses garbage collection" |
+|:---|:---|
+| **Physical Storage** | Partition bundles (`partition.bundle`) |
+| **Capacity** | Unbounded (scales across partition bundles) |
+| **Eviction Policy** | Tombstoning with capacity-aware growth |
+| **Persistence** | Full — persistent and durable |
+| **Recall Method** | Parallel SIMD vector scan and hybrid keyword retrieval |
+| **Primary Use Cases** | "User prefers dark mode", "Enterprise database port is 5432", "OAuth tokens expire in 3600 seconds" |
 
-```
-.spector/memory/semantic/
-  semantic-000.mem     ← partition 0 (10K records, oldest)
-  semantic-001.mem     ← partition 1 (created when 0 fills up)
-  semantic-002.mem     ← partition 2 (active — accepts writes)
-```
+### Semantic Memory Creation
 
-**Concurrency model**:
-
-- **Reads**: `CopyOnWriteArrayList` provides lock-free snapshot iteration. Each partition is searched independently on its own virtual thread
-- **Writes**: `ReadWriteLock` — read lock for normal appends, write lock only when rolling to a new partition
-- **Compaction**: Per-partition rebuild. Other partitions remain readable during compaction
-
-**Creation**: Semantic memories are created either:
-
-1. **Directly** by the user (`MemoryType.SEMANTIC`)
-2. **By consolidation** — the `ReflectDaemon` clusters similar episodic memories during "sleep" and promotes the cluster centroid to semantic memory
-
-**Migration**: Existing single-file stores are automatically migrated to the partitioned format on first startup.
-
-### Single-File Mode (in-memory)
-
-| Property | Value |
-|---|---|
-| Storage | Fixed-capacity in-memory slab |
-| Capacity | Configurable (default: 5,000) |
-| Use case | Small deployments or in-memory mode |
+Semantic memories enter the system through two primary pathways:
+1. **Explicit Ingestion**: Client applications directly store verified facts into the semantic tier (`tier: SEMANTIC`).
+2. **Consolidation Promotion**: The hippocampal sleep consolidation engine analyzes clusters of repeated episodic memories, synthesizes generalized summaries, and promotes them to permanent semantic engrams.
 
 ---
 
 ## ⚙️ Procedural Memory (Basal Ganglia)
 
-**Biological Analog**: The **Basal Ganglia** stores learned motor programs and habitual behaviors — "how to ride a bicycle" type knowledge that operates below conscious awareness.
+**Biological Analog**: The **Basal Ganglia** stores learned behavioral patterns, motor routines, and procedural protocols — operational skills that execute automatically.
 
 | Property | Value |
-|---|---|
-| Storage | Linear in-memory segment |
-| Capacity | Configurable (default: 500) |
-| Eviction | None (append-only) |
-| Persistence | Via WAL replay |
-| Use case | "Always use exponential backoff", "Format SQL with uppercase keywords" |
+|:---|:---|
+| **Physical Storage** | Dedicated procedural region within `partition.bundle` |
+| **Capacity** | Configurable (default: 5,000 engrams) |
+| **Eviction Policy** | High persistence; protected from aggressive decay |
+| **Persistence** | Full — durable across restarts |
+| **Primary Use Cases** | "Always apply exponential backoff on HTTP 429", "Format generated code with 4-space indentation" |
 
-Procedural memories represent **rules and patterns** that the agent has internalized. They are typically higher-importance, persistent, and rarely forgotten.
+Procedural memories represent actionable operational rules. Because procedural rules guide agent decisions under uncertainty, they possess higher baseline importance scores and resist temporal decay.
+
+---
+
+## Client SDK Usage
+
+Client applications can target specific tiers or allow cognitive routing:
+
+=== "Python"
+
+    ```python
+    from spector_client import SpectorClient, MemoryTier
+
+    client = SpectorClient.builder().with_rest("http://localhost:7070").build()
+
+    # Store in Semantic Memory
+    client.memory.remember(
+        text="The client application utilizes OAuth 2.0 PKCE authentication",
+        tier=MemoryTier.SEMANTIC,
+        tags=["auth", "security"],
+        interest=0.9,
+    )
+    ```
+
+=== "TypeScript"
+
+    ```typescript
+    import { SpectorClient, MemoryTier } from '@spectrayan/spector-client';
+
+    const client = SpectorClient.createDefault('http://localhost:7070');
+
+    // Store in Semantic Memory
+    await client.memory.remember({
+      text: 'The client application utilizes OAuth 2.0 PKCE authentication',
+      tier: MemoryTier.SEMANTIC,
+      tags: ['auth', 'security'],
+      interest: 0.9,
+    });
+    ```
+
+=== "Java"
+
+    ```java
+    import com.spectrayan.spector.client.SpectorClient;
+    import com.spectrayan.spector.client.model.MemoryTier;
+
+    try (var client = SpectorClient.builder().baseUri("http://localhost:7070").build()) {
+        client.memory().remember(
+            "The client application utilizes OAuth 2.0 PKCE authentication",
+            MemoryTier.SEMANTIC,
+            List.of("auth", "security")
+        );
+    }
+    ```
+
+=== "cURL / REST"
+
+    ```bash
+    curl -X POST http://localhost:7070/api/v1/memory/remember \
+      -H "Content-Type: application/json" \
+      -d '{
+        "text": "The client application utilizes OAuth 2.0 PKCE authentication",
+        "tier": "SEMANTIC",
+        "tags": ["auth", "security"],
+        "interest": 0.9
+      }'
+    ```
 
 ---
 
 ## Next Steps
 
-- :material-sleep: [**Hippocampus — Sleep Consolidation**](hippocampus.md) — how episodic memories are consolidated into semantic knowledge
-- :material-flash: [**Synapse — Tags & Scoring**](synapse.md) — the 64-byte header and Bloom filter
-- :material-lightning-bolt: [**6-Phase Scoring Pipeline**](scoring-pipeline.md) — the SIMD hot-loop
+- :material-lightning-bolt: [**The 6-Phase Scoring Pipeline**](scoring-pipeline.md) — associative multi-tier retrieval
+- :material-tag: [**Synapse — Tags & Scoring**](synapse.md) — 128-bit Bloom filters and affective tagging
+- :material-sleep: [**Hippocampus — Sleep Consolidation**](hippocampus.md) — episodic to semantic transfer
+- :material-memory: [**Memory Kernel**](../kernel/index.md) — off-heap storage and bundle containers

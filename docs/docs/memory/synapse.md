@@ -1,242 +1,211 @@
 ---
-title: "Synapse — Tags & Scoring"
-description: "The 64-byte cache-line-aligned synaptic header (HeaderLayout64), 64-bit inline Bloom filter, arousal-modulated decay, and EngramLayout binary format."
+title: "Synapse — Tags & Cognitive Scoring"
+description: "The 64-byte cache-line-aligned pure encoding header, 128-bit inline Bloom filter, arousal-modulated decay, and power-law forgetting curves."
 ---
 
-# 🔗 Synapse — Tags & Scoring
+# 🔗 Synapse — Tags & Cognitive Scoring
 
-> **Biological Analog**: In neuroscience, the **Synaptic Tagging and Capture (STC)** hypothesis (Frey & Morris, 1997) describes how synapses are "tagged" during learning with lightweight chemical markers. These tags don't contain the memory itself — they identify *what* the memory is about and *when* it was formed, enabling the brain to route consolidation activity efficiently.
-
----
-
-## Header Layout — 64-Byte Cache-Line Format
-
-Every cognitive memory record begins with a synaptic header — the digital equivalent of a synaptic tag. The format is defined by the `HeaderLayout` sealed interface with a single implementation: `HeaderLayout64`.
-
-### Layout (64 bytes) — Cache-Line Aligned
-
-The sole header layout, aligned to a full **CPU cache line** (64 bytes) for optimal sequential scan performance.
-
-```
- Offset   Size   Field              Description
- ──────   ────   ─────              ───────────
-    0      1B    header_version     Always 1
-    1      1B    flags              Tombstone, type, consolidated, pinned, resolved
-    2      1B    valence            Emotional coloring (signed: -128 to +127)
-    3      1B    arousal            Emotional intensity (unsigned: 0-255)
-    4      4B    importance         Base importance score (0.05 – 10.0)
-    8      8B    timestamp_ms       Unix epoch ms when memory was formed
-   16      4B    agent_recall_count LTP reinforcement counter
-   20      4B    exact_norm         L2 norm of original float vector
-   24      8B    synaptic_tags      64-bit Bloom filter of contextual markers
-   32      2B    centroid_id        IVF partition routing ID
-   34      2B    _pad0              Alignment padding
-   36      4B    storage_strength   Two-Factor Memory S(t) (Bjork & Bjork)
-   40      4B    spector_recall_cnt Auto-LTP passive counter
-   44      4B    _reserved_f1       Future float
-   48      8B    last_auto_ltp      Auto-LTP timestamp
-   56      8B    _reserved_l1       Future (128-bit tag upper half)
-                                    ═══════════════════════════════════
-                                    Total: 64 bytes (1× cache line, 2× AVX2)
-```
-
-!!! tip "Why 64 bytes?"
-    **Cache-line alignment** eliminates split-line reads during sequential scans. When the scorer iterates over 1M records, each header read hits exactly one cache line — no partial line loads, no false sharing. The CPU prefetcher can pre-fetch the next record's header while the current one is being scored. The 8 bytes of reserved space prevent future migration costs when new fields are added.
-
-### Memory Cost
-
-| Header | Stride (768-dim) | 1M Records | Alignment |
-|:---|:---:|:---:|:---|
-| 64B | 832B | ~793 MB | 1× cache line (64B) |
+> **Biological Analog**: In neuroscience, the **Synaptic Tagging and Capture (STC)** hypothesis (Frey & Morris, 1997) describes how synapses are "tagged" during learning with lightweight chemical markers. These tags identify *what* the memory is about and *when* it was formed, enabling the brain to route consolidation activity efficiently.
 
 ---
 
-## Flags Bitfield
+## 64-Byte Pure Encoding Header (V2)
 
-The `flags` byte at offset 1 encodes per-record state:
+Every cognitive memory record begins with a synaptic header — the digital equivalent of a biological synaptic tag. The header is strictly aligned to a full **CPU cache line** (64 bytes) for optimal sequential scan performance.
 
-```
- Bit   Name            Description
- ───   ────            ───────────
-  0    tombstone       Record is logically deleted (pruned by Deep Sleep)
-  1-2  memory_type     2-bit type: 0=WORKING, 1=EPISODIC, 2=SEMANTIC, 3=PROCEDURAL
-  3    consolidated    Has been reflected into Semantic tier
-  4    pinned          Exempt from decay and pruning (flashbulb memories)
-  5    resolved        Zeigarnik Effect — resolved tasks return to normal decay
-  6-7  source_modality 2-bit modality: 0=TEXT, 1=IMAGE, 2=AUDIO, 3=VIDEO
+```mermaid
+graph LR
+    subgraph "Engram Record"
+        H["Pure Encoding Header (64 Bytes)"] --> V["INT8 / INT4 Quantized Vector (N Bytes)"]
+    end
+    style H fill:#27ae60,color:white
+    style V fill:#2ecc71,color:white
 ```
 
-### Consolidation Flags (Offset 34)
+### Layout Overview (64 Bytes)
 
-The byte at offset 34 (previously alignment padding) encodes consolidation and maintenance states:
+| Offset | Field | Size | Type | Description |
+|:---:|:---|:---:|:---|:---|
+| `0x00` | `header_version` | 1B | uint8 | Current version: `2` |
+| `0x01` | `flags` | 1B | uint8 | Tombstone, tier type, consolidated, pinned, resolved, modality |
+| `0x02` | `valence` | 1B | int8 | Emotional coloring (signed: $-128$ to $+127$) |
+| `0x03` | `arousal` | 1B | uint8 | Emotional intensity ($0$ to $255$) |
+| `0x04` | `importance` | 4B | float32 | Base importance score ($0.05$ to $10.0$) |
+| `0x08` | `timestamp_ms` | 8B | int64 | Unix epoch ms when memory was formed |
+| `0x10` | `exact_norm` | 4B | float32 | L2 norm of original float vector |
+| `0x14` | `centroid_id` | 2B | int16 | IVF partition routing ID |
+| `0x16` | `_pad0` | 2B | bytes | Alignment padding |
+| `0x18` | `synaptic_tags_lo` | 8B | uint64 | Low 64 bits of 128-bit Bloom filter |
+| `0x20` | `synaptic_tags_hi` | 8B | uint64 | High 64 bits of 128-bit Bloom filter |
+| `0x28` | `consolidation_flags` | 1B | uint8 | Provenance bits (simulated, crystallized, dreamed) |
+| `0x29` | `encoding_profile` | 1B | uint8 | Cognitive state during ingestion |
+| `0x2A` | `encoding_alpha` | 1B | uint8 | Quantized associative attention weight ($0$ to $255$) |
+| `0x2B` | `encoding_beta` | 1B | uint8 | Quantized contextual balance weight ($0$ to $255$) |
+| `0x2C` | `soul_version` | 2B | uint16 | Monotonic persona configuration counter |
+| `0x2E` | `_reserved_geo` | 2B | bytes | Reserved for manifold coordinates |
+| `0x30` | `encoding_surprise` | 4B | float32 | Bayesian surprise $z$-score at ingestion |
+| `0x34` | `_reserved` | 12B | bytes | Zero-padded reserved block |
 
-```
- Bit   Name            Description
- ───   ────            ───────────
-  0    contradicted    Memory has a conflicting near-duplicate in the tier
-  1-7  reserved        Future use
-```
-
-### Zeigarnik Effect (Bit 5)
-
-Unresolved memories (bit 5 = 0) resist time-decay — their decay bucket is clamped to 0, keeping them perpetually "fresh." This models the psychological phenomenon where incomplete tasks remain more accessible than completed ones. Once the agent marks a task complete, bit 5 is set to 1 and normal decay resumes.
+> For complete field-by-field bitwise descriptions and separation from mutable strength telemetry, see [Binary Record Specifications & Synaptic Header](../kernel/layouts.md).
 
 ---
 
-## SynapticTagEncoder — The Inline Bloom Filter
+## 128-Bit Inline Synaptic Bloom Filter
 
-The `synaptic_tags` field is a **64-bit inline Bloom filter** rather than a discrete bitmap. This enables encoding thousands of unique tag strings across the system while each individual record holds 5-50 tags with negligible false positive rates.
+The `synaptic_tags` field is an expanded **128-bit inline Bloom filter** (occupying 16 bytes across `synaptic_tags_lo` and `synaptic_tags_hi`). This allows thousands of unique tag strings to be used across the system while individual records carry contextual tags with virtually zero false positives.
 
-### How It Works
+```mermaid
+flowchart LR
+    TAGS["Ingestion Tags:<br/>['architecture', 'database']"] --> HASH["MurmurHash3 (k=4)"]
+    HASH --> BLOOM["128-Bit Bloom Filter<br/><i>Offsets 0x18 - 0x27</i>"]
+    QUERY["Query Filter:<br/>'architecture'"] --> QHASH["MurmurHash3 (k=4)"]
+    QHASH --> TEST{"Bitwise Register Test<br/>(candidate & query == query)"}
+    BLOOM --> TEST
+    TEST -->|Match| VECTOR["Evaluate Dense Vector Cosine"]
+    TEST -->|Mismatch| SKIP["Skip Candidate (0 Latency)"]
+```
 
-Each tag string is hashed via double hashing (MurmurHash3-inspired) to produce k=3 bit positions within the 64-bit filter. The match operation is a single bitwise AND: `(record & query) == query`.
+### False Positive Characteristics
 
-**Key properties**:
+| Tags per Record | 64-Bit Filter FPR | 128-Bit Filter FPR (Spector) | Improvement |
+|:---:|:---:|:---:|:---:|
+| 3 tags | 0.01% | **< 0.0001%** | ~100× reduction |
+| 5 tags | 0.03% | **0.0005%** | ~60× reduction |
+| 10 tags | 0.20% | **0.004%** | ~50× reduction |
+| 20 tags | 2.30% | **0.06%** | ~38× reduction |
 
-| Property | Value |
-|:---|:---|
-| Filter size | 64 bits (fits in a single CPU register) |
-| Hash functions | k = 3 (double hashing) |
-| Bits per tag | 3 |
-| Match operation | `(record & query) == query` (containment check) |
-| Cost | **1 CPU cycle** (single `long` read + bitwise AND) |
-
-### False Positive Rates
-
-| Tags per Record | FPR | Assessment |
-|:---|:---|:---|
-| 5 tags | 0.03% | Excellent — 1 false match per 3,000 records |
-| 10 tags | 0.2% | Excellent — 1 false match per 500 records |
-| 20 tags | 2.3% | Good — vector distance rejects false matches |
-| 50 tags | 12% | Acceptable — still useful for coarse gating |
-
-!!! tip "System vs. Record Tags"
-    The system can have **thousands** of unique tag strings. But any single record should have at most **10-50 tags** for the Bloom filter to remain effective. This is a natural fit — a single memory rarely has more than 5-15 contextual associations.
-
-### Tag Overlap Scoring
-
-Beyond binary gating, the tag encoder computes a **fractional overlap ratio** for weighted tag relevance:
-
-$$
-\text{tagOverlap} = \frac{\text{popcount}(\text{recordTags} \land \text{queryMask})}{\text{popcount}(\text{queryMask})}
-$$
-
-This ratio is used as a multiplier in the scoring formula: `finalScore = baseScore × (1 + tagOverlap × tagRelevanceBoost)`. A record matching 3 of 5 query tags gets a 60% tag boost vs 100% for a full match.
+Because matching requires only two 64-bit CPU register bitwise `AND` instructions, non-matching engrams are rejected in under a nanosecond, preserving SIMD vector registers for relevant candidates.
 
 ---
 
-## EngramLayout — Binary Format
+## Psychological Memory Modulations
 
-The record layout manages reading/writing headers and quantized vectors to/from off-heap memory. Each record is: **64-byte header + N-byte quantized vector**.
+### 1. Zeigarnik Effect (Active Task Accessibility)
+In psychology, the **Zeigarnik Effect** describes the phenomenon where unresolved tasks remain more accessible in memory than completed ones. Spector models this in the `flags` bitfield:
+- **Unresolved Engram**: The memory resists normal temporal decay, keeping active action items and open questions immediately available.
+- **Resolved Engram**: When the task is completed (`client.memory.resolve(id)`), the flag is toggled and standard time-decay resumes.
 
-```
-Record stride = 64B header + quantized vector bytes
-Example (768-dim INT8): stride = 64 + 768 = 832 bytes
-```
-
-### EncodingHeader Fields
-
-| Field | Type | Description |
-|:---|:---|:---|
-| `timestampMs` | long | When the memory was formed |
-| `synapticTags` | long | 64-bit Bloom filter |
-| `exactNorm` | float | L2 norm of original vector |
-| `importance` | float | Cognitive importance (0.05 – 10.0) |
-| `agentRecallCount` | int | LTP reconsolidation counter |
-| `centroidId` | short | IVF partition routing ID |
-| `valence` | byte | Emotional coloring (-128 to +127) |
-| `flags` | byte | Bit field (tombstone, type, consolidated, pinned, resolved) |
-| `arousal` | byte | Emotional intensity (unsigned 0-255) |
-| `storageStrength` | float | Two-Factor durability S(t) |
+### 2. Arousal-Modulated Retention
+Emotionally intense experiences resist forgetting. Spector uses an unsigned `arousal` byte ($0$ to $255$) to modulate the power-law forgetting curve:
+- High arousal (e.g. critical production failure, major milestone) slows decay by up to **$1.65\times$**.
+- Neutral engrams (routine conversational exchanges) decay according to baseline retention curves.
+- When omitted, arousal is automatically derived from emotional valence:
+  $$\text{arousal} = \min(255, |\text{valence}| \times 2)$$
 
 ---
 
-## DecayStrategy — SIMD-Friendly Temporal Decay
+## Power-Law Temporal Decay
 
-!!! warning "The `exp()` Problem"
-    The naive decay formula `Math.exp(-λ·age)` costs 50-100ns per call and is a **scalar operation** — it cannot be SIMD-vectorized. At 1M memories, this adds 50-100ms of pure overhead, destroying the SIMD advantage.
+Rather than computing computationally expensive exponential functions in the hot loop, Spector quantizes time into **12 discrete time buckets** spanning seconds to years, evaluating decay according to the power law of forgetting:
 
-### The Solution: Power-Law Decay Buckets
+$$R(t) = a \cdot t^{-d}$$
 
-The decay strategy quantizes time into **12 discrete buckets** spanning 5+ years and uses precomputed lookup tables derived from the power law of forgetting:
-
-$$
-R(t) = a \cdot t^{-d}
-$$
-
-Bucket values are generated at startup from `DecayConfig`, not hardcoded — making the decay curve fully configurable.
-
-### 12-Bucket Time Ranges
-
-| Bucket | Time Range | Decay Multiplier (d=0.15) |
+| Bucket | Elapsed Time | Decay Multiplier ($d = 0.15$) |
 |:---:|:---|:---:|
-| 0 | 0–1 hours | 1.00 |
-| 1 | 1–6 hours | ~0.87 |
-| 2 | 6–24 hours | ~0.67 |
-| 3 | 1–3 days | ~0.53 |
-| 4 | 3–7 days | ~0.43 |
-| 5 | 1–4 weeks | ~0.32 |
-| 6 | 1–3 months | ~0.24 |
-| 7 | 3–6 months | ~0.20 |
-| 8 | 6–12 months | ~0.17 |
-| 9 | 1–2 years | ~0.14 |
-| 10 | 2–5 years | ~0.11 |
-| 11 | 5+ years | 0.10 (permastore floor) |
+| 0 | 0 – 1 hours | $1.00$ |
+| 1 | 1 – 6 hours | $\sim 0.87$ |
+| 2 | 6 – 24 hours | $\sim 0.67$ |
+| 3 | 1 – 3 days | $\sim 0.53$ |
+| 4 | 3 – 7 days | $\sim 0.43$ |
+| 5 | 1 – 4 weeks | $\sim 0.32$ |
+| 6 | 1 – 3 months | $\sim 0.24$ |
+| 7 | 3 – 6 months | $\sim 0.20$ |
+| 8 | 6 – 12 months | $\sim 0.17$ |
+| 9 | 1 – 2 years | $\sim 0.14$ |
+| 10 | 2 – 5 years | $\sim 0.11$ |
+| 11 | 5+ years | $0.10$ (permastore floor) |
 
-### DecayConfig Presets
+### Long-Term Potentiation (LTP) Reinforcement
+Every time a memory is explicitly reinforced by an agent or user (`client.memory.reinforce(id)`), its perceived age is shifted right along the bucket index. A memory recalled and reinforced 3 times is perceived as **$8\times$ younger** than its chronological age, effectively preserving critical operational knowledge indefinitely.
 
-Three presets are available for different agent personalities:
+---
 
-| Preset | Exponent | Floor | Use Case |
-|:---|:---:|:---:|:---|
-| `DEFAULT` | d=0.15 | 0.10 | General-purpose agent memory |
-| `SLOW_FORGET` | d=0.08 | 0.15 | Digital legacy, long-term knowledge bases |
-| `FAST_FORGET` | d=0.30 | 0.05 | Chat assistants, fast-moving contexts |
+## Client SDK Connectivity
 
-### Reconsolidation Adjustment (LTP)
+=== "Python"
 
-Each recall effectively **halves the memory's perceived age** by bit-shifting the bucket index right. This mirrors biological spaced repetition where each successful retrieval doubles the memory's half-life:
+    ```python
+    from spector_client import SpectorClient, MemoryTier
 
-| Recall Count | Shift | Effect |
-|:---:|:---:|:---|
-| 0 | ÷1 | No change |
-| 1 | ÷2 | bucket 6 → 3 |
-| 2 | ÷4 | bucket 6 → 1 |
-| 3 | ÷8 | bucket 7 → 0 |
-| 5+ | ÷32 | Effectively fresh |
+    client = SpectorClient.builder().with_rest("http://localhost:7070").build()
 
-A memory recalled 3 times is **8× "younger"** than its actual age — it powerfully resists forgetting.
+    # Store with synaptic tags and emotional valence
+    record = client.memory.remember(
+        text="Production database failover drill successful",
+        tier=MemoryTier.SEMANTIC,
+        tags=["database", "drill", "dr"],
+        interest=0.9,
+        valence=1,
+    )
 
-### Auto-LTP (Passive Recall)
+    # Reinforce memory via Long-Term Potentiation (LTP)
+    client.memory.reinforce(record.id, weight=1.0)
+    ```
 
-Spector also tracks internal passive recalls separately from agent-explicit reinforcement. Passive recall uses a gentler linear shift capped at 2 buckets — preventing passive retrieval from making memories artificially immortal.
+=== "TypeScript"
 
-### Arousal-Modulated Decay
+    ```typescript
+    import { SpectorClient, MemoryTier } from '@spectrayan/spector-client';
 
-Emotionally intense memories resist forgetting. The `arousal` byte modulates the decay curve through a 4-entry lookup table:
+    const client = SpectorClient.createDefault('http://localhost:7070');
 
-| Arousal Range | Bucket | Modifier | Biological Basis |
-|:---|:---:|:---:|:---|
-| 0-63 (neutral) | 0 | 1.00× | Normal forgetting — routine memories |
-| 64-127 (mild) | 1 | 1.15× | Slightly persistent — mildly emotional |
-| 128-191 (moderate) | 2 | 1.35× | Noticeably persistent — significant events |
-| 192-255 (extreme) | 3 | 1.65× | Very hard to forget — flashbulb memories |
+    // Store with synaptic tags and emotional valence
+    const record = await client.memory.remember({
+      text: 'Production database failover drill successful',
+      tier: MemoryTier.SEMANTIC,
+      tags: ['database', 'drill', 'dr'],
+      interest: 0.9,
+      valence: 1,
+    });
 
-The modifier **multiplies the base decay factor**, slowing the decay rate. A production outage at arousal=200 decays 1.65× slower than a routine log entry at arousal=0.
+    // Reinforce memory via Long-Term Potentiation (LTP)
+    await client.memory.reinforce(record.id, 1.0);
+    ```
 
-**Automatic arousal derivation:** When arousal is not explicitly set by the LLM, it is auto-derived from valence at ingestion time:
+=== "Java"
 
-$$
-\text{arousal} = \min(255, |\text{valence}| \times 2)
-$$
+    ```java
+    import com.spectrayan.spector.client.SpectorClient;
+    import com.spectrayan.spector.client.model.MemoryTier;
 
-This means both extremely positive (valence=+100) and extremely negative (valence=-100) memories are equally arousing — matching the psychological finding that emotional intensity, not polarity, drives memory persistence.
+    try (var client = SpectorClient.builder().baseUri("http://localhost:7070").build()) {
+        // Store with synaptic tags
+        var record = client.memory().remember(
+            "Production database failover drill successful",
+            MemoryTier.SEMANTIC,
+            List.of("database", "drill", "dr")
+        );
+
+        // Reinforce memory
+        client.memory().reinforce(record.getId(), 1);
+    }
+    ```
+
+=== "cURL / REST"
+
+    ```bash
+    # Store memory
+    curl -X POST http://localhost:7070/api/v1/memory/remember \
+      -H "Content-Type: application/json" \
+      -d '{
+        "text": "Production database failover drill successful",
+        "tier": "SEMANTIC",
+        "tags": ["database", "drill", "dr"],
+        "interest": 0.9,
+        "valence": 1
+      }'
+
+    # Reinforce memory
+    curl -X POST http://localhost:7070/api/v1/memory/{id}/reinforce \
+      -H "Content-Type: application/json" \
+      -d '{"boost": 1.0}'
+    ```
 
 ---
 
 ## Next Steps
 
-- :material-head-cog: [**Dopamine — Surprise Detection**](dopamine.md) — auto-importance scoring
-- :material-brain: [**Cortex — Tier Stores**](cortex.md) — the 4-tier architecture
-- :material-lightning-bolt: [**6-Phase Scoring Pipeline**](scoring-pipeline.md) — how scoring uses the header
-- :material-flask: [**Labs — Research Roadmap**](../labs/roadmap.md) — Two-Factor Memory, Dynamic Quantization
+- :material-lightning-bolt: [**The 6-Phase Scoring Pipeline**](scoring-pipeline.md) — hot-loop SIMD scoring
+- :material-memory: [**Memory Kernel Layouts**](../kernel/layouts.md) — byte-level layout specifications
+- :material-head-cog: [**Dopamine — Surprise Detection**](dopamine.md) — Bayesian surprise and flashbulb memories
+- :material-brain: [**Cortex — 4-Tier Memory**](cortex.md) — biological memory tiers

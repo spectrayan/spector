@@ -143,7 +143,8 @@ graph TD
 
 | Module | Description |
 |:---|:---|
-| [spector-memory](spector-memory.md) | Flagship cognitive memory engine — 4-tier memory, bundle kernel, recall pipeline, consolidation daemons |
+| [spector-kernel](spector-kernel.md) | Sealed off-heap memory-mapped kernel — Java 25 Panama FFM, bundle containers, memory shapes, zero-GC |
+| [spector-memory](spector-memory.md) | Flagship cognitive memory engine — 4-tier memory, recall pipeline, consolidation daemons |
 | [spector-provider-api](spector-provider-api.md) | Model-agnostic LLM and embedding provider SPI |
 | [spector-providers](spector-providers.md) | Out-of-the-box LLM/embedding providers (Ollama, OpenAI, Google, Anthropic, ONNX) |
 | [spector-ingestion](spector-ingestion.md) | Unified ingestion pipeline — chunking, sensory extractors (PDF, audio, images), metadata extraction |

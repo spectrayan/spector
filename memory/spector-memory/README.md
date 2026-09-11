@@ -273,6 +273,6 @@ This module is licensed under the **Business Source License 1.1 (BSL 1.1)**.
 - Permits production use for all purposes **except** offering it as a managed service or embedding/integrating it in a competing AI cognitive memory product or service.
 - Automatically transitions to the **Apache License 2.0** on **May 27, 2030** (4 years from release).
 
-See the [LICENSE](LICENSE) file for the full terms and conditions.
+See the [LICENSE](https://github.com/spectrayan/spector/blob/main/memory/spector-memory/LICENSE) file for the full terms and conditions.
 
 **Built with ⚡ by [Spectrayan](https://www.spectrayan.com/)**

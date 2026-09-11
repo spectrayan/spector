@@ -56,62 +56,40 @@ graph LR
 
 ## Spector Memory Kernel Shapes
 
-Spector Memory achieves structural flexibility by mapping all high-level cognitive subsystems to a unified storage hierarchy managed by the Spector Memory Kernel (`Memory<Layout>`). Every off-heap segment maps to one of five core **Memory Shapes** implemented using Java Project Panama's Foreign Function & Memory API:
+Spector Memory maps high-level cognitive subsystems to a unified storage hierarchy managed by the Spector Memory Kernel (`spector-kernel`). Every off-heap native segment maps to one of seven canonical **Memory Shapes**:
 
 ```mermaid
 flowchart TD
-    subgraph "Spector Memory Kernel (Memory shapes)"
-        RM["RecordMemory<br/><i>Contiguous slots</i>"]
-        AM["AppendMemory<br/><i>Cursor log</i>"]
-        GM["GraphMemory<br/><i>CSR & Adjacency slabs</i>"]
-        CM["ChainMemory<br/><i>Causal linking</i>"]
-        YM["RegistryMemory<br/><i>String mapping</i>"]
+    subgraph "Spector Memory Kernel (7 Memory Shapes)"
+        RM["RecordMemory<br/><i>Contiguous cache-aligned slots</i>"]
+        AM["AppendMemory<br/><i>Sequential cursor log</i>"]
+        GM["GraphMemory<br/><i>CSR & dynamic adjacency slabs</i>"]
+        CM["ChainMemory<br/><i>Causal chronological links</i>"]
+        HM["HashTableMemory<br/><i>O(1) lock-free mapping</i>"]
+        YM["RegistryMemory<br/><i>Bidirectional symbol interning</i>"]
+        EM["EntityDirectoryMemory<br/><i>Entity ID & name pools</i>"]
     end
 
     subgraph "Subsystem Backing"
-        RM_C["Cortex Tiers &<br/>CoActivationTracker"]
-        AM_C["TextDataStore &<br/>MemoryWal"]
-        GM_C["EntityGraph &<br/>HebbianGraph"]
-        CM_C["TemporalChain"]
-        YM_C["TypeRegistry"]
+        RM_C["Working, Semantic, & Procedural Tiers<br/>& Recall Strength Region"]
+        AM_C["Text Blobs & Memory WAL"]
+        GM_C["Hebbian Graph & HyperEntity Graph"]
+        CM_C["Temporal Episode Chains"]
+        HM_C["Pairwise Co-Activation Matrix"]
+        YM_C["Entity & Relation Type Registries"]
+        EM_C["Entity Directory"]
     end
 
     RM -.-> RM_C
     AM -.-> AM_C
     GM -.-> GM_C
     CM -.-> CM_C
+    HM -.-> HM_C
     YM -.-> YM_C
-
-    style RM fill:#e74c3c,color:white
-    style AM fill:#0984e3,color:white
-    style GM fill:#00b894,color:white
-    style CM fill:#f39c12,color:white
-    style YM fill:#8e44ad,color:white
+    EM -.-> EM_C
 ```
 
-### 1. `RecordMemory<L>` & `PartitionedRecordMemory<L>`
-Stores fixed-size structures as cache-aligned contiguous byte slots. Subsystems (Working, Semantic, and Procedural tiers, and `CoActivationTracker`) read/write directly at slot offsets within a mapped `MemorySegment`.
-*   **Volatile Arena Allocation:** Working and Procedural stores use volatile, in-memory shared arenas for transient operations.
-*   **Memory-Mapped File Allocation (`PartitionedRecordMemory`):** Episodic memory uses memory-mapped files partitioned by time (e.g., `episodic-20260527.mem`), mapped dynamically to share physical memory pages as needed.
-
-### 2. `AppendMemory<L>`
-Provides append-only sequential streams with cursor position tracking.
-*   Backs the Write-Ahead Log (`MemoryWal`) and the text document store (`TextDataStore`).
-*   Optimized for high-throughput appends with minimal write lock contention.
-
-### 3. `RegistryMemory`
-Maintains bidirectional mappings between string symbols and compact integer identifiers.
-*   Backs `TypeRegistry`, allowing open-schema entity and relation types to be registered dynamically without string overhead on the off-heap hot paths.
-
-### 4. `GraphMemory`
-Manages sparse node-relationship matrices using compact Compressed Sparse Row (CSR) and slab-allocated adjacency lists.
-*   Backs `EntityGraph` and `HebbianGraph`, offering high-performance off-heap graph traversals and associative weights adjustment.
-
-### 5. `ChainMemory`
-Tracks ordered sequences of temporal events linking sessions together.
-*   Backs the `TemporalChain` list structure to reconstruct causal reasoning pathways ("what happened next?").
-
----
+For full details on the memory shapes, see [Typed Memory Shapes](../kernel/shapes.md).
 
 ## Namespace Management & Multi-Tenant Isolation
 
@@ -147,108 +125,37 @@ sequenceDiagram
 
 ---
 
-## Binary Record Format
+## Binary Record Format & Telemetry Separation
 
-### Versioned Header Layout
-
-The cognitive record format uses a **64-byte cache-line-aligned header** via the `HeaderLayout` sealed interface. The header occupies exactly one CPU cache line for optimal sequential scan performance. See [Synapse — Tags & Scoring](synapse.md) for the full byte-level specification.
+The cognitive record format uses a **64-byte cache-line-aligned pure encoding header** paired with quantized vector data, while isolating all mutable telemetry into a dedicated 96-byte strength audit region:
 
 ```mermaid
 graph LR
-    subgraph "64B Header + Vector"
-        H["Header (64B)"] --> V["INT8 Vector (NB)"]
+    subgraph "Pure Engram Record (64B Cache Line + Vector)"
+        H["Pure Encoding Header (64B)"] --> V["INT8 Quantized Vector (NB)"]
     end
+    subgraph "Recall Audit Region"
+        S["Strength State (96B)"]
+    end
+    H -.->|Slot Mapping| S
 
     style H fill:#27ae60,color:white
     style V fill:#2ecc71,color:white
+    style S fill:#e67e22,color:white
 ```
 
-### Layout (64 bytes) — Cache-Line Aligned
-
-```
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-| ver(1B)|flg(1B)| val(1B)| aro(1B)| importance (4B)            |  ← Offset 0
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                                                               |
-+                      timestamp (8B)                           +  ← Offset 8
-|                                                               |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|              agent_recall_count (4B)                          |  ← Offset 16
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|              exact_norm (4B)                                  |  ← Offset 20
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                                                               |
-+                    synapticTags (8B)                          +  ← Offset 24
-|                                                               |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|  centroid_id (2B) |  _pad0 (2B) | storage_strength (4B)       |  ← Offset 32
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|      spector_recall_cnt (4B)    |   _reserved_f1 (4B)         |  ← Offset 40
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                                                               |
-+                    last_auto_ltp (8B)                         +  ← Offset 48
-|                                                               |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                                                               |
-+                    _reserved_l1 (8B)                          +  ← Offset 56
-|                                                               |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                                                               |
-+              Quantized Vector — INT8[N]                       +  ← Offset 64
-|              (dequantize: float = byte × scale + min)         |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                  stride = 64 + N bytes per record
-```
-
-### Memory Cost
-
-| Header | Stride (768-dim) | 1M Records | Alignment           |
-| :----- | :--------------: | :--------: | :------------------ |
-| 64B    |       832B       |  ~793 MB   | 1× cache line (64B) |
-
-### Field Access Patterns
-
-The header layout is designed for **sequential access** in the scoring hot-loop. Fields are ordered by access frequency:
-
-```
-Phase 1: flags        (offset 1,  1B)  — First check, highest skip rate
-Phase 2: synapticTags (offset 24, 8B)  — Second check, eliminates 99%
-Phase 3: valence      (offset 2,  1B)  — Third check (profile-dependent)
-Phase 4: importance   (offset 4,  4B)  — Fourth check
-Phase 4: timestamp    (offset 8,  8B)  — Read with importance
-Phase 4: recallCount  (offset 16, 4B)  — Reconsolidation adjustment
-Phase 4: arousal      (offset 3,  1B)  — Arousal-modulated decay
-Phase 4: storageStr   (offset 36, 4B)  — Two-Factor S(t)
-Phase 5: vector       (offset 64, NB)  — Only if all filters pass
-```
-
-!!! tip "Cache Line Optimization"
-    The 64-byte header occupies exactly **one CPU cache line**. During sequential scans, each header read hits exactly one cache line — no split-line loads, no false sharing. The CPU prefetcher can pre-fetch the next record's header while the current one is being scored.
+For complete byte-level offsets and specifications of the 64-byte encoding header, 128-bit synaptic Bloom tags, and 96-byte strength state, see [Binary Record Specifications & Synaptic Header](../kernel/layouts.md).
 
 ---
 
-## Episodic Partition File Format
+## Bundle Storage Containers
 
-Each episodic partition file has a 64-byte metadata header:
+Rather than fragmenting data across dozens of flat files, Spector uses the unified **Bundle Architecture**:
+- **`runtime.bundle`**: Single memory-mapped container for working memory, live graphs, and sidecar regions.
+- **`partition.bundle`**: Time-partitioned bundles (`partitions/{seq}/partition.bundle`) hosting long-term semantic, procedural, and episodic engrams.
+- **`identity.bundle`**: Dedicated store for agent identity, persona, and system guardrails.
 
-```
-Offset   Size   Field            Description
-──────   ────   ─────            ───────────
-  0       4B    magic            0x45504943 ("EPIC" in ASCII)
-  4       4B    version          Format version (1)
-  8       4B    count            Number of live records
- 12       4B    tombstoneCount   Number of tombstoned records
- 16       4B    capacity         Maximum records in partition
- 20       4B    state            PartitionState ordinal
- 24       4B    stride           Record stride in bytes
- 28      36B    reserved         Future use (alignment padding)
-```
-
-**File naming**: `episodic-{yyyyMMdd}.mem` (e.g., `episodic-20260527.mem`)
-
-**Partition capacity**: Default 10,000 records per partition. At 832 bytes/record (768-dim INT8), each partition file is ~8 MB.
+For full architectural details, see [Bundle Architecture & Storage Containers](../kernel/bundles.md).
 
 ---
 

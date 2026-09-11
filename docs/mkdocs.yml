@@ -34,6 +34,7 @@ theme:
     - navigation.top               # "Back to top" button on scroll
     - navigation.instant           # Single-page app feel (no full reload)
     - navigation.instant.progress  # Loading progress bar
+    - navigation.instant.prefetch  # Pre-load pages on link hover for instant transitions
     - navigation.tracking          # URL updates as you scroll sections
     - navigation.indexes           # Section index pages
     - navigation.footer            # Previous/Next page links at bottom
@@ -120,6 +121,7 @@ nav:
       - Quick Start: getting-started/quickstart.md
       - Installation: getting-started/installation.md
       - Developer Guide: getting-started/developer-guide.md
+      - "JDK API Status": getting-started/jdk-api-status.md
       - MCP Server: sdk-usage/mcp-server.md
       - Java SDK: sdk-usage/java-client.md
       - Java API Reference: apidocs/index.html
@@ -130,6 +132,7 @@ nav:
           - spector: cli-reference/spector.md
           - spector-inspect: cli-reference/spector-inspect.md
       - REST API: api-reference/rest-endpoints.md
+      - Error Codes: api-reference/error-codes.md
       - Configuration: configuration/parameters.md
       - Deployment:
           - Docker & Compose: deployment/docker.md
@@ -148,6 +151,7 @@ nav:
       - "Autonomous Identity & AISME": memory/aisme.md
       - "Generative Dreaming & Thought Experiments": memory/dreaming.md
       - "Constructive Simulation & Provenance": memory/constructive-memory.md
+      - "Theoretical Foundations": memory/theoretical-foundations.md
       - "Retrieval Stack":
           - Overview: memory/retrieval-overview.md
           - "Keyword Retrieval (BM25)": memory/bm25.md
@@ -163,7 +167,7 @@ nav:
           - "Salience & Persona Profiles": memory/salience-importance.md
       - Biological Systems:
           - Overview: memory/biological-systems.md
-          - "Cortex — Tier Stores": memory/cortex.md
+          - "Cortex — 4-Tier Memory": memory/cortex.md
           - "Hippocampus — Sleep Consolidation": memory/hippocampus.md
           - "Synapse — Tags & Scoring": memory/synapse.md
           - "Dopamine — Surprise Detection": memory/dopamine.md
@@ -181,12 +185,20 @@ nav:
           - "WAL Design": memory/wal-design.md
       - Cognitive Evaluation: memory/evaluation.md
 
-  # Tab 4: Synapse & Cortex — the agentic layer (own tab)
+  # Tab 4: Memory Kernel — zero-GC Panama FFM storage backbone (NEW TAB!)
+  - "Memory Kernel":
+      - Overview: kernel/index.md
+      - "Bundle Architecture": kernel/bundles.md
+      - "Memory Shapes": kernel/shapes.md
+      - "Binary Layouts & Tags": kernel/layouts.md
+      - "WAL & Durability": kernel/wal-recovery.md
+
+  # Tab 5: Synapse & Cortex — the agentic layer (own tab)
   - "Synapse & Cortex":
       - "Synapse Overview": synapse/index.md
       - "Cortex Dashboard & Chat": cortex/index.md
 
-  # Tab 5: Search Engine & Architecture
+  # Tab 6: Architecture & Modules
   - Architecture:
       - System Overview: architecture/overview.md
       - Core Concepts: architecture/core-concepts.md
@@ -195,15 +207,48 @@ nav:
       - Distributed Mode: architecture/distributed-mode.md
       - Event Notifications: architecture/event-notifications.md
       - Namespace Sharding: architecture/namespace-sharding.md
+      - "Salience & Importance Architecture": architecture/salience-importance.md
       - GPU Acceleration: architecture/gpu-acceleration.md
       - Performance Tuning: operations/performance-tuning.md
       - Test Framework & LLM Judge: architecture/test-framework.md
       - Security & Data:
           - "Encryption at Rest": architecture/encryption-at-rest.md
+      - "Modules Registry":
+          - Overview: modules/index.md
+          - "Foundation Layer (/nucleus)":
+              - spector-bom: modules/spector-bom.md
+              - spector-commons: modules/spector-commons.md
+              - spector-core: modules/spector-core.md
+              - spector-cpu: modules/spector-cpu.md
+              - spector-gpu: modules/spector-gpu.md
+              - spector-hdc: modules/spector-hdc.md
+              - spector-index: modules/spector-index.md
+              - spector-config: modules/spector-config.md
+              - spector-events: modules/spector-events.md
+              - spector-test-support: modules/spector-test-support.md
+          - "Cognitive Layer (/memory)":
+              - spector-kernel: modules/spector-kernel.md
+              - spector-memory: modules/spector-memory.md
+              - spector-provider-api: modules/spector-provider-api.md
+              - spector-providers: modules/spector-providers.md
+              - spector-ingestion: modules/spector-ingestion.md
+              - spector-inspect: modules/spector-inspect.md
+              - spector-metrics: modules/spector-metrics.md
+          - "Gateway Layer (/synapse)":
+              - spector-synapse: modules/spector-synapse.md
+              - spector-connector: modules/spector-connector.md
+              - spector-mcp: modules/spector-mcp.md
+              - spector-cli: modules/spector-cli.md
+              - spector-spring: modules/spector-spring.md
+              - spector-batch: modules/spector-batch.md
+          - "Benchmarks & UI":
+              - spector-bench: modules/spector-bench.md
+              - spector-cortex: modules/spector-cortex.md
       - Deep Dives:
           - ANN Search Primer: deep-dives/ann-search-primer.md
           - HNSW Explained: deep-dives/hnsw-explained.md
           - SpectorIndex Architecture: deep-dives/spector-index-architecture.md
+          - "Provenance Region": deep-dives/provenance-region.md
           - SVASQ Quantization: deep-dives/svasq-deep-dive.md
           - Understanding Quantization: deep-dives/understanding-quantization.md
           - Quantization Comparison: deep-dives/quantization-comparison.md
@@ -211,7 +256,7 @@ nav:
           - Real-Embedding Benchmarks: deep-dives/real-embedding-benchmarks.md
           - "Whitepaper: SVASQ + SpectorIndex": deep-dives/svasq-spectorindex-whitepaper.md
 
-  # Tab 6: Community & future
+  # Tab 7: Community & Labs
   - Community:
       - Contributing: operations/contributing.md
       - FAQ: faq.md
@@ -220,6 +265,10 @@ nav:
           - labs/index.md
           - Research Roadmap: labs/roadmap.md
           - "Hyperdimensional Computing": labs/hdc.md
+      - "Third-Party Legal":
+          - "DejaVu Fonts": apidocs/legal/dejavufonts.md
+          - "jQuery": apidocs/legal/jquery.md
+          - "jQuery UI": apidocs/legal/jqueryUI.md
 
 # ═══════════════════════════════════════════════════════════════
 #  SEO & Social
