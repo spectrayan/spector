@@ -8,9 +8,34 @@
 #   On SIGTERM (docker stop), the JVM receives the signal directly
 #   and runs its shutdown hook to persist data.
 #   Nginx is stopped first, then we wait for the JVM to finish.
+#
+# Docker Secrets:
+#   Mount secrets at /run/secrets/<name> to inject API keys:
+#     - spector_embedding_api_key → SPECTOR_EMBEDDING_API_KEY
+#     - spector_generation_api_key → SPECTOR_GENERATION_API_KEY
+#     - spector_api_key → SPECTOR_API_KEY
+#     - spector_auth_jwt_secret → SPECTOR_AUTH_JWT_SECRET
 # ═══════════════════════════════════════════════════════════════════
 
 set -e
+
+# ── Load Docker Secrets ──
+# If mounted at /run/secrets/, export as environment variables
+for secret_file in \
+    spector_embedding_api_key:SPECTOR_EMBEDDING_API_KEY \
+    spector_generation_api_key:SPECTOR_GENERATION_API_KEY \
+    spector_api_key:SPECTOR_API_KEY \
+    spector_auth_jwt_secret:SPECTOR_AUTH_JWT_SECRET; do
+    file_name="${secret_file%%:*}"
+    env_name="${secret_file##*:}"
+    secret_path="/run/secrets/${file_name}"
+    if [ -f "$secret_path" ]; then
+        export "$env_name"="$(cat "$secret_path")"
+        echo "[Spector] Loaded secret: ${env_name} from ${secret_path}"
+    fi
+done
+
+
 
 # Ensure data directories exist (if writable)
 mkdir -p /data/index /data/memory /data/tmp 2>/dev/null || true

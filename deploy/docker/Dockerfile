@@ -78,6 +78,27 @@ ENV JAVA_OPTS="-Xms512m -Xmx1536m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 \
 --enable-preview --add-modules=jdk.incubator.vector \
 --enable-native-access=ALL-UNNAMED -Djava.io.tmpdir=/data/tmp"
 
+# ── Provider Configuration ──
+# Supported types: ollama | openai | google | anthropic | mistral | azure | bedrock | onnx
+ENV SPECTOR_EMBEDDING_PROVIDER=ollama \
+    SPECTOR_EMBEDDING_MODEL=nomic-embed-text \
+    SPECTOR_EMBEDDING_BASE_URL=http://host.docker.internal:11434 \
+    SPECTOR_EMBEDDING_API_KEY="" \
+    SPECTOR_EMBEDDING_DIMS=768 \
+    SPECTOR_EMBEDDING_TIMEOUT=120s \
+    SPECTOR_GENERATION_PROVIDER=ollama \
+    SPECTOR_GENERATION_MODEL=llama3.2 \
+    SPECTOR_GENERATION_BASE_URL=http://host.docker.internal:11434 \
+    SPECTOR_GENERATION_API_KEY=""
+
+# ── Memory Configuration ──
+ENV SPECTOR_MEMORY_CAPACITY=10000 \
+    SPECTOR_ENTITY_EXTRACTION_MODE=NONE \
+    SPECTOR_TAG_EXTRACTOR=content \
+    SPECTOR_TEXT_SEARCH_MODE=HYBRID \
+    SPECTOR_LLM_TEMPERATURE=0.3 \
+    SPECTOR_LLM_MAX_TOKENS=1024
+
 # Prepare filesystem permissions for non-root execution (UID 1000)
 RUN mkdir -p /data/index /data/memory /data/tmp /tmp/nginx /var/log/nginx /var/lib/nginx \
     && chown -R 1000:1000 /data /app /usr/share/nginx/html /etc/nginx /var/log/nginx /var/lib/nginx /tmp/nginx
