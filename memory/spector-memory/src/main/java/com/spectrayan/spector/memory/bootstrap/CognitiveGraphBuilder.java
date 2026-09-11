@@ -114,7 +114,7 @@ public final class CognitiveGraphBuilder {
         int temporalCapacity = memProps.getTemporalChainCapacity() > 0
                 ? memProps.getTemporalChainCapacity() : graphCapacity;
         TemporalChainMemory temporalChain;
-        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.TEMPORAL_CHAIN)) {
             temporalChain = com.spectrayan.spector.kernel.store.TemporalChainMemory.fromRegionRef(cortex.runtimeBundle().regionRef(RegionId.TEMPORAL_CHAIN), temporalCapacity, cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew());
         } else {
             temporalChain = new TemporalChainMemory(temporalCapacity);
@@ -146,7 +146,7 @@ public final class CognitiveGraphBuilder {
         HyperEntityGraphMemory hyperEntityGraph;
         int hyperCap = memProps.getEntityGraphCapacity();
         int hyperEdgeCap = hyperCap * 2;
-        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.HYPERGRAPH)) {
             boolean isNew = cortex.runtimeBundle().isNew()
                     || !com.spectrayan.spector.kernel.region.RegionPreamble.isValid(cortex.runtimeBundle().regionRef(RegionId.HYPERGRAPH).resolve(), 0L);
             hyperEntityGraph = com.spectrayan.spector.kernel.store.HyperEntityGraphMemory.fromRegionRef(
@@ -163,7 +163,7 @@ public final class CognitiveGraphBuilder {
         EntityDirectory entityDirectory;
         int dirCap = memProps.getEntityGraphCapacity();
         TypeRegistryMemory entityTypeRegistry;
-        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.ENTITY_TYPES)) {
             entityTypeRegistry = cortex.runtimeBundle().openRegistry(
                     com.spectrayan.spector.kernel.region.RegionId.ENTITY_TYPES,
                     SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
@@ -171,7 +171,7 @@ public final class CognitiveGraphBuilder {
             entityTypeRegistry = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
         }
 
-        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.ENTITY_DIRECTORY) && cortex.runtimeBundle().hasRegion(RegionId.ENTITY_NAMES)) {
             boolean isNew = cortex.runtimeBundle().isNew()
                     || !com.spectrayan.spector.kernel.region.RegionPreamble.isValid(cortex.runtimeBundle().regionRef(RegionId.ENTITY_DIRECTORY).resolve(), 0L);
             entityDirectory = com.spectrayan.spector.memory.graph.EntityDirectory.fromRegionRefs(
@@ -184,7 +184,7 @@ public final class CognitiveGraphBuilder {
 
         TemporalKnowledgeGraph temporalKnowledgeGraph;
         TypeRegistryMemory predRegistry;
-        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.RELATION_TYPES)) {
             predRegistry = cortex.runtimeBundle().openRegistry(
                     com.spectrayan.spector.kernel.region.RegionId.RELATION_TYPES,
                     SystemMemoryId.RELATION_TYPE, null);
@@ -192,7 +192,7 @@ public final class CognitiveGraphBuilder {
             predRegistry = new TypeRegistryMemory(SystemMemoryId.RELATION_TYPE);
         }
 
-        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.TEMPORAL_FACTS)) {
             boolean isNew = cortex.runtimeBundle().isNew()
                     || !com.spectrayan.spector.kernel.region.RegionPreamble.isValid(cortex.runtimeBundle().regionRef(RegionId.TEMPORAL_FACTS).resolve(), 0L);
             temporalKnowledgeGraph = com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph.fromRegionRef(predRegistry, cortex.runtimeBundle().regionRef(RegionId.TEMPORAL_FACTS), cortex.runtimeBundle().bundlePath(), isNew);

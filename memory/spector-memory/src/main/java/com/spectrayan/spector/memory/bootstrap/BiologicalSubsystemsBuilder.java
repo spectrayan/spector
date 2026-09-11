@@ -100,7 +100,7 @@ public final class BiologicalSubsystemsBuilder {
         ValenceTracker valenceTracker = new ValenceTracker(remProps.getValenceLearningRate());
 
         CoActivationMemory coActivationTracker;
-        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.COACTIVATION)) {
             coActivationTracker = CoActivationMemory.fromRegionRef(cortex.runtimeBundle().regionRef(RegionId.COACTIVATION), 10_000, 20_000, cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew(), cortex.runtimeBundle().checkpointRef() != null ? cortex.runtimeBundle().checkpointRef().resolve() : null);
         } else {
             coActivationTracker = new CoActivationMemory();
