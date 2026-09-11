@@ -133,6 +133,22 @@ public final class BridgeDetector {
      */
     public static int[][] computeBridgeScoresSpanningTree(
             int[][] adjacency, int nodeCount, int sampleCount, long budgetMs) {
+        return computeBridgeScoresSpanningTree(
+                adjacency, nodeCount, sampleCount, budgetMs, ThreadLocalRandom.current());
+    }
+
+    /**
+     * Computes bridge scores for all edges using random spanning tree sampling with a custom PRNG.
+     *
+     * @param adjacency   adjacency lists
+     * @param nodeCount   number of nodes in the graph
+     * @param sampleCount number of spanning trees to sample
+     * @param budgetMs    maximum time budget in milliseconds (0 = unlimited)
+     * @param rng         random generator instance
+     * @return bridge scores or {@code null} if time budget exceeded
+     */
+    public static int[][] computeBridgeScoresSpanningTree(
+            int[][] adjacency, int nodeCount, int sampleCount, long budgetMs, java.util.random.RandomGenerator rng) {
 
         long startNanos = System.nanoTime();
 
@@ -157,7 +173,6 @@ public final class BridgeDetector {
         }
 
         // Sample K spanning trees
-        var rng = ThreadLocalRandom.current();
         int treesCompleted = 0;
 
         for (int k = 0; k < sampleCount; k++) {
