@@ -233,8 +233,12 @@ public final class CognitiveCortexBuilder {
             }
 
             workingStore = runtimeBundle.openWorking(quantizedVecBytes, memProps.getWorkingCapacity());
-            insularCortex = InsulaMemory.fromRegionRef(runtimeBundle.regionRef(RegionId.INSULA), runtimeBundle.isNew());
-            continuityMemory = ContinuityMemory.fromRegionRef(runtimeBundle.regionRef(RegionId.CONTINUITY), runtimeBundle.isNew());
+            insularCortex = runtimeBundle.hasRegion(RegionId.INSULA)
+                    ? InsulaMemory.fromRegionRef(runtimeBundle.regionRef(RegionId.INSULA), runtimeBundle.isNew())
+                    : InsulaMemory.heap();
+            continuityMemory = runtimeBundle.hasRegion(RegionId.CONTINUITY)
+                    ? ContinuityMemory.fromRegionRef(runtimeBundle.regionRef(RegionId.CONTINUITY), runtimeBundle.isNew())
+                    : ContinuityMemory.heap(1000);
             provenanceMemory = runtimeBundle.hasRegion(RegionId.PROVENANCE) ? ProvenanceMemory.fromRegionRef(runtimeBundle.regionRef(RegionId.PROVENANCE), runtimeBundle.bundlePath()) : null;
 
             // ── V4 Partition Bundle ──

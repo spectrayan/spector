@@ -17,6 +17,7 @@ package com.spectrayan.spector.kernel.store;
 
 import com.spectrayan.spector.kernel.migration.FormatCodec;
 
+import com.spectrayan.spector.core.graph.SpreadingActivationKernel;
 import com.spectrayan.spector.kernel.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.kernel.score.BridgeDetector;
 import com.spectrayan.spector.kernel.score.EdgeImportance;
@@ -93,9 +94,9 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     private static final float DECAY_FLOOR = 0.10f;
 
     /** Minimum compound weight for recursive spreading activation to continue. */
-    private static final float ACTIVATION_CUTOFF = 0.1f;
+    private static final float ACTIVATION_CUTOFF = SpreadingActivationKernel.DEFAULT_ACTIVATION_CUTOFF;
     /** Per-hop attenuation factor applied to compound weight during spreading activation. */
-    private static final float HOP_ATTENUATION = 0.7f;
+    private static final float HOP_ATTENUATION = SpreadingActivationKernel.DEFAULT_HOP_ATTENUATION;
 
     /** Maximum degree per node (prevents graph explosion). */
     private final int maxDegree;
@@ -829,6 +830,10 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
 
         int start = getOffset(node);
         int end = getOffset(node + 1);
+        // Single-pass, zero-allocation scan. This runs on the hot edge-insertion path, so the
+        // struct-of-arrays batch seam is deliberately NOT used here: scoreStructural is scalar
+        // (Math.exp dominated) and offers no vectorization gain, while marshalling into arrays
+        // would cost four allocations and three passes per insertion. See ADR-0033 Principle 3.
         for (int i = start; i < end; i++) {
             long edgeOff = (long) i * EDGE_BYTES;
             float weight = edges.get(ValueLayout.JAVA_FLOAT, edgeOff + EDGE_OFF_WEIGHT);
@@ -1026,7 +1031,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
         visited[node] = true;
 
         for (HebbianEdge edge : neighbors(node)) {
-            float compoundWeight = edge.weight() * attenuation;
+            float compoundWeight = SpreadingActivationKernel.compoundWeight(edge.weight(), attenuation);
             if (compoundWeight > ACTIVATION_CUTOFF && !visited[edge.neighborIndex()]) {
                 activated.add(new HebbianEdge(edge.neighborIndex(), compoundWeight));
                 activateRecursive(edge.neighborIndex(), depth - 1, compoundWeight * HOP_ATTENUATION,

@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.pathway.pipeline.reranker;
 
+import com.spectrayan.spector.core.similarity.ColbertFusion;
 import com.spectrayan.spector.core.spi.AcceleratorRegistry;
 import com.spectrayan.spector.core.spi.MaxSimKernel;
 import com.spectrayan.spector.provider.embedding.TokenEmbeddingProvider;
@@ -143,7 +144,7 @@ public final class ColBERTReranker {
                     TokenEmbeddingResult docTokens = provider.encode(candidate.text());
                     if (docTokens.tokenCount() == 0) {
                         results.add(new RerankResult(candidate.id(), 0f,
-                                candidate.firstStageScore(), oneMinusAlpha * candidate.firstStageScore()));
+                                candidate.firstStageScore(), ColbertFusion.combineScores(0f, candidate.firstStageScore(), alpha)));
                         continue;
                     }
                     docEmbeddings = docTokens.embeddings();
@@ -155,7 +156,7 @@ public final class ColBERTReranker {
 
                 float maxSim = computeMaxSim(queryTokens.embeddings(), docEmbeddings);
                 float normalizedMaxSim = maxSim / queryTokens.tokenCount();
-                float combined = alpha * normalizedMaxSim + oneMinusAlpha * candidate.firstStageScore();
+                float combined = ColbertFusion.combineScores(normalizedMaxSim, candidate.firstStageScore(), alpha);
 
                 results.add(new RerankResult(candidate.id(), normalizedMaxSim,
                         candidate.firstStageScore(), combined));
@@ -163,7 +164,7 @@ public final class ColBERTReranker {
                 log.warn("ColBERT: failed to encode candidate '{}', keeping first-stage score",
                         candidate.id(), e);
                 results.add(new RerankResult(candidate.id(), 0f,
-                        candidate.firstStageScore(), oneMinusAlpha * candidate.firstStageScore()));
+                        candidate.firstStageScore(), ColbertFusion.combineScores(0f, candidate.firstStageScore(), alpha)));
             }
         }
 

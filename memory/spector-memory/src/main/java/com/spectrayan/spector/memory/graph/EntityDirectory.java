@@ -12,20 +12,22 @@
  */
 package com.spectrayan.spector.memory.graph;
 
-import com.spectrayan.spector.kernel.bundle.RegionRef;
-import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
-import com.spectrayan.spector.memory.persist.DataEncryptor;
-import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
-import com.spectrayan.spector.provider.generation.LlmProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.spectrayan.spector.core.similarity.CosineSimilarity;
+import com.spectrayan.spector.kernel.bundle.RegionRef;
+import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
+import com.spectrayan.spector.memory.persist.DataEncryptor;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 
 /**
  * High-level entity directory subclass providing semantic entity resolution,
@@ -170,7 +172,9 @@ public class EntityDirectory extends com.spectrayan.spector.kernel.graph.EntityD
                 String typeB = entityType(idB);
                 if (!typeA.equals(typeB)) continue;
 
-                float sim = cosineSimilarity(embeddings[i], embeddings[j]);
+                // computeSafe: entity embeddings of differing dimensions are simply not comparable
+                // and must score 0 (no merge proposed) rather than aborting the resolution sweep.
+                float sim = CosineSimilarity.computeSafe(embeddings[i], embeddings[j]);
                 if (sim >= cosineThreshold) {
                     String nameB = entries.get(j).getKey();
 
@@ -193,18 +197,6 @@ public class EntityDirectory extends com.spectrayan.spector.kernel.graph.EntityD
             }
         }
         return mergeCount;
-    }
-
-    private static float cosineSimilarity(float[] a, float[] b) {
-        if (a == null || b == null || a.length != b.length) return 0f;
-        float dot = 0f, normA = 0f, normB = 0f;
-        for (int i = 0; i < a.length; i++) {
-            dot += a[i] * b[i];
-            normA += a[i] * a[i];
-            normB += b[i] * b[i];
-        }
-        if (normA == 0f || normB == 0f) return 0f;
-        return (float) (dot / (Math.sqrt(normA) * Math.sqrt(normB)));
     }
 
     public static int levenshteinDistance(String a, String b) {

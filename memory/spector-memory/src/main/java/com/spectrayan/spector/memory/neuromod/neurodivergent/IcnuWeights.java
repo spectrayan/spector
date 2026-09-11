@@ -130,28 +130,9 @@ public record IcnuWeights(float interest, float challenge, float novelty, float 
      */
     public float fuse(float interestVal, float challengeVal,
                        float noveltyNorm, float urgencyVal) {
-        if (steepness <= 0f) {
-            // Linear fallback (pre-sigmoid behavior)
-            float raw = interest * interestVal
-                       + challenge * challengeVal
-                       + novelty * noveltyNorm
-                       + urgency * urgencyVal;
-            float scaled = MIN_IMPORTANCE + raw * (MAX_IMPORTANCE - MIN_IMPORTANCE);
-            return Math.clamp(scaled, MIN_IMPORTANCE, MAX_IMPORTANCE);
-        }
-
-        // Sigmoid-gated fusion with I×N multiplicative interaction
-        // Interest and novelty must BOTH be high (dopaminergic gating)
-        float stimulus = interest * (interestVal * noveltyNorm)
-                       + challenge * challengeVal
-                       + urgency * urgencyVal;
-
-        // Sigmoid: σ(k · (stimulus - θ))
-        float gated = 1.0f / (1.0f + (float) Math.exp(-steepness * (stimulus - threshold)));
-
-        // Scale to importance range
-        float scaled = MIN_IMPORTANCE + gated * (MAX_IMPORTANCE - MIN_IMPORTANCE);
-        return Math.clamp(scaled, MIN_IMPORTANCE, MAX_IMPORTANCE);
+        return com.spectrayan.spector.core.cognitive.IcnuSalienceKernel.fuse(
+                interestVal, challengeVal, noveltyNorm, urgencyVal,
+                interest, challenge, novelty, urgency, threshold, steepness);
     }
 
     /**

@@ -133,9 +133,9 @@ public final class LateralEvaluator {
         int returned = lateralReturned.get();
         if (returned < evaluationWindow) return;
 
-        float lur = (float) lateralReinforced.get() / returned;
-        float lsr = (float) lateralSuppressed.get() / returned;
-        float lhi = (1.0f - lur) * lsr;
+        float lur = com.spectrayan.spector.core.cognitive.LateralRetrievalKernel.utilityRate(lateralReinforced.get(), returned);
+        float lsr = com.spectrayan.spector.core.cognitive.LateralRetrievalKernel.suppressionRate(lateralSuppressed.get(), returned);
+        float lhi = com.spectrayan.spector.core.cognitive.LateralRetrievalKernel.hallucinationIndex(lur, lsr);
 
         if (lur < AUTO_DISABLE_LUR) {
             log.warn("Lateral auto-disable: LUR={}, LSR={}, LHI={} over {} results — " +

@@ -42,6 +42,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import com.spectrayan.spector.commons.error.ErrorCode;
 
 /**
@@ -312,6 +314,49 @@ public final class SpectorConfigSource {
 
     // ─────────────── Environment Variable Resolution ───────────────
 
+    private static final Pattern ENV_PLACEHOLDER_PATTERN =
+            Pattern.compile("\\$\\{([A-Za-z0-9_.-]+)(?::([^}]*))?\\}");
+
+    /**
+     * Expands ${VAR:default} and ${VAR} style placeholders against environment
+     * variables and system properties.
+     *
+     * @param text string containing potential placeholders
+     * @return resolved string with placeholders expanded
+     */
+    public static String expandPlaceholders(String text) {
+        if (text == null || !text.contains("${")) {
+            return text;
+        }
+        Matcher matcher = ENV_PLACEHOLDER_PATTERN.matcher(text);
+        StringBuilder sb = new StringBuilder();
+        while (matcher.find()) {
+            String varName = matcher.group(1);
+            String defaultValue = matcher.group(2);
+
+            String val = System.getenv(varName);
+            if (val == null) {
+                String normalizedEnv = varName.toUpperCase(java.util.Locale.ROOT).replace('.', '_').replace('-', '_');
+                val = System.getenv(normalizedEnv);
+            }
+            if (val == null) {
+                val = System.getProperty(varName);
+            }
+
+            String replacement;
+            if (val != null) {
+                replacement = val;
+            } else if (defaultValue != null) {
+                replacement = defaultValue;
+            } else {
+                replacement = matcher.group(0);
+            }
+            matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
+    }
+
     /**
      * Resolves a key by first checking system properties, then environment
      * variables (with dot-to-underscore mapping), then the configuration.
@@ -319,16 +364,19 @@ public final class SpectorConfigSource {
     private String resolveWithEnv(String key, String defaultValue) {
         // 1. System property
         String sysProp = System.getProperty(key);
-        if (sysProp != null) return sysProp;
+        if (sysProp != null) return expandPlaceholders(sysProp);
 
         // 2. Environment variable (spector.memory.dimensions → SPECTOR_MEMORY_DIMENSIONS)
         String envKey = key.toUpperCase().replace('.', '_').replace('-', '_');
         String envValue = System.getenv(envKey);
-        if (envValue != null) return envValue;
+        if (envValue != null) return expandPlaceholders(envValue);
 
-        // 3. Configuration file (variable interpolation handled natively by Commons Configuration 2)
+        // 3. Configuration file (with placeholder expansion for ${VAR:default})
         String configValue = config.getString(key, null);
-        return configValue != null ? configValue : defaultValue;
+        if (configValue != null) {
+            return expandPlaceholders(configValue);
+        }
+        return defaultValue != null ? expandPlaceholders(defaultValue) : null;
     }
 
     // ─────────────── Duration Parsing ───────────────
@@ -462,7 +510,9 @@ public final class SpectorConfigSource {
                     if (fileName.endsWith(".yml") || fileName.endsWith(".yaml")) {
                         YAMLConfiguration yaml = new YAMLConfiguration();
                         configureInterpolator(yaml);
-                        try (Reader reader = Files.newBufferedReader(path)) {
+                        String content = Files.readString(path, StandardCharsets.UTF_8);
+                        String expanded = expandPlaceholders(content);
+                        try (Reader reader = new java.io.StringReader(expanded)) {
                             yaml.read(reader);
                         }
                         combined.addConfiguration(yaml, name);
@@ -470,7 +520,9 @@ public final class SpectorConfigSource {
                     } else if (fileName.endsWith(".properties")) {
                         PropertiesConfiguration props = new PropertiesConfiguration();
                         configureInterpolator(props);
-                        try (Reader reader = Files.newBufferedReader(path)) {
+                        String content = Files.readString(path, StandardCharsets.UTF_8);
+                        String expanded = expandPlaceholders(content);
+                        try (Reader reader = new java.io.StringReader(expanded)) {
                             props.read(reader);
                         }
                         combined.addConfiguration(props, name);
@@ -494,7 +546,9 @@ public final class SpectorConfigSource {
                 try {
                     PropertiesConfiguration props = new PropertiesConfiguration();
                     configureInterpolator(props);
-                    try (Reader reader = Files.newBufferedReader(path)) {
+                    String content = Files.readString(path, StandardCharsets.UTF_8);
+                    String expanded = expandPlaceholders(content);
+                    try (Reader reader = new java.io.StringReader(expanded)) {
                         props.read(reader);
                     }
                     combined.addConfiguration(props, name);
@@ -510,7 +564,9 @@ public final class SpectorConfigSource {
                 if (is != null) {
                     YAMLConfiguration yaml = new YAMLConfiguration();
                     configureInterpolator(yaml);
-                    try (Reader reader = new java.io.InputStreamReader(is, StandardCharsets.UTF_8)) {
+                    String content = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                    String expanded = expandPlaceholders(content);
+                    try (Reader reader = new java.io.StringReader(expanded)) {
                         yaml.read(reader);
                     }
                     combined.addConfiguration(yaml, name);

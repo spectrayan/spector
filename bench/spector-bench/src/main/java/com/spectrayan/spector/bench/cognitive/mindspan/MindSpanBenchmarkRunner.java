@@ -467,7 +467,8 @@ public final class MindSpanBenchmarkRunner {
             var pathway = memory.admin().rememberPathway();
             if (pathway.asyncEntityExtractionQueue() != null) {
                 var queue = pathway.asyncEntityExtractionQueue();
-                while (queue.stats().queueSize() > 0 || (queue.stats().totalProcessed() + queue.stats().totalFailed() < queue.stats().totalSubmitted())) {
+                long start = System.currentTimeMillis();
+                while (queue.stats().queueSize() > 0 && (System.currentTimeMillis() - start < 15_000)) {
                     try {
                         Thread.sleep(200);
                     } catch (InterruptedException e) {

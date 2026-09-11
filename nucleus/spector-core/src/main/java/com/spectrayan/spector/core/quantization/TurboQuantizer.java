@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.core.quantization;
-import com.spectrayan.spector.commons.error.SpectorException;
 
-import java.util.Arrays;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorInternalException;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.core.simd.RandomRotation;
+
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
-
-import com.spectrayan.spector.core.simd.RandomRotation;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.commons.error.SpectorInternalException;
-import com.spectrayan.spector.commons.error.ErrorCode;
+import java.util.Arrays;
 
 /**
  * TurboQuant quantizer — random rotation + optimal scalar quantization.

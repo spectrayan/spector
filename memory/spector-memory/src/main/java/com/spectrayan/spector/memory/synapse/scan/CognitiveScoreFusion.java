@@ -16,6 +16,9 @@ import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 
+import com.spectrayan.spector.core.cognitive.CognitiveMassKernel;
+import com.spectrayan.spector.core.cognitive.CognitiveScoreFusionKernel;
+import com.spectrayan.spector.core.cognitive.MassDilatedDecayKernel;
 import com.spectrayan.spector.memory.model.ScoreFusionMode;
 import com.spectrayan.spector.memory.synapse.AssociativePriorProvider;
 import com.spectrayan.spector.kernel.score.CognitiveMass;
@@ -47,7 +50,7 @@ public final class CognitiveScoreFusion {
      */
     public static float computeCognitiveMass(
             final float importance, final byte arousal, final float storageStrength) {
-        return com.spectrayan.spector.kernel.score.CognitiveMass.computeCognitiveMass(importance, arousal, storageStrength);
+        return CognitiveMassKernel.computeMass(importance, arousal, storageStrength);
     }
 
     /**
@@ -88,21 +91,8 @@ public final class CognitiveScoreFusion {
             final long timestampMs, final long nowMs, final float cognitiveMass,
             final byte arousal, final int agentRecallCount, final boolean zeroTimeDecay,
             final float lambda) {
-
-        if (zeroTimeDecay || lambda <= 0.0f) {
-            final float reconsolidationBoost = 1.0f + 0.05f * Math.min(agentRecallCount, 10);
-            return Math.min(1.0f, 1.0f * DecayStrategy.arousalModifier(arousal) * reconsolidationBoost);
-        }
-
-        final double elapsedDays = Math.max(0.0, (nowMs - timestampMs) / MS_PER_DAY);
-        final float logTerm = (float) Math.log1p(elapsedDays);
-        final float massDenominator = 1.0f + Math.max(0.0f, cognitiveMass);
-
-        final float dilatedDecay = 1.0f / (1.0f + ((lambda * logTerm) / massDenominator));
-        final float reconsolidationBoost = 1.0f + 0.05f * Math.min(agentRecallCount, 10);
-        final float finalDecay = dilatedDecay * DecayStrategy.arousalModifier(arousal) * reconsolidationBoost;
-
-        return Math.min(1.0f, Math.max(0.0f, finalDecay));
+        return MassDilatedDecayKernel.compute(
+                timestampMs, nowMs, cognitiveMass, arousal, agentRecallCount, zeroTimeDecay, lambda);
     }
 
     /**
@@ -121,55 +111,29 @@ public final class CognitiveScoreFusion {
             final long offset, final long recordTags, final QueryAssociativeContext priorContext,
             final float associativePriorDelta) {
 
-        final float similarity = 1.0f / (1.0f + l2dist * strictness);
-        if (pureSimilarity) {
-            return similarity;
-        }
-
-        final float decay = computeMassDilatedDecay(
-                timestampMs, nowMs, cognitiveMass, arousal, agentRecallCount, zeroTimeDecay);
-
-        float storageBoost = 1.0f;
-        if (hasStorageStrength && twoFactorEnabled && storageStrength > 1.0f) {
-            storageBoost = CognitiveMass.fastStorageBoost(storageStrength, sExponent);
-        }
-
-        final float importanceNorm = importance / 10.0f;
-        final float impDecayFactor = 1.0f + beta * importanceNorm * decay * storageBoost;
-
-        float baseScore;
-        if (fusionMode == ScoreFusionMode.ADDITIVE) {
-            final float baseSimilarity = alpha * similarity + (1.0f - alpha) * tagOverlap;
-            baseScore = baseSimilarity * impDecayFactor;
-        } else {
-            baseScore = similarity * impDecayFactor;
-        }
-
-        if (valenceAlign) {
-            final float valenceMultiplier = 1.0f - (Math.abs(queryValence - valence) / 255.0f);
-            baseScore *= valenceMultiplier;
-        }
-
-        float finalScore;
-        if (fusionMode == ScoreFusionMode.ADDITIVE) {
-            finalScore = baseScore;
-        } else {
-            finalScore = baseScore * (1.0f + tagOverlap * tagRelevanceBoost);
-        }
-
-        if (focusMatch && hyperfocusBoost != 1.0f) {
-            finalScore *= hyperfocusBoost;
-        }
-
+        float associativePrior = 0.0f;
         if (enableAssociativePrior && priorProvider != null) {
-            final float ag = priorProvider.priorFor(offset, recordTags, priorContext);
-            if (fusionMode == ScoreFusionMode.ADDITIVE) {
-                finalScore += associativePriorDelta * ag;
-            } else {
-                finalScore *= (1.0f + associativePriorDelta * ag);
-            }
+            associativePrior = priorProvider.priorFor(offset, recordTags, priorContext);
         }
 
-        return finalScore;
+        final CognitiveScoreFusionKernel.FusionParams params = new CognitiveScoreFusionKernel.FusionParams(
+                strictness,
+                beta,
+                alpha,
+                sExponent,
+                tagRelevanceBoost,
+                hyperfocusBoost,
+                associativePriorDelta,
+                1.0f,
+                fusionMode == ScoreFusionMode.ADDITIVE,
+                twoFactorEnabled,
+                pureSimilarity,
+                valenceAlign);
+
+        return CognitiveScoreFusionKernel.computeFusedScore(
+                l2dist, timestampMs, nowMs, cognitiveMass, arousal,
+                storageStrength, hasStorageStrength, agentRecallCount,
+                importance, tagOverlap, valence, queryValence,
+                focusMatch, zeroTimeDecay, associativePrior, params);
     }
 }

@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.neuromod.dopamine;
 
+import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.model.ImportanceBreakdown;
 import com.spectrayan.spector.memory.model.ImportanceContext;
@@ -57,16 +58,17 @@ public final class DefaultImportanceProvider implements ImportanceProvider {
         float nearestDistance = ctx.nearestDistance();
 
         // Step 3: Compute novelty
+        int warmup = surpriseDetector.warmupSamples();
         if (ctx.readOnly()) {
             // Read-only peek — don't modify Welford stats
-            zScore = surpriseDetector.stats().count() >= 20
+            zScore = surpriseDetector.stats().isWarm(warmup)
                     ? surpriseDetector.stats().zScore(nearestDistance) : 0.0;
-            noveltyOnlyImportance = surpriseDetector.stats().count() >= 20
+            noveltyOnlyImportance = surpriseDetector.stats().isWarm(warmup)
                     ? SurpriseDetector.zScoreToImportance(zScore) : 1.0f;
         } else {
             // Compute and update stats
             noveltyOnlyImportance = surpriseDetector.computeImportance(nearestDistance);
-            zScore = surpriseDetector.stats().count() >= 20
+            zScore = surpriseDetector.stats().isWarm(warmup)
                     ? surpriseDetector.stats().zScore(nearestDistance) : 0.0;
         }
 
@@ -145,19 +147,9 @@ public final class DefaultImportanceProvider implements ImportanceProvider {
                     float[] orgEmb = orgUnitSoul.identityEmbedding();
                     float[] ctxVec = ctx.vector();
                     if (orgEmb != null && ctxVec != null && orgEmb.length == ctxVec.length) {
-                        float dot = 0.0f;
-                        float normA = 0.0f;
-                        float normB = 0.0f;
-                        for (int i = 0; i < orgEmb.length; i++) {
-                            dot += orgEmb[i] * ctxVec[i];
-                            normA += orgEmb[i] * orgEmb[i];
-                            normB += ctxVec[i] * ctxVec[i];
-                        }
-                        if (normA > 0 && normB > 0) {
-                            float sim = dot / (float) (Math.sqrt(normA) * Math.sqrt(normB));
-                            if (sim > 0.0f) {
-                                orgBoost = Math.max(orgBoost, 1.0f + 0.5f * sim);
-                            }
+                        float sim = CosineSimilarity.compute(orgEmb, ctxVec);
+                        if (sim > 0.0f) {
+                            orgBoost = Math.max(orgBoost, 1.0f + 0.5f * sim);
                         }
                     }
                 }

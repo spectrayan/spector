@@ -23,7 +23,7 @@ import com.spectrayan.spector.kernel.id.MemoryId;
 import com.spectrayan.spector.kernel.shape.MemoryShape;
 import com.spectrayan.spector.kernel.id.SystemMemoryId;
 import com.spectrayan.spector.kernel.bundle.RegionRef;
-import com.spectrayan.spector.kernel.util.XxHash64;
+import com.spectrayan.spector.core.math.XxHash64;
 import com.spectrayan.spector.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.kernel.shape.AbstractAppendMemory;
 

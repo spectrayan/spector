@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.neuromod.amygdala;
 
+import com.spectrayan.spector.core.cognitive.ValenceMath;
+
 /**
  * Valence constants and utility methods.
  *
@@ -22,45 +24,48 @@ package com.spectrayan.spector.memory.neuromod.amygdala;
  *
  * <p>Valence is stored as a signed byte (-128 to +127) in the synaptic header
  * at offset 30. It is learned from <em>outcomes</em>, not guessed at encoding time.</p>
+ *
+ * @deprecated Use {@link ValenceMath} instead. Scheduled for removal in 0.3.0.
  */
+@Deprecated(since = "0.1.0-beta", forRemoval = true)
 public final class Valence {
 
     private Valence() {}
 
     /** Strong positive outcome (e.g., agent's response solved the problem). */
-    public static final byte STRONGLY_POSITIVE = 100;
+    public static final byte STRONGLY_POSITIVE = ValenceMath.STRONGLY_POSITIVE;
 
     /** Mild positive outcome. */
-    public static final byte POSITIVE = 50;
+    public static final byte POSITIVE = ValenceMath.POSITIVE;
 
     /** Neutral / unknown outcome (default for new memories). */
-    public static final byte NEUTRAL = 0;
+    public static final byte NEUTRAL = ValenceMath.NEUTRAL;
 
     /** Mild negative outcome (e.g., response was unhelpful). */
-    public static final byte NEGATIVE = -50;
+    public static final byte NEGATIVE = ValenceMath.NEGATIVE;
 
     /** Strong negative outcome (e.g., response caused an error / data loss). */
-    public static final byte STRONGLY_NEGATIVE = -100;
+    public static final byte STRONGLY_NEGATIVE = ValenceMath.STRONGLY_NEGATIVE;
 
     /**
      * Clamps a valence value to the valid range (-128 to +127).
      */
     public static byte clamp(int value) {
-        return (byte) Math.max(Byte.MIN_VALUE, Math.min(Byte.MAX_VALUE, value));
+        return ValenceMath.clamp(value);
     }
 
     /**
      * Returns true if the valence indicates a positive outcome.
      */
     public static boolean isPositive(byte valence) {
-        return valence > 10;
+        return ValenceMath.isPositive(valence);
     }
 
     /**
      * Returns true if the valence indicates a negative outcome.
      */
     public static boolean isNegative(byte valence) {
-        return valence < -10;
+        return ValenceMath.isNegative(valence);
     }
 
     /**
@@ -73,7 +78,6 @@ public final class Valence {
      * @return blended valence
      */
     public static byte blend(byte existing, byte newValue, float alpha) {
-        float blended = existing * (1.0f - alpha) + newValue * alpha;
-        return clamp(Math.round(blended));
+        return ValenceMath.blend(existing, newValue, alpha);
     }
 }

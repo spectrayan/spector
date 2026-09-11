@@ -494,13 +494,16 @@ public class HebbianGraph implements HebbianGraphBase {
         float minScore = Float.MAX_VALUE;
         int minIndex = -1;
 
+        // Single-pass, zero-allocation scan. This runs on the hot edge-insertion path, so the
+        // struct-of-arrays batch seam is deliberately NOT used here: scoreStructural is scalar
+        // (Math.exp dominated) and offers no vectorization gain, while marshalling into arrays
+        // would cost four allocations and three passes per insertion. See ADR-0033 Principle 3.
         for (int i = 0; i < degree; i++) {
             long edgeOffset = nodeOffset + 4 + (long) i * EDGE_BYTES;
             float weight = segment.get(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT);
             short lastCycle = segment.get(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE);
             byte bridgeScore = segment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
 
-            // Use structural-only scoring (no header reads during hot-path insertion)
             float score = edgeImportance.scoreStructural(
                     weight, currentCycle, Short.toUnsignedInt(lastCycle),
                     Byte.toUnsignedInt(bridgeScore), 0);

@@ -40,6 +40,8 @@ spector:
     default-ingestion-tier: SEMANTIC
     tag-extractor: llm
     tag-extractor-model: tag-extractor:latest
+    entity:
+      extraction-mode: ${SPECTOR_ENTITY_EXTRACTION_MODE:LLM}
     # ── Hybrid Search ──
     text-search-mode: FULL_STACK       # VECTOR_ONLY, HYBRID, BM25_ONLY, SPLADE_ONLY, SPLADE_VECTOR, COLBERT, FULL_STACK
     splade-enabled: true               # SPLADE learned sparse retrieval

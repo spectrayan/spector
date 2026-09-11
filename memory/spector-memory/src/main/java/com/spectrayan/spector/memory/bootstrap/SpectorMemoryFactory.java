@@ -35,8 +35,9 @@ import com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor;
 import com.spectrayan.spector.kernel.store.ContinuityMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.neuromod.dopamine.DefaultImportanceProvider;
-import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
+import com.spectrayan.spector.memory.graph.DictionaryEntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
+import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.GraphEnrichmentEngine;
 import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
@@ -546,13 +547,16 @@ public final class SpectorMemoryFactory {
 
         // ── Graph Enrichment Engine ──
         GraphEnrichmentEngine graphEnrichmentEngine;
-        if (graphs.entityExtractor() != null
-                && !(graphs.entityExtractor() instanceof com.spectrayan.spector.memory.graph.NoOpEntityExtractor)
+        EntityExtractor enrichExtractor = graphs.entityExtractor();
+        if ((enrichExtractor == null || enrichExtractor instanceof com.spectrayan.spector.memory.graph.NoOpEntityExtractor)
                 && graphs.entityDirectory() != null) {
+            enrichExtractor = new DictionaryEntityExtractor(graphs.entityDirectory(), graphs.temporalKnowledgeGraph(), ontConfig);
+        }
+        if (enrichExtractor != null && graphs.entityDirectory() != null) {
             graphEnrichmentEngine = new GraphEnrichmentEngine(
                     builder.namespaceId(),
                     index,
-                    graphs.entityExtractor(),
+                    enrichExtractor,
                     graphs.entityDirectory(),
                     graphs.hyperEntityGraph(),
                     graphs.temporalKnowledgeGraph());

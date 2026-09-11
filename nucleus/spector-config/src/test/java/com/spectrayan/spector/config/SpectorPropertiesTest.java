@@ -303,6 +303,38 @@ class SpectorPropertiesTest {
         assertThat(original.concurrency().isStructured()).isEqualTo(origStructured);
         assertThat(original.ingestion().getChunkSize()).isEqualTo(origChunkSize);
     }
+
+    @Test
+    void expandPlaceholders_resolvesDefaultsAndColons() {
+        String input = "${SPECTOR_TEST_VAR:default_value}";
+        assertThat(SpectorConfigSource.expandPlaceholders(input)).isEqualTo("default_value");
+
+        String urlInput = "${SPECTOR_TEST_URL:http://host.docker.internal:11434}";
+        assertThat(SpectorConfigSource.expandPlaceholders(urlInput)).isEqualTo("http://host.docker.internal:11434");
+
+        String multiple = "http://${SPECTOR_HOST:localhost}:${SPECTOR_PORT:7700}/api";
+        assertThat(SpectorConfigSource.expandPlaceholders(multiple)).isEqualTo("http://localhost:7700/api");
+    }
+
+    @Test
+    void loadFromYaml_expandsPlaceholdersInYaml(@TempDir Path tempDir) throws IOException {
+        Path configFile = tempDir.resolve("test-spector.yml");
+        String yaml = """
+            spector:
+              provider:
+                embedding:
+                  model: ${SPECTOR_EMBED_TEST:qwen3-embedding:0.6b}
+                  base-url: ${SPECTOR_URL_TEST:http://host.docker.internal:11434}
+              memory:
+                capacity: ${SPECTOR_CAP_TEST:12345}
+            """;
+        Files.writeString(configFile, yaml);
+
+        SpectorConfigSource source = SpectorConfigSource.load(configFile);
+        assertThat(source.getString("spector.provider.embedding.model")).isEqualTo("qwen3-embedding:0.6b");
+        assertThat(source.getString("spector.provider.embedding.base-url")).isEqualTo("http://host.docker.internal:11434");
+        assertThat(source.getInt("spector.memory.capacity", 0)).isEqualTo(12345);
+    }
 }
 
 

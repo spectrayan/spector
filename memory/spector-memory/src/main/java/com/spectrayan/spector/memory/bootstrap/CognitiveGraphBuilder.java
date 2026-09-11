@@ -33,9 +33,13 @@ import com.spectrayan.spector.kernel.region.RegionId;
 import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import com.spectrayan.spector.kernel.layout.HyperEntityLayout;
+import com.spectrayan.spector.memory.graph.DictionaryEntityExtractor;
+import com.spectrayan.spector.memory.graph.ExtractedEntity;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -114,13 +118,70 @@ public final class CognitiveGraphBuilder {
         int temporalCapacity = memProps.getTemporalChainCapacity() > 0
                 ? memProps.getTemporalChainCapacity() : graphCapacity;
         TemporalChainMemory temporalChain;
-        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.TEMPORAL_CHAIN)) {
             temporalChain = com.spectrayan.spector.kernel.store.TemporalChainMemory.fromRegionRef(cortex.runtimeBundle().regionRef(RegionId.TEMPORAL_CHAIN), temporalCapacity, cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew());
         } else {
             temporalChain = new TemporalChainMemory(temporalCapacity);
         }
 
-        EntityExtractionMode extractionMode = EntityExtractionMode.NONE;
+        OntologyConfig ontConfig = builder.ontologyConfig() != null
+                ? builder.ontologyConfig()
+                : OntologyConfig.defaultInstance();
+        String[] entitySeedTypes = ontConfig.canonicalTypes().toArray(String[]::new);
+
+        EntityDirectory entityDirectory;
+        int dirCap = memProps.getEntityGraphCapacity();
+        TypeRegistryMemory entityTypeRegistry;
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.ENTITY_TYPES)) {
+            entityTypeRegistry = cortex.runtimeBundle().openRegistry(
+                    com.spectrayan.spector.kernel.region.RegionId.ENTITY_TYPES,
+                    SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
+        } else {
+            entityTypeRegistry = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
+        }
+
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.ENTITY_DIRECTORY) && cortex.runtimeBundle().hasRegion(RegionId.ENTITY_NAMES)) {
+            boolean isNew = cortex.runtimeBundle().isNew()
+                    || !com.spectrayan.spector.kernel.region.RegionPreamble.isValid(cortex.runtimeBundle().regionRef(RegionId.ENTITY_DIRECTORY).resolve(), 0L);
+            entityDirectory = com.spectrayan.spector.memory.graph.EntityDirectory.fromRegionRefs(
+                    cortex.runtimeBundle().regionRef(RegionId.ENTITY_DIRECTORY),
+                    cortex.runtimeBundle().regionRef(RegionId.ENTITY_NAMES),
+                    dirCap, entityTypeRegistry, cortex.runtimeBundle().bundlePath(), isNew);
+        } else {
+            entityDirectory = new EntityDirectory(dirCap, entityTypeRegistry);
+        }
+
+        TemporalKnowledgeGraph temporalKnowledgeGraph;
+        TypeRegistryMemory predRegistry;
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.RELATION_TYPES)) {
+            predRegistry = cortex.runtimeBundle().openRegistry(
+                    com.spectrayan.spector.kernel.region.RegionId.RELATION_TYPES,
+                    SystemMemoryId.RELATION_TYPE, null);
+        } else {
+            predRegistry = new TypeRegistryMemory(SystemMemoryId.RELATION_TYPE);
+        }
+
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.TEMPORAL_FACTS)) {
+            boolean isNew = cortex.runtimeBundle().isNew()
+                    || !com.spectrayan.spector.kernel.region.RegionPreamble.isValid(cortex.runtimeBundle().regionRef(RegionId.TEMPORAL_FACTS).resolve(), 0L);
+            temporalKnowledgeGraph = com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph.fromRegionRef(predRegistry, cortex.runtimeBundle().regionRef(RegionId.TEMPORAL_FACTS), cortex.runtimeBundle().bundlePath(), isNew);
+        } else {
+            temporalKnowledgeGraph = new TemporalKnowledgeGraph(predRegistry);
+        }
+
+        HyperEntityGraphMemory hyperEntityGraph;
+        int hyperCap = memProps.getEntityGraphCapacity();
+        int hyperEdgeCap = hyperCap * 2;
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.HYPERGRAPH)) {
+            boolean isNew = cortex.runtimeBundle().isNew()
+                    || !com.spectrayan.spector.kernel.region.RegionPreamble.isValid(cortex.runtimeBundle().regionRef(RegionId.HYPERGRAPH).resolve(), 0L);
+            hyperEntityGraph = com.spectrayan.spector.kernel.store.HyperEntityGraphMemory.fromRegionRef(
+                    cortex.runtimeBundle().regionRef(RegionId.HYPERGRAPH), hyperCap, hyperEdgeCap, cortex.runtimeBundle().bundlePath(), isNew);
+        } else {
+            hyperEntityGraph = new HyperEntityGraphMemory(hyperCap, hyperEdgeCap);
+        }
+
+        EntityExtractionMode extractionMode = EntityExtractionMode.DICTIONARY;
         if (builder.entityExtractor() != null) {
             extractionMode = EntityExtractionMode.CUSTOM;
         } else if (entityProps.getExtractionMode() != null && !entityProps.getExtractionMode().isBlank()) {
@@ -131,7 +192,7 @@ public final class CognitiveGraphBuilder {
 
         EntityExtractor entityExtractor;
         if (extractionMode == EntityExtractionMode.LLM
-                && builder.llmProvider() != null) {
+                && builder.llmProvider() != null && builder.llmProvider().isAvailable()) {
             entityExtractor = new LlmEntityExtractor(
                     builder.llmProvider(),
                     entityProps.getMaxPerMemory(), entityProps.getMaxRelationsPerMemory(),
@@ -139,65 +200,11 @@ public final class CognitiveGraphBuilder {
         } else if (extractionMode == EntityExtractionMode.CUSTOM
                 && builder.entityExtractor() != null) {
             entityExtractor = builder.entityExtractor();
+        } else if (extractionMode != EntityExtractionMode.NONE && entityDirectory != null) {
+            entityExtractor = new DictionaryEntityExtractor(entityDirectory, temporalKnowledgeGraph, ontConfig,
+                    entityProps.getMaxPerMemory() > 0 ? entityProps.getMaxPerMemory() : 15);
         } else {
             entityExtractor = NoOpEntityExtractor.INSTANCE;
-        }
-
-        boolean entityEnabled = extractionMode != EntityExtractionMode.NONE;
-
-        HyperEntityGraphMemory hyperEntityGraph;
-        if (entityEnabled) {
-            int hyperCap = memProps.getEntityGraphCapacity();
-            int hyperEdgeCap = hyperCap * 2;
-            if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-                hyperEntityGraph = com.spectrayan.spector.kernel.store.HyperEntityGraphMemory.fromRegionRef(cortex.runtimeBundle().regionRef(RegionId.HYPERGRAPH), hyperCap, hyperEdgeCap, cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew());
-            } else {
-                hyperEntityGraph = new HyperEntityGraphMemory(hyperCap, hyperEdgeCap);
-            }
-        } else {
-            hyperEntityGraph = null;
-        }
-
-        OntologyConfig ontConfig = builder.ontologyConfig() != null
-                ? builder.ontologyConfig()
-                : OntologyConfig.defaultInstance();
-        String[] entitySeedTypes = ontConfig.canonicalTypes().toArray(String[]::new);
-
-        EntityDirectory entityDirectory;
-        if (entityEnabled) {
-            int dirCap = memProps.getEntityGraphCapacity();
-            TypeRegistryMemory entityTypeRegistry;
-            if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-                entityTypeRegistry = cortex.runtimeBundle().openRegistry(
-                        com.spectrayan.spector.kernel.region.RegionId.ENTITY_TYPES,
-                        SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
-            } else {
-                entityTypeRegistry = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, entitySeedTypes);
-            }
-
-            if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-                entityDirectory = com.spectrayan.spector.memory.graph.EntityDirectory.fromRegionRefs(cortex.runtimeBundle().regionRef(RegionId.ENTITY_DIRECTORY), cortex.runtimeBundle().regionRef(RegionId.ENTITY_NAMES), dirCap, entityTypeRegistry, cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew());
-            } else {
-                entityDirectory = new EntityDirectory(dirCap, entityTypeRegistry);
-            }
-        } else {
-            entityDirectory = null;
-        }
-
-        TemporalKnowledgeGraph temporalKnowledgeGraph;
-        TypeRegistryMemory predRegistry;
-        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-            predRegistry = cortex.runtimeBundle().openRegistry(
-                    com.spectrayan.spector.kernel.region.RegionId.RELATION_TYPES,
-                    SystemMemoryId.RELATION_TYPE, null);
-        } else {
-            predRegistry = new TypeRegistryMemory(SystemMemoryId.RELATION_TYPE);
-        }
-
-        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-            temporalKnowledgeGraph = com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph.fromRegionRef(predRegistry, cortex.runtimeBundle().regionRef(RegionId.TEMPORAL_FACTS), cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew());
-        } else {
-            temporalKnowledgeGraph = new TemporalKnowledgeGraph(predRegistry);
         }
 
         // Auto-heal temporal chain if historical memories exist but chain is unlinked
@@ -209,6 +216,16 @@ public final class CognitiveGraphBuilder {
             }
         }
 
+        // Auto-heal / refresh entity-to-memory reverse index if historical memories exist but reverse index is unlinked
+        if (entityDirectory != null && index != null && index.size() > 0
+                && !entityDirectory.nameIndex().isEmpty() && entityDirectory.reverseIndexSize() == 0) {
+            try {
+                refreshEntityMemoryIndex(entityDirectory, hyperEntityGraph, temporalKnowledgeGraph, ontConfig, index);
+            } catch (Exception e) {
+                log.warn("[CognitiveGraphBuilder] Failed to refresh entity-to-memory reverse index: {}", e.getMessage(), e);
+            }
+        }
+
         // ── Cognitive Graph Facade ──
         CognitiveGraphFacade graphFacade = new CognitiveGraphFacade(
                 hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph,
@@ -217,6 +234,75 @@ public final class CognitiveGraphBuilder {
         return new CognitiveGraphs(
                 hebbianGraph, temporalChain, entityExtractor, entityDirectory,
                 hyperEntityGraph, temporalKnowledgeGraph, graphFacade);
+    }
+
+    private static void refreshEntityMemoryIndex(EntityDirectory entityDirectory,
+                                                HyperEntityGraphMemory hyperEntityGraph,
+                                                TemporalKnowledgeGraph temporalKnowledgeGraph,
+                                                OntologyConfig ontConfig,
+                                                MemoryIndex index) {
+        log.info("[CognitiveGraphBuilder] Auto-refreshing entity-to-memory index for {} memories against {} known entities...",
+                index.size(), entityDirectory.entityCount());
+
+        Map<String, Integer> idToSlot = new LinkedHashMap<>();
+        Map<Integer, String> slotToId = new LinkedHashMap<>();
+        index.buildGraphSlotMappings(slotToId, idToSlot);
+
+        DictionaryEntityExtractor extractor = new DictionaryEntityExtractor(
+                entityDirectory, temporalKnowledgeGraph, ontConfig, 15);
+
+        int totalLinked = 0;
+        int hyperedgesCreated = 0;
+        long startTime = System.currentTimeMillis();
+
+        for (String id : index.allIds()) {
+            int slot = idToSlot.getOrDefault(id, -1);
+            if (slot < 0) continue;
+            String text = index.text(id);
+            if (text == null || text.isBlank()) continue;
+
+            String[] tags = index.tags(id);
+            String content = (tags != null && tags.length > 0)
+                    ? text + " " + String.join(" ", tags)
+                    : text;
+
+            List<ExtractedEntity> extracted = extractor.extract(id, content);
+            if (extracted == null || extracted.isEmpty()) continue;
+
+            List<Integer> entityIds = new ArrayList<>(extracted.size());
+            for (ExtractedEntity entity : extracted) {
+                int eid = entityDirectory.intern(entity.name(), entity.typeName());
+                if (eid >= 0) {
+                    entityDirectory.linkEntityToMemory(eid, slot);
+                    entityIds.add(eid);
+                    totalLinked++;
+                }
+            }
+
+            if (hyperEntityGraph != null && entityIds.size() >= 2) {
+                int[] vertexArr = entityIds.stream().mapToInt(Integer::intValue).toArray();
+                if (vertexArr.length > HyperEntityLayout.MAX_VERTICES_PER_EDGE) {
+                    int[] truncated = new int[HyperEntityLayout.MAX_VERTICES_PER_EDGE];
+                    System.arraycopy(vertexArr, 0, truncated, 0, HyperEntityLayout.MAX_VERTICES_PER_EDGE);
+                    vertexArr = truncated;
+                }
+                int[] roles = new int[vertexArr.length];
+                roles[0] = HyperEntityGraphMemory.ROLE_SUBJECT;
+                for (int i = 1; i < roles.length; i++) {
+                    roles[i] = HyperEntityGraphMemory.ROLE_CONTEXT;
+                }
+                hyperEntityGraph.addHyperedge(vertexArr, roles, 0, 1.0f, slot, System.currentTimeMillis());
+                hyperedgesCreated++;
+            }
+        }
+
+        entityDirectory.flush();
+        if (hyperEntityGraph != null) {
+            hyperEntityGraph.flush();
+        }
+
+        log.info("[CognitiveGraphBuilder] Entity-to-memory index refresh complete: {} links and {} hyperedges established across {} memories in {}ms",
+                totalLinked, hyperedgesCreated, index.size(), (System.currentTimeMillis() - startTime));
     }
 
     private static void backfillTemporalChain(TemporalChainMemory temporalChain, MemoryIndex index) {

@@ -122,7 +122,7 @@ public final class HabituationPenalty {
      * Formula: 1.0 / (1.0 + timesReturned * decayRate)
      */
     private float computePenalty(int timesReturned) {
-        return 1.0f / (1.0f + (timesReturned - 1) * decayRate);
+        return com.spectrayan.spector.core.cognitive.HabituationKernel.penalty(timesReturned, decayRate);
     }
 
     /**
@@ -186,8 +186,8 @@ public final class HabituationPenalty {
             return 1.0f;
         }
 
-        // Linear recovery: inhibitionFloor → 1.0 over TTL
-        return inhibitionFloor + (1.0f - inhibitionFloor) * ((float) ageMs / inhibitionTtlMs);
+        return com.spectrayan.spector.core.cognitive.HabituationKernel.inhibitionOfReturn(
+                ageMs, inhibitionTtlMs, inhibitionFloor);
     }
 
     /**

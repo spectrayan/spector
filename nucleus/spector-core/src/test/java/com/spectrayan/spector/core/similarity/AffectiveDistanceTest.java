@@ -15,13 +15,10 @@
  */
 package com.spectrayan.spector.core.similarity;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.within;
-
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-
 import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Tests for the {@link AffectiveDistance} SIMD kernel.

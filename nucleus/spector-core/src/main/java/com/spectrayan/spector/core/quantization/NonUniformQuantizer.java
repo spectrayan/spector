@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.core.quantization;
-import com.spectrayan.spector.commons.error.SpectorException;
+
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 
 import java.util.Arrays;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.commons.error.ErrorCode;
 
 /**
  * Non-uniform (quantile-based) quantizer for INT4 and INT2 quantization.

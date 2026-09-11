@@ -15,8 +15,6 @@
  */
 package com.spectrayan.spector.kernel;
 
-import com.spectrayan.spector.kernel.util.XxHash64;
-
 import com.spectrayan.spector.kernel.shape.MemoryShape;
 
 import com.spectrayan.spector.kernel.region.RegionEntry;

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.core.similarity;
-import com.spectrayan.spector.commons.error.SpectorException;
 
 import com.spectrayan.spector.core.quantization.svasq.Svasq4QueryState;
 import com.spectrayan.spector.core.quantization.svasq.Svasq4SimdKernel;
@@ -24,7 +23,6 @@ import com.spectrayan.spector.core.spi.AcceleratorRegistry;
 import com.spectrayan.spector.core.spi.SimilarityKernel;
 
 import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 
 /**
  * Enumerates the supported distance/similarity functions.

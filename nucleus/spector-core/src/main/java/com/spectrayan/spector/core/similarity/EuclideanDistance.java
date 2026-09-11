@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.core.similarity;
-import com.spectrayan.spector.commons.error.SpectorException;
-import com.spectrayan.spector.core.simd.SimdCapability;
 
+import com.spectrayan.spector.core.simd.SimdCapability;
 import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorMask;
 import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.commons.error.ErrorCode;
 
 /**
  * SIMD-accelerated Euclidean (L2) distance computation.

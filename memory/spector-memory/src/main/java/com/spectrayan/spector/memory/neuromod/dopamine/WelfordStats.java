@@ -12,14 +12,14 @@
  */
 package com.spectrayan.spector.memory.neuromod.dopamine;
 
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.DoubleAdder;
-import java.util.concurrent.locks.ReentrantLock;
+import com.spectrayan.spector.core.math.WelfordAccumulator;
+
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Welford's online algorithm for computing running mean and standard deviation.
  *
- * <p>O(1) space, O(1) per update, numerically stable. Thread-safe via atomic operations.</p>
+ * <p>O(1) space, O(1) per update, numerically stable. Thread-safe via lock-free atomic updates.</p>
  *
  * <h3>Biological Analog: Baseline Prediction</h3>
  * <p>The brain's dopamine system maintains an internal baseline of "expected" stimuli.
@@ -31,12 +31,7 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public final class WelfordStats {
 
-    private final AtomicLong count = new AtomicLong(0);
-    private volatile double mean = 0.0;
-    private volatile double m2 = 0.0;
-
-    // Lock for update atomicity (ReentrantLock avoids virtual thread pinning — ADR-005)
-    private final ReentrantLock lock = new ReentrantLock();
+    private final AtomicReference<WelfordAccumulator> accum = new AtomicReference<>(WelfordAccumulator.EMPTY);
 
     /**
      * Incorporates a new sample into the running statistics.
@@ -44,16 +39,7 @@ public final class WelfordStats {
      * @param value the new observation
      */
     public void update(double value) {
-        lock.lock();
-        try {
-            long n = count.incrementAndGet();
-            double delta = value - mean;
-            mean += delta / n;
-            double delta2 = value - mean;
-            m2 += delta * delta2;
-        } finally {
-            lock.unlock();
-        }
+        accum.updateAndGet(a -> a.update(value));
     }
 
     /**
@@ -62,7 +48,7 @@ public final class WelfordStats {
      * @return mean of all observed values, or 0.0 if no values observed
      */
     public double mean() {
-        return mean;
+        return accum.get().mean();
     }
 
     /**
@@ -71,9 +57,7 @@ public final class WelfordStats {
      * @return stddev, or 0.0 if fewer than 2 values observed
      */
     public double stddev() {
-        long n = count.get();
-        if (n < 2) return 0.0;
-        return Math.sqrt(m2 / n);
+        return accum.get().stdDev();
     }
 
     /**
@@ -83,29 +67,37 @@ public final class WelfordStats {
      * @return z-score (0.0 if stddev is zero or fewer than 2 samples)
      */
     public double zScore(double value) {
-        double sd = stddev();
-        if (sd < 1e-9) return 0.0;
-        return (value - mean) / sd;
+        return accum.get().zScore(value);
     }
 
     /**
      * Returns the number of samples observed.
      */
     public long count() {
-        return count.get();
+        return accum.get().count();
+    }
+
+    /**
+     * Checks if the accumulator has observed at least {@code minSamples}.
+     *
+     * @param minSamples minimum required observations
+     * @return true if sample count meets or exceeds {@code minSamples}
+     */
+    public boolean isWarm(long minSamples) {
+        return accum.get().isWarm(minSamples);
+    }
+
+    /**
+     * Returns an immutable snapshot of the underlying pure accumulator.
+     */
+    public WelfordAccumulator accumulator() {
+        return accum.get();
     }
 
     /**
      * Resets all statistics.
      */
     public void reset() {
-        lock.lock();
-        try {
-            count.set(0);
-            mean = 0.0;
-            m2 = 0.0;
-        } finally {
-            lock.unlock();
-        }
+        accum.set(WelfordAccumulator.EMPTY);
     }
 }

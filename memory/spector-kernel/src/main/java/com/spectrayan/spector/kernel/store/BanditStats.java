@@ -15,6 +15,14 @@
  */
 package com.spectrayan.spector.kernel.store;
 
+import com.spectrayan.spector.core.math.EmaTracker;
+
+/**
+ * Immutable running statistics for multi-armed bandit / reinforcement tracking.
+ *
+ * @deprecated Use {@link EmaTracker} instead. Scheduled for removal in 0.3.0.
+ */
+@Deprecated(since = "0.1.0-beta", forRemoval = true)
 public record BanditStats(
         float ema,
         int totalSignals,
@@ -24,13 +32,15 @@ public record BanditStats(
     public static final BanditStats EMPTY = new BanditStats(0f, 0, 0, 0L);
 
     public BanditStats update(boolean positive, float alpha) {
-        float signal = positive ? 1.0f : 0.0f;
-        float newEma = (totalSignals == 0) ? signal : (ema * (1.0f - alpha) + signal * alpha);
-        return new BanditStats(
-                newEma,
-                totalSignals + 1,
-                positiveSignals + (positive ? 1 : 0),
-                System.currentTimeMillis()
-        );
+        EmaTracker updated = toTracker().update(positive, alpha, System.currentTimeMillis());
+        return fromTracker(updated);
+    }
+
+    public EmaTracker toTracker() {
+        return new EmaTracker(ema, totalSignals, positiveSignals, lastUpdatedMs);
+    }
+
+    public static BanditStats fromTracker(EmaTracker tracker) {
+        return new BanditStats(tracker.ema(), tracker.totalSignals(), tracker.positiveSignals(), tracker.lastUpdatedMs());
     }
 }

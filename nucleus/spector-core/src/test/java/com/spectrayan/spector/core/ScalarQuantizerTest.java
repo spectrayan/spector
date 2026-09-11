@@ -16,11 +16,9 @@
 package com.spectrayan.spector.core;
 
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-
+import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.core.similarity.QuantizedCosineSimilarity;
-import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

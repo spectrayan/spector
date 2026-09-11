@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.index.text;
 
+import com.spectrayan.spector.core.similarity.BM25Kernel;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.hnsw.NeighborQueue;
 
@@ -92,6 +93,7 @@ public class BM25Index implements KeywordIndex {
     static final class ScoreAccumulator {
         float[] scores = new float[1024];
         int[] touchedIndices = new int[1024];
+        final float[] batchScores = new float[256];
         int touchedCount = 0;
 
         void ensureCapacity(int minCapacity) {
@@ -300,19 +302,24 @@ public class BM25Index implements KeywordIndex {
             final int sz = postings.size;
             final int[] docIdx = postings.docIndices;
             final int[] tfs = postings.termFrequencies;
+            final float[] batchScores = acc.batchScores;
+            final int batchCap = batchScores.length;
 
-            for (int i = 0; i < sz; i++) {
-                int docIndex = docIdx[i];
-                int tf = tfs[i];
-                int docLen = docLens[docIndex];
+            for (int offset = 0; offset < sz; offset += batchCap) {
+                final int chunk = Math.min(batchCap, sz - offset);
+                BM25Kernel.scoreTerms(
+                        tfs, offset, docIdx, offset, docLens,
+                        (float) avgDocLength, k1, b, idf,
+                        batchScores, 0, chunk);
 
-                float tfNorm = (tf * k1PlusOne) / (tf + c1 + c2 * docLen);
-                float termScore = idf * tfNorm;
-
-                if (scores[docIndex] == 0f) {
-                    touched[touchedCount++] = docIndex;
+                for (int i = 0; i < chunk; i++) {
+                    final int docIndex = docIdx[offset + i];
+                    final float termScore = batchScores[i];
+                    if (scores[docIndex] == 0f) {
+                        touched[touchedCount++] = docIndex;
+                    }
+                    scores[docIndex] += termScore;
                 }
-                scores[docIndex] += termScore;
             }
         }
         acc.touchedCount = touchedCount;
@@ -394,9 +401,7 @@ public class BM25Index implements KeywordIndex {
      * @return IDF score
      */
     private float computeIdf(int docFreq, int numDocs) {
-        return (float) Math.log(
-                ((double) numDocs - docFreq + 0.5) / (docFreq + 0.5) + 1.0
-        );
+        return BM25Kernel.idf(docFreq, numDocs);
     }
 
     private void recalcAvgDocLength() {

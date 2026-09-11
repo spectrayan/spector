@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.neuromod.dopamine;
 
+import com.spectrayan.spector.core.cognitive.DopaminergicSurpriseKernel;
+import com.spectrayan.spector.core.similarity.VectorOps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,6 +42,9 @@ public final class SurpriseDetector {
 
     private final WelfordStats stats;
 
+    /** Default warmup sample count before adaptive z-score importance activates. */
+    public static final int DEFAULT_WARMUP_SAMPLES = 20;
+
     /** Minimum samples required before z-score-based importance kicks in. */
     private final int warmupSamples;
 
@@ -60,7 +65,7 @@ public final class SurpriseDetector {
      * Creates a surprise detector with default warmup (20 samples).
      */
     public SurpriseDetector() {
-        this(20);
+        this(DEFAULT_WARMUP_SAMPLES);
     }
 
     /**
@@ -77,7 +82,7 @@ public final class SurpriseDetector {
         stats.update(distanceToNearest);
 
         // During warmup, return default importance
-        if (stats.count() < warmupSamples) {
+        if (!stats.isWarm(warmupSamples)) {
             return DEFAULT_IMPORTANCE;
         }
 
@@ -103,7 +108,7 @@ public final class SurpriseDetector {
      * @return surprise z-score (0.0 if not warmed up)
      */
     public double querySurpriseZScore(float distanceToNearest) {
-        if (stats.count() < warmupSamples) {
+        if (!stats.isWarm(warmupSamples)) {
             return 0.0;
         }
         return stats.zScore(distanceToNearest);
@@ -124,12 +129,14 @@ public final class SurpriseDetector {
      * </pre>
      */
     public static float zScoreToImportance(double zScore) {
-        // Shifted sigmoid: σ(k · (z - center))
-        // center=1.0: moderate novelty is the midpoint
-        // steepness=1.2: gradual transition, not a cliff
-        float sigmoid = (float) (1.0 / (1.0 + Math.exp(-1.2 * (zScore - 1.0))));
-        // Scale to [0.05, 10.0]
-        return 0.05f + sigmoid * 9.95f;
+        return DopaminergicSurpriseKernel.zScoreToImportance(zScore);
+    }
+
+    /**
+     * Returns the warmup samples threshold required before adaptive scoring activates.
+     */
+    public int warmupSamples() {
+        return warmupSamples;
     }
 
     /**
@@ -163,7 +170,7 @@ public final class SurpriseDetector {
                                         float spatialWeight, float temporalWeight) {
         // Spatial surprise
         stats.update(distanceToNearest);
-        double spatialZ = stats.count() < warmupSamples ? 0.0 : stats.zScore(distanceToNearest);
+        double spatialZ = !stats.isWarm(warmupSamples) ? 0.0 : stats.zScore(distanceToNearest);
 
         // Temporal surprise: time since last memory with overlapping tags
         long nowMs = System.currentTimeMillis();
@@ -173,7 +180,7 @@ public final class SurpriseDetector {
         if (lastSeen != null) {
             float hoursSinceLast = (nowMs - lastSeen) / (1000f * 3600f);
             temporalStats.update(hoursSinceLast);
-            if (temporalStats.count() >= warmupSamples) {
+            if (temporalStats.isWarm(warmupSamples)) {
                 temporalZ = temporalStats.zScore(hoursSinceLast);
             }
         }

@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.score;
 
+import com.spectrayan.spector.core.graph.GraphCentralityKernel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -83,19 +84,7 @@ public final class BridgeDetector {
      * @return bridge score (0-255, unsigned byte range)
      */
     public static int computeBridgeScore(int sharedNeighborCount, int degreeA, int degreeB) {
-        if (degreeA <= 1 && degreeB <= 1) {
-            // Both nodes have only this edge — it's a critical bridge
-            return 255;
-        }
-
-        // Jaccard-like overlap: shared / min(degreeA, degreeB)
-        // High overlap → low bridge score; zero overlap → max bridge score
-        int minDegree = Math.max(1, Math.min(degreeA, degreeB));
-        float overlapRatio = (float) sharedNeighborCount / minDegree;
-
-        // Invert: 0 overlap → 255 (critical bridge), full overlap → 0 (redundant)
-        int score = Math.round((1.0f - overlapRatio) * 255.0f);
-        return Math.clamp(score, 0, 255);
+        return GraphCentralityKernel.neighborOverlapBridgeScore(sharedNeighborCount, degreeA, degreeB);
     }
 
     /**
@@ -112,17 +101,7 @@ public final class BridgeDetector {
      */
     public static int countSharedNeighbors(int[] neighborsA, int countA,
                                             int[] neighborsB, int countB) {
-        int shared = 0;
-        for (int i = 0; i < countA; i++) {
-            int a = neighborsA[i];
-            for (int j = 0; j < countB; j++) {
-                if (a == neighborsB[j]) {
-                    shared++;
-                    break;
-                }
-            }
-        }
-        return shared;
+        return GraphCentralityKernel.countSharedNeighbors(neighborsA, countA, neighborsB, countB);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -154,6 +133,22 @@ public final class BridgeDetector {
      */
     public static int[][] computeBridgeScoresSpanningTree(
             int[][] adjacency, int nodeCount, int sampleCount, long budgetMs) {
+        return computeBridgeScoresSpanningTree(
+                adjacency, nodeCount, sampleCount, budgetMs, ThreadLocalRandom.current());
+    }
+
+    /**
+     * Computes bridge scores for all edges using random spanning tree sampling with a custom PRNG.
+     *
+     * @param adjacency   adjacency lists
+     * @param nodeCount   number of nodes in the graph
+     * @param sampleCount number of spanning trees to sample
+     * @param budgetMs    maximum time budget in milliseconds (0 = unlimited)
+     * @param rng         random generator instance
+     * @return bridge scores or {@code null} if time budget exceeded
+     */
+    public static int[][] computeBridgeScoresSpanningTree(
+            int[][] adjacency, int nodeCount, int sampleCount, long budgetMs, java.util.random.RandomGenerator rng) {
 
         long startNanos = System.nanoTime();
 
@@ -178,7 +173,6 @@ public final class BridgeDetector {
         }
 
         // Sample K spanning trees
-        var rng = ThreadLocalRandom.current();
         int treesCompleted = 0;
 
         for (int k = 0; k < sampleCount; k++) {
@@ -241,57 +235,15 @@ public final class BridgeDetector {
     public static int[] wilsonSpanningTree(int[][] adjacency, int nodeCount,
                                      List<Integer> activeNodes,
                                      java.util.random.RandomGenerator rng) {
-
-        int[] parent = new int[nodeCount];
-        boolean[] inTree = new boolean[nodeCount];
-        Arrays.fill(parent, -1);
-
-        if (activeNodes.isEmpty()) return parent;
-
-        // Start with a random root node
-        int root = activeNodes.get(rng.nextInt(activeNodes.size()));
-        inTree[root] = true;
-
-        // Maximum walk steps to prevent infinite loops on disconnected components
-        int maxSteps = Math.min(10000, Math.max(1000, activeNodes.size() * 2));
-
-        // Process each active node not yet in the tree
-        for (int activeNode : activeNodes) {
-            if (inTree[activeNode]) continue;
-
-            // Loop-erased random walk from activeNode until we hit the tree.
-            // next[u] tracks the last step from u — overwriting erases loops.
-            int[] next = new int[nodeCount];
-            Arrays.fill(next, -1);
-
-            int current = activeNode;
-            int steps = 0;
-
-            while (!inTree[current] && steps < maxSteps) {
-                int[] neighbors = adjacency[current];
-                if (neighbors == null || neighbors.length == 0) break;
-
-                int nextNode = neighbors[rng.nextInt(neighbors.length)];
-                next[current] = nextNode;
-                current = nextNode;
-                steps++;
-            }
-
-            if (!inTree[current]) {
-                // Disconnected component or walk exceeded budget — skip
-                continue;
-            }
-
-            // Add the loop-erased path to the tree
-            current = activeNode;
-            while (!inTree[current]) {
-                inTree[current] = true;
-                parent[current] = next[current];
-                current = next[current];
-            }
+        if (activeNodes == null || activeNodes.isEmpty()) {
+            int[] parent = new int[nodeCount];
+            Arrays.fill(parent, -1);
+            return parent;
         }
-
-        return parent;
+        int[] activeArray = activeNodes.stream().mapToInt(Integer::intValue).toArray();
+        int maxSteps = Math.min(10000, Math.max(1000, activeNodes.size() * 2));
+        return GraphCentralityKernel.wilsonSpanningTree(
+                adjacency, nodeCount, activeArray, activeArray.length, maxSteps, rng);
     }
 
     /**

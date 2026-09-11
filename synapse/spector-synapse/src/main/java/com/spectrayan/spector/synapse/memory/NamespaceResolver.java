@@ -423,10 +423,15 @@ public class NamespaceResolver implements AutoCloseable {
         LlmProvider textGen = textGenProvider != null ? textGenProvider.getIfAvailable() : null;
         if (spectorProps.memory() != null && spectorProps.memory().getGraph() != null
                 && spectorProps.memory().getGraph().getEntity() != null) {
+            var entityCfg = spectorProps.memory().getGraph().getEntity();
             if (textGen != null) {
-                spectorProps.memory().getGraph().getEntity().setExtractionMode(EntityExtractionMode.LLM.name());
+                if ("NONE".equalsIgnoreCase(entityCfg.getExtractionMode())) {
+                    entityCfg.setExtractionMode(EntityExtractionMode.LLM.name());
+                }
             } else {
-                spectorProps.memory().getGraph().getEntity().setExtractionMode(EntityExtractionMode.NONE.name());
+                if ("LLM".equalsIgnoreCase(entityCfg.getExtractionMode()) || "NONE".equalsIgnoreCase(entityCfg.getExtractionMode())) {
+                    entityCfg.setExtractionMode(EntityExtractionMode.DICTIONARY.name());
+                }
             }
         }
 

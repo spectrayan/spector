@@ -527,7 +527,7 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
             entityCount++;
             persistCount();
             nameIndex.put(normalized, entityId);
-            log.trace("Directory entity interned: id={}, type={}", entityId, type);
+            log.trace("Directory entity interned: id={}", entityId);
             return entityId;
         } finally {
             lock.unlockWrite(stamp);
@@ -936,6 +936,11 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
     /** Returns the adjacency segment high water mark (for diagnostics). */
     public int adjHighWaterMark() {
         return adjHighWaterMark;
+    }
+
+    /** Returns the number of distinct memory slots currently indexed in the reverse index. */
+    public int reverseIndexSize() {
+        return memoryToEntities.size();
     }
 
     /** Sets the data encryptor for name index encryption. */

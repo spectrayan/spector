@@ -16,14 +16,13 @@
 package com.spectrayan.spector.core.similarity;
 
 import com.spectrayan.spector.core.cognitive.FreeEnergyKernel;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.within;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Random;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 /**
  * Unit tests for {@link FreeEnergyKernel#freeEnergyGradientNorm} and {@link FreeEnergyKernel#sensorySurprisal}.

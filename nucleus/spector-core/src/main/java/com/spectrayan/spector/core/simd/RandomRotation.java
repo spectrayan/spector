@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.core.simd;
-import com.spectrayan.spector.commons.error.SpectorException;
 
-import java.util.Random;
-
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorSpecies;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.commons.error.ErrorCode;
+
+import java.util.Random;
 
 /**
  * Random orthogonal rotation for isotropizing vector distributions.

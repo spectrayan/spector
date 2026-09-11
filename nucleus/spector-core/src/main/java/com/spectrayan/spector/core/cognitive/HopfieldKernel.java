@@ -15,19 +15,13 @@
  */
 package com.spectrayan.spector.core.cognitive;
 
-import com.spectrayan.spector.core.similarity.DotProduct;
-import com.spectrayan.spector.core.similarity.VectorOps;
-
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.core.math.SoftmaxKernel;
 import com.spectrayan.spector.core.simd.SimdCapability;
-
-import jdk.incubator.vector.FloatVector;
-import jdk.incubator.vector.VectorMask;
-import jdk.incubator.vector.VectorOperators;
+import com.spectrayan.spector.core.similarity.DotProduct;
+import com.spectrayan.spector.core.similarity.VectorOps;
 import jdk.incubator.vector.VectorSpecies;
-
-import java.util.Arrays;
 
 /**
  * SIMD-accelerated kernel for Modern Continuous Hopfield Networks (Ramsauer et al., 2021).
@@ -79,32 +73,7 @@ public final class HopfieldKernel {
         if (n == 0) {
             return;
         }
-
-        // Find max for numerical stability
-        float maxScaled = logits[0] * beta;
-        for (int i = 1; i < n; i++) {
-            float scaled = logits[i] * beta;
-            if (scaled > maxScaled) {
-                maxScaled = scaled;
-            }
-        }
-
-        float sumExp = 0.0f;
-        for (int i = 0; i < n; i++) {
-            float expVal = (float) Math.exp(logits[i] * beta - maxScaled);
-            outWeights[i] = expVal;
-            sumExp += expVal;
-        }
-
-        if (sumExp > 0.0f) {
-            float invSum = 1.0f / sumExp;
-            for (int i = 0; i < n; i++) {
-                outWeights[i] *= invSum;
-            }
-        } else {
-            float uniform = 1.0f / n;
-            Arrays.fill(outWeights, uniform);
-        }
+        SoftmaxKernel.computeProbabilitiesScaled(logits, beta, outWeights);
     }
 
     /**
@@ -171,6 +140,20 @@ public final class HopfieldKernel {
         float normSq = DotProduct.compute(state, state);
 
         return (-1.0f / beta) * lse + 0.5f * normSq;
+    }
+
+    /**
+     * Derives the adaptive inverse temperature beta from base beta and normalized arousal.
+     * High arousal sharpens focus (tighter attractor basins), low arousal broadens associative search.
+     *
+     * @param baseBeta baseline inverse temperature
+     * @param arousal  normalized arousal in [-1.0, 1.0]
+     * @return modulated positive beta >= 0.2f
+     */
+    public static float deriveBeta(final float baseBeta, final float arousal) {
+        final float clampedArousal = Math.clamp(arousal, -1.0f, 1.0f);
+        final float arousalMultiplier = 1.0f + (0.5f * clampedArousal);
+        return Math.max(0.2f, baseBeta * arousalMultiplier);
     }
 
     private static void validateInputs(float[] state, float[][] patterns, float[] outDots) {

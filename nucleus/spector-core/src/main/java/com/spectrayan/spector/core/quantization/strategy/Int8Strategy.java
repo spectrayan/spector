@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.core.quantization.strategy;
-import com.spectrayan.spector.commons.error.SpectorException;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
-import com.spectrayan.spector.commons.error.ErrorCode;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
 
 /**
  * Quantization strategy for INT8 scalar quantization via {@link ScalarQuantizer}.

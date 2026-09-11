@@ -44,4 +44,17 @@ public interface MaxSimKernel extends ComputeKernel {
      * @param outScores      pre-allocated output array of length at least {@code docCount}
      */
     void maxSimBatch(float[][] queryTokens, float[][][] docTokensBatch, float[] outScores);
+
+    /**
+     * Linearly combines a normalized MaxSim score with a first-stage retrieval score (ADR-0033 #29):
+     * <p>{@code score = α · maxSimNorm + (1 - α) · firstStageScore}</p>
+     *
+     * @param maxSimNorm      normalized token-level interaction score
+     * @param firstStageScore score from first-stage retrieval (e.g. dense ANN or BM25)
+     * @param alpha           linear interpolation weight in [0, 1]
+     * @return combined relevance score
+     */
+    static float combineScores(final float maxSimNorm, final float firstStageScore, final float alpha) {
+        return alpha * maxSimNorm + (1.0f - alpha) * firstStageScore;
+    }
 }

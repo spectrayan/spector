@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.layout;
 
+import com.spectrayan.spector.core.cognitive.ActRActivationKernel;
 import com.spectrayan.spector.kernel.score.DecayStrategy;
 
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
@@ -433,33 +434,9 @@ public final class StrengthLayout implements RegionLayout {
      * @return normalized activation score in [0.0, 1.0], or -1.0f if no recall history
      */
     public float computeActRActivation(MemorySegment seg, long recordOffset, long creationMs, long nowMs) {
-        long ringBase = recordOffset + OFFSET_ACTR_RING_BUFFER;
-        float sum = 0.0f;
-        int validSlots = 0;
-
-        for (int i = 0; i < ACT_R_RING_BUFFER_SLOTS; i++) {
-            int relativeSeconds = seg.get(ValueLayout.JAVA_INT, ringBase + (long) i * 4L);
-            if (relativeSeconds == 0) continue;
-
-            long recallAgeMs = (nowMs - creationMs) - (relativeSeconds * 1000L);
-            if (recallAgeMs <= 0) recallAgeMs = 1000L;
-
-            long recallTimestampMs = nowMs - recallAgeMs;
-            int bucket = DecayStrategy.ageToBucket(recallTimestampMs, nowMs);
-            sum += DecayStrategy.decay(bucket);
-            validSlots++;
-        }
-
-        if (validSlots == 0) {
-            return -1.0f;
-        }
-
-        // Include initial encoding at creation time
-        int encodingBucket = DecayStrategy.ageToBucket(creationMs, nowMs);
-        sum += DecayStrategy.decay(encodingBucket);
-
-        // Algebraic identity: σ(ln(sum)) = sum / (sum + 1)
-        return sum / (sum + 1.0f);
+        int[] relativeSeconds = readActRTimestamps(seg, recordOffset);
+        return ActRActivationKernel.computeBucketActivation(
+                relativeSeconds, creationMs, nowMs, DecayStrategy.DECAY_BUCKETS);
     }
 
     // ── Full Record Composite Read / Write ──

@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.aisme.manifold;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.core.cognitive.RiemannianManifoldKernel;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,42 +81,15 @@ public final class ManifoldConsolidator {
         float[] newDiag = Arrays.copyOf(current.diagonalScaling(), dim);
         float lr = (learningRate > 0.0f) ? learningRate : defaultLearningRate;
 
-        for (float[] diff : coActivatedPairs) {
-            if (diff == null || diff.length != dim) {
-                continue;
-            }
-            for (int k = 0; k < dim; k++) {
-                float dVal = diff[k];
-                // Exponential moving adjustment of coordinate scaling
-                newDiag[k] = Math.max(0.1f, newDiag[k] + (lr * dVal * dVal));
-            }
-        }
+        float[][] diffArray = coActivatedPairs.toArray(new float[0][]);
+        RiemannianManifoldKernel.updateDiagonalMetric(newDiag, diffArray, lr);
 
         float[][] newRank = current.lowRankComponents();
         if (maxLowRankComponents > 0 && !coActivatedPairs.isEmpty()) {
-            // Incorporate leading co-activation direction as low-rank perturbation
             float[] sampleDiff = coActivatedPairs.get(0);
             if (sampleDiff.length == dim) {
-                float[] normSample = new float[dim];
-                float normSq = 0.0f;
-                for (float v : sampleDiff) {
-                    normSq += v * v;
-                }
-                float invNorm = (normSq > 0.0f) ? (float) (Math.sqrt(lr) / Math.sqrt(normSq)) : 0.0f;
-                for (int k = 0; k < dim; k++) {
-                    normSample[k] = sampleDiff[k] * invNorm;
-                }
-
-                if (newRank.length < maxLowRankComponents) {
-                    float[][] extended = Arrays.copyOf(newRank, newRank.length + 1);
-                    extended[extended.length - 1] = normSample;
-                    newRank = extended;
-                } else if (newRank.length > 0) {
-                    // Update existing component
-                    for (int k = 0; k < dim; k++) {
-                        newRank[0][k] = (1.0f - lr) * newRank[0][k] + lr * normSample[k];
-                    }
-                }
+                newRank = RiemannianManifoldKernel.updateLowRankComponents(
+                        newRank, sampleDiff, lr, maxLowRankComponents);
             }
         }
 

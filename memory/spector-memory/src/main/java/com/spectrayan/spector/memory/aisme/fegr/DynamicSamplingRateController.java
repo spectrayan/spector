@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.aisme.fegr;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.core.cognitive.EventDensityKernel;
 
 /**
  * Dynamically modulates sensor sampling frequency \(f(t)\) based on instantaneous epistemic event density \(\nu(o_t)\).
@@ -59,9 +60,8 @@ public final class DynamicSamplingRateController {
      * @return sampling rate in \([f_{\text{min}}, f_{\text{max}}]\)
      */
     public float computeSamplingRate(float eventDensity) {
-        float normalizedSigmoid = 1.0f / (1.0f + (float) Math.exp(-(eventDensity - densityThreshold) / temperature));
-        float targetRate = minSamplingRateHz + (maxSamplingRateHz - minSamplingRateHz) * normalizedSigmoid;
-        return Math.clamp(targetRate, minSamplingRateHz, maxSamplingRateHz);
+        return EventDensityKernel.computeDynamicSamplingRate(
+                eventDensity, densityThreshold, temperature, minSamplingRateHz, maxSamplingRateHz);
     }
 
     public float minSamplingRateHz() {

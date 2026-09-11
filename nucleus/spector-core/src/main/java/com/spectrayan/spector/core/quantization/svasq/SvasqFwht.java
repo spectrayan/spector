@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 package com.spectrayan.spector.core.quantization.svasq;
-import com.spectrayan.spector.commons.error.SpectorException;
+
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 
 import java.util.Arrays;
 import java.util.Random;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.commons.error.ErrorCode;
 
 /**
  * Fast Walsh-Hadamard Transform (FWHT) with random sign flip for variance isotropization.

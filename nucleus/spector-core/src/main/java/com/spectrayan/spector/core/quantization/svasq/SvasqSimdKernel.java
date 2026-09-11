@@ -16,12 +16,7 @@
 package com.spectrayan.spector.core.quantization.svasq;
 
 import com.spectrayan.spector.core.simd.SimdCapability;
-
-import jdk.incubator.vector.ByteVector;
-import jdk.incubator.vector.FloatVector;
-import jdk.incubator.vector.VectorOperators;
-import jdk.incubator.vector.VectorShape;
-import jdk.incubator.vector.VectorSpecies;
+import jdk.incubator.vector.*;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;

@@ -15,13 +15,12 @@
  */
 package com.spectrayan.spector.core.cluster;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.similarity.EuclideanDistance;
 
 import java.util.Arrays;
 import java.util.Random;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.commons.error.ErrorCode;
-import com.spectrayan.spector.commons.error.SpectorException;
 
 /**
  * K-Means++ clustering utility.

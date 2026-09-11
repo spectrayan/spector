@@ -16,13 +16,12 @@
 package com.spectrayan.spector.core;
 
 import com.spectrayan.spector.core.similarity.VectorOps;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.within;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 /**
  * Tests for {@link VectorOps} SIMD utility operations.
@@ -184,6 +183,26 @@ class VectorOpsTest {
             float expected = (a[i] + b[i] + c[i]) / 3.0f;
             assertThat(centroid[i]).isCloseTo(expected, within(1e-5f));
         }
+    }
+
+    // ─────────────── Sigmoid ───────────────
+
+    @Test
+    void sigmoidAtZeroReturnsHalf() {
+        assertThat(VectorOps.sigmoid(0.0f)).isCloseTo(0.5f, within(1e-6f));
+    }
+
+    @Test
+    void sigmoidSymmetry() {
+        float x = 2.5f;
+        assertThat(VectorOps.sigmoid(-x)).isCloseTo(1.0f - VectorOps.sigmoid(x), within(1e-6f));
+    }
+
+    @Test
+    void sigmoidBoundsAndExtremes() {
+        assertThat(VectorOps.sigmoid(-100.0f)).isCloseTo(0.0f, within(1e-6f));
+        assertThat(VectorOps.sigmoid(100.0f)).isCloseTo(1.0f, within(1e-6f));
+        assertThat(VectorOps.sigmoid(1.0f)).isGreaterThan(VectorOps.sigmoid(0.0f));
     }
 
     // ── Helpers ──

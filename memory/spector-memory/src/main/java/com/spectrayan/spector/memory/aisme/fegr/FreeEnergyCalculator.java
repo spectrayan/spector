@@ -15,6 +15,7 @@ package com.spectrayan.spector.memory.aisme.fegr;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.cognitive.FreeEnergyKernel;
+import com.spectrayan.spector.core.math.SigmoidKernel;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -135,7 +136,7 @@ public final class FreeEnergyCalculator {
      */
     public static float calculateFersScore(float baseSimilarity, float deltaF, float affectiveResonance,
                                            float alpha, float beta, float gamma) {
-        float normalizedDeltaF = 1.0f / (1.0f + (float) Math.exp(-deltaF));
+        float normalizedDeltaF = SigmoidKernel.sigmoid(deltaF);
         return (alpha * baseSimilarity) + (beta * normalizedDeltaF) + (gamma * affectiveResonance);
     }
 }

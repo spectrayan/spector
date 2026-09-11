@@ -75,7 +75,7 @@ public final class FlashbulbPolicy {
      * @return decision with fidelity, importance, and pin recommendations
      */
     public FlashbulbDecision evaluate(double zScore) {
-        if (zScore > flashbulbThreshold) {
+        if (com.spectrayan.spector.core.cognitive.DopaminergicSurpriseKernel.isFlashbulb(zScore, flashbulbThreshold)) {
             log.info("Flashbulb memory triggered! z-score={} (threshold={})",
                     zScore, flashbulbThreshold);
             return new FlashbulbDecision(true, 10.0f, true);

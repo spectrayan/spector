@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.aisme.policy;
 
+import com.spectrayan.spector.core.math.SoftmaxKernel;
 import com.spectrayan.spector.memory.aisme.fegr.MentalStatePosterior;
 import com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker;
 import com.spectrayan.spector.memory.aisme.homeostasis.HomeostaticCore;
@@ -93,20 +94,21 @@ public final class PolicyInferenceEngine {
         }
 
         // Boltzmann softmax: P(π) = exp(-γ * G(π)) / Σ exp(-γ * G(π'))
-        float sumExp = 0.0f;
-        float[] expScores = new float[rawScores.size()];
-        for (int i = 0; i < rawScores.size(); i++) {
-            expScores[i] = (float) Math.exp(-gamma * rawScores.get(i).totalG());
-            sumExp += expScores[i];
+        // Max-shift stabilized via SoftmaxKernel to prevent IEEE 754 overflow
+        int count = rawScores.size();
+        float[] gScores = new float[count];
+        for (int i = 0; i < count; i++) {
+            gScores[i] = rawScores.get(i).totalG();
         }
+        float[] probabilities = new float[count];
+        SoftmaxKernel.computeProbabilitiesScaled(gScores, -gamma, probabilities);
 
         // Normalize and build ranked list
-        List<PolicyDecisionReport.ScoredPolicy> ranked = new ArrayList<>(rawScores.size());
-        for (int i = 0; i < rawScores.size(); i++) {
+        List<PolicyDecisionReport.ScoredPolicy> ranked = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
             PolicyDecisionReport.ScoredPolicy raw = rawScores.get(i);
-            float normP = sumExp > 0 ? expScores[i] / sumExp : 0.0f;
             ranked.add(new PolicyDecisionReport.ScoredPolicy(
-                    raw.policy(), raw.pragmaticRisk(), raw.epistemicGain(), raw.totalG(), normP));
+                    raw.policy(), raw.pragmaticRisk(), raw.epistemicGain(), raw.totalG(), probabilities[i]));
         }
 
         // Sort by probability descending

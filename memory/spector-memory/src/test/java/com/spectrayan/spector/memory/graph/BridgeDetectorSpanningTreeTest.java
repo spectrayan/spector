@@ -152,7 +152,7 @@ class BridgeDetectorSpanningTreeTest {
                 {0, 1, 2},
         };
 
-        int[][] scores = BridgeDetector.computeBridgeScoresSpanningTree(adj, 4, 30, 0);
+        int[][] scores = BridgeDetector.computeBridgeScoresSpanningTree(adj, 4, 30, 0, new Random(42));
 
         assertThat(scores).isNotNull();
 
@@ -186,7 +186,7 @@ class BridgeDetectorSpanningTreeTest {
                 {3},        // node 5 (leaf)
         };
 
-        int[][] scores = BridgeDetector.computeBridgeScoresSpanningTree(adj, 6, 30, 0);
+        int[][] scores = BridgeDetector.computeBridgeScoresSpanningTree(adj, 6, 50, 0, new Random(42));
 
         assertThat(scores).isNotNull();
 
