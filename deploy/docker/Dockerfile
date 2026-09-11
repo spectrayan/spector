@@ -6,7 +6,7 @@
 # ═══════════════════════════════════════════════════════════════════
 
 # ── Stage 1: Build Angular Cortex Dashboard ───────────────────────────
-FROM --platform=$BUILDPLATFORM node:22-alpine AS builder-cortex
+FROM --platform=$BUILDPLATFORM node:22.22.3-alpine AS builder-cortex
 
 WORKDIR /build
 COPY cortex/spector-cortex/package*.json ./
@@ -28,8 +28,9 @@ COPY synapse/ synapse/
 COPY sdks/java/ sdks/java/
 COPY bench/ bench/
 
-# Package Synapse executable fat JAR
-RUN mvn -B package -pl synapse/spector-synapse -am -DskipTests --no-transfer-progress && \
+# Package Synapse executable fat JAR (cache Maven repo to survive transient TLS errors)
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn -B package -pl synapse/spector-synapse -am -DskipTests --no-transfer-progress && \
     cp /build/synapse/spector-synapse/target/spector-synapse-*-exec.jar /build/spector-synapse.jar
 
 # ── Stage 3: Runtime (glibc Debian Bookworm base) ─────────────────────
@@ -77,6 +78,27 @@ ENV JAVA_OPTS="-Xms512m -Xmx1536m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 \
 -XX:G1HeapRegionSize=8m -XX:MaxDirectMemorySize=2g \
 --enable-preview --add-modules=jdk.incubator.vector \
 --enable-native-access=ALL-UNNAMED -Djava.io.tmpdir=/data/tmp"
+
+# ── Provider Configuration ──
+# Supported types: ollama | openai | google | anthropic | mistral | azure | bedrock | onnx
+ENV SPECTOR_EMBEDDING_PROVIDER=ollama \
+    SPECTOR_EMBEDDING_MODEL=nomic-embed-text \
+    SPECTOR_EMBEDDING_BASE_URL=http://host.docker.internal:11434 \
+    SPECTOR_EMBEDDING_API_KEY="" \
+    SPECTOR_EMBEDDING_DIMS=768 \
+    SPECTOR_EMBEDDING_TIMEOUT=120s \
+    SPECTOR_GENERATION_PROVIDER=ollama \
+    SPECTOR_GENERATION_MODEL=llama3.2 \
+    SPECTOR_GENERATION_BASE_URL=http://host.docker.internal:11434 \
+    SPECTOR_GENERATION_API_KEY=""
+
+# ── Memory Configuration ──
+ENV SPECTOR_MEMORY_CAPACITY=10000 \
+    SPECTOR_ENTITY_EXTRACTION_MODE=NONE \
+    SPECTOR_TAG_EXTRACTOR=content \
+    SPECTOR_TEXT_SEARCH_MODE=HYBRID \
+    SPECTOR_LLM_TEMPERATURE=0.3 \
+    SPECTOR_LLM_MAX_TOKENS=1024
 
 # Prepare filesystem permissions for non-root execution (UID 1000)
 RUN mkdir -p /data/index /data/memory /data/tmp /tmp/nginx /var/log/nginx /var/lib/nginx \

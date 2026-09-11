@@ -44,10 +44,23 @@ ENV SPECTOR_PORT=7070 \
     SPECTOR_CORS_ORIGINS=http://localhost:4200 \
     JAVA_OPTS="-XX:+UseZGC -XX:+ZGenerational -Xmx512m"
 
-# Ollama (LLM provider)
-ENV SPECTOR_OLLAMA_BASE_URL=http://host.docker.internal:11434 \
-    SPECTOR_OLLAMA_MODEL=qwen3.5:latest \
-    SPECTOR_OLLAMA_EMBED_MODEL=nomic-embed-text
+# Provider Configuration (provider-agnostic)
+# Supported types: ollama | openai | google | anthropic | mistral | azure | bedrock | onnx
+ENV SPECTOR_EMBEDDING_PROVIDER=ollama \
+    SPECTOR_EMBEDDING_MODEL=nomic-embed-text \
+    SPECTOR_EMBEDDING_BASE_URL=http://host.docker.internal:11434 \
+    SPECTOR_EMBEDDING_API_KEY="" \
+    SPECTOR_EMBEDDING_DIMS=768 \
+    SPECTOR_GENERATION_PROVIDER=ollama \
+    SPECTOR_GENERATION_MODEL=llama3.2 \
+    SPECTOR_GENERATION_BASE_URL=http://host.docker.internal:11434 \
+    SPECTOR_GENERATION_API_KEY=""
+
+# Memory Configuration
+ENV SPECTOR_MEMORY_CAPACITY=10000 \
+    SPECTOR_ENTITY_EXTRACTION_MODE=NONE \
+    SPECTOR_TAG_EXTRACTOR=content \
+    SPECTOR_TEXT_SEARCH_MODE=HYBRID
 
 # ── Feature Flags ──
 # LLM-dependent features (auto-enabled when Ollama is detected)

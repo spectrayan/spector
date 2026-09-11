@@ -2,12 +2,15 @@
 # Spector — Docker Configuration
 # ═══════════════════════════════════════════════════════════════════
 # Container-specific overrides. Paths map to Docker volumes.
-# Ollama connects to host via Docker's host networking bridge.
+# All values can be overridden via environment variables using the
+# auto-mapped naming: spector.provider.embedding.type → SPECTOR_PROVIDER_EMBEDDING_TYPE
 #
-# Prerequisites:
-#   - Ollama running on host with:
-#     ollama pull qwen3-embedding:0.6b
-#     ollama pull qwen3:1.7b
+# For convenience, the Dockerfile also declares short aliases:
+#   SPECTOR_EMBEDDING_PROVIDER → SPECTOR_PROVIDER_EMBEDDING_TYPE
+#   SPECTOR_EMBEDDING_MODEL    → SPECTOR_PROVIDER_EMBEDDING_MODEL
+# The entrypoint.sh maps these aliases to the canonical names.
+#
+# Provider types: ollama | openai | google | anthropic | mistral | azure | bedrock | onnx
 # ═══════════════════════════════════════════════════════════════════
 
 spector:
@@ -16,15 +19,17 @@ spector:
   provider:
     embedding:
       type: ollama
-      model: ${SPECTOR_OLLAMA_EMBED_MODEL:qwen3-embedding:0.6b}
-      base-url: ${SPECTOR_OLLAMA_BASE_URL:http://host.docker.internal:11434}
-      dimensions: 1024
+      model: nomic-embed-text
+      base-url: http://host.docker.internal:11434
+      api-key:
+      dimensions: 768
       timeout: 120s
       batch-size: 32
     generation:
       type: ollama
-      model: ${SPECTOR_OLLAMA_MODEL:llama3.2:latest}
-      base-url: ${SPECTOR_OLLAMA_BASE_URL:http://host.docker.internal:11434}
+      model: llama3.2
+      base-url: http://host.docker.internal:11434
+      api-key:
 
   memory:
     enabled: true
@@ -32,27 +37,27 @@ spector:
     persistence-path: /data/memory
     bundle-mode: true
     insula-size: 2097152
-    dimensions: 1024
+    dimensions: 768
     capacity: 10000
     nodes-per-partition: 10000
     decay-enabled: true
     consolidation-interval: 120s
     default-ingestion-tier: SEMANTIC
-    tag-extractor: llm
-    tag-extractor-model: tag-extractor:latest
+    tag-extractor: content
+    tag-extractor-model:
     entity:
-      extraction-mode: ${SPECTOR_ENTITY_EXTRACTION_MODE:LLM}
+      extraction-mode: NONE
     # ── Hybrid Search ──
-    text-search-mode: FULL_STACK       # VECTOR_ONLY, HYBRID, BM25_ONLY, SPLADE_ONLY, SPLADE_VECTOR, COLBERT, FULL_STACK
-    splade-enabled: true               # SPLADE learned sparse retrieval
-    colbert-enabled: true              # ColBERT v2 token-level reranking
-    bm25-enabled: true                 # BM25 keyword search
+    text-search-mode: HYBRID
+    splade-enabled: false
+    colbert-enabled: false
+    bm25-enabled: true
     # ── LLM Generation ──
     llm:
-      temperature: 0.3                 # sampling temperature (0.0 = deterministic, 1.0 = creative)
-      max-tokens: 1024                 # max tokens per generation call
-      top-p: 0.95                      # nucleus sampling threshold
-      entity-model: tag-extractor:latest # optional separate model for entity extraction
+      temperature: 0.3
+      max-tokens: 1024
+      top-p: 0.95
+      entity-model:
 
   hnsw:
     m: 16
@@ -66,5 +71,3 @@ spector:
     chunk-size: 2500
     chunk-overlap: 200
     parallelism: 1
-    max-retries: 3
-    retry-delay-ms: 2000

@@ -27,6 +27,28 @@ spec:
       serviceAccountName: {{ include "spector.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- if and .Values.sysctl.enabled (not .Values.sysctl.useInitContainer) }}
+        sysctls:
+          - name: vm.max_map_count
+            value: {{ .Values.sysctl.vmMaxMapCount | quote }}
+          - name: fs.file-max
+            value: {{ .Values.sysctl.fsFileMax | quote }}
+        {{- end }}
+      {{- if and .Values.sysctl.enabled .Values.sysctl.useInitContainer }}
+      initContainers:
+        - name: init-sysctl
+          image: "{{ .Values.sysctl.image.repository }}:{{ .Values.sysctl.image.tag }}"
+          imagePullPolicy: {{ .Values.sysctl.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              sysctl -w vm.max_map_count={{ .Values.sysctl.vmMaxMapCount | int }}
+              sysctl -w fs.file-max={{ .Values.sysctl.fsFileMax | int }}
+          securityContext:
+            privileged: true
+            runAsUser: 0
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -45,6 +67,11 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+          {{- if .Values.secretRef.name }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.secretRef.name }}
+          {{- end }}
           volumeMounts:
             - name: data
               mountPath: {{ .Values.persistence.mountPath }}
@@ -90,7 +117,9 @@ spec:
       spec:
         accessModes:
           - {{ .Values.persistence.accessMode | quote }}
-        {{- if .Values.persistence.storageClass }}
+        {{- if .Values.persistence.createStorageClass }}
+        storageClassName: {{ .Values.persistence.storageClassName | quote }}
+        {{- else if .Values.persistence.storageClass }}
         storageClassName: {{ .Values.persistence.storageClass | quote }}
         {{- end }}
         resources:
