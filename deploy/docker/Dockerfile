@@ -28,8 +28,9 @@ COPY synapse/ synapse/
 COPY sdks/java/ sdks/java/
 COPY bench/ bench/
 
-# Package Synapse executable fat JAR
-RUN mvn -B package -pl synapse/spector-synapse -am -DskipTests --no-transfer-progress && \
+# Package Synapse executable fat JAR (cache Maven repo to survive transient TLS errors)
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn -B package -pl synapse/spector-synapse -am -DskipTests --no-transfer-progress && \
     cp /build/synapse/spector-synapse/target/spector-synapse-*-exec.jar /build/spector-synapse.jar
 
 # ── Stage 3: Runtime (glibc Debian Bookworm base) ─────────────────────
