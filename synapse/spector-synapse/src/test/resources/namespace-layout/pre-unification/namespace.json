@@ -1,0 +1,9 @@
+{
+  "id": "pre-unif-ns",
+  "display_name": "Pre-Unification Fixture",
+  "max_memories": 1000,
+  "max_partitions": 10,
+  "max_storage_bytes": 104857600,
+  "read_only": false,
+  "created_at": "2026-09-11T00:00:00Z"
+}
