@@ -5,6 +5,10 @@ target/
 *.war
 *.ear
 
+# ──────────── Environment secrets ────────────
+.env
+
+
 # ──────────── IDE ────────────
 .idea/
 *.iml
