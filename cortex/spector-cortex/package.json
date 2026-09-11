@@ -1,6 +1,6 @@
 {
   "name": "spector-cortex",
-  "version": "0.1.0-alpha",
+  "version": "0.1.0-alpha.2",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",

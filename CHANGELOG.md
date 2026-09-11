@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.2] - 2026-09-11
+
+### Added & Enhanced — Multi-Provider Docker & Production Infrastructure (#812)
+- **deploy/docker:** Replaced hardcoded configuration in `spector-docker.yml` with provider-agnostic environment variable bindings (`SPECTOR_EMBEDDING_*`, `SPECTOR_GENERATION_*`).
+- **deploy/docker:** Added native Docker secrets loader in `entrypoint.sh` for mounting API keys at `/run/secrets/` and alias mapper (`alias_env`) bridging user-facing short names to canonical config paths.
+- **docker-compose:** Added complete provider environment declarations with sensible defaults and created `.env.example` with reference configurations for Ollama, Google Gemini, OpenAI, Anthropic, Mistral, Azure, Bedrock, and ONNX.
+- **deploy/helm:** Added Linux kernel tuning for Project Panama FFM off-heap `mmap` (`vm.max_map_count=262144`, `fs.file-max=1048576`) via privileged `init-sysctl` container and pod-level `sysctls`.
+- **deploy/helm:** Added configurable high-performance `StorageClass` template (`templates/storageclass.yaml`) with presets for AWS (`gp3`, `io2`), GCP (`hyperdisk-balanced`, `pd-ssd`), Azure (`managed-csi-premium`), and Local NVMe (`spector-nvme-local`).
+- **deploy/terraform:** Added provider variables and sensitive credential masking across AWS ECS, Azure Container Apps, and GCP Cloud Run modules. Configured `nofile` ulimits (65536) in AWS ECS.
+- **spector-synapse:** Implemented nested backward-compatibility fallback chains in `application.yml` (`${SPECTOR_EMBEDDING_*:${SPECTOR_OLLAMA_*:default}}`).
+- **docker-build:** Pinned Node.js build stage to `22.22.3-alpine` for Angular CLI 22 compatibility and added BuildKit cache mount for Maven repository persistence.
+
+### Added — Project Panama Pure Math Kernels (ADR-0033 Phase 0 & 1) (#809, #810)
+- **spector-core:** Extracted pure SIMD math kernels into stateless, thread-safe components using Project Panama Vector API (`jdk.incubator.vector`).
+- **spector-core & spector-index:** Deduplicated dot-product, cosine similarity, Euclidean distance, and L2 normalization call sites across core and indexing subsystems.
+- **spector-core:** Added comprehensive contract tests and safety scaffolding for Project Panama off-heap boundary verification.
+
+### Added — Sealed Kernel Module (spector-kernel) (#793, #796)
+- **spector-kernel:** Carved dedicated sealed kernel module enforcing native Panama memory segment isolation and off-heap partition structures.
+- **spector-memory:** Decoupled high-level memory cognitive pathways from low-level native arena memory layout and lifecycle management.
+
+### Enhanced — Dual-Plane Concurrency & Concurrency Safety (#783, #784, #786, #787, #788)
+- **spector-commons & spector-synapse:** Implemented Dual-Plane Concurrency with virtual thread classification, executor injection (`SpringExecutorProvider`), and in-memory multi-tenant Quartz scheduler routing via virtual thread SPI.
+- **spector-commons & spector-memory:** Resolved 253 Java inspection warnings and eliminated deprecated twin classes.
+
+### Fixed — Memory Resilience & Temporal Graph Expansion (#781, #782)
+- **spector-memory:** Hardened partition bundle recovery against partial writes, off-heap corruption, and unexpected shutdowns.
+- **spector-memory:** Enhanced Temporal Knowledge Graph multi-hop neighborhood expansion and episodic timestamp decoding.
+
 ### Added — Persona Enactment Engine (ADR-0032) (#764)
 - **spector-memory:** Implemented Dual-Process Cognitive Enactment Engine under `com.spectrayan.spector.memory.aisme.enactment`:
   - `CognitiveAppraisal` grounding in Lazarus & Scherer Cognitive Appraisal Theory with VAD dynamics and agency attribution

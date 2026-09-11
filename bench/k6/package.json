@@ -1,6 +1,6 @@
 {
   "name": "@spectrayan/spector-k6-benchmarks",
-  "version": "0.1.0-alpha",
+  "version": "0.1.0-alpha.2",
   "description": "Grafana k6 API Performance, Load, Stress, and Multi-User Benchmarking Suite for Spector Synapse",
   "scripts": {
     "test:smoke": "k6 run scenarios/01-smoke-test.js",
