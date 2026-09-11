@@ -70,26 +70,32 @@ class StorageLayoutShardTest {
 
     @Test
     void tenantScopedShardedPathStructure() {
-        Path sharded = StoragePaths.tenantNamespaceDirSharded(tempDir, "org-acme", "user-1");
-        Path namespacesDir = StoragePaths.namespacesDir(tempDir);
+        Path sharded = StoragePaths.tenantRootedNamespaceDir(tempDir, "org-acme", "user-1");
+        Path tenantsDir = tempDir.resolve(StoragePaths.DIR_TENANTS);
 
-        Path relative = namespacesDir.relativize(sharded);
-        // Should be XX/YY/org-acme/user-1 (4 components)
-        assertThat(relative.getNameCount()).isEqualTo(4);
+        Path relative = tenantsDir.relativize(sharded);
+        // Structure: XX/YY/org-acme/namespaces/ZZ/WW/user-1 (7 components)
+        assertThat(relative.getNameCount()).isEqualTo(7);
         assertThat(relative.getName(0).toString()).matches("[0-9a-f]{2}");
         assertThat(relative.getName(1).toString()).matches("[0-9a-f]{2}");
         assertThat(relative.getName(2).toString()).isEqualTo("org-acme");
-        assertThat(relative.getName(3).toString()).isEqualTo("user-1");
+        assertThat(relative.getName(3).toString()).isEqualTo("namespaces");
+        assertThat(relative.getName(4).toString()).matches("[0-9a-f]{2}");
+        assertThat(relative.getName(5).toString()).matches("[0-9a-f]{2}");
+        assertThat(relative.getName(6).toString()).isEqualTo("user-1");
     }
 
     @Test
-    void tenantScopedShardsOnTenantNotUser() {
-        // Same tenant, different users should share the same shard bucket
-        Path u1 = StoragePaths.tenantNamespaceDirSharded(tempDir, "org-acme", "user-1");
-        Path u2 = StoragePaths.tenantNamespaceDirSharded(tempDir, "org-acme", "user-2");
+    void tenantScopedShardsOnTenantAndNamespace() {
+        // Same tenant, different namespaces share the same tenant parent prefix
+        Path u1 = StoragePaths.tenantRootedNamespaceDir(tempDir, "org-acme", "user-1");
+        Path u2 = StoragePaths.tenantRootedNamespaceDir(tempDir, "org-acme", "user-2");
 
-        // Their parent (the tenant dir) should be the same
-        assertThat(u1.getParent()).isEqualTo(u2.getParent());
+        // Their tenant dir is identical
+        Path tenantDir1 = u1.getParent().getParent().getParent().getParent();
+        Path tenantDir2 = u2.getParent().getParent().getParent().getParent();
+        assertThat(tenantDir1).isEqualTo(tenantDir2);
+        assertThat(tenantDir1.getFileName().toString()).isEqualTo("org-acme");
     }
 
     @Test

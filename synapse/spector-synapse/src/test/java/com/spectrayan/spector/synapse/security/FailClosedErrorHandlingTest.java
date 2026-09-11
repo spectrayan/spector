@@ -29,6 +29,7 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
 
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.kernel.storage.NamespacePathResolver;
 import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
 
@@ -116,6 +117,60 @@ class FailClosedErrorHandlingTest {
         assertThat(body.message()).doesNotContain(rawUnsafeId);
         // Nor may the response leak the internal SPE code or the offending code point (Req 19.6).
         assertThat(body.message()).doesNotContain("SPE-");
+        assertThat(body.message()).isEqualTo("Invalid namespace identifier");
+    }
+
+    @Test
+    void unsafeTenantIdentifierYields400WithoutEchoingRawValue() {
+        String rawUnsafeTenant = "evil/../../secret";
+        SpectorValidationException ex = catchThrowableOfType(SpectorValidationException.class,
+                () -> NamespacePathResolver.resolve(Path.of("base"), rawUnsafeTenant, "ns-valid"));
+        assertThat(ex).isNotNull();
+        assertThat(ex.getMessage()).contains("namespace identifier");
+        assertThat(ex.getMessage()).doesNotContain(rawUnsafeTenant);
+
+        ResponseEntity<ErrorResponse> result = new AuthExceptionHandler().handleValidation(ex);
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        ErrorResponse body = result.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.status()).isEqualTo(400);
+        assertThat(body.message()).doesNotContain(rawUnsafeTenant);
+        assertThat(body.message()).doesNotContain("SPE-");
+        assertThat(body.message()).isEqualTo("Invalid namespace identifier");
+    }
+
+    @Test
+    void unsafeNamespaceIdentifierInTenantRootedYields400WithoutEchoingRawValue() {
+        String rawUnsafeNs = "evil/../../secret";
+        SpectorValidationException ex = catchThrowableOfType(SpectorValidationException.class,
+                () -> NamespacePathResolver.resolve(Path.of("base"), "acme", rawUnsafeNs));
+        assertThat(ex).isNotNull();
+        assertThat(ex.getMessage()).contains("namespace identifier");
+        assertThat(ex.getMessage()).doesNotContain(rawUnsafeNs);
+
+        ResponseEntity<ErrorResponse> result = new AuthExceptionHandler().handleValidation(ex);
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        ErrorResponse body = result.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.status()).isEqualTo(400);
+        assertThat(body.message()).doesNotContain(rawUnsafeNs);
+        assertThat(body.message()).doesNotContain("SPE-");
+        assertThat(body.message()).isEqualTo("Invalid namespace identifier");
+    }
+
+    @Test
+    void overLengthIdentifierInTenantRootedYields400WithoutEchoingRawValue() {
+        String rawLongId = "a".repeat(300);
+        SpectorValidationException ex = catchThrowableOfType(SpectorValidationException.class,
+                () -> StoragePaths.tenantRootedNamespaceDir(Path.of("base"), rawLongId, "ns-valid"));
+        assertThat(ex).isNotNull();
+        assertThat(ex.getMessage()).contains("namespace identifier");
+        assertThat(ex.getMessage()).doesNotContain(rawLongId);
+
+        ResponseEntity<ErrorResponse> result = new AuthExceptionHandler().handleValidation(ex);
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        ErrorResponse body = result.getBody();
+        assertThat(body).isNotNull();
         assertThat(body.message()).isEqualTo("Invalid namespace identifier");
     }
 

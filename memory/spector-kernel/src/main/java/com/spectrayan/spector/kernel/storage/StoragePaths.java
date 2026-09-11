@@ -284,6 +284,38 @@ public final class StoragePaths {
     }
 
     /**
+     * Resolves a two-level SHA-256 shard path under {@code parent}: {@code parent/XX/YY/}.
+     *
+     * @param parent the parent directory
+     * @param id     the identifier to shard
+     * @return {@code parent.resolve(l1).resolve(l2)}
+     */
+    public static Path shard2(Path parent, String id) {
+        String hash = sha256Hex(id);
+        String l1 = hash.substring(0, SHARD_HEX_DIGITS);
+        String l2 = hash.substring(SHARD_HEX_DIGITS, SHARD_HEX_DIGITS * SHARD_LEVELS);
+        return parent.resolve(l1).resolve(l2);
+    }
+
+    /**
+     * Normalises the resolved path and verifies that it does not escape {@code base}
+     * (traversal guard ported from IdentityPaths, Req R4.5).
+     *
+     * @param base     the expected base directory
+     * @param resolved the resolved target path
+     * @return the normalised target path
+     * @throws SpectorValidationException if the resolved path escapes {@code base}
+     */
+    public static Path safeResolve(Path base, Path resolved) {
+        Path normalized = resolved.normalize();
+        if (!normalized.startsWith(base.normalize())) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "namespace identifier", "Path traversal attempt detected");
+        }
+        return normalized;
+    }
+
+    /**
      * Resolves the sharded path for a namespace ID.
      *
      * <p>Uses the first 4 hex characters of SHA-256(namespaceId) as
@@ -301,32 +333,51 @@ public final class StoragePaths {
      */
     public static Path namespaceDirSharded(Path basePath, String namespaceId) {
         validateNamespaceId(namespaceId);
-        String hash = sha256Hex(namespaceId);
-        String l1 = hash.substring(0, SHARD_HEX_DIGITS);
-        String l2 = hash.substring(SHARD_HEX_DIGITS, SHARD_HEX_DIGITS * SHARD_LEVELS);
-        return namespacesDir(basePath).resolve(l1).resolve(l2).resolve(namespaceId);
+        return safeResolve(basePath, shard2(namespacesDir(basePath), namespaceId).resolve(namespaceId));
+    }
+
+    /**
+     * Resolves a tenant-rooted namespace path with SHA-256 sharding for both tenant and namespace
+     * (ADR-0033 §9.2, Phase 0.1, Req R4.2, R4.3, R4.5).
+     *
+     * <pre>
+     *   basePath/tenants/XX/YY/tenantId/namespaces/ZZ/WW/namespaceId/
+     * </pre>
+     *
+     * @param basePath    root persistence path
+     * @param tenantId    the tenant identifier (must be lowercase, validated via {@link #validateNamespaceId(String)})
+     * @param namespaceId the namespace identifier (validated via {@link #validateNamespaceId(String)})
+     * @return sharded tenant-rooted namespace directory
+     * @throws SpectorValidationException if either identifier is invalid or fails traversal checks
+     */
+    public static Path tenantRootedNamespaceDir(Path basePath, String tenantId, String namespaceId) {
+        validateNamespaceId(tenantId);
+        if (!tenantId.equals(tenantId.toLowerCase(java.util.Locale.ROOT))) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "namespace identifier", "tenant identifier must be lowercase");
+        }
+        validateNamespaceId(namespaceId);
+        Path tenantDir = shard2(basePath.resolve(DIR_TENANTS), tenantId).resolve(tenantId);
+        Path nsDir = shard2(tenantDir.resolve(DIR_NAMESPACES), namespaceId).resolve(namespaceId);
+        return safeResolve(basePath, nsDir);
     }
 
     /**
      * Resolves a tenant-scoped namespace with sharding.
      *
-     * <p>Shards on the tenantId, then nests the namespaceId beneath it:</p>
-     * <pre>
-     *   basePath/namespaces/XX/YY/tenantId/namespaceId/
-     * </pre>
-     *
+     * @deprecated Use {@link #tenantRootedNamespaceDir(Path, String, String)} instead.
+     *             This helper placed tenants directly under {@code namespaces/} instead of the tenant-rooted
+     *             hierarchy defined by ADR-0033 §9.2 (Req R6.4).
      * @param basePath     root persistence path
      * @param tenantId     the tenant (org) identifier — sharded on this
      * @param namespaceId  the namespace (user/agent) identifier within the tenant
      * @return sharded tenant-scoped path
      */
+    @Deprecated(since = "0.13.0", forRemoval = true)
     public static Path tenantNamespaceDirSharded(Path basePath, String tenantId, String namespaceId) {
         validateNamespaceId(tenantId);
         validateNamespaceId(namespaceId);
-        String hash = sha256Hex(tenantId);
-        String l1 = hash.substring(0, SHARD_HEX_DIGITS);
-        String l2 = hash.substring(SHARD_HEX_DIGITS, SHARD_HEX_DIGITS * SHARD_LEVELS);
-        return namespacesDir(basePath).resolve(l1).resolve(l2).resolve(tenantId).resolve(namespaceId);
+        return safeResolve(basePath, shard2(namespacesDir(basePath), tenantId).resolve(tenantId).resolve(namespaceId));
     }
 
     // ── Catalog and identity plane resolvers (ADR-0029) ──
@@ -356,10 +407,7 @@ public final class StoragePaths {
      */
     public static Path accountDir(Path basePath, String accountId) {
         validateNamespaceId(accountId);
-        String hash = sha256Hex(accountId);
-        String l1 = hash.substring(0, SHARD_HEX_DIGITS);
-        String l2 = hash.substring(SHARD_HEX_DIGITS, SHARD_HEX_DIGITS * SHARD_LEVELS);
-        return basePath.resolve(DIR_ACCOUNTS).resolve(l1).resolve(l2).resolve(accountId);
+        return safeResolve(basePath, shard2(basePath.resolve(DIR_ACCOUNTS), accountId).resolve(accountId));
     }
 
     /**
@@ -380,11 +428,8 @@ public final class StoragePaths {
     @Deprecated(since = "0.13.0", forRemoval = true)
     public static Path tenantIdentityBundle(Path basePath, String tenantId) {
         validateNamespaceId(tenantId);
-        String hash = sha256Hex(tenantId);
-        String l1 = hash.substring(0, SHARD_HEX_DIGITS);
-        String l2 = hash.substring(SHARD_HEX_DIGITS, SHARD_HEX_DIGITS * SHARD_LEVELS);
-        return basePath.resolve(DIR_TENANTS).resolve(l1).resolve(l2).resolve(tenantId)
-                .resolve(FILE_IDENTITY_BUNDLE);
+        return safeResolve(basePath, shard2(basePath.resolve(DIR_TENANTS), tenantId).resolve(tenantId)
+                .resolve(FILE_IDENTITY_BUNDLE));
     }
 
     /**
