@@ -30,6 +30,7 @@ import com.spectrayan.spector.config.properties.IngestionProperties;
 import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.config.properties.IvfProperties;
 import com.spectrayan.spector.config.properties.SpectrumProperties;
+import com.spectrayan.spector.config.properties.NamespaceProperties;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -55,6 +56,7 @@ public class SpectorConfigProperties {
     private TelemetryProperties telemetry = new TelemetryProperties();
     private MultimodalProperties multimodal = new MultimodalProperties();
     private IngestionProperties ingestion = new IngestionProperties();
+    private NamespaceProperties namespace = new NamespaceProperties();
     private HnswProperties hnsw;
     private IvfProperties ivf;
     private SpectrumProperties spectrum;
@@ -112,6 +114,12 @@ public class SpectorConfigProperties {
     public SpectrumProperties getSpectrum() { return spectrum; }
     public void setSpectrum(SpectrumProperties spectrum) { this.spectrum = spectrum; }
 
+    public NamespaceProperties getNamespace() { return namespace; }
+    public void setNamespace(NamespaceProperties namespace) {
+        if (namespace != null) this.namespace = namespace;
+    }
+    public NamespaceProperties namespace() { return getNamespace(); }
+
     /**
      * Converts this Spring Boot configuration properties bean into a canonical
      * {@link SpectorProperties} aggregate root snapshot.
@@ -129,6 +137,7 @@ public class SpectorConfigProperties {
                 .concurrency(concurrency)
                 .telemetry(telemetry)
                 .multimodal(multimodal)
+                .namespace(namespace)
                 .build();
     }
 

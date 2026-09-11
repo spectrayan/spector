@@ -12,7 +12,10 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,6 +24,13 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spectrayan.spector.kernel.storage.NamespacePathResolver;
+import com.spectrayan.spector.kernel.storage.NamespacePathResolver.Layout;
+import com.spectrayan.spector.kernel.storage.NamespacePathResolver.Placement;
+import com.spectrayan.spector.synapse.identity.IdentityPaths;
 
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
@@ -45,7 +55,6 @@ import com.spectrayan.spector.synapse.catalog.NamespaceStatus;
 import com.spectrayan.spector.synapse.catalog.exception.NamespaceNotFoundException;
 import com.spectrayan.spector.synapse.catalog.exception.NamespaceTombstonedException;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.ObjectProvider;
 
@@ -211,7 +220,7 @@ public class NamespaceResolver implements AutoCloseable {
         if (slugOrId == null || slugOrId.isBlank()) {
             return resolve(accountId);
         }
-        catalog.getOrCreateAccount(accountId);
+        Account callerAccount = catalog.getOrCreateAccount(accountId);
         NamespaceRecord record = catalog.resolve(accountId, slugOrId)
                 .orElseThrow(() -> new NamespaceNotFoundException(slugOrId));
         if (record.status() == NamespaceStatus.TOMBSTONED) {
@@ -272,9 +281,10 @@ public class NamespaceResolver implements AutoCloseable {
                     return handle.memory;
                 }
 
+                Account account = null;
                 // 1. Account-level hot cap check (ADR-0029 §2.6, §6.3, Q4)
                 if (accountId != null) {
-                    Account account = catalog.getOrCreateAccount(accountId);
+                    account = catalog.getOrCreateAccount(accountId);
                     int maxHot = account.quotas().maxHotNamespaces();
                     if (maxHot > 0) {
                         long currentAccountHot = cache.values().stream()
@@ -304,7 +314,11 @@ public class NamespaceResolver implements AutoCloseable {
                     evicted = processEvicted;
                 }
 
-                SpectorMemory instance = buildInstance(namespaceId);
+                boolean tenantRooted = synapseProps != null
+                        && synapseProps.getNamespace() != null
+                        && synapseProps.getNamespace().isTenantRootedEnabled();
+                String tenantId = (tenantRooted && account != null) ? account.tenantId() : null;
+                SpectorMemory instance = buildInstance(tenantId, namespaceId, ownerAccountId != null ? ownerAccountId : accountId);
                 handle = new MemoryHandle(namespaceId, ownerAccountId, accountId, instance);
                 cache.put(namespaceId, handle);
             } finally {
@@ -411,14 +425,74 @@ public class NamespaceResolver implements AutoCloseable {
         }
     }
 
+    private SpectorMemory buildInstance(String tenantId, String namespaceId) {
+        return buildInstance(tenantId, namespaceId, namespaceId);
+    }
+
     /**
-     * Builds a {@link SpectorMemory} instance for the given namespaceId.
-     * Directory path: {@code StoragePaths.namespaceDirSharded(basePath, namespaceId)}.
-     * Mirrors the former {@code MemoryRegistry.buildInstance(userId)} exactly —
-     * since namespaceId == userId for default namespaces, the directory is identical.
+     * Builds a {@link SpectorMemory} instance for the given tenant and namespace.
+     *
+     * <p>Directory resolution is governed by {@link NamespacePathResolver}:
+     * <ul>
+     *   <li>When {@code tenantId == null}: resolves to the flat sharded layout (Layout A:
+     *       {@code namespaces/XX/YY/namespaceId}).</li>
+     *   <li>When {@code tenantId != null}: resolves to the tenant-rooted sharded layout (Layout B:
+     *       {@code tenants/XX/YY/tenantId/namespaces/ZZ/WW/namespaceId}).</li>
+     * </ul>
+     * </p>
+     *
+     * @param tenantId the tenant TSID or null for untenanted/legacy layout
+     * @param namespaceId the globally unique namespace TSID
+     * @param ownerAccountId the owning account TSID for identity bundle probe
+     * @return the newly-built and attached SpectorMemory instance
      */
-    private SpectorMemory buildInstance(String namespaceId) {
-        Path dir = StoragePaths.namespaceDirSharded(basePath(), namespaceId);
+    private SpectorMemory buildInstance(String tenantId, String namespaceId, String ownerAccountId) {
+        Placement placement = NamespacePathResolver.resolve(basePath(), tenantId, namespaceId);
+        Path dir = placement.dir();
+
+        // R8.1, R8.2, R8.3: Verify layout marker if present, or create on fresh directory
+        Path markerFile = dir.resolve(StoragePaths.FILE_NAMESPACE);
+        ObjectMapper jsonMapper = objectMapperProvider != null
+                ? objectMapperProvider.getIfAvailable(ObjectMapper::new) : new ObjectMapper();
+        if (Files.exists(markerFile)) {
+            try {
+                JsonNode node = jsonMapper.readTree(markerFile.toFile());
+                String recordedLayout = null;
+                if (node.has("layout")) {
+                    recordedLayout = node.get("layout").asText();
+                } else if (node.has("pathHelper")) {
+                    recordedLayout = node.get("pathHelper").asText();
+                }
+                Layout foundLayout;
+                if (recordedLayout == null || recordedLayout.isBlank()) {
+                    foundLayout = Layout.FLAT_SHA256;
+                    recordedLayout = Layout.FLAT_SHA256.id();
+                } else {
+                    foundLayout = Layout.fromId(recordedLayout);
+                }
+                if (foundLayout != placement.layout()) {
+                    throw new IllegalStateException(String.format(
+                            "Namespace layout mismatch for namespace '%s': expected %s (%s), found %s (%s)",
+                            namespaceId, placement.layout(), placement.layout().id(), foundLayout, recordedLayout));
+                }
+            } catch (IllegalStateException e) {
+                throw e;
+            } catch (Exception e) {
+                log.warn("[NamespaceResolver] failed to parse layout marker {}: {}", markerFile, e.getMessage());
+            }
+        } else {
+            try {
+                Files.createDirectories(dir);
+                Map<String, Object> markerData = new LinkedHashMap<>();
+                markerData.put("layout", placement.layout().id());
+                markerData.put("pathHelper", placement.layout().id());
+                markerData.put("tenantId", placement.tenantId());
+                markerData.put("namespaceId", placement.namespaceId());
+                jsonMapper.writeValue(markerFile.toFile(), markerData);
+            } catch (IOException e) {
+                log.warn("[NamespaceResolver] failed to write layout marker {}: {}", markerFile, e.getMessage());
+            }
+        }
 
         EmbeddingProvider embedder = embedderProvider.getIfAvailable();
         if (embedder == null) {
@@ -451,8 +525,7 @@ public class NamespaceResolver implements AutoCloseable {
         com.spectrayan.spector.memory.persist.DataEncryptor encryptor = encryptorProvider != null
                 ? encryptorProvider.getIfAvailable(() -> com.spectrayan.spector.memory.persist.DataEncryptor.NOOP)
                 : com.spectrayan.spector.memory.persist.DataEncryptor.NOOP;
-        ObjectMapper mapper = objectMapperProvider != null
-                ? objectMapperProvider.getIfAvailable(ObjectMapper::new) : new ObjectMapper();
+        ObjectMapper mapper = jsonMapper;
 
         io.micrometer.observation.ObservationRegistry obsRegistry = observationRegistryProvider != null
                 ? observationRegistryProvider.getIfAvailable() : null;
@@ -507,13 +580,19 @@ public class NamespaceResolver implements AutoCloseable {
         // exists for this namespace's owner. Post-migration, IdentityPlane supplies the soul
         // stack at bind time — Region 24 is not authoritative (ADR-0029 §23.6).
         try {
-            StoragePaths.validateNamespaceId(namespaceId);
-            Path idBundlePath = com.spectrayan.spector.synapse.identity.IdentityPaths.accountIdentityBundle(basePath(), namespaceId);
-            if (java.nio.file.Files.exists(idBundlePath)) {
+            String probeAccountId = ownerAccountId != null ? ownerAccountId : namespaceId;
+            StoragePaths.validateNamespaceId(probeAccountId);
+            Path idBundlePath;
+            if (tenantId != null && !tenantId.isBlank()) {
+                idBundlePath = IdentityPaths.tenantAccountIdentityBundle(identityRoot(), tenantId, probeAccountId);
+            } else {
+                idBundlePath = IdentityPaths.accountIdentityBundle(identityRoot(), probeAccountId);
+            }
+            if (Files.exists(idBundlePath)) {
                 return built;
             }
 
-            java.util.Optional<byte[]> bytes = built.admin().insularCortex().get();
+            Optional<byte[]> bytes = built.admin().insularCortex().get();
             if (bytes.isPresent() && mapper != null) {
                 InsulaSelfModel model = mapper.readValue(bytes.get(), InsulaSelfModel.class);
                 if (model != null && model.salience() != null) {
@@ -534,8 +613,16 @@ public class NamespaceResolver implements AutoCloseable {
         return built;
     }
 
-    private Path basePath() {
+    Path basePath() {
         return this.basePath;
+    }
+
+    Path identityRoot() {
+        String dataDir = synapseProps != null ? synapseProps.dataDir() : null;
+        if (dataDir == null || dataDir.isBlank()) {
+            dataDir = "./spector-data";
+        }
+        return Path.of(dataDir);
     }
 
     private MemoryHandle evictOldestAccountUnleasedLocked(String accountId) {

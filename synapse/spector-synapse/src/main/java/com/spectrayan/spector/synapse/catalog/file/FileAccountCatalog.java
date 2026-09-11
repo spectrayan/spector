@@ -14,6 +14,8 @@ package com.spectrayan.spector.synapse.catalog.file;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spectrayan.spector.kernel.storage.NamespacePathResolver;
+import com.spectrayan.spector.kernel.storage.NamespacePathResolver.Placement;
 import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.synapse.catalog.*;
 import com.spectrayan.spector.synapse.catalog.exception.*;
@@ -51,12 +53,18 @@ public class FileAccountCatalog implements AccountCatalog {
 
     private final Path basePath;
     private final ObjectMapper objectMapper;
+    private final boolean tenantRootedEnabled;
     private final ConcurrentHashMap<String, ReentrantLock> accountLocks = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CatalogSnapshot> snapshotCache = new ConcurrentHashMap<>();
 
     public FileAccountCatalog(Path basePath, ObjectMapper objectMapper) {
+        this(basePath, objectMapper, false);
+    }
+
+    public FileAccountCatalog(Path basePath, ObjectMapper objectMapper, boolean tenantRootedEnabled) {
         this.basePath = basePath;
         this.objectMapper = objectMapper;
+        this.tenantRootedEnabled = tenantRootedEnabled;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -349,8 +357,22 @@ public class FileAccountCatalog implements AccountCatalog {
                 atomicWrite(namespacesFile, namespaces);
 
                 // Create data-plane directory
-                Path namespaceDir = StoragePaths.namespaceDirSharded(basePath, newNamespaceId);
+                Account account = objectMapper.readValue(accountDir.resolve(FILE_ACCOUNT).toFile(), Account.class);
+                String effectiveTenantId = tenantRootedEnabled ? account.tenantId() : null;
+                Placement placement = NamespacePathResolver.resolve(basePath, effectiveTenantId, newNamespaceId);
+                Path namespaceDir = placement.dir();
                 Files.createDirectories(namespaceDir);
+
+                // Write layout marker (Task 3.11, R8.1)
+                Path markerFile = namespaceDir.resolve(StoragePaths.FILE_NAMESPACE);
+                if (!Files.exists(markerFile)) {
+                    Map<String, Object> markerData = new LinkedHashMap<>();
+                    markerData.put("layout", placement.layout().id());
+                    markerData.put("pathHelper", placement.layout().id());
+                    markerData.put("tenantId", placement.tenantId());
+                    markerData.put("namespaceId", placement.namespaceId());
+                    atomicWrite(markerFile, markerData);
+                }
 
                 // Write implicit OWNER grant for new namespace
                 Grant implicitOwner = new Grant(
@@ -494,7 +516,10 @@ public class FileAccountCatalog implements AccountCatalog {
                 }
 
                 // Reset data-plane directory: delete bundle/index files and recreate
-                Path namespaceDir = StoragePaths.namespaceDirSharded(basePath, namespaceId);
+                Account account = objectMapper.readValue(accountDir.resolve(FILE_ACCOUNT).toFile(), Account.class);
+                String effectiveTenantId = tenantRootedEnabled ? account.tenantId() : null;
+                Placement placement = NamespacePathResolver.resolve(basePath, effectiveTenantId, namespaceId);
+                Path namespaceDir = placement.dir();
                 if (Files.exists(namespaceDir)) {
                     try (var stream = Files.walk(namespaceDir)) {
                         stream.sorted(Comparator.reverseOrder())
@@ -505,6 +530,15 @@ public class FileAccountCatalog implements AccountCatalog {
                     }
                 }
                 Files.createDirectories(namespaceDir);
+                // Re-write layout marker after reset
+                Path markerFile = namespaceDir.resolve(StoragePaths.FILE_NAMESPACE);
+                Map<String, Object> markerData = new LinkedHashMap<>();
+                markerData.put("layout", placement.layout().id());
+                markerData.put("pathHelper", placement.layout().id());
+                markerData.put("tenantId", placement.tenantId());
+                markerData.put("namespaceId", placement.namespaceId());
+                atomicWrite(markerFile, markerData);
+
                 snapshotCache.remove(accountId);
                 log.info("[FileAccountCatalog] reset namespace data directory: {}", namespaceId);
             }

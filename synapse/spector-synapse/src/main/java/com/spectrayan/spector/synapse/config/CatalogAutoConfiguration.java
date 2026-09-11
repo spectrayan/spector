@@ -68,8 +68,9 @@ public class CatalogAutoConfiguration {
             path = synapseProps.dataDir();
         }
         Path basePath = Path.of(path);
-        log.info("[CatalogAutoConfiguration] creating FileAccountCatalog at basePath={}", basePath);
-        return new FileAccountCatalog(basePath, objectMapper);
+        boolean tenantRooted = synapseProps.getNamespace() != null && synapseProps.getNamespace().isTenantRootedEnabled();
+        log.info("[CatalogAutoConfiguration] creating FileAccountCatalog at basePath={}, tenantRooted={}", basePath, tenantRooted);
+        return new FileAccountCatalog(basePath, objectMapper, tenantRooted);
     }
 
     /**

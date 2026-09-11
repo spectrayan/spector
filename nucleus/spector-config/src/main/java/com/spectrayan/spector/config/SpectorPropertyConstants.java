@@ -49,6 +49,10 @@ public final class SpectorPropertyConstants {
     public static final String GRAPH_EXPANSION_THRESHOLD_BENCH_ALIAS = "spector.benchmark.graphExpansionThreshold";
     public static final String GRAPH_EXPANSION_MODE_PROPERTY = "spector.memory.graphExpansionMode";
 
+    // Namespace Storage Layout & Routing
+    public static final String NAMESPACE_TENANT_ROOTED_ENABLED = "spector.namespace.tenant-rooted.enabled";
+    public static final boolean DEFAULT_NAMESPACE_TENANT_ROOTED_ENABLED = false;
+
     // Provider — Embedding
     public static final String PROVIDER_EMBEDDING_TYPE = "spector.provider.embedding.type";
     public static final String DEFAULT_PROVIDER_EMBEDDING_TYPE = "ollama";

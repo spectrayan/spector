@@ -213,6 +213,12 @@ SPECTOR_API_KEY=my-secret-key mvn -Psynapse -pl synapse/spector-synapse spring-b
 > [!NOTE]
 > These configuration keys configure the dedicated strength region (`RegionId.STRENGTH`). Default values are supplied via `SpectorPropertyConstants.DEFAULT_MEMORY_STRENGTH_*`.
 
+### 🗂️ Namespace Storage Layout & Routing
+
+| Parameter | Default | Range | Description |
+|-----------|---------|-------|-------------|
+| `spector.namespace.tenant-rooted.enabled` | `false` | true/false | Enables tenant-rooted namespace sharding layout (`tenants/XX/YY/tenantId/namespaces/ZZ/WW/namespaceId`) for tenanted accounts (ADR-0033). When `false` (default), all namespaces resolve to the legacy flat sharded path (`namespaces/XX/YY/namespaceId`). |
+
 ### Retrieval Stack Parameters
 
 | Parameter | Default | Options | Description |
