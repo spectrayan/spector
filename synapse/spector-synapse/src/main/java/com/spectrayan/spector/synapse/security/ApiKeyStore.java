@@ -48,6 +48,7 @@ import com.spectrayan.spector.kernel.id.TsidGenerator;
  */
 @Deprecated(since = "0.1.0-alpha")
 @Repository
+@org.springframework.context.annotation.DependsOn("flyway")
 public class ApiKeyStore {
 
     private static final Logger log = LoggerFactory.getLogger(ApiKeyStore.class);

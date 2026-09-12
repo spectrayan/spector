@@ -24,7 +24,7 @@ import javax.sql.DataSource;
 @Configuration
 public class FlywayConfig {
 
-    @Bean(initMethod = "migrate")
+    @Bean
     public Flyway flyway(DataSource dataSource) {
         Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
@@ -32,6 +32,7 @@ public class FlywayConfig {
                 .baselineOnMigrate(true)
                 .load();
         flyway.repair();
+        flyway.migrate();
         return flyway;
     }
 }

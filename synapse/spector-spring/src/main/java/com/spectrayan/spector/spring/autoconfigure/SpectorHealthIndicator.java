@@ -235,20 +235,27 @@ public class SpectorHealthIndicator implements HealthIndicator {
 
             if (sysctlMaxMapCountPath != null && Files.exists(sysctlMaxMapCountPath) && Files.isReadable(sysctlMaxMapCountPath)) {
                 try {
-                    String content = Files.readString(sysctlMaxMapCountPath).trim();
-                    long actualMapCount = Long.parseLong(content);
-                    builder.withDetail("map_count.actual", actualMapCount);
+                    String content;
+                    try (var reader = Files.newBufferedReader(sysctlMaxMapCountPath)) {
+                        content = reader.readLine();
+                    }
+                    if (content != null && !content.isBlank()) {
+                        long actualMapCount = Long.parseLong(content.trim());
+                        builder.withDetail("map_count.actual", actualMapCount);
 
-                    if (actualMapCount < requiredMaps) {
-                        isDown = true;
-                        builder.withDetail("map_count.status", "INSUFFICIENT");
-                        String warningMsg = String.format(
-                                "Insufficient vm.max_map_count (%d) for pager.hotCap=%d (requires at least %d maps: (%d * %d) + %d WAL + %d overhead)",
-                                actualMapCount, hotCap, requiredMaps, hotCap, MAPS_PER_NAMESPACE_V4, walSegments, mapCountOverhead);
-                        builder.withDetail("map_count.error", warningMsg);
-                        log.error("[SpectorHealthIndicator] {}", warningMsg);
+                        if (actualMapCount < requiredMaps) {
+                            isDown = true;
+                            builder.withDetail("map_count.status", "INSUFFICIENT");
+                            String warningMsg = String.format(
+                                    "Insufficient vm.max_map_count (%d) for pager.hotCap=%d (requires at least %d maps: (%d * %d) + %d WAL + %d overhead)",
+                                    actualMapCount, hotCap, requiredMaps, hotCap, MAPS_PER_NAMESPACE_V4, walSegments, mapCountOverhead);
+                            builder.withDetail("map_count.error", warningMsg);
+                            log.error("[SpectorHealthIndicator] {}", warningMsg);
+                        } else {
+                            builder.withDetail("map_count.status", "OK");
+                        }
                     } else {
-                        builder.withDetail("map_count.status", "OK");
+                        builder.withDetail("map_count.status", "EMPTY");
                     }
                 } catch (Exception e) {
                     builder.withDetail("map_count.status", "ERROR_READING");

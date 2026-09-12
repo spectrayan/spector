@@ -54,6 +54,7 @@ import java.util.Set;
  * {@code UserDetails} adapter lives in a separate {@code JdbcUserDetailsService}.</p>
  */
 @Component
+@org.springframework.context.annotation.DependsOn("flyway")
 public class UserAccountStore {
 
     private static final Logger log = LoggerFactory.getLogger(UserAccountStore.class);

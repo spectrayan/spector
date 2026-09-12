@@ -45,6 +45,7 @@ public class CatalogAutoConfiguration {
     @ConditionalOnProperty(name = "spector.auth.enabled", havingValue = "true", matchIfMissing = false)
     @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
             name = "spector.catalog.type", havingValue = "jdbc", matchIfMissing = true)
+    @org.springframework.context.annotation.DependsOn("flyway")
     public AccountCatalog jdbcAccountCatalog(
             org.springframework.jdbc.core.simple.JdbcClient jdbc,
             com.spectrayan.spector.synapse.config.sql.SqlQueryLoader sqlLoader,

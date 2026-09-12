@@ -95,4 +95,17 @@ Gateway deployment name
 {{- printf "%s-gateway" (include "spector.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end }}
 
+{{/*
+Owner ring members (comma-separated list of fully-qualified headless DNS names)
+*/}}
+{{- define "spector.owner.ringMembers" -}}
+{{- $ownerFullname := include "spector.owner.fullname" . -}}
+{{- $replicas := int (default 1 .Values.owners.replicas) -}}
+{{- $members := list -}}
+{{- range $i := until $replicas -}}
+  {{- $members = append $members (printf "%s-%d.%s-headless" $ownerFullname $i $ownerFullname) -}}
+{{- end -}}
+{{- join "," $members -}}
+{{- end }}
+
 

@@ -48,7 +48,7 @@ spector:
   auth:
     enabled: ${SPECTOR_AUTH_ENABLED:false}
     jwt:
-      secret: ${env:SPECTOR_AUTH_JWT_SECRET}   # HS256 signing secret (required when enabled)
+      secret: ${SPECTOR_AUTH_JWT_SECRET}   # HS256 signing secret (required when enabled)
       ttl: ${SPECTOR_AUTH_JWT_TTL:1h}          # access-token lifetime
     refresh:
       ttl: ${SPECTOR_AUTH_REFRESH_TTL:30d}     # refresh-token lifetime
@@ -56,13 +56,25 @@ spector:
       jwks-url: ${SPECTOR_AUTH_OIDC_JWKS_URL:}  # non-empty enables external OIDC RS256 validation
       issuer: ${SPECTOR_AUTH_OIDC_ISSUER:}      # expected iss claim for external OIDC tokens
     default-admin:
-      password: ${env:SPECTOR_ADMIN_PASSWORD}  # seed admin password (required when enabled)
+      password: ${SPECTOR_ADMIN_PASSWORD}  # seed admin password (required when enabled)
     pbkdf2:
       iterations: ${SPECTOR_AUTH_PBKDF2_ITERATIONS:310000}
     lockout:
       max-attempts: ${SPECTOR_AUTH_LOCKOUT_MAX_ATTEMPTS:5}
       minutes: ${SPECTOR_AUTH_LOCKOUT_MINUTES:15}
     public-paths: ${SPECTOR_AUTH_PUBLIC_PATHS:/actuator/health,/api/docs,/swagger-ui.html,/swagger-ui/**,/v3/api-docs/**,/v3/api-docs}
+
+  # ── Cell High Availability & Routing (spector.cell.*, spector.routing.*) ──
+  cell:
+    id: ${SPECTOR_CELL_ID:cell-1}
+    role: ${SPECTOR_CELL_ROLE:${SPECTOR_NODE_ROLE:standalone}}
+    node-id: ${SPECTOR_CELL_NODE_ID:${SPECTOR_NODE_ID:}}
+    ring:
+      members: ${SPECTOR_CELL_RING_MEMBERS:}
+  routing:
+    redis:
+      enabled: ${SPECTOR_ROUTING_REDIS_ENABLED:true}
+      uri: ${SPECTOR_ROUTING_REDIS_URI:redis://spector-redis:6379}
 
   # ── Spector Spring Auto-Configuration ──
   # SpectorAutoConfiguration (spector-spring module) creates a Spring-managed
@@ -73,7 +85,7 @@ spector:
     max-memories: ${SPECTOR_MAX_MEMORIES:0}
     dimensions: ${SPECTOR_EMBEDDING_DIMS:${SPECTOR_DIMENSIONS:768}}
     persistence-mode: DISK
-    persistence-path: ${SPECTOR_DATA_DIR:./spector-data}/cognitive
+    persistence-path: ${SPECTOR_PERSISTENCE_PATH:${SPECTOR_DATA_DIR:./spector-data}/memory}
     capacity: ${SPECTOR_MEMORY_CAPACITY:${SPECTOR_MAX_MEMORIES:10000}}
     splade-enabled: false   # off until Ollama SPLADE model is available
     colbert-enabled: false  # off until Ollama ColBERT model is available

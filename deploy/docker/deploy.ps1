@@ -170,7 +170,7 @@ function Invoke-Run {
 
     docker run -d `
         --name $ContainerName `
-        -p "${HostPortHttp}:3000" `
+        -p "${HostPortHttp}:8080" `
         -p "${HostPortApi}:7070" `
         -v "${DataVolume}:/data" `
         -e "SPECTOR_DATA_DIR=/data" `

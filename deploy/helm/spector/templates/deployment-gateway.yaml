@@ -48,14 +48,26 @@ spec:
               containerPort: 7070
               protocol: TCP
           env:
+            - name: JAVA_OPTS
+              value: {{ .Values.gateway.jvmOpts | default "-Xms256m -Xmx512m -XX:+UseG1GC --add-modules=jdk.incubator.vector --enable-preview --enable-native-access=ALL-UNNAMED" | quote }}
             - name: SPECTOR_CELL_ID
               value: {{ include "spector.cellId" . | quote }}
+            - name: SPECTOR_CELL_ROLE
+              value: "gateway"
             - name: SPECTOR_NODE_ROLE
               value: "gateway"
+            - name: SPECTOR_CELL_NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: SPECTOR_NODE_ID
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: SPECTOR_CELL_RING_MEMBERS
+              value: {{ include "spector.owner.ringMembers" . | quote }}
+            - name: SPECTOR_ROUTING_REDIS_ENABLED
+              value: {{ .Values.routing.redis.enabled | quote }}
             - name: SPECTOR_ROUTING_REDIS_URI
               value: {{ .Values.routing.redis.url | quote }}
             - name: SPECTOR_PORT
@@ -82,10 +94,15 @@ spec:
                   key: SPECTOR_API_KEY
                   optional: true
             {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           volumeMounts:
             - name: config
               mountPath: /app/spector.yml
               subPath: spector.yml
+            - name: data
+              mountPath: /data
           startupProbe:
             httpGet:
               path: /actuator/health
@@ -112,4 +129,6 @@ spec:
         - name: config
           configMap:
             name: {{ include "spector.fullname" . }}-config
+        - name: data
+          emptyDir: {}
 {{- end }}

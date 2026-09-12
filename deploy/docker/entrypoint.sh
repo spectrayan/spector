@@ -61,9 +61,11 @@ alias_env SPECTOR_GENERATION_PROVIDER   SPECTOR_PROVIDER_GENERATION_TYPE
 alias_env SPECTOR_GENERATION_MODEL      SPECTOR_PROVIDER_GENERATION_MODEL
 alias_env SPECTOR_GENERATION_BASE_URL   SPECTOR_PROVIDER_GENERATION_BASE_URL
 alias_env SPECTOR_GENERATION_API_KEY    SPECTOR_PROVIDER_GENERATION_API_KEY
+alias_env SPECTOR_NODE_ROLE             SPECTOR_CELL_ROLE
+alias_env SPECTOR_NODE_ID               SPECTOR_CELL_NODE_ID
 
 # Ensure data directories exist (if writable)
-mkdir -p /data/index /data/memory /data/tmp 2>/dev/null || true
+mkdir -p /data/memory /data/identity /data/db /data/tmp 2>/dev/null || true
 
 # Start Nginx in background (serves dashboard + proxies API on port 8080)
 echo "[Spector] Starting Nginx on port 8080..."

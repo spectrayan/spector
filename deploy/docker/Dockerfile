@@ -24,6 +24,7 @@ WORKDIR /build
 COPY pom.xml .
 COPY nucleus/ nucleus/
 COPY memory/ memory/
+COPY cluster/ cluster/
 COPY synapse/ synapse/
 COPY sdks/java/ sdks/java/
 COPY bench/ bench/
@@ -60,16 +61,20 @@ RUN (userdel -r ubuntu 2>/dev/null || true) && \
 
 WORKDIR /app
 
-# Copy backend fat JAR from Stage 2
-COPY --from=builder-synapse /build/spector-synapse.jar /app/spector-synapse.jar
+# Prepare filesystem directories for non-root execution (UID 1000)
+RUN mkdir -p /data/memory /data/identity /data/db /data/tmp /tmp/nginx /var/log/nginx /var/lib/nginx /app \
+    && chown -R 1000:1000 /data /app /etc/nginx /var/log/nginx /var/lib/nginx /tmp/nginx
 
-# Copy frontend distribution from Stage 1
-COPY --from=builder-cortex /build/dist/spector-cortex/browser/ /usr/share/nginx/html/
+# Copy backend fat JAR from Stage 2 directly with non-root ownership
+COPY --chown=1000:1000 --from=builder-synapse /build/spector-synapse.jar /app/spector-synapse.jar
+
+# Copy frontend distribution from Stage 1 directly with non-root ownership
+COPY --chown=1000:1000 --from=builder-cortex /build/dist/spector-cortex/browser/ /usr/share/nginx/html/
 
 # Copy configuration and scripts
-COPY deploy/docker/spector-docker.yml /app/spector.yml
-COPY deploy/docker/nginx.conf /etc/nginx/spector-nginx.conf
-COPY deploy/docker/entrypoint.sh /app/entrypoint.sh
+COPY --chown=1000:1000 deploy/docker/spector-docker.yml /app/spector.yml
+COPY --chown=1000:1000 deploy/docker/nginx.conf /etc/nginx/spector-nginx.conf
+COPY --chown=1000:1000 deploy/docker/entrypoint.sh /app/entrypoint.sh
 RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 # Environment settings
@@ -100,13 +105,9 @@ ENV SPECTOR_MEMORY_CAPACITY=10000 \
     SPECTOR_LLM_TEMPERATURE=0.3 \
     SPECTOR_LLM_MAX_TOKENS=1024
 
-# Prepare filesystem permissions for non-root execution (UID 1000)
-RUN mkdir -p /data/index /data/memory /data/tmp /tmp/nginx /var/log/nginx /var/lib/nginx \
-    && chown -R 1000:1000 /data /app /usr/share/nginx/html /etc/nginx /var/log/nginx /var/lib/nginx /tmp/nginx
-
 USER 1000:1000
 
-EXPOSE 8080 7070
+EXPOSE 8080 7070 9090
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=3 \
     CMD curl -sf http://127.0.0.1:7070/actuator/health || exit 1

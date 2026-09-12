@@ -75,12 +75,22 @@ spec:
               value: {{ .Values.replicas.jvmOpts | quote }}
             - name: SPECTOR_CELL_ID
               value: {{ include "spector.cellId" . | quote }}
+            - name: SPECTOR_CELL_ROLE
+              value: "replica"
             - name: SPECTOR_NODE_ROLE
               value: "replica"
-            - name: SPECTOR_NODE_ID
+            - name: POD_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: SPECTOR_CELL_NODE_ID
+              value: "$(POD_NAME).{{ include "spector.replica.fullname" . }}-headless"
+            - name: SPECTOR_NODE_ID
+              value: "$(POD_NAME).{{ include "spector.replica.fullname" . }}-headless"
+            - name: SPECTOR_CELL_RING_MEMBERS
+              value: {{ include "spector.owner.ringMembers" . | quote }}
+            - name: SPECTOR_ROUTING_REDIS_ENABLED
+              value: {{ .Values.routing.redis.enabled | quote }}
             - name: SPECTOR_ROUTING_REDIS_URI
               value: {{ .Values.routing.redis.url | quote }}
             - name: SPECTOR_REPLICATION_HOT_CAP
@@ -120,6 +130,9 @@ spec:
                   name: {{ .Values.secretRef.name }}
                   key: SPECTOR_API_KEY
                   optional: true
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
             {{- end }}
           volumeMounts:
             - name: data

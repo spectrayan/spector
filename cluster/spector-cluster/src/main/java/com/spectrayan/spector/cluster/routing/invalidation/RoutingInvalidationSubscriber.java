@@ -30,6 +30,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Pub/Sub invalidation subscriber that evicts entries from the local Caffeine L1 cache
@@ -51,6 +52,7 @@ public class RoutingInvalidationSubscriber extends RedisPubSubAdapter<String, St
     private final RedisClient client;
     private volatile StatefulRedisPubSubConnection<String, String> connection;
     private final ScheduledExecutorService retryScheduler;
+    private final ReentrantLock subscriptionLock = new ReentrantLock();
 
     private final AtomicBoolean subscribed = new AtomicBoolean(false);
     private final AtomicLong unsubscribedSince = new AtomicLong(0L);
@@ -125,12 +127,17 @@ public class RoutingInvalidationSubscriber extends RedisPubSubAdapter<String, St
 
     /**
      * Attempts to connect and subscribe to the cell invalidation channel if currently unsubscribed.
+     * Uses ReentrantLock to avoid virtual-thread carrier pinning during I/O.
      */
-    public synchronized void ensureSubscribed() {
+    public void ensureSubscribed() {
         if (subscribed.get()) {
             return;
         }
+        subscriptionLock.lock();
         try {
+            if (subscribed.get()) {
+                return;
+            }
             if (connection == null || !connection.isOpen()) {
                 if (client != null) {
                     connection = client.connectPubSub();
@@ -142,6 +149,8 @@ public class RoutingInvalidationSubscriber extends RedisPubSubAdapter<String, St
             }
         } catch (Exception e) {
             log.debug("Periodic reconnect/subscribe to channel {} failed: {}", channelName, e.getMessage());
+        } finally {
+            subscriptionLock.unlock();
         }
     }
 

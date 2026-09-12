@@ -141,6 +141,12 @@ public class JwtDecoderConfig {
     private static final String SCOPE_PREFIX = "SCOPE_";
     private static final String ROLE_PREFIX = "ROLE_";
 
+    @Bean
+    @ConditionalOnProperty(name = "spector.auth.enabled", havingValue = "true")
+    public AuthProperties authProperties(SynapseProperties properties) {
+        return properties.auth();
+    }
+
     /**
      * Server-issued HS256 {@link JwtDecoder}.
      *
@@ -162,7 +168,7 @@ public class JwtDecoderConfig {
      */
     @Bean
     @ConditionalOnProperty(name = "spector.auth.enabled", havingValue = "true")
-    JwtDecoder serverJwtDecoder(AuthProperties auth) {
+    public JwtDecoder serverJwtDecoder(AuthProperties auth) {
         byte[] secretBytes = auth.jwt().secret().getBytes(StandardCharsets.UTF_8);
         SecretKey key = new SecretKeySpec(secretBytes, HMAC_SHA256);
 
@@ -175,6 +181,10 @@ public class JwtDecoderConfig {
         log.debug("Configured server HS256 JwtDecoder (issuer='{}', clockSkew={}s)",
                 SERVER_ISSUER, CLOCK_SKEW.toSeconds());
         return decoder;
+    }
+
+    public JwtDecoder serverJwtDecoder(SynapseProperties properties) {
+        return serverJwtDecoder(properties.auth());
     }
 
     /**
@@ -196,21 +206,12 @@ public class JwtDecoderConfig {
      * unreachable or slow endpoint surfaces as an invalid-token error rather than hanging the
      * request (Requirement 4.5).</p>
      *
-     * <p><strong>Why a custom {@link Condition} rather than a bare
-     * {@code @ConditionalOnProperty}.</strong> {@code spector.auth.oidc.jwks-url} is declared in
-     * {@code application.yml} with an empty default ({@code ${SPECTOR_AUTH_OIDC_JWKS_URL:}}). A
-     * plain {@code @ConditionalOnProperty(name = ...)} matches whenever the property is present and
-     * not literally {@code "false"} — <em>including the empty string</em> — which would register
-     * this bean with a blank JWKS URL and break startup for the common OIDC-disabled deployment.
-     * {@link OidcConfiguredCondition} matches only when the value has text, giving the required
-     * "non-empty" semantics.</p>
-     *
      * @param auth bound {@code spector.auth.*} configuration
      * @return the JWKS-backed RS256 decoder
      */
     @Bean
     @Conditional(OidcConfiguredCondition.class)
-    JwtDecoder oidcJwtDecoder(AuthProperties auth) {
+    public JwtDecoder oidcJwtDecoder(AuthProperties auth) {
         String jwksUrl = auth.oidc().jwksUrl();
         String issuer = auth.oidc().issuer();
 
@@ -226,18 +227,14 @@ public class JwtDecoderConfig {
         return decoder;
     }
 
+    public JwtDecoder oidcJwtDecoder(SynapseProperties properties) {
+        return oidcJwtDecoder(properties.auth());
+    }
+
     /**
      * Issuer-based routing for the OAuth2 Resource Server: selects the validating manager (and thus
      * the decoder) by the token's {@code iss} claim (Requirement 4.3). Task 11.1 wires this bean
      * into the resource-server filter chain.
-     *
-     * <p>The server issuer ({@value #SERVER_ISSUER}, HS256) is always mapped. When OIDC is
-     * configured, {@code spector.auth.oidc.issuer} (RS256) is additionally mapped to the JWKS-backed
-     * decoder. A token whose {@code iss} matches no configured issuer — including an external token
-     * whose issuer is not {@code spector.auth.oidc.issuer} — resolves to no manager, which the
-     * underlying {@link JwtIssuerAuthenticationManagerResolver} surfaces as an invalid-token
-     * {@code 401} without establishing a session (Requirement 4.4). When only the server issuer is
-     * configured (no OIDC), routing still resolves server tokens.</p>
      *
      * @param auth          bound {@code spector.auth.*} configuration (supplies the OIDC issuer)
      * @param serverDecoder the always-present server HS256 decoder
@@ -246,7 +243,7 @@ public class JwtDecoderConfig {
      */
     @Bean
     @ConditionalOnProperty(name = "spector.auth.enabled", havingValue = "true")
-    AuthenticationManagerResolver<HttpServletRequest> jwtAuthenticationManagerResolver(
+    public AuthenticationManagerResolver<HttpServletRequest> jwtAuthenticationManagerResolver(
             AuthProperties auth,
             @Qualifier("serverJwtDecoder") JwtDecoder serverDecoder,
             @Qualifier("oidcJwtDecoder") Optional<JwtDecoder> oidcDecoder) {
@@ -267,6 +264,13 @@ public class JwtDecoderConfig {
         log.debug("Configured JWT issuer routing over {} issuer(s): {}",
                 managersByIssuer.size(), managersByIssuer.keySet());
         return new JwtIssuerAuthenticationManagerResolver(byIssuer);
+    }
+
+    public AuthenticationManagerResolver<HttpServletRequest> jwtAuthenticationManagerResolver(
+            SynapseProperties properties,
+            JwtDecoder serverDecoder,
+            Optional<JwtDecoder> oidcDecoder) {
+        return jwtAuthenticationManagerResolver(properties.auth(), serverDecoder, oidcDecoder);
     }
 
     /**

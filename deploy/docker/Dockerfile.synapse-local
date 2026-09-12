@@ -1,34 +1,58 @@
-# Runtime-only Dockerfile for Synapse (uses pre-built fat JAR from host)
+# ═══════════════════════════════════════════════════════════════════
+# Spector Synapse & Cortex UI — Complete Local Runtime Image
+# ═══════════════════════════════════════════════════════════════════
+# Bundles pre-built Java Synapse backend (host) and pre-built Angular
+# Cortex dashboard with Nginx reverse proxy on internal port 8080.
+# ═══════════════════════════════════════════════════════════════════
 FROM eclipse-temurin:25-jre
 
 LABEL maintainer="Spectrayan <team@spectrayan.com>"
-LABEL description="Spector Synapse — Cognitive Memory Server (local build)"
+LABEL description="Spector Synapse & Cortex UI (local build)"
 
-RUN groupadd -r spector && useradd -r -g spector spector && \
-    apt-get update && apt-get install -y --no-install-recommends curl && \
-    rm -rf /var/lib/apt/lists/*
+# Install Nginx, tini, curl, and process utilities
+RUN (userdel -r ubuntu 2>/dev/null || true) && \
+    (groupdel ubuntu 2>/dev/null || true) && \
+    (groupadd -g 1000 spector 2>/dev/null || true) && \
+    (id -u 1000 >/dev/null 2>&1 || useradd -u 1000 -g 1000 -m -s /bin/bash spector) && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    nginx \
+    tini \
+    curl \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy pre-built fat JAR
-COPY synapse/spector-synapse/target/spector-synapse-*.jar app.jar
+# Prepare filesystem directories for non-root execution (UID 1000)
+RUN mkdir -p /data/memory /data/identity /data/db /data/tmp /tmp/nginx /var/log/nginx /var/lib/nginx /app \
+    && chown -R 1000:1000 /data /app /etc/nginx /var/log/nginx /var/lib/nginx /tmp/nginx
 
-# Data directory
-RUN mkdir -p /data && chown -R spector:spector /data /app
+# Copy pre-built backend executable fat JAR directly with non-root ownership
+COPY --chown=1000:1000 synapse/spector-synapse/target/spector-synapse-*-exec.jar /app/spector-synapse.jar
 
-USER spector
+# Copy pre-built Cortex UI frontend distribution
+COPY --chown=1000:1000 cortex/spector-cortex/dist/spector-cortex/browser/ /usr/share/nginx/html/
 
-ENV SPECTOR_PORT=7070 \
-    SPECTOR_DATA_DIR=/data \
+# Copy configuration and entrypoint
+COPY --chown=1000:1000 deploy/docker/spector-docker.yml /app/spector.yml
+COPY --chown=1000:1000 deploy/docker/nginx.conf /etc/nginx/spector-nginx.conf
+COPY --chown=1000:1000 deploy/docker/entrypoint.sh /app/entrypoint.sh
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+
+# Environment settings
+ENV SPECTOR_DATA_DIR=/data \
+    SPECTOR_PORT=7070 \
     SPECTOR_OLLAMA_BASE_URL=http://host.docker.internal:11434 \
     SPECTOR_OLLAMA_MODEL=llama3.2 \
     SPECTOR_OLLAMA_EMBED_MODEL=nomic-embed-text \
     SPECTOR_CORS_ORIGINS=http://localhost:4200 \
-    JAVA_OPTS="-XX:+UseZGC -Xmx1g --enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED"
+    JAVA_OPTS="-XX:+UseG1GC -Xms256m -Xmx512m --enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED"
 
-EXPOSE 7070
+USER 1000:1000
+
+EXPOSE 8080 7070 9090
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
     CMD curl -sf http://localhost:7070/actuator/health || exit 1
 
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/entrypoint.sh"]

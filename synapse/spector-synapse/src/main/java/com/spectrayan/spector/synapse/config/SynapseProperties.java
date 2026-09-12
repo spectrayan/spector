@@ -50,6 +50,8 @@ public class SynapseProperties extends SpectorConfigProperties {
     private com.spectrayan.spector.synapse.config.cell.CellProperties cell = new com.spectrayan.spector.synapse.config.cell.CellProperties();
     private com.spectrayan.spector.synapse.config.routing.RoutingProperties routing = new com.spectrayan.spector.synapse.config.routing.RoutingProperties();
     private com.spectrayan.spector.synapse.config.replication.ReplicationProperties replication = new com.spectrayan.spector.synapse.config.replication.ReplicationProperties();
+    private com.spectrayan.spector.synapse.config.failover.FailoverProperties failover = new com.spectrayan.spector.synapse.config.failover.FailoverProperties();
+    private com.spectrayan.spector.synapse.config.dr.DisasterRecoveryProperties dr = new com.spectrayan.spector.synapse.config.dr.DisasterRecoveryProperties();
 
     public SynapseProperties() {}
 
@@ -99,6 +101,12 @@ public class SynapseProperties extends SpectorConfigProperties {
     public com.spectrayan.spector.synapse.config.replication.ReplicationProperties getReplication() { return replication; }
     public void setReplication(com.spectrayan.spector.synapse.config.replication.ReplicationProperties replication) { if (replication != null) this.replication = replication; }
 
+    public com.spectrayan.spector.synapse.config.failover.FailoverProperties getFailover() { return failover; }
+    public void setFailover(com.spectrayan.spector.synapse.config.failover.FailoverProperties failover) { if (failover != null) this.failover = failover; }
+
+    public com.spectrayan.spector.synapse.config.dr.DisasterRecoveryProperties getDr() { return dr; }
+    public void setDr(com.spectrayan.spector.synapse.config.dr.DisasterRecoveryProperties dr) { if (dr != null) this.dr = dr; }
+
     // ══════════════════════════════════════════════════════════════
     // Canonical storage roots (ADR-0034 D1, Req R3.1, R3.4)
     // ══════════════════════════════════════════════════════════════
@@ -110,7 +118,7 @@ public class SynapseProperties extends SpectorConfigProperties {
      *
      * <p>Derived from {@code spector.memory.persistence-path}, falling back to
      * {@code spector.data-dir}. The leaf name is deliberately <strong>not</strong> fixed: Synapse's
-     * shipped {@code application.yml} resolves this to {@code ${SPECTOR_DATA_DIR}/cognitive}, while
+     * shipped {@code application.yml} resolves this to {@code ${SPECTOR_DATA_DIR}/memory}, while
      * the framework default is {@code .spector/memory}. No caller may hardcode either leaf
      * (Req R3.4).</p>
      *
@@ -154,4 +162,7 @@ public class SynapseProperties extends SpectorConfigProperties {
     public RateLimitProperties rateLimit() { return getRateLimit(); }
     public com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties cache() { return getCache(); }
     public com.spectrayan.spector.synapse.config.cell.CellProperties cell() { return getCell(); }
+    public com.spectrayan.spector.synapse.config.replication.ReplicationProperties replication() { return getReplication(); }
+    public com.spectrayan.spector.synapse.config.failover.FailoverProperties failover() { return getFailover(); }
+    public com.spectrayan.spector.synapse.config.dr.DisasterRecoveryProperties dr() { return getDr(); }
 }

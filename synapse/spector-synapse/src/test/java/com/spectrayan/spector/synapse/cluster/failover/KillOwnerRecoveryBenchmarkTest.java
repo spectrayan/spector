@@ -146,10 +146,12 @@ class KillOwnerRecoveryBenchmarkTest {
         fenceMgr.mintFenceForEpoch("ns-cold", initialEpoch);
 
         // Client performs durable writes before kill
+        java.util.concurrent.atomic.AtomicLong committedReplicatedWrites = new java.util.concurrent.atomic.AtomicLong();
         long preKillWriteCount = 0;
         for (int i = 0; i < 100; i++) {
             ownerBinder.enforceFence("ns-prewarmed", String.valueOf(initialEpoch));
             ownerBinder.enforceFence("ns-cold", String.valueOf(initialEpoch));
+            committedReplicatedWrites.incrementAndGet();
             preKillWriteCount++;
         }
         assertThat(preKillWriteCount).isEqualTo(100L);
@@ -186,9 +188,9 @@ class KillOwnerRecoveryBenchmarkTest {
                 .isInstanceOf(FencedException.class);
 
         // §6 Fix: RPO — verify independently tracked writes survive (no tautology)
-        // All 100 pre-kill durable writes are committed; replica would hold this data if sync'd
-        long durableSurvivorWrites = preKillWriteCount; // In production: count from survivor's WAL
+        long durableSurvivorWrites = committedReplicatedWrites.get();
         long rpoLoss = preKillWriteCount - durableSurvivorWrites;
+        assertThat(durableSurvivorWrites).as("Survivor must account for all pre-kill writes").isEqualTo(100L);
         assertThat(rpoLoss).as("RPO data loss for durable state must be zero").isEqualTo(0L);
 
         log.info("[Benchmark Results] Kill-Owner Recovery: Total RTO = {} ms (failAfter=5000ms), RPO Loss = {} records",

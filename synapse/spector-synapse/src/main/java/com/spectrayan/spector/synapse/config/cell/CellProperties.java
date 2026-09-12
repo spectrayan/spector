@@ -205,7 +205,23 @@ public class CellProperties implements Serializable {
         }
 
         public void setMembers(List<String> members) {
-            this.members = members != null ? new ArrayList<>(members) : new ArrayList<>();
+            if (members != null && members.size() == 1 && members.get(0).contains(",")) {
+                this.members = java.util.Arrays.stream(members.get(0).split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .toList();
+            } else {
+                this.members = members != null ? new ArrayList<>(members) : new ArrayList<>();
+            }
+        }
+
+        public void setMembers(String membersStr) {
+            if (membersStr != null && !membersStr.isBlank()) {
+                this.members = java.util.Arrays.stream(membersStr.split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .toList();
+            }
         }
 
         public String getMembersFile() {

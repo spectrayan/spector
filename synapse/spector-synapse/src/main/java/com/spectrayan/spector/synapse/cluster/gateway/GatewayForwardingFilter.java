@@ -116,13 +116,31 @@ public class GatewayForwardingFilter extends OncePerRequestFilter {
                 ? headerNs.trim()
                 : (paramNs != null && !paramNs.isBlank()
                         ? paramNs.trim()
-                        : (pathNs != null && !pathNs.isBlank() ? pathNs.trim() : "default"));
+                        : (pathNs != null && !pathNs.isBlank() ? pathNs.trim() : null));
 
         String headerTenant = request.getHeader(GatewayForwarder.HEADER_TENANT);
         String paramTenant = request.getParameter("tenant");
         String tenantId = (headerTenant != null && !headerTenant.isBlank())
                 ? headerTenant.trim()
                 : (paramTenant != null && !paramTenant.isBlank() ? paramTenant.trim() : null);
+
+        // Fallback: extract namespace (sub) and tenant from JWT Bearer token if not explicitly provided
+        if (namespaceId == null || tenantId == null) {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                String token = authHeader.substring(7).trim();
+                if (namespaceId == null) {
+                    namespaceId = extractSubFromJwt(token);
+                }
+                if (tenantId == null) {
+                    tenantId = extractTenantFromJwt(token);
+                }
+            }
+        }
+
+        if (namespaceId == null || namespaceId.isBlank()) {
+            namespaceId = "default";
+        }
 
         RoutingKey routingKey = (tenantId != null && !tenantId.isBlank())
                 ? RoutingKey.ofTenanted(cellId, tenantId, namespaceId)
@@ -202,5 +220,39 @@ public class GatewayForwardingFilter extends OncePerRequestFilter {
         byte[] bytes = objectMapper.writeValueAsBytes(errorResponse);
         response.getOutputStream().write(bytes);
         response.getOutputStream().flush();
+    }
+
+    private String extractSubFromJwt(String token) {
+        if (token == null || token.isBlank()) return null;
+        String[] parts = token.split("\\.");
+        if (parts.length < 2) return null;
+        try {
+            byte[] decoded = java.util.Base64.getUrlDecoder().decode(parts[1]);
+            com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(decoded);
+            if (node.has("sub")) {
+                String sub = node.get("sub").asText();
+                return (sub != null && !sub.isBlank()) ? sub.trim() : null;
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    private String extractTenantFromJwt(String token) {
+        if (token == null || token.isBlank()) return null;
+        String[] parts = token.split("\\.");
+        if (parts.length < 2) return null;
+        try {
+            byte[] decoded = java.util.Base64.getUrlDecoder().decode(parts[1]);
+            com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(decoded);
+            if (node.has("tenant_id")) {
+                String tid = node.get("tenant_id").asText();
+                return (tid != null && !tid.isBlank()) ? tid.trim() : null;
+            }
+            if (node.has("tenantId")) {
+                String tid = node.get("tenantId").asText();
+                return (tid != null && !tid.isBlank()) ? tid.trim() : null;
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

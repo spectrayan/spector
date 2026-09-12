@@ -38,7 +38,7 @@ import static org.mockito.Mockito.mock;
  *   <li>The untenanted data-plane path resolves strictly to
  *       {@code {persistence-path}/namespaces/{sha[0:2]}/{sha[2:4]}/{namespaceId}/} (Task 0.2);</li>
  *   <li>The framework default rememberer root ends with {@code .spector/memory} (Task 0.3a);</li>
- *   <li>The shipped {@code application.yml} configures {@code persistence-path} with leaf {@code cognitive}
+ *   <li>The shipped {@code application.yml} configures {@code persistence-path} with leaf {@code memory}
  *       and {@code data-dir} as {@code ${SPECTOR_DATA_DIR:./spector-data}} (Task 0.3b).</li>
  * </ul>
  */
@@ -52,7 +52,7 @@ class NamespacePathPinTest {
     @DisplayName("Task 0.2: Pin live untenanted path format to StoragePaths.namespaceDirSharded")
     void testPinLiveUntenantedPath() throws Exception {
         SynapseProperties props = new SynapseProperties();
-        Path basePath = tempDir.resolve("cognitive");
+        Path basePath = tempDir.resolve("memory");
         props.getMemory().setPersistencePath(basePath.toString());
 
         AccountCatalog catalog = mock(AccountCatalog.class);
@@ -95,7 +95,7 @@ class NamespacePathPinTest {
     }
 
     @Test
-    @DisplayName("Task 0.3b: Pin shipped application.yml persistence-path (leaf cognitive) and data-dir")
+    @DisplayName("Task 0.3b: Pin shipped application.yml persistence-path (leaf memory) and data-dir")
     @SuppressWarnings("unchecked")
     void testPinShippedApplicationYmlRoots() {
         Yaml yaml = new Yaml();
@@ -115,12 +115,12 @@ class NamespacePathPinTest {
 
             String persistencePath = (String) memory.get("persistence-path");
             assertThat(persistencePath)
-                    .as("spector.memory.persistence-path in application.yml must be ${SPECTOR_DATA_DIR:./spector-data}/cognitive")
-                    .isEqualTo("${SPECTOR_DATA_DIR:./spector-data}/cognitive");
+                    .as("spector.memory.persistence-path in application.yml must be ${SPECTOR_PERSISTENCE_PATH:${SPECTOR_DATA_DIR:./spector-data}/memory}")
+                    .isEqualTo("${SPECTOR_PERSISTENCE_PATH:${SPECTOR_DATA_DIR:./spector-data}/memory}");
 
             assertThat(persistencePath)
-                    .as("Shipped application.yml rememberer leaf must end with /cognitive")
-                    .endsWith("/cognitive");
+                    .as("Shipped application.yml rememberer leaf must end with /memory}")
+                    .endsWith("/memory}");
         } catch (Exception e) {
             throw new RuntimeException("Failed to read application.yml", e);
         }

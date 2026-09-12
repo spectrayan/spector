@@ -97,20 +97,31 @@ The following sizing figures represent architectural projections for production 
 
 ---
 
-## Local Cluster Profiles (kind / k3d / Minikube)
+## Local Cluster Profiles (Docker Desktop / Kind / Minikube)
 
-For local development clusters with limited memory:
+For local single-node clusters with limited memory and unprivileged nodes, use the curated `values-local-dev.yaml`:
 
 ```bash
-helm install spector ./deploy/helm/spector \
-  --namespace spector \
+helm install spector-cell ./deploy/helm/spector \
+  --namespace spector-cell \
   --create-namespace \
-  --set owners.replicas=1 \
-  --set replicas.replicas=1 \
-  --set owners.resources.requests.memory=2Gi \
-  --set owners.resources.limits.memory=2Gi \
-  --set sysctl.enabled=false
+  -f ./deploy/helm/spector/values-local-dev.yaml
 ```
+
+This profile sets:
+- **Soft Anti-Affinity**: Allows co-scheduling multiple owners and replicas on a single local node.
+- **Lightweight Memory Limits**: 512Mi request / 1Gi limit per node with `-Xms256m -Xmx512m`.
+- **Standard Storage**: Uses `hostpath` persistence.
+- **Disabled Sysctl & NetworkPolicy**: Avoids CNI/privilege conflicts on unprivileged local Docker Desktop nodes.
+
+### Accessing Cortex UI & API Locally
+
+Forward the service ports to your machine:
+```bash
+kubectl port-forward -n spector-cell svc/spector-cell 7700:7700 7070:7070
+```
+- **Cortex Neural Dashboard**: [`http://localhost:7700`](http://localhost:7700)
+- **Synapse REST API**: [`http://localhost:7070/actuator/health`](http://localhost:7070/actuator/health)
 
 ---
 

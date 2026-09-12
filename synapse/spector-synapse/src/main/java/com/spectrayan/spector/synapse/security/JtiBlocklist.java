@@ -38,6 +38,7 @@ import com.spectrayan.spector.synapse.error.SynapseDatabaseException;
  * purge can drop rows that can no longer match a live token.</p>
  */
 @Repository
+@org.springframework.context.annotation.DependsOn("flyway")
 public class JtiBlocklist {
 
     private static final Logger log = LoggerFactory.getLogger(JtiBlocklist.class);

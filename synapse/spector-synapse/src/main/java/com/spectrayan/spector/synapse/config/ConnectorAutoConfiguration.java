@@ -58,6 +58,7 @@ public class ConnectorAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    @org.springframework.context.annotation.DependsOn("flyway")
     public RouteConfigProvider routeConfigProvider(JdbcClient jdbc, ObjectMapper mapper) {
         log.info("[ConnectorAutoConfig] Initializing persistent JdbcRouteConfigProvider");
         return new JdbcRouteConfigProvider(jdbc, mapper);

@@ -133,7 +133,7 @@ run() {
 
     docker run -d \
         --name "$CONTAINER_NAME" \
-        -p "${HOST_PORT_HTTP}:3000" \
+        -p "${HOST_PORT_HTTP}:8080" \
         -p "${HOST_PORT_API}:7070" \
         -v "${DATA_VOLUME}:/data" \
         -e "SPECTOR_DATA_DIR=/data" \
