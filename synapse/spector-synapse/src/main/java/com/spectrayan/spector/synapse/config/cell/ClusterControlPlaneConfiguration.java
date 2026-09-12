@@ -131,9 +131,14 @@ public class ClusterControlPlaneConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public FenceTokenManager fenceTokenManager(ControlStore controlStore) {
-        log.info("[ClusterControlPlaneConfiguration] Initializing FenceTokenManager");
-        return new FenceTokenManager(controlStore);
+    public FenceTokenManager fenceTokenManager(ControlStore controlStore, Environment env) {
+        long fenceTtlSec = env.getProperty(
+                "spector.cluster.fence-ttl-seconds",
+                Long.class,
+                0L
+        );
+        log.info("[ClusterControlPlaneConfiguration] Initializing FenceTokenManager (fenceTtl={}s)", fenceTtlSec);
+        return new FenceTokenManager(controlStore, java.time.Clock.systemUTC(), Duration.ofSeconds(fenceTtlSec));
     }
 
     @Bean

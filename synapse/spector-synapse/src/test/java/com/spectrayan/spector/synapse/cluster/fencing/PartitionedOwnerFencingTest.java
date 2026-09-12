@@ -102,4 +102,54 @@ class PartitionedOwnerFencingTest {
         assertThat(node1Fences.getFenceRejectionCount()).isGreaterThanOrEqualTo(1L);
         assertThat(survivorFences.getFenceRejectionCount()).isGreaterThanOrEqualTo(1L);
     }
+
+    @Test
+    @DisplayName("Chaos G12: Partitioned owner fence lease expires and fails closed against stale client writes")
+    void testPartitionedOwnerFailsClosedOnTtlExpiry() {
+        InMemoryControlStore store = new InMemoryControlStore();
+        CellMembership membership = new CellMembership("cell-1", 1, List.of("node-1", "node-2"));
+        store.updateMembership(membership);
+
+        class TestClock extends java.time.Clock {
+            private java.time.Instant now = java.time.Instant.parse("2026-01-01T00:00:00Z");
+            @Override public java.time.ZoneId getZone() { return java.time.ZoneOffset.UTC; }
+            @Override public java.time.Clock withZone(java.time.ZoneId zone) { return this; }
+            @Override public java.time.Instant instant() { return now; }
+            public void advance(java.time.Duration duration) { now = now.plus(duration); }
+        }
+        TestClock testClock = new TestClock();
+        java.time.Duration fenceTtl = java.time.Duration.ofSeconds(5);
+
+        FenceTokenManager node1Fences = new FenceTokenManager(store, testClock, fenceTtl);
+        NodeIdentity node1Identity = new NodeIdentity("cell-1", "node-1", NodeRole.OWNER);
+        OwnershipResolver node1Resolver = new OwnershipResolver(
+                node1Identity,
+                new StaticMembershipSource("cell-1", 1, List.of("node-1", "node-2"))
+        );
+        MemoryRequestBinder node1Binder = new MemoryRequestBinder(
+                null, null, null, node1Resolver, node1Fences
+        );
+
+        String namespaceId = "ns-partition-expiry";
+        node1Fences.setLocalFence(namespaceId, 1L);
+
+        // While lease is active, write presenting valid fence "1" is accepted
+        assertThatCode(() -> node1Binder.enforceFence(namespaceId, "1"))
+                .doesNotThrowAnyException();
+
+        // Advance time past the 5-second fence TTL (6 seconds) without renewal
+        testClock.advance(java.time.Duration.ofSeconds(6));
+        assertThat(node1Fences.isFenceExpired(namespaceId)).isTrue();
+
+        // Stale client sending old fence "1" to partitioned node MUST BE REFUSED (G12 fail-closed)
+        assertThatThrownBy(() -> node1Binder.enforceFence(namespaceId, "1"))
+                .isInstanceOf(FencedException.class)
+                .hasMessageContaining("superseded or mismatched");
+
+        // If renewed, writes are accepted again
+        node1Fences.renewLocalFence(namespaceId);
+        assertThat(node1Fences.isFenceExpired(namespaceId)).isFalse();
+        assertThatCode(() -> node1Binder.enforceFence(namespaceId, "1"))
+                .doesNotThrowAnyException();
+    }
 }

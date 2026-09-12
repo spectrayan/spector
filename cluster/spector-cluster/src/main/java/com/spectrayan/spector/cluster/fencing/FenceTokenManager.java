@@ -19,6 +19,8 @@ import com.spectrayan.spector.cluster.store.ControlStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
@@ -32,6 +34,7 @@ import java.util.concurrent.atomic.LongAdder;
  *   <li><b>Zero I/O and zero allocation (Req §5):</b> Hot-path verification uses a local in-memory integer comparison.</li>
  *   <li><b>Monotonicity (G15):</b> Local fences can only advance, never regress.</li>
  *   <li><b>Surrender semantics (G13):</b> Surrendered namespaces refuse all writes, never revert to unfenced.</li>
+ *   <li><b>Partition fail-closed (G12):</b> Local fences expire if not renewed, preventing partitioned owners from accepting stale writes.</li>
  *   <li><b>Metric counting (Req R9.2):</b> Tracks rejected fence attempts ({@code spector.route.fenced}).</li>
  * </ul>
  * </p>
@@ -47,12 +50,21 @@ public class FenceTokenManager {
     static final long SURRENDERED_EPOCH = Long.MIN_VALUE;
 
     private final ControlStore controlStore;
+    private final Clock clock;
+    private final Duration fenceTtl;
     private final ConcurrentHashMap<String, Long> localFences = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Long> localFenceExpirations = new ConcurrentHashMap<>();
     private final LongAdder fenceRejections = new LongAdder();
     private final LongAdder fenceRegressions = new LongAdder();
 
     public FenceTokenManager(ControlStore controlStore) {
+        this(controlStore, Clock.systemUTC(), Duration.ZERO);
+    }
+
+    public FenceTokenManager(ControlStore controlStore, Clock clock, Duration fenceTtl) {
         this.controlStore = Objects.requireNonNull(controlStore, "controlStore must not be null");
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
+        this.fenceTtl = fenceTtl != null ? fenceTtl : Duration.ZERO;
     }
 
     /**
@@ -78,6 +90,9 @@ public class FenceTokenManager {
             }
             return proposed;
         });
+        if (!fenceTtl.isZero()) {
+            localFenceExpirations.put(namespaceId, clock.millis() + fenceTtl.toMillis());
+        }
         log.debug("[FenceTokenManager] Set local fence for namespace '{}' to epoch {}", namespaceId, epoch);
     }
 
@@ -91,6 +106,53 @@ public class FenceTokenManager {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
         Long epoch = localFences.get(namespaceId);
         return epoch != null && epoch != SURRENDERED_EPOCH;
+    }
+
+    /**
+     * Checks whether the local fence for the namespace has expired (G12).
+     *
+     * @param namespaceId target namespace
+     * @return {@code true} if fence is expired or untracked; {@code false} if valid
+     */
+    public boolean isFenceExpired(String namespaceId) {
+        Objects.requireNonNull(namespaceId, "namespaceId must not be null");
+        if (fenceTtl.isZero()) {
+            return false;
+        }
+        Long expiresAt = localFenceExpirations.get(namespaceId);
+        return expiresAt == null || clock.millis() > expiresAt;
+    }
+
+    /**
+     * Renews the local fence lease for a specific namespace, preventing expiration (G12).
+     *
+     * @param namespaceId target namespace
+     * @return {@code true} if renewed; {@code false} if not actively tracked
+     */
+    public boolean renewLocalFence(String namespaceId) {
+        Objects.requireNonNull(namespaceId, "namespaceId must not be null");
+        if (hasLocalFence(namespaceId)) {
+            if (!fenceTtl.isZero()) {
+                localFenceExpirations.put(namespaceId, clock.millis() + fenceTtl.toMillis());
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Renews all actively held local fence leases on this node (G12).
+     */
+    public void renewAllLocalFences() {
+        if (fenceTtl.isZero()) {
+            return;
+        }
+        long newExpiresAt = clock.millis() + fenceTtl.toMillis();
+        for (String ns : localFences.keySet()) {
+            if (hasLocalFence(ns)) {
+                localFenceExpirations.put(ns, newExpiresAt);
+            }
+        }
     }
 
     /**
@@ -116,6 +178,7 @@ public class FenceTokenManager {
     public void surrenderLocalFence(String namespaceId) {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
         localFences.put(namespaceId, SURRENDERED_EPOCH);
+        localFenceExpirations.remove(namespaceId);
         log.info("[FenceTokenManager] Surrendered local fence for namespace '{}' — all writes will be refused (G13)", namespaceId);
     }
 
@@ -142,6 +205,9 @@ public class FenceTokenManager {
         long epoch = controlStore.getNamespaceEpoch(namespaceId);
         // Direct put bypasses monotonicity to allow re-adoption after surrender
         localFences.put(namespaceId, epoch);
+        if (!fenceTtl.isZero()) {
+            localFenceExpirations.put(namespaceId, clock.millis() + fenceTtl.toMillis());
+        }
         log.info("[FenceTokenManager] Adopted ownership for namespace '{}' at epoch {} from control store (G14)",
                 namespaceId, epoch);
         return epoch;
@@ -197,6 +263,14 @@ public class FenceTokenManager {
             // Namespace surrendered -> refuse all writes (G13)
             fenceRejections.increment();
             return false;
+        }
+        if (!fenceTtl.isZero()) {
+            Long expiresAt = localFenceExpirations.get(namespaceId);
+            if (expiresAt != null && clock.millis() > expiresAt) {
+                fenceRejections.increment();
+                log.warn("[FenceTokenManager] Local fence for namespace '{}' has expired (partition fail-closed G12)", namespaceId);
+                return false;
+            }
         }
         if (incomingFence == null || incomingFence.isBlank()) {
             fenceRejections.increment();
