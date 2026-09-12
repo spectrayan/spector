@@ -73,6 +73,19 @@ public final class SpectorPropertyConstants {
     public static final String NAMESPACE_DUAL_READ_ENABLED = "spector.namespace.dual-read.enabled";
     public static final boolean DEFAULT_NAMESPACE_DUAL_READ_ENABLED = true;
 
+    // Cell & Cluster HA (ADR-0034 §15.10, Req R4, R8)
+    public static final String CELL_ID = "spector.cell.id";
+    public static final String CELL_ROLE = "spector.cell.role";
+    public static final String DEFAULT_CELL_ROLE = "standalone";
+
+    public static final String CELL_NODE_ID = "spector.cell.node-id";
+
+    public static final String CELL_RING_VERSION = "spector.cell.ring.version";
+    public static final int DEFAULT_CELL_RING_VERSION = 1;
+
+    public static final String CELL_RING_MEMBERS = "spector.cell.ring.members";
+    public static final String CELL_RING_MEMBERS_FILE = "spector.cell.ring.members-file";
+
     // Provider — Embedding
     public static final String PROVIDER_EMBEDDING_TYPE = "spector.provider.embedding.type";
     public static final String DEFAULT_PROVIDER_EMBEDDING_TYPE = "ollama";

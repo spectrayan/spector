@@ -47,6 +47,7 @@ public class SynapseProperties extends SpectorConfigProperties {
     private AuthProperties auth = new AuthProperties();
     private RateLimitProperties rateLimit = new RateLimitProperties();
     private com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties cache = new com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties();
+    private com.spectrayan.spector.synapse.config.cell.CellProperties cell = new com.spectrayan.spector.synapse.config.cell.CellProperties();
 
     public SynapseProperties() {}
 
@@ -86,6 +87,9 @@ public class SynapseProperties extends SpectorConfigProperties {
 
     public com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties getCache() { return cache; }
     public void setCache(com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties cache) { if (cache != null) this.cache = cache; }
+
+    public com.spectrayan.spector.synapse.config.cell.CellProperties getCell() { return cell; }
+    public void setCell(com.spectrayan.spector.synapse.config.cell.CellProperties cell) { if (cell != null) this.cell = cell; }
 
     // ══════════════════════════════════════════════════════════════
     // Canonical storage roots (ADR-0034 D1, Req R3.1, R3.4)
@@ -141,4 +145,5 @@ public class SynapseProperties extends SpectorConfigProperties {
     public AuthProperties auth() { return getAuth(); }
     public RateLimitProperties rateLimit() { return getRateLimit(); }
     public com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties cache() { return getCache(); }
+    public com.spectrayan.spector.synapse.config.cell.CellProperties cell() { return getCell(); }
 }
