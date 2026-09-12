@@ -73,7 +73,7 @@ public class ReplicationServer implements AutoCloseable {
             Path tempStagingDir
     ) {
         this.bindHost = bindHost != null ? bindHost : "127.0.0.1";
-        this.port = port > 0 ? port : 9090;
+        this.port = port >= 0 ? port : 9090;
         this.sslContext = sslContext;
         this.allowListFilter = Objects.requireNonNull(allowListFilter, "allowListFilter must not be null");
         this.applyEngine = applyEngine;
