@@ -135,7 +135,7 @@ class RemembererRootAgreementTest {
 
         // Migrator
         var migrator = new com.spectrayan.spector.synapse.migration.TenantNamespaceMigrator(
-                props, catalog, null, null);
+                props, catalog, null, null, null);
         Field migratorBase = com.spectrayan.spector.synapse.migration.TenantNamespaceMigrator.class
                 .getDeclaredField("basePath");
         migratorBase.setAccessible(true);

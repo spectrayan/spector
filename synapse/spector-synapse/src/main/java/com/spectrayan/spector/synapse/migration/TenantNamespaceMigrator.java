@@ -68,9 +68,43 @@ public class TenantNamespaceMigrator {
     public TenantNamespaceMigrator(
             SynapseProperties synapseProps,
             AccountCatalog catalog,
+            org.springframework.beans.factory.ObjectProvider<
+                    com.spectrayan.spector.synapse.memory.MemoryRegistry> registryProvider,
             @Autowired(required = false) MeterRegistry meterRegistry,
             @Autowired(required = false) ObjectMapper objectMapper) {
-        this(resolveBasePath(synapseProps), catalog, null, meterRegistry, objectMapper);
+        this(resolveBasePath(synapseProps), catalog,
+                inProcessLeaseGuard(registryProvider), meterRegistry, objectMapper);
+    }
+
+    /**
+     * Builds the in-process guard that refuses to relocate a namespace this JVM currently has open
+     * or leased (Req R5.4).
+     *
+     * <p>Resolved lazily: the registry is not necessarily initialised when this bean is constructed,
+     * and passing {@code null} here — as the original wiring did — left every production path with no
+     * guard whatsoever.</p>
+     *
+     * <p>Only covers this JVM. Cross-process protection is {@link RemembererRootLock}.</p>
+     */
+    private static Predicate<String> inProcessLeaseGuard(
+            org.springframework.beans.factory.ObjectProvider<
+                    com.spectrayan.spector.synapse.memory.MemoryRegistry> registryProvider) {
+        if (registryProvider == null) {
+            return null;
+        }
+        return nsId -> {
+            var registry = registryProvider.getIfAvailable();
+            if (registry == null) {
+                return false;
+            }
+            var resolver = registry.namespaceResolver();
+            if (resolver == null) {
+                return false;
+            }
+            // "Open" matters as much as "leased": an mmap'd directory must not be moved even when no
+            // request currently holds a lease on it.
+            return resolver.isNamespaceOpen(nsId) || resolver.isNamespaceLeased(nsId);
+        };
     }
 
     public TenantNamespaceMigrator(
@@ -130,9 +164,35 @@ public class TenantNamespaceMigrator {
             return new MigrationSummary(0, 0, 0);
         }
 
-        if (!dryRun) {
-            cleanupStagedDirectories(basePath);
+        // Cross-process guard (Req R5.4). A CLI-local lease predicate cannot see mappings held by a
+        // running server, so before touching anything verify no other JVM owns this root. A dry run
+        // only reads, so it is exempt.
+        RemembererRootLock.Attempt attempt = dryRun
+                ? new RemembererRootLock.Attempt(RemembererRootLock.Outcome.ACQUIRED, null)
+                : RemembererRootLock.tryAcquire(basePath);
+        if (!dryRun && !attempt.mayMutateRoot()) {
+            log.error("[TenantNamespaceMigrator] Refusing to migrate: another process holds the rememberer "
+                    + "root {} (lock outcome {}). Stop the running Spector instance before migrating — "
+                    + "relocating a directory it has memory-mapped is undefined behaviour.",
+                    basePath, attempt.outcome());
+            return new MigrationSummary(0, 0, 1);
         }
+
+        try (RemembererRootLock held = attempt.lock()) {
+            if (!dryRun) {
+                cleanupStagedDirectories(basePath);
+            }
+            return migrateLocked(basePath, catalog, leaseGuard, meterRegistry, mapper, dryRun);
+        }
+    }
+
+    private static MigrationSummary migrateLocked(
+            Path basePath,
+            AccountCatalog catalog,
+            Predicate<String> leaseGuard,
+            MeterRegistry meterRegistry,
+            ObjectMapper mapper,
+            boolean dryRun) {
 
         AtomicInteger migrated = new AtomicInteger(0);
         AtomicInteger skipped = new AtomicInteger(0);

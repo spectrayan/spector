@@ -259,6 +259,90 @@ class TenantNamespaceMigratorTest {
     }
 
     @Test
+    @DisplayName("H1 / Req R5.4: A rememberer root held by another process blocks migration entirely")
+    void rootHeldByAnotherProcess_refusesToMigrate() throws Exception {
+        seedAccount(ALICE_ID, TENANT_ACME, NS_ALICE);
+        byte[] payload = "Alice data".getBytes(StandardCharsets.UTF_8);
+        String expectedDigest = seedNamespaceAtLayoutA(NS_ALICE, payload);
+
+        Path layoutA = NamespacePathResolver.resolve(tempDir, null, NS_ALICE).dir();
+        Path layoutB = NamespacePathResolver.resolve(tempDir, TENANT_ACME, NS_ALICE).dir();
+
+        // Simulate a running server in a different JVM by taking the lock from a separate channel.
+        // A FileLock is JVM-scoped, so an in-JVM tryLock would report HELD_BY_THIS_JVM; locking from
+        // a forked process is what genuinely reproduces the contended case.
+        Path lockFile = tempDir.resolve(StoragePaths.FILE_LOCK);
+        Files.createDirectories(tempDir);
+        String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
+        Process holder = new ProcessBuilder(java, writeLockHolderProgram(lockFile).toString())
+                .redirectErrorStream(true)
+                .start();
+        try {
+            // Wait until the child reports the lock is held.
+            java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(holder.getInputStream(), StandardCharsets.UTF_8));
+            String line = reader.readLine();
+            assertThat(line).as("lock holder child process must report readiness").isEqualTo("LOCKED");
+
+            MigrationSummary summary = TenantNamespaceMigrator.migrate(
+                    tempDir, catalog, null, meterRegistry, objectMapper, false);
+
+            assertThat(summary.errors()).as("a contended root must be an error, not a silent skip").isEqualTo(1);
+            assertThat(summary.migrated()).isZero();
+            assertThat(summary.hasErrors()).isTrue();
+
+            // Nothing moved; the source is untouched.
+            assertThat(Files.exists(layoutB)).isFalse();
+            assertThat(sha256(Files.readAllBytes(layoutA.resolve("records.dat")))).isEqualTo(expectedDigest);
+        } finally {
+            holder.destroy();
+            holder.waitFor();
+        }
+    }
+
+    /** Writes a single-file Java program that locks {@code lockFile} and blocks until killed. */
+    private Path writeLockHolderProgram(Path lockFile) throws IOException {
+        Path src = tempDir.resolve("LockHolder.java");
+        Files.writeString(src, """
+                import java.nio.channels.FileChannel;
+                import java.nio.file.Path;
+                import java.nio.file.StandardOpenOption;
+
+                public class LockHolder {
+                    public static void main(String[] args) throws Exception {
+                        try (FileChannel ch = FileChannel.open(Path.of("%s"),
+                                StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+                            ch.lock();
+                            System.out.println("LOCKED");
+                            System.out.flush();
+                            Thread.sleep(600_000);
+                        }
+                    }
+                }
+                """.formatted(lockFile.toString().replace("\\", "\\\\")));
+        return src;
+    }
+
+    @Test
+    @DisplayName("H1 / Req R5.4: An in-process guard refusal is an error, and the namespace is left alone")
+    void inProcessLeaseGuard_refusesAndPreservesSource() throws IOException {
+        seedAccount(ALICE_ID, TENANT_ACME, NS_ALICE);
+        byte[] payload = "Alice data".getBytes(StandardCharsets.UTF_8);
+        String expectedDigest = seedNamespaceAtLayoutA(NS_ALICE, payload);
+
+        Path layoutA = NamespacePathResolver.resolve(tempDir, null, NS_ALICE).dir();
+        Path layoutB = NamespacePathResolver.resolve(tempDir, TENANT_ACME, NS_ALICE).dir();
+
+        MigrationSummary summary = TenantNamespaceMigrator.migrate(
+                tempDir, catalog, nsId -> nsId.equals(NS_ALICE), meterRegistry, objectMapper, false);
+
+        assertThat(summary.errors()).isEqualTo(1);
+        assertThat(summary.migrated()).isZero();
+        assertThat(Files.exists(layoutB)).isFalse();
+        assertThat(sha256(Files.readAllBytes(layoutA.resolve("records.dat")))).isEqualTo(expectedDigest);
+    }
+
+    @Test
     @DisplayName("C4 / Req R5.5: Discarding a staging copy never loses data, because the source outlives it")
     void stagingCleanup_neverDestroysTheOnlyCopy() throws IOException {
         seedAccount(ALICE_ID, TENANT_ACME, NS_ALICE);

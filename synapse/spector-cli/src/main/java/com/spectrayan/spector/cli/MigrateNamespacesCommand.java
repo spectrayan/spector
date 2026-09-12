@@ -89,6 +89,9 @@ public class MigrateNamespacesCommand extends BaseCommand {
 
         MigrationSummary summary;
         try {
+            // No in-process lease predicate is passed: this JVM holds no mappings, and asking a
+            // CLI-local resolver would always answer "not leased" while a server had the directory
+            // mapped. The migrator's RemembererRootLock is what actually detects a running server.
             summary = TenantNamespaceMigrator.migrate(basePath, catalog, null, null, new ObjectMapper(), dryRun);
         } catch (Exception e) {
             err.println("Migration failed with error: " + e.getMessage());
