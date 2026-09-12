@@ -81,6 +81,8 @@ class SingleHashImplementationGuardTest {
                 assertThat(o2Claims).isTrue();
             } else if ("node-3".equals(chosenOwner)) {
                 assertThat(o3Claims).isTrue();
+            } else {
+                org.junit.jupiter.api.Assertions.fail("Unexpected owner chosen: " + chosenOwner);
             }
         }
     }

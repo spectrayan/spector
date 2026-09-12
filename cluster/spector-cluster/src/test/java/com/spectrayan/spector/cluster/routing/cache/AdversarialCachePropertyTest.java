@@ -102,24 +102,33 @@ class AdversarialCachePropertyTest {
     @Test
     @DisplayName("Req R12.8: Verifies test catches naive owner that trusts incoming cache header")
     void verifyCatchesNaiveTrustingOwner() {
-        RoutingKey key = RoutingKey.ofTenanted("cell-1", "tenant-test", "ns-test");
-        String lyingOwner = "node-2";
-        String trueOwner = "node-1";
+        ConsistentHashRing ring = ConsistentHashRing.of(1, List.of("node-1", "node-2"));
 
-        // Naive owner simulation that trusts incoming header:
-        boolean naiveOwnerBehavior = lyingOwner.equals(lyingOwner); // returns true
-        assertThat(naiveOwnerBehavior).isTrue(); // Would violate K2!
+        // Find a key deterministically owned by node-1
+        RoutingKey keyOwnedByNode1 = null;
+        for (int i = 0; i < 100; i++) {
+            RoutingKey candidate = RoutingKey.ofTenanted("cell-1", "tenant-test", "ns-test-" + i);
+            if ("node-1".equals(ring.ownerOf(candidate))) {
+                keyOwnedByNode1 = candidate;
+                break;
+            }
+        }
+        assertThat(keyOwnedByNode1).as("Must find a key owned by node-1").isNotNull();
 
-        // Correct Spector owner behavior: consults local resolver
+        // Node-2 receives a request with spoofed header X-Spector-Owner: node-2
+        String incomingSpoofedHeaderOwner = "node-2";
+        // A naive owner blindly checking incoming header against its own identity would accept:
+        boolean naiveOwnerBehavior = "node-2".equals(incomingSpoofedHeaderOwner);
+        assertThat(naiveOwnerBehavior).isTrue(); // Demonstrates naive vulnerability (violates K2)
+
+        // Correct Spector owner behavior: consults local resolver and refuses the key
         OwnershipResolver localResolver = new OwnershipResolver(
                 new NodeIdentity("cell-1", "node-2", NodeRole.OWNER),
                 new StaticMembershipSource("cell-1", 1, List.of("node-1", "node-2"))
         );
-        // Assert localResolver rejects key owned by node-1:
-        ConsistentHashRing ring = ConsistentHashRing.of(1, List.of("node-1", "node-2"));
-        if ("node-1".equals(ring.ownerOf(key))) {
-            assertThat(localResolver.ownsLocally(key)).isFalse();
-        }
+        assertThat(localResolver.ownsLocally(keyOwnedByNode1))
+                .as("Authoritative owner resolver must reject key owned by node-1")
+                .isFalse();
     }
 
     private static class AdversarialRedisRoutingCache implements RedisRoutingCache {
