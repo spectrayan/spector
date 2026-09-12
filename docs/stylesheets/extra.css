@@ -1176,5 +1176,246 @@ code, kbd, pre, samp, .highlight, .md-typeset code {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Mermaid Interactive Zoom, Pan & Fullscreen Modal
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Wrapper */
+.mermaid-interactive-wrapper {
+  position: relative !important;
+  border-radius: 8px;
+}
+
+/* Floating Micro-Toolbar */
+.mermaid-toolbar {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  z-index: 10;
+  opacity: 0.6;
+  transition: opacity 0.22s ease, transform 0.22s ease, border-color 0.22s ease;
+}
+
+[data-md-color-scheme="default"] .mermaid-toolbar {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.mermaid-interactive-wrapper:hover .mermaid-toolbar {
+  opacity: 1;
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+/* Micro-Toolbar Buttons */
+.mermaid-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: #cbd5e1;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.15s ease;
+}
+
+[data-md-color-scheme="default"] .mermaid-tool-btn {
+  color: #475569;
+}
+
+.mermaid-tool-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #38bdf8 !important; /* Electric Cyan */
+  transform: scale(1.1);
+}
+
+.mermaid-tool-btn:active {
+  transform: scale(0.92);
+}
+
+.mermaid-tool-btn--primary {
+  color: #818cf8 !important;
+}
+
+.mermaid-tool-btn--primary:hover {
+  color: #a78bfa !important;
+}
+
+/* Fullscreen Modal Backdrop */
+.mermaid-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(10, 14, 26, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: modalFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mermaid-modal-backdrop.closing {
+  animation: modalFadeOut 0.2s ease forwards;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Fullscreen Modal Window */
+.mermaid-modal-dialog {
+  width: 94vw;
+  height: 92vh;
+  background: #0b0f19;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.8), 0 0 35px rgba(99, 102, 241, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: dialogScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-md-color-scheme="default"] .mermaid-modal-dialog {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+@keyframes dialogScaleUp {
+  from { transform: scale(0.96) translateY(10px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Modal Header */
+.mermaid-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.95);
+}
+
+[data-md-color-scheme="default"] .mermaid-modal-header {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.mermaid-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--md-text-font, sans-serif);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #f8fafc;
+}
+
+[data-md-color-scheme="default"] .mermaid-modal-title {
+  color: #0f172a;
+}
+
+.mermaid-modal-badge {
+  font-family: var(--md-code-font, monospace);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+
+.mermaid-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mermaid-modal-actions .mermaid-tool-btn {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+
+.mermaid-tool-btn--close {
+  color: #f87171 !important;
+}
+
+.mermaid-tool-btn--close:hover {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #ef4444 !important;
+}
+
+/* Modal Viewport & Canvas */
+.mermaid-modal-viewport {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(30, 41, 59, 0.35) 0%, rgba(11, 15, 25, 0.95) 100%);
+  user-select: none;
+}
+
+[data-md-color-scheme="default"] .mermaid-modal-viewport {
+  background: #f8fafc;
+}
+
+.mermaid-modal-canvas {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform;
+}
+
+.mermaid-modal-canvas svg {
+  max-width: 90%;
+  max-height: 90%;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.35));
+}
+
+/* Modal Footer */
+.mermaid-modal-footer {
+  padding: 8px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(10, 14, 26, 0.85);
+  color: #64748b;
+  font-size: 0.78rem;
+  font-family: var(--md-code-font, monospace);
+  text-align: center;
+}
+
+
 
 
