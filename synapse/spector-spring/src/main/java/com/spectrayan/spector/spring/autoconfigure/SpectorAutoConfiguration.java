@@ -40,9 +40,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.vectorstore.spector.SpectorVectorStore;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.*;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 
@@ -417,5 +419,27 @@ public class SpectorAutoConfiguration {
     @ConditionalOnMissingBean(SpectorVectorStore.class)
     SpectorVectorStore spectorVectorMemoryStore(SpectorMemory memory){
         return new SpectorVectorStore(memory);
+    }
+
+    /**
+     * Auto-configures {@link SpectorHealthIndicator} to report SIMD capability, memory counts,
+     * filesystem validation, V4 map-count headroom, and cell ownership readiness at {@code /actuator/health}.
+     */
+    @Bean
+    @ConditionalOnClass(HealthIndicator.class)
+    @ConditionalOnMissingBean(SpectorHealthIndicator.class)
+    public SpectorHealthIndicator spectorHealthIndicator(
+            ObjectProvider<SpectorMemory> memoryProvider,
+            @Value("${spector.data-dir:./spector-data}") String dataDir,
+            @Value("${spector.pager.hot-cap:2000}") int hotCap,
+            @Value("${spector.cluster-mode-enabled:false}") boolean clusterMode,
+            ObjectProvider<com.spectrayan.spector.cluster.OwnershipResolver> ownershipResolverProvider) {
+        return new SpectorHealthIndicator(
+                memoryProvider,
+                dataDir,
+                hotCap,
+                clusterMode,
+                ownershipResolverProvider
+        );
     }
 }
