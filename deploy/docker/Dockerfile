@@ -102,7 +102,7 @@ ENV SPECTOR_MEMORY_CAPACITY=10000 \
     SPECTOR_LLM_MAX_TOKENS=1024
 
 # Prepare filesystem permissions for non-root execution (UID 1000)
-RUN mkdir -p /data/index /data/memory /data/tmp /tmp/nginx /var/log/nginx /var/lib/nginx \
+RUN mkdir -p /data/memory /data/identity /data/db /data/tmp /tmp/nginx /var/log/nginx /var/lib/nginx \
     && chown -R 1000:1000 /data /app /usr/share/nginx/html /etc/nginx /var/log/nginx /var/lib/nginx /tmp/nginx
 
 USER 1000:1000

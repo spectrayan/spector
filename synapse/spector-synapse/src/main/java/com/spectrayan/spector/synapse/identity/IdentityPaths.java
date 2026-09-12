@@ -24,7 +24,7 @@ import java.util.Objects;
  *   identity/
  *     accounts/{aa}/{bb}/{accountId}/identity.bundle
  *     tenants/{tt}/{uu}/{tenantId}/identity.bundle
- *   cognitive/
+ *   memory/
  *     namespaces/{xx}/{yy}/{namespaceId}/
  * </pre>
  */

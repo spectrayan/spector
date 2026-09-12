@@ -118,7 +118,7 @@ public class SynapseProperties extends SpectorConfigProperties {
      *
      * <p>Derived from {@code spector.memory.persistence-path}, falling back to
      * {@code spector.data-dir}. The leaf name is deliberately <strong>not</strong> fixed: Synapse's
-     * shipped {@code application.yml} resolves this to {@code ${SPECTOR_DATA_DIR}/cognitive}, while
+     * shipped {@code application.yml} resolves this to {@code ${SPECTOR_DATA_DIR}/memory}, while
      * the framework default is {@code .spector/memory}. No caller may hardcode either leaf
      * (Req R3.4).</p>
      *

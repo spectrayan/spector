@@ -84,6 +84,9 @@ spec:
                   key: SPECTOR_API_KEY
                   optional: true
             {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           volumeMounts:
             - name: config
               mountPath: /app/spector.yml
