@@ -15,6 +15,8 @@ package com.spectrayan.spector.synapse.config.dr;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Configuration properties for Cell Disaster Recovery, mutable snapshot cloud export, and standby restore
@@ -34,6 +36,8 @@ public class DisasterRecoveryProperties implements Serializable {
     private String objectStoreRegion = SpectorPropertyConstants.DEFAULT_DR_OBJECT_STORE_REGION;
     private int alertLagMultiplier = SpectorPropertyConstants.DEFAULT_DR_ALERT_LAG_MULTIPLIER;
     private String standbyMode = SpectorPropertyConstants.DEFAULT_DR_STANDBY_MODE;
+    private Map<String, String> tenantJurisdictions = new HashMap<>();
+    private boolean requireTenantJurisdiction = false;
 
     public DisasterRecoveryProperties() {}
 
@@ -99,5 +103,21 @@ public class DisasterRecoveryProperties implements Serializable {
 
     public void setStandbyMode(String standbyMode) {
         this.standbyMode = standbyMode;
+    }
+
+    public Map<String, String> getTenantJurisdictions() {
+        return tenantJurisdictions;
+    }
+
+    public void setTenantJurisdictions(Map<String, String> tenantJurisdictions) {
+        this.tenantJurisdictions = tenantJurisdictions != null ? new HashMap<>(tenantJurisdictions) : new HashMap<>();
+    }
+
+    public boolean isRequireTenantJurisdiction() {
+        return requireTenantJurisdiction;
+    }
+
+    public void setRequireTenantJurisdiction(boolean requireTenantJurisdiction) {
+        this.requireTenantJurisdiction = requireTenantJurisdiction;
     }
 }

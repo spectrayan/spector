@@ -21,6 +21,7 @@ import com.spectrayan.spector.synapse.catalog.AccountCatalog;
 import com.spectrayan.spector.synapse.catalog.NamespaceRecord;
 import com.spectrayan.spector.synapse.catalog.NamespaceStatus;
 import com.spectrayan.spector.synapse.catalog.NamespaceType;
+import com.spectrayan.spector.synapse.config.dr.DisasterRecoveryProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,6 +61,7 @@ public class DisasterRecoveryRestorer {
     private final String bucket;
     private final String standbyCellRegion;
     private final AccountCatalog accountCatalog;
+    private final DisasterRecoveryProperties properties;
 
     public record RestoreResult(
             String namespaceId,
@@ -87,10 +89,21 @@ public class DisasterRecoveryRestorer {
             String standbyCellRegion,
             AccountCatalog accountCatalog
     ) {
+        this(objectStoreClient, bucket, standbyCellRegion, accountCatalog, null);
+    }
+
+    public DisasterRecoveryRestorer(
+            ObjectStoreClient objectStoreClient,
+            String bucket,
+            String standbyCellRegion,
+            AccountCatalog accountCatalog,
+            DisasterRecoveryProperties properties
+    ) {
         this.objectStoreClient = Objects.requireNonNull(objectStoreClient, "objectStoreClient must not be null");
         this.bucket = Objects.requireNonNull(bucket, "bucket must not be null");
         this.standbyCellRegion = Objects.requireNonNull(standbyCellRegion, "standbyCellRegion must not be null");
         this.accountCatalog = accountCatalog;
+        this.properties = properties;
     }
 
     /**
@@ -145,8 +158,15 @@ public class DisasterRecoveryRestorer {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
         Objects.requireNonNull(targetBaseDir, "targetBaseDir must not be null");
 
-        // 1. Data Residency Validation (Req R9.4, V6)
-        DataResidencyEnforcer.validateRestoreResidency(tenantJurisdiction, standbyCellRegion);
+        // G31: Resolve effective jurisdiction from configuration if not explicitly provided
+        String effectiveJurisdiction = tenantJurisdiction;
+        if ((effectiveJurisdiction == null || effectiveJurisdiction.isBlank()) && properties != null && tenantId != null) {
+            effectiveJurisdiction = properties.getTenantJurisdictions().get(tenantId);
+        }
+        boolean requireExplicitJurisdiction = properties != null && properties.isRequireTenantJurisdiction();
+
+        // 1. Data Residency Validation (Req R9.4, V6, G31)
+        DataResidencyEnforcer.validateRestoreResidency(effectiveJurisdiction, standbyCellRegion, requireExplicitJurisdiction);
 
         String safeTenant = tenantId != null && !tenantId.isBlank() ? tenantId : "untenanted";
         String searchPrefix = "snapshots/" + safeTenant + "/" + namespaceId + "/";

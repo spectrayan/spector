@@ -249,6 +249,10 @@ class DisasterRecoveryExporterTest {
         Path nsDir1 = createSampleNamespace(tenantId, nsId1, "flat");
         Path nsDir2 = createSampleNamespace(tenantId, nsId2, "flat");
 
+        // G29: Initial state before any cycle runs has NO measured RPO
+        assertThat(exporter.getMeasuredP99RpoSeconds()).isEmpty();
+        assertThat(exporter.getMeasuredP99Rpo()).isEmpty();
+
         // Cycle 1: both namespaces exported
         var target1 = new DisasterRecoveryExporter.ActiveNamespaceTarget(tenantId, nsId1, nsDir1, REGION, 1L, 100L);
         var target2 = new DisasterRecoveryExporter.ActiveNamespaceTarget(tenantId, nsId2, nsDir2, REGION, 1L, 50L);
@@ -268,8 +272,8 @@ class DisasterRecoveryExporterTest {
 
         // Measured RPO tracking
         exporter.recordExportInterval(nsId2, 30L);
-        assertThat(exporter.getMeasuredP99RpoSeconds()).isGreaterThan(0.0);
-        assertThat(exporter.getMeasuredP99Rpo()).isGreaterThanOrEqualTo(0L);
+        assertThat(exporter.getMeasuredP99RpoSeconds()).hasValue(30.0);
+        assertThat(exporter.getMeasuredP99Rpo()).hasValue(30L);
     }
 
     @Test
