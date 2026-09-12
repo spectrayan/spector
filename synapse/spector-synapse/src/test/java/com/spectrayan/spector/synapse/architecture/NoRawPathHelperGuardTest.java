@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.synapse.architecture;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -41,6 +40,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Task 0.5 / 4.6: No raw namespace-path helper calls outside sanctioned resolver")
 class NoRawPathHelperGuardTest {
 
+    /**
+     * Classes permitted to call the raw helpers, each for a stated reason.
+     *
+     * <ul>
+     *   <li>{@code StoragePaths} — defines them.</li>
+     *   <li>{@code NamespacePathResolver} — the sanctioned choke point that wraps them.</li>
+     *   <li>{@code LayoutMigrator}, {@code ShardedNamespaceMigrator} — migrate <em>into</em> the flat
+     *       layout and predate the resolver.</li>
+     *   <li>{@code SpectorNamespaceManager} — kernel-side, embedded/OSS only.</li>
+     *   <li>{@code TenantNamespaceMigrator} — resolves both layouts by definition.</li>
+     * </ul>
+     */
     private static final Set<String> ALLOWED_FILES = Set.of(
             "StoragePaths.java",
             "NamespacePathResolver.java",
@@ -50,8 +61,15 @@ class NoRawPathHelperGuardTest {
             "ShardedNamespaceMigrator.java"
     );
 
+    /**
+     * Every raw rememberer-path helper. {@code tenantRootedNamespaceDir} is included deliberately:
+     * omitting the newest helper let a caller bypass {@link
+     * com.spectrayan.spector.kernel.storage.NamespacePathResolver} entirely without tripping this
+     * guard, which is the exact hole the guard exists to close.
+     */
     private static final Pattern RAW_PATH_HELPER_CALL = Pattern.compile(
-            "\\bStoragePaths\\.(namespaceDirSharded|namespaceDir|tenantNamespaceDirSharded)\\s*\\("
+            "\\bStoragePaths\\.(namespaceDirSharded|namespaceDir|tenantNamespaceDirSharded"
+                    + "|tenantRootedNamespaceDir)\\s*\\("
     );
 
     @Test
@@ -59,9 +77,14 @@ class NoRawPathHelperGuardTest {
     void noProductionClassCallsRawPathHelpers() throws IOException {
         List<Path> scanRoots = List.of(
                 Paths.get("src/main/java"),
-                Paths.get("../spector-memory/src/main/java"),
+                // spector-cli was previously unscanned, yet MigrateNamespacesCommand lives there and
+                // resolves rememberer paths.
+                Paths.get("../spector-cli/src/main/java"),
+                Paths.get("../spector-mcp/src/main/java"),
+                Paths.get("../spector-spring/src/main/java"),
                 Paths.get("../../memory/spector-memory/src/main/java"),
-                Paths.get("../../memory/spector-kernel/src/main/java")
+                Paths.get("../../memory/spector-kernel/src/main/java"),
+                Paths.get("../../nucleus/spector-config/src/main/java")
         );
 
         List<String> violations = new ArrayList<>();
