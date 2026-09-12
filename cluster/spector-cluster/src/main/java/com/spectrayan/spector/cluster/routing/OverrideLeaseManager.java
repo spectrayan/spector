@@ -72,7 +72,7 @@ public class OverrideLeaseManager {
     }
 
     /**
-     * Pins a namespace to a specific target node under coordinator authority (Req R3.1, R3.2).
+     * Pins a namespace to a specific target node under coordinator authority, advancing the epoch (Req R3.1, R3.2).
      *
      * @param namespaceId  namespace to pin
      * @param targetNodeId node designated as authoritative owner
@@ -81,12 +81,31 @@ public class OverrideLeaseManager {
      * @return the created override record
      */
     public OverrideLeaseRecord setOverride(String namespaceId, String targetNodeId, String fence, Duration ttl) {
+        long epoch = controlStore.advanceNamespaceEpoch(namespaceId);
+        return setOverrideWithEpoch(namespaceId, targetNodeId, epoch, fence, ttl);
+    }
+
+    /**
+     * Pins a namespace to a specific target node under coordinator authority with a pre-advanced epoch (Req R3.1, R3.2).
+     *
+     * @param namespaceId  namespace to pin
+     * @param targetNodeId node designated as authoritative owner
+     * @param epoch        monotonic epoch associated with this pin
+     * @param fence        fence token string associated with this pin
+     * @param ttl          time-to-live duration, or {@code null} to use default
+     * @return the created override record
+     */
+    public OverrideLeaseRecord setOverrideWithEpoch(
+            String namespaceId,
+            String targetNodeId,
+            long epoch,
+            String fence,
+            Duration ttl) {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
         Objects.requireNonNull(targetNodeId, "targetNodeId must not be null");
         verifyCoordinatorAuthority();
 
         Duration effectiveTtl = ttl != null ? ttl : defaultTtl;
-        long epoch = controlStore.advanceNamespaceEpoch(namespaceId);
         Instant expiresAt = controlStore.now().plus(effectiveTtl);
 
         OverrideLeaseRecord record = new OverrideLeaseRecord(namespaceId, targetNodeId, epoch, fence, expiresAt);

@@ -105,6 +105,20 @@ public class FenceTokenManager {
     }
 
     /**
+     * Mints a fence token for an already advanced epoch (Req R2.1).
+     *
+     * @param namespaceId target namespace
+     * @param epoch       already advanced epoch
+     * @return fence token
+     */
+    public FenceToken mintFenceForEpoch(String namespaceId, long epoch) {
+        Objects.requireNonNull(namespaceId, "namespaceId must not be null");
+        setLocalFence(namespaceId, epoch);
+        log.info("[FenceTokenManager] Minted fence token for namespace '{}' with epoch {}", namespaceId, epoch);
+        return FenceToken.of(namespaceId, epoch);
+    }
+
+    /**
      * Allocation-free, I/O-free validation on the write path (Req R2.3, R2.4, §5).
      *
      * @param namespaceId   target namespace
