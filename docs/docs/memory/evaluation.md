@@ -5,7 +5,9 @@ description: "Comprehensive empirical evaluation of Spector Memory across the 20
 
 # 🧠 Cognitive Memory Evaluation & Benchmarks
 
-Spector Memory is engineered to behave as a biologically-grounded cognitive memory system rather than a flat vector database. To rigorously validate how its 6-phase scoring pathway, off-heap storage substrate, and multi-layer associative graphs perform under lifelong conversational demands, we evaluate Spector across three standard and longitudinal benchmarks:
+As formalized in the [Memory Fundamentals Specification (MF-001)](https://github.com/spectrayan/memory-fundamentals), *a database returns what was written; a memory engine reconstructs what is reachable from a cue at this moment — under decay, association, and tier physics — without losing a live trace because the first index was the wrong one.*
+
+To rigorously validate how Spector's closed recall algebra, 6-phase scoring pathway, off-heap storage substrate, and multi-layer associative graphs perform under lifelong conversational demands without succumbing to the truncation trap, we evaluate Spector across three standard and longitudinal benchmarks:
 
 1. [**MindSpan**](#1-mindspan-20-year-longitudinal-cognitive-benchmark) — 20-Year Longitudinal Cognitive Memory Benchmark (19,512 records, 4-generation kinship tree, 17 cognitive tracks)
 2. [**LongMemEval**](#2-longmemeval-benchmark) — Long-Horizon Multi-Session Conversational Needle-in-a-Haystack (10,866 turns, 500 queries)
@@ -57,7 +59,7 @@ timeline
 | **Total Memory Records** | **19,512 records** | Massive off-heap longitudinal corpus (`HeaderLayout64`) |
 | **Temporal Span** | **20+ years** (1990–2026) | Stresses bi-temporal decay and long-term retention |
 | **Kinship Tree** | **4 generations, 14 individuals** | Evaluates multi-hop relational graph traversal |
-| **Neuromorphic Metadata** | Valence (-128..+127), Arousal (0..255), ICNU Importance (0..10) | Biologically-grounded importance and flashbulb memory |
+| **Affective & Importance Metadata** | Valence (-128..+127), Arousal (0..255), ICNU Importance (0..10) | Multi-factor salience modeling and flashbulb persistence |
 | **Dual-Perspective Ingestion** | User First-Person + Observer AI Logs | Captures sensory cues, physiological markers, and consolidation |
 | **Strict Retrieval Budget** | **< 1,800 tokens** | Eliminates prompt pollution and "Lost in the Middle" errors |
 
@@ -220,8 +222,8 @@ Stress-testing the off-heap engine against 50,000 synthetic life-history records
 | **Query Throughput** | **54.9 – 168.9 QPS** | ~15–25 QPS | ~2–5 QPS | ~10–20 QPS |
 | **Storage Architecture** | Direct Panama Off-Heap (`HeaderLayout64`) | Neo4j / Graph DB + Vector | SQLite / Qdrant + Python | Managed Cloud Vector/Graph |
 | **Garbage Collection Overhead** | **Zero GC Pauses** | Go GC Pauses | Python GIL / GC Overhead | Managed Cloud |
-| **Biological Hygiene** | Dentate Gyrus Lateral Inhibition ($O(K^2)$) | ❌ None | ❌ None | ❌ None |
-| **Neuromorphic Metadata** | Full Valence + Arousal + ICNU | ❌ Flat Zeros | ❌ Flat Zeros | ❌ Flat Zeros |
+| **Associative Hygiene** | Lateral Inhibition & Interference Resolution ($O(K^2)$) | ❌ None | ❌ None | ❌ None |
+| **Affective & Importance Signals** | Full Valence + Arousal + ICNU | ❌ Flat Zeros | ❌ Flat Zeros | ❌ Flat Zeros |
 | **Active Inference & Cognitive Profiles** | ✅ 7-Phase AISME Relays | ❌ None | ❌ None | ❌ None |
 
 ---

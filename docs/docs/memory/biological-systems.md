@@ -1,11 +1,11 @@
 ---
-title: "Biological Systems — Overview"
+title: "Cognitive Subsystems — Overview"
 description: "How Spector Memory maps neuroscience concepts to code — a guided tour of the 12 cognitive subsystems and their biological foundations."
 ---
 
-# 🧬 Biological Systems — Overview
+# 🧬 Cognitive Subsystems — Overview
 
-Spector Memory draws on computational neuroscience research to implement **simplified, performance-optimized approximations** of biological memory mechanisms. Each package in `spector-memory` maps to a neuroscience concept, implementing mathematical models inspired by peer-reviewed cognitive science (Park et al., 2023[^18]; Hu et al., 2025[^19]) — particularly Anderson's ACT-R architecture (1993) — and optimized for microsecond-scale agent memory operations.
+Spector Memory draws on cognitive science and computational memory research to implement performance-optimized mathematical formulations. As formalized in the [Memory Fundamentals Specification (MF-001)](https://github.com/spectrayan/memory-fundamentals), these subsystems address concrete operational failure modes of naive retrieval rather than asserting biological substrate identity. Each package in `spector-memory` addresses a specific retrieval or retention requirement (e.g., surprise detection, interference, habituation, consolidation), implementing models inspired by peer-reviewed research (Anderson's ACT-R[^16], Bjork & Bjork[^14], Park et al., 2023[^18], Hu et al., 2025[^19]) optimized for microsecond-scale agent memory operations.
 
 ---
 
@@ -158,7 +158,7 @@ Where $n$ is the number of times the memory appeared in recent results and $\gam
 
 3. **Graceful degradation**: Every system is optional. Disabling surprise detection, habituation, or graph augmentation produces a functional (if less intelligent) memory system.
 
-4. **Performance-first biology**: Biological accuracy is constrained by microsecond latency requirements. Where exact models are too expensive (e.g., continuous exponential decay), we use precomputed approximations (decay buckets, Bloom filter tags).
+4. **Performance-first cognitive engineering**: Theoretical models are constrained by microsecond latency requirements. Where exact models are too expensive (e.g., continuous exponential decay), we use precomputed approximations (12-bucket decay tables, 128-bit Bloom filter tags).
 
 ---
 

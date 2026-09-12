@@ -5,7 +5,7 @@ description: "Spector architecture: SIMD-accelerated search pipeline, cognitive 
 
 # 🏗️ Architecture Overview
 
-> **Spector is a SIMD-accelerated AI memory backbone** with built-in MCP server, hybrid search, and biologically-inspired cognitive memory. This page covers the system architecture, data flows, threading model, and memory architecture that make sub-millisecond, agent-native search possible.
+> **Spector is a SIMD-accelerated AI memory backbone** with built-in MCP server, hybrid search, and multi-tier cognitive memory. This page covers the system architecture, data flows, threading model, and memory architecture that make sub-millisecond, agent-native search possible.
 
 ---
 

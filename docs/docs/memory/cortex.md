@@ -1,6 +1,6 @@
 ---
 title: "Cortex — 4-Tier Memory Architecture"
-description: "The 4-tier cognitive memory architecture: Working, Episodic, Semantic, and Procedural — each modeled after a biological brain region and backed by the Spector Memory Kernel."
+description: "The 4-tier cognitive memory architecture: Working, Episodic, Semantic, and Procedural — structured for distinct retention windows, access frequencies, and consolidation dynamics."
 ---
 
 # 🧠 Cortex — 4-Tier Memory Architecture
@@ -11,7 +11,7 @@ description: "The 4-tier cognitive memory architecture: Working, Episodic, Seman
 
 ## The 4-Tier Architecture
 
-Human memory is not an undifferentiated flat vector store. Cognitive neuroscience identifies distinct memory systems with different characteristics, durations, and consolidation dynamics. Spector mirrors this with four biological memory tiers backed by the off-heap Memory Kernel:
+Memory is not an undifferentiated flat vector store. As formalized in the [Memory Fundamentals Specification (MF-001)](https://github.com/spectrayan/memory-fundamentals), distinct memory tiers address distinct operational retention windows, access frequencies, and consolidation dynamics without asserting biological substrate identity. Spector implements this model with four canonical memory tiers backed by the off-heap Memory Kernel:
 
 ```mermaid
 graph TB

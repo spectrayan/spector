@@ -1,6 +1,6 @@
 ---
 title: "4-Layer Cognitive Graph"
-description: "HebbianGraphMemory, TemporalChainMemory, HyperEntityGraphMemory, and the Cross-Capture Graph — four biologically-inspired graph structures that augment vector recall with associative, temporal, hyperedge, and tag co-occurrence signals."
+description: "HebbianGraphMemory, TemporalChainMemory, HyperEntityGraphMemory, and the Cross-Capture Graph — four cognitive graph structures that augment vector recall with associative, temporal, hyperedge, and tag co-occurrence signals."
 ---
 
 # 🧠 4-Layer Cognitive Graph

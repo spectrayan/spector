@@ -5,9 +5,9 @@ description: Spector's 7th canonical cognitive pathway for generative dreaming, 
 
 # Generative Dreaming & Thought Experiments
 
-Memory in natural biological intelligence is not a passive recording device — it is an active **generative construction engine**. The human brain spends a third of its lifecycle in sleep states, executing offline memory replay, generative recombination, and stochastic exploration to prevent overfitting and extract latent cross-domain insights.
+Memory is not a passive recording device — it is an active **generative construction engine**. As formalized in the [Memory Fundamentals Specification (MF-001)](https://github.com/spectrayan/memory-fundamentals), offline consolidation and dreaming replay episodic traces, perform counterfactual simulation, and execute stochastic exploration to prevent overfitting and discover latent cross-domain insights.
 
-Spector's **DreamPathway** is the 7th canonical cognitive pathway, providing AI agents with autonomous **dreaming, counterfactual reasoning, and deliberate thought experimentation**.
+Spector's **DreamPathway** provides AI agents with autonomous **dreaming, counterfactual reasoning, and deliberate thought experimentation**, strictly adhering to MF-001 source honesty (`SIMULATED` vs `EXPERIENCED` provenance gating).
 
 ```mermaid
 graph TB

@@ -15,10 +15,10 @@ Integrate Spector Memory as the **primary long-term memory backend** for [OpenCl
 
 **Why OpenClaw + Spector:**
 
-OpenClaw provides the agentic loop (observe → reason → act) and multi-channel interface, but lacks a biologically-inspired long-term memory system. Currently, OpenClaw agents lose context across sessions or rely on simple key-value stores. Spector Memory gives OpenClaw agents:
+OpenClaw provides the agentic loop (observe → reason → act) and multi-channel interface, but lacks a principled cognitive memory system. Currently, OpenClaw agents lose context across sessions or rely on simple key-value stores. Spector Memory gives OpenClaw agents:
 
 - **Cross-session persistence** — memories survive across conversations and channels
-- **Cognitive recall** — biologically-inspired scoring (decay, importance, valence) instead of naive vector search
+- **Cognitive recall** — multi-factor cognitive scoring (decay, importance, valence) instead of naive vector search
 - **Emotional context** — valence-filtered recall for empathetic responses
 - **Anti-repetition** — habituation prevents the agent from repeating the same responses
 - **Associative recall** — Hebbian + Temporal + Entity graphs surface connected memories
@@ -532,7 +532,7 @@ HTTP-based MCP transport for remote/cloud deployments. Same 6 tools exposed over
 !!! success "Completed"
     All four phases implemented and merged. 357 tests pass, 0 failures.
 
-Full graph augmentation layer for `spector-memory` — three biologically-inspired graph structures that augment vector recall with associative, temporal, and hyperedge signals.
+Full graph augmentation layer for `spector-memory` — three associative graph structures that augment vector recall with associative, temporal, and hyperedge signals.
 
 **Architecture:**
 ```

@@ -1,6 +1,6 @@
 ---
 title: "Why Spector?"
-description: "Why existing databases can't solve AI memory — and how Spector's purpose-built cognitive architecture delivers sub-millisecond recall with biological fidelity."
+description: "Why existing databases can't solve AI memory — and how Spector's purpose-built cognitive architecture delivers sub-millisecond recall implementing formal memory fundamentals (MF-001)."
 ---
 
 # Why Spector?
@@ -28,7 +28,7 @@ This is fundamentally different from `SELECT * FROM memories WHERE topic = 'X' O
 | **Search latency** | Low milliseconds (ms) | Microseconds (µs) — **100-1000× faster** |
 
 !!! quote "The Key Insight"
-    Spector is not a database with vector search bolted on. It's a **cognitive scoring engine** where every byte of the storage layout, every SIMD instruction, and every decay function is co-designed for a single purpose: ranking memories the way biological brains do.
+    Spector is not a database with vector search bolted on. It's a **cognitive scoring engine** where every byte of the storage layout, every SIMD instruction, and every decay function is co-designed for a single purpose: signal-complete recall without the truncation trap, evaluating relevance, decay, valence, and associative reach simultaneously.
 
 ### Why Not a Vector Database?
 
@@ -50,18 +50,18 @@ Systems like Mem0, Zep, and Letta add a thin layer over existing databases. They
 
 ## What Makes Spector Different
 
-### 1. Biologically-Inspired Cognitive Architecture
+### 1. Formal Cognitive Memory Architecture (MF-001)
 
-Spector models memory the way brains do — based on peer-reviewed cognitive science:
+Spector grounds its architecture in formal cognitive science and the [Memory Fundamentals Specification](https://github.com/spectrayan/memory-fundamentals) — modeling decay, associative networks, and two-factor retention as computational solutions to retrieval failure modes:
 
-| Biological System | Spector Implementation | Effect |
+| Cognitive Principle | Spector Implementation | Operational Effect |
 |---|---|---|
-| **Dopamine prediction error** | Adaptive surprise detection (z-score) | Novel memories get higher importance automatically |
+| **Prediction Error (Surprise)** | Adaptive surprise detection (z-score) | Novel memories get higher importance automatically |
 | **Ebbinghaus forgetting curve** | Power-law temporal decay (12-bucket table) | Memories fade naturally, frequently-recalled ones persist |
 | **Bjork Two-Factor theory** | Storage strength × retrieval strength | Recalled memories become progressively easier to surface |
 | **Hebb's rule** | Co-activation graph with spreading activation | Related memories cluster and reinforce each other |
-| **Amygdala** | Emotional valence + arousal modulation | High-arousal events resist decay — like flashbulb memories |
-| **Hippocampal replay** | Sleep consolidation cycles | Background process promotes important memories, prunes weak ones |
+| **Emotional modulation (Valence)** | Affective valence + arousal modulation | High-arousal events resist decay — like flashbulb memories |
+| **Consolidation & Replay** | Sleep consolidation cycles | Background process promotes important memories, prunes weak ones |
 
 ### 2. Sub-Millisecond Recall at Scale
 

@@ -1,6 +1,6 @@
 ---
 title: "Spector — Zero-Overhead AI Memory & Cognitive Graph"
-description: "Spector is a cognitive memory backbone for AI agents — biologically-inspired memory tiers and associative graphs with fused semantic and hybrid retrieval, a built-in MCP server, and sub-millisecond recall."
+description: "Spector is a cognitive memory backbone for AI agents — multi-tier retention and associative graphs implementing MF-001 with fused semantic and hybrid retrieval, a built-in MCP server, and sub-millisecond recall."
 ---
 
 # ⚡ Spector — The AI Memory Backbone
@@ -152,7 +152,7 @@ Connect your agent or application to Spector in seconds:
 
     ---
 
-    Biologically-inspired Remember, Recall (6-phase SIMD scoring loop), Reflect (sleep consolidation), and Dream pathways across 4 memory tiers.
+    Formal Remember, Recall (6-phase SIMD scoring loop), Reflect (consolidation), and Dream pathways across 4 memory tiers.
 
     [:octicons-arrow-right-24: Cognitive Memory](memory/index.md)
 

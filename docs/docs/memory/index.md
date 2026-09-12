@@ -1,18 +1,20 @@
 ---
 title: "🧠 Cognitive Memory"
-description: "The biologically-inspired memory engine that gives AI agents the ability to remember, forget, consolidate, and associate — at microsecond latency."
+description: "A formal cognitive memory engine implementing MF-001: multi-tier retention, associative graphs, and signal-complete recall at microsecond latency."
 ---
 
 # 🧠 Cognitive Memory
 
-!!! quote "The Vision"
-    Legacy AI frameworks bolt memory onto flat vector databases. Spector Memory is designed from the ground up as a **cognitive memory engine** — a biologically-inspired system where memories have importance, emotions, temporal decay, and contextual tags. It's the difference between a filing cabinet and a brain.
+!!! quote "The Founding Distinction (MF-001)"
+    *A database returns what was written. A memory engine reconstructs what is reachable from a cue at this moment — under decay, association, and tier physics — without losing a live trace because the first index was the wrong one.*
+
+    As formalized in the [Memory Fundamentals Specification](https://github.com/spectrayan/memory-fundamentals), the identity of a memory engine is its recall algebra, not its storage topology. Spector implements this model as a single off-heap engram substrate with multiple access paths.
 
 ---
 
 ## The 4-Tier Memory Architecture
 
-Just as the human brain has distinct memory systems, Spector organizes memories into four cognitive tiers to match their biological functions:
+Rather than treating memory as an undifferentiated vector store, Spector organizes traces across four cognitive tiers to address distinct operational retention windows, access frequencies, and consolidation dynamics:
 
 === "🧪 Working Memory"
 
@@ -60,9 +62,9 @@ Just as the human brain has distinct memory systems, Spector organizes memories 
 
 ---
 
-## The Biological Metaphor
+## Cognitive Architecture Mapping
 
-Spector Memory maps every major cognitive subsystem from neuroscience to a dedicated system package:
+As established in the [Memory Fundamentals Specification (MF-001)](https://github.com/spectrayan/memory-fundamentals), Spector models cognitive subsystems as concrete operational mechanisms addressing specific retrieval and retention requirements:
 
 ```mermaid
 graph TB
@@ -120,7 +122,7 @@ Every AI memory solution today wraps a scripting layer around Postgres/pgvector 
 
 - **Network latency**: 50-200ms per query (HTTP → DB → HTTP)
 - **Global Interpreter Lock**: Sequential embedding and scoring under a lock
-- **Post-filtering trap**: Retrieve top-K by similarity, then filter by importance or time — losing old but critical memories
+- **The truncation trap**: Candidate generation by a single signal (typically cosine top-K) followed by post-filtering, permanently dropping high-importance or emotionally salient memories with lower initial cosine similarity.
 
 Spector Memory collapses the entire cognitive stack onto a **zero-overhead, off-heap memory store** with hardware-accelerated scoring. The result:
 
@@ -164,11 +166,11 @@ Spector Memory collapses the entire cognitive stack onto a **zero-overhead, off-
 
     [:octicons-arrow-right-24: Cognitive Graph](hebbian.md)
 
--   :material-head-cog:{ .lg .middle } **Biological Systems**
+-   :material-head-cog:{ .lg .middle } **Cognitive Subsystems**
 
     ---
 
-    Each brain region mapped to code: Cortex, Hippocampus, Synapse, Dopamine, Amygdala, Habituation, Inhibition
+    Principled cognitive subsystems mapped to code: Cortex, Hippocampus, Synapse, Dopamine, Amygdala, Habituation, Inhibition
 
     [:octicons-arrow-right-24: Start with Cortex](cortex.md)
 

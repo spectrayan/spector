@@ -5,13 +5,13 @@ description: "High-level architecture, cognitive data flow, and subsystem compos
 
 # 🏛️ System Architecture & Data Flow
 
-> **Biologically-inspired cognitive architecture translating computational neuroscience mechanisms into zero-GC, low-latency off-heap systems.**
+> **Formal cognitive memory architecture translating MF-001 principles and computational memory models into zero-GC, low-latency off-heap systems.**
 
 ---
 
 ## Architectural Overview
 
-Spector Memory organizes cognitive capabilities around biological neuroscience mechanisms:
+Spector Memory organizes cognitive capabilities around principled cognitive subsystems:
 - **Hippocampal Consolidation**: Sleep replay and episodic-to-semantic memory transfer.
 - **Prefrontal Working Memory**: High-speed circular workspace for active reasoning.
 - **Basal Ganglia**: Procedural memory for learned operational rules.
@@ -33,7 +33,7 @@ graph TB
         SM["SpectorMemory Facade"]
         REM["Remember Pathway<br/><i>Pathway: Remember</i>"]
         REC["Recall Pathway<br/><i>Pathway: Recall</i>"]
-        DAE["Biological Daemons<br/><i>Consolidation, Circadian, Surprise, Habituation</i>"]
+        DAE["Cognitive Daemons<br/><i>Consolidation, Circadian, Surprise, Habituation</i>"]
     end
 
     subgraph "Spector Kernel (Off-Heap Native Storage)"

@@ -225,5 +225,5 @@ With `memory.enabled: true`, the MCP server registers all 16 cognitive memory to
 
 - :material-brain: [**System Architecture**](architecture.md) — understand the full package hierarchy
 - :material-lightning-bolt: [**6-Phase Scoring Pipeline**](scoring-pipeline.md) — how recall actually works under the hood
-- :material-head-cog: [**Biological Systems**](cortex.md) — explore each brain region
+- :material-head-cog: [**Cognitive Subsystems**](cortex.md) — explore each cognitive subsystem
 - :material-speedometer: [**Performance**](performance.md) — benchmarks and optimization techniques

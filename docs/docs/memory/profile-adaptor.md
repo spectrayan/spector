@@ -5,7 +5,7 @@ description: "Spector's self-tuning retrieval system: a contextual bandit that a
 
 # Self-Tuning Retrieval (ProfileAdaptor)
 
-Just as the biological brain unconsciously adjusts its retrieval characteristics based on task context and outcomes (e.g., sharpening focus under stress, or widening associative scope during brainstorming), Spector can automatically tune its retrieval strategy using the **ProfileAdaptor**.
+In real-world agent environments, retrieval dynamics must adapt dynamically to task demands (e.g., sharpening focus for factual execution, or widening associative scope during exploratory reasoning). Spector automatically tunes its retrieval strategy using the **ProfileAdaptor**.
 
 By observing which retrieval results lead to successful agent actions, the self-tuning system learns the optimal [Cognitive Profile](cognitive-profiles.md) to apply for different search contexts.
 

@@ -7,7 +7,7 @@ description: "Install and use the Spector universal TypeScript/JavaScript SDK ac
 
 > **Zero-dependency, universal TypeScript/JavaScript client for the Spector Cognitive Memory & Vector Search platform.**
 
-`@spectrayan/spector-client` bridges low-level OpenAPI 3.1 typed schemas with an ergonomic, handwritten cognitive facade. It provides 1-to-1 parity with biological memory verbs (`remember`, `recall`, `forget`, `reinforce`, `suppress`, `resolve`, `browse`, `status`) and native Server-Sent Events (SSE) streaming.
+`@spectrayan/spector-client` bridges low-level OpenAPI 3.1 typed schemas with an ergonomic, handwritten cognitive facade. It provides 1-to-1 parity with formal memory recall algebra verbs (`remember`, `recall`, `forget`, `reinforce`, `suppress`, `resolve`, `browse`, `status`) and native Server-Sent Events (SSE) streaming.
 
 ---
 
@@ -15,7 +15,7 @@ description: "Install and use the Spector universal TypeScript/JavaScript SDK ac
 
 - **Zero External Runtime Dependencies**: Built entirely with standard web APIs (`fetch`, `ReadableStream`, `TextDecoder`) — runs out-of-the-box on **Node.js 18+**, **Bun**, **Deno**, and modern browsers.
 - **Strict Typing**: 100% type-safe with exported TypeScript declarations (`index.d.ts`), source maps, and tree-shakeable dual ESM/CJS packaging.
-- **Authentic Cognitive Verbs**: Fluent interface modeling biological memory dynamics (Hebbian learning, Zeigarnik effect, multi-tier decay).
+- **Authentic Cognitive Verbs**: Fluent interface implementing closed memory algebra dynamics (Hebbian association, Zeigarnik effect, multi-tier decay).
 - **Real-Time Streaming**: Stream live cognitive consolidation pulses and recall telemetry using async iterables (`for await`).
 - **OpenAPI Escape Hatch**: Direct access to low-level typed API endpoints via `client.raw`.
 

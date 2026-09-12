@@ -101,7 +101,7 @@ asyncio.run(main())
 
 ## Cognitive Memory Operations
 
-The `client.memory` facade exposes biological memory operations:
+The `client.memory` facade exposes cognitive memory operations:
 
 ### `remember` — Store a Memory
 Store across the 4 cognitive tiers (`WORKING`, `EPISODIC`, `SEMANTIC`, `PROCEDURAL`):

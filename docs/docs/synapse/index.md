@@ -57,7 +57,7 @@ Together, they ensure the agent's actions are highly personalized to the user's 
 
 ### Persona Enactment: Soul as Policy over Memory
 
-Moving beyond shallow prompt-wrapping, Spector Synapse implements biological **Persona Enactment** grounded in Dual-Process Cognitive Appraisal Theory and Continuous Hopfield Attractor Networks:
+Moving beyond shallow prompt-wrapping, Spector Synapse implements **Persona Enactment** grounded in Dual-Process Cognitive Appraisal Theory and Continuous Hopfield Attractor Networks:
 
 1. **System 1 (Automatic Stance Synthesis, sub-10ms)**:
    - **Intuitive Pre-Appraisal**: Evaluates initial Valence, Arousal, and Dominance (VAD) deltas and agency attribution (Lazarus & Scherer) by reading `HomeostaticCore.currentState()` purely functionally without in-place SDE mutation (SDE stepping occurs post-turn in episodic learning).

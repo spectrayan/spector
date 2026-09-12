@@ -11,7 +11,7 @@ description: "Byte-level specifications of Spector's 64-byte cache-line-aligned 
 
 ## Architectural Separation: Encoding vs. Strength
 
-In biological memory, forming a memory (encoding) and recalling a memory (retrieval dynamics) involve distinct neurological processes. In a digital memory system, combining these two concerns into a single record layout causes severe concurrency bottlenecks:
+In cognitive memory systems, forming a memory trace (encoding) and recalling it (retrieval dynamics) represent distinct computational concerns. In an off-heap engine, combining these two concerns into a single record layout causes severe concurrency bottlenecks:
 
 - **The False Sharing Problem**: When multiple worker threads execute high-throughput vector similarity scans over thousands of memory records, any thread that mutates a recall counter or access timestamp on an engram invalidates the entire CPU cache line (`L1`/`L2`/`L3`) across all CPU cores.
 - **The Spector Solution**: A physical split between immutable engram encoding metadata and mutable recall telemetry.

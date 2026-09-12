@@ -318,6 +318,6 @@ When using the MCP tools, importance fusion happens automatically if the ingesti
 ## Next Steps
 
 - :material-star-shooting: [**Salience & Persona Profiles**](salience-importance.md) — topic interests, persona modulation, hierarchical merge
-- :material-flash: [**Dopamine — Surprise Detection**](dopamine.md) — the biological novelty model
+- :material-flash: [**Dopamine — Surprise Detection**](dopamine.md) — adaptive surprise detection
 - :material-brain: [**Scoring Pipeline**](scoring-pipeline.md) — the 6-phase SIMD scoring engine
 - :material-tag: [**Cognitive Profiles**](cognitive-profiles.md) — how profiles interact with importance

@@ -88,7 +88,7 @@ try (SpectorClient client = SpectorClient.builder()
 
 ## ⚡ Mode 2: Embedded Memory (`SpectorMemory`)
 
-For applications that want direct in-process hybrid search and biologically-inspired cognitive memory running in the same JVM process:
+For applications that want direct in-process hybrid search and cognitive memory running in the same JVM process:
 
 ### 🔧 Creating the Embedded Engine
 

@@ -10,4 +10,4 @@ description: "Redirects to the Cognitive Memory section."
 
     **→ [Salience & Importance](../memory/salience-importance.md)**
 
-    The salience profile system — including novelty detection, topic interests, persona-based modulation, hierarchical merge, and re-scoring — is a core part of the cognitive memory pipeline and now lives alongside the other biological systems it interacts with.
+    The salience profile system — including novelty detection, topic interests, persona-based modulation, hierarchical merge, and re-scoring — is a core part of the cognitive memory pipeline and now lives alongside the other cognitive subsystems it interacts with.

@@ -208,4 +208,4 @@ Every time a memory is explicitly reinforced by an agent or user (`client.memory
 - :material-lightning-bolt: [**The 6-Phase Scoring Pipeline**](scoring-pipeline.md) — hot-loop SIMD scoring
 - :material-memory: [**Memory Kernel Layouts**](../kernel/layouts.md) — byte-level layout specifications
 - :material-head-cog: [**Dopamine — Surprise Detection**](dopamine.md) — Bayesian surprise and flashbulb memories
-- :material-brain: [**Cortex — 4-Tier Memory**](cortex.md) — biological memory tiers
+- :material-brain: [**Cortex — 4-Tier Memory**](cortex.md) — 4 cognitive memory tiers

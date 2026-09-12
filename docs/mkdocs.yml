@@ -169,7 +169,7 @@ nav:
           - "Importance Fusion (ICNU)": memory/importance-fusion.md
       - "Salience & Importance":
           - "Salience & Persona Profiles": memory/salience-importance.md
-      - Biological Systems:
+      - Cognitive Subsystems:
           - Overview: memory/biological-systems.md
           - "Cortex — 4-Tier Memory": memory/cortex.md
           - "Hippocampus — Sleep Consolidation": memory/hippocampus.md

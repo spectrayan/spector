@@ -1,13 +1,13 @@
 ---
 title: "What is Spector? — AI Cognitive Memory Backbone"
-description: "Spector is a cognitive memory backbone for AI agents, combining biologically-inspired memory tiers, associative Hebbian graphs, and fused semantic and hybrid retrieval in a single embeddable library with a built-in MCP server."
+description: "Spector is a cognitive memory backbone for AI agents, combining multi-tier memory retention, associative Hebbian graphs, and fused semantic and hybrid retrieval in a single embeddable library with a built-in MCP server."
 ---
 
 # 🌟 What is Spector?
 
 > **The Zero-Overhead, Agent-Ready AI Memory Backbone.**
 >
-> Legacy AI stacks bolt memory onto stateless vector databases — storage without cognition. Spector is built from the ground up for modern AI agents: it remembers, forgets, consolidates, and **forms associations** across a biologically-inspired memory graph — Hebbian co-activation, temporal chains, and entity links — then retrieves with fused semantic and hybrid scoring. Connect any AI agent through the built-in MCP server, call it over REST/gRPC, use the Python, TypeScript, or Java Client SDKs, or embed it directly in the JVM.
+> Legacy AI stacks bolt memory onto stateless vector databases — storage without cognition. Spector is built from the ground up for modern AI agents: it remembers, forgets, consolidates, and **forms associations** across an associative memory graph — Hebbian co-activation, temporal chains, and entity links — then retrieves with fused semantic and hybrid scoring. Connect any AI agent through the built-in MCP server, call it over REST/gRPC, use the Python, TypeScript, or Java Client SDKs, or embed it directly in the JVM.
 
 Spector is an open-source, high-performance cognitive memory system. It delivers sub-millisecond memory retrieval, native AI agent integration, and zero infrastructure complexity — reach it from any language over MCP or REST/gRPC, use the client SDKs, or embed it as a single JAR. Every user, agent, or tenant is physically isolated in its own on-disk namespace. Under the hood, modern Java 25, the Sealed Memory Kernel (`spector-kernel`), Project Panama, and the Vector API deliver the performance.
 

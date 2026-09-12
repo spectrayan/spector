@@ -131,7 +131,7 @@ curl -X POST http://localhost:7070/api/v1/memory \
 
 ### `POST /api/v1/memory/remember`
 
-Store a cognitive memory asynchronously with biological tier, provenance, and affective hints. Returns `202 Accepted`.
+Store a cognitive memory asynchronously with tier, provenance, and affective hints. Returns `202 Accepted`.
 
 ```bash
 curl -X POST http://localhost:7070/api/v1/memory/remember \
