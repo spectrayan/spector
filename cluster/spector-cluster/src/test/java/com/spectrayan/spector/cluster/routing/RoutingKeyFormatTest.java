@@ -80,5 +80,42 @@ class RoutingKeyFormatTest {
 
         assertThatThrownBy(() -> new RoutingKey("cell-1", "TENANT_UPPER", "ns-123"))
                 .isInstanceOf(com.spectrayan.spector.commons.error.SpectorValidationException.class);
+
+        // G46: Reject '{', '}', ':' in namespace, tenant, and cell
+        assertThatThrownBy(() -> new RoutingKey("cell-1", "tenant-1", "ns{123}"))
+                .isInstanceOf(com.spectrayan.spector.commons.error.SpectorValidationException.class);
+        assertThatThrownBy(() -> new RoutingKey("cell-1", "a}b", "ns-123"))
+                .isInstanceOf(com.spectrayan.spector.commons.error.SpectorValidationException.class);
+        assertThatThrownBy(() -> new RoutingKey("cell:1", "tenant-1", "ns-123"))
+                .isInstanceOf(com.spectrayan.spector.commons.error.SpectorValidationException.class);
+        assertThatThrownBy(() -> new RoutingKey("cell{1}", "tenant-1", "ns-123"))
+                .isInstanceOf(com.spectrayan.spector.commons.error.SpectorValidationException.class);
+        assertThatThrownBy(() -> new RoutingKey("cell/1", "tenant-1", "ns-123"))
+                .isInstanceOf(com.spectrayan.spector.commons.error.SpectorValidationException.class);
+    }
+
+    @Test
+    @DisplayName("G44: Null/blank cellId normalizes to 'default' and equals instance with 'default'")
+    void cellIdNormalizationAndEquality() {
+        RoutingKey keyNull = new RoutingKey(null, "tenant-1", "ns-123");
+        RoutingKey keyBlank = new RoutingKey("   ", "tenant-1", "ns-123");
+        RoutingKey keyExplicit = new RoutingKey("default", "tenant-1", "ns-123");
+
+        assertThat(keyNull.cellId()).isEqualTo("default");
+        assertThat(keyBlank.cellId()).isEqualTo("default");
+        assertThat(keyNull).isEqualTo(keyExplicit);
+        assertThat(keyBlank).isEqualTo(keyExplicit);
+    }
+
+    @Test
+    @DisplayName("G44: fromKeyMaterial round-trip preserves tenancy and namespace")
+    void fromKeyMaterialRoundTrip() {
+        RoutingKey tenanted = RoutingKey.ofTenanted("cell-1", "acme", "ns-99");
+        RoutingKey fromTenanted = RoutingKey.fromKeyMaterial("cell-1", tenanted.keyMaterial());
+        assertThat(fromTenanted).isEqualTo(tenanted);
+
+        RoutingKey untenanted = RoutingKey.ofUntenanted("cell-1", "ns-99");
+        RoutingKey fromUntenanted = RoutingKey.fromKeyMaterial("cell-1", untenanted.keyMaterial());
+        assertThat(fromUntenanted).isEqualTo(untenanted);
     }
 }

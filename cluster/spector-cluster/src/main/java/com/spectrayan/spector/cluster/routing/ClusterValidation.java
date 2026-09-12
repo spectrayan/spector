@@ -51,7 +51,7 @@ public final class ClusterValidation {
         }
         for (int i = 0; i < namespaceId.length(); i++) {
             char c = namespaceId.charAt(i);
-            if (c == '/' || c == '\\' || c == '.' || c <= '\u001F') {
+            if (c == '/' || c == '\\' || c == '.' || c == '{' || c == '}' || c == ':' || c <= '\u001F') {
                 throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
                         "namespace identifier", "illegal character at index " + i
                                 + " (code point U+" + String.format("%04X", (int) c) + ")");
@@ -72,6 +72,32 @@ public final class ClusterValidation {
         if (!tenantId.equals(tenantId.toLowerCase(Locale.ROOT))) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
                     "namespace identifier", "tenant identifier must be lowercase");
+        }
+    }
+
+    /**
+     * Validates a cell identifier that is about to become a routing key component (G46).
+     *
+     * @param cellId the cell identifier to validate
+     * @throws SpectorValidationException if the identifier is invalid
+     */
+    public static void validateCellId(String cellId) {
+        if (cellId == null || cellId.isBlank()) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "cell identifier", "must not be null, empty, or whitespace-only");
+        }
+        if (cellId.length() > MAX_IDENTIFIER_LENGTH) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "cell identifier", "length " + cellId.length()
+                            + " exceeds maximum of " + MAX_IDENTIFIER_LENGTH + " characters");
+        }
+        for (int i = 0; i < cellId.length(); i++) {
+            char c = cellId.charAt(i);
+            if (c == '/' || c == '\\' || c == '.' || c == '{' || c == '}' || c == ':' || c <= '\u001F') {
+                throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                        "cell identifier", "illegal character at index " + i
+                                + " (code point U+" + String.format("%04X", (int) c) + ")");
+            }
         }
     }
 }

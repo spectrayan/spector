@@ -12,19 +12,30 @@
  */
 package com.spectrayan.spector.synapse.architecture;
 
+import com.spectrayan.spector.cluster.OwnershipResolver;
 import com.spectrayan.spector.cluster.node.NodeIdentity;
 import com.spectrayan.spector.cluster.node.NodeRole;
 import com.spectrayan.spector.cluster.routing.RoutingKey;
+import com.spectrayan.spector.cluster.routing.cache.RedisRoutingCache;
+import com.spectrayan.spector.cluster.routing.cache.WaterfallRoutingResolver;
+import com.spectrayan.spector.synapse.cluster.gateway.GatewayForwarder;
+import com.spectrayan.spector.synapse.cluster.gateway.GatewayForwardingFilter;
+import com.spectrayan.spector.synapse.config.SynapseProperties;
+import com.spectrayan.spector.synapse.config.routing.ClusterRoutingConfiguration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Pins single-node and standalone behavior when {@code spector-cluster} is on the classpath (Req R11.1, R12.7).
+ * Pins single-node and standalone behavior when {@code spector-cluster} is on the classpath (Req R11.1, R12.7, G43).
  */
-@DisplayName("Task 0.1: Standalone Parity Regression Test")
+@DisplayName("Standalone Parity Regression Test (G43)")
 class StandaloneParityRegressionTest {
+
+    private final ApplicationContextRunner runner = new ApplicationContextRunner()
+            .withUserConfiguration(ClusterRoutingConfiguration.class, SynapseProperties.class);
 
     @Test
     @DisplayName("Default node role is STANDALONE and requires no cell/node IDs")
@@ -45,5 +56,29 @@ class StandaloneParityRegressionTest {
 
         assertThat(key1.keyMaterial()).isEqualTo(key2.keyMaterial());
         assertThat(key1.keyMaterial()).isEqualTo(RoutingKey.NULL_TENANT_SENTINEL + "/ns-standalone-1");
+    }
+
+    @Test
+    @DisplayName("G43: Standalone boots with zero cluster routing beans and no ring")
+    void standaloneBootsWithZeroClusterRoutingInfrastructure() {
+        // Assert standalone OwnershipResolver has no ring
+        OwnershipResolver standaloneResolver = OwnershipResolver.standalone();
+        assertThat(standaloneResolver.ring()).isEmpty();
+
+        // Boot context with defaults (no spector.cell.role set, so standalone by default)
+        runner.run(context -> {
+            assertThat(context.getBeanNamesForType(WaterfallRoutingResolver.class)).isEmpty();
+            assertThat(context.getBeanNamesForType(GatewayForwarder.class)).isEmpty();
+            assertThat(context.getBeanNamesForType(GatewayForwardingFilter.class)).isEmpty();
+            assertThat(context.getBeanNamesForType(RedisRoutingCache.class)).isEmpty();
+        });
+
+        // Explicitly set spector.cell.role=standalone
+        runner.withPropertyValues("spector.cell.role=standalone").run(context -> {
+            assertThat(context.getBeanNamesForType(WaterfallRoutingResolver.class)).isEmpty();
+            assertThat(context.getBeanNamesForType(GatewayForwarder.class)).isEmpty();
+            assertThat(context.getBeanNamesForType(GatewayForwardingFilter.class)).isEmpty();
+            assertThat(context.getBeanNamesForType(RedisRoutingCache.class)).isEmpty();
+        });
     }
 }

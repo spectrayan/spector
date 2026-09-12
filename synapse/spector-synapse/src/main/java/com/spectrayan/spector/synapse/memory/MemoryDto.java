@@ -14,6 +14,7 @@ package com.spectrayan.spector.synapse.memory;
 
 import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.Instant;
@@ -567,10 +568,20 @@ public final class MemoryDto {
             int status,
             String error,
             String message,
-            Instant timestamp
+            Instant timestamp,
+            @JsonInclude(JsonInclude.Include.NON_NULL)
+            Map<String, Object> details
     ) {
         public ErrorResponse(int status, String error, String message) {
-            this(status, error, message, Instant.now());
+            this(status, error, message, Instant.now(), null);
+        }
+
+        public ErrorResponse(int status, String error, String message, Map<String, Object> details) {
+            this(status, error, message, Instant.now(), details);
+        }
+
+        public ErrorResponse(int status, String error, String message, Instant timestamp) {
+            this(status, error, message, timestamp, null);
         }
     }
 

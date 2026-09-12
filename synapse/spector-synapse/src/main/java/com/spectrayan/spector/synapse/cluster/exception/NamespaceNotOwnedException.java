@@ -57,4 +57,15 @@ public class NamespaceNotOwnedException extends SynapseException {
     public long epoch() {
         return epoch;
     }
+
+    /**
+     * Machine-readable error details for G45.
+     */
+    public java.util.Map<String, Object> details() {
+        return java.util.Map.of(
+                "namespace", namespaceId != null ? namespaceId : "",
+                "owner", ownerId != null ? ownerId : "",
+                "epoch", epoch
+        );
+    }
 }

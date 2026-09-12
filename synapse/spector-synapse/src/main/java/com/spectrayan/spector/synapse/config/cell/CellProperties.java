@@ -96,6 +96,15 @@ public class CellProperties implements Serializable {
         if (nodeId != null && !nodeId.isBlank()) {
             return nodeId.trim();
         }
+        String envPodName = System.getenv("POD_NAME");
+        if (envPodName != null && !envPodName.isBlank()) {
+            return envPodName.trim();
+        }
+        NodeRole role = resolvedRole();
+        if (role != NodeRole.STANDALONE) {
+            throw new IllegalStateException("spector.cell.node-id (or $POD_NAME) must be explicitly configured for non-standalone role "
+                    + role + " (Req R4.5, G42)");
+        }
         return resolveHostname();
     }
 
@@ -153,7 +162,7 @@ public class CellProperties implements Serializable {
         try {
             return InetAddress.getLocalHost().getHostName();
         } catch (Exception e) {
-            return "localhost";
+            throw new IllegalStateException("Failed to resolve hostname and no spector.cell.node-id or $POD_NAME configured (G42)", e);
         }
     }
 

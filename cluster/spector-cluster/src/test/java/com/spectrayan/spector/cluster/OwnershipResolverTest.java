@@ -125,4 +125,31 @@ class OwnershipResolverTest {
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("membershipSource must not be null");
     }
+
+    @Test
+    @DisplayName("G42: OWNER role fails closed when nodeId is not present in membership members")
+    void testOwnerRoleFailsClosedWhenNodeIdAbsentFromMembership() {
+        List<String> members = List.of("node-b", "node-c");
+        StaticMembershipSource membership = new StaticMembershipSource("cell-1", 1, members);
+        NodeIdentity ownerIdentity = new NodeIdentity("cell-1", "node-absent", NodeRole.OWNER);
+
+        assertThatThrownBy(() -> new OwnershipResolver(ownerIdentity, membership))
+                .isInstanceOf(SpectorValidationException.class)
+                .hasMessageContaining("must be present in membership members");
+    }
+
+    @Test
+    @DisplayName("G42: OWNER reloadRing fails closed when nodeId is missing from updated membership")
+    void testOwnerReloadRingFailsClosedWhenNodeIdMissing() {
+        List<String> members = List.of("node-a", "node-b");
+        StaticMembershipSource membership = new StaticMembershipSource("cell-1", 1, members);
+        OwnershipResolver resolver = new OwnershipResolver(new NodeIdentity("cell-1", "node-a", NodeRole.OWNER), membership);
+
+        com.spectrayan.spector.cluster.membership.CellMembership newMembership =
+                new com.spectrayan.spector.cluster.membership.CellMembership("cell-1", 2, List.of("node-b", "node-c"));
+
+        assertThatThrownBy(() -> resolver.reloadRing(newMembership))
+                .isInstanceOf(SpectorValidationException.class)
+                .hasMessageContaining("must be present in reloaded membership members");
+    }
 }

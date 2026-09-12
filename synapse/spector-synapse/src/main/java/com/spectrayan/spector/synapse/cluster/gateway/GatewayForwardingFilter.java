@@ -12,9 +12,12 @@
  */
 package com.spectrayan.spector.synapse.cluster.gateway;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.spectrayan.spector.cluster.node.NodeRole;
 import com.spectrayan.spector.cluster.routing.RoutingKey;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
+import com.spectrayan.spector.synapse.memory.MemoryDto;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,7 +26,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -32,23 +34,40 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Servlet filter that intercepts requests on {@code role=gateway} nodes and forwards them
  * to the authoritative owner node (ADR-0034 §8, Req R7.1).
  */
-@Component
 @Order(Ordered.LOWEST_PRECEDENCE - 20)
 public class GatewayForwardingFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(GatewayForwardingFilter.class);
 
+    public static final int MAX_BUFFERED_BODY_BYTES = 10 * 1024 * 1024; // 10 MB limit (G48)
+    private static final Pattern NAMESPACE_PATH_PATTERN =
+            Pattern.compile("^/api/v1/namespaces/([^/?]+)(?:/.*)?$");
+
     private final SynapseProperties properties;
     private final GatewayForwarder forwarder;
+    private final ObjectMapper objectMapper;
 
     public GatewayForwardingFilter(SynapseProperties properties, GatewayForwarder forwarder) {
+        this(properties, forwarder, defaultObjectMapper());
+    }
+
+    public GatewayForwardingFilter(SynapseProperties properties, GatewayForwarder forwarder, ObjectMapper objectMapper) {
         this.properties = properties;
         this.forwarder = forwarder;
+        this.objectMapper = objectMapper != null ? objectMapper : defaultObjectMapper();
+    }
+
+    private static ObjectMapper defaultObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        return mapper;
     }
 
     @Override
@@ -81,12 +100,23 @@ public class GatewayForwardingFilter extends OncePerRequestFilter {
             return;
         }
 
-        String cellId = properties.getCell().getId();
+        String cellId = properties.getCell() != null ? properties.getCell().getId() : "default";
         String headerNs = request.getHeader(GatewayForwarder.HEADER_NAMESPACE);
         String paramNs = request.getParameter("namespace");
+        String pathNs = null;
+        String reqUri = request.getRequestURI();
+        if (reqUri != null) {
+            Matcher m = NAMESPACE_PATH_PATTERN.matcher(reqUri);
+            if (m.matches()) {
+                pathNs = m.group(1);
+            }
+        }
+
         String namespaceId = (headerNs != null && !headerNs.isBlank())
                 ? headerNs.trim()
-                : (paramNs != null && !paramNs.isBlank() ? paramNs.trim() : "default");
+                : (paramNs != null && !paramNs.isBlank()
+                        ? paramNs.trim()
+                        : (pathNs != null && !pathNs.isBlank() ? pathNs.trim() : "default"));
 
         String headerTenant = request.getHeader(GatewayForwarder.HEADER_TENANT);
         String paramTenant = request.getParameter("tenant");
@@ -112,7 +142,23 @@ public class GatewayForwardingFilter extends OncePerRequestFilter {
             }
         }
 
-        byte[] body = request.getInputStream().readAllBytes();
+        long contentLength = request.getContentLengthLong();
+        if (contentLength > MAX_BUFFERED_BODY_BYTES) {
+            log.warn("Gateway rejected request body: Content-Length {} exceeds max limit of {} bytes",
+                    contentLength, MAX_BUFFERED_BODY_BYTES);
+            writeError(response, HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
+                    "PAYLOAD_TOO_LARGE", "Request body exceeds maximum size of " + MAX_BUFFERED_BODY_BYTES + " bytes");
+            return;
+        }
+
+        byte[] body = request.getInputStream().readNBytes(MAX_BUFFERED_BODY_BYTES + 1);
+        if (body.length > MAX_BUFFERED_BODY_BYTES) {
+            log.warn("Gateway rejected request body: read bytes exceeded max limit of {} bytes", MAX_BUFFERED_BODY_BYTES);
+            writeError(response, HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
+                    "PAYLOAD_TOO_LARGE", "Request body exceeds maximum size of " + MAX_BUFFERED_BODY_BYTES + " bytes");
+            return;
+        }
+
         String idempotencyKey = request.getHeader("Idempotency-Key");
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             idempotencyKey = request.getHeader("X-Idempotency-Key");
@@ -143,7 +189,18 @@ public class GatewayForwardingFilter extends OncePerRequestFilter {
             }
         } catch (Exception e) {
             log.error("Gateway forward failed for namespace '{}': {}", namespaceId, e.getMessage(), e);
-            response.sendError(HttpServletResponse.SC_BAD_GATEWAY, "Gateway routing failure: " + e.getMessage());
+            writeError(response, HttpServletResponse.SC_BAD_GATEWAY,
+                    "GATEWAY_ROUTING_FAILURE", "Gateway routing failure for namespace: " + namespaceId);
         }
+    }
+
+    private void writeError(HttpServletResponse response, int status, String errorCode, String message) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        MemoryDto.ErrorResponse errorResponse = new MemoryDto.ErrorResponse(status, errorCode, message);
+        byte[] bytes = objectMapper.writeValueAsBytes(errorResponse);
+        response.getOutputStream().write(bytes);
+        response.getOutputStream().flush();
     }
 }

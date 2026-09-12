@@ -25,6 +25,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -46,7 +49,8 @@ public class RoutingInvalidationSubscriber extends RedisPubSubAdapter<String, St
     private final RoutingMetricsListener metricsListener;
 
     private final RedisClient client;
-    private final StatefulRedisPubSubConnection<String, String> connection;
+    private volatile StatefulRedisPubSubConnection<String, String> connection;
+    private final ScheduledExecutorService retryScheduler;
 
     private final AtomicBoolean subscribed = new AtomicBoolean(false);
     private final AtomicLong unsubscribedSince = new AtomicLong(0L);
@@ -74,6 +78,7 @@ public class RoutingInvalidationSubscriber extends RedisPubSubAdapter<String, St
         this.resolver = Objects.requireNonNull(resolver, "resolver must not be null");
         this.metricsListener = metricsListener != null ? metricsListener : RoutingMetricsListener.NOOP;
         this.client = null;
+        this.retryScheduler = null;
 
         this.connection.addListener(this);
     }
@@ -109,19 +114,42 @@ public class RoutingInvalidationSubscriber extends RedisPubSubAdapter<String, St
             this.metricsListener.recordPubSubUnsubscribedTransition(true);
         }
         this.connection = conn;
+
+        this.retryScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "routing-invalidation-subscriber-reconnect");
+            t.setDaemon(true);
+            return t;
+        });
+        this.retryScheduler.scheduleWithFixedDelay(this::ensureSubscribed, 5, 5, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Attempts to connect and subscribe to the cell invalidation channel if currently unsubscribed.
+     */
+    public synchronized void ensureSubscribed() {
+        if (subscribed.get()) {
+            return;
+        }
+        try {
+            if (connection == null || !connection.isOpen()) {
+                if (client != null) {
+                    connection = client.connectPubSub();
+                    connection.addListener(this);
+                }
+            }
+            if (connection != null && connection.isOpen()) {
+                connection.async().subscribe(channelName);
+            }
+        } catch (Exception e) {
+            log.debug("Periodic reconnect/subscribe to channel {} failed: {}", channelName, e.getMessage());
+        }
     }
 
     /**
      * Subscribes to the cell invalidation channel.
      */
     public void start() {
-        if (connection != null && connection.isOpen()) {
-            try {
-                connection.async().subscribe(channelName);
-            } catch (Exception e) {
-                log.warn("Failed to subscribe to channel {}: {}", channelName, e.getMessage());
-            }
-        }
+        ensureSubscribed();
     }
 
     @Override
@@ -205,6 +233,9 @@ public class RoutingInvalidationSubscriber extends RedisPubSubAdapter<String, St
 
     @Override
     public void close() {
+        if (retryScheduler != null) {
+            retryScheduler.shutdownNow();
+        }
         try {
             if (connection != null && connection.isOpen()) {
                 connection.async().unsubscribe(channelName);

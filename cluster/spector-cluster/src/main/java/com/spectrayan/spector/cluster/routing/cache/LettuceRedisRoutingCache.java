@@ -32,11 +32,14 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 
 /**
  * Lettuce-based implementation of {@link RedisRoutingCache} with fast-fail timeout,
@@ -55,19 +58,38 @@ public class LettuceRedisRoutingCache implements RedisRoutingCache {
             "  return 0\n" +
             "end";
 
+    public static final Duration DEFAULT_PROBE_INTERVAL = Duration.ofSeconds(5);
+
     private final RedisClient client;
+    private final boolean ownsClientLifecycle;
     private final StatefulRedisConnection<String, String> connection;
     private final RedisAsyncCommands<String, String> asyncCommands;
     private final long timeoutMs;
     private final RoutingMetricsListener metricsListener;
     private final String sanitizedUri;
     private final AtomicBoolean isDegraded = new AtomicBoolean(false);
+    private final AtomicLong degradedSinceNanos = new AtomicLong(0L);
+    private final long probeIntervalNanos;
+    private final LongSupplier nanoTimeSupplier;
 
     public LettuceRedisRoutingCache(String redisUri, long timeoutMs, RoutingMetricsListener metricsListener) {
+        this(redisUri, timeoutMs, metricsListener, DEFAULT_PROBE_INTERVAL, System::nanoTime);
+    }
+
+    public LettuceRedisRoutingCache(
+            String redisUri,
+            long timeoutMs,
+            RoutingMetricsListener metricsListener,
+            Duration probeInterval,
+            LongSupplier nanoTimeSupplier
+    ) {
         Objects.requireNonNull(redisUri, "redisUri must not be null");
         this.timeoutMs = Math.max(10L, timeoutMs);
         this.metricsListener = metricsListener != null ? metricsListener : RoutingMetricsListener.NOOP;
         this.sanitizedUri = sanitizeUri(redisUri);
+        this.probeIntervalNanos = (probeInterval != null ? probeInterval : DEFAULT_PROBE_INTERVAL).toNanos();
+        this.nanoTimeSupplier = nanoTimeSupplier != null ? nanoTimeSupplier : System::nanoTime;
+        this.ownsClientLifecycle = true;
 
         RedisURI uri = RedisURI.create(redisUri);
         uri.setTimeout(Duration.ofMillis(this.timeoutMs));
@@ -91,15 +113,67 @@ public class LettuceRedisRoutingCache implements RedisRoutingCache {
     }
 
     /**
+     * Constructor using a shared RedisClient (G49).
+     */
+    public LettuceRedisRoutingCache(
+            RedisClient client,
+            String redisUri,
+            long timeoutMs,
+            RoutingMetricsListener metricsListener
+    ) {
+        this(client, redisUri, timeoutMs, metricsListener, DEFAULT_PROBE_INTERVAL, System::nanoTime);
+    }
+
+    public LettuceRedisRoutingCache(
+            RedisClient client,
+            String redisUri,
+            long timeoutMs,
+            RoutingMetricsListener metricsListener,
+            Duration probeInterval,
+            LongSupplier nanoTimeSupplier
+    ) {
+        this.client = Objects.requireNonNull(client, "client must not be null");
+        this.timeoutMs = Math.max(10L, timeoutMs);
+        this.metricsListener = metricsListener != null ? metricsListener : RoutingMetricsListener.NOOP;
+        this.sanitizedUri = redisUri != null ? sanitizeUri(redisUri) : "shared://redis";
+        this.probeIntervalNanos = (probeInterval != null ? probeInterval : DEFAULT_PROBE_INTERVAL).toNanos();
+        this.nanoTimeSupplier = nanoTimeSupplier != null ? nanoTimeSupplier : System::nanoTime;
+        this.ownsClientLifecycle = false;
+
+        StatefulRedisConnection<String, String> conn = null;
+        try {
+            conn = this.client.connect();
+        } catch (Exception e) {
+            handleFailure(e, "initial connection");
+        }
+
+        this.connection = conn;
+        this.asyncCommands = this.connection != null ? this.connection.async() : null;
+    }
+
+    /**
      * Package-private constructor for unit testing with a mock or existing connection.
      */
     LettuceRedisRoutingCache(StatefulRedisConnection<String, String> connection, long timeoutMs, RoutingMetricsListener metricsListener) {
+        this(connection, timeoutMs, metricsListener, DEFAULT_PROBE_INTERVAL, System::nanoTime);
+    }
+
+    LettuceRedisRoutingCache(
+            StatefulRedisConnection<String, String> connection,
+            long timeoutMs,
+            RoutingMetricsListener metricsListener,
+            Duration probeInterval,
+            LongSupplier nanoTimeSupplier
+    ) {
         this.client = null;
+        this.ownsClientLifecycle = false;
         this.connection = connection;
         this.asyncCommands = connection != null ? connection.async() : null;
         this.timeoutMs = Math.max(10L, timeoutMs);
         this.metricsListener = metricsListener != null ? metricsListener : RoutingMetricsListener.NOOP;
         this.sanitizedUri = "mock://redis";
+        this.probeIntervalNanos = (probeInterval != null ? probeInterval : DEFAULT_PROBE_INTERVAL).toNanos();
+        this.nanoTimeSupplier = nanoTimeSupplier != null ? nanoTimeSupplier : System::nanoTime;
     }
 
     @Override
@@ -117,9 +191,40 @@ public class LettuceRedisRoutingCache implements RedisRoutingCache {
             }
 
             String ownerId = hash.get("owner");
-            long epoch = parseLongSafely(hash.get("epoch"), 1L);
-            String modeStr = hash.getOrDefault("mode", "HASH");
-            RouteMode mode = parseModeSafely(modeStr);
+            if (ownerId == null || ownerId.isBlank()) {
+                handleSuccess();
+                return Optional.empty();
+            }
+
+            // G47: treat missing or unparseable epoch/mode as cache miss
+            String epochStr = hash.get("epoch");
+            if (epochStr == null || epochStr.isBlank()) {
+                handleSuccess();
+                return Optional.empty();
+            }
+            long epoch;
+            try {
+                epoch = Long.parseLong(epochStr.trim());
+            } catch (NumberFormatException e) {
+                log.warn("Corrupt epoch '{}' for key {}; treating as cache miss (G47)", epochStr, key.keyMaterial());
+                handleSuccess();
+                return Optional.empty();
+            }
+
+            String modeStr = hash.get("mode");
+            if (modeStr == null || modeStr.isBlank()) {
+                handleSuccess();
+                return Optional.empty();
+            }
+            RouteMode mode;
+            try {
+                mode = RouteMode.valueOf(modeStr.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                log.warn("Corrupt route mode '{}' for key {}; treating as cache miss (G47)", modeStr, key.keyMaterial());
+                handleSuccess();
+                return Optional.empty();
+            }
+
             String fence = hash.get("fence");
             Long hwm = hash.containsKey("hwm") ? parseLongSafely(hash.get("hwm"), 0L) : null;
 
@@ -196,10 +301,23 @@ public class LettuceRedisRoutingCache implements RedisRoutingCache {
 
     @Override
     public boolean isAvailable() {
-        return connection != null && connection.isOpen() && !isDegraded.get();
+        if (connection == null || !connection.isOpen()) {
+            return false;
+        }
+        if (!isDegraded.get()) {
+            return true;
+        }
+        // G38: If degraded, allow a probe retry once probeInterval has elapsed
+        long since = degradedSinceNanos.get();
+        return since > 0 && (nanoTimeSupplier.getAsLong() - since) >= probeIntervalNanos;
+    }
+
+    public boolean isDegraded() {
+        return isDegraded.get();
     }
 
     private void handleSuccess() {
+        degradedSinceNanos.set(0L);
         if (isDegraded.compareAndSet(true, false)) {
             log.info("Redis routing cache connectivity restored ({}); resuming distributed L2 lookups", sanitizedUri);
             metricsListener.recordDegradationTransition(false);
@@ -207,6 +325,7 @@ public class LettuceRedisRoutingCache implements RedisRoutingCache {
     }
 
     private void handleFailure(Exception e, String op) {
+        degradedSinceNanos.set(nanoTimeSupplier.getAsLong());
         if (isDegraded.compareAndSet(false, true)) {
             log.warn("Redis routing cache unreachable during {} ({}): {}; degrading to ConsistentHashRing fallback (Req R6.5)",
                     op, sanitizedUri, e.getMessage());
@@ -236,7 +355,7 @@ public class LettuceRedisRoutingCache implements RedisRoutingCache {
     private static RouteMode parseModeSafely(String modeStr) {
         if (modeStr == null || modeStr.isBlank()) return RouteMode.HASH;
         try {
-            return RouteMode.valueOf(modeStr.trim().toUpperCase());
+            return RouteMode.valueOf(modeStr.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             return RouteMode.HASH;
         }
@@ -250,7 +369,7 @@ public class LettuceRedisRoutingCache implements RedisRoutingCache {
             }
         } catch (Exception ignored) {}
         try {
-            if (client != null) {
+            if (client != null && ownsClientLifecycle) {
                 client.shutdown();
             }
         } catch (Exception ignored) {}

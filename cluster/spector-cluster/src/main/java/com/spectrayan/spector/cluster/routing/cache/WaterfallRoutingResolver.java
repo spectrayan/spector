@@ -20,6 +20,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.spectrayan.spector.cluster.routing.ConsistentHashRing;
 import com.spectrayan.spector.cluster.routing.ResolvedRoute;
 import com.spectrayan.spector.cluster.routing.RouteBinding;
+import com.spectrayan.spector.cluster.routing.RouteMode;
 import com.spectrayan.spector.cluster.routing.RouteSource;
 import com.spectrayan.spector.cluster.routing.RoutingKey;
 import com.spectrayan.spector.cluster.routing.RoutingMetricsListener;
@@ -31,6 +32,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
+import java.util.function.Supplier;
 
 /**
  * Three-tier routing waterfall: L1 Caffeine → L2 Redis → L3 Ketama ConsistentHashRing
@@ -46,7 +48,7 @@ public class WaterfallRoutingResolver {
 
     private final Cache<RoutingKey, RouteBinding> caffeineCache;
     private final RedisRoutingCache redisCache;
-    private final ConsistentHashRing ring;
+    private final Supplier<ConsistentHashRing> ringSupplier;
     private final long redisTtlSeconds;
     private final RoutingMetricsListener metricsListener;
     private final Executor writeBehindExecutor;
@@ -60,7 +62,27 @@ public class WaterfallRoutingResolver {
             RoutingMetricsListener metricsListener,
             Executor writeBehindExecutor
     ) {
-        this.ring = Objects.requireNonNull(ring, "ring must not be null (K4)");
+        this(
+                () -> Objects.requireNonNull(ring, "ring must not be null (K4)"),
+                redisCache,
+                caffeineTtl,
+                caffeineMaxSize,
+                redisTtlSeconds,
+                metricsListener,
+                writeBehindExecutor
+        );
+    }
+
+    public WaterfallRoutingResolver(
+            Supplier<ConsistentHashRing> ringSupplier,
+            RedisRoutingCache redisCache,
+            Duration caffeineTtl,
+            long caffeineMaxSize,
+            long redisTtlSeconds,
+            RoutingMetricsListener metricsListener,
+            Executor writeBehindExecutor
+    ) {
+        this.ringSupplier = Objects.requireNonNull(ringSupplier, "ringSupplier must not be null (G39)");
         this.redisCache = redisCache;
         this.redisTtlSeconds = Math.max(1L, redisTtlSeconds);
         this.metricsListener = metricsListener != null ? metricsListener : RoutingMetricsListener.NOOP;
@@ -98,18 +120,27 @@ public class WaterfallRoutingResolver {
             return new ResolvedRoute(l1Hit, RouteSource.CAFFEINE);
         }
 
-        // ── Tier 2: Distributed L2 Redis ──
+        // ── Tier 2: Distributed L2 Redis (Structurally protected for G41) ──
         if (redisCache != null && redisCache.isAvailable()) {
-            Optional<RouteBinding> l2Hit = redisCache.get(key);
-            if (l2Hit.isPresent()) {
-                RouteBinding binding = l2Hit.get();
-                caffeineCache.put(key, binding);
-                metricsListener.recordLookup(RouteSource.REDIS);
-                return new ResolvedRoute(binding, RouteSource.REDIS);
+            try {
+                Optional<RouteBinding> l2Hit = redisCache.get(key);
+                if (l2Hit.isPresent()) {
+                    RouteBinding binding = l2Hit.get();
+                    caffeineCache.put(key, binding);
+                    metricsListener.recordLookup(RouteSource.REDIS);
+                    return new ResolvedRoute(binding, RouteSource.REDIS);
+                }
+            } catch (RuntimeException e) {
+                log.warn("Redis L2 lookup failed for {}; falling through to Tier 3 Ketama ring (G41): {}",
+                        key.keyMaterial(), e.getMessage());
             }
         }
 
         // ── Tier 3: Ketama Ring Fallback (Authoritative, Pure Computation, Invariant K4) ──
+        ConsistentHashRing ring = ringSupplier.get();
+        if (ring == null) {
+            throw new IllegalStateException("ConsistentHashRing is not available for routing key " + key.keyMaterial() + " (G39)");
+        }
         String ownerNodeId = ring.ownerOf(key);
         RouteBinding ringBinding = RouteBinding.ofHash(key, ownerNodeId, ring.ringVersion());
 
@@ -143,7 +174,30 @@ public class WaterfallRoutingResolver {
     }
 
     /**
-     * Invalidates the key from both local Caffeine and distributed Redis caches.
+     * Invalidates the key from local Caffeine cache, and if present in Redis as mode=HASH,
+     * evicts it from Redis without touching any OVERRIDE bindings (G40).
+     *
+     * @param key the routing key
+     */
+    public void invalidateIfHash(RoutingKey key) {
+        if (key != null) {
+            caffeineCache.invalidate(key);
+            if (redisCache != null && redisCache.isAvailable()) {
+                try {
+                    Optional<RouteBinding> cached = redisCache.get(key);
+                    if (cached.isPresent() && cached.get().mode() == RouteMode.HASH) {
+                        redisCache.invalidate(key);
+                    }
+                } catch (Exception e) {
+                    log.debug("Failed to check/evict hash route from Redis: {}", e.getMessage());
+                }
+            }
+        }
+    }
+
+    /**
+     * Invalidates the key from both local Caffeine and distributed Redis caches,
+     * and publishes cross-node invalidation (Req R4.1, G44).
      *
      * @param key the routing key
      */
@@ -152,6 +206,8 @@ public class WaterfallRoutingResolver {
             caffeineCache.invalidate(key);
             if (redisCache != null && redisCache.isAvailable()) {
                 redisCache.invalidate(key);
+                long ringVersion = ring() != null ? ring().ringVersion() : 1L;
+                redisCache.publishInvalidation(key.cellId(), key.keyMaterial(), ringVersion, "invalidateAll");
             }
         }
     }
@@ -160,7 +216,7 @@ public class WaterfallRoutingResolver {
      * @return the underlying consistent hash ring
      */
     public ConsistentHashRing ring() {
-        return ring;
+        return ringSupplier != null ? ringSupplier.get() : null;
     }
 
     /**
