@@ -151,6 +151,9 @@ public final class ReplicaApplyEngine {
                 String filename = entry.getKey();
                 Path src = entry.getValue();
                 Path dst = stagingDir.resolve(filename);
+                if (dst.getParent() != null) {
+                    Files.createDirectories(dst.getParent());
+                }
                 Files.copy(src, dst, StandardCopyOption.REPLACE_EXISTING);
                 try (FileChannel fc = FileChannel.open(dst, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
                     fc.force(true); // fsync
@@ -171,6 +174,9 @@ public final class ReplicaApplyEngine {
             if (manifest.activePartition() != null) {
                 Path actStaged = stagedTargetFiles.get(manifest.activePartition().id());
                 if (actStaged == null) {
+                    actStaged = stagedTargetFiles.get(manifest.activePartition().id() + "/partition.bundle");
+                }
+                if (actStaged == null) {
                     throw new SpectorValidationException(ErrorCode.FILE_FORMAT_INVALID,
                             "Missing staged active partition bundle: " + manifest.activePartition().id());
                 }
@@ -179,6 +185,9 @@ public final class ReplicaApplyEngine {
 
             for (SnapshotManifest.SealedPartitionEntry s : manifest.sealed()) {
                 Path sStaged = stagedTargetFiles.get(s.id());
+                if (sStaged == null) {
+                    sStaged = stagedTargetFiles.get(s.id() + "/partition.bundle");
+                }
                 if (sStaged != null) {
                     SnapshotVerifier.verifyBundleFile(sStaged, s.sha256());
                 }
@@ -189,6 +198,9 @@ public final class ReplicaApplyEngine {
             for (Map.Entry<String, Path> entry : stagedTargetFiles.entrySet()) {
                 Path src = entry.getValue();
                 Path target = nsDir.resolve(entry.getKey());
+                if (target.getParent() != null) {
+                    Files.createDirectories(target.getParent());
+                }
                 Files.move(src, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             }
 
