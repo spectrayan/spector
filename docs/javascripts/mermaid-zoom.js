@@ -1,16 +1,70 @@
-﻿// Spector Documentation — Interactive Mermaid Zoom, Pan & Fullscreen Modal
+// Spector Documentation — Interactive Mermaid Zoom, Pan & Fullscreen Modal
 (function () {
   'use strict';
+
+  // 1. Defense-in-depth: hook Element.prototype.attachShadow
+  if (!window.__spectorShadowHooked) {
+    window.__spectorShadowHooked = true;
+    var orig = Element.prototype.attachShadow;
+    if (orig) {
+      Element.prototype.attachShadow = function (init) {
+        var root = orig.call(this, { mode: 'open' });
+        this._spectorShadowRoot = root;
+        return root;
+      };
+    }
+  }
 
   var diagramStates = new WeakMap();
   var activeModal = null;
 
-  function setupMermaidDiagram(container) {
-    if (container.querySelector('.mermaid-toolbar')) return;
-    var svg = container.querySelector('svg');
-    if (!svg) return;
+  function getSvgFromContainer(container) {
+    if (!container) return null;
+    if (container.shadowRoot) {
+      var s = container.shadowRoot.querySelector('svg');
+      if (s) return s;
+    }
+    if (container._spectorShadowRoot) {
+      var s2 = container._spectorShadowRoot.querySelector('svg');
+      if (s2) return s2;
+    }
+    return container.querySelector('svg');
+  }
 
-    container.classList.add('mermaid-interactive-wrapper');
+  function setupMermaidDiagram(container) {
+    if (!container || container.dataset.mermaidZoomed === 'true') return;
+
+    var svg = getSvgFromContainer(container);
+    if (!svg) {
+      // SVG not yet rendered inside shadow root or container; observe for changes
+      var root = container.shadowRoot || container._spectorShadowRoot;
+      if (root && !container._spectorObservingRoot) {
+        container._spectorObservingRoot = true;
+        var rootObs = new MutationObserver(function () {
+          var foundSvg = getSvgFromContainer(container);
+          if (foundSvg) {
+            rootObs.disconnect();
+            setupMermaidDiagram(container);
+          }
+        });
+        rootObs.observe(root, { childList: true, subtree: true });
+      }
+      return;
+    }
+
+    container.dataset.mermaidZoomed = 'true';
+
+    // Wrap container inside a dedicated interactive wrapper if not already wrapped
+    var wrapper = container.parentElement;
+    if (!wrapper || !wrapper.classList.contains('mermaid-interactive-wrapper')) {
+      wrapper = document.createElement('div');
+      wrapper.className = 'mermaid-interactive-wrapper';
+      container.parentNode.insertBefore(wrapper, container);
+      wrapper.appendChild(container);
+    }
+
+    // Skip if toolbar already exists in wrapper
+    if (wrapper.querySelector('.mermaid-toolbar')) return;
 
     var state = { scale: 1.0, translateX: 0, translateY: 0 };
     diagramStates.set(container, state);
@@ -18,6 +72,8 @@
     var toolbar = document.createElement('div');
     toolbar.className = 'mermaid-toolbar';
     toolbar.innerHTML =
+      '<span class="mermaid-toolbar-label">DIAGRAM</span>' +
+      '<div class="mermaid-toolbar-divider"></div>' +
       '<button type="button" class="mermaid-tool-btn" data-act="zoom-in" title="Zoom In">' +
       '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>' +
       '</button>' +
@@ -31,13 +87,16 @@
       '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>' +
       '</button>';
 
-    container.appendChild(toolbar);
+    wrapper.appendChild(toolbar);
 
     function updateTransform() {
-      svg.style.transform =
-        'translate(' + state.translateX + 'px, ' + state.translateY + 'px) scale(' + state.scale + ')';
-      svg.style.transformOrigin = 'center top';
-      svg.style.transition = 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
+      var currentSvg = getSvgFromContainer(container);
+      if (currentSvg) {
+        currentSvg.style.transform =
+          'translate(' + state.translateX + 'px, ' + state.translateY + 'px) scale(' + state.scale + ')';
+        currentSvg.style.transformOrigin = 'center top';
+        currentSvg.style.transition = 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
+      }
     }
 
     toolbar.addEventListener('click', function (e) {
@@ -57,7 +116,10 @@
         state.translateY = 0;
         updateTransform();
       } else if (act === 'fullscreen') {
-        openFullscreenModal(svg);
+        var currentSvg = getSvgFromContainer(container);
+        if (currentSvg) {
+          openFullscreenModal(currentSvg);
+        }
       }
     });
   }
@@ -206,31 +268,57 @@
     }, 200);
   }
 
-  function scanAndInitMermaid() {
+  function scanAllMermaid() {
     var containers = document.querySelectorAll('.mermaid');
     containers.forEach(function (c) {
-      if (c.querySelector('svg')) {
-        setupMermaidDiagram(c);
-      } else {
-        var obs = new MutationObserver(function (mutations, observerInstance) {
-          if (c.querySelector('svg')) {
-            setupMermaidDiagram(c);
-            observerInstance.disconnect();
-          }
-        });
-        obs.observe(c, { childList: true });
-      }
+      setupMermaidDiagram(c);
     });
   }
 
-  if (typeof document$ !== 'undefined') {
-    document$.subscribe(scanAndInitMermaid);
+  // Observe dynamically inserted elements (Material for MkDocs instant loading and async rendering)
+  var observer = new MutationObserver(function (mutations) {
+    for (var i = 0; i < mutations.length; i++) {
+      var m = mutations[i];
+      for (var j = 0; j < m.addedNodes.length; j++) {
+        var node = m.addedNodes[j];
+        if (node.nodeType === 1) {
+          if (node.classList && node.classList.contains('mermaid')) {
+            setupMermaidDiagram(node);
+          } else if (node.querySelectorAll) {
+            var found = node.querySelectorAll('.mermaid');
+            if (found.length) {
+              found.forEach(setupMermaidDiagram);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  if (document.body) {
+    observer.observe(document.body, { childList: true, subtree: true });
   } else {
-    document.addEventListener('DOMContentLoaded', scanAndInitMermaid);
+    document.addEventListener('DOMContentLoaded', function () {
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
   }
 
-  var checkTimer = setInterval(scanAndInitMermaid, 350);
+  // Tab click listener for MkDocs content tabs
+  document.addEventListener('change', function (e) {
+    if (e.target && e.target.type === 'radio') {
+      setTimeout(scanAllMermaid, 60);
+    }
+  });
+
+  if (typeof document$ !== 'undefined') {
+    document$.subscribe(scanAllMermaid);
+  } else {
+    document.addEventListener('DOMContentLoaded', scanAllMermaid);
+  }
+
+  // Polling to catch async script loading from unpkg
+  var pollInterval = setInterval(scanAllMermaid, 200);
   setTimeout(function () {
-    clearInterval(checkTimer);
-  }, 3500);
+    clearInterval(pollInterval);
+  }, 6000);
 })();

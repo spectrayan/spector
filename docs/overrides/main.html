@@ -1,6 +1,21 @@
 {% extends "base.html" %}
 
 {% block extrahead %}
+  <script>
+    /* Early Shadow DOM Hook for Mermaid Interactive Zoom */
+    (function() {
+      if (window.__spectorShadowHooked) return;
+      window.__spectorShadowHooked = true;
+      var orig = Element.prototype.attachShadow;
+      if (orig) {
+        Element.prototype.attachShadow = function(init) {
+          var root = orig.call(this, { mode: 'open' });
+          this._spectorShadowRoot = root;
+          return root;
+        };
+      }
+    })();
+  </script>
   {% if page and page.meta %}
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
