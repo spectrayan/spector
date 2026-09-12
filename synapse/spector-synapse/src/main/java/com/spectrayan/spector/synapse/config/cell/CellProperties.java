@@ -17,6 +17,7 @@ import com.spectrayan.spector.cluster.membership.MembershipSource;
 import com.spectrayan.spector.cluster.membership.StaticMembershipSource;
 import com.spectrayan.spector.cluster.node.NodeIdentity;
 import com.spectrayan.spector.cluster.node.NodeRole;
+import com.spectrayan.spector.cluster.routing.OverrideLeaseManager;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 
 import java.io.Serializable;
@@ -142,11 +143,24 @@ public class CellProperties implements Serializable {
      * @return ownership resolver
      */
     public OwnershipResolver toOwnershipResolver() {
+        return toOwnershipResolver(null);
+    }
+
+    /**
+     * Instantiates an {@link OwnershipResolver} based on these cell properties with optional override lease manager (G0).
+     *
+     * @param overrideLeaseManager optional override lease manager
+     * @return ownership resolver
+     */
+    public OwnershipResolver toOwnershipResolver(OverrideLeaseManager overrideLeaseManager) {
         NodeIdentity identity = toNodeIdentity();
         if (identity.role() == NodeRole.STANDALONE) {
             return new OwnershipResolver(identity, null);
         }
         MembershipSource source = toMembershipSource();
+        if (overrideLeaseManager != null) {
+            return new OwnershipResolver(identity, source, overrideLeaseManager);
+        }
         return new OwnershipResolver(identity, source);
     }
 

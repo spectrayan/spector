@@ -29,6 +29,20 @@ public class ReplicaRecallGuard {
     private static final Logger log = LoggerFactory.getLogger(ReplicaRecallGuard.class);
 
     public static final String HEADER_ALLOW_REPLICA = "X-Spector-Allow-Replica";
+    public static final String HEADER_REPLICA_FRESHNESS = "X-Spector-Replica-Freshness";
+
+    /**
+     * Replica freshness declaration returned when a replica read is validated (G10).
+     *
+     * @param appliedHwm high-water mark applied on this replica
+     * @param snapshotTimeMs timestamp of the applied snapshot in epoch milliseconds
+     * @param lagMs elapsed milliseconds between current time and snapshot time
+     */
+    public record ReplicaFreshness(long appliedHwm, long snapshotTimeMs, long lagMs) {
+        public String toHeaderValue() {
+            return "hwm=" + appliedHwm + ",snapshotTimeMs=" + snapshotTimeMs + ",lagMs=" + lagMs;
+        }
+    }
 
     private final ReplicationProperties replicationProperties;
 
@@ -63,21 +77,24 @@ public class ReplicaRecallGuard {
      * Evaluates the three simultaneous requirements for serving replica recall (Req R10.1, R10.2, R10.4):
      * <ol>
      *   <li>Namespace is mapped locally</li>
-     *   <li>(now - snapshotTimeMs) &lt;= maxReplicaLagMs</li>
+     *   <li>(now - snapshotTimeMs) &lt;= maxReplicaLagMs (convergent after WAL tail replay, G10)</li>
      *   <li>Request explicitly permits replica reads</li>
      * </ol>
      *
      * @param key routing key
      * @param isLocallyMapped whether namespace is currently mapped on this replica
+     * @param appliedHwm high-water mark currently applied on the replica (G10)
      * @param lastSnapshotTimeMs exact timestamp of last applied snapshot (Req R10.2)
      * @param nowMs current epoch milliseconds
      * @param requestPermitsReplica whether incoming request explicitly permitted replica reads
+     * @return {@link ReplicaFreshness} containing applied HWM, snapshot time, and measured lag (G10)
      * @throws ReplicaStalenessExceededException if freshness bound is exceeded (Req R10.4, N7)
      * @throws IllegalStateException if not mapped locally or request does not permit replica
      */
-    public void validateReplicaRecall(
+    public ReplicaFreshness validateReplicaRecall(
             RoutingKey key,
             boolean isLocallyMapped,
+            long appliedHwm,
             long lastSnapshotTimeMs,
             long nowMs,
             boolean requestPermitsReplica
@@ -94,7 +111,7 @@ public class ReplicaRecallGuard {
             throw new IllegalStateException("Replica read refused: namespace '" + key.namespaceId() + "' is not mapped locally on replica");
         }
 
-        // Requirement 3: Staleness must be within maxReplicaLag (computed from applied snapshot time, Req R10.2)
+        // Requirement 3: Staleness must be within maxReplicaLag (computed from applied snapshot time, Req R10.2, convergent after WAL tail replay)
         long maxLagMs = replicationProperties.getMaxReplicaLagSeconds() * 1000L;
         long currentLagMs = Math.max(0, nowMs - lastSnapshotTimeMs);
 
@@ -106,6 +123,28 @@ public class ReplicaRecallGuard {
 
         log.debug("Replica recall permitted for '{}': current lag {}ms (limit {}ms)",
                 key.namespaceId(), currentLagMs, maxLagMs);
+
+        return new ReplicaFreshness(appliedHwm, lastSnapshotTimeMs, currentLagMs);
+    }
+
+    /**
+     * Evaluates replica recall readiness using default -1 HWM indicator (G10 backward compatibility).
+     *
+     * @param key routing key
+     * @param isLocallyMapped whether namespace is currently mapped on this replica
+     * @param lastSnapshotTimeMs exact timestamp of last applied snapshot
+     * @param nowMs current epoch milliseconds
+     * @param requestPermitsReplica whether incoming request explicitly permitted replica reads
+     * @return {@link ReplicaFreshness} containing snapshot time and measured lag
+     */
+    public ReplicaFreshness validateReplicaRecall(
+            RoutingKey key,
+            boolean isLocallyMapped,
+            long lastSnapshotTimeMs,
+            long nowMs,
+            boolean requestPermitsReplica
+    ) {
+        return validateReplicaRecall(key, isLocallyMapped, -1L, lastSnapshotTimeMs, nowMs, requestPermitsReplica);
     }
 
     /**

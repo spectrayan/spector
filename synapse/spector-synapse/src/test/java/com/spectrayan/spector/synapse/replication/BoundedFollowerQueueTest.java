@@ -53,9 +53,10 @@ class BoundedFollowerQueueTest {
         boolean accepted1 = queue.offer(overflowFrame1);
         assertThat(accepted1).isFalse();
 
-        // Invariant N8: overflow stops tail, counts frames.dropped, marks lagging
+        // Invariant N8: overflow stops tail, counts frames.dropped, marks lagging, requires full resync (G6)
         assertThat(queue.isLagging()).isTrue();
         assertThat(queue.isTailStreamingStopped()).isTrue();
+        assertThat(queue.isFullResyncRequired()).isTrue();
         assertThat(queue.getFramesDropped()).isEqualTo(1L);
 
         // Push 7th frame -> dropped as well
@@ -63,6 +64,18 @@ class BoundedFollowerQueueTest {
         boolean accepted2 = queue.offer(overflowFrame2);
         assertThat(accepted2).isFalse();
         assertThat(queue.getFramesDropped()).isEqualTo(2L);
+
+        // Polling existing items does not clear lagging or tailStreamingStopped until resetFullResync is invoked
+        while (queue.poll() != null) {}
+        queue.acknowledge(100L, System.currentTimeMillis());
+        assertThat(queue.isLagging()).isTrue();
+        assertThat(queue.isTailStreamingStopped()).isTrue();
+        assertThat(queue.isFullResyncRequired()).isTrue();
+
+        queue.resetFullResync();
+        assertThat(queue.isLagging()).isFalse();
+        assertThat(queue.isTailStreamingStopped()).isFalse();
+        assertThat(queue.isFullResyncRequired()).isFalse();
     }
 
     @Test

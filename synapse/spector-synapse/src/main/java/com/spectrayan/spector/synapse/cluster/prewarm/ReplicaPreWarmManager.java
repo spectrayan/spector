@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Manages replica namespace pre-warm selection and heat-based prioritization (Req R6.1, R6.2, R6.3).
@@ -48,6 +49,7 @@ public class ReplicaPreWarmManager {
     private final List<String> explicitFollowList = new java.util.concurrent.CopyOnWriteArrayList<>();
     private final Map<String, LongAdder> namespaceHeat = new ConcurrentHashMap<>();
     private final Set<String> currentlyPreWarmed = ConcurrentHashMap.newKeySet();
+    private final ReentrantLock recomputeLock = new ReentrantLock();
 
     public ReplicaPreWarmManager(ReplicationProperties replicationProperties) {
         this(replicationProperties, List.of());
@@ -90,37 +92,42 @@ public class ReplicaPreWarmManager {
      *
      * @return unmodifiable set of currently pre-warmed namespaces
      */
-    public synchronized Set<String> recomputePreWarmSet() {
-        int cap = Math.max(1, replicationProperties.getReplicaHotCap());
+    public Set<String> recomputePreWarmSet() {
+        recomputeLock.lock();
+        try {
+            int cap = Math.max(1, replicationProperties.getReplicaHotCap());
 
-        // Gather candidates: explicit followed first, then sort remaining by heat
-        Set<String> selected = new HashSet<>();
+            // Gather candidates: explicit followed first, then sort remaining by heat
+            Set<String> selected = new HashSet<>();
 
-        // Add explicit follow list up to cap
-        for (String explicitNs : explicitFollowList) {
-            if (selected.size() < cap) {
-                selected.add(explicitNs);
-            }
-        }
-
-        // Fill remaining slots with hottest namespaces
-        if (selected.size() < cap) {
-            List<Map.Entry<String, LongAdder>> heatSorted = new ArrayList<>(namespaceHeat.entrySet());
-            heatSorted.sort(Comparator.comparingLong((Map.Entry<String, LongAdder> e) -> e.getValue().sum()).reversed());
-
-            for (var entry : heatSorted) {
-                if (selected.size() >= cap) {
-                    break;
+            // Add explicit follow list up to cap
+            for (String explicitNs : explicitFollowList) {
+                if (selected.size() < cap) {
+                    selected.add(explicitNs);
                 }
-                selected.add(entry.getKey());
             }
-        }
 
-        currentlyPreWarmed.clear();
-        currentlyPreWarmed.addAll(selected);
-        log.info("[ReplicaPreWarmManager] Pre-warm set updated: {} namespaces (hotCap={})",
-                currentlyPreWarmed.size(), cap);
-        return Collections.unmodifiableSet(currentlyPreWarmed);
+            // Fill remaining slots with hottest namespaces
+            if (selected.size() < cap) {
+                List<Map.Entry<String, LongAdder>> heatSorted = new ArrayList<>(namespaceHeat.entrySet());
+                heatSorted.sort(Comparator.comparingLong((Map.Entry<String, LongAdder> e) -> e.getValue().sum()).reversed());
+
+                for (var entry : heatSorted) {
+                    if (selected.size() >= cap) {
+                        break;
+                    }
+                    selected.add(entry.getKey());
+                }
+            }
+
+            currentlyPreWarmed.clear();
+            currentlyPreWarmed.addAll(selected);
+            log.info("[ReplicaPreWarmManager] Pre-warm set updated: {} namespaces (hotCap={})",
+                    currentlyPreWarmed.size(), cap);
+            return Collections.unmodifiableSet(currentlyPreWarmed);
+        } finally {
+            recomputeLock.unlock();
+        }
     }
 
     /**

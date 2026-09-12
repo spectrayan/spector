@@ -168,4 +168,25 @@ class ReplicationCoordinatorTest {
         assertThat(coordinator.getSnapshotCount(keyNotOwned)).isEqualTo(0L);
         assertThat(hintWritten.get()).isFalse();
     }
+
+    @Test
+    @DisplayName("G5: recordFollowerAck publishes freshness hint with verified applied HWM")
+    void testRecordFollowerAckUpdatesHint() {
+        ReplicationCoordinator coordinator = new ReplicationCoordinator(
+                CELL_ID,
+                ownerResolver,
+                properties,
+                hintWriter,
+                metrics
+        );
+
+        RoutingKey key = new RoutingKey(CELL_ID, TENANT_ID, NAMESPACE_ID);
+        long appliedHwm = 88990L;
+        long ackTs = System.currentTimeMillis();
+
+        coordinator.recordFollowerAck(key, appliedHwm, ackTs);
+
+        assertThat(hintWritten.get()).isTrue();
+        assertThat(lastHintHwm.get()).isEqualTo(appliedHwm);
+    }
 }
