@@ -15,7 +15,7 @@ Spector Memory is engineered to behave as a biologically-grounded cognitive memo
 
 ## 🏆 Headline Benchmark Leaderboard
 
-| Benchmark Suite | Spector Memory | Primary Competitor Baseline (Zep / Mem0) | Context Injected | Memory Retrieval Latency | Key Empirical Reference |
+| Benchmark Suite | Spector Memory | Others (Zep / Mem0) | Context Injected | Memory Retrieval Latency | Key Empirical Reference |
 |:---|:---:|:---:|:---:|:---:|:---|
 | 🧠 **MindSpan** *(20-Year Longitudinal)* | **100.0% QA Accuracy**<br>*(200/200 Correct)* | *N/A (New Lifelong SOTA)* | **1,731 tokens**<br>*(Strict <1,800 cap)* | **~14 ms** | [:material-github: Discussion #753](https://github.com/spectrayan/spector/discussions/753) |
 | 🎯 **LongMemEval** *(ICLR 2025 Standard)* | **91.0% – 94.0% Accuracy**<br>*(100% Single-Persona)* | 75.1% – 80.0% *(Zep)*<br>62.5% – 68.2% *(Mem0)* | **~1,500 tokens**<br>*(88% token reduction)* | **3.0 ms $p_{50}$**<br>*(0.13 ms SIMD)* | [:material-github: Discussion #696](https://github.com/spectrayan/spector/discussions/696) |
@@ -208,7 +208,7 @@ Stress-testing the off-heap engine against 50,000 synthetic life-history records
 
 ---
 
-## 5. Comprehensive Competitive Architecture Matrix
+## 5. Comparative Architecture Matrix
 
 | Capability / Benchmark Dimension | Spector Memory (V4 Off-Heap) | Zep (Graphiti) | Mem0 (Graph + Vector) | Memori Cloud |
 |:---|:---:|:---:|:---:|:---:|
