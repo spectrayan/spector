@@ -233,7 +233,7 @@ public class MemoryRequestBinder {
         if (ownershipResolver.identity().role() == NodeRole.STANDALONE) {
             return;
         }
-        if (fenceTokenManager != null && fenceTokenManager.hasLocalFence(namespaceId)) {
+        if (fenceTokenManager != null) {
             if (!fenceTokenManager.validateFence(namespaceId, incomingFence)) {
                 if (meterRegistry != null) {
                     meterRegistry.counter("spector.route.fenced",
