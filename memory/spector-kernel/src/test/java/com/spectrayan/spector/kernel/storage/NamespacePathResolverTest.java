@@ -70,7 +70,7 @@ class NamespacePathResolverTest {
         }
 
         @Test
-        @DisplayName("Tenanted hierarchy matches ADR-0033 §9.2 structure")
+        @DisplayName("Tenanted hierarchy matches ADR-0034 §9.2 structure")
         void verifyPathStructure() {
             var placement = NamespacePathResolver.resolve(ROOT, "acme", "ns-project-1");
             Path relative = ROOT.relativize(placement.dir());
