@@ -54,6 +54,8 @@ If an alias is defined and its canonical equivalent is empty, the alias value is
 | `SPECTOR_NODE_ID` | `spector.cluster.node-id` | Unique instance identifier in a multi-node cluster |
 | `SPECTOR_API_KEY` | `spector.api-key` | Master API key required for client REST / MCP authentication |
 | `SPECTOR_AUTH_JWT_SECRET` | `spector.auth.jwt.secret` | HMAC-SHA256 secret key for signing auth tokens |
+| `SPECTOR_NAMESPACE_TENANT_ROOTED` | `spector.namespace.tenant-rooted.enabled` | Enable tenant-rooted namespace directory sharding (ADR-0033) |
+| `SPECTOR_NAMESPACE_DUAL_READ` | `spector.namespace.dual-read.enabled` | Enable dual-read fallback during layout migration window |
 
 ---
 

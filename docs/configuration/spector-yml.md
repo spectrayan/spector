@@ -267,6 +267,8 @@ Storage file paths, Write-Ahead Logging (WAL), and compaction configurations:
 | `persistence.files.shard-dir-name` | String | `index_shards` | Directory name | Subfolder name storing partition shards in distributed cluster mode. |
 | `memory.wal.max-chunk-bytes` | Long | `8388608` (8MB) | 1MB–1GB | Maximum size of an active WAL segment file before rotating to a new chunk. |
 | `memory.vacuum.threshold` | Float | `0.20` | 0.05–0.80 | Fragmentation ratio (tombstones / total nodes) that triggers background vacuum compaction. |
+| `namespace.tenant-rooted.enabled` | Boolean | `true` | `true`, `false` | Enables tenant-rooted namespace sharding layout (`tenants/XX/YY/tenantId/namespaces/ZZ/WW/namespaceId`) for tenanted accounts (ADR-0033). Untenanted accounts resolve to flat sharded path. |
+| `namespace.dual-read.enabled` | Boolean | `true` | `true`, `false` | Enables dual-read fallback from tenant-rooted layout to legacy flat layout during migration windows without dual-writing. |
 
 ---
 
