@@ -138,10 +138,6 @@
     modal.innerHTML =
       '<div class="mermaid-modal-dialog">' +
         '<div class="mermaid-modal-header">' +
-          '<div class="mermaid-modal-title">' +
-            '<span class="mermaid-modal-badge">MERMAID</span>' +
-            '<span>Interactive Diagram Viewer</span>' +
-          '</div>' +
           '<div class="mermaid-modal-actions">' +
             '<button type="button" class="mermaid-tool-btn" data-modal-act="zoom-in" title="Zoom In">' +
               '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>' +
