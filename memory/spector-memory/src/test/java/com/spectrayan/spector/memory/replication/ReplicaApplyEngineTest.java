@@ -60,7 +60,7 @@ class ReplicaApplyEngineTest {
                 null,
                 List.of(),
                 0L,
-                100L,
+                0L,
                 null
         );
 
@@ -89,7 +89,7 @@ class ReplicaApplyEngineTest {
                 null,
                 List.of(),
                 0L,
-                100L,
+                0L,
                 null
         );
 
@@ -119,7 +119,7 @@ class ReplicaApplyEngineTest {
                 new SnapshotManifest.ActivePartitionEntry("partition.bundle", SnapshotVerifier.calculateSha256(pt)),
                 List.of(),
                 0L,
-                50L,
+                0L,
                 null
         );
 
@@ -162,7 +162,7 @@ class ReplicaApplyEngineTest {
                 new SnapshotManifest.ActivePartitionEntry("partition.bundle", SnapshotVerifier.calculateSha256(pt)),
                 List.of(),
                 0L,
-                50L,
+                0L,
                 null
         );
 
@@ -184,5 +184,86 @@ class ReplicaApplyEngineTest {
         );
         assertThat(res2.updated()).isFalse();
         assertThat(res2.appliedHwm()).isEqualTo(50L);
+    }
+
+    @Test
+    @DisplayName("G1: Refuse INCREMENTAL manifests and manifests with WAL delta")
+    void rejectsIncrementalManifestsAndWalDelta() {
+        Path root = tempDir.resolve("root-g1");
+        ReplicaApplyEngine engine = new ReplicaApplyEngine(root, PATH_HELPER, Set.of(TENANT), Set.of());
+
+        SnapshotManifest incrementalManifest = new SnapshotManifest(
+                SnapshotManifest.PLANE_NAMESPACE, 1, TENANT, NS, PATH_HELPER, 1L, 100L,
+                SnapshotKind.INCREMENTAL, null, null, List.of(), 0L, 0L, null
+        );
+        assertThatThrownBy(() -> engine.applySnapshot(incrementalManifest, Map.of(), List.of()))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("refusing INCREMENTAL manifest");
+
+        SnapshotManifest walDeltaManifest = new SnapshotManifest(
+                SnapshotManifest.PLANE_NAMESPACE, 1, TENANT, NS, PATH_HELPER, 1L, 100L,
+                SnapshotKind.FULL, null, null, List.of(), 0L, 50L, null
+        );
+        assertThatThrownBy(() -> engine.applySnapshot(walDeltaManifest, Map.of(), List.of()))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("refusing manifest with WAL delta");
+    }
+
+    @Test
+    @DisplayName("G3: Staged file not listed in manifest is rejected before publish")
+    void rejectsUnlistedStagedFile() {
+        Path root = tempDir.resolve("root-g3");
+        Path rt = ReplicationBundleFixtures.createValidRuntimeBundle(tempDir.resolve("rt3.bundle"));
+        Path pt = ReplicationBundleFixtures.createValidPartitionBundle(tempDir.resolve("pt3.bundle"));
+        Path rogue = tempDir.resolve("rogue.bundle");
+        try {
+            Files.writeString(rogue, "malicious payload");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        SnapshotManifest manifest = new SnapshotManifest(
+                SnapshotManifest.PLANE_NAMESPACE, 1, TENANT, NS, PATH_HELPER, 1L, 50L,
+                SnapshotKind.FULL,
+                new SnapshotManifest.RuntimeEntry("runtime.bundle", SnapshotVerifier.calculateSha256(rt), 1L),
+                new SnapshotManifest.ActivePartitionEntry("partition.bundle", SnapshotVerifier.calculateSha256(pt)),
+                List.of(), 0L, 0L, null
+        );
+
+        ReplicaApplyEngine engine = new ReplicaApplyEngine(root, PATH_HELPER, Set.of(TENANT), Set.of());
+        assertThatThrownBy(() -> engine.applySnapshot(
+                manifest,
+                Map.of("runtime.bundle", rt, "partition.bundle", pt, "rogue.bundle", rogue),
+                List.of()
+        ))
+                .isInstanceOf(SpectorValidationException.class)
+                .satisfies(e -> assertThat(((SpectorValidationException) e).errorCode()).isEqualTo(ErrorCode.ARGUMENT_INVALID))
+                .hasMessageContaining("not listed in manifest");
+    }
+
+    @Test
+    @DisplayName("G4: Persisted replica manifest survives engine restart and recovers applied HWM")
+    void recoversPersistedReplicaStateOnRestart() {
+        Path root = tempDir.resolve("root-g4");
+        Path rt = ReplicationBundleFixtures.createValidRuntimeBundle(tempDir.resolve("rt4.bundle"));
+        Path pt = ReplicationBundleFixtures.createValidPartitionBundle(tempDir.resolve("pt4.bundle"));
+
+        SnapshotManifest manifest = new SnapshotManifest(
+                SnapshotManifest.PLANE_NAMESPACE, 1, TENANT, NS, PATH_HELPER, 1L, 75L,
+                SnapshotKind.FULL,
+                new SnapshotManifest.RuntimeEntry("runtime.bundle", SnapshotVerifier.calculateSha256(rt), 1L),
+                new SnapshotManifest.ActivePartitionEntry("partition.bundle", SnapshotVerifier.calculateSha256(pt)),
+                List.of(), 0L, 0L, null
+        );
+
+        ReplicaApplyEngine engine1 = new ReplicaApplyEngine(root, PATH_HELPER, Set.of(TENANT), Set.of());
+        engine1.applySnapshot(manifest, Map.of("runtime.bundle", rt, "partition.bundle", pt), List.of());
+        assertThat(engine1.getAppliedHwm(NS)).isEqualTo(75L);
+
+        // Simulate crash/restart: create new engine with same persistenceRoot
+        ReplicaApplyEngine engine2 = new ReplicaApplyEngine(root, PATH_HELPER, Set.of(TENANT), Set.of());
+        assertThat(engine2.getAppliedHwm(NS)).isEqualTo(75L);
+        assertThat(engine2.getLastAppliedManifest(NS)).isNotNull();
+        assertThat(engine2.getLastAppliedManifest(NS).hwm()).isEqualTo(75L);
     }
 }

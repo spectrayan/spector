@@ -18,8 +18,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLSocket;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
@@ -34,6 +36,8 @@ import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +67,7 @@ public class ReplicationServer implements AutoCloseable {
     private Thread acceptThread;
     private ExecutorService connectionPool;
     private int boundPort;
+    private final boolean insecureMode;
 
     public ReplicationServer(
             String bindHost,
@@ -73,6 +78,22 @@ public class ReplicationServer implements AutoCloseable {
             ReplicationMetrics metrics,
             Path tempStagingDir
     ) {
+        this(bindHost, port, sslContext, allowListFilter, applyEngine, metrics, tempStagingDir, false);
+    }
+
+    /**
+     * @param insecureMode if true, allows plaintext replication transport (G8: test only, logs warning)
+     */
+    public ReplicationServer(
+            String bindHost,
+            int port,
+            SSLContext sslContext,
+            TenantAllowListFilter allowListFilter,
+            ReplicaApplyEngine applyEngine,
+            ReplicationMetrics metrics,
+            Path tempStagingDir,
+            boolean insecureMode
+    ) {
         this.bindHost = bindHost != null ? bindHost : "127.0.0.1";
         this.port = port >= 0 ? port : 9090;
         this.sslContext = sslContext;
@@ -80,6 +101,7 @@ public class ReplicationServer implements AutoCloseable {
         this.applyEngine = applyEngine;
         this.metrics = metrics != null ? metrics : new ReplicationMetrics();
         this.tempStagingDir = tempStagingDir != null ? tempStagingDir : Path.of(System.getProperty("java.io.tmpdir"), "spector-replica-staging");
+        this.insecureMode = insecureMode;
     }
 
     /**
@@ -100,8 +122,15 @@ public class ReplicationServer implements AutoCloseable {
             SSLServerSocket sslServerSocket = (SSLServerSocket) ssf.createServerSocket(port, 128, bindAddr);
             ReplicationTlsFactory.configureServerSocket(sslServerSocket);
             serverSocket = sslServerSocket;
-        } else {
+        } else if (insecureMode) {
+            log.warn("[ReplicationServer] ⚠️ INSECURE MODE: Starting replication listener WITHOUT mTLS. "
+                    + "Data in transit is UNENCRYPTED. This mode is for testing only (G8).");
             serverSocket = new ServerSocket(port, 128, bindAddr);
+        } else {
+            throw new IllegalStateException(
+                    "[ReplicationServer] Refusing to start: sslContext is null and insecureMode is false. "
+                            + "mTLS is required for replication transport (G8). "
+                            + "Set insecureMode=true explicitly for testing only.");
         }
 
         boundPort = serverSocket.getLocalPort();
@@ -144,7 +173,7 @@ public class ReplicationServer implements AutoCloseable {
                     break; // peer closed connection gracefully
                 }
 
-                ReplicationFrame response = processFrame(frame);
+                ReplicationFrame response = processFrame(frame, socket);
                 response.writeTo(out);
             }
         } catch (Exception e) {
@@ -152,19 +181,19 @@ public class ReplicationServer implements AutoCloseable {
         }
     }
 
-    private ReplicationFrame processFrame(ReplicationFrame frame) {
+    private ReplicationFrame processFrame(ReplicationFrame frame, Socket socket) {
         if (frame.type() == ReplicationFrame.TYPE_PING) {
             return new ReplicationFrame(ReplicationFrame.TYPE_PONG, new byte[0]);
         }
 
         if (frame.type() == ReplicationFrame.TYPE_SNAPSHOT_PAYLOAD) {
-            return handleSnapshotPayload(frame.payload());
+            return handleSnapshotPayload(frame.payload(), socket);
         }
 
         return ReplicationFrame.error("Unsupported frame type: " + frame.type());
     }
 
-    private ReplicationFrame handleSnapshotPayload(byte[] payload) {
+    private ReplicationFrame handleSnapshotPayload(byte[] payload, Socket socket) {
         try (DataInputStream dis = new DataInputStream(new ByteArrayInputStream(payload))) {
             // Read manifest JSON
             int manifestLen = dis.readInt();
@@ -176,6 +205,31 @@ public class ReplicationServer implements AutoCloseable {
                 metrics.recordFrameRejected();
                 // Return sanitized error without leaking tenant ID (Req R6.5)
                 return ReplicationFrame.error(ReplicationAuthorizationException.SANITIZED_PEER_MESSAGE);
+            }
+
+            // G8: Extract and verify peer tenant identity from mTLS client certificate
+            if (socket instanceof SSLSocket sslSocket) {
+                try {
+                    Certificate[] certs = sslSocket.getSession().getPeerCertificates();
+                    if (certs != null && certs.length > 0 && certs[0] instanceof X509Certificate x509) {
+                        String peerTenant = extractPeerTenant(x509);
+                        if (peerTenant != null && !peerTenant.isBlank()
+                                && !peerTenant.equalsIgnoreCase("client")
+                                && !peerTenant.equalsIgnoreCase("localhost")) {
+                            if (!peerTenant.equals(manifest.tenantId())) {
+                                log.error("[ReplicationServer] Peer certificate tenant '{}' does not match manifest tenantId '{}' (G8)",
+                                        peerTenant, manifest.tenantId());
+                                metrics.recordFrameRejected();
+                                return ReplicationFrame.error(ReplicationAuthorizationException.SANITIZED_PEER_MESSAGE);
+                            }
+                        }
+                    }
+                } catch (SSLPeerUnverifiedException e) {
+                    if (!insecureMode) {
+                        metrics.recordFrameRejected();
+                        return ReplicationFrame.error(ReplicationAuthorizationException.SANITIZED_PEER_MESSAGE);
+                    }
+                }
             }
 
             // Read file entries
@@ -278,5 +332,23 @@ public class ReplicationServer implements AutoCloseable {
             throw new IllegalArgumentException("Path traversal outside base directory: " + relativePath);
         }
         return targetPath;
+    }
+
+    static String extractPeerTenant(X509Certificate cert) {
+        if (cert == null) return null;
+        String dn = cert.getSubjectX500Principal().getName();
+        for (String part : dn.split(",")) {
+            String trimmed = part.trim();
+            if (trimmed.startsWith("OU=") && !trimmed.substring(3).equalsIgnoreCase("Spector")) {
+                return trimmed.substring(3);
+            }
+        }
+        for (String part : dn.split(",")) {
+            String trimmed = part.trim();
+            if (trimmed.startsWith("CN=")) {
+                return trimmed.substring(3);
+            }
+        }
+        return null;
     }
 }

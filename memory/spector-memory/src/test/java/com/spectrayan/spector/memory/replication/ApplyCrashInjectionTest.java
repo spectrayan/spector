@@ -73,7 +73,7 @@ class ApplyCrashInjectionTest {
                 new SnapshotManifest.ActivePartitionEntry("partition.bundle", pt1Sha),
                 List.of(),
                 0L,
-                100L,
+                0L,
                 null
         );
 
@@ -108,8 +108,8 @@ class ApplyCrashInjectionTest {
                 new SnapshotManifest.RuntimeEntry("runtime.bundle", rt2Sha, 2L),
                 new SnapshotManifest.ActivePartitionEntry("partition.bundle", pt2Sha),
                 List.of(),
-                100L,
-                200L,
+                0L,
+                0L,
                 null
         );
 
@@ -147,7 +147,7 @@ class ApplyCrashInjectionTest {
         FlawedEngine flawed = new FlawedEngine();
         SnapshotManifest manifest = new SnapshotManifest(
                 SnapshotManifest.PLANE_NAMESPACE, 1, TENANT, NS, PATH_HELPER, 1L, 200L,
-                SnapshotKind.FULL, null, null, List.of(), 0L, 200L, null
+                SnapshotKind.FULL, null, null, List.of(), 0L, 0L, null
         );
         Path corrupted = ReplicationBundleFixtures.createCorruptedMagicBundle(tempDir.resolve("corrupted.bundle"));
 

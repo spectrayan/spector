@@ -60,7 +60,8 @@ class TenantIsolationReplicationTest {
                 allowListFilter,
                 null,
                 metrics,
-                tempDir.resolve("staging")
+                tempDir.resolve("staging"),
+                true // G8: explicit insecure mode for testing
         );
         server.start();
 
@@ -90,7 +91,7 @@ class TenantIsolationReplicationTest {
                 new SnapshotManifest.ActivePartitionEntry("001_active", "hash2"),
                 List.of(),
                 0L,
-                100L,
+                0L,
                 null
         );
 
@@ -137,7 +138,7 @@ class TenantIsolationReplicationTest {
                 new SnapshotManifest.ActivePartitionEntry("001_active", "hash2"),
                 List.of(),
                 0L,
-                100L,
+                0L,
                 null
         );
 

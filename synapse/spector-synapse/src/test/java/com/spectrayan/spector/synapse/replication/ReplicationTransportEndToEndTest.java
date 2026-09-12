@@ -85,7 +85,8 @@ class ReplicationTransportEndToEndTest {
                 allowListFilter,
                 applyEngine,
                 metrics,
-                tempDir.resolve("staging")
+                tempDir.resolve("staging"),
+                true // G8: explicit insecure mode for testing
         );
         server.start();
 
@@ -141,8 +142,8 @@ class ReplicationTransportEndToEndTest {
                 new SnapshotManifest.RuntimeEntry("runtime.bundle", runtimeSha, 1L),
                 new SnapshotManifest.ActivePartitionEntry("001_active", partitionSha),
                 List.of(),
-                41900L,
-                42019L,
+                0L,
+                0L,
                 null
         );
 
