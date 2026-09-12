@@ -887,3 +887,185 @@ code, kbd, pre, samp, .highlight, .md-typeset code {
   box-shadow: 0 10px 20px -4px rgba(0, 0, 0, 0.08);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Spector Brand Nav Header & Tabs — Mobius Palette Integration
+   Exact Logo Palette:
+   • Midnight Obsidian Base: #0a0e1a (matches spector-logo-full-dark.png)
+   • Electric Cyan:         #00c8ff / #38bdf8
+   • Cobalt Azure:          #3b82f6 / #4f46e5
+   • Deep Violet:           #6366f1 / #8b5cf6
+   • Mint / Diamond:        #14b8a6 / #00f5d4
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Dark Mode Header & Tabs (Slate Scheme) ── */
+[data-md-color-scheme="slate"] .md-header {
+  background-color: rgba(10, 14, 26, 0.94) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+}
+
+[data-md-color-scheme="slate"] .md-header__topic {
+  color: #f8fafc !important;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+[data-md-color-scheme="slate"] .md-header__button {
+  color: #94a3b8 !important;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+[data-md-color-scheme="slate"] .md-header__button:hover {
+  color: #38bdf8 !important; /* Electric Cyan */
+}
+
+/* GitHub repo button in dark header */
+[data-md-color-scheme="slate"] .md-source {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: #cbd5e1 !important;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+[data-md-color-scheme="slate"] .md-source:hover {
+  background-color: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #38bdf8 !important;
+}
+
+/* Search bar inside dark header */
+[data-md-color-scheme="slate"] .md-search__inner {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-md-color-scheme="slate"] .md-search__inner:focus-within {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25) !important;
+}
+
+/* Dark Mode Navigation Tabs */
+[data-md-color-scheme="slate"] .md-tabs {
+  background-color: rgba(10, 14, 26, 0.92) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  position: relative;
+}
+
+[data-md-color-scheme="slate"] .md-tabs__link {
+  color: #94a3b8 !important;
+  font-weight: 500;
+  opacity: 0.85;
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+[data-md-color-scheme="slate"] .md-tabs__link:hover {
+  color: #38bdf8 !important; /* Electric Cyan */
+  opacity: 1;
+}
+
+[data-md-color-scheme="slate"] .md-tabs__item--active .md-tabs__link {
+  color: #ffffff !important;
+  font-weight: 600;
+  opacity: 1;
+}
+
+/* Active tab cyan-to-purple glow underline */
+[data-md-color-scheme="slate"] .md-tabs__item--active .md-tabs__link::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 12%;
+  right: 12%;
+  height: 2px;
+  background: linear-gradient(90deg, #00c8ff, #8b5cf6);
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(0, 200, 255, 0.5);
+}
+
+/* ── Light Mode Header & Tabs (Default Scheme) ── */
+[data-md-color-scheme="default"] .md-header {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  color: #0a0e1a !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+[data-md-color-scheme="default"] .md-header__topic {
+  color: #0a0e1a !important;
+  font-weight: 600;
+}
+
+[data-md-color-scheme="default"] .md-header__button {
+  color: #475569 !important;
+}
+
+[data-md-color-scheme="default"] .md-header__button:hover {
+  color: #0284c7 !important;
+}
+
+[data-md-color-scheme="default"] .md-tabs {
+  background-color: rgba(248, 250, 252, 0.96) !important;
+  border-bottom: 1px solid #e2e8f0;
+  position: relative;
+}
+
+[data-md-color-scheme="default"] .md-tabs__link {
+  color: #64748b !important;
+  font-weight: 500;
+}
+
+[data-md-color-scheme="default"] .md-tabs__link:hover,
+[data-md-color-scheme="default"] .md-tabs__item--active .md-tabs__link {
+  color: #0284c7 !important;
+  font-weight: 600;
+}
+
+/* ── Signature Mobius Ribbon Gradient Hairline ── */
+/* When tabs are active on wide screens, place hairline at bottom of tabs */
+.md-tabs {
+  position: relative;
+}
+
+.md-tabs::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #00c8ff 0%, #3b82f6 28%, #6366f1 55%, #8b5cf6 80%, #14b8a6 100%);
+  z-index: 3;
+}
+
+/* On mobile screens when tabs are hidden, place hairline at bottom of header */
+@media screen and (max-width: 76.1875em) {
+  .md-header::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #00c8ff 0%, #3b82f6 28%, #6366f1 55%, #8b5cf6 80%, #14b8a6 100%);
+    z-index: 3;
+  }
+}
+
+/* ── Logo Micro-Interactions ── */
+.md-header__button.md-logo img {
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), filter 0.28s ease;
+}
+
+.md-header__button.md-logo:hover img {
+  transform: scale(1.08);
+  filter: drop-shadow(0 0 12px rgba(0, 200, 255, 0.6)) drop-shadow(0 0 20px rgba(139, 92, 246, 0.4));
+}
+
+
