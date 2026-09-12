@@ -433,6 +433,31 @@ Spector Synapse Phase 2 accelerates routing resolution via a three-tier waterfal
 
 ---
 
+## 🔄 Cell Snapshot Replication & Replica Recall (`spector.replication.*`)
+
+Spector Synapse Phase 3 enables high-throughput asynchronous namespace replication from authoritative cell owners to clean replica nodes over a dedicated mutual TLS 1.3 transport, bounded-staleness replica recall, and sealed-partition deduplication (ADR-0034, Phase 3).
+
+| Property | Environment Variable | Default | Allowed Values | Description |
+|:---|:---|:---|:---|:---|
+| `spector.replication.enabled` | `SPECTOR_REPLICATION_ENABLED` | `false` | Boolean | Master switch for replication plane listener, coordinators, and shippers. |
+| `spector.replication.port` | `SPECTOR_REPLICATION_PORT` | `9090` | TCP Port (1024–65535) | Dedicated replication network port (B2, Req R6.1). Must be distinct from public REST/gRPC API port. |
+| `spector.replication.bind-host` | `SPECTOR_REPLICATION_BIND_HOST` | `127.0.0.1` | IP address | Local bind host. Defaults to loopback to prevent inadvertent public network exposure (Req R6.4). |
+| `spector.replication.snapshot-interval-seconds` | `SPECTOR_REPLICATION_SNAPSHOT_INTERVAL_SECONDS` | `60` | Integer $\ge 5$ | Periodic replication debounce interval (Req R7.3). |
+| `spector.replication.snapshot-min-changes` | `SPECTOR_REPLICATION_SNAPSHOT_MIN_CHANGES` | `100` | Integer $\ge 1$ | Minimum WAL modifications required to trigger debounced snapshot shipping. |
+| `spector.replication.max-replica-lag-seconds` | `SPECTOR_REPLICATION_MAX_REPLICA_LAG_SECONDS` | `30` | Integer $\ge 1$ | Freshness bound for bounded-staleness replica recall (Req R10.2). Read requests exceeding this lag are rejected with `HTTP 412` (Invariant N7). |
+| `spector.replication.full-resync-lag-threshold-seconds` | `SPECTOR_REPLICATION_FULL_RESYNC_LAG_THRESHOLD_SECONDS` | `300` | Integer $\ge 10$ | Lag threshold triggering full snapshot resynchronization instead of incremental tail chase (Req R8.3). |
+| `spector.replication.replica-reads-enabled` | `SPECTOR_REPLICATION_REPLICA_READS_ENABLED` | `false` | Boolean | **Safety Pin**: Gateway replica read fan-out defaults strictly `false` (Req R10.3). Clients must explicitly opt-in with `X-Spector-Allow-Replica: true`. |
+| `spector.replication.replica-hot-cap` | `SPECTOR_REPLICATION_REPLICA_HOT_CAP` | `100` | Integer $\ge 1$ | Maximum number of namespaces concurrently kept hot in-memory on a replica node before unmapping cold replicas. |
+
+> [!IMPORTANT]
+> **Replication Plane Invariants & Consistency Contracts**:
+> - **Default OFF & Opt-In Reads (Req R10.3)**: Replica reads default OFF. A client that does not explicitly pass `X-Spector-Allow-Replica: true` will never receive stale reads, even if replica infrastructure is healthy.
+> - **Three Simultaneous Conditions (Req R10.1, N7)**: A replica serves recall if and only if: (1) namespace is locally mapped, (2) $(\text{now} - \text{snapshotTime}) \le \text{maxReplicaLagSeconds}$, and (3) incoming request permits replica reads. If staleness bound is violated, the replica **refuses rather than serves** stale data (`ReplicaStalenessExceededException`).
+> - **Unconditional Write Refusal (Req R10.6, Invariant N2)**: A replica **never** writes. Any write operation dispatched to a replica is rejected immediately with HTTP 405 (`ReplicaWriteRefusedException`). The `X-Spector-Allow-Replica` header widens read consistency, never write routing.
+> - **HWM-Advance-Last Crash Safety (Req R5.2, N5)**: The replica apply engine extracts bundles to temporary staging, fsyncs, cryptographically verifies magic `0x534D4B4D`, layout `0x42554E44`, and SHA-256 digests against the manifest, atomically renames files into place, replays WAL records, and advances the High-Water Mark **last**. A crash during transfer or apply leaves existing data intact and corrupt bytes unpublishable.
+
+---
+
 ## 🔗 See Also
 
 - [Performance Tuning](../operations/performance-tuning.md) — Benchmarks and optimization strategies

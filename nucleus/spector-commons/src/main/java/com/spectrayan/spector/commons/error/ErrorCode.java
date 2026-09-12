@@ -536,6 +536,14 @@ public enum ErrorCode {
     STALE_ROUTE               (700_006, ErrorCategory.CLUSTER,
             "Route epoch {} for namespace '{}' is stale (owner='{}', activeEpoch={})"),
 
+    /** Replica recall staleness exceeded the configured freshness bound (ADR-0034 §10, Req R10.4). */
+    REPLICA_STALENESS_EXCEEDED(700_007, ErrorCategory.CLUSTER,
+            "Replica freshness bound exceeded for namespace '{}': lag {} ms > max allowed {} ms (Invariant N7)"),
+
+    /** A write operation was dispatched to a replica node, which unconditionally refuses writes (ADR-0034 §10, Req R10.6). */
+    REPLICA_WRITE_REFUSED     (700_008, ErrorCategory.CLUSTER,
+            "Write refused on replica for namespace '{}'. Replicas unconditionally refuse writes (Invariant N2, Req R10.6)"),
+
     // ══════════════════════════════════════════════════════════════════════
     // INTERNAL (SPE-900-xxx)
     // ══════════════════════════════════════════════════════════════════════

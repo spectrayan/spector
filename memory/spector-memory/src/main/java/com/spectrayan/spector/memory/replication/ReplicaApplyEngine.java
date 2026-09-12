@@ -177,6 +177,9 @@ public final class ReplicaApplyEngine {
                     actStaged = stagedTargetFiles.get(manifest.activePartition().id() + "/partition.bundle");
                 }
                 if (actStaged == null) {
+                    actStaged = stagedTargetFiles.get(StoragePaths.DIR_PARTITIONS + "/" + manifest.activePartition().id() + "/partition.bundle");
+                }
+                if (actStaged == null) {
                     throw new SpectorValidationException(ErrorCode.FILE_FORMAT_INVALID,
                             "Missing staged active partition bundle: " + manifest.activePartition().id());
                 }
@@ -187,6 +190,9 @@ public final class ReplicaApplyEngine {
                 Path sStaged = stagedTargetFiles.get(s.id());
                 if (sStaged == null) {
                     sStaged = stagedTargetFiles.get(s.id() + "/partition.bundle");
+                }
+                if (sStaged == null) {
+                    sStaged = stagedTargetFiles.get(StoragePaths.DIR_PARTITIONS + "/" + s.id() + "/partition.bundle");
                 }
                 if (sStaged != null) {
                     SnapshotVerifier.verifyBundleFile(sStaged, s.sha256());
