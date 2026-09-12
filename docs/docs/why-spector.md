@@ -85,7 +85,7 @@ Spector needs no Docker, no external database, and no extra services. Reach it f
 
 ### 4. Built-In MCP Server
 
-Spector includes a 16-tool MCP server for AI agent integration — Claude Desktop, Cursor, and custom agents can use cognitive memory out of the box. No wrapper libraries needed.
+Spector includes a 37+ tool MCP server for AI agent integration — Claude Desktop, Cursor, and custom agents can use cognitive memory, graph recall, and namespace RBAC out of the box. No wrapper libraries needed.
 
 ### 5. Enterprise-Grade Security
 
@@ -108,10 +108,10 @@ Every tenant gets physically separate files with independent encryption keys:
 | **Language** | Java 25 | Managed | Go | Rust | Go/C++ | Python | C |
 | **Dependencies** | Zero (JDK only) | N/A (SaaS) | Docker | Docker | Docker + etcd + MinIO | Python packages | PostgreSQL |
 | **SIMD acceleration** | ✅ AVX2/AVX-512/NEON | ✅ (internal) | ✅ | ✅ | ✅ | ❌ | ✅ (pgvector 0.5+) |
-| **Off-heap / Zero GC** | ✅ Panama FFM | N/A | Partial | ✅ (Rust) | Partial | ❌ | N/A |
-| **Fused cognitive scoring** | ✅ 6-phase pipeline | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Off-heap / Zero GC** | ✅ Panama FFM & V4 Bundles | N/A | Partial | ✅ (Rust) | Partial | ❌ | N/A |
+| **Fused cognitive scoring** | ✅ 6-Phase SIMD Recall Pathway | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **Hybrid search** | ✅ HNSW + BM25 + RRF | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Built-in MCP server** | ✅ 16 tools | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Built-in MCP server** | ✅ 37+ tools | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **Cognitive memory** | ✅ 4-tier, bio-inspired | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **Quantization** | SVASQ-8/4, IVF-PQ | ✅ | ✅ BQ | ✅ SQ/PQ | ✅ IVF-PQ/SQ | ❌ | ❌ |
 | **GPU acceleration** | ✅ CUDA via Panama | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
@@ -124,14 +124,14 @@ Every tenant gets physically separate files with independent encryption keys:
 | **Temporal decay** | ✅ Power-law (configurable) | ❌ None | ❌ Agent-managed | ✅ Limited | ✅ Exponential |
 | **Recall latency** | **Ultra-low** | 50–200ms | 100ms+ | 50–150ms | N/A (research) |
 | **Scoring model** | ACT-R inspired | Vector similarity | Agent-managed | Hybrid | Additive |
-| **Two-Factor strengthening** | ✅ Bjork model | ❌ | ❌ | ❌ | ❌ |
+| **Two-Factor strengthening** | ✅ Bjork model (Strength Region) | ❌ | ❌ | ❌ | ❌ |
 | **Emotional valence** | ✅ Amygdala model | ❌ | ❌ | ❌ | ❌ |
 | **Salience profiles** | ✅ Persona + interest-based | ❌ | ❌ | ❌ | ❌ |
 | **Sleep consolidation** | ✅ Hippocampus model | ❌ | ❌ | ❌ | ❌ |
 | **Hebbian associations** | ✅ Co-activation graph | ❌ | ❌ | ❌ | ❌ |
-| **Entity knowledge graph** | ✅ LLM-powered, open-schema | ❌ | ❌ | ❌ | ❌ |
+| **Entity knowledge graph** | ✅ HyperEntityGraph | ❌ | ❌ | ❌ | ❌ |
 | **GC pressure** | 0.01% (off-heap) | High (Python) | High (Python) | Moderate | N/A |
-| **MCP integration** | ✅ Built-in | ❌ | ❌ | ❌ | ❌ |
+| **MCP integration** | ✅ Built-in (37+ tools) | ❌ | ❌ | ❌ | ❌ |
 | **Infrastructure** | Zero (embedded JVM) | Redis + API | PostgreSQL + API | PostgreSQL + API | Research code |
 
 ---

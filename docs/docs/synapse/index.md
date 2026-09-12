@@ -55,7 +55,7 @@ graph LR
 
 Together, they ensure the agent's actions are highly personalized to the user's focus areas while remaining character-consistent and ethically bounded.
 
-### Persona Enactment: Soul as Policy over Memory (ADR-0032)
+### Persona Enactment: Soul as Policy over Memory
 
 Moving beyond shallow prompt-wrapping, Spector Synapse implements biological **Persona Enactment** grounded in Dual-Process Cognitive Appraisal Theory and Continuous Hopfield Attractor Networks:
 
@@ -67,7 +67,7 @@ Moving beyond shallow prompt-wrapping, Spector Synapse implements biological **P
    - **Active Policy Selection**: Evaluates Expected Free Energy (EFE) $G(\pi)$ across candidate policies (`PolicyInferenceEngine`).
 2. **System 2 (Bounded Deliberation & Embodiment)**:
    - Evaluates active dogma, dynamic trade-off matrix (prioritized vs sacrificed), blind spots, and tactical first move (with low-intensity skip for routine conditions).
-   - Enforces Epistemic Tense gating (`FACT` vs `SIM`, ADR-0031) and ancestral PEP guardrail vetoes.
+   - Enforces Epistemic Tense gating (`FACT` vs `SIM`) and ancestral PEP guardrail vetoes.
    - Accessible via the `ENACT` node in LangGraph4j state graphs and the `persona_enact` MCP tool.
 
 ---

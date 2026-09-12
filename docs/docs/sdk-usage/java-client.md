@@ -1,38 +1,97 @@
-# ☕ Java SDK & Embedded Usage Guide
+# ☕ Java Client SDK & Embedded Usage Guide
 
-> **Type-safe, thread-safe Java access to Spector — embedded directly in your JVM application.** Embed cognitive memory and vector search directly with zero network overhead, or integrate seamlessly with Spring AI.
-
----
-
-## 📦 Installation
-
-**Embedded Memory Engine** (in-process, zero network overhead):
-
-```xml
-<dependency>
-    <groupId>com.spectrayan</groupId>
-    <artifactId>spector-memory</artifactId>
-    <version>0.1.0-alpha</version>
-</dependency>
-```
-
-**Spring AI Starter** (Spring Boot / Spring AI VectorStore):
-
-```xml
-<dependency>
-    <groupId>com.spectrayan</groupId>
-    <artifactId>spring-ai-starter-spector-store</artifactId>
-    <version>0.1.0-alpha</version>
-</dependency>
-```
+> **Type-safe, thread-safe Java access to Spector.** Connect over high-performance HTTP using the lightweight **Java Client SDK (`spector-client`)**, embed the zero-GC **Embedded Memory Engine (`spector-memory`)** directly in your JVM application, or integrate seamlessly with Spring AI.
 
 ---
 
-## ⚡ Embedded Memory (`SpectorMemory`)
+## 📦 Client Options & Dependencies
 
-For applications that want in-process hybrid search and biologically-inspired cognitive memory:
+Choose the dependency that matches your deployment model:
 
-### 🔧 Creating the Engine
+=== "Lightweight Client SDK (Recommended)"
+
+    For client applications, microservices, and web servers connecting to a running Spector node over HTTP/REST:
+
+    ```xml
+    <dependency>
+        <groupId>com.spectrayan</groupId>
+        <artifactId>spector-client</artifactId>
+        <version>0.1.0-alpha</version>
+    </dependency>
+    ```
+
+    *Requires standard Java 21+ — zero vector flags, zero Panama preview options, zero native dependencies.*
+
+=== "Embedded Memory Engine"
+
+    For low-latency applications requiring direct in-process off-heap memory access and zero-network overhead:
+
+    ```xml
+    <dependency>
+        <groupId>com.spectrayan</groupId>
+        <artifactId>spector-memory</artifactId>
+        <version>0.1.0-alpha</version>
+    </dependency>
+    ```
+
+    *Requires Java 25+ with `--add-modules jdk.incubator.vector` and `--enable-native-access`.*
+
+=== "Spring AI Starter"
+
+    For Spring Boot applications integrating Spector as a `VectorStore`:
+
+    ```xml
+    <dependency>
+        <groupId>com.spectrayan</groupId>
+        <artifactId>spring-ai-starter-spector-store</artifactId>
+        <version>0.1.0-alpha</version>
+    </dependency>
+    ```
+
+---
+
+## 🚀 Mode 1: Lightweight Client SDK (`SpectorClient`)
+
+The lightweight `SpectorClient` provides a fluent, thread-safe client that connects to any Spector gateway:
+
+### Creating the Client & Basic Operations
+
+```java
+import com.spectrayan.spector.client.SpectorClient;
+import com.spectrayan.spector.client.model.MemoryTier;
+import java.util.List;
+
+// Fluent builder with custom timeouts and optional API key
+try (SpectorClient client = SpectorClient.builder()
+        .baseUri("http://localhost:7070")
+        .apiKey("optional-api-key")
+        .build()) {
+
+    // 1. Remember a new memory with contextual tags
+    var engram = client.memory().store(
+        "User prefers dark mode and high-contrast syntax highlighting",
+        List.of("preferences", "ui")
+    );
+    System.out.println("Stored memory ID: " + engram.getId());
+
+    // 2. Recall memories using cognitive scoring
+    var results = client.memory().recall("user ui preferences", 5);
+    for (var memory : results) {
+        System.out.printf("[%s] score=%.4f: %s%n", memory.getId(), memory.getScore(), memory.getText());
+    }
+
+    // 3. Forget when obsolete
+    client.memory().forget(engram.getId());
+}
+```
+
+---
+
+## ⚡ Mode 2: Embedded Memory (`SpectorMemory`)
+
+For applications that want direct in-process hybrid search and biologically-inspired cognitive memory running in the same JVM process:
+
+### 🔧 Creating the Embedded Engine
 
 ```java
 import com.spectrayan.spector.memory.SpectorMemory;

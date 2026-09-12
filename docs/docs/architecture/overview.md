@@ -13,82 +13,83 @@ description: "Spector architecture: SIMD-accelerated search pipeline, cognitive 
 
 ```mermaid
 graph TB
-    subgraph Clients["Client Interfaces"]
+    subgraph Clients["Client Interfaces & SDKs"]
         claude["🤖 Claude Desktop"]
-        cursor["✏️ Cursor / AI IDEs"]
+        cursor["✏️ Cursor / Windsurf"]
         agents["🦾 Autonomous Agents"]
-        sdk["☕ Java SDK"]
+        py["🐍 Python SDK"]
+        ts["🔷 TypeScript SDK"]
+        sdk["☕ Java Client SDK"]
         spring["🌱 Spring AI"]
-        cli["🖥️ spectorctl CLI"]
+        cli["🖥️ spector CLI"]
         rest["🌐 REST / gRPC"]
     end
 
-    subgraph Transport["Transport Layer"]
-        mcp["MCP Server<br/><i>stdio · Streamable HTTP · 16 cognitive memory tools</i>"]
-        armeria["Armeria Server :7070<br/><i>REST + gRPC + SSE streaming</i>"]
+    subgraph Transport["Synapse Application Layer"]
+        mcp["MCP Server<br/><i>stdio · Streamable HTTP · 37+ tools</i>"]
+        armeria["Armeria Gateway :7070<br/><i>REST + gRPC + SSE streaming</i>"]
+        persona["Persona Enactment<br/><i>Dual-process cognitive appraisal</i>"]
     end
 
-    subgraph Engine["Spector Engine"]
-        runtime["SpectorMemory<br/><i>Core Cognitive Engine</i>"]
-
-        subgraph Search["Search Pipeline"]
-            hybrid["Hybrid Search<br/><i>Mode auto-detection</i>"]
-            hnsw["HNSW Index<br/><i>M=16, ef=200</i>"]
-            bm25["BM25 Index<br/><i>Inverted + analyzers</i>"]
-            rrf["RRF Fusion<br/><i>+ LLM reranking</i>"]
+    subgraph Engine["Spector Memory Engine"]
+        subgraph Pathways["Cognitive Pathways"]
+            rem["Remember Pathway<br/><i>Surprise · Flashbulb · Dedup</i>"]
+            rec["Recall Pathway<br/><i>6-Phase SIMD Fused Scoring</i>"]
+            ref["Reflect Pathway<br/><i>Sleep Consolidation · Replay</i>"]
+            drm["Dream Pathway<br/><i>Counterfactual Simulation</i>"]
         end
 
-        subgraph Memory["Cognitive Memory"]
-            cortex["4-Tier Cortex<br/><i>Working → Episodic → Semantic → Procedural</i>"]
-            hebbian["Hebbian Graph<br/><i>Co-activation associations</i>"]
-            decay["Memory Decay<br/><i>Power-law forgetting</i>"]
-            consolidation["Sleep Consolidation<br/><i>Hippocampal replay + pruning</i>"]
+        subgraph Memory["4-Tier Cortex & Graphs"]
+            cortex["4-Tier Cortex<br/><i>Working · Episodic · Semantic · Procedural</i>"]
+            hebbian["Cognitive Graphs<br/><i>Hebbian · Temporal · HyperEntity</i>"]
+            decay["Memory Decay<br/><i>Power-law forgetting · Bjork strength</i>"]
         end
 
-        subgraph Ingest["Ingestion Pipeline"]
-            chunking["Document Chunking<br/><i>Sentence · Paragraph · Semantic</i>"]
-            embedding["Embedding<br/><i>Ollama · Provider SPI</i>"]
-            indexing["Index Writer<br/><i>Batch + streaming</i>"]
+        subgraph Search["Search & Retrieval Stack"]
+            hybrid["Hybrid Retrieval<br/><i>BM25 + Dense + SPLADE</i>"]
+            hnsw["HNSW Graph Index<br/><i>M=16, ef=200</i>"]
+            colbert["ColBERT v2 Reranking<br/><i>Late-interaction MaxSim</i>"]
         end
     end
 
-    subgraph Platform["Platform Layer (Zero GC)"]
-        simd["SIMD Kernels<br/><i>AVX2 / AVX-512 / NEON</i>"]
-        panama["Panama Storage<br/><i>Off-heap MemorySegment · mmap</i>"]
-        quant["SVASQ Quantization<br/><i>INT8 · INT4 · IVF-PQ</i>"]
+    subgraph Kernel["⚡ Memory Kernel (spector-kernel — Zero GC)"]
+        direction TB
+        ns["NamespaceKernel Facade"]
+        bundles["V4 Single-VMA Bundles<br/><i>runtime.bundle · partition.bundle · identity.bundle</i>"]
+        shapes["8 Sealed Memory Shapes<br/><i>Record · Append · Graph · Chain · Hash · Insula</i>"]
+        panama["Panama FFM Storage<br/><i>Shared Arena · MemorySegment · mmap</i>"]
+        simd["Hardware SIMD Acceleration<br/><i>Vector API · AVX2 / AVX-512 / NEON</i>"]
         gpu["GPU Acceleration<br/><i>CUDA via Panama FFM</i>"]
     end
 
-    subgraph Observe["Observability"]
-        events["TelemetryBus<br/><i>12 event types</i>"]
+    subgraph Observe["Observability & Telemetry"]
+        events["TelemetryBus<br/><i>Event streams</i>"]
         metrics["Micrometer<br/><i>Prometheus export</i>"]
-        sse["SSE Event Stream<br/><i>Real-time telemetry</i>"]
+        sse["SSE Event Stream<br/><i>Cortex 3D Galaxy</i>"]
     end
 
     claude & cursor & agents --> mcp
-    sdk & spring --> Engine
+    py & ts & sdk & spring --> armeria
     cli & rest --> armeria
-    mcp & armeria --> runtime
+    mcp & armeria & persona --> Pathways
 
-    runtime --> Search & Memory & Ingest
+    Pathways --> Memory & Search
+    Memory & Search --> ns
+    ns --> bundles --> shapes --> panama
+    panama --> simd
+    gpu -.->|batch compute| simd
 
-    Search --> simd & panama & quant
-    Memory --> simd & panama
-    Ingest --> embedding
-
-    runtime --> events
+    Engine --> events
     events --> metrics & sse
-
-    gpu -.->|optional| simd
 
     style Clients fill:#5b6abf,stroke:#e94560,color:#fff
     style Transport fill:#4a6fa5,stroke:#3b82f6,color:#fff
     style Engine fill:#3b82f6,stroke:#7c3aed,color:#fff
-    style Platform fill:#7c3aed,stroke:#e94560,color:#fff
+    style Kernel fill:#1e293b,stroke:#0f172a,color:#fff
+    style Pathways fill:#2563eb,stroke:#1d4ed8,color:#fff
+    style Memory fill:#1d4ed8,stroke:#1e40af,color:#fff
+    style Search fill:#1e40af,stroke:#1e3a8a,color:#fff
     style Observe fill:#5b6abf,stroke:#7c3aed,color:#fff
-    style Search fill:#4a6fa5,stroke:#3b82f6,color:#fff
-    style Memory fill:#4a6fa5,stroke:#3b82f6,color:#fff
-    style Ingest fill:#4a6fa5,stroke:#3b82f6,color:#fff
 ```
 
 ### High-Level Data Flow
@@ -167,48 +168,80 @@ graph TB
         claude["🤖 Claude Desktop"]
         cursor["✏️ Cursor / Windsurf"]
         cline["🔧 Cline / Aider"]
-        custom["🦾 Custom Agents"]
+        custom["🦾 Autonomous Multi-Agents"]
     end
 
     subgraph MCP["MCP Server — Dual Transport · JSON-RPC 2.0"]
         transport["Transport Layer<br/><i>stdio (stdin/stdout) for CLI agents<br/>Streamable HTTP (/mcp) for remote agents</i>"]
-        registry["SpectorToolRegistry<br/><i>16 tools · auto-registration</i>"]
+        registry["SpectorToolRegistry<br/><i>37+ tools · dynamic route dispatch</i>"]
         handler["McpToolHandler<br/><i>Base class · thread-safe · virtual threads</i>"]
 
-        subgraph Mem["Cognitive Memory Tools — 16"]
+        subgraph Mem["1. Memory Tier Operations (16 Tools)"]
             m1["memory_remember — Store with importance & tags"]
             m2["memory_recall — Fused SIMD scoring recall"]
-            m3["memory_scratchpad — Working-memory scratch space"]
-            m4["memory_reinforce — Outcome feedback +/-"]
-            m5["memory_forget — Intentional forgetting"]
-            m6["memory_status — Per-tier statistics"]
-            m7["memory_introspect — Self-reflection"]
-            m8["memory_suppress — Temporary suppression"]
+            m3["memory_scratchpad — Working-memory scratchpad"]
+            m4["memory_reinforce — Outcome feedback (+/-)"]
+            m5["memory_forget — Tombstone intentional forgetting"]
+            m6["memory_status — Per-tier statistics & health"]
+            m7["memory_introspect — Metamemory self-reflection"]
+            m8["memory_suppress — Temporary recall suppression"]
             m9["memory_resolve — Mark resolved/unresolved"]
-            m10["memory_reminder — Proactive reminders"]
+            m10["memory_reminder — Proactive intent triggers"]
             m11["memory_why_not — Explain recall misses"]
-            m12["memory_compute_importance — Pre-ingestion scoring"]
+            m12["memory_compute_importance — Pre-ingest scoring"]
             m13["memory_inspect — Full cognitive X-ray"]
-            m14["memory_export — Bulk memory export"]
-            m15["memory_browse — Browse by tag/tier"]
-            m16["memory_salience — Tune salience profile"]
+            m14["memory_export — Bulk JSON memory export"]
+            m15["memory_browse — Browse by tag/tier filter"]
+            m16["memory_salience — Inspect & tune salience profile"]
+        end
+
+        subgraph GraphContext["2. Graph & Multi-Evidence Retrieval (7 Tools)"]
+            g1["memory_graph_recall — Spreading activation graph walk"]
+            g2["memory_context_pack — Assembled agent prompt pack"]
+            g3["memory_fact_history — Temporal chain evolution"]
+            g4["memory_persona_context — Soul-aligned contextual injection"]
+            g5["memory_multi_evidence_recall — Multi-vector consensus"]
+            g6["vector_search — Pure vector cosine similarity"]
+            g7["memory_express — Natural language memory synthesis"]
+        end
+
+        subgraph NamespaceRBAC["3. Namespace & Multi-Tenancy (9 Tools)"]
+            n1["namespace_create — Provision isolated namespace"]
+            n2["namespace_list — Enumerate active namespaces"]
+            n3["namespace_info — Inspect V4 bundle layout & size"]
+            n4["namespace_switch — Set active session namespace"]
+            n5["namespace_set_default — Update default namespace"]
+            n6["namespace_delete — Safely purge namespace files"]
+            n7["namespace_grant — RBAC access delegation"]
+            n8["namespace_revoke — Revoke access permissions"]
+            n9["namespace_list_grants — Audit security grants"]
+        end
+
+        subgraph SoulPolicy["4. Agent Soul & Persona Enactment (5 Tools)"]
+            s1["update_agent_soul — Mutate agent persona & dogmas"]
+            s2["persona_enact — Dual-process cognitive appraisal"]
+            s3["account_introspect — Account & tenant introspection"]
+            s4["invoke_connector_route — External data connector dispatch"]
+            s5["send_notification — Dispatch proactive agent alerts"]
         end
     end
 
     subgraph Core["In-Process Engine — Zero Network Overhead"]
-        runtime["SpectorMemory<br/><i>Engine + Memory + Ingestion</i>"]
-        simd["SIMD Kernels<br/><i>AVX2/512 · ~100µs per search</i>"]
-        panama["Panama Off-Heap<br/><i>Zero GC · mmap storage</i>"]
+        pathways["Cognitive Pathways<br/><i>Remember · Recall · Reflect</i>"]
+        kernel["Sealed Memory Kernel<br/><i>V4 Bundles · 8 Shapes · Panama FFM</i>"]
     end
 
     Agents -->|stdio / HTTP| transport --> registry --> handler
-    handler --> Mem
-    Mem --> runtime --> simd --> panama
+    handler --> Mem & GraphContext & NamespaceRBAC & SoulPolicy
+    Mem & GraphContext & NamespaceRBAC & SoulPolicy --> pathways --> kernel
 
     style Agents fill:#5b6abf,stroke:#e94560,color:#fff
     style MCP fill:#4a6fa5,stroke:#3b82f6,color:#fff
-    style Mem fill:#7c3aed,stroke:#e94560,color:#fff
-    style Core fill:#5b6abf,stroke:#e94560,color:#fff
+    style Mem fill:#3b82f6,stroke:#2563eb,color:#fff
+    style GraphContext fill:#2563eb,stroke:#1d4ed8,color:#fff
+    style NamespaceRBAC fill:#1d4ed8,stroke:#1e40af,color:#fff
+    style SoulPolicy fill:#1e40af,stroke:#1e3a8a,color:#fff
+    style Core fill:#1e293b,stroke:#0f172a,color:#fff
 ```
 
 ### Agent Interaction Flow

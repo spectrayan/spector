@@ -7,108 +7,303 @@ description: "Spector is a cognitive memory backbone for AI agents — biologica
 
 > **Agent-ready cognitive memory that forms associations — sub-millisecond recall, zero infrastructure.**
 
-Spector gives AI agents real memory: it **remembers, forgets, consolidates, and forms associations** across working, episodic, semantic, and procedural tiers, linked by Hebbian, temporal, and entity graphs. Retrieval fuses dense semantic search with hybrid signals and cognitive scoring for sub-millisecond recall.
+Spector gives AI agents real memory: it **remembers, forgets, consolidates, and forms associations** across working, episodic, semantic, and procedural tiers, linked by Hebbian, temporal, and entity graphs. Retrieval fuses dense semantic search with hybrid lexical signals and 6-phase cognitive scoring for sub-millisecond recall.
 
-Connect your agents through the **built-in MCP server** (Claude Desktop, Cursor, custom agents), call it over **REST/gRPC**, use the **Python SDK**, or embed it as a single JAR — no external database, no infrastructure to run. Every user, agent, or tenant is physically isolated in its own on-disk namespace. Java Project Panama keeps it all off-heap with zero GC pressure.
+Connect your agents through the **built-in MCP server** (Claude Desktop, Cursor, custom agents), call it over **REST/gRPC**, use the **Python, TypeScript, or Java Client SDKs**, or embed it directly in the JVM — no external database, no infrastructure to run. Every user, agent, or tenant is physically isolated in its own on-disk namespace. The **Sealed Memory Kernel (`spector-kernel`)** keeps it all off-heap via Java 25 Foreign Function & Memory (FFM) with zero GC pressure.
+
+---
+
+## 🚀 Quick Connect — Multi-SDK Client
+
+Connect your agent or application to Spector in seconds:
+
+=== "Python"
+
+    ```python
+    from spector_client import SpectorClient, MemoryTier
+
+    # Connect to running daemon or local test instance
+    client = SpectorClient.builder().with_rest("http://localhost:7070").build()
+
+    # 1. Remember with affective & contextual metadata
+    record = client.memory.remember(
+        text="User is designing a low-latency RAG system with pgvector and Spector",
+        tier=MemoryTier.SEMANTIC,
+        tags=["rag", "architecture", "database"],
+        interest=0.9,
+        valence=1,
+    )
+    print(f"Memory recorded: {record.get('id', 'stored')}")
+
+    # 2. Recall with associative cognitive scoring
+    memories = client.memory.recall("database architecture preferences", top_k=3)
+    for m in memories:
+        print(f"[{m.id}] score={m.score:.4f} | {m.text}")
+    ```
+
+=== "TypeScript"
+
+    ```typescript
+    import { SpectorClient, MemoryTier } from '@spectrayan/spector-client';
+
+    const client = SpectorClient.createDefault('http://localhost:7070');
+
+    // 1. Remember with contextual tags
+    const record = await client.memory.remember({
+      text: 'User prefers dark mode, high contrast, and TypeScript examples',
+      tier: MemoryTier.SEMANTIC,
+      tags: ['preferences', 'ui'],
+      interest: 0.85,
+    });
+    console.log(`Stored engram: ${record.id}`);
+
+    // 2. Recall with 6-phase scoring
+    const results = await client.memory.recall('user ui preferences', { topK: 5 });
+    results.forEach(m => console.log(`[${m.id}] ${m.text}`));
+    ```
+
+=== "Java (Client SDK)"
+
+    ```java
+    import com.spectrayan.spector.client.SpectorClient;
+    import com.spectrayan.spector.client.model.MemoryTier;
+    import java.util.List;
+
+    // Lightweight client SDK — zero vector/Panama preview flags required
+    try (var client = SpectorClient.builder().baseUri("http://localhost:7070").build()) {
+        // 1. Remember
+        var record = client.memory().store(
+            "User prefers concise responses with architectural diagrams",
+            List.of("preferences", "formatting")
+        );
+        System.out.println("Stored engram: " + record.getId());
+
+        // 2. Recall
+        var results = client.memory().recall("user formatting preferences", 5);
+        results.forEach(m -> System.out.println(m.getText()));
+    }
+    ```
+
+=== "cURL / REST"
+
+    ```bash
+    # 1. Remember
+    curl -X POST http://localhost:7070/api/v1/memory/remember \
+      -H "Content-Type: application/json" \
+      -d '{
+        "text": "User prefers dark mode and high-contrast syntax highlighting",
+        "tier": "SEMANTIC",
+        "tags": ["preferences", "ui"],
+        "interest": 0.9,
+        "valence": 1
+      }'
+
+    # 2. Recall
+    curl -X POST http://localhost:7070/api/v1/memory/recall \
+      -H "Content-Type: application/json" \
+      -d '{"query": "user ui preferences", "topK": 5}'
+    ```
+
+=== "CLI (`spector`)"
+
+    ```bash
+    # 1. Remember
+    spector remember \
+      --tier SEMANTIC \
+      --tags "preferences,ui" \
+      --interest 0.9 \
+      "User prefers dark mode and high-contrast syntax highlighting"
+
+    # 2. Recall
+    spector recall --top-k 5 "user ui preferences"
+    ```
 
 ---
 
 ## 🔥 Key Numbers
 
-| Metric | Value |
-|:-------|:------|
-| 🧠 Cognitive Recall | **Ultra-low latency** in-process |
-| ⚡ Similarity Scoring | **88µs** p50 (10K docs, 128-dim) |
-| 🚀 Peak QPS | **61,011** concurrent recalls |
-| 🤖 MCP Tools | **16 tools** (stdio + HTTP Model Context Protocol) |
-| 🗜️ Compression | **4×–32×** (SVASQ-8 to IVF-PQ) |
-| ✅ Test Suite | **685+ tests**, all passing |
-| 📦 Dependencies | **Zero** (JDK only) |
+| Metric | Value | Architectural Significance |
+|:---|:---|:---|
+| 🧠 **Cognitive Recall** | **Ultra-low latency** | Hardware-accelerated in-process SIMD scoring |
+| ⚡ **Scoring Loop** | **~200 cycles** | 6-Phase SIMD fused scan eliminating dead candidates early |
+| 🚀 **Peak QPS** | **61,011** | Concurrent queries running lock-free across Virtual Threads |
+| 🤖 **MCP Tools** | **37+ tools** | In-process stdio + Streamable HTTP Model Context Protocol |
+| 🛡️ **Synaptic Tags** | **128-bit Bloom** | Offsets 24–39: 60× lower false-positive rate than 64-bit filters |
+| 🗜️ **Compression** | **4×–32×** | SVASQ-8 to IVF-PQ SIMD quantization |
+| 📦 **Storage Engine** | **V4 Bundles** | Single-VMA `runtime.bundle`, `partition.bundle`, `identity.bundle` |
+| ⚙️ **Dependencies** | **Zero** | Pure Java 25 (JDK only) — no external databases, no Docker required |
 
 ---
 
-## 🗺️ Choose Your Path
+## 💡 How It Works — Cognitive Architecture
 
-=== "🚀 I want to use Spector"
-
-    | Page | What you'll learn |
-    |:-----|:------------------|
-    | [Quick Start](getting-started/quickstart.md) | Build, run, and search in 5 minutes |
-    | [MCP Server Guide](sdk-usage/mcp-server.md) | Connect Claude Desktop, Cursor, or custom agents |
-    | [Installation](getting-started/installation.md) | Prerequisites and setup options |
-    | [Configuration](configuration/parameters.md) | All parameters with tuning advice |
-    | [REST API Reference](api-reference/rest-endpoints.md) | All endpoints with curl examples |
-    | [Cognitive Memory](memory/index.md) | Getting started with AI agent memory |
-    | [Cortex Dashboard](cortex/index.md) | Real-time neural visualization dashboard |
-
-=== "🧠 I want to understand how it works"
-
-    | Page | What you'll learn |
-    |:-----|:------------------|
-    | [Architecture Overview](architecture/overview.md) | Module diagram, data flow, threading model |
-    | [Core Concepts](architecture/core-concepts.md) | HNSW, IVF-PQ, BM25, RRF, SIMD deep-dives |
-    | [Memory Architecture](memory/architecture.md) | How cognitive memory works under the hood |
-    | [6-Phase Scoring Pipeline](memory/scoring-pipeline.md) | Fused SIMD scoring across memory tiers |
-    | [Cortex Dashboard](cortex/index.md) | Watch your AI's brain think — 12+ live panels |
-    | [SVASQ Quantization](deep-dives/svasq-deep-dive.md) | Our proprietary SIMD-first quantization engine |
-    | [Benchmarks](deep-dives/real-embedding-benchmarks.md) | Empirical sweeps on 4096-dim embeddings |
-
-=== "🤝 I want to contribute"
-
-    | Page | What you'll learn |
-    |:-----|:------------------|
-    | [Contributing Guide](operations/contributing.md) | Development setup and PR process |
-    | [JDK API Status](getting-started/jdk-api-status.md) | Vector API, Panama FFM compatibility |
-    | [Roadmap](roadmap.md) | What's planned next |
-    | [FAQ](faq.md) | Common questions answered |
-
----
-
-## 💡 How It Works
-
-Spector fuses **semantic vector search, hybrid retrieval, and cognitive scoring** into a single pipeline:
+Spector collapses the entire agent memory stack into **autonomous cognitive pathways** running directly on top of a sealed, off-heap memory-mapped kernel:
 
 ```mermaid
-graph LR
-    A["🤖 AI Agent"] --> B["📡 MCP Server"]
-    B --> C["⚡ SpectorEngine"]
-    C --> D["🧠 Hybrid Search"]
-    D --> E["🎯 RRF Fusion"]
-    E --> F["🤖 LLM Re-ranking"]
-    F --> G["✨ Results"]
+graph TB
+    subgraph Clients["Client Interfaces & SDKs"]
+        agent["🤖 AI Agents<br/><i>Claude · Cursor · Windsurf</i>"]
+        sdk["📦 Client SDKs<br/><i>Python · TypeScript · Java Client</i>"]
+        rest["🌐 REST / gRPC<br/><i>OpenAPI 3.1 Gateway</i>"]
+    end
 
-    H["📄 Document"] --> I["🧩 Chunking"]
-    I --> J["🧬 Embedding"]
-    J --> C
+    subgraph Synapse["⚡ Spector Synapse (Application Layer)"]
+        mcp["🤖 MCP Server<br/><i>37+ In-Process Tools</i>"]
+        gw["🌐 Armeria Gateway<br/><i>REST + gRPC + SSE</i>"]
+        soul["🎭 Persona Enactment<br/><i>Dual-Process Appraisal & Soul</i>"]
+    end
+
+    subgraph Memory["🧠 Spector Memory (Cognitive Pathways)"]
+        subgraph Pathways["Cognitive Pathways"]
+            P_REM["Pathway: Remember<br/><i>Surprise · Flashbulb · Dedup</i>"]
+            P_REC["Pathway: Recall<br/><i>6-Phase SIMD Fused Scoring</i>"]
+            P_REF["Pathway: Reflect<br/><i>9-Relay Sleep Consolidation</i>"]
+            P_DRM["Pathway: Dream<br/><i>Counterfactual Simulation</i>"]
+        end
+
+        subgraph Tiers["4-Tier Cortex"]
+            WM["Working Memory<br/><i>Prefrontal Scratchpad</i>"]
+            EM["Episodic Memory<br/><i>Time-Anchored Hippocampus</i>"]
+            SM["Semantic Memory<br/><i>Neocortical Knowledge</i>"]
+            PR["Procedural Memory<br/><i>Basal Ganglia Rules</i>"]
+        end
+
+        subgraph Graph["Associative Cognitive Graph"]
+            HG["Hebbian Graph<br/><i>Co-Activation & STDP</i>"]
+            TC["Temporal Chain<br/><i>Causal Sequence</i>"]
+            HEG["HyperEntityGraph<br/><i>Event-Episode Hyperedges</i>"]
+        end
+    end
+
+    subgraph Kernel["⚡ Memory Kernel (spector-kernel — Zero GC)"]
+        direction TB
+        NK["NamespaceKernel Facade"]
+        
+        subgraph Bundles["V4 Single-VMA Growable Bundles"]
+            RB["runtime.bundle<br/><i>Working · Graphs · Insula</i>"]
+            PB["partition.bundle<br/><i>Episodic · Semantic · Procedural</i>"]
+            IB["identity.bundle<br/><i>Decoupled Identity Plane</i>"]
+        end
+
+        subgraph Shapes["8 Typed Memory Shapes"]
+            S_REC["RecordMemory"]
+            S_APP["AppendMemory (WAL)"]
+            S_GRP["GraphMemory"]
+            S_CHN["ChainMemory"]
+            S_HTB["HashTableMemory"]
+            S_REG["RegistryMemory"]
+            S_ENT["EntityDirectoryMemory"]
+            S_INS["InsulaMemory (Somatic Self-Model)"]
+        end
+    end
+
+    agent --> mcp
+    sdk & rest --> gw
+    mcp & gw & soul --> Pathways
+    P_REM --> Tiers & Graph
+    P_REC --> Tiers & Graph
+    P_REF --> Tiers & Graph
+    Tiers & Graph --> NK
+    NK --> Bundles
+    Bundles --> Shapes
+
+    style Clients fill:#4a6fa5,stroke:#375985,color:#fff
+    style Synapse fill:#5b6abf,stroke:#4a59a4,color:#fff
+    style Memory fill:#3b82f6,stroke:#2563eb,color:#fff
+    style Kernel fill:#1e293b,stroke:#0f172a,color:#fff
+    style Pathways fill:#2563eb,stroke:#1d4ed8,color:#fff
+    style Tiers fill:#1d4ed8,stroke:#1e40af,color:#fff
+    style Graph fill:#1e40af,stroke:#1e3a8a,color:#fff
+    style Bundles fill:#334155,stroke:#1e293b,color:#fff
+    style Shapes fill:#475569,stroke:#334155,color:#fff
 ```
 
-### What Makes Spector Different
+---
 
-- **Flexible deployment** — connect over MCP or REST/gRPC, drive it from the Python SDK, or embed it as a library inside your JVM. No Docker, no external database, no network hops when embedded.
-- **Agent-native** — 16 MCP tools for memory, recall, and cognitive operations. Connect Claude Desktop or Cursor in one config line.
-- **Associative memory** — Hebbian co-activation, temporal chains, and entity graphs with spreading activation, so recall surfaces what's *related*, not just what matches.
-- **Cognitive memory** — the only system combining power-law decay, Two-Factor strengthening (Bjork & Bjork), emotional valence, and Hebbian association in a single scoring formula.
-- **Zero GC pressure** — all vector data and headers live off-heap via Project Panama. The JVM garbage collector never sees memory records.
-- **SIMD everywhere** — vector distance, quantization, and scoring use Java Vector API (AVX2/AVX-512/NEON) for hardware-accelerated computation.
+## 🗺️ Explore the Architecture
 
-!!! tip "New here?"
-    Start with [Quick Start](getting-started/quickstart.md) to build and run your first search in under 5 minutes. Want to connect an AI agent? See the [MCP Server Guide](sdk-usage/mcp-server.md).
+<div class="grid cards" markdown>
+
+-   :material-memory:{ .lg .middle } **Sealed Memory Kernel**
+
+    ---
+
+    Java 25 Panama FFM off-heap storage, single-VMA V4 Bundles, 8 typed memory shapes, 64-byte pure encoding headers, and crash-resilient WAL recovery.
+
+    [:octicons-arrow-right-24: Memory Kernel Guide](kernel/index.md)
+
+-   :material-brain:{ .lg .middle } **Cognitive Pathways**
+
+    ---
+
+    Biologically-inspired Remember, Recall (6-phase SIMD scoring loop), Reflect (sleep consolidation), and Dream pathways across 4 memory tiers.
+
+    [:octicons-arrow-right-24: Cognitive Memory](memory/index.md)
+
+-   :material-robot:{ .lg .middle } **37+ Agent MCP Tools**
+
+    ---
+
+    In-process Model Context Protocol server for Claude Desktop, Cursor, and autonomous agents across memory, context, RBAC, and soul governance.
+
+    [:octicons-arrow-right-24: MCP Server Guide](sdk-usage/mcp-server.md)
+
+-   :material-code-tags:{ .lg .middle } **Multi-SDK Ecosystem**
+
+    ---
+
+    Lightweight client SDKs for Python, TypeScript, and Java Client, plus Spring AI starter, OpenAPI REST endpoints, and the standalone CLI.
+
+    [:octicons-arrow-right-24: Quick Start](getting-started/quickstart.md)
+
+-   :material-lightning-bolt:{ .lg .middle } **Spector Synapse**
+
+    ---
+
+    Application server and agentic gateway — persona enactment, dual-process cognitive appraisal, and multi-tenant namespace governance.
+
+    [:octicons-arrow-right-24: Synapse Overview](synapse/index.md)
+
+-   :material-eye:{ .lg .middle } **Cortex Dashboard**
+
+    ---
+
+    Angular 22 real-time neural visualization dashboard — 3D interactive galaxy visualizer, live SSE telemetry inspector, and namespace administration.
+
+    [:octicons-arrow-right-24: Cortex Dashboard](cortex/index.md)
+
+-   :material-speedometer:{ .lg .middle } **Vector Nucleus**
+
+    ---
+
+    Hardware SIMD acceleration (AVX2/AVX-512), SVASQ quantization (4×–32×), HNSW graphs, Okapi BM25, and learned sparse SPLADE indexing.
+
+    [:octicons-arrow-right-24: Architecture Overview](architecture/overview.md)
+
+-   :material-shield-lock:{ .lg .middle } **Physical Isolation & Security**
+
+    ---
+
+    True on-disk directory separation per namespace, AES-256-GCM encryption at rest, HMAC blind tags, BYOK encryption, and hierarchical soul contexts.
+
+    [:octicons-arrow-right-24: Security & Encryption](architecture/encryption-at-rest.md)
+
+</div>
 
 ---
 
 ## 🌟 Project Stats
 
-| | |
-|:---|:---|
-| **Language** | Java 25 |
-| **License** | Apache 2.0 · [BSL 1.1](https://github.com/spectrayan/spector/blob/main/spector-memory/LICENSE) (memory module) |
-| **Modules** | 25 Maven modules |
-| **Dependencies** | Zero (JDK only) |
-| **SIMD** | AVX2 / AVX-512 / NEON |
-| **GPU** | CUDA via Panama FFM |
-| **MCP** | Built-in, 16 agent-ready tools |
-| **Distributed** | gRPC fan-out + consistent hashing |
+| Technology | Specification | Details |
+|:---|:---|:---|
+| **Language & Runtime** | Java 25+ | Pure Java with Foreign Function & Memory (FFM) API |
+| **Licenses** | Apache 2.0 & BSL 1.1 | Open-core foundation with commercial enterprise tier |
+| **Modules** | 25 Maven Modules | Reactor architecture: nucleus, memory, synapse, sdks |
+| **SIMD Acceleration** | AVX2 / AVX-512 / NEON | Java Vector API for zero-copy vectorized arithmetic |
+| **Off-Heap Storage** | MemorySegment & Bundles | Zero-GC guarantees via single-VMA `mmap` containers |
+| **MCP Integration** | 37+ Agent Tools | Stdio and Streamable HTTP JSON-RPC 2.0 |
+| **Multi-Tenancy** | Physical Sharding | Cryptographically isolated directories with AES-256-GCM |
 
 ---
 
-**Built with ⚡ by [Spectrayan](https://www.spectrayan.com/)** · [GitHub](https://github.com/spectrayan/spector) · [Apache 2.0](https://github.com/spectrayan/spector/blob/main/LICENSE) · [BSL 1.1 (memory)](https://github.com/spectrayan/spector/blob/main/spector-memory/LICENSE)
+**Built with ⚡ by [Spectrayan](https://www.spectrayan.com/)** · [GitHub](https://github.com/spectrayan/spector) · [Apache 2.0](https://github.com/spectrayan/spector/blob/main/LICENSE) · [BSL 1.1](https://github.com/spectrayan/spector/blob/main/spector-memory/LICENSE)

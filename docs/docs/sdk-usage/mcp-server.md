@@ -41,14 +41,16 @@ Add the following to your agent's MCP configuration (see per-agent sections belo
 
 ### 3. Start Using
 
-With cognitive memory enabled (`spector.memory.enabled: true`), your AI agent now has access to all 16 cognitive memory tools:
+With cognitive memory enabled (`spector.memory.enabled: true`), your AI agent now has access to **37+ agent-ready tools** across memory operations, graph context, multi-tenant RBAC, and persona governance:
 
 - *"Remember that the user prefers dark mode"* → `memory_remember`
 - *"What do you remember about the user's preferences?"* → `memory_recall`
+- *"Walk the associative graph to find related concepts"* → `memory_graph_recall`
 - *"That answer was wrong — downgrade it"* → `memory_reinforce`
 - *"Jot this down while I think it through"* → `memory_scratchpad`
 - *"What do you actually know about this project?"* → `memory_introspect`
 - *"Forget what I told you about the old API key"* → `memory_forget`
+- *"Switch to tenant production namespace"* → `namespace_switch`
 
 ---
 
@@ -234,28 +236,66 @@ curl -X POST http://localhost:7070/mcp \
 
 ---
 
-## MCP Tools Overview
+## MCP Tools Overview (37+ Tools)
 
-Once connected, your agent has access to Spector's 16 cognitive memory tools:
+Once connected, your agent has access to Spector's comprehensive suite of 37+ tools across memory, graph context, multi-tenancy, and persona governance:
+
+### 1. Memory Tier Operations (16 Tools)
 
 | Tool | Description |
 |:---|:---|
-| `memory_remember` | Store a cognitive memory with tags and source (ID auto-generated) |
-| `memory_recall` | Cognitive recall with fused scoring across tiers |
-| `memory_inspect` | Full cognitive X-ray of a memory (header + vector + metadata) |
-| `memory_browse` | Browse memories by tag (AND semantics, no vector search) |
-| `memory_export` | Bulk JSON export of all live memories |
-| `memory_forget` | Tombstone a memory by ID |
-| `memory_reinforce` | Report positive/negative outcome for a memory |
-| `memory_suppress` | Suppress a memory from recall results |
-| `memory_resolve` | Mark a memory as resolved or unresolved |
-| `memory_introspect` | Metamemory self-analysis on a topic |
-| `memory_compute_importance` | Read-only importance estimation for text |
-| `memory_scratchpad` | Quick-write to working memory |
-| `memory_reminder` | Schedule a time-triggered reminder |
-| `memory_why_not` | Explain why a memory was not recalled |
-| `memory_status` | Memory tier counts and persistence info |
-| `memory_salience` | Inspect and tune the active salience profile |
+| `memory_remember` | Store a cognitive memory with tags, importance, valence, and source |
+| `memory_recall` | 6-Phase SIMD cognitive recall across memory tiers |
+| `memory_inspect` | Full cognitive X-ray of a memory (encoding header, vector, strength) |
+| `memory_browse` | Browse memories by tag filter (AND semantics, zero vector math) |
+| `memory_export` | Bulk JSON export of all live memories in a namespace |
+| `memory_forget` | Tombstone a memory by ID (intentional forgetting) |
+| `memory_reinforce` | Report positive/negative feedback to update Bjork strength |
+| `memory_suppress` | Temporarily suppress a memory from recall results |
+| `memory_resolve` | Mark a memory engram as resolved or unresolved |
+| `memory_introspect` | Metamemory self-analysis on a conceptual topic |
+| `memory_compute_importance` | Read-only importance estimation for candidate text |
+| `memory_scratchpad` | Quick-write and manage working memory scratchpad |
+| `memory_reminder` | Schedule time-triggered prospective memory reminders |
+| `memory_why_not` | Explain why a specific memory was filtered out during recall |
+| `memory_status` | Memory tier counts, off-heap bundle capacity, and health |
+| `memory_salience` | Inspect and tune the active salience profile (topics/boosts) |
+
+### 2. Graph & Multi-Evidence Retrieval (7 Tools)
+
+| Tool | Description |
+|:---|:---|
+| `memory_graph_recall` | Spreading activation multi-hop walk over associative graphs |
+| `memory_context_pack` | Assemble a complete context pack for LLM prompt injection |
+| `memory_fact_history` | Retrieve chronological evolution along temporal causal chains |
+| `memory_persona_context` | Inject soul-aligned persona context into an active conversation |
+| `memory_multi_evidence_recall` | Multi-vector evidence aggregation and consensus scoring |
+| `vector_search` | Pure dense vector cosine similarity search |
+| `memory_express` | Synthesize natural language responses grounded in retrieved memories |
+
+### 3. Namespace Multi-Tenancy & RBAC (9 Tools)
+
+| Tool | Description |
+|:---|:---|
+| `namespace_create` | Provision a new isolated on-disk namespace with V4 bundles |
+| `namespace_list` | Enumerate all registered namespaces in the cluster |
+| `namespace_info` | Inspect storage layout, bundle sizes, and engram counts |
+| `namespace_switch` | Switch the active session to a target namespace |
+| `namespace_set_default` | Configure the default operational namespace |
+| `namespace_delete` | Safely purge and deallocate a namespace's physical bundles |
+| `namespace_grant` | Grant tenant or user permissions to a namespace |
+| `namespace_revoke` | Revoke permissions and access delegation |
+| `namespace_list_grants` | Audit all active security and access grants |
+
+### 4. Persona Enactment & Agent Soul (5 Tools)
+
+| Tool | Description |
+|:---|:---|
+| `update_agent_soul` | Mutate agent persona traits, ethical guardrails, and dogmas |
+| `persona_enact` | Execute dual-process cognitive appraisal and policy selection |
+| `account_introspect` | Introspect account hierarchies and tenant soul configurations |
+| `invoke_connector_route` | Dispatch queries to registered external data connectors |
+| `send_notification` | Dispatch proactive agent alerts and event webhooks |
 
 > [!NOTE]
 > For full tool schemas and parameter details, see the [MCP Integration Architecture](../architecture/mcp-integration.md#tool-reference) page.

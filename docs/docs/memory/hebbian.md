@@ -154,7 +154,7 @@ Discovered memories via related tags:
 | Max tag neighbors | 5 (configurable via `spector.memory.cross-capture.max-tag-neighbors`) |
 | Max memories per tag | 10 (configurable via `spector.memory.cross-capture.max-memories-per-tag`) |
 | Index lifecycle | Rebuilt on startup from memory headers; updated during ingestion |
-| Kernel shape | `MemoryShape.HASHTABLE` (ordinal 8) — honest shape per ADR-0009 |
+| Kernel shape | `MemoryShape.HASHTABLE` (ordinal 8) |
 
 ### How It's Used
 

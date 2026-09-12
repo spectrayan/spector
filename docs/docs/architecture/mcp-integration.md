@@ -1,6 +1,6 @@
 ---
 title: "MCP Integration — Model Context Protocol Server"
-description: "Connect AI agents to Spector via the built-in MCP server — 16 cognitive memory tools for storing, recalling, and introspecting memory. Works with Claude Desktop, Cursor, and custom agents."
+description: "Connect AI agents to Spector via the built-in MCP server — 37+ agent tools across memory tiers, associative graphs, namespace RBAC, and persona governance."
 ---
 
 # 🤖 MCP Integration Architecture
@@ -27,26 +27,25 @@ Spector supports **two MCP transports**:
 ```mermaid
 graph LR
     subgraph "AI Agent (Claude, Cursor, etc.)"
-        Agent["\ud83e\udd16 AI Agent"]
+        Agent["🤖 AI Agent"]
     end
 
     subgraph "spector-mcp (in-process)"
-        StdioTransport["\ud83d\udce1 StdioTransport<br/><i>JSON-RPC 2.0 — stdin/stdout</i>"]
-        HttpTransport["\ud83c\udf10 ArmeriaMcpTransport<br/><i>Streamable HTTP — POST/GET/DELETE /mcp</i>"]
-        Server["\u26a1 SpectorMcpServer<br/><i>Thin orchestrator</i>"]
+        StdioTransport["📡 StdioTransport<br/><i>JSON-RPC 2.0 — stdin/stdout</i>"]
+        HttpTransport["🌐 ArmeriaMcpTransport<br/><i>Streamable HTTP — POST/GET/DELETE /mcp</i>"]
+        Server["⚡ SpectorMcpServer<br/><i>Thin orchestrator</i>"]
         
         subgraph Providers
-            TR["\ud83d\udd27 SpectorToolRegistry"]
-            RP["\ud83d\udcc4 SpectorResourceProvider"]
-            PP["\ud83d\udcac SpectorPromptProvider"]
+            TR["🔧 SpectorToolRegistry"]
+            RP["📄 SpectorResourceProvider"]
+            PP["💬 SpectorPromptProvider"]
         end
 
-        subgraph "Cognitive Memory Tools — 16"
-            M1["MemoryRememberTool"]
-            M2["MemoryRecallTool"]
-            M3["MemoryForgetTool"]
-            M4["MemoryIntrospectTool"]
-            M5["... 12 more"]
+        subgraph "37+ Agent MCP Tools"
+            M1["1. Memory Tier Tools (16)"]
+            M2["2. Graph & Context Tools (7)"]
+            M3["3. Namespace RBAC Tools (9)"]
+            M4["4. Soul & Persona Tools (5)"]
         end
 
         subgraph Foundation
@@ -202,7 +201,7 @@ Register the tool in `SpectorToolRegistry.handlers()` — one line per tool:
 ```java
 handlers.add(new MemoryRememberTool(memory));
 handlers.add(new MemoryRecallTool(memory));
-// ... 14 more cognitive memory tools
+// ... 35 more tools across memory, graph, namespace, and persona governance
 // handlers.add(new YourNewTool(memory));  ← just add here
 ```
 

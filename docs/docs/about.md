@@ -7,9 +7,9 @@ description: "Spector is a cognitive memory backbone for AI agents, combining bi
 
 > **The Zero-Overhead, Agent-Ready AI Memory Backbone.**
 >
-> Legacy AI stacks bolt memory onto stateless vector databases — storage without cognition. Spector is built from the ground up for modern AI agents: it remembers, forgets, consolidates, and **forms associations** across a biologically-inspired memory graph — Hebbian co-activation, temporal chains, and entity links — then retrieves with fused semantic and hybrid scoring. Connect any AI agent through the built-in MCP server, call it over REST/gRPC, drive it from the Python SDK, or embed it directly in the JVM.
+> Legacy AI stacks bolt memory onto stateless vector databases — storage without cognition. Spector is built from the ground up for modern AI agents: it remembers, forgets, consolidates, and **forms associations** across a biologically-inspired memory graph — Hebbian co-activation, temporal chains, and entity links — then retrieves with fused semantic and hybrid scoring. Connect any AI agent through the built-in MCP server, call it over REST/gRPC, use the Python, TypeScript, or Java Client SDKs, or embed it directly in the JVM.
 
-Spector is an open-source, high-performance cognitive memory system. It delivers sub-millisecond memory retrieval, native AI agent integration, and zero infrastructure complexity — reach it from any language over MCP or REST/gRPC, use the Python SDK, or embed it as a single JAR. Every user, agent, or tenant is physically isolated in its own on-disk namespace. Under the hood, modern Java 25, Project Panama, and the Vector API deliver the performance.
+Spector is an open-source, high-performance cognitive memory system. It delivers sub-millisecond memory retrieval, native AI agent integration, and zero infrastructure complexity — reach it from any language over MCP or REST/gRPC, use the client SDKs, or embed it as a single JAR. Every user, agent, or tenant is physically isolated in its own on-disk namespace. Under the hood, modern Java 25, the Sealed Memory Kernel (`spector-kernel`), Project Panama, and the Vector API deliver the performance.
 
 ---
 
@@ -22,7 +22,7 @@ graph LR
     subgraph Clients
         MCP["🤖 AI Agent (MCP)"]
         REST["🌐 REST API"]
-        SDK["📦 Java SDK"]
+        SDK["📦 Multi-SDK Clients"]
     end
     
     subgraph Recall Modes
@@ -53,7 +53,7 @@ graph LR
 
 ### 🤖 Agent-Native (MCP Protocol)
 
-Includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server with 16 cognitive memory tools. AI agents connect directly via JSON-RPC — no adapter layer, no network round-trips.
+Includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server with 37+ tools across memory, graph context, namespace RBAC, and persona governance. AI agents connect directly via JSON-RPC — no adapter layer, no network round-trips.
 
 | Feature | Python Vector DB MCP | **Spector MCP** |
 |:---|:---|:---|
@@ -67,7 +67,7 @@ Includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) s
 > [!TIP]
 > See the [MCP Server Guide](sdk-usage/mcp-server.md) to connect Claude Desktop, Cursor, or any MCP client in minutes.
 
-### � Associative Cognitive Graphs
+### 🕸️ Associative Cognitive Graphs
 
 Spector doesn't just store vectors — it links memories. Hebbian co-activation, temporal chains, and an LLM-powered entity graph connect related memories, and spreading activation means recall surfaces what's *related*, not just what matches. It's memory that forms associations, the way a brain does.
 
@@ -75,7 +75,7 @@ Spector doesn't just store vectors — it links memories. Hebbian co-activation,
 
 Every user, agent, or tenant's memory lives in its own on-disk directory tree — true data separation, not a `WHERE tenant_id = ?` filter over a shared store. Namespaces are hash-sharded to scale to millions and encrypted at rest (AES-256-GCM).
 
-### �📦 Pure-Java Engine, Zero Dependencies
+### 📦 Pure-Java Engine, Zero Dependencies
 
 Unlike most vector databases that rely on C++, Rust, or Python bindings, Spector's engine is pure Java — no JNI, no native libraries, no external infrastructure to install. It uses the JDK's own Vector API for SIMD acceleration.
 
