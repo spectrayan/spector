@@ -39,12 +39,16 @@ theme:
     - navigation.indexes           # Section index pages
     - navigation.footer            # Previous/Next page links at bottom
     - navigation.path              # Breadcrumbs above page title
+    - navigation.prune             # Prune non-active navigation trees for rendering performance
+    # Header
+    - header.autohide              # Hide header on scroll down, show on scroll up
     # Search
     - search.suggest               # Autocomplete suggestions
     - search.highlight             # Highlight search terms on page
     - search.share                 # Shareable search links
     # Content
     - content.code.copy            # Copy button on code blocks
+    - content.code.select          # Select code block button
     - content.code.annotate        # Inline code annotations
     - content.tabs.link            # Linked content tabs across page
     - content.tooltips             # Rich tooltips on hover
