@@ -121,8 +121,10 @@ Every tenant gets physically separate files with independent encryption keys:
 
 | Feature | Spector Memory | Mem0 | Letta (MemGPT) | Zep | Stanford Generative Agents |
 |---|:---:|:---:|:---:|:---:|:---:|
+| **Benchmark Accuracy** | **MindSpan: 100%<br>LongMemEval: 94%<br>LoCoMo: 85%** | LoCoMo: 62–68%<br>LongMemEval: 62–68% | LoCoMo: ~65% | LoCoMo: 75–80%<br>LongMemEval: 75–80% | N/A (Research) |
+| **Recall latency** | **3–12ms** (in-process SIMD) | 50–200ms (API) / 657ms (Graph) | 100ms+ | 50–150ms (API) / 632ms (Graph) | N/A |
+| **Context injected** | **1,257–1,731 tokens** (compact) | 1,764 tokens | 2,000+ tokens | 3,911 tokens | Unbounded |
 | **Temporal decay** | ✅ Power-law (configurable) | ❌ None | ❌ Agent-managed | ✅ Limited | ✅ Exponential |
-| **Recall latency** | **Ultra-low** | 50–200ms | 100ms+ | 50–150ms | N/A (research) |
 | **Scoring model** | ACT-R inspired | Vector similarity | Agent-managed | Hybrid | Additive |
 | **Two-Factor strengthening** | ✅ Bjork model (Strength Region) | ❌ | ❌ | ❌ | ❌ |
 | **Emotional valence** | ✅ Amygdala model | ❌ | ❌ | ❌ | ❌ |
