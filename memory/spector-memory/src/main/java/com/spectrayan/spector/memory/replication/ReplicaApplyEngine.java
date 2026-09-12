@@ -76,6 +76,7 @@ public final class ReplicaApplyEngine {
         if (replicaHotSet != null) {
             this.replicaHotSet.addAll(replicaHotSet);
         }
+        recoverPersistedReplicaState();
     }
 
     /**
@@ -93,6 +94,9 @@ public final class ReplicaApplyEngine {
     ) {
         Objects.requireNonNull(manifest, "manifest must not be null");
         Objects.requireNonNull(stagedBundleFiles, "stagedBundleFiles must not be null");
+
+        // Step 0 (G3): Offline manifest verification (plane, version, pathHelper, identity plane exclusion)
+        SnapshotVerifier.verifyManifest(manifest, configuredPathHelper);
 
         // Step 1: Reject if plane != namespace (Invariant N4)
         if (!SnapshotManifest.PLANE_NAMESPACE.equalsIgnoreCase(manifest.plane())) {
@@ -129,6 +133,20 @@ public final class ReplicaApplyEngine {
             }
         }
 
+        // Step 3a (G1): Refuse INCREMENTAL manifests or WAL delta — WAL replay not yet implemented
+        // Without this guard, HWM advances but WAL events are silently dropped, causing data loss
+        if (manifest.kind() == SnapshotKind.INCREMENTAL) {
+            throw new UnsupportedOperationException(
+                    "WAL replay not yet implemented; refusing INCREMENTAL manifest for namespace '"
+                            + manifest.namespaceId() + "' (G1). Only FULL and SEALED_ONLY snapshots are supported.");
+        }
+        if (manifest.walTo() > manifest.walFrom()) {
+            throw new UnsupportedOperationException(
+                    "WAL replay not yet implemented; refusing manifest with WAL delta [walFrom="
+                            + manifest.walFrom() + ", walTo=" + manifest.walTo() + "] for namespace '"
+                            + manifest.namespaceId() + "' (G1). Only FULL snapshots with no WAL delta are supported.");
+        }
+
         // Step 4: Idempotence check (Req R5.5)
         long currentHwm = appliedHwmMap.getOrDefault(manifest.namespaceId(), -1L);
         if (manifest.hwm() == currentHwm) {
@@ -162,9 +180,46 @@ public final class ReplicaApplyEngine {
                 stagedTargetFiles.put(filename, dst);
             }
 
+            // Step 4a (G3): Validate staged keys against manifest — reject unverified file injection
+            Set<String> manifestDeclaredKeys = new HashSet<>();
+            if (manifest.runtime() != null) {
+                manifestDeclaredKeys.add(manifest.runtime().file());
+                manifestDeclaredKeys.add(StoragePaths.DIR_RUNTIME + "/" + manifest.runtime().file());
+                if (manifest.runtime().file().startsWith(StoragePaths.DIR_RUNTIME + "/")) {
+                    manifestDeclaredKeys.add(manifest.runtime().file().substring(StoragePaths.DIR_RUNTIME.length() + 1));
+                }
+            }
+            if (manifest.activePartition() != null) {
+                manifestDeclaredKeys.add(manifest.activePartition().id());
+                manifestDeclaredKeys.add(manifest.activePartition().id() + "/partition.bundle");
+                manifestDeclaredKeys.add(StoragePaths.DIR_PARTITIONS + "/" + manifest.activePartition().id() + "/partition.bundle");
+            }
+            for (SnapshotManifest.SealedPartitionEntry s : manifest.sealed()) {
+                manifestDeclaredKeys.add(s.id());
+                manifestDeclaredKeys.add(s.id() + "/partition.bundle");
+                manifestDeclaredKeys.add(StoragePaths.DIR_PARTITIONS + "/" + s.id() + "/partition.bundle");
+            }
+
+            for (String stagedKey : stagedBundleFiles.keySet()) {
+                // G3: Enforce identity plane filter on every staged key
+                ReplicationPathFilter.assertNotIdentityPlane(stagedKey);
+
+                // G3: Reject staged files not declared in manifest
+                if (!manifestDeclaredKeys.contains(stagedKey)) {
+                    throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                            "Staged file '" + stagedKey + "' not listed in manifest — rejecting unverified file (G3).");
+                }
+            }
+
             // Step 5: Verify magic + layout ID + SHA-256 against manifest before publish (Req R5.1, N3)
             if (manifest.runtime() != null) {
                 Path rtStaged = stagedTargetFiles.get(manifest.runtime().file());
+                if (rtStaged == null) {
+                    rtStaged = stagedTargetFiles.get(StoragePaths.DIR_RUNTIME + "/" + manifest.runtime().file());
+                }
+                if (rtStaged == null && manifest.runtime().file().startsWith(StoragePaths.DIR_RUNTIME + "/")) {
+                    rtStaged = stagedTargetFiles.get(manifest.runtime().file().substring(StoragePaths.DIR_RUNTIME.length() + 1));
+                }
                 if (rtStaged == null) {
                     throw new SpectorValidationException(ErrorCode.FILE_FORMAT_INVALID,
                             "Missing staged runtime bundle: " + manifest.runtime().file());
@@ -195,9 +250,12 @@ public final class ReplicaApplyEngine {
                 if (sStaged == null) {
                     sStaged = stagedTargetFiles.get(StoragePaths.DIR_PARTITIONS + "/" + s.id() + "/partition.bundle");
                 }
-                if (sStaged != null) {
-                    SnapshotVerifier.verifyBundleFile(sStaged, s.sha256());
+                // G3: Fail-fast when sealed partition bundle is missing — previously silently skipped
+                if (sStaged == null) {
+                    throw new SpectorValidationException(ErrorCode.FILE_FORMAT_INVALID,
+                            "Missing staged sealed partition bundle: " + s.id() + " (G3). All manifest entries must be staged.");
                 }
+                SnapshotVerifier.verifyBundleFile(sStaged, s.sha256());
             }
 
             // Step 6: Atomic rename into live namespace directory (Req R5.2, N5)
@@ -217,7 +275,17 @@ public final class ReplicaApplyEngine {
             // Step 7: WAL replay (if provided)
             // (Replayer executes against live bundle images)
 
-            // Step 8: ADVANCE HWM LAST (Req R5.3, N5)
+            // Step 8: Persist verified manifest to disk via tmp + fsync + ATOMIC_MOVE (Req R5.3, Invariant N5, G4)
+            Path replicaStateDir = nsDir.resolve(".replica_state");
+            Files.createDirectories(replicaStateDir);
+            Path tmpManifest = replicaStateDir.resolve(".manifest.json.tmp");
+            Files.writeString(tmpManifest, manifest.toJson(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+            try (FileChannel fc = FileChannel.open(tmpManifest, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+                fc.force(true);
+            }
+            Files.move(tmpManifest, replicaStateDir.resolve("manifest.json"), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+
+            // Step 8b: ADVANCE IN-MEMORY HWM LAST (Req R5.3, N5)
             appliedHwmMap.put(manifest.namespaceId(), manifest.hwm());
             lastAppliedManifestMap.put(manifest.namespaceId(), manifest);
 
@@ -248,6 +316,33 @@ public final class ReplicaApplyEngine {
                 throw re;
             }
             throw new RuntimeException("Replica apply failed", e);
+        }
+    }
+
+    private void recoverPersistedReplicaState() {
+        if (!Files.exists(persistenceRoot)) {
+            return;
+        }
+        try (var stream = Files.walk(persistenceRoot, 12)) {
+            stream.filter(p -> p.getFileName() != null
+                            && p.getFileName().toString().equals("manifest.json")
+                            && p.getParent() != null
+                            && p.getParent().getFileName() != null
+                            && p.getParent().getFileName().toString().equals(".replica_state"))
+                    .forEach(p -> {
+                        try {
+                            String json = Files.readString(p);
+                            SnapshotManifest manifest = SnapshotManifest.fromJson(json);
+                            appliedHwmMap.put(manifest.namespaceId(), manifest.hwm());
+                            lastAppliedManifestMap.put(manifest.namespaceId(), manifest);
+                            log.info("[ReplicaApplyEngine] Recovered persisted replica state for namespace '{}' at HWM {}",
+                                    manifest.namespaceId(), manifest.hwm());
+                        } catch (Exception e) {
+                            log.warn("[ReplicaApplyEngine] Failed to recover replica manifest from {}", p, e);
+                        }
+                    });
+        } catch (IOException e) {
+            log.warn("[ReplicaApplyEngine] Failed to scan persistenceRoot for replica state", e);
         }
     }
 

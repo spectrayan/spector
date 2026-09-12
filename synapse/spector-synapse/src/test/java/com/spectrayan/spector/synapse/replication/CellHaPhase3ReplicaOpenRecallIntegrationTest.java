@@ -104,7 +104,8 @@ class CellHaPhase3ReplicaOpenRecallIntegrationTest {
                 allowList,
                 applyEngine,
                 new ReplicationMetrics(),
-                tempDir.resolve("replica_staging")
+                tempDir.resolve("replica_staging"),
+                true // G8: explicit insecure mode for testing
         );
         replicationServer.start();
 
@@ -187,7 +188,7 @@ class CellHaPhase3ReplicaOpenRecallIntegrationTest {
                 new SnapshotManifest.ActivePartitionEntry(activePartId, activeSha),
                 List.of(),
                 0L,
-                42019L,
+                0L,
                 null
         );
 

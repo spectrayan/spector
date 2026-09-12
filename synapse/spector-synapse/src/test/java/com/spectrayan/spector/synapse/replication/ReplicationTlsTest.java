@@ -26,6 +26,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 
@@ -122,5 +123,40 @@ class ReplicationTlsTest {
                 ReplicationFrame.readFrom(in);
             }
         }).isInstanceOf(IOException.class);
+    }
+
+    @Test
+    @DisplayName("G8: Plaintext startup is refused when sslContext is null and insecureMode is false")
+    void testPlaintextStartupRefusedWithoutInsecureFlag() {
+        ReplicationServer insecureServer = new ReplicationServer(
+                "127.0.0.1",
+                0,
+                null, // no SSLContext
+                new TenantAllowListFilter(Set.of("tenant-1")),
+                null,
+                new ReplicationMetrics(),
+                tempDir.resolve("insecure-staging"),
+                false // insecureMode = false
+        );
+
+        assertThatThrownBy(insecureServer::start)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("mTLS is required for replication transport");
+    }
+
+    @Test
+    @DisplayName("G8: extractPeerTenant extracts OU or CN tenant identity from client certificate")
+    void testExtractPeerTenant() throws Exception {
+        var certs = stores.clientKeyStore();
+        java.security.KeyStore ks = java.security.KeyStore.getInstance("PKCS12");
+        try (var is = Files.newInputStream(certs)) {
+            ks.load(is, TlsCertificateFixture.PASSWORD);
+        }
+        var cert = (java.security.cert.X509Certificate) ks.getCertificate("client");
+        assertThat(cert).isNotNull();
+        // Client cert in fixture has CN=client, OU=Spector, O=Spectrayan, C=US
+        // Since OU=Spector is organization, it falls back to CN=client
+        String tenant = ReplicationServer.extractPeerTenant(cert);
+        assertThat(tenant).isEqualTo("client");
     }
 }
