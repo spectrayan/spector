@@ -77,11 +77,31 @@ class RemembererRootAgreementTest {
     }
 
     @Test
-    @DisplayName("remembererRoot() falls back to data-dir only when persistence-path is unset")
-    void remembererRootFallsBackToDataDir() {
+    @DisplayName("A blank persistence-path is ignored by MemoryProperties, so the framework default stands")
+    void blankPersistencePathIsIgnoredAndFrameworkDefaultStands() {
         SynapseProperties props = new SynapseProperties();
         props.setDataDir(tempDir.toString());
         props.getMemory().setPersistencePath("   ");
+
+        // MemoryProperties.setPersistencePath silently ignores null/blank values, so persistence-path
+        // is never actually empty at runtime and remembererRoot()'s data-dir fallback is defensive
+        // rather than reachable through configuration. Asserted here so the fallback is not mistaken
+        // for live behaviour by a future reader.
+        assertThat(props.remembererRoot())
+                .as("a blank persistence-path must leave the framework default in place, not fall through to data-dir")
+                .isEqualTo(java.nio.file.Path.of(".spector", "memory"));
+    }
+
+    @Test
+    @DisplayName("remembererRoot() falls back to data-dir when memory properties carry no path at all")
+    void remembererRootFallsBackToDataDirWhenNoPathPresent() {
+        SynapseProperties props = new SynapseProperties() {
+            @Override
+            public com.spectrayan.spector.config.properties.MemoryProperties getMemory() {
+                return null;
+            }
+        };
+        props.setDataDir(tempDir.toString());
 
         assertThat(props.remembererRoot()).isEqualTo(tempDir);
     }

@@ -126,10 +126,23 @@ class NamespacePathPinTest {
         }
     }
 
+    /**
+     * Reads a {@code static final boolean} reflectively.
+     *
+     * <p>javac inlines compile-time constants into the calling class, so referencing the field
+     * directly would assert whatever value was on the classpath when <em>this test</em> was compiled,
+     * not the value shipping in {@code spector-config}. A pin test whose entire purpose is to catch a
+     * regression in that constant must not be able to pass against a stale copy of it.</p>
+     */
+    private static boolean constantBoolean(String fieldName) throws Exception {
+        java.lang.reflect.Field f = SpectorPropertyConstants.class.getField(fieldName);
+        return (boolean) f.get(null);
+    }
+
     @Test
     @DisplayName("Task 3.1: Pin tenant-rooted flag default to OFF so upgrades are bit-identical (Req R11.1)")
-    void testPinTenantRootedFlagDefaultsOff() {
-        assertThat(SpectorPropertyConstants.DEFAULT_NAMESPACE_TENANT_ROOTED_ENABLED)
+    void testPinTenantRootedFlagDefaultsOff() throws Exception {
+        assertThat(constantBoolean("DEFAULT_NAMESPACE_TENANT_ROOTED_ENABLED"))
                 .as("The tenant-rooted layout must default to OFF. Defaulting it ON flips existing installs "
                         + "onto layout B with no migration run, which is exactly what the staged rollout "
                         + "in spec design §5 exists to prevent (Req R11.1).")
@@ -142,8 +155,8 @@ class NamespacePathPinTest {
 
     @Test
     @DisplayName("Task 4.4: Pin dual-read fallback default to ON so a premature flag flip degrades safely (Req R5.3)")
-    void testPinDualReadDefaultsOn() {
-        assertThat(SpectorPropertyConstants.DEFAULT_NAMESPACE_DUAL_READ_ENABLED)
+    void testPinDualReadDefaultsOn() throws Exception {
+        assertThat(constantBoolean("DEFAULT_NAMESPACE_DUAL_READ_ENABLED"))
                 .as("Dual-read must default ON: an operator who enables the tenant-rooted layout before "
                         + "migrating should get a fallback read, not a silently empty namespace.")
                 .isTrue();

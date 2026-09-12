@@ -70,7 +70,8 @@ import org.springframework.beans.factory.ObjectProvider;
  * 2. Catalog:      AccountCatalog.getOrCreateAccount(accountId)
  *                  → account.defaultNamespaceId → namespaceId
  * 3. Authorize:    catalog.authorize(accountId, namespaceId, minimumRole)
- * 4. Bind:         cache.getOrOpen(namespaceId, () → buildInstance(namespaceId))
+ * 4. Place:        owner account → tenantId → NamespacePathResolver (ADR-0033 §9.2)
+ * 5. Bind:         cache.getOrOpen(namespaceId, () → buildInstance(tenantId, namespaceId, owner))
  * </pre>
  *
  * <p>Namespace selection via tool argument, header, or {@code namespace_switch}
@@ -79,6 +80,10 @@ import org.springframework.beans.factory.ObjectProvider;
  *
  * <p>The hot cache is keyed by {@code namespaceId} (ADR §6.3, Q7). Two principals
  * with grants on the same namespace share one {@code SpectorMemory} instance.</p>
+ *
+ * <p>Because of that shared-instance rule, on-disk placement must not depend on which principal
+ * opens a namespace first — it is derived from the <em>owner's</em> tenant. See
+ * {@link #placementTenantIdFor(String, String, String, com.spectrayan.spector.synapse.catalog.Account)}.</p>
  *
  * @see AccountCatalog
  * @see MemoryRegistry
@@ -244,7 +249,9 @@ public class NamespaceResolver implements AutoCloseable {
         if (slugOrId == null || slugOrId.isBlank()) {
             return resolve(accountId);
         }
-        Account callerAccount = catalog.getOrCreateAccount(accountId);
+        // Ensures the caller's account exists before slug resolution. The returned Account is not
+        // used for placement: that is derived from the namespace owner in placementTenantIdFor.
+        catalog.getOrCreateAccount(accountId);
         NamespaceRecord record = catalog.resolve(accountId, slugOrId)
                 .orElseThrow(() -> new NamespaceNotFoundException(slugOrId));
         if (record.status() == NamespaceStatus.TOMBSTONED) {
@@ -341,7 +348,9 @@ public class NamespaceResolver implements AutoCloseable {
                 boolean tenantRooted = synapseProps != null
                         && synapseProps.getNamespace() != null
                         && synapseProps.getNamespace().isTenantRootedEnabled();
-                String tenantId = (tenantRooted && account != null) ? account.tenantId() : null;
+                String tenantId = tenantRooted
+                        ? placementTenantIdFor(namespaceId, ownerAccountId, accountId, account)
+                        : null;
                 SpectorMemory instance = buildInstance(tenantId, namespaceId, ownerAccountId != null ? ownerAccountId : accountId);
                 handle = new MemoryHandle(namespaceId, ownerAccountId, accountId, instance);
                 cache.put(namespaceId, handle);
@@ -449,8 +458,64 @@ public class NamespaceResolver implements AutoCloseable {
         }
     }
 
-    private SpectorMemory buildInstance(String tenantId, String namespaceId) {
-        return buildInstance(tenantId, namespaceId, namespaceId);
+    /**
+     * Resolves the tenant that determines a namespace's on-disk placement.
+     *
+     * <p><strong>Placement is a property of the namespace, never of the caller.</strong> A namespace
+     * belongs to its owning account, so the tenant segment of its directory must come from the
+     * owner's account — not from whichever principal happens to open it first.</p>
+     *
+     * <p>Deriving it from the caller produced two defects. Because the instance cache is keyed by
+     * {@code namespaceId} alone (Invariant I4), the directory a shared namespace landed in depended
+     * on open order: if a grantee in another tenant opened it first, the namespace was created empty
+     * under <em>that</em> tenant's prefix while the owner's data sat untouched under its own, and a
+     * subsequent write produced two divergent directories for one {@code namespaceId}. It also broke
+     * the tenant-wipe guarantee (Req R9.2), since a grantee's tenant prefix could contain another
+     * tenant's namespace.</p>
+     *
+     * <p>{@code FileAccountCatalog} creates the directory using the owner's tenant, so any other
+     * choice here also desynchronises create from open (Req R6.1, risk K1).</p>
+     *
+     * @param namespaceId      the namespace being opened, for diagnostics
+     * @param ownerAccountId   the owning account, or {@code null} for an ownerless record
+     * @param callerAccountId  the requesting principal
+     * @param callerAccount    the already-loaded caller account, reused when caller == owner
+     * @return the owner's tenant, or {@code null} to select the flat layout
+     */
+    private String placementTenantIdFor(String namespaceId, String ownerAccountId,
+            String callerAccountId, Account callerAccount) {
+        if (ownerAccountId == null) {
+            // An ownerless record (e.g. a SHARED namespace with no single parent account) has no
+            // account to inherit a tenant from, and NamespaceRecord carries no tenantId of its own.
+            // Fall back to the flat layout: it is at least deterministic, being a function of
+            // namespaceId alone. The trade-off is that such a namespace sits outside every tenant
+            // prefix, so a tenant wipe will not reach it — see the spec's follow-up on denormalising
+            // tenantId onto NamespaceRecord.
+            log.warn("[NamespaceResolver] namespace '{}' has no owner account; placing it on the flat "
+                    + "layout because no tenant can be derived deterministically. It will not be "
+                    + "covered by a tenant-prefix wipe.", namespaceId);
+            return null;
+        }
+        if (ownerAccountId.equals(callerAccountId) && callerAccount != null) {
+            // Common case: the caller owns the namespace. Reuse the account already loaded for the
+            // hot-cap check rather than issuing a second catalog lookup.
+            return callerAccount.tenantId();
+        }
+        try {
+            Account owner = catalog.getAccount(ownerAccountId);
+            if (owner == null) {
+                throw new IllegalStateException("catalog returned no account for owner '" + ownerAccountId + "'");
+            }
+            return owner.tenantId();
+        } catch (RuntimeException e) {
+            // Guessing here is not an option: defaulting to the flat layout would strand a tenanted
+            // namespace outside its tenant prefix, and using the caller's tenant is the defect this
+            // method exists to prevent. Fail loud instead.
+            throw new IllegalStateException(String.format(
+                    "Cannot determine tenant placement for namespace '%s': owner account '%s' is not "
+                            + "resolvable in the catalog. Refusing to open it rather than risk placing it "
+                            + "under the wrong tenant.", namespaceId, ownerAccountId), e);
+        }
     }
 
     /**
