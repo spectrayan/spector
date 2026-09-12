@@ -5,7 +5,7 @@
 > A biologically-inspired, off-heap memory system that gives AI agents the ability to **remember**, **forget**, **consolidate**, and **associate** — with microsecond latency and zero garbage collection pressure. Built on Java Project Panama, SIMD-accelerated vector math, and Virtual Threads.
 
 [![Java](https://img.shields.io/badge/Java-25-orange.svg)](https://openjdk.org/)
-[![License](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](https://github.com/spectrayan/spector/blob/main/memory/spector-memory/LICENSE)
 [![Panama](https://img.shields.io/badge/Panama-Off--Heap-blueviolet.svg)](#)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX2%2FAVX--512-green.svg)](#)
 [![Virtual Threads](https://img.shields.io/badge/Loom-Virtual_Threads-blue.svg)](#)

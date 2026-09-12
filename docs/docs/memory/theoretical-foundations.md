@@ -157,7 +157,7 @@ To generate high-quality candidate memories before applying cognitive scoring an
 | **Mem0** | Vector similarity | ❌ None | ❌ No | ❌ No |
 | **Letta/MemGPT** | Agent-managed | ❌ None (agent decides) | ❌ No | ❌ No |
 | **MemoryOS** (Hu et al., 2025)[^19] | Hierarchical knowledge graph | Not published | Not published | Not published |
-| **Full ACT-R** (Anderson, 1993)[^16] | $B_i + \sum W_j S_{ji} + \epsilon$ | Power law over recall timestamps | ✅ Via base-level activation | ❌ No (not in standard ACT-R) |
+| **Full ACT-R** (Anderson, 1993[^16]; Anderson & Lebiere, 1998[^17]) | $B_i + \sum W_j S_{ji} + \epsilon$ | Power law over recall timestamps | ✅ Via base-level activation | ❌ No (not in standard ACT-R) |
 
 ### Key Differentiators
 

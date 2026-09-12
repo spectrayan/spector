@@ -140,56 +140,41 @@ public enum MemorySource {
 
 ## SynapticTagEncoder
 
-64-bit inline Bloom filter encoder:
+128-bit inline Bloom filter encoder (`synaptic_tags_lo` and `synaptic_tags_hi`):
 
 ```java
-// Encode tags into a Bloom filter
-long mask = SynapticTagEncoder.encode("java", "debugging", "performance");
+// Encode tags into a 128-bit Bloom filter mask
+long[] mask = SynapticTagEncoder.encode128("java", "debugging", "performance");
 
-// Check if a record matches (containment check)
-long recordTags = layout.readSynapticTags(segment, offset);
-boolean matches = (recordTags & mask) == mask;
+// Check if a candidate record matches (bitwise AND containment check)
+boolean matches = SynapticTagEncoder.matches(recordTagsLo, recordTagsHi, mask);
 
-// Match individual tag
-boolean hasJava = SynapticTagEncoder.matches(recordTags, "java");
+// Test individual tag membership
+boolean hasJava = SynapticTagEncoder.contains(recordTagsLo, recordTagsHi, "java");
 ```
 
 ---
 
-## EngramLayout
+## EncodingHeader
 
-Binary layout for the 64-byte header + quantized vector:
-
-```java
-EngramLayout layout = new EngramLayout(quantizedVecBytes);
-
-// Record stride (header + vector)
-int stride = layout.stride();            // e.g., 832 for 768-dim INT8
-
-// Read/write header
-EncodingHeader header = layout.readHeader(segment, offset);
-layout.writeHeader(segment, offset, header);
-
-// Read individual fields
-long tags = layout.readSynapticTags(segment, offset);
-float importance = layout.readImportance(segment, offset);
-
-// Merge tags (OR operation for co-activation)
-layout.mergeSynapticTags(segment, offset, additionalTags);
-```
-
-### EncodingHeader
+Immutable 64-byte pure encoding record header:
 
 ```java
 public record EncodingHeader(
+    byte version,           // Header format version (2)
+    byte flags,             // Flags: tombstone, pinned, resolved, consolidated
+    byte valence,           // Emotional valence (-128 to +127)
+    short arousal,          // Emotional arousal (0 to 255)
+    float baseImportance,   // Intrinsic importance at formation
     long timestampMs,       // Unix epoch milliseconds
-    long synapticTags,      // 64-bit Bloom filter
-    float exactNorm,        // L2 norm of original float vector
-    float importance,       // Cognitive importance [0.0 – 1.0]
-    int centroidId,         // IVF centroid assignment
-    short recallCount,      // Reconsolidation counter
-    byte valence,           // Emotional coloring
-    byte flags              // Bit flags: [0] tombstone, [1] pinned
+    float exactNorm,        // L2 norm of original unquantized vector
+    short centroidId,       // IVF partition routing centroid
+    long synapticTagsLo,    // Low 64 bits of 128-bit Bloom filter
+    long synapticTagsHi,    // High 64 bits of 128-bit Bloom filter
+    byte consolidationFlags,// Provenance and crystallization bits
+    byte encodingProfile,   // Cognitive profile active during formation
+    short soulVersion,      // Persona configuration generation
+    float encodingSurprise  // Bayesian surprise z-score
 ) {}
 ```
 

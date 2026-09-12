@@ -21,7 +21,8 @@ graph TB
     end
 
     subgraph memory["memory/ (Cognitive Memory Engine)"]
-        spectormemory["spector-memory<br/><i>Bundle Kernel, Cognitive Pathways & Daemons</i>"]
+        spectorkernel["spector-kernel<br/><i>Zero-GC Panama FFM, Bundles & Shapes</i>"]
+        spectormemory["spector-memory<br/><i>Cognitive Pathways & Daemons</i>"]
         providerApi["spector-provider-api<br/><i>Provider SPI</i>"]
         providers["spector-providers<br/><i>AI Providers (Ollama, OpenAI, ONNX)</i>"]
         ingestion["spector-ingestion<br/><i>File & sensory ingest pipeline</i>"]
@@ -65,11 +66,15 @@ graph TD
     cli --> mcp
     cli --> ingestion
 
+    memory --> kernel["🛡️ kernel"]
     memory --> index["📊 index"]
     memory --> core["🔬 core"]
     memory --> cpu["⚡ cpu"]
     memory --> config["⚙️ config"]
     memory --> providerApi["🧬 provider-api"]
+
+    kernel --> commons["📄 commons"]
+    inspect --> kernel
 
     index --> core
     index --> config

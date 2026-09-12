@@ -5,7 +5,7 @@ description: "How Spector Memory maps neuroscience concepts to code — a guided
 
 # 🧬 Biological Systems — Overview
 
-Spector Memory draws on computational neuroscience research to implement **simplified, performance-optimized approximations** of biological memory mechanisms. Each package in `spector-memory` maps to a neuroscience concept, implementing mathematical models inspired by peer-reviewed cognitive science — particularly Anderson's ACT-R architecture (1993) — and optimized for microsecond-scale agent memory operations.
+Spector Memory draws on computational neuroscience research to implement **simplified, performance-optimized approximations** of biological memory mechanisms. Each package in `spector-memory` maps to a neuroscience concept, implementing mathematical models inspired by peer-reviewed cognitive science (Park et al., 2023[^18]; Hu et al., 2025[^19]) — particularly Anderson's ACT-R architecture (1993) — and optimized for microsecond-scale agent memory operations.
 
 ---
 
@@ -56,8 +56,8 @@ graph TB
 
 | System | Brain Region | Key Concept | Spector Implementation | Reference |
 |---|---|---|---|---|
-| [**Cortex**](cortex.md) | Prefrontal, Hippocampus, Neocortex, Basal Ganglia | Multi-store memory model | 4-tier off-heap stores (Working, Episodic, Semantic, Procedural) | Atkinson & Shiffrin, 1968[^1] |
-| [**Synapse**](synapse.md) | Synaptic junction | Synaptic tagging & capture | 64-bit Bloom filter tag encoding, 32B binary header | Frey & Morris, 1997[^2] |
+| [**Cortex**](cortex.md) | Prefrontal, Hippocampus, Neocortex, Basal Ganglia | Multi-store memory model | 4-tier off-heap stores (Working, Episodic, Semantic, Procedural) | Atkinson & Shiffrin, 1968[^1]; Baddeley, 2000[^21]; McClelland et al., 1995[^20] |
+| [**Synapse**](synapse.md) | Synaptic junction | Synaptic tagging & capture | 128-bit Bloom filter tag encoding, 64B binary EncodingHeader | Frey & Morris, 1997[^2] |
 | [**Dopamine**](dopamine.md) | Ventral tegmental area | Prediction error signaling | Welford Z-score surprise detection, flashbulb encoding | Schultz, 1997[^3] |
 | [**Amygdala**](amygdala.md) | Amygdala | Emotional memory modulation | Signed valence byte (-128 to +127), emotional filtering | McGaugh, 2004[^4] |
 | [**4-Layer Graph**](hebbian.md) | Cortical networks, Hippocampus | Hebbian learning, STDP, episodic sequences | Off-heap HebbianGraph, EntityGraph, TemporalChain, HyperEntityGraph | Hebb, 1949[^5]; Bi & Poo, 2001[^6] |
@@ -79,7 +79,7 @@ Spector approximates the **power law of forgetting** using precomputed decay buc
 
 $$R(t) = a \cdot t^{-d}$$
 
-Where $R(t)$ is retrieval strength, $t$ is time since encoding, and $d$ is the configurable decay exponent (default: 0.15). Research since Wixted (2004) has established that forgetting follows a power law, not the exponential curve originally proposed by Ebbinghaus (1885). Spector discretizes this into 12 buckets spanning 5+ years, with a configurable permastore floor (default: 0.10) — see [Scoring Pipeline](scoring-pipeline.md)).
+Where $R(t)$ is retrieval strength, $t$ is time since encoding, and $d$ is the configurable decay exponent (default: 0.15). Research since Wixted (2004) has established that forgetting follows a power law, not the exponential curve originally proposed by Ebbinghaus (1885). Spector discretizes this into 12 buckets spanning 5+ years, with a configurable permastore floor (default: 0.10, Bahrick, 1984[^22]) — see [Scoring Pipeline](scoring-pipeline.md)).
 
 > **References**: Wixted, J.T. (2004). *The psychology and neuroscience of forgetting*[^15]; Ebbinghaus, H. (1885). *Über das Gedächtnis*[^13]
 

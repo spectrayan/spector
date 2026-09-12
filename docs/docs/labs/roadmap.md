@@ -357,37 +357,11 @@ Where $S(t)^{0.3}$ provides a gentle boost for well-stored memories without domi
 
 ### Wiring into `reinforce()`
 
-The `reinforce()` path in `DefaultSpectorMemory` already updates valence and recall count. The Two-Factor update would add:
+The `reinforce()` cognitive operation updates valence, increments the recall counter, and applies the Bjork Two-Factor storage update:
 
-```java
-public void reinforce(String memoryId, byte valence) {
-    MemoryLocation loc = index.lookup(memoryId);
-    MemorySegment segment = tierRouter.segmentFor(loc.type());
-    long offset = loc.offset();
-    
-    // Existing: update valence
-    segment.set(LAYOUT_VALENCE, offset + OFFSET_VALENCE, valence);
-    
-    // Existing: increment recall count (atomic CAS)
-    int recallCount = incrementRecallCount(segment, offset);
-    
-    // NEW: Two-Factor update
-    if (layout.headerLayout().headerBytes() >= 64) {
-        long timestamp = segment.get(LAYOUT_TIMESTAMP, offset + OFFSET_TIMESTAMP);
-        float currentS = segment.get(LAYOUT_STORAGE_STRENGTH, offset + OFFSET_STORAGE_STRENGTH);
-        
-        // Compute current R(t)
-        float ageFraction = DecayStrategy.decay(
-            DecayStrategy.ageToBucket(timestamp, System.currentTimeMillis()));
-        
-        // ΔS = S_gain × (1 - R(t)) — maximum boost when retrieval is hard
-        float deltaS = S_GAIN * (1.0f - ageFraction);
-        float newS = Math.min(currentS + deltaS, MAX_STORAGE_STRENGTH);
-        
-        segment.set(LAYOUT_STORAGE_STRENGTH, offset + OFFSET_STORAGE_STRENGTH, newS);
-    }
-}
-```
+$$\Delta S = S_{\text{gain}} \times (1 - R(t))$$
+
+When retrieval is difficult (low current retrieval strength $R(t)$), the memory receives the maximum storage gain $\Delta S$, directly modeling the biological spacing effect. The updated storage strength $S(t)$ is written to the dedicated off-heap strength region without modifying the immutable 64-byte encoding header.
 
 ### Calibration Challenges
 
@@ -492,36 +466,18 @@ The critical engineering challenge: re-quantizing vectors **without locking the 
 3. **Atomic swap:** Once complete, atomically update the `EngramLayout` stride to use SQ4 offsets
 4. **Lazy cleanup:** The old SQ8 bytes become dead space, reclaimed at next compaction
 
-```java
-/**
- * Re-quantizes a batch of records from SQ8 to SQ4 in-place.
- * 
- * Thread safety: uses compare-and-swap on a "quantization version" byte
- * in the header flags to prevent double-conversion.
- */
-public int requantizeBatch(MemorySegment segment, int startRecord, 
-                            int batchSize, EngramLayout layout) {
-    int converted = 0;
-    for (int i = startRecord; i < startRecord + batchSize; i++) {
-        long offset = (long) i * layout.stride();
-        byte flags = segment.get(LAYOUT_FLAGS, offset + OFFSET_FLAGS);
-        
-        // Skip pinned, already-SQ4, or tombstoned
-        if (isPinned(flags) || isSQ4(flags) || isTombstoned(flags)) continue;
-        
-        // Read SQ8 vector, re-quantize to SQ4
-        byte[] sq8 = readVector(segment, offset, layout);
-        byte[] sq4 = convertSQ8toSQ4(sq8);
-        
-        // Write SQ4 in-place (half the space)
-        writeVectorSQ4(segment, offset, layout, sq4);
-        
-        // Mark as SQ4 in flags (atomic CAS)
-        setQuantizationFlag(segment, offset, QUANT_SQ4);
-        converted++;
-    }
-    return converted;
-}
+```mermaid
+sequenceDiagram
+    autonumber
+    participant W as Worker (Virtual Thread)
+    participant B as Bundle Region (SQ8)
+    participant S as Target Region (SQ4)
+    participant H as Encoding Header
+
+    W->>B: Read unpinned SQ8 vector
+    W->>W: Downsample to nibble-packed SQ4
+    W->>S: Write compacted 4-bit payload
+    W->>H: Atomically set FLAG_QUANT_SQ4
 ```
 
 ### Mixed-Precision Scoring

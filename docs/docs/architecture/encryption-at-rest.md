@@ -23,8 +23,8 @@ Spector stores sensitive cognitive memory data — conversations, documents, kno
 | **Tier 1** | Raw text (`text.dat`) | AES-256-GCM (per-tenant key) | Application layer | Zero on search |
 | **Tier 1b** | Entity graph name index | AES-256-GCM (per-tenant key) | Application layer | On save/load only |
 | **Tier 1c** | Salience profiles | AES-256-GCM (per-tenant key) | Application layer | On save/load only |
-| **Tier 2** | Synaptic tags | HMAC-SHA256 blind indexing | Application layer | Zero (same Bloom comparison) |
-| **Tier 3** | Vector embeddings (`.mem`) | LUKS / BitLocker / EBS | OS / Infrastructure | <1% with AES-NI |
+| **Tier 2** | Synaptic tags | HMAC-SHA256 blind indexing | Application layer | Zero (same 128-bit Bloom comparison) |
+| **Tier 3** | Vector embeddings (`.bundle`) | LUKS / BitLocker / EBS | OS / Infrastructure | <1% with AES-NI |
 
 ---
 
@@ -32,7 +32,7 @@ Spector stores sensitive cognitive memory data — conversations, documents, kno
 
 The Spector engine achieves **microsecond-latency** vector search via a zero-copy architecture:
 
-1. `.mem` files are memory-mapped via `FileChannel.map()` into `MemorySegment`
+1. Growable bundle files (`partition.bundle`, `runtime.bundle`) are memory-mapped via `FileChannel.map()` into `MemorySegment`
 2. The OS page cache handles hot/cold data paging
 3. SIMD scoring reads directly from these segments via the Panama Vector API
 
@@ -204,25 +204,25 @@ text.dat Binary Format (V2):
 
 ### Tier 2: HMAC Blind Indexing
 
-Synaptic tags are stored as 64-bit Bloom filters in each memory's header. The standard encoder uses non-keyed MurmurHash, which is vulnerable to dictionary attacks:
+Synaptic tags are stored as 128-bit Bloom filters across `synaptic_tags_lo` and `synaptic_tags_hi` (offsets `0x18`–`0x27`) in each memory's pure encoding header. The standard encoder uses non-keyed MurmurHash3 ($k=4$), which is vulnerable to dictionary attacks:
 
 === "Standard (Open Source)"
     ```
-    MurmurHash3("patient:john") → 64-bit Bloom filter
+    MurmurHash3("patient:john") → 128-bit Bloom filter
     ⚠️ Attacker can brute-force with a dictionary of common tags
     ```
 
 === "Keyed (Enterprise)"
     ```
-    HMAC-SHA256(tenantKey, "patient:john") → MurmurHash3(hmac) → 64-bit Bloom
+    HMAC-SHA256(tenantKey, "patient:john") → MurmurHash3(hmac) → 128-bit Bloom
     ✅ Cannot brute-force without the tenant's HMAC key
     ```
 
-The output is still a 64-bit `long`. The SIMD scan loop is completely unchanged — it compares `(record.tags & query.tags) == query.tags` regardless of how the bits were set.
+The output is a 128-bit filter (`synaptic_tags_lo`, `synaptic_tags_hi`). The SIMD / bitwise scan loop is completely unchanged — it compares `((record.tagsLo & query.tagsLo) == query.tagsLo) && ((record.tagsHi & query.tagsHi) == query.tagsHi)` in two CPU register instructions regardless of how the bits were set.
 
 ### Tier 3: Volume-Level Encryption
 
-Vectors in `.mem` files are encrypted at the OS/infrastructure layer:
+Vectors and records in `.bundle` files (`partition.bundle`, `runtime.bundle`) are encrypted at the OS/infrastructure layer:
 
 === "Linux"
     ```bash

@@ -14,7 +14,7 @@ We evaluate Spector Memory across both official standard benchmarks (**LoCoMo**,
 
 ### 1.1. Official Standard Multi-Dataset Benchmarks (August 25, 2026)
 
-Evaluated with Panama off-heap storage (`HeaderLayout64`), AVX-512 SIMD vector cosine distance, single-pass zero-allocation BM25, and a **20-query JIT/memory warmup pass** to eliminate cold-start timing distortion.
+Evaluated with Panama off-heap storage (`EncodingHeaderLayout`), AVX-512 SIMD vector cosine distance, single-pass zero-allocation BM25, and a **20-query JIT/memory warmup pass** to eliminate cold-start timing distortion.
 
 #### A. LoCoMo Benchmark (5,882 Records / 1,986 Queries / Multi-Session Dialogue)
 | Retriever Mode | nDCG@10 | MRR@10 | Recall@10 | Latency $p_{50}$ | Latency $p_{95}$ | Latency $p_{99}$ | Throughput | Description |

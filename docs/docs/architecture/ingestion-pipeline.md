@@ -205,18 +205,18 @@ IngestionPipeline                        CognitiveIngestionTarget
     │                                           │
     │  ingest(id, text, vector)                 │
     ├──────────────────────────────────────────► │
-    │                                           ├── 2. Encode synaptic tags (Bloom filter)
+    │                                           ├── 2. Encode synaptic tags (128-bit Bloom filter)
     │                                           ├── 3. Compute surprise (Dopamine)
     │                                           ├── 3b. ICNU fusion (if hints provided)
     │                                           ├── 4. Flashbulb check (extreme surprise)
     │                                           ├── 5. Quantize to INT8
-    │                                           ├── 6. Build cognitive header
-    │                                           ├── 7. Write to tier store
+    │                                           ├── 6. Build 64-byte encoding header & strength entry
+    │                                           ├── 7. Write to bundle partition via NamespaceKernel
     │                                           ├── 8. Register in MemoryIndex
     │                                           └── 9. WAL append
 ```
 
-`SpectorMemory.remember()` calls `CognitiveIngestionTarget.ingestCognitive()` directly with full cognitive parameters (type, tags, source, ICNU hints).
+`SpectorMemory.remember()` routes directly to the Remember Pathway with full cognitive parameters (type, tags, source, ICNU hints).
 
 ---
 

@@ -71,10 +71,10 @@ graph TB
         SM --> RP[RecallPathway<br/>Pathway: Recall]:::core
         
         subgraph "Cortex — Tier Stores"
-            TR[TierRouter]:::core --> WM[Working<br/>Prefrontal Cortex]:::working
-            TR --> EM[Episodic<br/>Hippocampus]:::episodic
-            TR --> SE[Semantic<br/>Neocortex]:::semantic
-            TR --> PR[Procedural<br/>Basal Ganglia]:::procedural
+            NK[NamespaceKernel<br/>EngramMemory]:::core --> WM[Working<br/>Prefrontal Cortex]:::working
+            NK --> EM[Episodic<br/>Hippocampus]:::episodic
+            NK --> SE[Semantic<br/>Neocortex]:::semantic
+            NK --> PR[Procedural<br/>Basal Ganglia]:::procedural
         end
         
         subgraph "Synapse — Scoring"
@@ -102,9 +102,9 @@ graph TB
             TCC[TombstoneCompactor<br/>Synaptic Pruning]:::core
         end
         
-        CT --> TR
+        CT --> NK
         RP --> CS
-        RP --> TR
+        RP --> NK
         RP --> HG
         RP --> TC
         RP --> ED
