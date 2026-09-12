@@ -110,6 +110,27 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
     private final java.util.concurrent.atomic.AtomicBoolean closed =
             new java.util.concurrent.atomic.AtomicBoolean(false);
 
+    /**
+     * Listener invoked immediately when an active partition is frozen and rolled (Req R2.2).
+     */
+    @FunctionalInterface
+    public interface PartitionRollListener {
+        void onPartitionRolled(int newlyFrozenSeq, Path partitionDir, Path bundlePath);
+    }
+
+    private final List<PartitionRollListener> rollListeners =
+            new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    public void addPartitionRollListener(PartitionRollListener listener) {
+        if (listener != null) {
+            rollListeners.add(listener);
+        }
+    }
+
+    public void removePartitionRollListener(PartitionRollListener listener) {
+        rollListeners.remove(listener);
+    }
+
     public PartitionManager(Path basePath,
                      int quantizedVecBytes,
                      int semanticCapacity,
@@ -511,6 +532,15 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                 log.info("Rolled to new partition: {} (seq={}, capacity={}, live={}, mode={})",
                         newPartition.getFileName(), nextSeq, semanticCapacity,
                         this.registry.size(), useBundleMode ? "V4" : "V3");
+
+                for (PartitionRollListener l : rollListeners) {
+                    try {
+                        l.onPartitionRolled(oldActive.seq(), oldActive.dir(),
+                                oldActive.partitionBundle() != null ? oldActive.partitionBundle().bundlePath() : null);
+                    } catch (Exception ex) {
+                        log.warn("PartitionRollListener threw exception during roll", ex);
+                    }
+                }
 
             } catch (IOException e) {
                 throw new SpectorServerException(ErrorCode.INTERNAL_ERROR,

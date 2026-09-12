@@ -49,6 +49,7 @@ public class SynapseProperties extends SpectorConfigProperties {
     private com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties cache = new com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties();
     private com.spectrayan.spector.synapse.config.cell.CellProperties cell = new com.spectrayan.spector.synapse.config.cell.CellProperties();
     private com.spectrayan.spector.synapse.config.routing.RoutingProperties routing = new com.spectrayan.spector.synapse.config.routing.RoutingProperties();
+    private com.spectrayan.spector.synapse.config.replication.ReplicationProperties replication = new com.spectrayan.spector.synapse.config.replication.ReplicationProperties();
 
     public SynapseProperties() {}
 
@@ -94,6 +95,9 @@ public class SynapseProperties extends SpectorConfigProperties {
 
     public com.spectrayan.spector.synapse.config.routing.RoutingProperties getRouting() { return routing; }
     public void setRouting(com.spectrayan.spector.synapse.config.routing.RoutingProperties routing) { if (routing != null) this.routing = routing; }
+
+    public com.spectrayan.spector.synapse.config.replication.ReplicationProperties getReplication() { return replication; }
+    public void setReplication(com.spectrayan.spector.synapse.config.replication.ReplicationProperties replication) { if (replication != null) this.replication = replication; }
 
     // ══════════════════════════════════════════════════════════════
     // Canonical storage roots (ADR-0034 D1, Req R3.1, R3.4)
