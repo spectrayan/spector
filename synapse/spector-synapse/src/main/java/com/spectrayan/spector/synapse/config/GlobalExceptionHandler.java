@@ -81,6 +81,9 @@ public class GlobalExceptionHandler {
                 case SOUL_STACK_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
                 default -> HttpStatus.BAD_REQUEST;
             };
+            case CLUSTER -> (code == ErrorCode.NAMESPACE_NOT_OWNED || code == ErrorCode.STALE_ROUTE)
+                    ? HttpStatus.MISDIRECTED_REQUEST
+                    : HttpStatus.SERVICE_UNAVAILABLE;
             case SERVER -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
@@ -101,6 +104,9 @@ public class GlobalExceptionHandler {
                     ? HttpStatus.NOT_FOUND
                     : HttpStatus.BAD_REQUEST;
             case INGESTION -> HttpStatus.BAD_REQUEST;
+            case CLUSTER -> (code == ErrorCode.NAMESPACE_NOT_OWNED || code == ErrorCode.STALE_ROUTE)
+                    ? HttpStatus.MISDIRECTED_REQUEST
+                    : HttpStatus.SERVICE_UNAVAILABLE;
             case SERVER -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
