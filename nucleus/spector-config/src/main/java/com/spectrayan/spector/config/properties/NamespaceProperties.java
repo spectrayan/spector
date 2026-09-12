@@ -27,6 +27,7 @@ public class NamespaceProperties implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private TenantRootedProperties tenantRooted = new TenantRootedProperties();
+    private boolean dualReadEnabled = DEFAULT_NAMESPACE_DUAL_READ_ENABLED;
 
     public NamespaceProperties() {}
 
@@ -50,11 +51,20 @@ public class NamespaceProperties implements Serializable {
         return tenantRooted != null && tenantRooted.isEnabled();
     }
 
+    public boolean isDualReadEnabled() {
+        return dualReadEnabled;
+    }
+
+    public void setDualReadEnabled(boolean dualReadEnabled) {
+        this.dualReadEnabled = dualReadEnabled;
+    }
+
     public NamespaceProperties copy() {
         NamespaceProperties cp = new NamespaceProperties();
         if (this.tenantRooted != null) {
             cp.setTenantRooted(this.tenantRooted.copy());
         }
+        cp.setDualReadEnabled(this.dualReadEnabled);
         return cp;
     }
 

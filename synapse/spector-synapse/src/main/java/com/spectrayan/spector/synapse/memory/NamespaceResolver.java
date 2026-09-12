@@ -20,7 +20,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
+import io.micrometer.core.instrument.MeterRegistry;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -119,6 +121,9 @@ public class NamespaceResolver implements AutoCloseable {
 
     private final Path basePath;
 
+    private final AtomicLong fallbackCounter = new AtomicLong(0);
+    private final MeterRegistry meterRegistry;
+
     public ParallelEmbeddingPipeline hoistedPipeline() {
         return hoistedPipeline;
     }
@@ -164,6 +169,26 @@ public class NamespaceResolver implements AutoCloseable {
             ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider,
             ObjectProvider<org.quartz.Scheduler> quartzSchedulerProvider,
             int maxInstances) {
+        this(catalog, synapseProps, embedderProvider, textGenProvider, salienceProvider,
+                objectMapperProvider, cacheManagerProvider, encryptorProvider,
+                observationRegistryProvider, observabilityConfigProvider,
+                quartzSchedulerProvider, null, maxInstances);
+    }
+
+    public NamespaceResolver(
+            AccountCatalog catalog,
+            SynapseProperties synapseProps,
+            ObjectProvider<EmbeddingProvider> embedderProvider,
+            ObjectProvider<LlmProvider> textGenProvider,
+            ObjectProvider<SalienceProfileProvider> salienceProvider,
+            ObjectProvider<ObjectMapper> objectMapperProvider,
+            ObjectProvider<org.springframework.cache.CacheManager> cacheManagerProvider,
+            ObjectProvider<com.spectrayan.spector.memory.persist.DataEncryptor> encryptorProvider,
+            ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistryProvider,
+            ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider,
+            ObjectProvider<org.quartz.Scheduler> quartzSchedulerProvider,
+            ObjectProvider<io.micrometer.core.instrument.MeterRegistry> meterRegistryProvider,
+            int maxInstances) {
         this.catalog = catalog;
         this.synapseProps = synapseProps;
         this.embedderProvider = embedderProvider;
@@ -175,6 +200,7 @@ public class NamespaceResolver implements AutoCloseable {
         this.observationRegistryProvider = observationRegistryProvider;
         this.observabilityConfigProvider = observabilityConfigProvider;
         this.quartzSchedulerProvider = quartzSchedulerProvider;
+        this.meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
         this.maxInstances = Math.max(1, maxInstances);
         String baseStr = synapseProps.getMemory() != null ? synapseProps.getMemory().getPersistencePath() : null;
         if (baseStr == null || baseStr.isBlank()) {
@@ -450,10 +476,41 @@ public class NamespaceResolver implements AutoCloseable {
         Placement placement = NamespacePathResolver.resolve(basePath(), tenantId, namespaceId);
         Path dir = placement.dir();
 
+        // Dual-read fallback (Task 4.4, Req R5.3, Invariant I6)
+        boolean dualReadEnabled = synapseProps != null
+                && synapseProps.getNamespace() != null
+                && synapseProps.getNamespace().isDualReadEnabled();
+        if (tenantId != null && !tenantId.isBlank() && dualReadEnabled) {
+            Path marker = dir.resolve(StoragePaths.FILE_NAMESPACE);
+            if (!Files.exists(marker)) {
+                Placement fallbackPlacement = NamespacePathResolver.resolve(basePath(), null, namespaceId);
+                Path fallbackMarker = fallbackPlacement.dir().resolve(StoragePaths.FILE_NAMESPACE);
+                if (Files.exists(fallbackMarker)) {
+                    log.info("[NamespaceResolver] dual-read fallback for nsId='{}' tenant='{}': falling back to layout A at {}",
+                            namespaceId, tenantId, fallbackPlacement.dir());
+                    placement = fallbackPlacement;
+                    dir = placement.dir();
+                    fallbackCounter.incrementAndGet();
+                    if (meterRegistry != null) {
+                        try {
+                            meterRegistry.counter("spector.namespace.layout.fallback").increment();
+                        } catch (Exception ignored) {}
+                    }
+                }
+            }
+        }
+
         // R8.1, R8.2, R8.3: Verify layout marker if present, or create on fresh directory
         Path markerFile = dir.resolve(StoragePaths.FILE_NAMESPACE);
-        ObjectMapper jsonMapper = objectMapperProvider != null
-                ? objectMapperProvider.getIfAvailable(ObjectMapper::new) : new ObjectMapper();
+        ObjectMapper jsonMapper = null;
+        if (objectMapperProvider != null) {
+            try {
+                jsonMapper = objectMapperProvider.getIfAvailable();
+            } catch (Exception ignored) {}
+        }
+        if (jsonMapper == null) {
+            jsonMapper = new ObjectMapper();
+        }
         if (Files.exists(markerFile)) {
             try {
                 JsonNode node = jsonMapper.readTree(markerFile.toFile());
@@ -534,8 +591,9 @@ public class NamespaceResolver implements AutoCloseable {
         org.quartz.Scheduler springQuartz = quartzSchedulerProvider != null
                 ? quartzSchedulerProvider.getIfAvailable() : null;
 
+        final Path effectiveDir = dir;
         SpectorMemory built = runtime.attach(namespaceId, builder -> {
-            builder.persistence(dir);
+            builder.persistence(effectiveDir);
             if (textGen != null) {
                 builder.llmProvider(textGen);
             }
@@ -573,8 +631,9 @@ public class NamespaceResolver implements AutoCloseable {
             built = new com.spectrayan.spector.metrics.ObservedSpectorMemory(built, obsRegistry, obsConfig);
         }
 
-        log.info("[NamespaceResolver] built namespace memory instance nsId={} (dims={}, persistenceMode={}) via SpectorRuntime",
-                namespaceId, memory.getDimensions(), memory.getPersistenceMode());
+        String tenantLog = (tenantId != null && !tenantId.isBlank()) ? tenantId : "none";
+        log.info("[NamespaceResolver] built namespace memory instance nsId={} tenant={} layout={} (dims={}, persistenceMode={}) via SpectorRuntime",
+                namespaceId, tenantLog, placement.layout().id(), memory.getDimensions(), memory.getPersistenceMode());
 
         // INSULA fallback: only restore salience/soul from Region 24 when no identity bundle
         // exists for this namespace's owner. Post-migration, IdentityPlane supplies the soul
@@ -673,6 +732,21 @@ public class NamespaceResolver implements AutoCloseable {
 
     MemoryHandle evictOldestLocked() {
         return evictOldestProcessUnleasedLocked();
+    }
+
+    public boolean isNamespaceLeased(String namespaceId) {
+        if (namespaceId == null) return false;
+        MemoryHandle handle = cache.get(namespaceId);
+        return handle != null && isLeased(handle.memory);
+    }
+
+    public boolean isNamespaceOpen(String namespaceId) {
+        if (namespaceId == null) return false;
+        return cache.containsKey(namespaceId);
+    }
+
+    public long fallbackCount() {
+        return fallbackCounter.get();
     }
 
     private static boolean isLeased(SpectorMemory memory) {

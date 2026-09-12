@@ -72,7 +72,11 @@ public final class SpectorConfigFactory {
     public static NamespaceProperties namespaceProperties(SpectorConfigSource props) {
         boolean tenantRootedEnabled = props.getBoolean(
                 NAMESPACE_TENANT_ROOTED_ENABLED, DEFAULT_NAMESPACE_TENANT_ROOTED_ENABLED);
-        return new NamespaceProperties(new NamespaceProperties.TenantRootedProperties(tenantRootedEnabled));
+        boolean dualReadEnabled = props.getBoolean(
+                NAMESPACE_DUAL_READ_ENABLED, DEFAULT_NAMESPACE_DUAL_READ_ENABLED);
+        NamespaceProperties np = new NamespaceProperties(new NamespaceProperties.TenantRootedProperties(tenantRootedEnabled));
+        np.setDualReadEnabled(dualReadEnabled);
+        return np;
     }
 
     // ─────────────── HNSW Properties ───────────────

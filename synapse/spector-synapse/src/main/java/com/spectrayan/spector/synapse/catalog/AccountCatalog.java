@@ -89,4 +89,25 @@ public interface AccountCatalog {
     default java.util.List<String> orgUnitIdsForAccount(String accountId) {
         return java.util.List.of();
     }
+
+    /**
+     * Lists all accounts known to the catalog.
+     *
+     * @return list of all accounts
+     */
+    default List<Account> listAccounts() {
+        return List.of();
+    }
+
+    /**
+     * Lists all accounts that have an associated non-blank tenant ID.
+     *
+     * @return list of tenanted accounts
+     */
+    default List<Account> listTenantedAccounts() {
+        return listAccounts().stream()
+                .filter(a -> a.tenantId() != null && !a.tenantId().isBlank())
+                .toList();
+    }
 }
+

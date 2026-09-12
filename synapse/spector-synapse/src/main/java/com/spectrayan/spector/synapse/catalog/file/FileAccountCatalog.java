@@ -30,6 +30,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Stream;
 
 /**
  * File-backed implementation of {@link AccountCatalog} using per-account JSON files
@@ -907,6 +908,29 @@ public class FileAccountCatalog implements AccountCatalog {
     @Override
     public void recordAccess(String namespaceId) {
         // Phase 3: update lastAccessedAt in the catalog record
+    }
+
+    @Override
+    public List<Account> listAccounts() {
+        Path accountsRoot = basePath.resolve(StoragePaths.DIR_ACCOUNTS);
+        if (!Files.isDirectory(accountsRoot)) {
+            return List.of();
+        }
+        List<Account> result = new ArrayList<>();
+        try (Stream<Path> stream = Files.walk(accountsRoot, 8)) {
+            stream.filter(p -> p.getFileName().toString().equals(FILE_ACCOUNT))
+                    .forEach(accountFile -> {
+                        try {
+                            String accountId = accountFile.getParent().getFileName().toString();
+                            result.add(loadSnapshot(accountId).account());
+                        } catch (Exception e) {
+                            log.warn("[FileAccountCatalog] Failed to load account from {}: {}", accountFile, e.getMessage());
+                        }
+                    });
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] Failed to list accounts from {}: {}", accountsRoot, e.getMessage());
+        }
+        return result;
     }
 
     // ══════════════════════════════════════════════════════════════

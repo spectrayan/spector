@@ -82,6 +82,7 @@ public class CognitiveSoulService {
         this(userMemoryRegistry, mapper, salienceProvider, synapseProps, identityPlaneProvider, null);
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
     public CognitiveSoulService(MemoryRegistry userMemoryRegistry,
                                 ObjectMapper mapper,
                                 SynapseSalienceProvider salienceProvider,

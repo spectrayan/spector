@@ -51,7 +51,9 @@ public final class SpectorPropertyConstants {
 
     // Namespace Storage Layout & Routing
     public static final String NAMESPACE_TENANT_ROOTED_ENABLED = "spector.namespace.tenant-rooted.enabled";
-    public static final boolean DEFAULT_NAMESPACE_TENANT_ROOTED_ENABLED = false;
+    public static final boolean DEFAULT_NAMESPACE_TENANT_ROOTED_ENABLED = true;
+    public static final String NAMESPACE_DUAL_READ_ENABLED = "spector.namespace.dual-read.enabled";
+    public static final boolean DEFAULT_NAMESPACE_DUAL_READ_ENABLED = true;
 
     // Provider — Embedding
     public static final String PROVIDER_EMBEDDING_TYPE = "spector.provider.embedding.type";

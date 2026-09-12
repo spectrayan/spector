@@ -51,7 +51,7 @@ public final class NamespacePathResolver {
 
         public static Layout fromId(String id) {
             for (Layout layout : values()) {
-                if (layout.id.equals(id)) {
+                if (layout.id.equals(id) || layout.name().equalsIgnoreCase(id)) {
                     return layout;
                 }
             }

@@ -433,4 +433,82 @@ class NamespaceResolverTest {
             assertThat(resolver.identityRoot()).isEqualTo(dataDir);
         }
     }
+
+    @Test
+    @DisplayName("Task 4.4 / Req R5.3, R12.3: Dual-read falls back to layout A when layout B is missing, incrementing counter")
+    void dualReadFallback_whenLayoutBMissingAndLayoutAExists_fallsBackAndIncrementsCounter() throws IOException {
+        synapseProps.getNamespace().getTenantRooted().setEnabled(true);
+        synapseProps.getNamespace().setDualReadEnabled(true);
+        Account alice = new Account(ALICE_ID, PrincipalKind.HUMAN, AccountProfile.HUMAN_SOLO,
+                ALICE_ID, AccountQuotas.forProfile(AccountProfile.HUMAN_SOLO),
+                AccountFlags.forProfile(AccountProfile.HUMAN_SOLO),
+                ALICE_ID, Instant.now(), TENANT_ACME, false);
+        when(catalog.getOrCreateAccount(ALICE_ID)).thenReturn(alice);
+
+        // Pre-create namespace at Layout A only
+        Path layoutADir = StoragePaths.namespaceDirSharded(basePath, ALICE_ID);
+        Files.createDirectories(layoutADir);
+        Files.writeString(layoutADir.resolve(StoragePaths.FILE_NAMESPACE), """
+                {
+                  "layout": "StoragePaths.namespaceDirSharded",
+                  "namespaceId": "%s"
+                }
+                """.formatted(ALICE_ID));
+
+        try (NamespaceResolver resolver = createResolver()) {
+            SpectorMemory mem = resolver.resolve(ALICE_ID);
+            assertSame(mockMemory, mem);
+            assertThat(resolver.fallbackCount()).isEqualTo(1);
+        }
+    }
+
+    @Test
+    @DisplayName("Task 4.4: Dual-read disabled stays at layout B even if layout A exists")
+    void dualReadFallback_whenDisabled_doesNotFallBack() throws IOException {
+        synapseProps.getNamespace().getTenantRooted().setEnabled(true);
+        synapseProps.getNamespace().setDualReadEnabled(false);
+        Account alice = new Account(ALICE_ID, PrincipalKind.HUMAN, AccountProfile.HUMAN_SOLO,
+                ALICE_ID, AccountQuotas.forProfile(AccountProfile.HUMAN_SOLO),
+                AccountFlags.forProfile(AccountProfile.HUMAN_SOLO),
+                ALICE_ID, Instant.now(), TENANT_ACME, false);
+        when(catalog.getOrCreateAccount(ALICE_ID)).thenReturn(alice);
+
+        // Pre-create namespace at Layout A only
+        Path layoutADir = StoragePaths.namespaceDirSharded(basePath, ALICE_ID);
+        Files.createDirectories(layoutADir);
+        Files.writeString(layoutADir.resolve(StoragePaths.FILE_NAMESPACE), """
+                {
+                  "layout": "StoragePaths.namespaceDirSharded",
+                  "namespaceId": "%s"
+                }
+                """.formatted(ALICE_ID));
+
+        try (NamespaceResolver resolver = createResolver()) {
+            SpectorMemory mem = resolver.resolve(ALICE_ID);
+            assertSame(mockMemory, mem);
+            // No fallback occurred
+            assertThat(resolver.fallbackCount()).isEqualTo(0);
+        }
+    }
+
+    @Test
+    @DisplayName("Task 4.2 / Req R5.4: isNamespaceLeased and isNamespaceOpen report accurately")
+    void leaseInspection_reportsAccurately() {
+        Account alice = new Account(ALICE_ID, PrincipalKind.HUMAN, AccountProfile.HUMAN_SOLO,
+                ALICE_ID, AccountQuotas.forProfile(AccountProfile.HUMAN_SOLO),
+                AccountFlags.forProfile(AccountProfile.HUMAN_SOLO),
+                ALICE_ID, Instant.now(), null, false);
+        when(catalog.getOrCreateAccount(ALICE_ID)).thenReturn(alice);
+
+        try (NamespaceResolver resolver = createResolver()) {
+            assertThat(resolver.isNamespaceOpen(ALICE_ID)).isFalse();
+            assertThat(resolver.isNamespaceLeased(ALICE_ID)).isFalse();
+
+            resolver.resolve(ALICE_ID);
+            assertThat(resolver.isNamespaceOpen(ALICE_ID)).isTrue();
+            // mockMemory is not a DefaultSpectorMemory with active leases
+            assertThat(resolver.isNamespaceLeased(ALICE_ID)).isFalse();
+        }
+    }
 }
+

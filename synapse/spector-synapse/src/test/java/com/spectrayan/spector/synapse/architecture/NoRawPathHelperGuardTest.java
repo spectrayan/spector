@@ -46,7 +46,8 @@ class NoRawPathHelperGuardTest {
             "NamespacePathResolver.java",
             "LayoutMigrator.java",
             "SpectorNamespaceManager.java",
-            "TenantNamespaceMigrator.java"
+            "TenantNamespaceMigrator.java",
+            "ShardedNamespaceMigrator.java"
     );
 
     private static final Pattern RAW_PATH_HELPER_CALL = Pattern.compile(
@@ -54,7 +55,6 @@ class NoRawPathHelperGuardTest {
     );
 
     @Test
-    @Disabled("Task 0.5: Documents current violations across FileAccountCatalog, NamespaceResolver, etc. Enabled in Task 4.6 after Group 3 and Group 4 eliminate all unsanctioned raw path helper call sites.")
     @DisplayName("Verify no production class invokes raw path helpers outside allowlist")
     void noProductionClassCallsRawPathHelpers() throws IOException {
         List<Path> scanRoots = List.of(
@@ -81,6 +81,10 @@ class NoRawPathHelperGuardTest {
                                 List<String> lines = Files.readAllLines(file);
                                 for (int i = 0; i < lines.size(); i++) {
                                     String line = lines.get(i);
+                                    String trimmed = line.trim();
+                                    if (trimmed.startsWith("*") || trimmed.startsWith("//") || trimmed.startsWith("/*")) {
+                                        continue;
+                                    }
                                     if (RAW_PATH_HELPER_CALL.matcher(line).find()) {
                                         violations.add(file + ":" + (i + 1) + ": " + line.trim());
                                     }

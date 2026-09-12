@@ -218,6 +218,7 @@ SPECTOR_API_KEY=my-secret-key mvn -Psynapse -pl synapse/spector-synapse spring-b
 | Parameter | Default | Range | Description |
 |-----------|---------|-------|-------------|
 | `spector.namespace.tenant-rooted.enabled` | `false` | true/false | Enables tenant-rooted namespace sharding layout (`tenants/XX/YY/tenantId/namespaces/ZZ/WW/namespaceId`) for tenanted accounts (ADR-0033). When `false` (default), all namespaces resolve to the legacy flat sharded path (`namespaces/XX/YY/namespaceId`). |
+| `spector.namespace.dual-read.enabled` | `true` | true/false | Enables dual-read fallback from layout B (tenant-rooted) to layout A (flat) during migration window (Req R5.3). Never dual-writes (I6). Fallbacks increment `spector.namespace.layout.fallback`. |
 
 ### Retrieval Stack Parameters
 

@@ -42,7 +42,7 @@ import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
  *
  * <ul>
  *   <li><strong>Unsafe namespace identifier → {@code 400}.</strong> When a resolved {@code User_Id}
- *       yields an unsafe namespace identifier, {@code StoragePaths.namespaceDirSharded(...)} throws
+ *       yields an unsafe namespace identifier, {@code NamespacePathResolver.resolve(...)} throws
  *       a {@link SpectorValidationException} ({@code SPE-100-013}) whose message names the
  *       {@value #NAMESPACE_ID_MARKER} but <em>never</em> carries the raw value, thrown <em>before</em>
  *       any path is resolved or any filesystem mutation occurs. Such failures are mapped to HTTP

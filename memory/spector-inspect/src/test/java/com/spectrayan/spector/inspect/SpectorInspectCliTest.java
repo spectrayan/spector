@@ -118,4 +118,49 @@ class SpectorInspectCliTest {
                 .contains("Fragmentation & Compaction Metrics")
                 .contains("[Optimal] No fragmented or DEAD regions detected. Bundle is compact.");
     }
+
+    @Test
+    void testNamespaceSubcommand_tenanted() throws Exception {
+        Path nsDir = tempDir.resolve("tenanted_ns");
+        java.nio.file.Files.createDirectories(nsDir);
+        Path markerFile = nsDir.resolve("namespace.json");
+        java.nio.file.Files.writeString(markerFile, """
+                {
+                  "layout": "TENANT_SHA256",
+                  "tenantId": "018f9b8c000070008000000000000001",
+                  "namespaceId": "018f9b8c000070008000000000000010"
+                }
+                """);
+
+        // Test passing directory
+        SpectorInspectCli.main(new String[]{"namespace", nsDir.toAbsolutePath().toString()});
+
+        String output = outContent.toString();
+        assertThat(output)
+                .contains("Spector Namespace Diagnostics:")
+                .contains("Layout:           TENANT_SHA256")
+                .contains("Tenant ID:        018f9b8c000070008000000000000001")
+                .contains("Namespace ID:     018f9b8c000070008000000000000010");
+    }
+
+    @Test
+    void testNamespaceSubcommand_untenanted() throws Exception {
+        Path markerFile = tempDir.resolve("namespace.json");
+        java.nio.file.Files.writeString(markerFile, """
+                {
+                  "layout": "StoragePaths.namespaceDirSharded",
+                  "namespaceId": "018f9b8c000070008000000000000020"
+                }
+                """);
+
+        // Test passing file directly
+        SpectorInspectCli.main(new String[]{"namespace", markerFile.toAbsolutePath().toString()});
+
+        String output = outContent.toString();
+        assertThat(output)
+                .contains("Spector Namespace Diagnostics:")
+                .contains("Layout:           StoragePaths.namespaceDirSharded")
+                .contains("Tenant ID:        none")
+                .contains("Namespace ID:     018f9b8c000070008000000000000020");
+    }
 }

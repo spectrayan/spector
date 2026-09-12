@@ -1129,4 +1129,21 @@ public class JdbcAccountCatalog implements AccountCatalog {
             return null;
         }
     }
+
+    @Override
+    public List<Account> listAccounts() {
+        String sql = sqlLoader.load("catalog/account/list-all");
+        return jdbc.sql(sql)
+                .query(this::mapAccountRow)
+                .list();
+    }
+
+    @Override
+    public List<Account> listTenantedAccounts() {
+        String sql = sqlLoader.load("catalog/account/list-tenanted");
+        return jdbc.sql(sql)
+                .query(this::mapAccountRow)
+                .list();
+    }
 }
+
