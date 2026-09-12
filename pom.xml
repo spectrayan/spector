@@ -153,7 +153,7 @@
         <pdfbox.version>3.0.8</pdfbox.version>
         <netty.version>4.2.13.Final</netty.version>
         <picocli.version>4.7.6</picocli.version>
-        <handlebars.version>4.4.0</handlebars.version>
+        <handlebars.version>4.5.2</handlebars.version>
         <camel.version>4.11.0</camel.version>
         <bucket4j.version>8.10.1</bucket4j.version>
         <caffeine.version>3.2.0</caffeine.version>
