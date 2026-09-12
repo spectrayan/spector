@@ -24,6 +24,7 @@ WORKDIR /build
 COPY pom.xml .
 COPY nucleus/ nucleus/
 COPY memory/ memory/
+COPY cluster/ cluster/
 COPY synapse/ synapse/
 COPY sdks/java/ sdks/java/
 COPY bench/ bench/
@@ -106,7 +107,7 @@ RUN mkdir -p /data/index /data/memory /data/tmp /tmp/nginx /var/log/nginx /var/l
 
 USER 1000:1000
 
-EXPOSE 8080 7070
+EXPOSE 8080 7070 9090
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=3 \
     CMD curl -sf http://127.0.0.1:7070/actuator/health || exit 1

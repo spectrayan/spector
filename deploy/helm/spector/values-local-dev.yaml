@@ -1,0 +1,119 @@
+# ═══════════════════════════════════════════════════════════════════
+# Spector — Local Kubernetes Development Values (Docker Desktop / Kind)
+# ═══════════════════════════════════════════════════════════════════
+
+cell:
+  id: "cell-1"
+  region: "local-dev"
+
+topology:
+  mode: "split"
+
+image:
+  repository: spector
+  pullPolicy: IfNotPresent
+  tag: v2
+
+# Sysctl disabled for local unprivileged single-node Docker Desktop
+sysctl:
+  enabled: false
+
+# ── Owners (2 authoritative partitions) ──
+owners:
+  enabled: true
+  replicas: 2
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+  jvmOpts: "-Xms256m -Xmx512m -XX:+UseG1GC --add-modules=jdk.incubator.vector --enable-preview --enable-native-access=ALL-UNNAMED"
+  # Soft anti-affinity to allow co-scheduling on single local k8s node
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution: null
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 1
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                    - owner
+            topologyKey: kubernetes.io/hostname
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 500Mi
+    storageClass: "hostpath"
+  pdb:
+    enabled: false
+
+# ── Replicas (1 async follower) ──
+replicas:
+  enabled: true
+  replicas: 1
+  hotCap: 100
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+  jvmOpts: "-Xms256m -Xmx512m -XX:+UseG1GC --add-modules=jdk.incubator.vector --enable-preview --enable-native-access=ALL-UNNAMED"
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 500Mi
+    storageClass: "hostpath"
+
+# ── Gateway (1 ingress proxy) ──
+gateway:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+  jvmOpts: "-Xms256m -Xmx512m -XX:+UseG1GC --add-modules=jdk.incubator.vector --enable-preview --enable-native-access=ALL-UNNAMED"
+
+# ── Coordination & Routing ──
+coordinator:
+  leaseDurationSeconds: 15
+  renewIntervalSeconds: 5
+
+serviceMonitor:
+  enabled: false
+
+# NetworkPolicy disabled locally to avoid CNI incompatibility on Docker Desktop
+networkPolicy:
+  enabled: false
+
+service:
+  type: ClusterIP
+  ports:
+    dashboard: 7700
+    api: 7070
+    replication: 9090
+
+env:
+  SPECTOR_PORT: "7070"
+  SPECTOR_DATA_DIR: "/data"
+  SPECTOR_EMBEDDING_PROVIDER: "ollama"
+  SPECTOR_EMBEDDING_MODEL: "nomic-embed-text"
+  SPECTOR_EMBEDDING_BASE_URL: ""
+  SPECTOR_EMBEDDING_DIMS: "768"
+  SPECTOR_GENERATION_PROVIDER: "ollama"
+  SPECTOR_GENERATION_MODEL: "llama3.2"
+  SPECTOR_GENERATION_BASE_URL: ""
+  SPECTOR_MEMORY_CAPACITY: "1000"
+  SPECTOR_ENTITY_EXTRACTION_MODE: "NONE"
+  SPECTOR_TAG_EXTRACTOR: "content"
+  SPECTOR_TEXT_SEARCH_MODE: "HYBRID"

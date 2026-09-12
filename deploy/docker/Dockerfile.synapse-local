@@ -4,14 +4,17 @@ FROM eclipse-temurin:25-jre
 LABEL maintainer="Spectrayan <team@spectrayan.com>"
 LABEL description="Spector Synapse — Cognitive Memory Server (local build)"
 
-RUN groupadd -r spector && useradd -r -g spector spector && \
+RUN (userdel -r ubuntu 2>/dev/null || true) && \
+    (groupdel ubuntu 2>/dev/null || true) && \
+    (groupadd -g 1000 spector 2>/dev/null || true) && \
+    (id -u 1000 >/dev/null 2>&1 || useradd -u 1000 -g 1000 -m -s /bin/bash spector) && \
     apt-get update && apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Copy pre-built fat JAR
-COPY synapse/spector-synapse/target/spector-synapse-*.jar app.jar
+COPY synapse/spector-synapse/target/spector-synapse-*-exec.jar app.jar
 
 # Data directory
 RUN mkdir -p /data && chown -R spector:spector /data /app
@@ -26,7 +29,7 @@ ENV SPECTOR_PORT=7070 \
     SPECTOR_CORS_ORIGINS=http://localhost:4200 \
     JAVA_OPTS="-XX:+UseZGC -Xmx1g --enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED"
 
-EXPOSE 7070
+EXPOSE 7070 9090
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
     CMD curl -sf http://localhost:7070/actuator/health || exit 1
