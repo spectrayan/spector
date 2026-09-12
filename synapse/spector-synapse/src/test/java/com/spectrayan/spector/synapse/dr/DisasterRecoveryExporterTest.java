@@ -114,10 +114,10 @@ class DisasterRecoveryExporterTest {
 
         // Verify objects uploaded to S3
         Map<String, byte[]> objects = s3Server.getBucketObjects(BUCKET);
-        String manifestKey = "snapshots/" + tenantId + "/" + namespaceId + "/1/manifest.json";
+        String manifestKey = result.prefix() + "manifest.json";
         assertThat(objects).containsKey(manifestKey);
-        assertThat(objects).containsKey("snapshots/" + tenantId + "/" + namespaceId + "/1/runtime.bundle");
-        assertThat(objects).containsKey("snapshots/" + tenantId + "/" + namespaceId + "/1/part-active.spct");
+        assertThat(objects).containsKey(result.prefix() + "runtime.bundle");
+        assertThat(objects).containsKey(result.prefix() + "part-active.spct");
 
         // Parse and verify manifest
         SnapshotManifest manifest = SnapshotManifest.fromJson(new String(objects.get(manifestKey), StandardCharsets.UTF_8));
@@ -197,5 +197,99 @@ class DisasterRecoveryExporterTest {
           .hasMessageContaining("us-east-1");
 
         assertThat(exporter.getUnhandledNamespaces()).containsKey(namespaceId);
+    }
+
+    @Test
+    @DisplayName("G27: Recursive export preserves relative paths in S3 keys for nested layouts")
+    void testExportNestedSubdirectoriesPreservesRelativePaths() throws IOException {
+        String tenantId = "ten-nested";
+        String namespaceId = "018f9b8c000070008000000000000044";
+        Path nsDir = tempDir.resolve("nested-ns-" + namespaceId);
+        Files.createDirectories(nsDir);
+
+        // Marker
+        String markerJson = String.format("{\"namespaceId\":\"%s\",\"tenantId\":\"%s\",\"pathHelper\":\"sharded\"}",
+                namespaceId, tenantId);
+        Files.writeString(nsDir.resolve(StoragePaths.FILE_NAMESPACE), markerJson);
+
+        // Nested runtime/
+        Path runtimeDir = nsDir.resolve(StoragePaths.DIR_RUNTIME);
+        Files.createDirectories(runtimeDir);
+        ByteBuffer rtBuf = ByteBuffer.allocate(64);
+        rtBuf.putInt(BundleFileLayout.LAYOUT_ID);
+        Files.write(runtimeDir.resolve(StoragePaths.FILE_RUNTIME_BUNDLE), rtBuf.array());
+
+        // Nested partitions/001_p/
+        Path partDir = nsDir.resolve(StoragePaths.DIR_PARTITIONS).resolve("001_p");
+        Files.createDirectories(partDir);
+        ByteBuffer ptBuf = ByteBuffer.allocate(128);
+        ptBuf.putInt(RegionPreamble.MAGIC);
+        Files.write(partDir.resolve("part-1.spct"), ptBuf.array());
+
+        DisasterRecoveryExporter.ExportResult result = exporter.exportNamespace(
+                nsDir, tenantId, namespaceId, REGION, 1L, 200L
+        );
+
+        assertThat(result.success()).isTrue();
+        assertThat(result.payloadCount()).isEqualTo(3); // namespace.json, runtime.bundle, part-1.spct
+
+        Map<String, byte[]> objects = s3Server.getBucketObjects(BUCKET);
+        assertThat(objects).containsKey(result.prefix() + StoragePaths.DIR_RUNTIME + "/" + StoragePaths.FILE_RUNTIME_BUNDLE);
+        assertThat(objects).containsKey(result.prefix() + StoragePaths.DIR_PARTITIONS + "/001_p/part-1.spct");
+        assertThat(objects).containsKey(result.prefix() + StoragePaths.FILE_NAMESPACE);
+    }
+
+    @Test
+    @DisplayName("G29: exportCycle skips idle namespaces and measures RPO intervals")
+    void testExportCycleSkipsIdleNamespacesAndMeasuresRpo() throws IOException {
+        String tenantId = "ten-cycle";
+        String nsId1 = "018f9b8c000070008000000000000031";
+        String nsId2 = "018f9b8c000070008000000000000032";
+
+        Path nsDir1 = createSampleNamespace(tenantId, nsId1, "flat");
+        Path nsDir2 = createSampleNamespace(tenantId, nsId2, "flat");
+
+        // Cycle 1: both namespaces exported
+        var target1 = new DisasterRecoveryExporter.ActiveNamespaceTarget(tenantId, nsId1, nsDir1, REGION, 1L, 100L);
+        var target2 = new DisasterRecoveryExporter.ActiveNamespaceTarget(tenantId, nsId2, nsDir2, REGION, 1L, 50L);
+
+        List<DisasterRecoveryExporter.ExportResult> results1 = exporter.exportCycle(List.of(target1, target2));
+        assertThat(results1).hasSize(2);
+        assertThat(exporter.getLastExportHwm()).containsEntry(nsId1, 100L).containsEntry(nsId2, 50L);
+
+        // Cycle 2: nsId1 is idle (HWM unchanged at 100L), nsId2 has advanced (HWM 75L)
+        var target1Idle = new DisasterRecoveryExporter.ActiveNamespaceTarget(tenantId, nsId1, nsDir1, REGION, 2L, 100L);
+        var target2Active = new DisasterRecoveryExporter.ActiveNamespaceTarget(tenantId, nsId2, nsDir2, REGION, 2L, 75L);
+
+        List<DisasterRecoveryExporter.ExportResult> results2 = exporter.exportCycle(List.of(target1Idle, target2Active));
+        assertThat(results2).hasSize(1);
+        assertThat(results2.get(0).namespaceId()).isEqualTo(nsId2);
+        assertThat(exporter.getLastExportHwm().get(nsId2)).isEqualTo(75L);
+
+        // Measured RPO tracking
+        exporter.recordExportInterval(nsId2, 30L);
+        assertThat(exporter.getMeasuredP99RpoSeconds()).isGreaterThan(0.0);
+        assertThat(exporter.getMeasuredP99Rpo()).isGreaterThanOrEqualTo(0L);
+    }
+
+    @Test
+    @DisplayName("G35: Re-exporting at the same epoch creates distinct immutable prefixes")
+    void testReExportAtSameEpochProducesDistinctImmutablePrefixes() throws IOException {
+        String tenantId = "ten-immutable";
+        String namespaceId = "018f9b8c000070008000000000000022";
+        Path nsDir = createSampleNamespace(tenantId, namespaceId, "flat");
+
+        DisasterRecoveryExporter.ExportResult run1 = exporter.exportNamespace(nsDir, tenantId, namespaceId, REGION, 5L, 100L);
+        DisasterRecoveryExporter.ExportResult run2 = exporter.exportNamespace(nsDir, tenantId, namespaceId, REGION, 5L, 100L);
+
+        assertThat(run1.success()).isTrue();
+        assertThat(run2.success()).isTrue();
+        assertThat(run1.prefix()).isNotEqualTo(run2.prefix());
+        assertThat(run1.prefix()).contains("/5-");
+        assertThat(run2.prefix()).contains("/5-");
+
+        Map<String, byte[]> objects = s3Server.getBucketObjects(BUCKET);
+        assertThat(objects).containsKey(run1.prefix() + "manifest.json");
+        assertThat(objects).containsKey(run2.prefix() + "manifest.json");
     }
 }

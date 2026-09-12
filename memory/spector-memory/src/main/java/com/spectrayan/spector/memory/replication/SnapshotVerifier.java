@@ -157,6 +157,11 @@ public final class SnapshotVerifier {
                 ReplicationPathFilter.assertNotIdentityPlane(s.objectRef());
             }
         }
+        if (manifest.files() != null) {
+            for (SnapshotManifest.FileEntry f : manifest.files()) {
+                ReplicationPathFilter.assertNotIdentityPlane(f.path());
+            }
+        }
     }
 
     /**

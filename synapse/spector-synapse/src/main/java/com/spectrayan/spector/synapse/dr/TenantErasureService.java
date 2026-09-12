@@ -21,10 +21,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -152,6 +155,15 @@ public class TenantErasureService {
                 }
             } catch (Exception e) {
                 log.debug("[Erasure] Prefix sweep for {} encountered: {}", namespaceId, e.getMessage());
+            }
+
+            // G32: Write erasure tombstone marker so DR restore refuses to resurrect erased data
+            try {
+                byte[] markerBytes = ("{\"erasedAt\":\"" + Instant.now() + "\",\"namespaceId\":\"" + namespaceId + "\",\"accountId\":\"" + accountId + "\"}").getBytes(StandardCharsets.UTF_8);
+                objectStoreClient.putObject(drBucket, "snapshots/.tombstones/" + namespaceId,
+                        markerBytes, "application/json", Map.of("erased", "true"));
+            } catch (Exception e) {
+                log.warn("[Erasure] Failed to write erasure marker in DR bucket for {}: {}", namespaceId, e.getMessage());
             }
         }
 

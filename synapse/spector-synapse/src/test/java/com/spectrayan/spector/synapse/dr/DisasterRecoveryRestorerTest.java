@@ -19,6 +19,8 @@ import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.replication.SnapshotKind;
 import com.spectrayan.spector.memory.replication.SnapshotManifest;
 import com.spectrayan.spector.synapse.catalog.AccountCatalog;
+import com.spectrayan.spector.synapse.catalog.NamespaceRecord;
+import com.spectrayan.spector.synapse.catalog.NamespaceType;
 import com.spectrayan.spector.synapse.catalog.file.FileAccountCatalog;
 import com.spectrayan.spector.synapse.config.dr.DisasterRecoveryProperties;
 import org.junit.jupiter.api.AfterEach;
@@ -32,7 +34,9 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -284,5 +288,195 @@ class DisasterRecoveryRestorerTest {
         )).isInstanceOf(ResidencyViolationException.class)
           .hasMessageContaining("eu-central-1")
           .hasMessageContaining("us-west-2");
+    }
+
+    @Test
+    @DisplayName("G26: Checksum failure leaves target directory quarantined with restore.failed sentinel")
+    void testPartialFailureLeavesNoCorruptedFilesAndWritesSentinel() {
+        String tenantId = "ten-fail";
+        String namespaceId = "018f9b8c000070008000000000000091";
+        String s3Prefix = "snapshots/" + tenantId + "/" + namespaceId + "/1/";
+
+        // Runtime bundle with valid checksum
+        ByteBuffer rtBuf = ByteBuffer.allocate(64);
+        rtBuf.putInt(BundleFileLayout.LAYOUT_ID);
+        byte[] rtData = rtBuf.array();
+        String rtSha = AwsSigV4Signer.sha256Hex(rtData);
+        s3Client.putObject(BUCKET, s3Prefix + "runtime.bundle", rtData, null, null);
+
+        // Partition with invalid checksum (corrupted in S3)
+        ByteBuffer ptBuf = ByteBuffer.allocate(128);
+        ptBuf.putInt(RegionPreamble.MAGIC);
+        byte[] ptData = ptBuf.array();
+        s3Client.putObject(BUCKET, s3Prefix + "part-active.spct", ptData, null, null);
+
+        // Manifest declares expected partition hash as "badbadbad..."
+        SnapshotManifest manifest = new SnapshotManifest(
+                SnapshotManifest.PLANE_NAMESPACE,
+                SnapshotManifest.CURRENT_VERSION,
+                tenantId,
+                namespaceId,
+                "flat",
+                1L,
+                100L,
+                SnapshotKind.FULL,
+                new SnapshotManifest.RuntimeEntry("runtime.bundle", rtSha, 1L),
+                new SnapshotManifest.ActivePartitionEntry("part-active.spct", "badbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbad0"),
+                List.of(),
+                0L,
+                100L,
+                null
+        );
+        s3Client.putObject(BUCKET, s3Prefix + "manifest.json", manifest.toJson().getBytes(StandardCharsets.UTF_8), null, null);
+
+        Path restoreBase = tempDir.resolve("quarantine-test");
+        Path targetDir = restoreBase.resolve("namespaces").resolve(namespaceId);
+
+        assertThatThrownBy(() -> restorer.restoreNamespace(
+                tenantId, namespaceId, 1L, restoreBase, STANDBY_REGION
+        )).isInstanceOf(IntegrityVerificationException.class)
+          .hasMessageContaining("SHA-256 mismatch");
+
+        // G26 Assertions: target directory has sentinel, and NO payload files are present
+        assertThat(Files.exists(targetDir.resolve("restore.failed"))).isTrue();
+        assertThat(Files.exists(targetDir.resolve("runtime.bundle"))).isFalse();
+        assertThat(Files.exists(targetDir.resolve("part-active.spct"))).isFalse();
+    }
+
+    @Test
+    @DisplayName("G28, G33: S3 contains unmanifested artifact — restorer strictly REFUSES to serve")
+    void testUnmanifestedArtifactInS3RefusesToServe() {
+        String tenantId = "ten-unman";
+        String namespaceId = "018f9b8c000070008000000000000092";
+        stageValidSnapshot(tenantId, namespaceId, 1L, 50L, "flat");
+
+        // Plant an unmanifested payload in the snapshot prefix
+        String s3Prefix = "snapshots/" + tenantId + "/" + namespaceId + "/1/";
+        s3Client.putObject(BUCKET, s3Prefix + "rogue-unmanifested.bin", "rogue-bytes".getBytes(StandardCharsets.UTF_8), null, null);
+
+        Path restoreBase = tempDir.resolve("unman-test");
+        assertThatThrownBy(() -> restorer.restoreNamespace(
+                tenantId, namespaceId, 1L, restoreBase, STANDBY_REGION
+        )).isInstanceOf(IntegrityVerificationException.class)
+          .satisfies(e -> {
+              IntegrityVerificationException ive = (IntegrityVerificationException) e;
+              assertThat(ive.getFailureMode()).isEqualTo("UNMANIFESTED_ARTIFACT");
+          });
+    }
+
+    @Test
+    @DisplayName("G32: Erased namespace with tombstone marker in DR bucket REFUSES restore and discovery")
+    void testErasedNamespaceRefusesRestoreAndDiscovery() {
+        String tenantId = "ten-erased";
+        String namespaceId = "018f9b8c000070008000000000000093";
+        stageValidSnapshot(tenantId, namespaceId, 1L, 100L, "flat");
+
+        // Plant tombstone marker in DR bucket
+        s3Client.putObject(BUCKET, "snapshots/.tombstones/" + namespaceId,
+                "{\"erased\":true}".getBytes(StandardCharsets.UTF_8), null, null);
+
+        // 1. Discovery returns empty
+        List<Long> epochs = restorer.discoverSelectableEpochs(tenantId, namespaceId);
+        assertThat(epochs).isEmpty();
+
+        // 2. Restore throws IntegrityVerificationException
+        Path restoreBase = tempDir.resolve("erased-test");
+        assertThatThrownBy(() -> restorer.restoreNamespace(
+                tenantId, namespaceId, 1L, restoreBase, STANDBY_REGION
+        )).isInstanceOf(IntegrityVerificationException.class)
+          .satisfies(e -> {
+              IntegrityVerificationException ive = (IntegrityVerificationException) e;
+              assertThat(ive.getFailureMode()).isEqualTo("NAMESPACE_ALREADY_ERASED");
+          });
+    }
+
+    @Test
+    @DisplayName("G33: restorePrioritized provides error isolation across requests")
+    void testPrioritizedRestoreErrorIsolation() {
+        String tenantGood = "ten-good";
+        String nsGood = "018f9b8c000070008000000000000094";
+        stageValidSnapshot(tenantGood, nsGood, 1L, 100L, "flat");
+
+        String tenantBad = "ten-bad";
+        String nsBad = "018f9b8c000070008000000000000095"; // No snapshot staged in S3
+
+        List<DisasterRecoveryRestorer.RestoreRequest> requests = List.of(
+                new DisasterRecoveryRestorer.RestoreRequest(tenantBad, nsBad, 1L, 100, STANDBY_REGION),
+                new DisasterRecoveryRestorer.RestoreRequest(tenantGood, nsGood, 1L, 50, STANDBY_REGION)
+        );
+
+        Path restoreBase = tempDir.resolve("prioritized-isolation");
+        List<DisasterRecoveryRestorer.RestoreResult> results = restorer.restorePrioritized(requests, restoreBase);
+
+        assertThat(results).hasSize(2);
+        // Bad request failed
+        assertThat(results.get(0).namespaceId()).isEqualTo(nsBad);
+        assertThat(results.get(0).success()).isFalse();
+        assertThat(results.get(0).refusalReason()).isNotNull();
+
+        // Good request succeeded despite bad request running first
+        assertThat(results.get(1).namespaceId()).isEqualTo(nsGood);
+        assertThat(results.get(1).success()).isTrue();
+    }
+
+    @Test
+    @DisplayName("G32: Full NamespaceRecord metadata and legalHold restored verbatim cross-cell")
+    void testCatalogMetadataRestoredVerbatim() throws IOException {
+        String tenantId = "ten-meta";
+        String namespaceId = "018f9b8c000070008000000000000096";
+
+        Path sourceDir = tempDir.resolve("meta-source").resolve("namespaces").resolve(namespaceId);
+        Files.createDirectories(sourceDir);
+        Files.writeString(sourceDir.resolve(StoragePaths.FILE_NAMESPACE), "{\"namespaceId\":\"" + namespaceId + "\",\"pathHelper\":\"flat\"}");
+
+        ByteBuffer ptBuf = ByteBuffer.allocate(64);
+        ptBuf.putInt(RegionPreamble.MAGIC);
+        Files.write(sourceDir.resolve("part-active.spct"), ptBuf.array());
+
+        // Create authoritative catalog entry with legalHold=true and custom description in source catalog
+        accountCatalog.getOrCreateAccount(tenantId);
+        NamespaceRecord sourceRecord = new NamespaceRecord(
+                namespaceId,
+                "vault-slug",
+                tenantId,
+                NamespaceType.PROJECT,
+                com.spectrayan.spector.synapse.catalog.NamespaceStatus.ACTIVE,
+                "Classified Vault",
+                "Mission-critical namespace",
+                null,
+                Instant.now(),
+                Instant.now(),
+                true // legalHold = true!
+        );
+        accountCatalog.importNamespace(sourceRecord);
+
+        // Export with catalog metadata
+        DisasterRecoveryProperties props = new DisasterRecoveryProperties();
+        DisasterRecoveryExporter exporter = new DisasterRecoveryExporter(s3Client, props, BUCKET, accountCatalog);
+        DisasterRecoveryExporter.ExportResult expResult = exporter.exportNamespace(
+                sourceDir, tenantId, namespaceId, STANDBY_REGION, 1L, 500L
+        );
+        assertThat(expResult.success()).isTrue();
+
+        // Standby cell with fresh catalog
+        ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+        AccountCatalog standbyCatalog = new FileAccountCatalog(tempDir.resolve("standby-catalog"), mapper);
+        DisasterRecoveryRestorer standbyRestorer = new DisasterRecoveryRestorer(s3Client, BUCKET, STANDBY_REGION, standbyCatalog);
+
+        Path standbyBase = tempDir.resolve("meta-standby");
+        DisasterRecoveryRestorer.RestoreResult resResult = standbyRestorer.restoreNamespace(
+                tenantId, namespaceId, 1L, standbyBase, STANDBY_REGION
+        );
+
+        assertThat(resResult.success()).isTrue();
+
+        // Verify catalog record restored verbatim
+        Optional<NamespaceRecord> restoredOpt = standbyCatalog.resolve(tenantId, "vault-slug");
+        assertThat(restoredOpt).isPresent();
+        NamespaceRecord restored = restoredOpt.get();
+        assertThat(restored.namespaceId()).isEqualTo(namespaceId);
+        assertThat(restored.displayName()).isEqualTo("Classified Vault");
+        assertThat(restored.description()).isEqualTo("Mission-critical namespace");
+        assertThat(restored.legalHold()).as("Legal hold must be preserved cross-cell").isTrue();
     }
 }
