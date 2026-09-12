@@ -23,16 +23,20 @@ RUN (userdel -r ubuntu 2>/dev/null || true) && \
 
 WORKDIR /app
 
-# Copy pre-built backend executable fat JAR
-COPY synapse/spector-synapse/target/spector-synapse-*-exec.jar /app/spector-synapse.jar
+# Prepare filesystem directories for non-root execution (UID 1000)
+RUN mkdir -p /data/memory /data/identity /data/db /data/tmp /tmp/nginx /var/log/nginx /var/lib/nginx /app \
+    && chown -R 1000:1000 /data /app /etc/nginx /var/log/nginx /var/lib/nginx /tmp/nginx
+
+# Copy pre-built backend executable fat JAR directly with non-root ownership
+COPY --chown=1000:1000 synapse/spector-synapse/target/spector-synapse-*-exec.jar /app/spector-synapse.jar
 
 # Copy pre-built Cortex UI frontend distribution
-COPY cortex/spector-cortex/dist/spector-cortex/browser/ /usr/share/nginx/html/
+COPY --chown=1000:1000 cortex/spector-cortex/dist/spector-cortex/browser/ /usr/share/nginx/html/
 
 # Copy configuration and entrypoint
-COPY deploy/docker/spector-docker.yml /app/spector.yml
-COPY deploy/docker/nginx.conf /etc/nginx/spector-nginx.conf
-COPY deploy/docker/entrypoint.sh /app/entrypoint.sh
+COPY --chown=1000:1000 deploy/docker/spector-docker.yml /app/spector.yml
+COPY --chown=1000:1000 deploy/docker/nginx.conf /etc/nginx/spector-nginx.conf
+COPY --chown=1000:1000 deploy/docker/entrypoint.sh /app/entrypoint.sh
 RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 # Environment settings
@@ -43,10 +47,6 @@ ENV SPECTOR_DATA_DIR=/data \
     SPECTOR_OLLAMA_EMBED_MODEL=nomic-embed-text \
     SPECTOR_CORS_ORIGINS=http://localhost:4200 \
     JAVA_OPTS="-XX:+UseG1GC -Xms256m -Xmx512m --enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED"
-
-# Prepare filesystem permissions for non-root execution (UID 1000)
-RUN mkdir -p /data/memory /data/identity /data/db /data/tmp /tmp/nginx /var/log/nginx /var/lib/nginx \
-    && chown -R 1000:1000 /data /app /usr/share/nginx/html /etc/nginx /var/log/nginx /var/lib/nginx /tmp/nginx
 
 USER 1000:1000
 
