@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -32,7 +33,7 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 /**
- * Compliance erasure service that physically wipes namespace directories from local NVMe,
+ * Compliance erasure service that unlinks namespace directories from local storage,
  * deletes cloud DR bucket object prefixes, and propagates deletion to replicas
  * (ADR-0034 §16, Req R6.1–R6.8, V7, V8).
  *
@@ -47,7 +48,7 @@ public class TenantErasureService {
     private final ObjectStoreClient objectStoreClient;
     private final String drBucket;
     private final Path remembererBasePath;
-    private final Consumer<String> replicaErasureDispatcher;
+    private final ReplicaErasureDispatcher replicaErasureDispatcher;
 
     public TenantErasureService(
             AccountCatalog accountCatalog,
@@ -55,7 +56,7 @@ public class TenantErasureService {
             String drBucket,
             Path remembererBasePath
     ) {
-        this(accountCatalog, objectStoreClient, drBucket, remembererBasePath, null);
+        this(accountCatalog, objectStoreClient, drBucket, remembererBasePath, (ReplicaErasureDispatcher) null);
     }
 
     public TenantErasureService(
@@ -63,7 +64,7 @@ public class TenantErasureService {
             ObjectStoreClient objectStoreClient,
             String drBucket,
             Path remembererBasePath,
-            Consumer<String> replicaErasureDispatcher
+            ReplicaErasureDispatcher replicaErasureDispatcher
     ) {
         this.accountCatalog = Objects.requireNonNull(accountCatalog, "accountCatalog must not be null");
         this.objectStoreClient = objectStoreClient;
@@ -73,7 +74,7 @@ public class TenantErasureService {
     }
 
     /**
-     * Executes physical erasure of a namespace across local disk, cloud object stores, and replicas.
+     * Executes unlinking and deletion of a namespace across local disk, cloud object stores, and replicas.
      *
      * @param accountId owning account
      * @param slugOrId namespace slug or TSID
@@ -90,48 +91,92 @@ public class TenantErasureService {
         Objects.requireNonNull(accountId, "accountId must not be null");
         Objects.requireNonNull(slugOrId, "slugOrId must not be null");
 
-        // 1. Verify Legal Hold (Req R6.7, V8)
+        // 1. Verify Legal Hold and fail closed if unresolvable (Req R6.7, Invariant V8, G24)
         Optional<NamespaceRecord> recordOpt = accountCatalog.resolve(accountId, slugOrId);
-        if (recordOpt.isPresent() && recordOpt.get().legalHold()) {
-            String nsId = recordOpt.get().namespaceId();
+        if (recordOpt.isEmpty()) {
+            log.error("[Erasure] Refusing erasure for unresolvable namespace '{}' in account '{}' (fail-closed, G24)",
+                    slugOrId, accountId);
+            throw new IllegalStateException("Cannot verify legal hold for unresolvable namespace: " + slugOrId);
+        }
+        NamespaceRecord record = recordOpt.get();
+        if (record.legalHold()) {
+            String nsId = record.namespaceId();
             log.warn("[Erasure] Refusing erasure for namespace '{}' under active legal hold (Req R6.7, V8)", nsId);
             throw new NamespaceLegalHoldException(nsId);
         }
+        String namespaceId = record.namespaceId();
 
-        String namespaceId = recordOpt.map(NamespaceRecord::namespaceId).orElse(slugOrId);
+        // 1b. Tombstone / deregister from Catalog BEFORE file deletion (G24)
+        // If tombstone fails (e.g. concurrent legal hold set), no data is destroyed
+        accountCatalog.tombstone(accountId, slugOrId);
 
-        // 2. Physical File Deletion on Local Disk (Req R6.2)
+        // 2. Local File Deletion via staged atomic rename (Req R6.2, G25)
         AtomicInteger deletedFilesCount = new AtomicInteger(0);
         AtomicLong deletedBytesCount = new AtomicLong(0);
 
         if (remembererBasePath != null && Files.isDirectory(remembererBasePath)) {
-            deleteLocalDirectory(findNamespaceDir(namespaceId), deletedFilesCount, deletedBytesCount);
-        }
-
-        // 3. Object-Store Prefix Deletion in DR Bucket (Req R6.3)
-        int objectStoreKeysDeleted = 0;
-        if (objectStoreClient != null && drBucket != null && !drBucket.isBlank()) {
-            // Delete prefixes: snapshots/{accountId}/{namespaceId}/ and snapshots/*/{namespaceId}/
-            objectStoreKeysDeleted += objectStoreClient.deleteByPrefix(drBucket, "snapshots/" + accountId + "/" + namespaceId + "/");
-            objectStoreKeysDeleted += objectStoreClient.deleteByPrefix(drBucket, "snapshots/untenanted/" + namespaceId + "/");
-        }
-
-        // 4. Propagate to Replica Disks (Req R6.3)
-        boolean replicaDispatched = false;
-        if (propagateReplicas && replicaErasureDispatcher != null) {
-            try {
-                replicaErasureDispatcher.accept(namespaceId);
-                replicaDispatched = true;
-            } catch (Exception e) {
-                log.warn("[Erasure] Failed to propagate erasure to replica disks for {}: {}", namespaceId, e.getMessage());
+            Path targetDir = findNamespaceDir(namespaceId);
+            if (targetDir != null && Files.exists(targetDir)) {
+                Path stagedDir = targetDir.resolveSibling(targetDir.getFileName().toString() + ".deleting." + System.currentTimeMillis());
+                try {
+                    Files.move(targetDir, stagedDir, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                    deleteLocalDirectory(stagedDir, deletedFilesCount, deletedBytesCount);
+                } catch (IOException e) {
+                    log.warn("[Erasure] Staged atomic rename failed for {}, falling back to direct purge: {}", targetDir, e.getMessage());
+                    deleteLocalDirectory(targetDir, deletedFilesCount, deletedBytesCount);
+                }
+            }
+            // G25: Clean up any namespace-specific WAL directory outside the main namespace tree
+            Path walDir = remembererBasePath.resolve(StoragePaths.DIR_WAL).resolve(namespaceId);
+            if (Files.isDirectory(walDir)) {
+                deleteLocalDirectory(walDir, deletedFilesCount, deletedBytesCount);
             }
         }
 
-        // 5. Tombstone / deregister from Catalog
-        try {
-            accountCatalog.tombstone(accountId, slugOrId);
-        } catch (Exception e) {
-            log.info("[Erasure] Catalog tombstone noted: {}", e.getMessage());
+        // 3. Object-Store Prefix Deletion in DR Bucket (Req R6.3, G25)
+        int objectStoreKeysDeleted = 0;
+        if (objectStoreClient != null && drBucket != null && !drBucket.isBlank()) {
+            // Delete prefixes: snapshots/{accountId}/{namespaceId}/ and snapshots/untenanted/{namespaceId}/
+            objectStoreKeysDeleted += objectStoreClient.deleteByPrefix(drBucket, "snapshots/" + accountId + "/" + namespaceId + "/");
+            objectStoreKeysDeleted += objectStoreClient.deleteByPrefix(drBucket, "snapshots/untenanted/" + namespaceId + "/");
+            // G25: Also sweep all prefixes matching /{namespaceId}/
+            try {
+                List<String> matchingKeys = objectStoreClient.listKeysByPrefix(drBucket, "snapshots/");
+                for (String key : matchingKeys) {
+                    if (key.contains("/" + namespaceId + "/")
+                            && !key.startsWith("snapshots/" + accountId + "/" + namespaceId + "/")
+                            && !key.startsWith("snapshots/untenanted/" + namespaceId + "/")) {
+                        objectStoreClient.deleteObject(drBucket, key);
+                        objectStoreKeysDeleted++;
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("[Erasure] Prefix sweep for {} encountered: {}", namespaceId, e.getMessage());
+            }
+        }
+
+        // 4. Propagate to Replica Disks (Req R6.3, G37)
+        boolean replicaDispatched = false;
+        int replicaAcks = 0;
+        List<String> unreachableReplicas = List.of();
+        if (propagateReplicas) {
+            if (replicaErasureDispatcher != null) {
+                try {
+                    ReplicaErasureDispatcher.ReplicaErasureResult result = replicaErasureDispatcher.dispatchErasure(namespaceId);
+                    replicaDispatched = true;
+                    replicaAcks = result.successfulAcks();
+                    unreachableReplicas = result.unreachableReplicas();
+                    if (!result.isComplete()) {
+                        log.warn("[Erasure] Replica erasure incomplete for {}: {} failed, unreachable: {}",
+                                namespaceId, result.failedAcks(), unreachableReplicas);
+                    }
+                } catch (Exception e) {
+                    log.warn("[Erasure] Failed to propagate erasure to replica disks for {}: {}", namespaceId, e.getMessage());
+                }
+            } else {
+                log.warn("[Erasure] Replica propagation requested for '{}' but no replicaErasureDispatcher configured (G37)",
+                        namespaceId);
+            }
         }
 
         ErasureAuditReport report = ErasureAuditReport.create(
@@ -141,11 +186,13 @@ public class TenantErasureService {
                 deletedFilesCount.get(),
                 deletedBytesCount.get(),
                 objectStoreKeysDeleted,
-                replicaDispatched
+                replicaDispatched,
+                replicaAcks,
+                unreachableReplicas
         );
 
-        log.info("[Erasure] Completed physical erasure of namespace={} localFiles={} localBytes={} cloudKeys={}",
-                namespaceId, report.localFilesDeleted(), report.localBytesDeleted(), report.objectStoreKeysDeleted());
+        log.info("[Erasure] Completed unlinking and deletion of namespace={} localFiles={} localBytes={} cloudKeys={} replicaAcks={}",
+                namespaceId, report.localFilesDeleted(), report.localBytesDeleted(), report.objectStoreKeysDeleted(), replicaAcks);
 
         return report;
     }
