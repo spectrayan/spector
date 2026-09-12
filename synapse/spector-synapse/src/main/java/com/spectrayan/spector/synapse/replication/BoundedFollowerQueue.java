@@ -72,11 +72,13 @@ public class BoundedFollowerQueue {
         boolean accepted = queue.offer(frame);
         if (!accepted) {
             // Queue overflow: backpressure triggered!
+            // G6: dropped WAL frame means discontiguous stream -> force full resync
             tailStreamingStopped.set(true);
             lagging.set(true);
+            fullResyncRequired.set(true);
             long dropped = framesDropped.incrementAndGet();
 
-            log.warn("Follower '{}' replication queue full (cap={}). WAL tail stopped, follower marked lagging, frames dropped={}",
+            log.warn("Follower '{}' replication queue full (cap={}). WAL tail stopped, follower marked lagging, frames dropped={}, fullResyncRequired=true",
                     followerId, capacity, dropped);
             return false;
         }
@@ -100,8 +102,9 @@ public class BoundedFollowerQueue {
      * @param timestampMs acknowledgment timestamp in epoch milliseconds
      */
     public void acknowledge(long hwm, long timestampMs) {
-        lastAckHwm.set(Math.max(lastAckHwm.get(), hwm));
-        lastAckTimestampMs.set(Math.max(lastAckTimestampMs.get(), timestampMs));
+        // G6: Atomic RMW instead of non-atomic Math.max(get(), hwm)
+        lastAckHwm.accumulateAndGet(hwm, Math::max);
+        lastAckTimestampMs.accumulateAndGet(timestampMs, Math::max);
 
         // If the queue has drained and follower caught up, clear lagging flag
         if (queue.isEmpty() && !fullResyncRequired.get()) {

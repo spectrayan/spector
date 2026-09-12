@@ -26,8 +26,7 @@ import java.util.function.Consumer;
  * Listens to partition roll events and triggers an immediate snapshot for the newly sealed bundle
  * (ADR-0034 §9.7, Req R2.2, Task 2.2).
  *
- * <p>A freshly sealed bundle is the cheapest consistent point in the system; waiting for the periodic
- * debounce timer wastes that point of consistency.</p>
+ * <p>A freshly sealed bundle provides a durable, immutable boundary; convergent after WAL tail replay.</p>
  */
 public final class PartitionRollReplicationTrigger implements PartitionManager.PartitionRollListener {
 
@@ -46,12 +45,14 @@ public final class PartitionRollReplicationTrigger implements PartitionManager.P
         log.info("[PartitionRollReplicationTrigger] Triggering immediate snapshot on partition roll (seq={}, path={})",
                 newlyFrozenSeq, bundlePath);
 
-        String sha256 = "unknown";
-        String id = "partition-" + newlyFrozenSeq + ".bundle";
-        if (bundlePath != null && Files.isRegularFile(bundlePath)) {
-            sha256 = SnapshotVerifier.calculateSha256(bundlePath);
-            id = bundlePath.getFileName().toString();
+        if (bundlePath == null || !Files.isRegularFile(bundlePath)) {
+            throw new IllegalStateException(
+                    "Cannot trigger snapshot for rolled partition seq=" + newlyFrozenSeq
+                            + ": bundle path is null or not a regular file: " + bundlePath);
         }
+
+        String sha256 = SnapshotVerifier.calculateSha256(bundlePath);
+        String id = bundlePath.getFileName().toString();
 
         SnapshotManifest.SealedPartitionEntry sealedEntry =
                 new SnapshotManifest.SealedPartitionEntry(id, sha256, null);

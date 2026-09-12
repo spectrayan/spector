@@ -80,8 +80,12 @@ class ReplicaRecallGuardTest {
         boolean headerPermits = guard.isReplicaReadPermitted(Map.of(ReplicaRecallGuard.HEADER_ALLOW_REPLICA, "true"));
         assertThat(headerPermits).isTrue();
 
-        // All 3 conditions satisfied -> passes without exception
-        guard.validateReplicaRecall(key, true, snapshotTime, now, headerPermits);
+        // All 3 conditions satisfied -> passes without exception and returns ReplicaFreshness (G10)
+        ReplicaRecallGuard.ReplicaFreshness freshness = guard.validateReplicaRecall(key, true, 42019L, snapshotTime, now, headerPermits);
+        assertThat(freshness.appliedHwm()).isEqualTo(42019L);
+        assertThat(freshness.snapshotTimeMs()).isEqualTo(snapshotTime);
+        assertThat(freshness.lagMs()).isEqualTo(5_000L);
+        assertThat(freshness.toHeaderValue()).isEqualTo("hwm=42019,snapshotTimeMs=" + snapshotTime + ",lagMs=5000");
     }
 
     @Test

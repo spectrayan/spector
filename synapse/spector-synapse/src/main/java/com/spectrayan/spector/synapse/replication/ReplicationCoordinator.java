@@ -170,6 +170,50 @@ public class ReplicationCoordinator {
                 routingKey.namespaceId(), routingKey.tenantId(), epoch, hwm);
     }
 
+    /**
+     * Records follower confirmation of snapshot application and publishes the freshness hint (G5).
+     *
+     * @param routingKey routing key
+     * @param appliedHwm high-water mark applied and acknowledged by follower
+     * @param ackTimestampMs follower acknowledgment timestamp in epoch milliseconds
+     */
+    public void recordFollowerAck(RoutingKey routingKey, long appliedHwm, long ackTimestampMs) {
+        Objects.requireNonNull(routingKey, "routingKey must not be null");
+        long epoch = resolveEpoch(routingKey);
+        hintWriter.writeHint(routingKey, appliedHwm, ackTimestampMs, epoch);
+        log.debug("[ReplicationCoordinator] Follower ACK recorded for namespace '{}' at HWM {}, freshness hint published (G5)",
+                routingKey.namespaceId(), appliedHwm);
+    }
+
+    /**
+     * Ships the mutable bundle set under a bounded quiesce lock (G5).
+     *
+     * @param runtimeSourcePath active runtime bundle
+     * @param partitionSourcePath active partition bundle
+     * @param targetDir snapshot destination directory
+     * @param quiesceLock lock bounding concurrent mutations
+     * @param currentHwmSupplier supplier of current WAL HWM
+     * @param byteTracker byte tracker for replication metrics
+     * @return copy result containing copied paths and checksums
+     */
+    public MutableSetShipper.MutableCopyResult shipMutableSet(
+            Path runtimeSourcePath,
+            Path partitionSourcePath,
+            Path targetDir,
+            java.util.concurrent.locks.Lock quiesceLock,
+            java.util.function.LongSupplier currentHwmSupplier,
+            com.spectrayan.spector.memory.replication.ReplicationByteTracker byteTracker
+    ) {
+        return MutableSetShipper.copyMutableSet(
+                runtimeSourcePath,
+                partitionSourcePath,
+                targetDir,
+                quiesceLock,
+                currentHwmSupplier,
+                byteTracker
+        );
+    }
+
     private long resolveEpoch(RoutingKey key) {
         RouteBinding binding = ownershipResolver.resolve(key);
         return binding != null ? binding.epoch() : 1L;

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.synapse.replication;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -19,6 +21,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -36,6 +40,8 @@ public record ReplicationFrame(
         byte type,
         byte[] payload
 ) {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public static final int MAGIC = 0x53505245; // 'SPRE'
     public static final byte VERSION_1 = 1;
@@ -65,13 +71,19 @@ public record ReplicationFrame(
      * @return ReplicationFrame of type ACK
      */
     public static ReplicationFrame ack(String tenantId, String namespaceId, long appliedHwm, String status, String message) {
-        String json = String.format("{\"tenantId\":\"%s\",\"namespaceId\":\"%s\",\"appliedHwm\":%d,\"status\":\"%s\",\"message\":\"%s\"}",
-                tenantId != null ? tenantId : "",
-                namespaceId != null ? namespaceId : "",
-                appliedHwm,
-                status != null ? status : "SUCCESS",
-                message != null ? message : "");
-        return new ReplicationFrame(TYPE_ACK, json.getBytes(StandardCharsets.UTF_8));
+        Map<String, Object> jsonMap = new LinkedHashMap<>();
+        jsonMap.put("tenantId", tenantId != null ? tenantId : "");
+        jsonMap.put("namespaceId", namespaceId != null ? namespaceId : "");
+        jsonMap.put("appliedHwm", appliedHwm);
+        jsonMap.put("status", status != null ? status : "SUCCESS");
+        jsonMap.put("message", message != null ? message : "");
+        byte[] bytes;
+        try {
+            bytes = MAPPER.writeValueAsBytes(jsonMap);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize ACK frame to JSON", e);
+        }
+        return new ReplicationFrame(TYPE_ACK, bytes);
     }
 
     /**
@@ -81,8 +93,15 @@ public record ReplicationFrame(
      * @return ReplicationFrame of type ERROR
      */
     public static ReplicationFrame error(String sanitizedMessage) {
-        String json = String.format("{\"error\":\"%s\"}", sanitizedMessage != null ? sanitizedMessage : "ERROR");
-        return new ReplicationFrame(TYPE_ERROR, json.getBytes(StandardCharsets.UTF_8));
+        Map<String, Object> jsonMap = new LinkedHashMap<>();
+        jsonMap.put("error", sanitizedMessage != null ? sanitizedMessage : "ERROR");
+        byte[] bytes;
+        try {
+            bytes = MAPPER.writeValueAsBytes(jsonMap);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize ERROR frame to JSON", e);
+        }
+        return new ReplicationFrame(TYPE_ERROR, bytes);
     }
 
     /**

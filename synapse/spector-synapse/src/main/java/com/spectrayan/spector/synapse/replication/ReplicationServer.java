@@ -44,7 +44,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Dedicated replication network listener on port :9090 with mTLS 1.3 mutual authentication,
@@ -53,6 +55,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class ReplicationServer implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(ReplicationServer.class);
+    private static final int DEFAULT_MAX_CONCURRENT_CONNECTIONS = 64;
 
     private final String bindHost;
     private final int port;
@@ -63,6 +66,8 @@ public class ReplicationServer implements AutoCloseable {
     private final Path tempStagingDir;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final ReentrantLock lifecycleLock = new ReentrantLock();
+    private final Semaphore connectionLimiter;
     private ServerSocket serverSocket;
     private Thread acceptThread;
     private ExecutorService connectionPool;
@@ -102,6 +107,7 @@ public class ReplicationServer implements AutoCloseable {
         this.metrics = metrics != null ? metrics : new ReplicationMetrics();
         this.tempStagingDir = tempStagingDir != null ? tempStagingDir : Path.of(System.getProperty("java.io.tmpdir"), "spector-replica-staging");
         this.insecureMode = insecureMode;
+        this.connectionLimiter = new Semaphore(DEFAULT_MAX_CONCURRENT_CONNECTIONS);
     }
 
     /**
@@ -109,47 +115,70 @@ public class ReplicationServer implements AutoCloseable {
      *
      * @throws IOException if binding fails
      */
-    public synchronized void start() throws IOException {
+    public void start() throws IOException {
         if (running.get()) {
             return;
         }
 
-        Files.createDirectories(tempStagingDir);
-        InetAddress bindAddr = InetAddress.getByName(bindHost);
+        lifecycleLock.lock();
+        try {
+            if (running.get()) {
+                return;
+            }
 
-        if (sslContext != null) {
-            SSLServerSocketFactory ssf = sslContext.getServerSocketFactory();
-            SSLServerSocket sslServerSocket = (SSLServerSocket) ssf.createServerSocket(port, 128, bindAddr);
-            ReplicationTlsFactory.configureServerSocket(sslServerSocket);
-            serverSocket = sslServerSocket;
-        } else if (insecureMode) {
-            log.warn("[ReplicationServer] ⚠️ INSECURE MODE: Starting replication listener WITHOUT mTLS. "
-                    + "Data in transit is UNENCRYPTED. This mode is for testing only (G8).");
-            serverSocket = new ServerSocket(port, 128, bindAddr);
-        } else {
-            throw new IllegalStateException(
-                    "[ReplicationServer] Refusing to start: sslContext is null and insecureMode is false. "
-                            + "mTLS is required for replication transport (G8). "
-                            + "Set insecureMode=true explicitly for testing only.");
+            Files.createDirectories(tempStagingDir);
+            InetAddress bindAddr = InetAddress.getByName(bindHost);
+
+            if (sslContext != null) {
+                SSLServerSocketFactory ssf = sslContext.getServerSocketFactory();
+                SSLServerSocket sslServerSocket = (SSLServerSocket) ssf.createServerSocket(port, 128, bindAddr);
+                ReplicationTlsFactory.configureServerSocket(sslServerSocket);
+                serverSocket = sslServerSocket;
+            } else if (insecureMode) {
+                log.warn("[ReplicationServer] ⚠️ INSECURE MODE: Starting replication listener WITHOUT mTLS. "
+                        + "Data in transit is UNENCRYPTED. This mode is for testing only (G8).");
+                serverSocket = new ServerSocket(port, 128, bindAddr);
+            } else {
+                throw new IllegalStateException(
+                        "[ReplicationServer] Refusing to start: sslContext is null and insecureMode is false. "
+                                + "mTLS is required for replication transport (G8). "
+                                + "Set insecureMode=true explicitly for testing only.");
+            }
+
+            boundPort = serverSocket.getLocalPort();
+            running.set(true);
+            connectionPool = Executors.newCachedThreadPool();
+
+            acceptThread = new Thread(this::acceptLoop, "replication-listener-" + boundPort);
+            acceptThread.setDaemon(true);
+            acceptThread.start();
+
+            log.info("ReplicationServer started on {}:{} (mTLS={}, allowListSize={})",
+                    bindHost, boundPort, sslContext != null, allowListFilter.getAllowedTenants().size());
+        } finally {
+            lifecycleLock.unlock();
         }
-
-        boundPort = serverSocket.getLocalPort();
-        running.set(true);
-        connectionPool = Executors.newCachedThreadPool();
-
-        acceptThread = new Thread(this::acceptLoop, "replication-listener-" + boundPort);
-        acceptThread.setDaemon(true);
-        acceptThread.start();
-
-        log.info("ReplicationServer started on {}:{} (mTLS={}, allowListSize={})",
-                bindHost, boundPort, sslContext != null, allowListFilter.getAllowedTenants().size());
     }
 
     private void acceptLoop() {
         while (running.get()) {
             try {
                 Socket socket = serverSocket.accept();
-                connectionPool.submit(() -> handleConnection(socket));
+                if (!connectionLimiter.tryAcquire()) {
+                    log.warn("[ReplicationServer] Connection limit reached ({}), rejecting connection from {}",
+                            DEFAULT_MAX_CONCURRENT_CONNECTIONS, socket.getRemoteSocketAddress());
+                    try {
+                        socket.close();
+                    } catch (IOException ignored) {}
+                    continue;
+                }
+                connectionPool.submit(() -> {
+                    try {
+                        handleConnection(socket);
+                    } finally {
+                        connectionLimiter.release();
+                    }
+                });
             } catch (SocketException se) {
                 if (!running.get()) break;
                 log.warn("Replication accept socket closed: {}", se.getMessage());
@@ -197,7 +226,15 @@ public class ReplicationServer implements AutoCloseable {
         try (DataInputStream dis = new DataInputStream(new ByteArrayInputStream(payload))) {
             // Read manifest JSON
             int manifestLen = dis.readInt();
+            if (manifestLen < 0 || manifestLen > ReplicationFrame.MAX_FRAME_SIZE) {
+                log.warn("[ReplicationServer] Manifest length out of bounds: {}", manifestLen);
+                return ReplicationFrame.error("Invalid frame: manifest length out of bounds");
+            }
             byte[] manifestBytes = dis.readNBytes(manifestLen);
+            if (manifestBytes.length != manifestLen) {
+                log.warn("[ReplicationServer] Truncated manifest payload: expected {}, got {}", manifestLen, manifestBytes.length);
+                return ReplicationFrame.error("Invalid frame: truncated manifest payload");
+            }
             SnapshotManifest manifest = SnapshotManifest.fromJson(new String(manifestBytes, StandardCharsets.UTF_8));
 
             // Multi-tenant isolation boundary (Req R6.3, R6.5)
@@ -234,6 +271,10 @@ public class ReplicationServer implements AutoCloseable {
 
             // Read file entries
             int fileCount = dis.readInt();
+            if (fileCount < 0 || fileCount > 10_000) {
+                log.warn("[ReplicationServer] File count out of bounds: {}", fileCount);
+                return ReplicationFrame.error("Invalid frame: file count out of bounds");
+            }
             Map<String, Path> stagedFiles = new HashMap<>();
             Path batchTmpDir = Files.createTempDirectory(tempStagingDir, "batch_recv_");
 
@@ -241,7 +282,15 @@ public class ReplicationServer implements AutoCloseable {
                 for (int i = 0; i < fileCount; i++) {
                     String fileName = dis.readUTF();
                     int fileLen = dis.readInt();
+                    if (fileLen < 0 || fileLen > ReplicationFrame.MAX_FRAME_SIZE) {
+                        log.warn("[ReplicationServer] File length out of bounds for '{}': {}", fileName, fileLen);
+                        return ReplicationFrame.error("Invalid frame: file length out of bounds");
+                    }
                     byte[] fileBytes = dis.readNBytes(fileLen);
+                    if (fileBytes.length != fileLen) {
+                        log.warn("[ReplicationServer] Truncated file bytes for '{}': expected {}, got {}", fileName, fileLen, fileBytes.length);
+                        return ReplicationFrame.error("Invalid frame: truncated file payload");
+                    }
 
                     Path targetFile = safeResolve(batchTmpDir, fileName);
                     if (targetFile.getParent() != null) {
@@ -270,40 +319,51 @@ public class ReplicationServer implements AutoCloseable {
                     );
                 }
             } finally {
-                // Cleanup temporary receive files
+                // Cleanup temporary receive files (G57)
                 try {
                     if (Files.exists(batchTmpDir)) {
                         try (var stream = Files.walk(batchTmpDir)) {
                             stream.sorted((a, b) -> b.compareTo(a)).forEach(p -> {
-                                try { Files.deleteIfExists(p); } catch (Exception ignored) {}
+                                try {
+                                    Files.deleteIfExists(p);
+                                } catch (Exception e) {
+                                    log.warn("[ReplicationServer] Failed to delete temporary file {}", p, e);
+                                }
                             });
                         }
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    log.warn("[ReplicationServer] Failed to cleanup batch temporary directory {}", batchTmpDir, e);
+                }
             }
         } catch (Exception e) {
             log.error("Failed processing snapshot payload: {}", e.getMessage(), e);
             metrics.recordVerificationFailure();
-            return ReplicationFrame.error("Apply failed: " + e.getMessage());
+            return ReplicationFrame.error(ReplicationAuthorizationException.SANITIZED_PEER_MESSAGE);
         }
     }
 
-    public synchronized void stop() {
-        if (!running.compareAndSet(true, false)) {
-            return;
-        }
-
+    public void stop() {
+        lifecycleLock.lock();
         try {
-            if (serverSocket != null && !serverSocket.isClosed()) {
-                serverSocket.close();
+            if (!running.compareAndSet(true, false)) {
+                return;
             }
-        } catch (IOException ignored) {}
 
-        if (connectionPool != null) {
-            connectionPool.shutdownNow();
+            try {
+                if (serverSocket != null && !serverSocket.isClosed()) {
+                    serverSocket.close();
+                }
+            } catch (IOException ignored) {}
+
+            if (connectionPool != null) {
+                connectionPool.shutdownNow();
+            }
+
+            log.info("ReplicationServer stopped on port {}", boundPort);
+        } finally {
+            lifecycleLock.unlock();
         }
-
-        log.info("ReplicationServer stopped on port {}", boundPort);
     }
 
     @Override

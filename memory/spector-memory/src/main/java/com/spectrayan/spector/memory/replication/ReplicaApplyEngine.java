@@ -72,7 +72,7 @@ public final class ReplicaApplyEngine {
         this.persistenceRoot = Objects.requireNonNull(persistenceRoot, "persistenceRoot must not be null");
         this.configuredPathHelper = configuredPathHelper;
         this.tenantAllowList = tenantAllowList != null ? Set.copyOf(tenantAllowList) : Set.of();
-        this.replicaHotSet = replicaHotSet != null ? Collections.newSetFromMap(new ConcurrentHashMap<>()) : Set.of();
+        this.replicaHotSet = Collections.newSetFromMap(new ConcurrentHashMap<>());
         if (replicaHotSet != null) {
             this.replicaHotSet.addAll(replicaHotSet);
         }
@@ -159,7 +159,9 @@ public final class ReplicaApplyEngine {
         }
 
         Path nsDir = resolveNamespaceDir(manifest);
-        Path stagingDir = nsDir.resolve(".tmp_apply_" + manifest.epoch() + "_" + manifest.hwm());
+        // G57: Stage outside live namespace directory so failures cannot leave debris in serving tree
+        Path stagingDir = persistenceRoot.resolve(".replica_staging")
+                .resolve(manifest.namespaceId() + "_" + manifest.epoch() + "_" + manifest.hwm());
 
         try {
             Files.createDirectories(stagingDir);
@@ -182,6 +184,7 @@ public final class ReplicaApplyEngine {
 
             // Step 4a (G3): Validate staged keys against manifest — reject unverified file injection
             Set<String> manifestDeclaredKeys = new HashSet<>();
+            manifestDeclaredKeys.add(StoragePaths.FILE_NAMESPACE);
             if (manifest.runtime() != null) {
                 manifestDeclaredKeys.add(manifest.runtime().file());
                 manifestDeclaredKeys.add(StoragePaths.DIR_RUNTIME + "/" + manifest.runtime().file());
@@ -373,9 +376,13 @@ public final class ReplicaApplyEngine {
                         .forEach(p -> {
                             try {
                                 Files.deleteIfExists(p);
-                            } catch (IOException ignored) {}
+                            } catch (IOException e) {
+                                log.warn("[ReplicaApplyEngine] Failed to delete staging file {}", p, e);
+                            }
                         });
-            } catch (IOException ignored) {}
+            } catch (IOException e) {
+                log.warn("[ReplicaApplyEngine] Failed to walk directory for deletion {}", dir, e);
+            }
         }
     }
 
