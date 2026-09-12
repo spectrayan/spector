@@ -1,0 +1,4 @@
+# Static membership list for 3-node Cell HA test harness (ADR-0034 §15.9 Phase 1)
+spector-owner-1
+spector-owner-2
+spector-owner-3

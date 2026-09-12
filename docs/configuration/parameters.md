@@ -390,6 +390,27 @@ var config = SpectorConfig.DEFAULT
 
 ---
 
+## 🌐 Cell High Availability & Ownership Ring (`spector.cell.*`)
+
+Spector Synapse supports multi-node Cell High Availability via a Ketama consistent hash ring (ADR-0034, Phase 1).
+
+| Property | Environment Variable | Default | Allowed Values | Description |
+|:---|:---|:---|:---|:---|
+| `spector.cell.id` | `SPECTOR_CELL_ID` | `null` | String (e.g. `us-east-1`) | Cell identifier. Required when `role != standalone`. |
+| `spector.cell.role` | `SPECTOR_CELL_ROLE` | `standalone` | `standalone`, `owner`, `replica`, `gateway` | Operational role. `standalone` short-circuits the ring and owns all namespaces locally. |
+| `spector.cell.node-id` | `SPECTOR_CELL_NODE_ID` | Hostname | String (e.g. `pod-0`) | Node identity in the cell. Defaults to pod hostname for stable StatefulSet ordinals. |
+| `spector.cell.ring.version` | `SPECTOR_CELL_RING_VERSION` | `1` | Integer $\ge 1$ | Generation of the Ketama hash ring. |
+| `spector.cell.ring.members` | `SPECTOR_CELL_RING_MEMBERS` | `[]` | List of Strings | Explicit canonical member list of nodes participating in the hash ring. |
+| `spector.cell.ring.members-file`| `SPECTOR_CELL_RING_MEMBERS_FILE`| `null` | Path string | Path to newline-delimited member list file (used in Docker Compose). |
+
+> [!IMPORTANT]
+> **Phase 1 Reload Semantics & Single-Writer Invariants**:
+> - **Restart-Only**: In Phase 1, membership and ring configuration are loaded at startup and are **restart-only** (Req R7.4). Dynamic ring membership and coordinator-managed leases arrive in Phase 4.
+> - **Ownership vs. Placement**: Namespace **ownership** (which server process is the authoritative single writer) is decided purely in-memory by the Ketama ring prior to namespace open. **Placement** (which filesystem directory holds the partition bundle) is determined by storage tenant paths (`StoragePaths`) and remains completely invariant to cluster routing changes (Invariant J6).
+> - **Fail-Closed**: Non-owner nodes refuse both writes and recall with HTTP `421 Misdirected Request` (`NamespaceNotOwnedException`) identifying the authoritative owner node and ring epoch. Non-owner nodes **never** invoke `runtime.attach` or map files into memory.
+
+---
+
 ## 🔗 See Also
 
 - [Performance Tuning](../operations/performance-tuning.md) — Benchmarks and optimization strategies
