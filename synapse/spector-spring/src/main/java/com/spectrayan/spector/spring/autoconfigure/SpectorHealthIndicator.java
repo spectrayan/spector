@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.spring.autoconfigure;
 
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.core.simd.SimdCapability;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.SpectorMemory;
@@ -77,7 +78,7 @@ public class SpectorHealthIndicator implements HealthIndicator {
     public static final String DEFAULT_SYSCTL_MAX_MAP_COUNT_PATH = "/proc/sys/vm/max_map_count";
 
     /** Default data directory when spector.data-dir is not injected. */
-    public static final String DEFAULT_DATA_DIR = "./spector-data";
+    public static final String DEFAULT_DATA_DIR = SpectorPropertyConstants.DEFAULT_SERVER_DATA_DIR;
 
     private final SpectorMemory memory;
     private Path dataDir;
