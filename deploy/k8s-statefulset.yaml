@@ -1,3 +1,11 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Spector Single-Role Kubernetes Manifest Reference
+# ──────────────────────────────────────────────────────────────────────────────
+# This standalone manifest defines a single-role deployment (unified spector-node).
+# For production multi-node cell deployments with role separation (owners, replicas,
+# gateways), coordinator leases, and network isolation, use the official Helm chart:
+#   deploy/helm/spector (supports both split-role and single-role modes)
+# ──────────────────────────────────────────────────────────────────────────────
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:

@@ -59,3 +59,40 @@ Create the name of the service account to use
 {{- end }}
 {{- end }}
 
+{{/*
+Cell ID helper
+*/}}
+{{- define "spector.cellId" -}}
+{{- if and .Values.cell .Values.cell.id -}}
+{{- .Values.cell.id -}}
+{{- else -}}
+cell-1
+{{- end -}}
+{{- end }}
+
+{{/*
+Owner set name (single-role preserves legacy name to prevent orphaning PVCs)
+*/}}
+{{- define "spector.owner.fullname" -}}
+{{- if eq (default "split" .Values.topology.mode) "single-role" -}}
+{{- include "spector.fullname" . -}}
+{{- else -}}
+{{- printf "%s-owner" (include "spector.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Replica set name
+*/}}
+{{- define "spector.replica.fullname" -}}
+{{- printf "%s-replica" (include "spector.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+{{/*
+Gateway deployment name
+*/}}
+{{- define "spector.gateway.fullname" -}}
+{{- printf "%s-gateway" (include "spector.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+

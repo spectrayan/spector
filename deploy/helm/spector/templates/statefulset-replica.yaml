@@ -1,0 +1,171 @@
+{{- if and (ne (default "split" .Values.topology.mode) "single-role") .Values.replicas.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "spector.replica.fullname" . }}
+  labels:
+    {{- include "spector.labels" . | nindent 4 }}
+    app.kubernetes.io/component: replica
+spec:
+  serviceName: {{ include "spector.replica.fullname" . }}-headless
+  replicas: {{ .Values.replicas.replicas }}
+  selector:
+    matchLabels:
+      {{- include "spector.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: replica
+  template:
+    metadata:
+      labels:
+        {{- include "spector.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: replica
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if .Values.podAnnotations }}
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "spector.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if and .Values.sysctl.enabled .Values.sysctl.useInitContainer }}
+      initContainers:
+        - name: init-sysctl
+          image: "{{ .Values.sysctl.image.repository }}:{{ .Values.sysctl.image.tag }}"
+          imagePullPolicy: {{ .Values.sysctl.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              sysctl -w vm.max_map_count={{ .Values.sysctl.vmMaxMapCount }}
+              sysctl -w vm.swappiness={{ .Values.sysctl.vmSwappiness }}
+              sysctl -w fs.file-max={{ .Values.sysctl.fsFileMax }}
+              {{- if .Values.sysctl.limits.nofile }}
+              ulimit -n {{ .Values.sysctl.limits.nofile }} || true
+              {{- end }}
+              {{- if .Values.sysctl.limits.memlock }}
+              ulimit -l {{ .Values.sysctl.limits.memlock }} || true
+              {{- end }}
+          securityContext:
+            privileged: true
+            runAsUser: 0
+      {{- end }}
+      {{- if .Values.affinity }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: spector
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: api
+              containerPort: 7070
+              protocol: TCP
+            - name: replication
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: JAVA_OPTS
+              value: {{ .Values.replicas.jvmOpts | quote }}
+            - name: SPECTOR_CELL_ID
+              value: {{ include "spector.cellId" . | quote }}
+            - name: SPECTOR_NODE_ROLE
+              value: "replica"
+            - name: SPECTOR_NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SPECTOR_ROUTING_REDIS_URI
+              value: {{ .Values.routing.redis.url | quote }}
+            - name: SPECTOR_REPLICATION_HOT_CAP
+              value: {{ .Values.replicas.hotCap | quote }}
+            - name: SPECTOR_PAGER_WARM_CAP
+              value: {{ .Values.pager.warmCap | quote }}
+            - name: SPECTOR_DATA_DIR
+              value: {{ .Values.env.SPECTOR_DATA_DIR | quote }}
+            - name: SPECTOR_PORT
+              value: {{ .Values.env.SPECTOR_PORT | quote }}
+            - name: SPECTOR_EMBEDDING_PROVIDER
+              value: {{ .Values.env.SPECTOR_EMBEDDING_PROVIDER | quote }}
+            - name: SPECTOR_EMBEDDING_MODEL
+              value: {{ .Values.env.SPECTOR_EMBEDDING_MODEL | quote }}
+            - name: SPECTOR_EMBEDDING_BASE_URL
+              value: {{ .Values.env.SPECTOR_EMBEDDING_BASE_URL | quote }}
+            - name: SPECTOR_EMBEDDING_DIMS
+              value: {{ .Values.env.SPECTOR_EMBEDDING_DIMS | quote }}
+            - name: SPECTOR_GENERATION_PROVIDER
+              value: {{ .Values.env.SPECTOR_GENERATION_PROVIDER | quote }}
+            - name: SPECTOR_GENERATION_MODEL
+              value: {{ .Values.env.SPECTOR_GENERATION_MODEL | quote }}
+            - name: SPECTOR_GENERATION_BASE_URL
+              value: {{ .Values.env.SPECTOR_GENERATION_BASE_URL | quote }}
+            - name: SPECTOR_MEMORY_CAPACITY
+              value: {{ .Values.env.SPECTOR_MEMORY_CAPACITY | quote }}
+            - name: SPECTOR_ENTITY_EXTRACTION_MODE
+              value: {{ .Values.env.SPECTOR_ENTITY_EXTRACTION_MODE | quote }}
+            - name: SPECTOR_TAG_EXTRACTOR
+              value: {{ .Values.env.SPECTOR_TAG_EXTRACTOR | quote }}
+            - name: SPECTOR_TEXT_SEARCH_MODE
+              value: {{ .Values.env.SPECTOR_TEXT_SEARCH_MODE | quote }}
+            {{- if .Values.secretRef.name }}
+            - name: SPECTOR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretRef.name }}
+                  key: SPECTOR_API_KEY
+                  optional: true
+            {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /app/spector.yml
+              subPath: spector.yml
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 7070
+            failureThreshold: 30
+            periodSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 7070
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 7070
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml .Values.replicas.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "spector.fullname" . }}-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "spector.labels" . | nindent 10 }}
+          app.kubernetes.io/component: replica
+      spec:
+        accessModes:
+          - {{ .Values.replicas.persistence.accessMode | quote }}
+        {{- if .Values.replicas.persistence.storageClass }}
+        storageClassName: {{ .Values.replicas.persistence.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.replicas.persistence.size | quote }}
+{{- end }}

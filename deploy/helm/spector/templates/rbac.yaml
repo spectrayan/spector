@@ -1,0 +1,48 @@
+{{- if .Values.serviceAccount.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "spector.fullname" . }}-coordinator-role
+  labels:
+    {{- include "spector.labels" . | nindent 4 }}
+rules:
+  # Least-privilege permissions strictly limited to cell coordinator Lease and Ring ConfigMap (Req R4.4)
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - leases
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "spector.fullname" . }}-coordinator-binding
+  labels:
+    {{- include "spector.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io/v1
+  kind: Role
+  name: {{ include "spector.fullname" . }}-coordinator-role
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "spector.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

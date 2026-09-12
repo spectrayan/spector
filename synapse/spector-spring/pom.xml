@@ -121,6 +121,13 @@
             <artifactId>spector-index</artifactId>
         </dependency>
 
+        <!-- ── Spector Cluster (cell topology, ownership, hash ring) ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-cluster</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <!-- ── LLM and Embedding Providers ── -->
         <dependency>
             <groupId>com.spectrayan</groupId>

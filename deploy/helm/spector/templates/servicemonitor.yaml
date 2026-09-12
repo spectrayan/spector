@@ -1,0 +1,17 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "spector.fullname" . }}-monitor
+  labels:
+    {{- include "spector.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "spector.name" . }}
+  endpoints:
+    - port: api
+      path: /actuator/prometheus
+      interval: {{ .Values.serviceMonitor.interval | default "15s" }}
+      scrapeTimeout: 10s
+{{- end }}

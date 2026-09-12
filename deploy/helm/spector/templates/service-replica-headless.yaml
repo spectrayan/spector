@@ -1,0 +1,23 @@
+{{- if and (ne (default "split" .Values.topology.mode) "single-role") .Values.replicas.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "spector.replica.fullname" . }}-headless
+  labels:
+    {{- include "spector.labels" . | nindent 4 }}
+    app.kubernetes.io/component: replica
+spec:
+  clusterIP: None
+  ports:
+    - port: 7070
+      targetPort: 7070
+      protocol: TCP
+      name: api
+    - port: 9090
+      targetPort: 9090
+      protocol: TCP
+      name: replication
+  selector:
+    {{- include "spector.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: replica
+{{- end }}

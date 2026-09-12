@@ -482,6 +482,31 @@ Spector Synapse provides lease coordinator election, monotonic write fence token
 > - **In-Flight Request Expectations**: In-flight requests holding region leases on a failed node die with the process. Clients receive connection drops or refusals and retry transparently against the newly promoted survivor.
 > - **Volatile Memory Handling**: In-memory working state is lost during ungraceful node crash. Durable committed records are preserved with zero data loss (RPO = 0). Clients detect failover transitions via the incremented namespace epoch.
 
+## ☸️ Kubernetes Cell Topology & Resource Isolation (`spector.cell.*`, `spector.pager.*`)
+
+Spector cells separate cluster responsibilities into three distinct roles: **owners** (authoritative single-writers managing live namespaces and local NVMe storage), **replicas** (read/warm followers maintaining pre-warmed namespace subsets), and **gateways** (stateless API routers).
+
+| Property | Environment Variable | Default | Allowed Values | Description |
+|:---|:---|:---|:---|:---|
+| `spector.node-role` | `SPECTOR_NODE_ROLE` | `owner` | `owner`, `replica`, `gateway`, `standalone` | Cluster execution role defining write authority and data ownership boundaries. |
+| `spector.cell-id` | `SPECTOR_CELL_ID` | `cell-1` | String identifier | Unique cell cluster identifier preventing cross-cell collision in multi-tenant environments. |
+| `spector.node-id` | `SPECTOR_NODE_ID` | Hostname | String identifier | Stable pod node identity used for consistent hash ring mapping. |
+| `spector.pager.hot-cap` | `SPECTOR_PAGER_HOT_CAP` | `2000` | Integer $\ge 1$ | Maximum number of active memory namespaces mapped concurrently per owner node. |
+| `spector.pager.warm-cap` | `SPECTOR_PAGER_WARM_CAP` | `20000` | Integer $\ge 1$ | Secondary tiered namespace capacity backed by local NVMe storage. |
+| `spector.data-dir` | `SPECTOR_DATA_DIR` | `/data` | Filesystem path | Storage root for persistent bundles, write-ahead logs, and identity records. |
+
+> [!IMPORTANT]
+> **Host Kernel & Operating System Prerequisites**:
+> - **Filesystem Selection**: Local storage directories must be formatted with **XFS** or **ext4**. Off-heap memory-mapped (`mmap`) page cache flushing and durability guarantees are strictly validated on these filesystems. Non-standard filesystems trigger startup warnings.
+> - **Map Count Arithmetic**: Required memory mappings are calculated using layout arithmetic: $\approx (\text{hotCap} \times 2) + \text{WAL segments} + \text{overhead}$. Each open namespace utilizes ~2 maps (the runtime bundle and the active partition bundle).
+> - **Kernel Tuning Parameters**:
+>   - `vm.max_map_count`: Set to at least `262144` (or `1048576` for dense multi-tenant deployments). An under-provisioned host fails readiness probes at startup.
+>   - `vm.swappiness`: Set to `1` to prevent memory-mapped working sets from paging to swap disk.
+>   - `ulimit -n`: Set to at least `262144` to prevent descriptor exhaustion under high connection and bundle volume.
+>   - `memlock`: Configured as `unlimited` for memory-locking preambles.
+> - **Memory Parity Invariant**: StatefulSet owner configurations must enforce `requests.memory == limits.memory == 16Gi` (with 2 GiB heap). This prevents Linux cgroups v2 from evicting clean page-cache pages prematurely under transient memory pressure.
+> - **Inter-Pod Anti-Affinity**: Owner pods require strict host anti-affinity (`topologyKey: kubernetes.io/hostname`) to prevent multiple owner replicas from co-locating on the same physical compute node.
+
 ---
 
 ## 🔗 See Also

@@ -1,0 +1,115 @@
+{{- if and (ne (default "split" .Values.topology.mode) "single-role") .Values.gateway.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "spector.gateway.fullname" . }}
+  labels:
+    {{- include "spector.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  replicas: {{ .Values.gateway.replicas }}
+  selector:
+    matchLabels:
+      {{- include "spector.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: gateway
+  template:
+    metadata:
+      labels:
+        {{- include "spector.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: gateway
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if .Values.podAnnotations }}
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "spector.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.affinity }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: spector-gateway
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: dashboard
+              containerPort: 8080
+              protocol: TCP
+            - name: api
+              containerPort: 7070
+              protocol: TCP
+          env:
+            - name: SPECTOR_CELL_ID
+              value: {{ include "spector.cellId" . | quote }}
+            - name: SPECTOR_NODE_ROLE
+              value: "gateway"
+            - name: SPECTOR_NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SPECTOR_ROUTING_REDIS_URI
+              value: {{ .Values.routing.redis.url | quote }}
+            - name: SPECTOR_PORT
+              value: {{ .Values.env.SPECTOR_PORT | quote }}
+            - name: SPECTOR_EMBEDDING_PROVIDER
+              value: {{ .Values.env.SPECTOR_EMBEDDING_PROVIDER | quote }}
+            - name: SPECTOR_EMBEDDING_MODEL
+              value: {{ .Values.env.SPECTOR_EMBEDDING_MODEL | quote }}
+            - name: SPECTOR_EMBEDDING_BASE_URL
+              value: {{ .Values.env.SPECTOR_EMBEDDING_BASE_URL | quote }}
+            - name: SPECTOR_EMBEDDING_DIMS
+              value: {{ .Values.env.SPECTOR_EMBEDDING_DIMS | quote }}
+            - name: SPECTOR_GENERATION_PROVIDER
+              value: {{ .Values.env.SPECTOR_GENERATION_PROVIDER | quote }}
+            - name: SPECTOR_GENERATION_MODEL
+              value: {{ .Values.env.SPECTOR_GENERATION_MODEL | quote }}
+            - name: SPECTOR_GENERATION_BASE_URL
+              value: {{ .Values.env.SPECTOR_GENERATION_BASE_URL | quote }}
+            {{- if .Values.secretRef.name }}
+            - name: SPECTOR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretRef.name }}
+                  key: SPECTOR_API_KEY
+                  optional: true
+            {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/spector.yml
+              subPath: spector.yml
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 7070
+            failureThreshold: 30
+            periodSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 7070
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 7070
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+          resources:
+            {{- toYaml .Values.gateway.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "spector.fullname" . }}-config
+{{- end }}

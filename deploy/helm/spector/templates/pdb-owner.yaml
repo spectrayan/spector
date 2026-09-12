@@ -1,0 +1,15 @@
+{{- if and .Values.owners.enabled .Values.owners.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "spector.owner.fullname" . }}-pdb
+  labels:
+    {{- include "spector.labels" . | nindent 4 }}
+    app.kubernetes.io/component: owner
+spec:
+  maxUnavailable: {{ .Values.owners.pdb.maxUnavailable | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "spector.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: owner
+{{- end }}

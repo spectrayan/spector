@@ -1,6 +1,16 @@
 # Default values for spector.
 # Developer-friendly defaults suitable for local clusters (kind, k3d, Minikube) and cloud clusters.
 
+# ── Cell Identity & Topology ──
+cell:
+  id: "cell-1"
+  region: "us-east-1"
+
+topology:
+  # Mode: "split" (distinct owner, replica, and gateway sets) or "single-role" (legacy single statefulset)
+  mode: "split"
+
+# Global replica count (used in single-role mode)
 replicaCount: 1
 
 image:
@@ -36,22 +46,133 @@ securityContext:
 # ── Kernel & OS Tuning (Project Panama FFM off-heap mmap & file descriptor limits) ──
 sysctl:
   enabled: true
-  # Uses a privileged initContainer to apply sysctls at the host node level.
-  # Standard for managed cloud clusters (EKS, GKE, AKS) where pod-level sysctls are restricted.
-  # Set to false to apply sysctls directly via podSecurityContext.sysctls.
   useInitContainer: true
   vmMaxMapCount: 262144
+  vmSwappiness: 1
   fsFileMax: 1048576
+  limits:
+    nofile: 262144
+    memlock: "unlimited"
   image:
     repository: busybox
     tag: "1.37"
     pullPolicy: IfNotPresent
+
+# ── Role Split Configurations ──
+
+# Owners: Authoritative single writers holding live namespaces and local NVMe storage.
+owners:
+  enabled: true
+  replicas: 3
+  resources:
+    # requests.memory == limits.memory is strictly enforced (Invariant T3) to protect OS page cache under cgroups v2
+    requests:
+      cpu: "4"
+      memory: "16Gi"
+    limits:
+      cpu: "8"
+      memory: "16Gi"
+  jvmOpts: "-Xms2G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:+UnlockDiagnosticVMOptions -XX:+UnlockExperimentalVMOptions --add-modules=jdk.incubator.vector --enable-preview --enable-native-access=ALL-UNNAMED -Djava.lang.foreign.restricted=permit"
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                  - owner
+          topologyKey: "kubernetes.io/hostname"
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 100Gi
+    storageClass: "spector-nvme-local"
+  pdb:
+    enabled: true
+    maxUnavailable: 1
+
+# Replicas: Asynchronous read/standby followers subscribing to snapshots and WAL streams.
+replicas:
+  enabled: true
+  replicas: 2
+  hotCap: 500
+  resources:
+    requests:
+      cpu: "2"
+      memory: "8Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+  jvmOpts: "-Xms2G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:+UnlockDiagnosticVMOptions -XX:+UnlockExperimentalVMOptions --add-modules=jdk.incubator.vector --enable-preview --enable-native-access=ALL-UNNAMED -Djava.lang.foreign.restricted=permit"
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 100Gi
+    storageClass: "spector-nvme-local"
+
+# Gateway: Stateless API proxy evaluating routing waterfall and forwarding client requests.
+gateway:
+  enabled: true
+  replicas: 2
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2000m"
+      memory: "2Gi"
+  hpa:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+# ── Routing & Coordination ──
+routing:
+  redis:
+    url: "redis://spector-redis:6379"
+    inChart:
+      enabled: false
+
+coordinator:
+  leaseDurationSeconds: 15
+  renewIntervalSeconds: 10
+
+# ── Pager Capacities ──
+pager:
+  hotCap: 2000
+  warmCap: 20000
+
+# ── Cold Tier Storage ──
+coldTier:
+  enabled: false
+  provider: "s3"
+  bucket: ""
+
+# ── Disaster Recovery (Phase 6 inert pre-declarations per Req R7.8) ──
+dr:
+  bucket: ""
+  exportInterval: "15m"
+
+# ── Network Boundaries & Security ──
+networkPolicy:
+  enabled: true
+  ingressFromGatewayOnly: true
+  restrictReplication: true
+  restrictRedis: true
+
+# ── Observability ──
+serviceMonitor:
+  enabled: true
+  interval: "15s"
 
 service:
   type: ClusterIP
   ports:
     dashboard: 7700
     api: 7070
+    replication: 9090
 
 ingress:
   enabled: false
@@ -65,6 +186,7 @@ ingress:
           port: 7700
   tls: []
 
+# Baseline storage parameters (used in single-role mode)
 resources:
   limits:
     cpu: 2000m
@@ -76,25 +198,12 @@ resources:
 persistence:
   enabled: true
   accessMode: ReadWriteOnce
-  size: 10Gi
+  size: 100Gi
   mountPath: /data
-  # Storage class name to use for the PersistentVolumeClaim.
-  # Recommended production storage classes by environment:
-  #   AWS EKS:    gp3 (min 3000 IOPS, 125 MB/s) or io2
-  #   GCP GKE:    hyperdisk-balanced or pd-ssd
-  #   Azure AKS:  managed-csi-premium or ultra-disk
-  #   Bare-metal: spector-nvme-local (Local PV with WaitForFirstConsumer)
-  # Leave empty ("") to use the Kubernetes cluster default StorageClass.
-  storageClass: ""
+  storageClass: "spector-nvme-local"
 
-  # Optional: Create a dedicated high-performance StorageClass managed by this Helm chart.
   createStorageClass: false
   storageClassName: "spector-high-perf"
-  # CSI Provisioner options:
-  #   AWS:   ebs.csi.aws.com (type: gp3, iops: "3000", throughput: "125")
-  #   GCP:   pd.csi.storage.gke.io (type: pd-ssd)
-  #   Azure: disk.csi.azure.com (skuName: Premium_LRS)
-  #   Local: kubernetes.io/no-provisioner
   provisioner: "ebs.csi.aws.com"
   volumeBindingMode: "WaitForFirstConsumer"
   allowVolumeExpansion: true
@@ -106,7 +215,6 @@ persistence:
 
 env:
   SPECTOR_PORT: "7070"
-  SPECTOR_NODE_ID: "spector-k8s"
   SPECTOR_DATA_DIR: "/data"
   # ── Embedding Provider ──
   SPECTOR_EMBEDDING_PROVIDER: "ollama"
@@ -125,8 +233,6 @@ env:
 
 # API keys — use Kubernetes Secrets (not plain env vars)
 secretRef:
-  # Name of an existing Kubernetes Secret containing API keys.
-  # Expected keys: SPECTOR_EMBEDDING_API_KEY, SPECTOR_GENERATION_API_KEY, SPECTOR_API_KEY
   name: ""
 
 config:
