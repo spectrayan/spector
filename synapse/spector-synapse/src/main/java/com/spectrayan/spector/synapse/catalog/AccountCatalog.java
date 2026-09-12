@@ -80,6 +80,14 @@ public interface AccountCatalog {
 
     void tombstone(String accountId, String namespaceId);
 
+    /**
+     * Imports an authoritative NamespaceRecord into the catalog verbatim during disaster recovery
+     * or cross-cell replication, preserving original TSID, slug, status, bias, and legal hold.
+     *
+     * @param record authoritative namespace record
+     */
+    default void importNamespace(NamespaceRecord record) {}
+
     void recordAccess(String namespaceId);
 
     /**

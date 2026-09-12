@@ -409,6 +409,53 @@ public class FileAccountCatalog implements AccountCatalog {
     }
 
     @Override
+    public void importNamespace(NamespaceRecord record) {
+        Objects.requireNonNull(record, "record must not be null");
+        String accountId = record.ownerAccountId();
+        ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
+        jvmLock.lock();
+        try {
+            Path accountDir = StoragePaths.accountDir(basePath, accountId);
+            Path lockFile = accountDir.resolve(FILE_LOCK);
+
+            try (FileChannel channel = FileChannel.open(lockFile,
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                 FileLock fileLock = channel.lock()) {
+
+                Path slugsFile = accountDir.resolve(FILE_SLUGS);
+                Map<String, String> slugs = new HashMap<>();
+                if (Files.exists(slugsFile)) {
+                    slugs = new HashMap<>(objectMapper.readValue(slugsFile.toFile(),
+                            new TypeReference<Map<String, String>>() {}));
+                }
+
+                Path namespacesFile = accountDir.resolve(FILE_NAMESPACES);
+                Map<String, NamespaceRecord> namespaces = new HashMap<>();
+                if (Files.exists(namespacesFile)) {
+                    namespaces = new HashMap<>(objectMapper.readValue(namespacesFile.toFile(),
+                            new TypeReference<Map<String, NamespaceRecord>>() {}));
+                }
+
+                slugs.put(record.slug(), record.namespaceId());
+                namespaces.put(record.namespaceId(), record);
+
+                atomicWrite(slugsFile, slugs);
+                atomicWrite(namespacesFile, namespaces);
+
+                snapshotCache.remove(accountId);
+                log.info("[FileAccountCatalog] imported namespace: {} (slug={}) for account {}",
+                        record.namespaceId(), record.slug(), accountId);
+            }
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] failed to import namespace {} for account {}",
+                    record.namespaceId(), record.ownerAccountId(), e);
+            throw new RuntimeException("Failed to import namespace into catalog", e);
+        } finally {
+            jvmLock.unlock();
+        }
+    }
+
+    @Override
     public NamespaceRecord updateNamespace(String accountId, String slugOrId,
             String displayName, String description, NamespaceType type, NamespaceBias bias) {
         ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());

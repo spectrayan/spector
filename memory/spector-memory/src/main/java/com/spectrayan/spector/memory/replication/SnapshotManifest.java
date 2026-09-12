@@ -43,13 +43,54 @@ public record SnapshotManifest(
         List<SealedPartitionEntry> sealed,
         long walFrom,
         long walTo,
-        String encryptionKeyRef
+        String encryptionKeyRef,
+        List<FileEntry> files,
+        String namespaceMetadataJson
 ) {
 
     public static final String PLANE_NAMESPACE = "namespace";
     public static final int CURRENT_VERSION = 1;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    public SnapshotManifest(
+            String plane,
+            int manifestVersion,
+            String tenantId,
+            String namespaceId,
+            String pathHelper,
+            long epoch,
+            long hwm,
+            SnapshotKind kind,
+            RuntimeEntry runtime,
+            ActivePartitionEntry activePartition,
+            List<SealedPartitionEntry> sealed,
+            long walFrom,
+            long walTo,
+            String encryptionKeyRef
+    ) {
+        this(plane, manifestVersion, tenantId, namespaceId, pathHelper, epoch, hwm, kind, runtime, activePartition, sealed, walFrom, walTo, encryptionKeyRef, List.of(), null);
+    }
+
+    public SnapshotManifest(
+            String plane,
+            int manifestVersion,
+            String tenantId,
+            String namespaceId,
+            String pathHelper,
+            long epoch,
+            long hwm,
+            SnapshotKind kind,
+            RuntimeEntry runtime,
+            ActivePartitionEntry activePartition,
+            List<SealedPartitionEntry> sealed,
+            long walFrom,
+            long walTo,
+            String encryptionKeyRef,
+            List<FileEntry> files
+    ) {
+        this(plane, manifestVersion, tenantId, namespaceId, pathHelper, epoch, hwm, kind, runtime, activePartition, sealed, walFrom, walTo, encryptionKeyRef, files, null);
+    }
 
     public SnapshotManifest {
         // R1.3: Enforce plane == "namespace" (N4)
@@ -80,6 +121,7 @@ public record SnapshotManifest(
 
         Objects.requireNonNull(kind, "kind must not be null");
         sealed = sealed != null ? List.copyOf(sealed) : List.of();
+        files = files != null ? List.copyOf(files) : List.of();
 
         // Enforce identity plane separation on all contained references (N4)
         if (runtime != null) {
@@ -93,6 +135,17 @@ public record SnapshotManifest(
             if (s.objectRef() != null) {
                 ReplicationPathFilter.assertNotIdentityPlane(s.objectRef());
             }
+        }
+        for (FileEntry f : files) {
+            ReplicationPathFilter.assertNotIdentityPlane(f.path());
+        }
+    }
+
+    public record FileEntry(String path, String sha256) {
+        public FileEntry {
+            Objects.requireNonNull(path, "file path must not be null");
+            Objects.requireNonNull(sha256, "file sha256 must not be null");
+            ReplicationPathFilter.assertNotIdentityPlane(path);
         }
     }
 

@@ -316,6 +316,16 @@ public class JdbcAccountCatalog implements AccountCatalog {
     }
 
     @Override
+    @Transactional
+    public void importNamespace(NamespaceRecord record) {
+        Objects.requireNonNull(record, "record must not be null");
+        insertNamespaceRow(record);
+        insertImplicitOwnerGrant(record.ownerAccountId(), record.namespaceId());
+        log.info("[JdbcAccountCatalog] Imported namespace: slug={}, id={}, accountId={}",
+                record.slug(), record.namespaceId(), record.ownerAccountId());
+    }
+
+    @Override
     public Optional<NamespaceRecord> resolve(String accountId, String slugOrId) {
         Objects.requireNonNull(accountId, "accountId must not be null");
         Objects.requireNonNull(slugOrId, "slugOrId must not be null");

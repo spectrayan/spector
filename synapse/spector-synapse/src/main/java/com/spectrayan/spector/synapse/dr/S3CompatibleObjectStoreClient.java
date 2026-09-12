@@ -180,42 +180,66 @@ public class S3CompatibleObjectStoreClient implements ObjectStoreClient {
     public List<String> listKeysByPrefix(String bucket, String prefix) {
         Objects.requireNonNull(bucket, "bucket must not be null");
         String safePrefix = prefix != null ? prefix : "";
-        String query = "list-type=2&prefix=" + URLEncoder.encode(safePrefix, StandardCharsets.UTF_8);
-        URI targetUri = buildUri(bucket, null, query);
+        List<String> allKeys = new ArrayList<>();
+        String continuationToken = null;
+        boolean hasMore = true;
 
-        Map<String, String> sigHeaders = AwsSigV4Signer.sign(
-                "GET", targetUri, Map.of(), new byte[0], accessKey, secretKey, region, "s3");
-
-        HttpRequest.Builder builder = HttpRequest.newBuilder()
-                .uri(targetUri)
-                .timeout(DEFAULT_TIMEOUT)
-                .GET();
-
-        addNonRestrictedHeaders(builder, sigHeaders);
-
-        try {
-            HttpResponse<byte[]> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray());
-            int status = response.statusCode();
-            if (status < 200 || status >= 300) {
-                String body = new String(response.body(), StandardCharsets.UTF_8);
-                throw new ObjectStoreException(bucket, prefix, "HTTP " + status + ": " + body);
+        while (hasMore) {
+            StringBuilder query = new StringBuilder("list-type=2&prefix=")
+                    .append(URLEncoder.encode(safePrefix, StandardCharsets.UTF_8));
+            if (continuationToken != null && !continuationToken.isBlank()) {
+                query.append("&continuation-token=").append(URLEncoder.encode(continuationToken, StandardCharsets.UTF_8));
             }
+            URI targetUri = buildUri(bucket, null, query.toString());
 
-            return parseS3ListResponse(response.body());
-        } catch (ObjectStoreException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new ObjectStoreException(bucket, prefix, "Failed to list objects by prefix: " + e.getMessage(), e);
+            Map<String, String> sigHeaders = AwsSigV4Signer.sign(
+                    "GET", targetUri, Map.of(), new byte[0], accessKey, secretKey, region, "s3");
+
+            HttpRequest.Builder builder = HttpRequest.newBuilder()
+                    .uri(targetUri)
+                    .timeout(DEFAULT_TIMEOUT)
+                    .GET();
+
+            addNonRestrictedHeaders(builder, sigHeaders);
+
+            try {
+                HttpResponse<byte[]> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray());
+                int status = response.statusCode();
+                if (status < 200 || status >= 300) {
+                    String body = new String(response.body(), StandardCharsets.UTF_8);
+                    throw new ObjectStoreException(bucket, prefix, "HTTP " + status + ": " + body);
+                }
+
+                S3ListResult listResult = parseS3ListResponse(response.body());
+                allKeys.addAll(listResult.keys());
+                hasMore = listResult.isTruncated() && listResult.nextContinuationToken() != null && !listResult.nextContinuationToken().isBlank();
+                continuationToken = listResult.nextContinuationToken();
+            } catch (ObjectStoreException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new ObjectStoreException(bucket, prefix, "Failed to list objects by prefix: " + e.getMessage(), e);
+            }
         }
+        return allKeys;
     }
 
     @Override
     public int deleteByPrefix(String bucket, String prefix) {
-        List<String> keys = listKeysByPrefix(bucket, prefix);
         int deleted = 0;
-        for (String key : keys) {
-            if (deleteObject(bucket, key)) {
-                deleted++;
+        while (true) {
+            List<String> keys = listKeysByPrefix(bucket, prefix);
+            if (keys.isEmpty()) {
+                break;
+            }
+            int deletedThisPass = 0;
+            for (String key : keys) {
+                if (deleteObject(bucket, key)) {
+                    deleted++;
+                    deletedThisPass++;
+                }
+            }
+            if (deletedThisPass == 0) {
+                break;
             }
         }
         return deleted;
@@ -314,8 +338,12 @@ public class S3CompatibleObjectStoreClient implements ObjectStoreClient {
         return URI.create(path.toString());
     }
 
-    private static List<String> parseS3ListResponse(byte[] xmlBytes) {
+    private record S3ListResult(List<String> keys, boolean isTruncated, String nextContinuationToken) {}
+
+    private static S3ListResult parseS3ListResponse(byte[] xmlBytes) {
         List<String> keys = new ArrayList<>();
+        boolean isTruncated = false;
+        String nextContinuationToken = null;
         try {
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             // Secure XML parser against XXE
@@ -330,10 +358,20 @@ public class S3CompatibleObjectStoreClient implements ObjectStoreClient {
             for (int i = 0; i < keyNodes.getLength(); i++) {
                 keys.add(keyNodes.item(i).getTextContent());
             }
+
+            NodeList truncNodes = doc.getElementsByTagName("IsTruncated");
+            if (truncNodes.getLength() > 0) {
+                isTruncated = Boolean.parseBoolean(truncNodes.item(0).getTextContent().trim());
+            }
+
+            NodeList tokenNodes = doc.getElementsByTagName("NextContinuationToken");
+            if (tokenNodes.getLength() > 0) {
+                nextContinuationToken = tokenNodes.item(0).getTextContent().trim();
+            }
         } catch (Exception e) {
             log.warn("[S3Client] Error parsing ListObjectsV2 response: {}", e.getMessage());
         }
-        return keys;
+        return new S3ListResult(keys, isTruncated, nextContinuationToken);
     }
 
     private static String normalizeEndpoint(String endpoint) {
