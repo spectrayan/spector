@@ -45,6 +45,13 @@ public interface RoutingMetricsListener {
     default void recordDegradationTransition(boolean degraded) {}
 
     /**
+     * Records a transition into or out of pub/sub unsubscribed state (Req R4.5, R8.3).
+     *
+     * @param unsubscribed true if lost pub/sub subscription, false if subscribed/recovered
+     */
+    default void recordPubSubUnsubscribedTransition(boolean unsubscribed) {}
+
+    /**
      * No-op implementation for standalone or unmetered deployments.
      */
     RoutingMetricsListener NOOP = source -> {};

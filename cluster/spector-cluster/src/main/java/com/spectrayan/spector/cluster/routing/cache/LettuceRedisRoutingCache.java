@@ -185,8 +185,8 @@ public class LettuceRedisRoutingCache implements RedisRoutingCache {
 
         try {
             String channel = RoutingKey.redisInvalidationChannel(cellId);
-            String payload = String.format("{\"nsKey\":\"%s\",\"epoch\":%d,\"reason\":\"%s\"}",
-                    nsKey != null ? nsKey : "", epoch, reason != null ? reason : "");
+            String payload = new com.spectrayan.spector.cluster.routing.invalidation.RoutingInvalidationMessage(
+                    nsKey != null ? nsKey : "", epoch, reason != null ? reason : "").toJson();
             asyncCommands.publish(channel, payload).get(timeoutMs, TimeUnit.MILLISECONDS);
             handleSuccess();
         } catch (Exception e) {

@@ -70,6 +70,28 @@ public record RoutingKey(String cellId, String tenantId, String namespaceId) {
     }
 
     /**
+     * Reconstructs a RoutingKey from cellId and canonical key material
+     * (e.g. {@code "tenantId/namespaceId"} or {@code "__NULL_TENANT__/namespaceId"}).
+     *
+     * @param cellId      the cell identifier
+     * @param keyMaterial the canonical key material
+     * @return the reconstructed RoutingKey
+     */
+    public static RoutingKey fromKeyMaterial(String cellId, String keyMaterial) {
+        Objects.requireNonNull(keyMaterial, "keyMaterial must not be null");
+        int slashIdx = keyMaterial.indexOf('/');
+        if (slashIdx == -1) {
+            return ofUntenanted(cellId, keyMaterial);
+        }
+        String tenant = keyMaterial.substring(0, slashIdx);
+        String ns = keyMaterial.substring(slashIdx + 1);
+        if (NULL_TENANT_SENTINEL.equals(tenant) || tenant.isBlank()) {
+            return ofUntenanted(cellId, ns);
+        }
+        return ofTenanted(cellId, tenant, ns);
+    }
+
+    /**
      * Computes the canonical key material fed into the consistent hash ring (ADR §15.2, Req R2.4).
      *
      * @return canonical key string {@code "{tenantId|__NULL_TENANT__}/{namespaceId}"}
