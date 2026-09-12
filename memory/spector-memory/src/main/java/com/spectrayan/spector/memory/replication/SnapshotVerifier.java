@@ -171,25 +171,30 @@ public final class SnapshotVerifier {
         Objects.requireNonNull(bundleFile, "bundleFile must not be null");
         Objects.requireNonNull(expectedSha256, "expectedSha256 must not be null");
 
-        if (!Files.isRegularFile(bundleFile) || !Files.isReadable(bundleFile)) {
-            recordFailure("file_unreadable", "Bundle file missing or unreadable: " + bundleFile);
+        Path normalizedFile = bundleFile.toAbsolutePath().normalize();
+        if (bundleFile.toString().contains("..") || normalizedFile.toString().contains("..")) {
+            throw new IllegalArgumentException("Path traversal sequence in bundleFile: " + bundleFile);
+        }
+
+        if (!Files.isRegularFile(normalizedFile) || !Files.isReadable(normalizedFile)) {
+            recordFailure("file_unreadable", "Bundle file missing or unreadable: " + normalizedFile);
             throw new SpectorValidationException(
                     ErrorCode.FILE_FORMAT_INVALID,
-                    "Bundle file missing or unreadable: " + bundleFile
+                    "Bundle file missing or unreadable: " + normalizedFile
             );
         }
 
         try {
-            long size = Files.size(bundleFile);
+            long size = Files.size(normalizedFile);
             if (size < RegionPreamble.PREAMBLE_BYTES) {
                 recordFailure("file_truncated", "Bundle file smaller than preamble: " + size + " bytes");
                 throw new SpectorValidationException(
                         ErrorCode.FILE_FORMAT_INVALID,
-                        "Bundle file " + bundleFile + " is smaller than RegionPreamble: " + size + " bytes"
+                        "Bundle file " + normalizedFile + " is smaller than RegionPreamble: " + size + " bytes"
                 );
             }
 
-            try (FileChannel channel = FileChannel.open(bundleFile, StandardOpenOption.READ)) {
+            try (FileChannel channel = FileChannel.open(normalizedFile, StandardOpenOption.READ)) {
                 ByteBuffer preambleBuf = ByteBuffer.allocate(RegionPreamble.PREAMBLE_BYTES)
                         .order(java.nio.ByteOrder.nativeOrder());
                 channel.read(preambleBuf);
@@ -220,13 +225,13 @@ public final class SnapshotVerifier {
                 }
             }
 
-            String actualSha256 = calculateSha256(bundleFile);
+            String actualSha256 = calculateSha256(normalizedFile);
             if (!expectedSha256.equalsIgnoreCase(actualSha256)) {
                 recordFailure("sha256_mismatch",
                         "expected " + expectedSha256 + ", computed " + actualSha256);
                 throw new SpectorValidationException(
                         ErrorCode.FILE_FORMAT_INVALID,
-                        "SHA-256 checksum mismatch for " + bundleFile
+                        "SHA-256 checksum mismatch for " + normalizedFile
                                 + ": expected " + expectedSha256 + ", computed " + actualSha256
                 );
             }
@@ -240,10 +245,14 @@ public final class SnapshotVerifier {
      */
     public static String calculateSha256(Path path) {
         Objects.requireNonNull(path, "path must not be null");
+        Path normalizedPath = path.toAbsolutePath().normalize();
+        if (path.toString().contains("..") || normalizedPath.toString().contains("..")) {
+            throw new IllegalArgumentException("Path traversal sequence in path: " + path);
+        }
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] buffer = new byte[65536];
-            try (InputStream in = Files.newInputStream(path)) {
+            try (InputStream in = Files.newInputStream(normalizedPath)) {
                 int read;
                 while ((read = in.read(buffer)) != -1) {
                     digest.update(buffer, 0, read);

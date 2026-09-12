@@ -131,6 +131,11 @@ public class ReplicationClient {
         if (sslContext != null) {
             SSLSocketFactory ssf = sslContext.getSocketFactory();
             SSLSocket sslSocket = (SSLSocket) ssf.createSocket();
+            javax.net.ssl.SSLParameters sslParams = sslSocket.getSSLParameters();
+            if (sslParams != null) {
+                sslParams.setEndpointIdentificationAlgorithm("HTTPS");
+                sslSocket.setSSLParameters(sslParams);
+            }
             ReplicationTlsFactory.configureClientSocket(sslSocket);
             socket = sslSocket;
         } else {

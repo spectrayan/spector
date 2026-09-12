@@ -25,6 +25,7 @@ import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.EOFException;
+import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -188,8 +189,10 @@ public class ReplicationServer implements AutoCloseable {
                     int fileLen = dis.readInt();
                     byte[] fileBytes = dis.readNBytes(fileLen);
 
-                    Path targetFile = batchTmpDir.resolve(fileName);
-                    Files.createDirectories(targetFile.getParent());
+                    Path targetFile = safeResolve(batchTmpDir, fileName);
+                    if (targetFile.getParent() != null) {
+                        Files.createDirectories(targetFile.getParent());
+                    }
                     Files.write(targetFile, fileBytes);
                     stagedFiles.put(fileName, targetFile);
                 }
@@ -260,5 +263,20 @@ public class ReplicationServer implements AutoCloseable {
 
     public int getBoundPort() {
         return boundPort;
+    }
+
+    private static Path safeResolve(Path baseDir, String relativePath) {
+        if (relativePath == null || relativePath.isBlank()
+                || relativePath.contains("..")
+                || relativePath.startsWith("/")
+                || relativePath.startsWith("\\")) {
+            throw new IllegalArgumentException("Invalid path sequence in replication frame: " + relativePath);
+        }
+        Path basePath = baseDir.normalize().toAbsolutePath();
+        Path targetPath = basePath.resolve(relativePath).normalize().toAbsolutePath();
+        if (!targetPath.startsWith(basePath.toString() + File.separator) && !targetPath.equals(basePath)) {
+            throw new IllegalArgumentException("Path traversal outside base directory: " + relativePath);
+        }
+        return targetPath;
     }
 }

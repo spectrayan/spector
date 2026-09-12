@@ -122,12 +122,17 @@ public class ReplicationTlsFactory {
     }
 
     /**
-     * Configures an {@link SSLSocket} with strict TLS 1.3.
+     * Configures an {@link SSLSocket} with strict TLS 1.3 and endpoint identification verification (Req R6.2).
      *
      * @param socket socket to configure
      */
     public static void configureClientSocket(SSLSocket socket) {
         Objects.requireNonNull(socket, "socket must not be null");
         socket.setEnabledProtocols(ENABLED_PROTOCOLS);
+        javax.net.ssl.SSLParameters sslParams = socket.getSSLParameters();
+        if (sslParams != null) {
+            sslParams.setEndpointIdentificationAlgorithm("HTTPS");
+            socket.setSSLParameters(sslParams);
+        }
     }
 }

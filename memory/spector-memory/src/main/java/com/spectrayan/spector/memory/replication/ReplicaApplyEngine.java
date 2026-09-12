@@ -20,6 +20,7 @@ import com.spectrayan.spector.memory.sync.WalEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.channels.FileChannel;
@@ -150,7 +151,7 @@ public final class ReplicaApplyEngine {
             for (Map.Entry<String, Path> entry : stagedBundleFiles.entrySet()) {
                 String filename = entry.getKey();
                 Path src = entry.getValue();
-                Path dst = stagingDir.resolve(filename);
+                Path dst = safeResolve(stagingDir, filename);
                 if (dst.getParent() != null) {
                     Files.createDirectories(dst.getParent());
                 }
@@ -203,7 +204,7 @@ public final class ReplicaApplyEngine {
             Files.createDirectories(nsDir);
             for (Map.Entry<String, Path> entry : stagedTargetFiles.entrySet()) {
                 Path src = entry.getValue();
-                Path target = nsDir.resolve(entry.getKey());
+                Path target = safeResolve(nsDir, entry.getKey());
                 if (target.getParent() != null) {
                     Files.createDirectories(target.getParent());
                 }
@@ -281,5 +282,28 @@ public final class ReplicaApplyEngine {
                         });
             } catch (IOException ignored) {}
         }
+    }
+
+    private static Path safeResolve(Path baseDir, String relativePath) {
+        Objects.requireNonNull(baseDir, "baseDir must not be null");
+        Objects.requireNonNull(relativePath, "relativePath must not be null");
+        if (relativePath.isBlank()
+                || relativePath.contains("..")
+                || relativePath.startsWith("/")
+                || relativePath.startsWith("\\")) {
+            throw new SpectorValidationException(
+                    ErrorCode.ARGUMENT_INVALID,
+                    "Invalid relative path containing path traversal sequences: " + relativePath
+            );
+        }
+        Path basePath = baseDir.normalize().toAbsolutePath();
+        Path targetPath = basePath.resolve(relativePath).normalize().toAbsolutePath();
+        if (!targetPath.startsWith(basePath.toString() + File.separator) && !targetPath.equals(basePath)) {
+            throw new SpectorValidationException(
+                    ErrorCode.ARGUMENT_INVALID,
+                    "Path traversal attempt detected: " + relativePath
+            );
+        }
+        return targetPath;
     }
 }

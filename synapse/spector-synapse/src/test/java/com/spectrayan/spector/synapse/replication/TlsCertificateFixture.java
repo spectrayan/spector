@@ -56,10 +56,11 @@ public class TlsCertificateFixture {
                 ? javaHome + "/bin/keytool"
                 : "keytool";
 
-        // 1. Generate server keypair
+        // 1. Generate server keypair with SAN for 127.0.0.1 and localhost
         runCmd(keytoolBin, "-genkeypair", "-alias", "server", "-keyalg", "RSA", "-keysize", "2048",
                 "-storetype", "PKCS12", "-keystore", serverKs.toString(), "-storepass", "changeit",
-                "-validity", "30", "-dname", "CN=localhost, OU=Spector, O=Spectrayan, C=US");
+                "-validity", "30", "-dname", "CN=localhost, OU=Spector, O=Spectrayan, C=US",
+                "-ext", "SAN=ip:127.0.0.1,dns:localhost");
 
         // 2. Export server cert
         runCmd(keytoolBin, "-exportcert", "-alias", "server", "-keystore", serverKs.toString(),
