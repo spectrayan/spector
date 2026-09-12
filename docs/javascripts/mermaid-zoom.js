@@ -157,7 +157,7 @@
           '<div class="mermaid-modal-canvas"></div>' +
         '</div>' +
         '<div class="mermaid-modal-footer">' +
-          '<span>Scroll mouse wheel to zoom • Click & drag to pan • Press ESC to exit</span>' +
+          '<span>Two-finger scroll or drag to pan • Pinch or Ctrl+Scroll to zoom • ESC to exit</span>' +
         '</div>' +
       '</div>';
 
@@ -204,15 +204,77 @@
       if (e.target === modal) closeModal();
     });
 
+    var viewport = modal.querySelector('.mermaid-modal-viewport');
     viewport.addEventListener('wheel', function (e) {
       e.preventDefault();
-      // Smooth deltaY-proportional zoom that handles both continuous touchpads and discrete mouse wheels
-      var zoomSensitivity = 0.0012;
-      var rawDelta = -e.deltaY * zoomSensitivity;
-      var clampedDelta = Math.max(Math.min(rawDelta, 0.1), -0.1);
-      modalScale = Math.min(Math.max(modalScale * (1 + clampedDelta), 0.3), 5.0);
-      updateModalTransform(false);
+
+      if (e.ctrlKey || e.metaKey) {
+        // Trackpad pinch-to-zoom (browsers set e.ctrlKey=true on touchpad pinch)
+        // or Ctrl+mouse wheel zoom
+        var pinchFactor = Math.exp(-e.deltaY * 0.012);
+        modalScale = Math.min(Math.max(modalScale * pinchFactor, 0.25), 6.0);
+        updateModalTransform(false);
+      } else {
+        // Normal two-finger trackpad scroll or mouse scroll -> PANS / SCROLLS the diagram!
+        modalTranslateX -= e.deltaX;
+        modalTranslateY -= e.deltaY;
+        updateModalTransform(false);
+      }
     }, { passive: false });
+
+    // Touch event support for touchscreens and mobile devices
+    var touchStartDistance = 0;
+    var touchStartScale = 1.0;
+    var isTouchPinching = false;
+
+    viewport.addEventListener('touchstart', function (e) {
+      if (e.touches.length === 1) {
+        isDragging = true;
+        isTouchPinching = false;
+        startX = e.touches[0].clientX - modalTranslateX;
+        startY = e.touches[0].clientY - modalTranslateY;
+      } else if (e.touches.length === 2) {
+        isDragging = false;
+        isTouchPinching = true;
+        touchStartDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        touchStartScale = modalScale;
+      }
+    }, { passive: true });
+
+    viewport.addEventListener('touchmove', function (e) {
+      if (isDragging && e.touches.length === 1) {
+        e.preventDefault();
+        modalTranslateX = e.touches[0].clientX - startX;
+        modalTranslateY = e.touches[0].clientY - startY;
+        updateModalTransform(false);
+      } else if (isTouchPinching && e.touches.length === 2) {
+        e.preventDefault();
+        var dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        if (touchStartDistance > 0) {
+          var ratio = dist / touchStartDistance;
+          modalScale = Math.min(Math.max(touchStartScale * ratio, 0.25), 6.0);
+          updateModalTransform(false);
+        }
+      }
+    }, { passive: false });
+
+    viewport.addEventListener('touchend', function (e) {
+      if (e.touches.length === 0) {
+        isDragging = false;
+        isTouchPinching = false;
+      } else if (e.touches.length === 1) {
+        isTouchPinching = false;
+        isDragging = true;
+        startX = e.touches[0].clientX - modalTranslateX;
+        startY = e.touches[0].clientY - modalTranslateY;
+      }
+    }, { passive: true });
 
     viewport.addEventListener('mousedown', function (e) {
       if (e.button !== 0) return;
