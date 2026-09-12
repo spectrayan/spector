@@ -544,6 +544,10 @@ public enum ErrorCode {
     REPLICA_WRITE_REFUSED     (700_008, ErrorCategory.CLUSTER,
             "Write refused on replica for namespace '{}'. Replicas unconditionally refuse writes (Invariant N2, Req R10.6)"),
 
+    /** The write request carries a stale or mismatched fence token (Req R2.3, Q2). */
+    FENCED                    (700_009, ErrorCategory.CLUSTER,
+            "Write refused: fence token '{}' for namespace '{}' is superseded or mismatched (activeFence='{}')"),
+
     // ══════════════════════════════════════════════════════════════════════
     // INTERNAL (SPE-900-xxx)
     // ══════════════════════════════════════════════════════════════════════

@@ -16,8 +16,11 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 
 /**
  * Thrown when an attempt is made to reassign an account's tenantId while the account owns
- * namespaces (ADR-0034 D4, Req R2.6). Data movement across tenant trees is deferred to
- * ADR-0034 Phase 4, where the namespace mover is needed for failover anyway.
+ * namespaces (ADR-0034 D4, Req R2.6, R5.7, D7).
+ *
+ * <p>Tenant reassignment modifies underlying storage placement rather than dynamic service ownership,
+ * carrying data-migration and crash-safety hazards (Phase 0.1 C4), and is deferred to a dedicated
+ * tenant migration specification (Task 5.8, B6, D7).</p>
  */
 public class TenantReassignmentException extends NamespaceException {
 
@@ -27,7 +30,7 @@ public class TenantReassignmentException extends NamespaceException {
 
     public TenantReassignmentException(String accountId, String currentTenantId, String targetTenantId) {
         super(ErrorCode.API_CONFLICT, "TENANT_REASSIGNMENT_REFUSED",
-                "Cannot reassign tenant for account %s from '%s' to '%s': account owns namespaces. Data movement is deferred to ADR-0034 Phase 4."
+                "Cannot reassign tenant for account %s from '%s' to '%s': account owns namespaces. Tenant placement relocation is deferred to dedicated tenant-migration specification (Req R5.7, D7)."
                         .formatted(accountId, currentTenantId, targetTenantId));
         this.accountId = accountId;
         this.currentTenantId = currentTenantId;

@@ -20,6 +20,7 @@ import com.spectrayan.spector.cluster.membership.MembershipSource;
 import com.spectrayan.spector.cluster.node.NodeIdentity;
 import com.spectrayan.spector.cluster.node.NodeRole;
 import com.spectrayan.spector.cluster.routing.ConsistentHashRing;
+import com.spectrayan.spector.cluster.routing.OverrideLeaseManager;
 import com.spectrayan.spector.cluster.routing.RouteBinding;
 import com.spectrayan.spector.cluster.routing.RoutingKey;
 import com.spectrayan.spector.commons.error.ErrorCode;
@@ -48,7 +49,8 @@ public final class OwnershipResolver {
 
     private final NodeIdentity identity;
     private final MembershipSource membershipSource;
-    private final ConsistentHashRing ring;
+    private final java.util.concurrent.atomic.AtomicReference<ConsistentHashRing> ringRef = new java.util.concurrent.atomic.AtomicReference<>();
+    private final OverrideLeaseManager overrideLeaseManager;
 
     /**
      * Creates an ownership resolver with a standalone identity (bypassing the ring).
@@ -67,10 +69,24 @@ public final class OwnershipResolver {
      * @throws SpectorValidationException if role is not standalone and membership is null or empty (Req R7.3, L2)
      */
     public OwnershipResolver(NodeIdentity identity, MembershipSource membershipSource) {
+        this(identity, membershipSource, null);
+    }
+
+    /**
+     * Constructs an ownership resolver with override lease support (Req R3.1).
+     *
+     * @param identity             node identity (role, cellId, nodeId)
+     * @param membershipSource     membership source
+     * @param overrideLeaseManager manager tracking active namespace override leases
+     */
+    public OwnershipResolver(
+            NodeIdentity identity,
+            MembershipSource membershipSource,
+            OverrideLeaseManager overrideLeaseManager) {
         this.identity = Objects.requireNonNull(identity, "identity must not be null");
+        this.overrideLeaseManager = overrideLeaseManager;
         if (identity.role() == NodeRole.STANDALONE) {
             this.membershipSource = membershipSource;
-            this.ring = null;
             log.info("Initialized OwnershipResolver in STANDALONE mode (owns all namespaces, ring bypassed)");
         } else {
             this.membershipSource = Objects.requireNonNull(membershipSource,
@@ -80,14 +96,48 @@ public final class OwnershipResolver {
                 throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
                         "membership", "membership must not be empty for role " + identity.role() + " (Req R7.3, L2)");
             }
-            this.ring = ConsistentHashRing.of(membership.ringVersion(), membership.members());
+            ConsistentHashRing ring = ConsistentHashRing.of(membership.ringVersion(), membership.members());
+            this.ringRef.set(ring);
             log.info("Initialized OwnershipResolver for cell '{}', node '{}', role '{}' with ring version {} and members: {}",
                     identity.cellId(), identity.nodeId(), identity.role(), ring.ringVersion(), ring.members());
         }
     }
 
     /**
-     * Determines whether the current node authoritatively owns the specified routing key locally (Req R5.1).
+     * Atomically reloads the hash ring with updated cell membership without node restart (Req R5.1, R5.2).
+     *
+     * @param newMembership new membership snapshot
+     */
+    public void reloadRing(CellMembership newMembership) {
+        if (identity.role() == NodeRole.STANDALONE) {
+            return;
+        }
+        Objects.requireNonNull(newMembership, "newMembership must not be null");
+        if (newMembership.members().isEmpty()) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "membership", "membership must not be empty for role " + identity.role());
+        }
+        ConsistentHashRing newRing = ConsistentHashRing.of(newMembership.ringVersion(), newMembership.members());
+        ringRef.set(newRing);
+        log.info("[OwnershipResolver] Atomically reloaded hash ring for cell '{}' to version {} with members: {}",
+                identity.cellId(), newMembership.ringVersion(), newMembership.members());
+    }
+
+    /**
+     * Atomically reloads the hash ring from the configured membership source without node restart (Req R5.1, R5.2).
+     */
+    public void reloadRingFromSource() {
+        if (identity.role() == NodeRole.STANDALONE || membershipSource == null) {
+            return;
+        }
+        CellMembership current = membershipSource.current();
+        if (current != null) {
+            reloadRing(current);
+        }
+    }
+
+    /**
+     * Determines whether the current node authoritatively owns the specified routing key locally (Req R5.1, R3.1).
      *
      * @param key routing key
      * @return {@code true} if this node owns the key locally; {@code false} otherwise
@@ -97,7 +147,14 @@ public final class OwnershipResolver {
         return switch (identity.role()) {
             case STANDALONE -> true;
             case OWNER -> {
-                String owner = ring.ownerOf(key);
+                if (overrideLeaseManager != null) {
+                    var overrideOpt = overrideLeaseManager.getOverride(key.namespaceId());
+                    if (overrideOpt.isPresent()) {
+                        yield Objects.equals(identity.nodeId(), overrideOpt.get().targetNodeId());
+                    }
+                }
+                ConsistentHashRing ring = ringRef.get();
+                String owner = ring != null ? ring.ownerOf(key) : null;
                 yield Objects.equals(identity.nodeId(), owner);
             }
             case REPLICA, GATEWAY -> false;
@@ -105,7 +162,7 @@ public final class OwnershipResolver {
     }
 
     /**
-     * Resolves the full authoritative route binding for the specified routing key (Req R5.5).
+     * Resolves the full authoritative route binding for the specified routing key (Req R5.5, R3.1).
      *
      * @param key routing key
      * @return route binding containing the owner node identifier and ring epoch
@@ -118,12 +175,34 @@ public final class OwnershipResolver {
                     identity.nodeId() != null ? identity.nodeId() : "standalone",
                     0L
             );
-            case OWNER, REPLICA, GATEWAY -> RouteBinding.ofHash(
-                    key,
-                    ring.ownerOf(key),
-                    ring.ringVersion()
-            );
+            case OWNER, REPLICA, GATEWAY -> {
+                if (overrideLeaseManager != null) {
+                    var overrideOpt = overrideLeaseManager.getOverride(key.namespaceId());
+                    if (overrideOpt.isPresent()) {
+                        var override = overrideOpt.get();
+                        yield RouteBinding.ofOverride(
+                                key,
+                                override.targetNodeId(),
+                                override.epoch(),
+                                override.fence()
+                        );
+                    }
+                }
+                ConsistentHashRing ring = ringRef.get();
+                yield RouteBinding.ofHash(
+                        key,
+                        ring != null ? ring.ownerOf(key) : identity.nodeId(),
+                        ring != null ? ring.ringVersion() : 0L
+                );
+            }
         };
+    }
+
+    /**
+     * Returns optional override lease manager.
+     */
+    public Optional<OverrideLeaseManager> overrideLeaseManager() {
+        return Optional.ofNullable(overrideLeaseManager);
     }
 
     /**
@@ -141,6 +220,6 @@ public final class OwnershipResolver {
      * @return optional containing the hash ring, or empty if standalone
      */
     public Optional<ConsistentHashRing> ring() {
-        return Optional.ofNullable(ring);
+        return Optional.ofNullable(ringRef.get());
     }
 }

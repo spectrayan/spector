@@ -136,6 +136,33 @@ public final class SpectorPropertyConstants {
     public static final String REPLICATION_REPLICA_HOT_CAP = "spector.replication.replica-hot-cap";
     public static final int DEFAULT_REPLICATION_REPLICA_HOT_CAP = 100;
 
+    // Cell Failover, Fencing, and Control Store
+    public static final String FAILOVER_ENABLED = "spector.failover.enabled";
+    public static final boolean DEFAULT_FAILOVER_ENABLED = false;
+
+    public static final String FAILOVER_MODE = "spector.failover.mode";
+    public static final String DEFAULT_FAILOVER_MODE = "observe_only";
+
+    public static final String FAILOVER_FAIL_AFTER_SECONDS = "spector.failover.fail-after-seconds";
+    public static final long DEFAULT_FAILOVER_FAIL_AFTER_SECONDS = 15L;
+
+    public static final String FAILOVER_COOLDOWN_SECONDS = "spector.failover.cooldown-seconds";
+    public static final long DEFAULT_FAILOVER_COOLDOWN_SECONDS = 60L;
+
+    public static final String COORDINATOR_LEASE_DURATION_SECONDS = "spector.coordinator.lease-duration-seconds";
+    public static final long DEFAULT_COORDINATOR_LEASE_DURATION_SECONDS = 15L;
+
+    public static final String COORDINATOR_RENEW_INTERVAL_SECONDS = "spector.coordinator.renew-interval-seconds";
+    public static final long DEFAULT_COORDINATOR_RENEW_INTERVAL_SECONDS = 10L;
+
+    public static final String OVERRIDE_TTL_SECONDS = "spector.override.ttl-seconds";
+    public static final long DEFAULT_OVERRIDE_TTL_SECONDS = 300L;
+
+    public static final String CONTROL_STORE_TYPE = "spector.control-store.type";
+    public static final String DEFAULT_CONTROL_STORE_TYPE = "file";
+
+    public static final String CONTROL_STORE_FILE_PATH = "spector.control-store.file-path";
+
     // Provider — Embedding
     public static final String PROVIDER_EMBEDDING_TYPE = "spector.provider.embedding.type";
     public static final String DEFAULT_PROVIDER_EMBEDDING_TYPE = "ollama";

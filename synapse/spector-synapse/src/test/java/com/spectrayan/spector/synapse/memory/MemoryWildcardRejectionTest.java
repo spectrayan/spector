@@ -44,7 +44,7 @@ class MemoryWildcardRejectionTest {
     void setUp() {
         SynapseProperties props = new SynapseProperties();
         props.auth().setEnabled(true);
-        binder = new MemoryRequestBinder(catalog, memoryRegistry, props, null, null);
+        binder = new MemoryRequestBinder(catalog, memoryRegistry, props);
     }
 
     @Test
