@@ -15,6 +15,7 @@ package com.spectrayan.spector.synapse.config.failover;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 
 import java.io.Serializable;
+import java.util.Locale;
 
 /**
  * Configuration properties for automated cell failover, lease coordinator election, and control store.
@@ -23,10 +24,43 @@ import java.io.Serializable;
  */
 public class FailoverProperties implements Serializable {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
+
+    /**
+     * Failover operational mode. Unknown values default to {@link FailoverMode#OBSERVE_ONLY}
+     * so that unrecognized modes never silently perform live, mutating failover (G20).
+     */
+    public enum FailoverMode {
+        /** Live, mutating failover is performed. */
+        ACTIVE,
+        /** Evaluate and log structured audit actions without mutating cluster state. */
+        OBSERVE_ONLY;
+
+        /**
+         * Parses a mode string. Unrecognized values safely default to {@link #OBSERVE_ONLY}
+         * rather than silently enabling enforcing mode (G20).
+         *
+         * @param value mode string (case-insensitive)
+         * @return parsed mode; {@code OBSERVE_ONLY} for any unrecognized value
+         */
+        public static FailoverMode parse(String value) {
+            if (value == null || value.isBlank()) {
+                return OBSERVE_ONLY;
+            }
+            String normalized = value.trim().toUpperCase(Locale.ROOT);
+            return switch (normalized) {
+                case "ACTIVE" -> ACTIVE;
+                case "OBSERVE_ONLY" -> OBSERVE_ONLY;
+                default -> {
+                    // Unrecognized mode: fail-safe to observe-only (G20)
+                    yield OBSERVE_ONLY;
+                }
+            };
+        }
+    }
 
     private boolean enabled = SpectorPropertyConstants.DEFAULT_FAILOVER_ENABLED;
-    private String mode = SpectorPropertyConstants.DEFAULT_FAILOVER_MODE;
+    private FailoverMode failoverMode = FailoverMode.parse(SpectorPropertyConstants.DEFAULT_FAILOVER_MODE);
     private long failAfterSeconds = SpectorPropertyConstants.DEFAULT_FAILOVER_FAIL_AFTER_SECONDS;
     private long cooldownSeconds = SpectorPropertyConstants.DEFAULT_FAILOVER_COOLDOWN_SECONDS;
 
@@ -48,14 +82,32 @@ public class FailoverProperties implements Serializable {
         this.enabled = enabled;
     }
 
+    /**
+     * Returns the raw mode string for serialization/display purposes.
+     *
+     * @return raw mode string
+     */
     public String getMode() {
-        return mode;
+        return failoverMode.name().toLowerCase(Locale.ROOT);
     }
 
+    /**
+     * Sets the failover mode from a string value. Unknown values are parsed to
+     * {@link FailoverMode#OBSERVE_ONLY} to prevent accidental live failover (G20).
+     *
+     * @param mode mode string (case-insensitive)
+     */
     public void setMode(String mode) {
-        if (mode != null && !mode.isBlank()) {
-            this.mode = mode.trim();
-        }
+        this.failoverMode = FailoverMode.parse(mode);
+    }
+
+    /**
+     * Returns the parsed failover mode enum.
+     *
+     * @return failover mode
+     */
+    public FailoverMode getFailoverMode() {
+        return failoverMode;
     }
 
     public long getFailAfterSeconds() {
@@ -116,7 +168,22 @@ public class FailoverProperties implements Serializable {
         this.controlStoreFilePath = controlStoreFilePath;
     }
 
+    /**
+     * Returns {@code true} when failover mode is observe-only (no cluster mutations).
+     *
+     * @return {@code true} if observe-only
+     */
     public boolean isObserveOnly() {
-        return "observe_only".equalsIgnoreCase(mode);
+        return failoverMode == FailoverMode.OBSERVE_ONLY;
+    }
+
+    /**
+     * Returns {@code true} only when failover mode is explicitly {@link FailoverMode#ACTIVE}.
+     * Anything unrecognized observes rather than enforces (G20).
+     *
+     * @return {@code true} if enforcing (active) mode
+     */
+    public boolean isEnforcing() {
+        return failoverMode == FailoverMode.ACTIVE;
     }
 }

@@ -27,10 +27,13 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.LongAdder;
@@ -61,6 +64,21 @@ public class FailoverOrchestrator {
 
     private static final Logger log = LoggerFactory.getLogger(FailoverOrchestrator.class);
 
+    /**
+     * Provides the inventory of known namespace identifiers for failover discovery (G11).
+     * <p>Without an inventory, failover cannot determine which namespaces the dead node owned
+     * via the hash ring. Implementations may enumerate from a catalog, control store, or disk.</p>
+     */
+    @FunctionalInterface
+    public interface NamespaceInventory {
+        /**
+         * Returns all known namespace identifiers in the cell.
+         *
+         * @return collection of namespace identifiers; must not be null
+         */
+        Collection<String> listNamespaceIds();
+    }
+
     private final ControlStore controlStore;
     private final CoordinatorLeaseManager coordinatorLeaseManager;
     private final OverrideLeaseManager overrideLeaseManager;
@@ -68,6 +86,7 @@ public class FailoverOrchestrator {
     private final FailoverProperties properties;
     private final NodeHealthProbe healthProbe;
     private final CandidateDataVerifier dataVerifier;
+    private final NamespaceInventory namespaceInventory;
     private final Clock clock;
 
     private final Map<String, Instant> failureStartTimes = new ConcurrentHashMap<>();
@@ -86,7 +105,7 @@ public class FailoverOrchestrator {
             NodeHealthProbe healthProbe,
             CandidateDataVerifier dataVerifier) {
         this(controlStore, coordinatorLeaseManager, overrideLeaseManager, fenceTokenManager,
-                properties, healthProbe, dataVerifier, Clock.systemUTC());
+                properties, healthProbe, dataVerifier, List::of, Clock.systemUTC());
     }
 
     public FailoverOrchestrator(
@@ -98,6 +117,20 @@ public class FailoverOrchestrator {
             NodeHealthProbe healthProbe,
             CandidateDataVerifier dataVerifier,
             Clock clock) {
+        this(controlStore, coordinatorLeaseManager, overrideLeaseManager, fenceTokenManager,
+                properties, healthProbe, dataVerifier, List::of, clock);
+    }
+
+    public FailoverOrchestrator(
+            ControlStore controlStore,
+            CoordinatorLeaseManager coordinatorLeaseManager,
+            OverrideLeaseManager overrideLeaseManager,
+            FenceTokenManager fenceTokenManager,
+            FailoverProperties properties,
+            NodeHealthProbe healthProbe,
+            CandidateDataVerifier dataVerifier,
+            NamespaceInventory namespaceInventory,
+            Clock clock) {
         this.controlStore = Objects.requireNonNull(controlStore, "controlStore must not be null");
         this.coordinatorLeaseManager = coordinatorLeaseManager;
         this.overrideLeaseManager = Objects.requireNonNull(overrideLeaseManager, "overrideLeaseManager must not be null");
@@ -105,6 +138,7 @@ public class FailoverOrchestrator {
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
         this.healthProbe = Objects.requireNonNull(healthProbe, "healthProbe must not be null");
         this.dataVerifier = Objects.requireNonNull(dataVerifier, "dataVerifier must not be null");
+        this.namespaceInventory = Objects.requireNonNull(namespaceInventory, "namespaceInventory must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
@@ -163,14 +197,18 @@ public class FailoverOrchestrator {
             return;
         }
 
-        // Find affected namespaces
+        // Find affected namespaces — uses ring + inventory + overrides (G11)
         List<String> affectedNamespaces = findNamespacesForNode(deadNodeId, membership);
         if (affectedNamespaces.isEmpty()) {
-            // Default fallback if namespace list is empty
-            affectedNamespaces = List.of("default");
+            // G11: Never substitute a placeholder — abort and alarm
+            log.error("[FailoverOrchestrator] No namespaces found for dead node '{}'. " +
+                    "Namespace inventory may be unavailable or node had no assignments. " +
+                    "Aborting failover — manual intervention required (G11).", deadNodeId);
+            return;
         }
 
-        boolean isObserveOnly = "observe_only".equalsIgnoreCase(properties.getMode());
+        // G20: Use properties.isObserveOnly() instead of inline string comparison
+        boolean isObserveOnly = properties.isObserveOnly();
 
         for (String ns : affectedNamespaces) {
             executeFailoverForNamespace(ns, deadNodeId, survivorNodeId, isObserveOnly, now);
@@ -254,18 +292,42 @@ public class FailoverOrchestrator {
         return null;
     }
 
+    /**
+     * Finds all namespaces affected by the death of {@code deadNodeId} (G11).
+     *
+     * <p>Union of:
+     * <ol>
+     *   <li>Namespaces whose hash-ring owner is the dead node (via {@link NamespaceInventory})</li>
+     *   <li>Namespaces with active overrides targeting the dead node</li>
+     * </ol>
+     * Never returns a placeholder like {@code "default"} — if inventory is empty, returns empty list.</p>
+     *
+     * @param deadNodeId dead node identifier
+     * @param membership current cell membership
+     * @return affected namespace identifiers, deduplicated
+     */
     private List<String> findNamespacesForNode(String deadNodeId, CellMembership membership) {
-        List<String> affected = new ArrayList<>();
+        Set<String> affected = new LinkedHashSet<>();
         ConsistentHashRing ring = ConsistentHashRing.of(membership.ringVersion(), membership.members());
 
-        // Check active overrides
+        // 1. Enumerate namespaces whose hash-ring owner is the dead node (G11)
+        Collection<String> knownNamespaces = namespaceInventory.listNamespaceIds();
+        for (String nsId : knownNamespaces) {
+            RoutingKey key = RoutingKey.ofUntenanted(null, nsId);
+            String owner = ring.ownerOf(key.keyMaterial());
+            if (deadNodeId.equals(owner)) {
+                affected.add(nsId);
+            }
+        }
+
+        // 2. Union with overrides targeting the dead node
         for (var override : overrideLeaseManager.listActiveOverrides()) {
             if (override.targetNodeId().equals(deadNodeId)) {
                 affected.add(override.namespaceId());
             }
         }
 
-        return affected;
+        return List.copyOf(affected);
     }
 
     public long getFailoverCount() {
@@ -280,3 +342,4 @@ public class FailoverOrchestrator {
         return Collections.unmodifiableList(auditHistory);
     }
 }
+

@@ -42,6 +42,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *
  * <p>Extends Phase 1 R12.2 from steady state to transition: whenever an epoch advances and ownership transfers,
  * the previous owner strictly rejects writes with superseded fence tokens, guaranteeing mutual exclusion.</p>
+ *
+ * <p><b>Fix (§6):</b> Each simulated node now has its own {@link FenceTokenManager} instead of sharing
+ * one — the shared manager trivially ensured mutual exclusion by being a single logical owner.</p>
  */
 class FailoverSplitBrainPropertyTest {
 
@@ -54,15 +57,17 @@ class FailoverSplitBrainPropertyTest {
         List<String> members = List.of("node-a", "node-b");
         store.updateMembership(new CellMembership("cell-1", 1, members));
 
-        FenceTokenManager fenceMgr = new FenceTokenManager(store);
+        // §6 Fix: Each node gets its own FenceTokenManager (previously shared, creating a false single-writer illusion)
+        FenceTokenManager fenceMgrA = new FenceTokenManager(store);
+        FenceTokenManager fenceMgrB = new FenceTokenManager(store);
         OverrideLeaseManager overrideMgr = new OverrideLeaseManager(store);
 
         StaticMembershipSource membership = new StaticMembershipSource("cell-1", 1, members);
         OwnershipResolver resolverA = new OwnershipResolver(new NodeIdentity("cell-1", "node-a", NodeRole.OWNER), membership, overrideMgr);
         OwnershipResolver resolverB = new OwnershipResolver(new NodeIdentity("cell-1", "node-b", NodeRole.OWNER), membership, overrideMgr);
 
-        MemoryRequestBinder binderA = new MemoryRequestBinder(null, null, null, resolverA, fenceMgr);
-        MemoryRequestBinder binderB = new MemoryRequestBinder(null, null, null, resolverB, fenceMgr);
+        MemoryRequestBinder binderA = new MemoryRequestBinder(null, null, null, resolverA, fenceMgrA);
+        MemoryRequestBinder binderB = new MemoryRequestBinder(null, null, null, resolverB, fenceMgrB);
 
         RoutingKey key = new RoutingKey("cell-1", "tenant-test", namespace);
 
@@ -71,12 +76,18 @@ class FailoverSplitBrainPropertyTest {
 
         for (int i = 1; i <= cycles; i++) {
             long epoch = store.advanceNamespaceEpoch(namespace);
-            String newFence = fenceMgr.mintFenceForEpoch(namespace, epoch).toTokenString();
 
             // Swap owners
             String newOwner = currentOwner.equals("node-a") ? "node-b" : "node-a";
             previousOwner = currentOwner;
             currentOwner = newOwner;
+
+            // Mint fence on the NEW owner's manager and surrender on the old owner's manager
+            FenceTokenManager currentFenceMgr = currentOwner.equals("node-a") ? fenceMgrA : fenceMgrB;
+            FenceTokenManager oldFenceMgr = previousOwner.equals("node-a") ? fenceMgrA : fenceMgrB;
+
+            String newFence = currentFenceMgr.mintFenceForEpoch(namespace, epoch).toTokenString();
+            oldFenceMgr.surrenderLocalFence(namespace);
 
             overrideMgr.setOverride(namespace, currentOwner, newFence, Duration.ofMinutes(5));
 
@@ -87,19 +98,21 @@ class FailoverSplitBrainPropertyTest {
             final String validFence = newFence;
             assertThatCode(() -> currentBinder.enforceFence(namespace, validFence)).doesNotThrowAnyException();
 
-            // Previous owner strictly rejects write with previous fence
+            // Previous owner strictly rejects write with previous fence (surrendered)
             String oldFence = String.valueOf(epoch - 1);
             assertThatThrownBy(() -> oldBinder.enforceFence(namespace, oldFence))
                     .isInstanceOf(FencedException.class);
 
-            // Previous owner also rejects write even if presented with current fence because it does not own locally
-            // ownsLocally is false on old owner
-            boolean oldOwns = previousOwner.equals("node-a") ? resolverA.ownsLocally(key) : resolverB.ownsLocally(key);
-            assertThat(oldOwns).isFalse();
+            // Previous owner also rejects even with the current fence (surrendered namespace)
+            assertThatThrownBy(() -> oldBinder.enforceFence(namespace, validFence))
+                    .isInstanceOf(FencedException.class);
 
             // Exactly one owner owns locally
             boolean currentOwns = currentOwner.equals("node-a") ? resolverA.ownsLocally(key) : resolverB.ownsLocally(key);
             assertThat(currentOwns).isTrue();
+
+            boolean oldOwns = previousOwner.equals("node-a") ? resolverA.ownsLocally(key) : resolverB.ownsLocally(key);
+            assertThat(oldOwns).isFalse();
         }
     }
 
@@ -113,3 +126,4 @@ class FailoverSplitBrainPropertyTest {
         return Arbitraries.integers().between(1, 5);
     }
 }
+

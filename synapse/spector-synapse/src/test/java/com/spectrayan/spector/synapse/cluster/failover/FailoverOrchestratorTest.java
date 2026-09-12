@@ -83,6 +83,7 @@ class FailoverOrchestratorTest {
                 store, coordMgr, overrideMgr, fenceMgr, props,
                 node -> !"node-2".equals(node), // node-2 fails probe
                 (ns, candidate) -> true,
+                () -> List.of("default"),
                 clock
         );
 
@@ -128,6 +129,7 @@ class FailoverOrchestratorTest {
                 store, coordMgr, overrideMgr, fenceMgr, props,
                 node -> !"node-2".equals(node), // node-2 is down
                 (ns, candidate) -> true,
+                () -> List.of("default"),
                 clock
         );
 
@@ -181,6 +183,7 @@ class FailoverOrchestratorTest {
                 store, coordMgr, overrideMgr, fenceMgr, props,
                 node -> !"node-2".equals(node),
                 (ns, candidate) -> false, // Candidate verification FAILS
+                () -> List.of("default"),
                 clock
         );
 
@@ -220,6 +223,7 @@ class FailoverOrchestratorTest {
                 store, coordMgr, overrideMgr, fenceMgr, props,
                 node -> !"node-2".equals(node) || node2Up.get(),
                 (ns, candidate) -> true,
+                () -> List.of("default"),
                 clock
         );
 
@@ -274,6 +278,7 @@ class FailoverOrchestratorTest {
                 store, coordMgr, overrideMgr, fenceMgr, props,
                 node -> !"node-2".equals(node),
                 (ns, candidate) -> true,
+                () -> List.of("default"),
                 clock
         );
 

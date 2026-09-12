@@ -30,6 +30,8 @@ import java.util.concurrent.atomic.LongAdder;
  * <ul>
  *   <li><b>Local validation (Req R2.4, Q7):</b> Validates against the owner node's local view, never a cached value.</li>
  *   <li><b>Zero I/O and zero allocation (Req §5):</b> Hot-path verification uses a local in-memory integer comparison.</li>
+ *   <li><b>Monotonicity (G15):</b> Local fences can only advance, never regress.</li>
+ *   <li><b>Surrender semantics (G13):</b> Surrendered namespaces refuse all writes, never revert to unfenced.</li>
  *   <li><b>Metric counting (Req R9.2):</b> Tracks rejected fence attempts ({@code spector.route.fenced}).</li>
  * </ul>
  * </p>
@@ -38,35 +40,57 @@ public class FenceTokenManager {
 
     private static final Logger log = LoggerFactory.getLogger(FenceTokenManager.class);
 
+    /**
+     * Sentinel value indicating that ownership has been surrendered.
+     * Any {@code validateFence} call for a namespace at this epoch will refuse (G13).
+     */
+    static final long SURRENDERED_EPOCH = Long.MIN_VALUE;
+
     private final ControlStore controlStore;
     private final ConcurrentHashMap<String, Long> localFences = new ConcurrentHashMap<>();
     private final LongAdder fenceRejections = new LongAdder();
+    private final LongAdder fenceRegressions = new LongAdder();
 
     public FenceTokenManager(ControlStore controlStore) {
         this.controlStore = Objects.requireNonNull(controlStore, "controlStore must not be null");
     }
 
     /**
-     * Updates or sets the local authoritative fence token for a namespace owned by this node.
+     * Updates the local authoritative fence token for a namespace, enforcing monotonicity (G15).
+     * The fence can only advance — regressions are rejected and counted.
      *
      * @param namespaceId target namespace
      * @param epoch       authoritative epoch
      */
     public void setLocalFence(String namespaceId, long epoch) {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
-        localFences.put(namespaceId, epoch);
+        localFences.merge(namespaceId, epoch, (existing, proposed) -> {
+            if (existing == SURRENDERED_EPOCH) {
+                // Re-adoption after surrender is allowed only through adoptOwnership
+                log.debug("[FenceTokenManager] Namespace '{}' was surrendered; re-adopting at epoch {}", namespaceId, proposed);
+                return proposed;
+            }
+            if (proposed < existing) {
+                fenceRegressions.increment();
+                log.warn("[FenceTokenManager] Fence regression rejected for namespace '{}': proposed {} < existing {} (G15)",
+                        namespaceId, proposed, existing);
+                return existing;
+            }
+            return proposed;
+        });
         log.debug("[FenceTokenManager] Set local fence for namespace '{}' to epoch {}", namespaceId, epoch);
     }
 
     /**
-     * Checks if this node has an active local fence tracked for the given namespace.
+     * Checks if this node has an active (non-surrendered) local fence tracked for the given namespace.
      *
      * @param namespaceId target namespace
-     * @return {@code true} if tracked; {@code false} otherwise
+     * @return {@code true} if tracked and not surrendered; {@code false} otherwise
      */
     public boolean hasLocalFence(String namespaceId) {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
-        return localFences.containsKey(namespaceId);
+        Long epoch = localFences.get(namespaceId);
+        return epoch != null && epoch != SURRENDERED_EPOCH;
     }
 
     /**
@@ -76,18 +100,51 @@ public class FenceTokenManager {
      * @return active epoch or -1
      */
     public long getLocalFence(String namespaceId) {
-        return localFences.getOrDefault(namespaceId, -1L);
+        long epoch = localFences.getOrDefault(namespaceId, -1L);
+        return epoch == SURRENDERED_EPOCH ? -1L : epoch;
     }
 
     /**
-     * Removes the local fence when ownership is surrendered or moved away.
+     * Surrenders ownership of a namespace. The namespace transitions to a {@code SURRENDERED}
+     * state where all fence validations refuse unconditionally (G13).
+     *
+     * <p>This replaces the old {@code removeLocalFence} which incorrectly converted a namespace
+     * from fenced to unfenced-and-permitted.</p>
      *
      * @param namespaceId target namespace
      */
-    public void removeLocalFence(String namespaceId) {
+    public void surrenderLocalFence(String namespaceId) {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
-        localFences.remove(namespaceId);
-        log.debug("[FenceTokenManager] Removed local fence for namespace '{}'", namespaceId);
+        localFences.put(namespaceId, SURRENDERED_EPOCH);
+        log.info("[FenceTokenManager] Surrendered local fence for namespace '{}' — all writes will be refused (G13)", namespaceId);
+    }
+
+    /**
+     * @deprecated Use {@link #surrenderLocalFence(String)} instead. Removing a fence converts a
+     * namespace from fenced to unfenced-and-permitted, which is precisely inverted (G13).
+     */
+    @Deprecated(forRemoval = true)
+    public void removeLocalFence(String namespaceId) {
+        surrenderLocalFence(namespaceId);
+    }
+
+    /**
+     * Adopts ownership of a namespace by reading the current epoch from the control store
+     * and installing it as the local fence (G14).
+     *
+     * <p>Called from the routing-change path when a node becomes the owner of a namespace.</p>
+     *
+     * @param namespaceId target namespace
+     * @return the adopted epoch
+     */
+    public long adoptOwnership(String namespaceId) {
+        Objects.requireNonNull(namespaceId, "namespaceId must not be null");
+        long epoch = controlStore.getNamespaceEpoch(namespaceId);
+        // Direct put bypasses monotonicity to allow re-adoption after surrender
+        localFences.put(namespaceId, epoch);
+        log.info("[FenceTokenManager] Adopted ownership for namespace '{}' at epoch {} from control store (G14)",
+                namespaceId, epoch);
+        return epoch;
     }
 
     /**
@@ -121,15 +178,23 @@ public class FenceTokenManager {
     /**
      * Allocation-free, I/O-free validation on the write path (Req R2.3, R2.4, §5).
      *
+     * <p>Namespaces in {@code SURRENDERED} state (G13) are refused unconditionally.
+     * Untracked namespaces are also refused.</p>
+     *
      * @param namespaceId   target namespace
      * @param incomingFence token carried on the write request
-     * @return {@code true} if valid; {@code false} if mismatched or superseded (FENCED)
+     * @return {@code true} if valid; {@code false} if mismatched, surrendered, or superseded (FENCED)
      */
     public boolean validateFence(String namespaceId, String incomingFence) {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
         Long expected = localFences.get(namespaceId);
         if (expected == null) {
             // Namespace not tracked locally -> refuse
+            fenceRejections.increment();
+            return false;
+        }
+        if (expected == SURRENDERED_EPOCH) {
+            // Namespace surrendered -> refuse all writes (G13)
             fenceRejections.increment();
             return false;
         }
@@ -157,4 +222,14 @@ public class FenceTokenManager {
     public long getFenceRejectionCount() {
         return fenceRejections.sum();
     }
+
+    /**
+     * Returns the count of rejected fence regressions (G15 monotonicity violations).
+     *
+     * @return count of regression attempts
+     */
+    public long getFenceRegressionCount() {
+        return fenceRegressions.sum();
+    }
 }
+
