@@ -110,7 +110,7 @@ public final class ReplicationBundleFixtures {
     public static Path createCorruptedMagicBundle(Path destination) {
         createValidPartitionBundle(destination);
         try (FileChannel ch = FileChannel.open(destination, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
-            ByteBuffer buf = ByteBuffer.allocate(4);
+            ByteBuffer buf = ByteBuffer.allocate(4).order(java.nio.ByteOrder.nativeOrder());
             buf.putInt(BAD_MAGIC);
             buf.flip();
             ch.write(buf, 0); // Offset 0 is RegionPreamble.MAGIC
@@ -127,7 +127,7 @@ public final class ReplicationBundleFixtures {
     public static Path createCorruptedLayoutIdBundle(Path destination) {
         createValidPartitionBundle(destination);
         try (FileChannel ch = FileChannel.open(destination, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
-            ByteBuffer buf = ByteBuffer.allocate(4);
+            ByteBuffer buf = ByteBuffer.allocate(4).order(java.nio.ByteOrder.nativeOrder());
             buf.putInt(BAD_LAYOUT_ID);
             buf.flip();
             ch.write(buf, 36); // Offset 36 is layoutId

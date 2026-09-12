@@ -64,7 +64,7 @@ class ReplicationBundleFixturesTest {
         ReplicationBundleFixtures.createCorruptedMagicBundle(partPath);
 
         try (FileChannel ch = FileChannel.open(partPath, StandardOpenOption.READ)) {
-            ByteBuffer buf = ByteBuffer.allocate(4);
+            ByteBuffer buf = ByteBuffer.allocate(4).order(java.nio.ByteOrder.nativeOrder());
             ch.read(buf, 0);
             buf.flip();
             assertThat(buf.getInt()).isEqualTo(ReplicationBundleFixtures.BAD_MAGIC);
@@ -79,7 +79,7 @@ class ReplicationBundleFixturesTest {
         ReplicationBundleFixtures.createCorruptedLayoutIdBundle(partPath);
 
         try (FileChannel ch = FileChannel.open(partPath, StandardOpenOption.READ)) {
-            ByteBuffer buf = ByteBuffer.allocate(4);
+            ByteBuffer buf = ByteBuffer.allocate(4).order(java.nio.ByteOrder.nativeOrder());
             ch.read(buf, 36);
             buf.flip();
             assertThat(buf.getInt()).isEqualTo(ReplicationBundleFixtures.BAD_LAYOUT_ID);
