@@ -241,8 +241,6 @@ config:
     path: /data/memory
     wal:
       path: /data/memory/wal
-  index:
-    path: /data/index
 
 nodeSelector: {}
 tolerations: []

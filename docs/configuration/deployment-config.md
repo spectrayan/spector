@@ -55,8 +55,8 @@ On `docker stop` or Kubernetes pod eviction (`SIGTERM`), `entrypoint.sh` traps t
 |:---|:---|:---|
 | `/data` | Read-Write | Root persistent volume mount point. |
 | `/data/memory` | Read-Write | Cognitive memory tier bundles, partitioned files (`semantic-xxx.mem`), and strength data. |
-| `/data/memory/wal` | Read-Write | Write-Ahead Log commit segments. Requires high random-write IOPS. |
-| `/data/index` | Read-Write | HNSW graph structures, inverted indexes, and quantized vector caches. |
+| `/data/identity` | Read-Write | Master key, tenant/user identity keystores, and credentials. |
+| `/data/db` | Read-Write | Embedded metadata database (H2/catalog). |
 | `/data/docs` | Read-Only / RW | Optional folder scanned by the batch document ingestion subsystem. |
 | `/app/spector.yml` | Read-Only | Optional custom YAML configuration mounted to override default settings. |
 | `/run/secrets/` | Read-Only | Docker secrets mount directory for encrypted API credentials. |

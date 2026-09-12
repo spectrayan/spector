@@ -81,7 +81,7 @@ open http://localhost:7700
 ## File System & Security Context
 
 - **Non-Root Execution**: Runs as user `spector` with UID `1000` and GID `1000`.
-- **Persistent Data Directory**: Mounted at `/data` (subdirectories: `/data/index`, `/data/memory`, `/data/tmp`). When mounting host volumes or PVCs, ensure ownership belongs to UID/GID `1000:1000` or use Kubernetes `fsGroup: 1000`.
+- **Persistent Data Directory**: Mounted at `/data` (subdirectories: `/data/memory`, `/data/identity`, `/data/db`, `/data/tmp`). When mounting host volumes or PVCs, ensure ownership belongs to UID/GID `1000:1000` or use Kubernetes `fsGroup: 1000`.
 - **Configuration**: Injected via `/app/spector.yml` or standard environment variables.
 
 ---
