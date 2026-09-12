@@ -43,7 +43,7 @@ public record RouteBinding(
     }
 
     /**
-     * Creates a hash-resolved route binding for Phase 1.
+     * Creates a hash-resolved route binding.
      *
      * @param key     the routing key
      * @param ownerId the node owning this namespace on the ring
@@ -52,5 +52,31 @@ public record RouteBinding(
      */
     public static RouteBinding ofHash(RoutingKey key, String ownerId, long epoch) {
         return new RouteBinding(key, ownerId, epoch, null, null, RouteMode.HASH);
+    }
+
+    /**
+     * Creates a hash-resolved route binding with an active fence token (Req R2.2).
+     *
+     * @param key     the routing key
+     * @param ownerId the node owning this namespace on the ring
+     * @param epoch   the ring epoch / version
+     * @param fence   the fence token string
+     * @return route binding
+     */
+    public static RouteBinding ofHash(RoutingKey key, String ownerId, long epoch, String fence) {
+        return new RouteBinding(key, ownerId, epoch, fence, null, RouteMode.HASH);
+    }
+
+    /**
+     * Creates an override route binding pinned by the coordinator (Req R3.1).
+     *
+     * @param key     the routing key
+     * @param ownerId the node designated by the override lease
+     * @param epoch   the override epoch
+     * @param fence   the fence token string
+     * @return route binding
+     */
+    public static RouteBinding ofOverride(RoutingKey key, String ownerId, long epoch, String fence) {
+        return new RouteBinding(key, ownerId, epoch, fence, null, RouteMode.OVERRIDE);
     }
 }

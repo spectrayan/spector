@@ -19,11 +19,13 @@ import java.util.Optional;
 import java.util.Set;
 
 import com.spectrayan.spector.cluster.OwnershipResolver;
+import com.spectrayan.spector.cluster.fencing.FenceTokenManager;
 import com.spectrayan.spector.cluster.node.NodeRole;
 import com.spectrayan.spector.cluster.routing.RouteBinding;
 import com.spectrayan.spector.cluster.routing.RoutingKey;
 import com.spectrayan.spector.synapse.cluster.exception.NamespaceNotOwnedException;
 import com.spectrayan.spector.synapse.cluster.exception.StaleRouteException;
+import com.spectrayan.spector.synapse.cluster.fencing.FencedException;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,6 +74,7 @@ public class MemoryRequestBinder {
     private final IdentityPlane identityPlane;
     private final OwnershipResolver ownershipResolver;
     private final MeterRegistry meterRegistry;
+    private final FenceTokenManager fenceTokenManager;
 
     @Autowired
     public MemoryRequestBinder(
@@ -81,7 +84,8 @@ public class MemoryRequestBinder {
             ObjectProvider<SpectorMemory> sharedMemoryProvider,
             ObjectProvider<IdentityPlane> identityPlaneProvider,
             ObjectProvider<OwnershipResolver> ownershipResolverProvider,
-            ObjectProvider<MeterRegistry> meterRegistryProvider) {
+            ObjectProvider<MeterRegistry> meterRegistryProvider,
+            ObjectProvider<FenceTokenManager> fenceTokenManagerProvider) {
         this.catalog = catalog;
         this.registry = registry;
         this.synapseProps = synapseProps;
@@ -91,6 +95,7 @@ public class MemoryRequestBinder {
                 ? ownershipResolverProvider.getIfAvailable()
                 : (synapseProps != null && synapseProps.cell() != null ? synapseProps.cell().toOwnershipResolver() : OwnershipResolver.standalone());
         this.meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
+        this.fenceTokenManager = fenceTokenManagerProvider != null ? fenceTokenManagerProvider.getIfAvailable() : null;
 
         if (this.meterRegistry != null) {
             this.meterRegistry.gauge("spector.ns.owner", this, binder -> {
@@ -106,7 +111,7 @@ public class MemoryRequestBinder {
             SynapseProperties synapseProps,
             ObjectProvider<SpectorMemory> sharedMemoryProvider,
             ObjectProvider<IdentityPlane> identityPlaneProvider) {
-        this(catalog, registry, synapseProps, sharedMemoryProvider, identityPlaneProvider, null, null);
+        this(catalog, registry, synapseProps, sharedMemoryProvider, identityPlaneProvider, null, null, null);
     }
 
     public MemoryRequestBinder(
@@ -114,6 +119,15 @@ public class MemoryRequestBinder {
             MemoryRegistry registry,
             SynapseProperties synapseProps,
             OwnershipResolver ownershipResolver) {
+        this(catalog, registry, synapseProps, ownershipResolver, null);
+    }
+
+    public MemoryRequestBinder(
+            AccountCatalog catalog,
+            MemoryRegistry registry,
+            SynapseProperties synapseProps,
+            OwnershipResolver ownershipResolver,
+            FenceTokenManager fenceTokenManager) {
         this.catalog = catalog;
         this.registry = registry;
         this.synapseProps = synapseProps;
@@ -121,10 +135,15 @@ public class MemoryRequestBinder {
         this.identityPlane = null;
         this.ownershipResolver = ownershipResolver != null ? ownershipResolver : OwnershipResolver.standalone();
         this.meterRegistry = null;
+        this.fenceTokenManager = fenceTokenManager;
     }
 
     public OwnershipResolver ownershipResolver() {
         return ownershipResolver;
+    }
+
+    public FenceTokenManager fenceTokenManager() {
+        return fenceTokenManager;
     }
 
     private void checkDefaultOwnership() {
@@ -186,6 +205,38 @@ public class MemoryRequestBinder {
                 String epochHeader = servletAttrs.getRequest().getHeader("X-Spector-Epoch");
                 if (epochHeader != null && !epochHeader.isBlank()) {
                     return Long.parseLong(epochHeader.trim());
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    public void enforceFence(String namespaceId, String incomingFence) {
+        if (ownershipResolver.identity().role() == NodeRole.STANDALONE) {
+            return;
+        }
+        if (fenceTokenManager != null && fenceTokenManager.hasLocalFence(namespaceId)) {
+            if (!fenceTokenManager.validateFence(namespaceId, incomingFence)) {
+                if (meterRegistry != null) {
+                    meterRegistry.counter("spector.route.fenced",
+                            "namespace", namespaceId
+                    ).increment();
+                }
+                long activeEpoch = fenceTokenManager.getLocalFence(namespaceId);
+                log.warn("[MemoryRequestBinder] Fence mismatch for namespace '{}': incoming '{}' does not match active epoch {}",
+                        namespaceId, incomingFence, activeEpoch);
+                throw new FencedException(namespaceId, incomingFence, activeEpoch);
+            }
+        }
+    }
+
+    public String extractIncomingFence() {
+        try {
+            RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
+            if (attrs instanceof ServletRequestAttributes servletAttrs) {
+                String fenceHeader = servletAttrs.getRequest().getHeader("X-Spector-Fence");
+                if (fenceHeader != null && !fenceHeader.isBlank()) {
+                    return fenceHeader.trim();
                 }
             }
         } catch (Exception ignored) {}
@@ -279,6 +330,11 @@ public class MemoryRequestBinder {
         String cellId = synapseProps != null && synapseProps.cell() != null ? synapseProps.cell().getId() : null;
         RoutingKey routingKey = new RoutingKey(cellId, routingTenantId, targetNamespaceId);
         enforceOwnership(routingKey);
+
+        if (role == GrantRole.WRITER || role == GrantRole.ADMIN) {
+            String incomingFence = extractIncomingFence();
+            enforceFence(targetNamespaceId, incomingFence);
+        }
 
         if (record != null) {
             catalog.recordAccess(record.namespaceId());
