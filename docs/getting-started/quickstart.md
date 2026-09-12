@@ -13,7 +13,7 @@ description: "Get started with Spector in 30 seconds: NPX runner for AI agents, 
 
 If you are connecting Spector to **Claude Desktop**, **Cursor**, **Windsurf**, or **Claude Code**, run the zero-install launcher:
 
-```bash
+```bash title="Terminal"
 npx -y @spectrayan/spector mcp
 ```
 
@@ -25,13 +25,13 @@ This connects directly to your local Spector node on `:7070` if running, or auto
 
 Install the lightweight client SDK:
 
-```bash
+```bash title="Terminal"
 pip install spector-client
 ```
 
 Store and recall memories with authentic cognitive verbs:
 
-```python
+```python title="quickstart.py" hl_lines="10-16 20"
 from spector_client import SpectorClient, MemoryTier
 
 # Connect to running daemon or local test instance
@@ -59,13 +59,13 @@ for memory in memories:
 
 Install via npm:
 
-```bash
+```bash title="Terminal"
 npm install @spectrayan/spector-client
 ```
 
 Run in Node.js 18+, Bun, or Deno:
 
-```typescript
+```typescript title="quickstart.ts" hl_lines="7-11 14-16"
 import { SpectorClient, MemoryTier } from '@spectrayan/spector-client';
 
 const client = SpectorClient.createDefault('http://localhost:7070');
@@ -95,7 +95,7 @@ main();
 
 Add the dependency to your `pom.xml`:
 
-```xml
+```xml title="pom.xml"
 <dependency>
     <groupId>com.spectrayan</groupId>
     <artifactId>spector-client</artifactId>
@@ -105,7 +105,7 @@ Add the dependency to your `pom.xml`:
 
 Connect and query with standard Java (no vector flags or preview options needed):
 
-```java
+```java title="SpectorClientDemo.java" hl_lines="6-9 13"
 import com.spectrayan.spector.client.SpectorClient;
 import java.util.List;
 
@@ -129,7 +129,7 @@ try (var client = SpectorClient.builder().baseUri("http://localhost:7070").build
 
 Start the Spector memory daemon with a single command:
 
-```bash
+```bash title="Terminal"
 # Clone the repository
 git clone https://github.com/spectrayan/spector.git
 cd spector
@@ -151,17 +151,17 @@ curl http://localhost:7070/actuator/health
 Install the standalone `spector` CLI binary on your machine:
 
 === "Linux / macOS (POSIX)"
-    ```bash
+    ```bash title="Terminal"
     curl -fsSL https://raw.githubusercontent.com/spectrayan/spector/main/scripts/install.sh | sh
     ```
 
 === "Windows (PowerShell)"
-    ```powershell
+    ```powershell title="Terminal"
     irm https://raw.githubusercontent.com/spectrayan/spector/main/scripts/install.ps1 | iex
     ```
 
 Verify your environment:
-```bash
+```bash title="Terminal"
 spector doctor
 ```
 

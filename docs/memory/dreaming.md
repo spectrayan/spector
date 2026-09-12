@@ -51,7 +51,8 @@ The DreamPathway unifies four landmark discoveries across neuroscience and compu
 ### A. The Overfitted Brain Hypothesis (Hoel, 2021)
 Dreams serve as biological regularization. By injecting structured, temperature-modulated noise into compressed episodic replays ($\sigma_{\text{dream}}$), dreaming prevents an agent's cognitive models from overfitting to daily observations and enables cross-context generalization.
 
-$$\mathbf{v}_{\text{dream}} = \mathbf{v}_{\text{seed}} + \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}\left(0, \sigma^2_{\text{dream}} \mathbf{I}\right)$$
+??? note "📐 View Mathematical Formulation (Stochastic Regularization)"
+    $$\mathbf{v}_{\text{dream}} = \mathbf{v}_{\text{seed}} + \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}\left(0, \sigma^2_{\text{dream}} \mathbf{I}\right)$$
 
 ### B. Constructive Episodic Simulation (Schacter & Addis, 2007)
 The brain does not replay intact video logs; it decomposes past memories into typed semantic primitives (Agents, Actions, Objects, Locations, and Affective tones) and recombines them into synthetic scenarios that never occurred.
@@ -62,7 +63,8 @@ While waking retrieval binds semantically close items within a cluster, REM drea
 ### D. Langevin Stochastic Energy Diffusion
 Spontaneous cortical fluctuations follow continuous Langevin dynamics over holographic associative memory landscapes, allowing the cognitive engine to tunnel across energy barriers and discover unmapped interstitial concept basins.
 
-$$d\mathbf{v}_t = -\nabla_{\mathbf{v}} E(\mathbf{v}_t; \mathbf{T}) \, dt + \sqrt{2\mathcal{T}} \, d\mathbf{W}_t$$
+??? note "📐 View Mathematical Formulation (Langevin Stochastic Dynamics)"
+    $$d\mathbf{v}_t = -\nabla_{\mathbf{v}} E(\mathbf{v}_t; \mathbf{T}) \, dt + \sqrt{2\mathcal{T}} \, d\mathbf{W}_t$$
 
 ---
 

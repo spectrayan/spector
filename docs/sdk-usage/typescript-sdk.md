@@ -24,22 +24,22 @@ description: "Install and use the Spector universal TypeScript/JavaScript SDK ac
 ## Installation
 
 === "npm"
-    ```bash
+    ```bash title="Terminal"
     npm install @spectrayan/spector-client
     ```
 
 === "pnpm"
-    ```bash
+    ```bash title="Terminal"
     pnpm add @spectrayan/spector-client
     ```
 
 === "yarn"
-    ```bash
+    ```bash title="Terminal"
     yarn add @spectrayan/spector-client
     ```
 
 === "bun"
-    ```bash
+    ```bash title="Terminal"
     bun add @spectrayan/spector-client
     ```
 
@@ -47,7 +47,7 @@ description: "Install and use the Spector universal TypeScript/JavaScript SDK ac
 
 ## Quick Start
 
-```typescript
+```typescript title="spector_agent.ts" hl_lines="16-24 28-31"
 import { SpectorClient, MemoryTier } from '@spectrayan/spector-client';
 
 // 1. Initialize client using the fluent builder

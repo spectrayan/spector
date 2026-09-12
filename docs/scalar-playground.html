@@ -1,0 +1,23 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <title>Spector — Interactive REST API Playground</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="assets/spector-favicon.png" />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #0f172a;
+      }
+    </style>
+  </head>
+  <body>
+    <script
+      id="api-reference"
+      data-url="openapi.yaml"
+      data-configuration='{"theme":"purple","darkMode":true,"layout":"modern","showSidebar":true,"servers":[{"url":"http://localhost:7070","description":"Local Spector Daemon (:7070)"}]}'></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+  </body>
+</html>

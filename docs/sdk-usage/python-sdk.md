@@ -23,7 +23,7 @@ description: "Install and use the Spector Python SDK (spector-client) for cognit
 
 ## Installation
 
-```bash
+```bash title="Terminal"
 # Install from PyPI
 pip install spector-client
 
@@ -38,7 +38,7 @@ pip install -e ".[dev]"
 
 ## Quick Start (Synchronous)
 
-```python
+```python title="agent_sync.py" hl_lines="9-16 20"
 from spector_client import SpectorClient, MemoryTier
 
 # Connect to running Spector Synapse instance (default: http://localhost:7070)
@@ -72,7 +72,7 @@ for event in client.events.stream(topics=["memory", "consolidation"]):
 
 For modern async agent loops, use `AsyncSpectorClient`:
 
-```python
+```python title="agent_async.py" hl_lines="6-10 13"
 import asyncio
 from spector_client import AsyncSpectorClient, MemoryTier
 

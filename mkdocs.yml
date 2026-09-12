@@ -8,6 +8,9 @@ copyright: "Copyright &copy; 2026 Spectrayan — Apache 2.0 / BSL 1.1"
 theme:
   name: material
   custom_dir: docs/overrides
+  font:
+    text: Inter
+    code: JetBrains Mono
   icon:
     logo: material/lightning-bolt
   logo: assets/spector-logo-icon.png
@@ -134,6 +137,7 @@ nav:
           - spector: cli-reference/spector.md
           - spector-inspect: cli-reference/spector-inspect.md
       - REST API: api-reference/rest-endpoints.md
+      - "API Playground": api-reference/playground.md
       - Error Codes: api-reference/error-codes.md
       - Configuration: configuration/parameters.md
       - Deployment:

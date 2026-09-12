@@ -2,6 +2,18 @@
 
 > **Complete reference for all Spector REST endpoints.** The API runs on an embedded Armeria server with virtual threads, accepting and returning JSON. Every request gets its own virtual thread — no connection limits to worry about.
 
+<div class="grid cards" markdown>
+
+-   :material-play-box-multiple: **Interactive API Playground**
+
+    ---
+
+    Test live requests against your running Spector daemon (`http://localhost:7070`) and generate instant client snippets.
+
+    [Launch API Playground ↗](playground.md){ .md-button .md-button--primary }
+
+</div>
+
 ---
 
 ## 🔧 Base Configuration
@@ -20,7 +32,7 @@
 
 ## 💚 System & Diagnostics
 
-### `GET /api/v1/system/status`
+### <span class="badge-method badge-get">GET</span> `/api/v1/system/status`
 
 Quick status check returning system uptime, version, and configured Ollama details.
 
@@ -43,7 +55,7 @@ curl http://localhost:7070/api/v1/system/status
 
 ---
 
-### `GET /api/v1/system/health`
+### <span class="badge-method badge-get">GET</span> `/api/v1/system/health`
 
 Detailed diagnostics of each subsystem component.
 
@@ -77,7 +89,7 @@ curl http://localhost:7070/api/v1/system/health
 
 ---
 
-### `GET /api/v1/system/metrics`
+### <span class="badge-method badge-get">GET</span> `/api/v1/system/metrics`
 
 Uptime, JVM heap stats, processors count, and Synapse configuration.
 
@@ -111,7 +123,7 @@ curl http://localhost:7070/api/v1/system/metrics
 
 ## 📥 Ingestion Endpoints
 
-### `POST /api/v1/memory`
+### <span class="badge-method badge-post">POST</span> `/api/v1/memory`
 
 Store a cognitive memory synchronously (standard store). Returns `201 Created` with the assigned memory ID.
 
@@ -129,7 +141,7 @@ curl -X POST http://localhost:7070/api/v1/memory \
 
 ## 🧠 Memory Endpoints
 
-### `POST /api/v1/memory/remember`
+### <span class="badge-method badge-post">POST</span> `/api/v1/memory/remember`
 
 Store a cognitive memory asynchronously with tier, provenance, and affective hints. Returns `202 Accepted`.
 
@@ -147,7 +159,7 @@ curl -X POST http://localhost:7070/api/v1/memory/remember \
   }'
 ```
 
-### `POST /api/v1/memory/recall`
+### <span class="badge-method badge-post">POST</span> `/api/v1/memory/recall`
 
 Cognitive recall with fused scoring across all memory tiers.
 
@@ -157,7 +169,7 @@ curl -X POST http://localhost:7070/api/v1/memory/recall \
   -d '{"query": "dark theme settings", "topK": 5}'
 ```
 
-### `DELETE /api/v1/memory/{id}`
+### <span class="badge-method badge-delete">DELETE</span> `/api/v1/memory/{id}`
 
 Tombstone (forget) a memory by ID.
 
@@ -165,7 +177,7 @@ Tombstone (forget) a memory by ID.
 curl -X DELETE http://localhost:7070/api/v1/memory/pref-dark-mode
 ```
 
-### `POST /api/v1/memory/{id}/reinforce`
+### <span class="badge-method badge-post">POST</span> `/api/v1/memory/{id}/reinforce`
 
 Report positive or negative feedback for a memory via Long-Term Potentiation (LTP).
 
@@ -175,7 +187,7 @@ curl -X POST http://localhost:7070/api/v1/memory/pref-dark-mode/reinforce \
   -d '{"valence": 1}'
 ```
 
-### `POST /api/v1/memory/{id}/suppress`
+### <span class="badge-method badge-post">POST</span> `/api/v1/memory/{id}/suppress`
 
 Suppress or unsuppress a memory from recall consideration without deleting it.
 
@@ -185,7 +197,7 @@ curl -X POST http://localhost:7070/api/v1/memory/pref-dark-mode/suppress \
   -d '{"action": "suppress", "reason": "Deprecated configuration"}'
 ```
 
-### `POST /api/v1/memory/{id}/resolve`
+### <span class="badge-method badge-post">POST</span> `/api/v1/memory/{id}/resolve`
 
 Mark an active goal or tension as resolved (Zeigarnik closure).
 
@@ -195,7 +207,7 @@ curl -X POST http://localhost:7070/api/v1/memory/task-101/resolve \
   -d '{"resolved": true}'
 ```
 
-### `POST /api/v1/memory/introspect`
+### <span class="badge-method badge-post">POST</span> `/api/v1/memory/introspect`
 
 Metamemory self-analysis — how well does the system know a topic?
 
@@ -205,7 +217,7 @@ curl -X POST http://localhost:7070/api/v1/memory/introspect \
   -d '{"topic": "kubernetes"}'
 ```
 
-### `POST /api/v1/memory/reminder`
+### <span class="badge-method badge-post">POST</span> `/api/v1/memory/reminder`
 
 Schedule a time-triggered reminder.
 
@@ -215,11 +227,11 @@ curl -X POST http://localhost:7070/api/v1/memory/reminder \
   -d '{"text": "Check build logs", "delaySeconds": 3600, "tags": "ci"}'
 ```
 
-### `POST /api/v1/memory/scratchpad`
+### <span class="badge-method badge-post">POST</span> `/api/v1/memory/scratchpad`
 
 Quick-write to working memory scratchpad.
 
-### `POST /api/v1/memory/why-not`
+### <span class="badge-method badge-post">POST</span> `/api/v1/memory/why-not`
 
 Explain why a memory was not recalled for a given query.
 
@@ -229,11 +241,11 @@ curl -X POST http://localhost:7070/api/v1/memory/why-not \
   -d '{"memoryId": "fact-42", "query": "pool config", "topK": 5}'
 ```
 
-### `POST /api/v1/memory/reflect`
+### <span class="badge-method badge-post">POST</span> `/api/v1/memory/reflect`
 
 Manually trigger a sleep consolidation cycle.
 
-### `GET /api/v1/memory/status`
+### <span class="badge-method badge-get">GET</span> `/api/v1/memory/status`
 
 Memory tier counts, partition info, and persistence status.
 

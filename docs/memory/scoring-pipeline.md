@@ -47,16 +47,17 @@ Spector fuses temporal decay and importance directly into the scoring loop — *
 
 For complete coverage of scoring regimes, see [Scoring Regimes & Fusion Modes](scoring-regimes.md).
 
-#### `MULTIPLICATIVE` Mode (Default)
-$$\text{FinalScore} = \text{BaseScore} \cdot (1.0 + \text{TagOverlap} \cdot \text{TagBoost})$$
+???+ note "📐 View Mathematical Derivation (MULTIPLICATIVE & ADDITIVE Scoring Modes)"
+    #### `MULTIPLICATIVE` Mode (Default)
+    $$\text{FinalScore} = \text{BaseScore} \cdot (1.0 + \text{TagOverlap} \cdot \text{TagBoost})$$
 
-Where $\text{BaseScore} = \text{Similarity} \cdot (1.0 + \text{Importance} \cdot \text{DecayFactor}) \cdot \text{ValenceMultiplier}$.
+    Where $\text{BaseScore} = \text{Similarity} \cdot (1.0 + \text{Importance} \cdot \text{DecayFactor}) \cdot \text{ValenceMultiplier}$.
 
-#### `ADDITIVE` Mode
-$$\text{BaseSimilarity} = \alpha \cdot \text{Similarity} + (1.0 - \alpha) \cdot \text{TagOverlap}$$
-$$\text{FinalScore} = \text{BaseSimilarity} \cdot (1.0 + \text{Importance} \cdot \text{DecayFactor}) \cdot \text{ValenceMultiplier}$$
+    #### `ADDITIVE` Mode
+    $$\text{BaseSimilarity} = \alpha \cdot \text{Similarity} + (1.0 - \alpha) \cdot \text{TagOverlap}$$
+    $$\text{FinalScore} = \text{BaseSimilarity} \cdot (1.0 + \text{Importance} \cdot \text{DecayFactor}) \cdot \text{ValenceMultiplier}$$
 
-Where $\alpha \in [0.0, 1.0]$ is the user-configurable weight.
+    Where $\alpha \in [0.0, 1.0]$ is the user-configurable weight balancing vector proximity with exact metadata tag intersection.
 
 ---
 
