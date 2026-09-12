@@ -32,7 +32,7 @@ import java.util.Objects;
 
 /**
  * Startup detector verifying that all tenanted namespaces have been migrated to the tenant-rooted
- * layout when {@code spector.namespace.tenant-rooted.enabled=true} (ADR-0033 D3=C, Task 4.5, Requirements R5.8).
+ * layout when {@code spector.namespace.tenant-rooted.enabled=true} (ADR-0034 D3=C, Task 4.5, Requirements R5.8).
  *
  * <p>Fails readiness by throwing an {@link IllegalStateException} if unmigrated tenanted namespaces
  * are detected. Automatically cleans up leftover {@code .migrating-*} staging directories on boot (R5.5).</p>

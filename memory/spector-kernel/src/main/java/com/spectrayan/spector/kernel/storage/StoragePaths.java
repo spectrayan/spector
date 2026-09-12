@@ -361,7 +361,7 @@ public final class StoragePaths {
 
     /**
      * Resolves a tenant-rooted namespace path with SHA-256 sharding for both tenant and namespace
-     * (ADR-0033 §9.2, Phase 0.1, Req R4.2, R4.3, R4.5).
+     * (ADR-0034 §9.2, Phase 0.1, Req R4.2, R4.3, R4.5).
      *
      * <pre>
      *   basePath/tenants/XX/YY/tenantId/namespaces/ZZ/WW/namespaceId/
@@ -386,7 +386,7 @@ public final class StoragePaths {
      *
      * @deprecated Use {@link #tenantRootedNamespaceDir(Path, String, String)} instead.
      *             This helper placed tenants directly under {@code namespaces/} instead of the tenant-rooted
-     *             hierarchy defined by ADR-0033 §9.2 (Req R6.4).
+     *             hierarchy defined by ADR-0034 §9.2 (Req R6.4).
      * @param basePath     root persistence path
      * @param tenantId     the tenant (org) identifier — sharded on this
      * @param namespaceId  the namespace (user/agent) identifier within the tenant

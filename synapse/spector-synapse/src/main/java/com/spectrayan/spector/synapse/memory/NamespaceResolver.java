@@ -70,7 +70,7 @@ import org.springframework.beans.factory.ObjectProvider;
  * 2. Catalog:      AccountCatalog.getOrCreateAccount(accountId)
  *                  → account.defaultNamespaceId → namespaceId
  * 3. Authorize:    catalog.authorize(accountId, namespaceId, minimumRole)
- * 4. Place:        owner account → tenantId → NamespacePathResolver (ADR-0033 §9.2)
+ * 4. Place:        owner account → tenantId → NamespacePathResolver (ADR-0034 §9.2)
  * 5. Bind:         cache.getOrOpen(namespaceId, () → buildInstance(tenantId, namespaceId, owner))
  * </pre>
  *

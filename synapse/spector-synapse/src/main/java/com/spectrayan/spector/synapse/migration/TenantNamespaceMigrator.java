@@ -37,7 +37,7 @@ import java.util.stream.Stream;
 
 /**
  * Migrates existing flat namespace directories (layout A) to the tenant-rooted layout (layout B)
- * for tenanted accounts (ADR-0033, Tasks 4.1–4.3, Requirements R5.1–R5.8).
+ * for tenanted accounts (ADR-0034, Tasks 4.1–4.3, Requirements R5.1–R5.8).
  *
  * <p>Key properties:
  * <ul>
@@ -457,7 +457,7 @@ public class TenantNamespaceMigrator {
         // name rather than the layout id, and "tenantNamespaceDirSharded" names the *deprecated*
         // helper, which shards tenants under namespaces/ and is incompatible with this layout. A
         // Phase 3 replica reading that manifest would pick the wrong resolver — exactly the failure
-        // ADR-0033 KI-3 warns about (Req R8.1, R8.3).
+        // ADR-0034 KI-3 warns about (Req R8.1, R8.3).
         String layoutId = NamespacePathResolver.Layout.TENANT_SHA256.id();
         manifest.put("layout", layoutId);
         manifest.put("pathHelper", layoutId);

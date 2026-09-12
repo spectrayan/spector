@@ -49,7 +49,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 /**
- * ADR-0033 KI-5 Exit-Criteria Integration Tests (Task 4.8, Reqs R10.1–R10.4, R9).
+ * ADR-0034 KI-5 Exit-Criteria Integration Tests (Task 4.8, Reqs R10.1–R10.4, R9).
  *
  * <p>Verifies the end-to-end multi-tenant cell HA layout guarantees:
  * <ul>
@@ -60,7 +60,7 @@ import static org.mockito.Mockito.*;
  * </ul>
  * </p>
  */
-@DisplayName("Task 4.8: ADR-0033 KI-5 Exit Criteria Integration Tests")
+@DisplayName("Task 4.8: ADR-0034 KI-5 Exit Criteria Integration Tests")
 class CellHaNamespaceExitCriteriaIntegrationTest {
 
     private static final String TENANT_ACME = "018f9b8c000070008000000000000001";

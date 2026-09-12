@@ -51,7 +51,7 @@ public final class SpectorPropertyConstants {
 
     // Namespace Storage Layout & Routing
     /**
-     * Enables the tenant-rooted rememberer layout (ADR-0033 §9.2 layout B).
+     * Enables the tenant-rooted rememberer layout (ADR-0034 §9.2 layout B).
      *
      * <p><strong>Defaults to {@code false} deliberately.</strong> With the flag off, namespace
      * resolution is bit-identical to the pre-unification flat layout, which is what lets the
