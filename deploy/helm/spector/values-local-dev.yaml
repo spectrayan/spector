@@ -12,7 +12,7 @@ topology:
 image:
   repository: spector
   pullPolicy: IfNotPresent
-  tag: v2
+  tag: v3
 
 # Sysctl disabled for local unprivileged single-node Docker Desktop
 sysctl:
