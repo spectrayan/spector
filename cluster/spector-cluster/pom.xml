@@ -53,6 +53,12 @@
             <artifactId>caffeine</artifactId>
         </dependency>
 
+        <!-- JSON Serialization for Control Store State -->
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
         <!-- Optional Redis Client for Distributed Routing Cache -->
         <dependency>
             <groupId>io.lettuce</groupId>
