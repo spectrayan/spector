@@ -97,7 +97,7 @@ networkPolicy:
   enabled: false
 
 service:
-  type: ClusterIP
+  type: LoadBalancer
   ports:
     dashboard: 7700
     api: 7070
