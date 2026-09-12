@@ -9,9 +9,8 @@
   export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "spector.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
   echo "Spector Dashboard: http://$SERVICE_IP:{{ .Values.service.ports.dashboard }}"
 {{- else if contains "ClusterIP" .Values.service.type }}
-  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "{{ include "spector.selectorLabels" . }}" -o jsonpath="{.items[0].metadata.name}")
-  echo "Forwarding Dashboard (8080 -> 7700) and API (7070 -> 7070)..."
-  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 7700:8080 7070:7070 &
+  echo "Forwarding Dashboard (7700) and API (7070) via Service..."
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "spector.fullname" . }} 7700:{{ .Values.service.ports.dashboard }} 7070:{{ .Values.service.ports.api }} &
   echo "Spector Dashboard: http://127.0.0.1:7700"
   echo "Spector API/MCP:   http://127.0.0.1:7070"
   echo "Health Endpoint:   http://127.0.0.1:7070/actuator/health"
