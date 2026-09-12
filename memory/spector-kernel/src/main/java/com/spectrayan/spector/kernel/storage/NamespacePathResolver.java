@@ -22,7 +22,7 @@ import java.util.Objects;
 
 /**
  * Resolves rememberer directories. The ONLY sanctioned source of a namespace path
- * (ADR-0033 §9.2, Phase 0.1, Req R1.1, R1.2, R4, R9).
+ * (ADR-0034 §9.2, Phase 0.1, Req R1.1, R1.2, R4, R9).
  */
 public final class NamespacePathResolver {
 
@@ -31,7 +31,7 @@ public final class NamespacePathResolver {
     }
 
     /**
-     * Identity recorded in {@code namespace.json} (Req R8) and in ADR-0033 §9.7 manifests (Req R8.3).
+     * Identity recorded in {@code namespace.json} (Req R8) and in ADR-0034 §9.7 manifests (Req R8.3).
      */
     public enum Layout {
         FLAT_SHA256("StoragePaths.namespaceDirSharded"),

@@ -88,7 +88,7 @@ public class SynapseProperties extends SpectorConfigProperties {
     public void setCache(com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties cache) { if (cache != null) this.cache = cache; }
 
     // ══════════════════════════════════════════════════════════════
-    // Canonical storage roots (ADR-0033 D1, Req R3.1, R3.4)
+    // Canonical storage roots (ADR-0034 D1, Req R3.1, R3.4)
     // ══════════════════════════════════════════════════════════════
 
     /**

@@ -35,7 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * CLI command to migrate flat namespace directories to tenant-rooted layout (ADR-0033 D3=C, Task 4.5, Requirements R5.7).
+ * CLI command to migrate flat namespace directories to tenant-rooted layout (ADR-0034 D3=C, Task 4.5, Requirements R5.7).
  */
 @Component
 @Command(
