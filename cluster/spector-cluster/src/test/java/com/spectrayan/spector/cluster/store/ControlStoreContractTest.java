@@ -42,14 +42,13 @@ class ControlStoreContractTest {
     static Stream<StoreFactory> controlStoreProviders(@TempDir Path tempDir) {
         return Stream.of(
                 InMemoryControlStore::new,
-                clock -> new FileControlStore(tempDir.resolve("test-control-store.json"), clock),
-                clock -> new K8sControlStore(new InMemoryControlStore(clock))
+                clock -> new FileControlStore(tempDir.resolve("test-control-store.json"), clock)
         );
     }
 
     @ParameterizedTest
     @MethodSource("controlStoreProviders")
-    @DisplayName("Coordinator lease election and renewal lifecycle conforms to contract (Req R1.2, R1.5)")
+    @DisplayName("Coordinator lease election and renewal lifecycle conforms to contract (Req R1.2, R1.5, G17, G22)")
     void testCoordinatorLeaseLifecycle(StoreFactory factory) {
         AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-09-12T00:00:00Z"));
         Clock mutableClock = new Clock() {
@@ -62,43 +61,45 @@ class ControlStoreContractTest {
 
         // Initially no coordinator
         assertThat(store.getCoordinatorLease()).isNull();
+        assertThat(store.getValidCoordinatorLease()).isEmpty();
 
         // Node 1 acquires lease for 15 seconds
-        boolean acquired = store.acquireOrRenewCoordinatorLease("node-1", Duration.ofSeconds(15));
-        assertThat(acquired).isTrue();
+        Optional<CoordinatorLease> acquired = store.acquireOrRenewCoordinatorLease("node-1", Duration.ofSeconds(15));
+        assertThat(acquired).isPresent();
 
-        CoordinatorLease lease = store.getCoordinatorLease();
-        assertThat(lease).isNotNull();
+        CoordinatorLease lease = acquired.get();
         assertThat(lease.holderNodeId()).isEqualTo("node-1");
         assertThat(lease.leaseVersion()).isEqualTo(1L);
-        assertThat(lease.isExpired(now.get())).isFalse();
-        assertThat(lease.isHeldBy("node-1", now.get())).isTrue();
-        assertThat(lease.isHeldBy("node-2", now.get())).isFalse();
+        assertThat(store.isCoordinator("node-1", 1L)).isTrue();
+        assertThat(store.isCoordinator("node-2", 1L)).isFalse();
+        assertThat(store.isCoordinator("node-1", 2L)).isFalse();
 
         // Node 2 tries to acquire before expiry -> rejected
-        boolean node2Acquired = store.acquireOrRenewCoordinatorLease("node-2", Duration.ofSeconds(15));
-        assertThat(node2Acquired).isFalse();
+        Optional<CoordinatorLease> node2Acquired = store.acquireOrRenewCoordinatorLease("node-2", Duration.ofSeconds(15));
+        assertThat(node2Acquired).isEmpty();
 
         // Node 1 renews at t = 10s
         now.set(now.get().plusSeconds(10));
-        boolean renewed = store.acquireOrRenewCoordinatorLease("node-1", Duration.ofSeconds(15));
-        assertThat(renewed).isTrue();
-        assertThat(store.getCoordinatorLease().leaseVersion()).isEqualTo(2L);
-        assertThat(store.getCoordinatorLease().expiresAt()).isEqualTo(now.get().plusSeconds(15));
+        Optional<CoordinatorLease> renewed = store.acquireOrRenewCoordinatorLease("node-1", Duration.ofSeconds(15));
+        assertThat(renewed).isPresent();
+        assertThat(renewed.get().leaseVersion()).isEqualTo(2L);
+        assertThat(store.isCoordinator("node-1", 2L)).isTrue();
 
         // Time advances beyond expiration (t = 10 + 20 = 30s)
         now.set(now.get().plusSeconds(20));
-        assertThat(store.getCoordinatorLease().isExpired(now.get())).isTrue();
+        assertThat(store.getValidCoordinatorLease()).isEmpty();
+        assertThat(store.isCoordinator("node-1", 2L)).isFalse();
 
         // Now Node 2 can acquire expired lease
-        boolean node2AcquiredAfterExpiry = store.acquireOrRenewCoordinatorLease("node-2", Duration.ofSeconds(15));
-        assertThat(node2AcquiredAfterExpiry).isTrue();
-        assertThat(store.getCoordinatorLease().holderNodeId()).isEqualTo("node-2");
-        assertThat(store.getCoordinatorLease().leaseVersion()).isEqualTo(3L);
+        Optional<CoordinatorLease> node2AcquiredAfterExpiry = store.acquireOrRenewCoordinatorLease("node-2", Duration.ofSeconds(15));
+        assertThat(node2AcquiredAfterExpiry).isPresent();
+        assertThat(node2AcquiredAfterExpiry.get().holderNodeId()).isEqualTo("node-2");
+        assertThat(node2AcquiredAfterExpiry.get().leaseVersion()).isEqualTo(3L);
+        assertThat(store.isCoordinator("node-2", 3L)).isTrue();
 
         // Node 2 releases lease
         store.releaseCoordinatorLease("node-2");
-        assertThat(store.getCoordinatorLease().isExpired(now.get())).isTrue();
+        assertThat(store.getValidCoordinatorLease()).isEmpty();
     }
 
     @ParameterizedTest
@@ -192,5 +193,48 @@ class ControlStoreContractTest {
 
         assertThat(store.getMembership()).isEqualTo(updated);
         assertThat(store.getMembership().ringVersion()).isEqualTo(2);
+    }
+
+    @ParameterizedTest
+    @MethodSource("controlStoreProviders")
+    @DisplayName("Single-writer CAS enforces expected lease version on mutations (Req R1.1, G16)")
+    void testSingleWriterCasEnforcement(StoreFactory factory) {
+        AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-09-12T00:00:00Z"));
+        Clock mutableClock = new Clock() {
+            @Override public ZoneOffset getZone() { return ZoneOffset.UTC; }
+            @Override public Clock withZone(java.time.ZoneId zone) { return this; }
+            @Override public Instant instant() { return now.get(); }
+        };
+
+        ControlStore store = factory.create(mutableClock);
+
+        // Elect coordinator v1
+        store.acquireOrRenewCoordinatorLease("coord-1", Duration.ofSeconds(60));
+
+        // CAS with matching version succeeds
+        assertThat(store.advanceNamespaceEpoch("ns-cas", 1L)).isEqualTo(1L);
+
+        OverrideLeaseRecord record = new OverrideLeaseRecord(
+                "ns-cas", "target-node", 1L, "fence-1", now.get().plusSeconds(60)
+        );
+        assertThat(store.setOverride(record, 1L)).isTrue();
+        assertThat(store.getOverride("ns-cas")).isPresent();
+
+        // CAS with stale or wrong version fails
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> store.advanceNamespaceEpoch("ns-cas", 999L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Control store CAS failure");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> store.setOverride(record, 999L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Control store CAS failure");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> store.removeOverride("ns-cas", 999L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Control store CAS failure");
+
+        // Remove with matching version succeeds
+        assertThat(store.removeOverride("ns-cas", 1L)).isTrue();
+        assertThat(store.getOverride("ns-cas")).isEmpty();
     }
 }

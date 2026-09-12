@@ -90,7 +90,36 @@ public class InMemoryControlStore implements ControlStore {
     }
 
     @Override
-    public boolean acquireOrRenewCoordinatorLease(String candidateNodeId, Duration duration) {
+    public Optional<CoordinatorLease> getValidCoordinatorLease() {
+        lock.lock();
+        try {
+            if (coordinatorLease != null && !coordinatorLease.isExpired(clock.instant())) {
+                return Optional.of(coordinatorLease);
+            }
+            return Optional.empty();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public boolean isCoordinator(String nodeId, long expectedLeaseVersion) {
+        if (nodeId == null || expectedLeaseVersion <= 0) {
+            return false;
+        }
+        lock.lock();
+        try {
+            return coordinatorLease != null
+                    && !coordinatorLease.isExpired(clock.instant())
+                    && Objects.equals(coordinatorLease.holderNodeId(), nodeId)
+                    && coordinatorLease.leaseVersion() == expectedLeaseVersion;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public Optional<CoordinatorLease> acquireOrRenewCoordinatorLease(String candidateNodeId, Duration duration) {
         Objects.requireNonNull(candidateNodeId, "candidateNodeId must not be null");
         Objects.requireNonNull(duration, "duration must not be null");
         lock.lock();
@@ -102,11 +131,11 @@ public class InMemoryControlStore implements ControlStore {
                 coordinatorLease = new CoordinatorLease(candidateNodeId, currentTime, currentTime.plus(duration), nextVersion);
                 log.debug("[InMemoryControlStore] Node '{}' acquired/renewed coordinator lease v{} until {}",
                         candidateNodeId, nextVersion, coordinatorLease.expiresAt());
-                return true;
+                return Optional.of(coordinatorLease);
             }
             log.debug("[InMemoryControlStore] Node '{}' rejected for lease; currently held by '{}' until {}",
                     candidateNodeId, coordinatorLease.holderNodeId(), coordinatorLease.expiresAt());
-            return false;
+            return Optional.empty();
         } finally {
             lock.unlock();
         }
@@ -139,14 +168,30 @@ public class InMemoryControlStore implements ControlStore {
         }
     }
 
+    private void assertCoordinatorAuthority(long expectedLeaseVersion) {
+        boolean hasActiveLease = coordinatorLease != null && !coordinatorLease.isExpired(clock.instant());
+        if (expectedLeaseVersion > 0) {
+            if (!hasActiveLease || coordinatorLease.leaseVersion() != expectedLeaseVersion) {
+                long activeVersion = hasActiveLease ? coordinatorLease.leaseVersion() : 0L;
+                throw new IllegalStateException("Control store CAS failure: expected coordinator lease version "
+                        + expectedLeaseVersion + " but active lease is v" + activeVersion);
+            }
+        } else if (hasActiveLease) {
+            throw new IllegalStateException("Control store requires expectedLeaseVersion when active coordinator is present (v"
+                    + coordinatorLease.leaseVersion() + ")");
+        }
+    }
+
     @Override
-    public long advanceNamespaceEpoch(String namespaceId) {
+    public long advanceNamespaceEpoch(String namespaceId, long expectedLeaseVersion) {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
         lock.lock();
         try {
+            assertCoordinatorAuthority(expectedLeaseVersion);
             long next = namespaceEpochs.getOrDefault(namespaceId, 0L) + 1L;
             namespaceEpochs.put(namespaceId, next);
-            log.debug("[InMemoryControlStore] Advanced epoch for namespace '{}' to {}", namespaceId, next);
+            log.debug("[InMemoryControlStore] Advanced epoch for namespace '{}' to {} (leaseVersion={})",
+                    namespaceId, next, expectedLeaseVersion);
             return next;
         } finally {
             lock.unlock();
@@ -169,25 +214,30 @@ public class InMemoryControlStore implements ControlStore {
     }
 
     @Override
-    public void setOverride(OverrideLeaseRecord override) {
+    public boolean setOverride(OverrideLeaseRecord override, long expectedLeaseVersion) {
         Objects.requireNonNull(override, "override must not be null");
         lock.lock();
         try {
+            assertCoordinatorAuthority(expectedLeaseVersion);
             overrides.put(override.namespaceId(), override);
-            log.info("[InMemoryControlStore] Set override for namespace '{}' -> node '{}', epoch={}, expiresAt={}",
-                    override.namespaceId(), override.targetNodeId(), override.epoch(), override.expiresAt());
+            log.info("[InMemoryControlStore] Set override for namespace '{}' -> node '{}', epoch={}, expiresAt={} (leaseVersion={})",
+                    override.namespaceId(), override.targetNodeId(), override.epoch(), override.expiresAt(), expectedLeaseVersion);
+            return true;
         } finally {
             lock.unlock();
         }
     }
 
     @Override
-    public void removeOverride(String namespaceId) {
+    public boolean removeOverride(String namespaceId, long expectedLeaseVersion) {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
         lock.lock();
         try {
+            assertCoordinatorAuthority(expectedLeaseVersion);
             overrides.remove(namespaceId);
-            log.info("[InMemoryControlStore] Removed override for namespace '{}'", namespaceId);
+            log.info("[InMemoryControlStore] Removed override for namespace '{}' (leaseVersion={})",
+                    namespaceId, expectedLeaseVersion);
+            return true;
         } finally {
             lock.unlock();
         }

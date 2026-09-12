@@ -140,8 +140,8 @@ class KillOwnerRecoveryBenchmarkTest {
         MemoryRequestBinder survivorBinder = new MemoryRequestBinder(null, null, null, survivorResolver, fenceMgr);
 
         // Set initial fences
-        long initialEpoch = store.advanceNamespaceEpoch("ns-prewarmed");
-        store.advanceNamespaceEpoch("ns-cold");
+        long initialEpoch = store.advanceNamespaceEpoch("ns-prewarmed", coordMgr.getLeaseVersion());
+        store.advanceNamespaceEpoch("ns-cold", coordMgr.getLeaseVersion());
         fenceMgr.mintFenceForEpoch("ns-prewarmed", initialEpoch);
         fenceMgr.mintFenceForEpoch("ns-cold", initialEpoch);
 

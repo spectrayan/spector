@@ -45,7 +45,10 @@ class OverrideBeatsHashTest {
         store.updateMembership(membership);
 
         StaticMembershipSource membershipSource = new StaticMembershipSource("cell-1", 1, members);
-        OverrideLeaseManager overrideLeaseManager = new OverrideLeaseManager(store);
+        com.spectrayan.spector.cluster.coordinator.CoordinatorLeaseManager coordMgr =
+                new com.spectrayan.spector.cluster.coordinator.CoordinatorLeaseManager(store, "coord-node", Duration.ofMinutes(10), Duration.ofSeconds(10));
+        coordMgr.heartbeat();
+        OverrideLeaseManager overrideLeaseManager = new OverrideLeaseManager(store, coordMgr, Duration.ofMinutes(5));
 
         NodeIdentity node1 = new NodeIdentity("cell-1", "node-1", NodeRole.OWNER);
         NodeIdentity node2 = new NodeIdentity("cell-1", "node-2", NodeRole.OWNER);

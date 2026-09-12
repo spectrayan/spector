@@ -60,7 +60,10 @@ class FailoverSplitBrainPropertyTest {
         // §6 Fix: Each node gets its own FenceTokenManager (previously shared, creating a false single-writer illusion)
         FenceTokenManager fenceMgrA = new FenceTokenManager(store);
         FenceTokenManager fenceMgrB = new FenceTokenManager(store);
-        OverrideLeaseManager overrideMgr = new OverrideLeaseManager(store);
+        com.spectrayan.spector.cluster.coordinator.CoordinatorLeaseManager coordMgr =
+                new com.spectrayan.spector.cluster.coordinator.CoordinatorLeaseManager(store, "coord-node", Duration.ofMinutes(10), Duration.ofSeconds(10));
+        coordMgr.heartbeat();
+        OverrideLeaseManager overrideMgr = new OverrideLeaseManager(store, coordMgr, Duration.ofMinutes(5));
 
         StaticMembershipSource membership = new StaticMembershipSource("cell-1", 1, members);
         OwnershipResolver resolverA = new OwnershipResolver(new NodeIdentity("cell-1", "node-a", NodeRole.OWNER), membership, overrideMgr);
@@ -75,7 +78,7 @@ class FailoverSplitBrainPropertyTest {
         String previousOwner = "node-b";
 
         for (int i = 1; i <= cycles; i++) {
-            long epoch = store.advanceNamespaceEpoch(namespace);
+            long epoch = store.advanceNamespaceEpoch(namespace, coordMgr.getLeaseVersion());
 
             // Swap owners
             String newOwner = currentOwner.equals("node-a") ? "node-b" : "node-a";

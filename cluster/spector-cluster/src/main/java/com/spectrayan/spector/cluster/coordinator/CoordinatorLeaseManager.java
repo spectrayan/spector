@@ -22,7 +22,9 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -54,6 +56,9 @@ public class CoordinatorLeaseManager implements AutoCloseable {
     private final ScheduledExecutorService scheduler;
 
     private final AtomicBoolean isCoordinator = new AtomicBoolean(false);
+    private final AtomicLong currentLeaseVersion = new AtomicLong(0L);
+    private final AtomicLong leaseGeneration = new AtomicLong(0L);
+    private final List<java.util.function.Consumer<String>> leaseLossListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
     private final AtomicLong timeWithoutCoordinatorMs = new AtomicLong(0L);
     private final AtomicReference<Instant> lastLeaderSeen = new AtomicReference<>();
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -98,19 +103,21 @@ public class CoordinatorLeaseManager implements AutoCloseable {
     public void heartbeat() {
         try {
             Instant now = controlStore.now();
-            CoordinatorLease currentLease = controlStore.getCoordinatorLease();
+            java.util.Optional<CoordinatorLease> validLease = controlStore.getValidCoordinatorLease();
 
-            if (currentLease != null && !currentLease.isExpired(now)) {
+            if (validLease.isPresent()) {
+                CoordinatorLease currentLease = validLease.get();
                 lastLeaderSeen.set(now);
                 timeWithoutCoordinatorMs.set(0L);
 
                 if (Objects.equals(currentLease.holderNodeId(), nodeId)) {
                     // We are current holder -> renew
-                    boolean renewed = controlStore.acquireOrRenewCoordinatorLease(nodeId, leaseDuration);
-                    if (renewed) {
+                    java.util.Optional<CoordinatorLease> renewed = controlStore.acquireOrRenewCoordinatorLease(nodeId, leaseDuration);
+                    if (renewed.isPresent()) {
+                        currentLeaseVersion.set(renewed.get().leaseVersion());
                         isCoordinator.set(true);
-                        log.debug("[CoordinatorLeaseManager] Renewed coordinator lease for node '{}' until {}",
-                                nodeId, now.plus(leaseDuration));
+                        log.debug("[CoordinatorLeaseManager] Renewed coordinator lease for node '{}' (v{}) until {}",
+                                nodeId, renewed.get().leaseVersion(), renewed.get().expiresAt());
                     } else {
                         handleLeaseLoss("Renewal rejected by store");
                     }
@@ -122,14 +129,17 @@ public class CoordinatorLeaseManager implements AutoCloseable {
                 }
             } else {
                 // No active lease -> attempt acquisition
-                boolean acquired = controlStore.acquireOrRenewCoordinatorLease(nodeId, leaseDuration);
-                if (acquired) {
+                java.util.Optional<CoordinatorLease> acquired = controlStore.acquireOrRenewCoordinatorLease(nodeId, leaseDuration);
+                if (acquired.isPresent()) {
+                    CoordinatorLease lease = acquired.get();
+                    currentLeaseVersion.set(lease.leaseVersion());
                     boolean wasCoordinator = isCoordinator.getAndSet(true);
                     lastLeaderSeen.set(now);
                     timeWithoutCoordinatorMs.set(0L);
                     if (!wasCoordinator) {
+                        leaseGeneration.incrementAndGet();
                         log.info("[CoordinatorLeaseManager] Node '{}' successfully elected as cell coordinator (lease v{})",
-                                nodeId, controlStore.getCoordinatorLease().leaseVersion());
+                                nodeId, lease.leaseVersion());
                     }
                 } else {
                     handleLeaseLoss("Contended acquisition failed");
@@ -143,14 +153,13 @@ public class CoordinatorLeaseManager implements AutoCloseable {
     }
 
     /**
-     * Store-enforced guard verifying that this node actively holds a valid, non-expired lease (Req R1.5, R1.6).
+     * Store-enforced guard verifying that this node actively holds a valid, non-expired lease (Req R1.5, R1.6, G17).
      *
      * @return {@code true} if verified coordinator in the store; {@code false} if lease expired or lost
      */
     public boolean checkStoreEnforcedLeaseActive() {
-        CoordinatorLease lease = controlStore.getCoordinatorLease();
-        Instant now = controlStore.now();
-        if (lease == null || lease.isExpired(now) || !Objects.equals(lease.holderNodeId(), nodeId)) {
+        long version = currentLeaseVersion.get();
+        if (version <= 0 || !controlStore.isCoordinator(nodeId, version)) {
             if (isCoordinator.get()) {
                 handleLeaseLoss("Store check confirmed lease inactive or held by another node");
             }
@@ -162,7 +171,16 @@ public class CoordinatorLeaseManager implements AutoCloseable {
     private void handleLeaseLoss(String reason) {
         boolean wasCoordinator = isCoordinator.getAndSet(false);
         if (wasCoordinator) {
+            leaseGeneration.incrementAndGet();
+            currentLeaseVersion.set(0L);
             log.warn("[CoordinatorLeaseManager] Node '{}' ceased being cell coordinator: {}", nodeId, reason);
+            for (java.util.function.Consumer<String> listener : leaseLossListeners) {
+                try {
+                    listener.accept(reason);
+                } catch (Exception e) {
+                    log.error("[CoordinatorLeaseManager] Error invoking lease loss listener", e);
+                }
+            }
         }
     }
 
@@ -181,14 +199,35 @@ public class CoordinatorLeaseManager implements AutoCloseable {
     }
 
     /**
+     * Returns the active coordinator lease version, or 0 if uncoordinated (Req R1.5, G16).
+     */
+    public long getLeaseVersion() {
+        return currentLeaseVersion.get();
+    }
+
+    /**
+     * Returns the monotonic generation counter incremented on every coordinator transition (G23).
+     */
+    public long getLeaseGeneration() {
+        return leaseGeneration.get();
+    }
+
+    /**
+     * Registers a listener to be notified immediately when this node loses coordinator authority (G23).
+     *
+     * @param listener consumer receiving failure reason
+     */
+    public void addLeaseLossListener(java.util.function.Consumer<String> listener) {
+        leaseLossListeners.add(Objects.requireNonNull(listener, "listener must not be null"));
+    }
+
+    /**
      * Returns the node ID of the current coordinator, or {@code null} if uncoordinated or expired.
      */
     public String getLeaderId() {
-        CoordinatorLease lease = controlStore.getCoordinatorLease();
-        if (lease != null && !lease.isExpired(controlStore.now())) {
-            return lease.holderNodeId();
-        }
-        return null;
+        return controlStore.getValidCoordinatorLease()
+                .map(CoordinatorLease::holderNodeId)
+                .orElse(null);
     }
 
     /**

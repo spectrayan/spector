@@ -289,4 +289,36 @@ class FailoverOrchestratorTest {
         assertThat(orchestrator.getFailoverCount()).isEqualTo(1);
         assertThat(overrideMgr.getOverride("default")).isPresent();
     }
+
+    @Test
+    @DisplayName("G19: Non-coordinator refuses failover without advancing epoch or minting fence")
+    void testNonCoordinatorFailsPromotionWithoutBurningEpoch() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-09-12T00:00:00Z"));
+        InMemoryControlStore store = new InMemoryControlStore(clock);
+        List<String> members = List.of("node-1", "node-2");
+        store.updateMembership(new CellMembership("cell-1", 1, members));
+
+        CoordinatorLeaseManager coordMgr = new CoordinatorLeaseManager(store, "node-1", Duration.ofSeconds(60), Duration.ofSeconds(10));
+        // Node 1 does NOT acquire lease
+        OverrideLeaseManager overrideMgr = new OverrideLeaseManager(store, coordMgr, Duration.ofSeconds(300));
+        FenceTokenManager fenceMgr = new FenceTokenManager(store);
+
+        FailoverProperties props = new FailoverProperties();
+        props.setEnabled(true);
+        props.setMode("active");
+
+        FailoverOrchestrator orchestrator = new FailoverOrchestrator(
+                store, coordMgr, overrideMgr, fenceMgr, props,
+                node -> !"node-2".equals(node),
+                (ns, candidate) -> true,
+                () -> List.of("default"),
+                clock
+        );
+
+        boolean success = orchestrator.executeFailoverForNamespace("default", "node-2", "node-1", false, clock.instant());
+        assertThat(success).isFalse();
+        // Epoch was NEVER advanced (G19)
+        assertThat(store.getNamespaceEpoch("default")).isEqualTo(0L);
+        assertThat(store.listOverrides()).isEmpty();
+    }
 }

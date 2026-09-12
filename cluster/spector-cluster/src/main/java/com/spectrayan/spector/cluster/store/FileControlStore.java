@@ -41,10 +41,14 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Atomic file-backed implementation of {@link ControlStore} for Docker Compose multi-node testing,
- * development clusters, and local deployments without Kubernetes (Req R1.1, R1.7).
+ * development clusters, and local deployments without external coordination (Req R1.1, R1.7).
  *
  * <p>Persists state using Jackson 3 to a designated JSON file with crash-safe temporary write and
- * atomic file movement. Concurrency is guarded via {@link ReentrantLock}.</p>
+ * atomic file movement. Concurrency within the JVM is guarded via {@link ReentrantLock}.</p>
+ *
+ * <p><strong>Caveat (G17):</strong> Shared-filesystem mode evaluates lease expiry against the local process
+ * {@link Clock}; it is NOT a distributed consensus store. In multi-node deployments with clock skew or
+ * network partitions, an authoritative consensus-backed control store must be used.</p>
  */
 public class FileControlStore implements ControlStore {
 
@@ -168,7 +172,38 @@ public class FileControlStore implements ControlStore {
     }
 
     @Override
-    public boolean acquireOrRenewCoordinatorLease(String candidateNodeId, Duration duration) {
+    public Optional<CoordinatorLease> getValidCoordinatorLease() {
+        lock.lock();
+        try {
+            CoordinatorLease lease = data.coordinatorLease();
+            if (lease != null && !lease.isExpired(clock.instant())) {
+                return Optional.of(lease);
+            }
+            return Optional.empty();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public boolean isCoordinator(String nodeId, long expectedLeaseVersion) {
+        if (nodeId == null || expectedLeaseVersion <= 0) {
+            return false;
+        }
+        lock.lock();
+        try {
+            CoordinatorLease lease = data.coordinatorLease();
+            return lease != null
+                    && !lease.isExpired(clock.instant())
+                    && Objects.equals(lease.holderNodeId(), nodeId)
+                    && lease.leaseVersion() == expectedLeaseVersion;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public Optional<CoordinatorLease> acquireOrRenewCoordinatorLease(String candidateNodeId, Duration duration) {
         Objects.requireNonNull(candidateNodeId, "candidateNodeId must not be null");
         Objects.requireNonNull(duration, "duration must not be null");
         lock.lock();
@@ -182,9 +217,9 @@ public class FileControlStore implements ControlStore {
                 persist();
                 log.debug("[FileControlStore] Node '{}' acquired/renewed coordinator lease v{} until {}",
                         candidateNodeId, nextVersion, updated.expiresAt());
-                return true;
+                return Optional.of(updated);
             }
-            return false;
+            return Optional.empty();
         } finally {
             lock.unlock();
         }
@@ -219,11 +254,27 @@ public class FileControlStore implements ControlStore {
         }
     }
 
+    private void assertCoordinatorAuthority(long expectedLeaseVersion) {
+        CoordinatorLease lease = data.coordinatorLease();
+        boolean hasActiveLease = lease != null && !lease.isExpired(clock.instant());
+        if (expectedLeaseVersion > 0) {
+            if (!hasActiveLease || lease.leaseVersion() != expectedLeaseVersion) {
+                long activeVersion = hasActiveLease ? lease.leaseVersion() : 0L;
+                throw new IllegalStateException("Control store CAS failure: expected coordinator lease version "
+                        + expectedLeaseVersion + " but active lease is v" + activeVersion);
+            }
+        } else if (hasActiveLease) {
+            throw new IllegalStateException("Control store requires expectedLeaseVersion when active coordinator is present (v"
+                    + lease.leaseVersion() + ")");
+        }
+    }
+
     @Override
-    public long advanceNamespaceEpoch(String namespaceId) {
+    public long advanceNamespaceEpoch(String namespaceId, long expectedLeaseVersion) {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
         lock.lock();
         try {
+            assertCoordinatorAuthority(expectedLeaseVersion);
             Map<String, Long> epochs = new HashMap<>(data.namespaceEpochs());
             long next = epochs.getOrDefault(namespaceId, 0L) + 1L;
             epochs.put(namespaceId, next);
@@ -251,31 +302,36 @@ public class FileControlStore implements ControlStore {
     }
 
     @Override
-    public void setOverride(OverrideLeaseRecord override) {
+    public boolean setOverride(OverrideLeaseRecord override, long expectedLeaseVersion) {
         Objects.requireNonNull(override, "override must not be null");
         lock.lock();
         try {
+            assertCoordinatorAuthority(expectedLeaseVersion);
             Map<String, OverrideLeaseRecord> overrides = new HashMap<>(data.overrides());
             overrides.put(override.namespaceId(), override);
             this.data = new StateData(data.membership(), data.coordinatorLease(), data.namespaceEpochs(), overrides);
             persist();
-            log.info("[FileControlStore] Persisted override for namespace '{}' -> node '{}'",
-                    override.namespaceId(), override.targetNodeId());
+            log.info("[FileControlStore] Persisted override for namespace '{}' -> node '{}' (leaseVersion={})",
+                    override.namespaceId(), override.targetNodeId(), expectedLeaseVersion);
+            return true;
         } finally {
             lock.unlock();
         }
     }
 
     @Override
-    public void removeOverride(String namespaceId) {
+    public boolean removeOverride(String namespaceId, long expectedLeaseVersion) {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
         lock.lock();
         try {
+            assertCoordinatorAuthority(expectedLeaseVersion);
             Map<String, OverrideLeaseRecord> overrides = new HashMap<>(data.overrides());
             overrides.remove(namespaceId);
             this.data = new StateData(data.membership(), data.coordinatorLease(), data.namespaceEpochs(), overrides);
             persist();
-            log.info("[FileControlStore] Removed override for namespace '{}'", namespaceId);
+            log.info("[FileControlStore] Removed override for namespace '{}' (leaseVersion={})",
+                    namespaceId, expectedLeaseVersion);
+            return true;
         } finally {
             lock.unlock();
         }
