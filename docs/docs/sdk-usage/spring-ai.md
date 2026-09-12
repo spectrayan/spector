@@ -1,6 +1,6 @@
 # 🌱 Spring AI Integration
 
-> **Seamlessly integrate Spector into your Spring AI applications.** The `spring-ai-starter-spector-store` module implements Spring AI's standard `VectorStore` interface, giving you access to metadata filter expressions, RAG patterns, and the entire Spring AI ecosystem backed by sub-millisecond memory-mapped search.
+> **Seamlessly integrate Spector into your Spring AI applications.** The `spring-ai-starter-spector-store` module implements Spring AI's standard `VectorStore` interface, giving you access to metadata filter expressions, RAG workflows, and the entire Spring AI ecosystem backed by sub-millisecond memory-mapped search.
 
 ---
 

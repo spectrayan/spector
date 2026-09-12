@@ -18,15 +18,15 @@ package com.spectrayan.spector.core.quantization.strategy;
 import java.lang.foreign.MemorySegment;
 
 /**
- * Strategy interface for vector quantization operations.
+ * SPI interface for vector quantization operations.
  *
- * <p>This is the core SPI (Service Provider Interface) of the Strategy + Abstract Factory
- * design pattern refactor. Each implementation encapsulates a complete quantization
- * scheme: encoding, decoding, and asymmetric distance computation.</p>
+ * <p>This is the core Service Provider Interface for quantization. Each implementation
+ * encapsulates a complete quantization scheme: encoding, decoding, and asymmetric
+ * distance computation.</p>
  *
  * <h3>Design</h3>
  * <ul>
- *   <li><b>Open/Closed:</b> Adding a new quantization type (INT16, FP8, BFloat16) requires
+ *   <li><b>Extensibility:</b> Adding a new quantization type (INT16, FP8, BFloat16) requires
  *       only a new implementation of this interface. {@code QuantizedVectorStore} and
  *       {@code QuantizedHnswIndex} never need to change.</li>
  *   <li><b>Asymmetric Distance:</b> {@link #prepareQueryContext(float[])} is called

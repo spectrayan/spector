@@ -185,7 +185,7 @@ The test suite uses **16 seed data files** organized by domain:
 | 02 | `database-work` | 13 | PostgreSQL, HikariCP, migrations, query optimization |
 | 03 | `deployment-cicd` | 10 | Docker, Kubernetes, GitHub Actions, CI/CD |
 | 04 | `authentication-security` | 8 | OAuth2, JWT, security incidents |
-| 05 | `known-facts` | 14 | Factual Java knowledge (patterns, frameworks) |
+| 05 | `known-facts` | 14 | Factual Java knowledge (APIs, frameworks) |
 | 06 | `procedures` | 6 | Step-by-step runbooks |
 | 07 | `entity-relationships` | 8 | People, teams, projects with entity links |
 | 08 | `surprise-and-lateral` | 10 | Unexpected discoveries, lateral connections |
@@ -193,7 +193,7 @@ The test suite uses **16 seed data files** organized by domain:
 | 10 | `edge-cases` | 20 | Adversarial: duplicates, contradictions, multilingual |
 | 11 | `temporal-sequences` | 12 | Time-ordered Redis migration chain |
 | 12 | `ambiguous-queries` | 11 | Multi-meaning terms ("pool", "spring", "node") |
-| 13 | `negative-evidence` | 7 | Anti-patterns, failed approaches |
+| 13 | `negative-evidence` | 7 | Counter-examples, failed approaches |
 | 14 | `agentic-conversation` | 17 | Real Promptly app development sessions |
 | 15 | `elevate-x-conversation` | 14 | Real Elevate-X fitness app sessions |
 | 16 | `spector-engine-conversation` | 26 | Real Spector engine debugging sessions |

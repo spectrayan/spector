@@ -155,7 +155,7 @@ Add to your `claude_desktop_config.json`:
 | Dependencies | Python framework stack | **Single JAR** (zero Python) |
 | Cognitive memory | External service (Mem0, Zep) | **Built-in** (opt-in via config) |
 
-## Design Patterns
+## Extending the Server
 
 ### Adding a New Tool
 
@@ -209,9 +209,9 @@ List.of(
 ### Key Design Decisions
 
 - **Declarative Tool Specs** (`ADR-001`)  --  JSON schemas defined on classpath in `mcp/tools/*.json`, automatically validated and loaded.
-- **Template Method** (`McpToolHandler`)  --  timing, error handling, security scopes, and argument parsing in the base class.
+- **Base Handler** (`McpToolHandler`)  --  timing, error handling, security scopes, and argument parsing in the base class.
 - **Handlebars Engine** (`McpTemplateEngine`)  --  centralized formatting templates in `mcp/templates/*.hbs`.
-- **Open/Closed Principle** (`SpectorToolRegistry`)  --  add a tool = 1 JSON spec + 1 execution handler class.
+- **Extensible Registry** (`SpectorToolRegistry`)  --  add a tool = 1 JSON spec + 1 execution handler class.
 - **Zero runtime overhead**  --  specs parsed once at startup and cached in memory.
 
 ## Protocol Support

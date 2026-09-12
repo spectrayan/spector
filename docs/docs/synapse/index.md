@@ -246,7 +246,7 @@ Synapse virtual threads manage LLM calls independently. If a provider endpoint g
 
 ## Workflows vs. Autonomous Agents
 
-Developers must choose the correct execution pattern based on their task constraints:
+Developers choose the execution approach based on their task constraints:
 
 | Feature | Deterministic Workflows | Autonomous Agents |
 |:---|:---|:---|

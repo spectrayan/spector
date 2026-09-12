@@ -31,11 +31,11 @@ Traditional vector databases treat memories as static documents in a flat index.
 
 ```
 spector-memory/
-├── SpectorMemory.java              ← Façade (Builder pattern entry point)
+├── SpectorMemory.java              ← Unified entry point for memory operations
 ├── pipeline/                       ← "Neural Pathways" — ingestion + recall pipelines
 │     ├── IngestionPipeline.java        (10-step remember pipeline)
 │     ├── RecallPipeline.java           (parallel tier scanning + scoring)
-│     └── HebbianCoActivationListener   (Observer pattern post-recall)
+│     └── HebbianCoActivationListener   (Post-recall co-activation updater)
 │
 ├── kernel/                         ← "Memory Kernel" — Memory<Layout> & Shapes
 │     ├── Memory.java                   (Base interface)
@@ -44,7 +44,7 @@ spector-memory/
 │     └── shape/                        (RecordMemory, AppendMemory, GraphMemory, etc.)
 │
 ├── cortex/                         ← "Cerebral Cortex" — 4 tier stores
-│     ├── TierStore.java                (Strategy interface)
+│     ├── TierStore.java                (Tier storage interface)
 │     ├── TierRouter.java               (Registry + polymorphic dispatch)
 │     ├── WorkingMemoryStore.java       (Prefrontal Cortex — volatile circular buffer)
 │     ├── EpisodicPartitionedMemory.java      (Hippocampus — time-partitioned mmap)
@@ -256,7 +256,7 @@ Total: 443 tests, 0 failures
 
 📖 **Full documentation**: See the [Cognitive Memory Guide](https://spectrayan.github.io/spector/memory/) for:
 
-- [System Architecture](https://spectrayan.github.io/spector/memory/architecture/) — package hierarchy, data flow, design patterns
+- [System Architecture](https://spectrayan.github.io/spector/memory/architecture/) — package hierarchy, data flow, subsystem architecture
 - [6-Phase Scoring Pipeline](https://spectrayan.github.io/spector/memory/scoring-pipeline/) — deep dive with math and cycle counts
 - [Biological Systems](https://spectrayan.github.io/spector/memory/cortex/) — each brain region mapped to code
 - [Performance & SIMD](https://spectrayan.github.io/spector/memory/performance/) — benchmarks, optimization techniques

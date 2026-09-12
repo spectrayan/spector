@@ -29,7 +29,7 @@ Dependencies:
 
 ## 🚀 Key APIs
 
-### Builder Pattern
+### Pipeline Configuration
 
 ```java
 // Read config from spector.yml

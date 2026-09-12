@@ -56,7 +56,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *       candidates to restore full-precision recall</li>
  * </ol>
  *
- * <h3>Design — Strategy Pattern</h3>
+ * <h3>Quantization SPI Architecture</h3>
  * <p>All quantization-type-specific logic ({@code encode}, {@code decode}, {@code distance})
  * is delegated to a single {@link QuantizationStrategy} instance created by
  * {@link QuantizationStrategyFactory}. This eliminates the switch/if-else dispatch

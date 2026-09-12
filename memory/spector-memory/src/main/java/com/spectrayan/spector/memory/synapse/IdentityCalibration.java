@@ -15,9 +15,9 @@ package com.spectrayan.spector.memory.synapse;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Flyweight factory for identity calibration arrays.
+ * Allocation cache for identity calibration arrays.
  *
- * <h3>Design Pattern: Flyweight</h3>
+ * <h3>Allocation Cache</h3>
  * <p>In uncalibrated mode, {@link CognitiveScorer} and
  * {@link com.spectrayan.spector.kernel.scan.SemanticDeduplicator}
  * create identical identity calibration arrays on every call. This factory

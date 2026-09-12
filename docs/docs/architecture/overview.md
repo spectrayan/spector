@@ -275,7 +275,7 @@ sequenceDiagram
     SIMD-->>Agent: 🔍 Knowledge report (~0.2ms)
 ```
 
-### Performance: MCP-Native vs. Adapter Pattern
+### Performance: In-Process vs. External Adapters
 
 | Metric | Spector (in-process) | Typical MCP adapter |
 |:---|:---|:---|
@@ -492,7 +492,7 @@ sequenceDiagram
 The MCP path operates directly against `SpectorMemory`. The MCP server wraps tool handler calls with JSON-RPC transport. There is **zero network overhead** because everything runs in the same JVM process.
 
 > [!TIP]
-> For full MCP architecture details, tool schemas, and design patterns, see the dedicated [MCP Integration](mcp-integration.md) page.
+> For full MCP architecture details and tool schemas, see the dedicated [MCP Integration](mcp-integration.md) page.
 
 ---
 
@@ -614,7 +614,7 @@ graph TD
     MS --> SM
 ```
 
-Every request runs on its own virtual thread. The Armeria server handles HTTP REST, gRPC, and SSE events on a single port. API endpoints are registered via the `ApiModule` factory pattern, enabling straightforward API versioning (`/api/v1`, `/api/v2`).
+Every request runs on its own virtual thread. The Armeria server handles HTTP REST, gRPC, and SSE events on a single port. API endpoints are registered via `ApiModule` components, enabling straightforward API versioning (`/api/v1`, `/api/v2`).
 
 ### Streaming via SSE
 

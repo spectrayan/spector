@@ -72,10 +72,10 @@ spector/
 - Memory R&D designs: `memory/spector-memory/RnD/`
 - Docs config parameters: `docs/docs/configuration/parameters.md`
 
-## Design Patterns
+## Engineering Conventions
 
 - **Records** for immutable value objects (`SearchResult`, `NodeInfo`, `PersistenceFiles`)
-- **Builder pattern** for configs (`SpectorConfig.builder()`, `SpectorEngine.builder()`)
-- **Abstract Factory** for component assembly (`EngineComponentFactory`)
+- **Fluent builders** for configs (`SpectorConfig.builder()`, `SpectorEngine.builder()`)
+- **Component factories** for assembly (`EngineComponentFactory`)
 - **Interface-first** design for pluggability (`IngestionTarget`, `EmbeddingProvider`)
 - **AutoCloseable** for any class holding native resources or arenas

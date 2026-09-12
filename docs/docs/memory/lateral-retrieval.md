@@ -15,7 +15,7 @@ Standard similarity-based retrieval has a blind spot: it only finds memories tha
 
 But some of the most valuable insights come from **cross-domain connections**:
 
-- A debugging agent stuck on a race condition might benefit from recalling a design pattern used in a completely different subsystem
+- A debugging agent stuck on a race condition might benefit from recalling an architectural solution used in a completely different subsystem
 - A research agent exploring "database indexing" might gain from a memory about "B-tree file system layouts" — related by tags, but distant in embedding space
 
 ---

@@ -68,7 +68,7 @@ import com.spectrayan.spector.kernel.layout.EpisodicLayout;
  * └─────────────────────────────────────┘
  * </pre>
  *
- * <p>Follows the {@code EntityDirectory.Init} factory pattern:
+ * <p>Uses the {@code EntityDirectory.Init} initialization API:
  * {@code Init.mmap()} to create, {@code Init.open()} to load,
  * {@code Init.heap()} for tests.</p>
  *

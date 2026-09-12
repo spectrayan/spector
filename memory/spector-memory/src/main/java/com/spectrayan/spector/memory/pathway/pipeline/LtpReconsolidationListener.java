@@ -38,7 +38,7 @@ import java.util.List;
  *       calls to prevent inflation from passive retrieval.</li>
  * </ul>
  *
- * <h3>Design Pattern: Observer</h3>
+ * <h3>Recall Listener Hook</h3>
  * <p>Registered with {@code RecallPipeline#addListener}, operating strictly via
  * {@link HeaderCursor} with zero raw segment access (R6.4).</p>
  */

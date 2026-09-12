@@ -203,14 +203,14 @@ Ship actual CUDA compute kernels for batch cosine similarity and HNSW neighbor s
 ### 🔄 Project Valhalla Value Classes {#valhalla}
 
 !!! tip "Status: Prepared — Awaiting JDK 28+"
-    Migration TODOs added to all 5 hot-path records. Manual flat-array optimizations serve as bridge patterns until value classes are available.
+    Migration TODOs added to all 5 hot-path records. Manual flat-array optimizations serve as intermediate solutions until value classes are available.
 
 Migrate hot-path intermediate records to `value class` (or `value record`). JDK 25 does not include JEP 401 — Valhalla value classes are expected in JDK 28+.
 
 **Current preparation:**
 
 - **Javadoc TODOs** added to all 5 hot-path records: `EncodingHeader`, `ScoredRecord`, `HebbianEdge`, `EntityEdge`, `TraversalResult`
-- **Manual flat-array optimization** (`FlatMinHeap`) serves as the bridge pattern — will be replaceable with `PriorityQueue<value ScoredRecord>` once specialized generics land
+- **Manual flat-array optimization** (`FlatMinHeap`) serves as an intermediate solution — will be replaceable with `PriorityQueue<value ScoredRecord>` once specialized generics land
 - **Performance optimizations** implemented as stop-gap: autoboxing elimination (`int[]` vs `List<Integer>`), `boolean[]` vs `HashSet<Integer>`, LUT-based `Math.pow` replacement
 
 **Benefits (when JDK 28+ lands):**
@@ -305,7 +305,7 @@ Native ColBERT reranking using Panama FMA loops. ColBERT stores a vector for eve
 - `TokenEmbeddingResult`: Wraps `float[][]` token-level embeddings
 - Integration in `RecallPipeline` Step 6b: Reranks top-N first-stage candidates after sort
 - Scoring: `combinedScore = α·maxSimScore + (1-α)·firstStageScore`
-- Nullable SPI pattern: silently skips if `TokenEmbeddingProvider` is not configured
+- Nullable SPI: silently skips if `TokenEmbeddingProvider` is not configured
 
 **Configuration:**
 
@@ -791,7 +791,7 @@ Layer 1: Dense Vector           (HNSW semantic similarity, SQ8/SQ4 quantized)
 - `CognitiveIngestionTarget` Step 9a-splade: SPLADE encoding + indexing at ingestion
 - `RecallPipeline` Step 3c: SPLADE sparse search (parallel to BM25, fused via RRF)
 - `RecallPipeline` Step 6b: ColBERT reranking (top-N candidates after first-stage sort)
-- All features follow the **nullable SPI pattern** — graceful degradation when providers are absent
+- All features follow the **nullable SPI design** — graceful degradation when providers are absent
 
 **Configuration:**
 

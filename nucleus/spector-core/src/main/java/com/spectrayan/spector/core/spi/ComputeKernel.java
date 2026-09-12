@@ -25,7 +25,7 @@ package com.spectrayan.spector.core.spi;
  *
  * <h3>Extensibility</h3>
  * <p>Adding a new operation category corresponds to adding a new {@code ComputeKernel}
- * sub-interface without modifying existing accelerator implementations (Open/Closed Principle).</p>
+ * sub-interface without modifying existing accelerator implementations.</p>
  */
 public interface ComputeKernel {
 }

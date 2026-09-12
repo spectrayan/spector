@@ -80,9 +80,8 @@ public interface ComputeAccelerator extends AutoCloseable {
      * Returns the kernel implementation for the given type, or {@code null}
      * if this accelerator does not support that kernel category.
      *
-     * <p>This capability-query pattern follows JCA's {@code Provider.getService()}
-     * and satisfies the Interface Segregation Principle — accelerators are never
-     * forced to implement kernel types they don't support.</p>
+     * <p>This capability query follows JCA's {@code Provider.getService()} —
+     * accelerators are never forced to implement kernel types they don't support.</p>
      *
      * @param <T> the kernel interface type
      * @param kernelType the kernel interface class (e.g., {@code SimilarityKernel.class})

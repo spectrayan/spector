@@ -15,7 +15,7 @@
 | `core.expression` | Embodied expression generators | `KinesicBlendshapeKernel`, `VocalProsodyKernel` |
 | `core.privacy` | Privacy-preserving mechanisms | `DifferentialPrivacyKernel` |
 | `core.quantization` | Scalar/vector quantization (SVASQ, INT8/4/2, TurboQuant) | `SvasqEncoder`, `ScalarQuantizer`, `TurboQuantizer` |
-| `core.quantization.strategy` | Strategy pattern for quantized distance computation | `SvasqStrategy`, `TurboQuantStrategy`, `PackedBitStrategy` |
+| `core.quantization.strategy` | Pluggable quantized distance computation | `SvasqStrategy`, `TurboQuantStrategy`, `PackedBitStrategy` |
 | `core.simd` | SIMD capability detection | `SimdCapability` |
 
 ---

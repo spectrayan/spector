@@ -41,10 +41,10 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * Abstract base class for HNSW (Hierarchical Navigable Small World) indexes.
  *
  * <p>Encapsulates the complete HNSW graph structure and traversal algorithms,
- * delegating only the distance computation and vector storage to concrete
- * subclasses via the Template Method pattern.</p>
+ * delegating distance computation and vector storage to concrete
+ * subclasses.</p>
  *
- * <h3>Template Methods (subclass hooks)</h3>
+ * <h3>Subclass Hooks</h3>
  * <ul>
  *   <li>{@link #computeDistance(float[], int)} — distance from query to stored node</li>
  *   <li>{@link #getNodeVector(int)} — retrieves the float32 vector for a node (used in pruning)</li>

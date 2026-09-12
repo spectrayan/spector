@@ -30,7 +30,7 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * Interface Segregation (ISP): Consolidation, sleep/dream cycles, policy decision, suppression, and reflection operations.
+ * Consolidation, sleep/dream cycles, policy decision, suppression, and reflection operations.
  *
  * @since 1.4.0
  */

@@ -21,17 +21,17 @@
  *   <li>{@link com.spectrayan.spector.memory.SpectorMemory} — Unified cognitive memory facade</li>
  *   <li>{@link com.spectrayan.spector.memory.SpectorMemoryBuilder} — Fluent configuration and assembly entry</li>
  *   <li>{@link com.spectrayan.spector.memory.SpectorMemoryAdmin} — Administrative inspection and maintenance facade</li>
- *   <li>{@link com.spectrayan.spector.memory.api.MemoryRemember} — Interface Segregation: memory ingestion and encoding operations</li>
- *   <li>{@link com.spectrayan.spector.memory.api.MemoryRecall} — Interface Segregation: fused cognitive retrieval operations</li>
- *   <li>{@link com.spectrayan.spector.memory.api.MemoryReflection} — Interface Segregation: sleep consolidation, decay, dreaming, and metamemory</li>
- *   <li>{@link com.spectrayan.spector.memory.api.MemoryAdminView} — Interface Segregation: metric inspection and soul/identity administration</li>
+ *   <li>{@link com.spectrayan.spector.memory.api.MemoryRemember} — Memory ingestion and encoding operations</li>
+ *   <li>{@link com.spectrayan.spector.memory.api.MemoryRecall} — Fused cognitive retrieval operations</li>
+ *   <li>{@link com.spectrayan.spector.memory.api.MemoryReflection} — Sleep consolidation, decay, dreaming, and metamemory</li>
+ *   <li>{@link com.spectrayan.spector.memory.api.MemoryAdminView} — Metric inspection and soul/identity administration</li>
  *   <li>{@link com.spectrayan.spector.memory.api.ImportanceProvider} — SPI for custom importance scoring algorithms</li>
  *   <li>{@link com.spectrayan.spector.memory.api.SalienceProfileProvider} — SPI for enterprise salience profiles</li>
  * </ul>
  *
  * <h3>Subsystem Packages</h3>
  * <ul>
- *   <li>{@code api/} — Segregated interfaces (ISP) and SPI contracts for fine-grained dependency injection</li>
+ *   <li>{@code api/} — Domain interfaces and SPI contracts for fine-grained dependency injection</li>
  *   <li>{@code bootstrap/} — Subsystem builders, wiring orchestrators, and memory factory</li>
  *   <li>{@code pathway/} — Cognitive pathway pipelines (Remember, Recall, Reflect, Dream, Wander, Express, Decide)</li>
  *   <li>{@code persist/} — Data encryption SPI, layout versioning, WAL recovery, PartitionManager, and lifecycle persistence</li>

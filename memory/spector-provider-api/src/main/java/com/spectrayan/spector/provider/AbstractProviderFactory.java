@@ -27,7 +27,7 @@ import java.util.Optional;
  * concerns such as {@link CachingEmbeddingProvider} decoration when a {@link SpectorCacheManager}
  * is provided and caching is enabled.
  *
- * <p>Uses the Template Method pattern: concrete subclasses implement
+ * <p>Concrete subclasses implement
  * {@link #createRawEmbeddingProvider(ProviderConfig)} and/or
  * {@link #createGenerationProvider(ProviderConfig)}.</p>
  *

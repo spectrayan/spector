@@ -17,7 +17,7 @@ import java.util.Collections;
 import java.util.Set;
 
 /**
- * Immutable options for graph traversal queries with a builder pattern.
+ * Immutable options for graph traversal queries with fluent configuration.
  * <p>
  * Example usage:
  * <pre>

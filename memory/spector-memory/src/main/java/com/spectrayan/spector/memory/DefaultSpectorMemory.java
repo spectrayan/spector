@@ -84,8 +84,8 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * Default implementation of {@link SpectorMemory}  --  the Zero-GC Cognitive Backbone for Autonomous Agents.
  *
- * <h3>Design Pattern: FaÃ§ade</h3>
- * <p>{@code DefaultSpectorMemory} is a thin faÃ§ade that composes and delegates to focused subsystems:</p>
+ * <h3>Subsystem Orchestration</h3>
+ * <p>{@code DefaultSpectorMemory} composes and delegates to focused subsystems:</p>
  * <ul>
  *   <li>{@link RememberPathway}  --  multi-stage ingest (embed  ->  quantize  ->  route  ->  WAL)</li>
  *   <li>{@link RecallPathway}  --  multi-stage recall (embed  ->  score  ->  filter  ->  sort)</li>

@@ -56,7 +56,7 @@ public final class SpectorClient implements AutoCloseable {
     }
 
     /**
-     * Start configuring a new {@link SpectorClient} using the builder pattern.
+     * Start configuring a new {@link SpectorClient}.
      */
     public static Builder builder() {
         return new Builder();

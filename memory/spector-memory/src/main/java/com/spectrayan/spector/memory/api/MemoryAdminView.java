@@ -21,7 +21,7 @@ import com.spectrayan.spector.memory.scheduler.MemoryScheduler;
 import java.util.List;
 
 /**
- * Interface Segregation (ISP): Administration, statistics, identity application, and telemetry view.
+ * Administration, statistics, identity application, and telemetry view.
  *
  * @since 1.4.0
  */

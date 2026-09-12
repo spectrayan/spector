@@ -21,7 +21,7 @@ CLI/MCP/Server → IngestionPipeline
              (CognitiveIngestionTarget)
 ```
 
-- **`IngestionPipeline`** (in `spector-ingestion`) — unified chunk → embed → store orchestrator with builder pattern
+- **`IngestionPipeline`** (in `spector-ingestion`) — unified chunk → embed → store orchestrator
 - **`IngestionTarget`** (in `spector-ingestion`) — abstraction for storage backends (e.g. `memory.target()`)
 - **`FileDiscoveryService`** (in `spector-ingestion`) — pure file discovery + title extraction utility
 
@@ -33,7 +33,7 @@ The ingestion module is a **low-level utility** with no dependency on engine, ru
 
 | Class | Purpose |
 |-------|---------|
-| `IngestionPipeline` | Builder-configured orchestrator — chunk → embed → store |
+| `IngestionPipeline` | Configured orchestrator — chunk → embed → store |
 | `IngestionTarget` | Interface for storage backends (`ingest(id, text, vector)`) |
 | `IngestionResult` | Outcome with chunk counts, failures, timing |
 | `FileDiscoveryService` | File discovery, title extraction, config-driven filtering |
@@ -55,7 +55,7 @@ flowchart LR
 
 ---
 
-## 🏗️ Builder Pattern
+## 🏗️ Pipeline Configuration
 
 The pipeline is configured once via a builder, then reused for all ingestion in a session:
 

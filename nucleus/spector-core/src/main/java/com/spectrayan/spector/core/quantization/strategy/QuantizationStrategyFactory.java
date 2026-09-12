@@ -47,7 +47,7 @@ import com.spectrayan.spector.core.similarity.SimilarityFunction;
  *   float dist = strategy.distance(segment, offset, ctx);
  * }</pre>
  *
- * <h3>Open/Closed principle</h3>
+ * <h3>Extensibility</h3>
  * <p>To add a new quantization type: implement {@link QuantizationStrategy},
  * add a case here. {@code QuantizedVectorStore} and {@code QuantizedHnswIndex}
  * do not change.</p>
