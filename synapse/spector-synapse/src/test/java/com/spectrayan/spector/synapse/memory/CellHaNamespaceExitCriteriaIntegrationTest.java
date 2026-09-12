@@ -365,6 +365,58 @@ class CellHaNamespaceExitCriteriaIntegrationTest {
     }
 
     @Test
+    @DisplayName("M1 / Req R8.2: A corrupt layout marker fails loud instead of opening the namespace anyway")
+    void corruptLayoutMarker_failsLoud() throws IOException {
+        Account alice = createAccount(ALICE_ID, TENANT_ACME);
+        when(catalog.getOrCreateAccount(ALICE_ID)).thenReturn(alice);
+        when(catalog.getAccount(ALICE_ID)).thenReturn(alice);
+
+        NamespaceRecord record = new NamespaceRecord(
+                NS_JIRA, "jira", ALICE_ID, NamespaceType.AGENT, NamespaceStatus.ACTIVE,
+                "Jira", null, null, Instant.now(), Instant.now());
+        when(catalog.resolve(ALICE_ID, "jira")).thenReturn(Optional.of(record));
+
+        Path dir = NamespacePathResolver.resolve(basePath, TENANT_ACME, NS_JIRA).dir();
+        Files.createDirectories(dir);
+        Files.writeString(dir.resolve(StoragePaths.FILE_NAMESPACE), "{ this is not valid json");
+
+        try (NamespaceResolver resolver = createResolver()) {
+            assertThatThrownBy(() -> resolver.resolve(ALICE_ID, "jira"))
+                    .as("an unreadable marker must not degrade to a warning: the marker is the only "
+                            + "protection against opening under the wrong layout")
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining(NS_JIRA);
+
+            assertThat(resolver.cachedInstanceCount()).isZero();
+            verify(runtime, never()).attach(eq(NS_JIRA), any());
+        }
+    }
+
+    @Test
+    @DisplayName("M1 / Req R8.2: An unrecognised layout id fails loud")
+    void unrecognisedLayoutId_failsLoud() throws IOException {
+        Account alice = createAccount(ALICE_ID, TENANT_ACME);
+        when(catalog.getOrCreateAccount(ALICE_ID)).thenReturn(alice);
+        when(catalog.getAccount(ALICE_ID)).thenReturn(alice);
+
+        NamespaceRecord record = new NamespaceRecord(
+                NS_JIRA, "jira", ALICE_ID, NamespaceType.AGENT, NamespaceStatus.ACTIVE,
+                "Jira", null, null, Instant.now(), Instant.now());
+        when(catalog.resolve(ALICE_ID, "jira")).thenReturn(Optional.of(record));
+
+        Path dir = NamespacePathResolver.resolve(basePath, TENANT_ACME, NS_JIRA).dir();
+        Files.createDirectories(dir);
+        Files.writeString(dir.resolve(StoragePaths.FILE_NAMESPACE),
+                "{\"layout\": \"SomeFutureResolver.thatWeDoNotKnow\"}");
+
+        try (NamespaceResolver resolver = createResolver()) {
+            assertThatThrownBy(() -> resolver.resolve(ALICE_ID, "jira"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining(NS_JIRA);
+        }
+    }
+
+    @Test
     @DisplayName("C1: An ownerless record is placed deterministically on the flat layout, whoever opens it first")
     void ownerlessNamespace_placedDeterministicallyOnFlatLayout() {
         // NamespaceRecord carries no tenantId, so a record with no owner account has no tenant to

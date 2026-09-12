@@ -575,30 +575,40 @@ public class NamespaceResolver implements AutoCloseable {
             jsonMapper = new ObjectMapper();
         }
         if (Files.exists(markerFile)) {
+            // A marker that cannot be read or understood must not be shrugged off. The marker is the
+            // backstop against opening a namespace under the wrong layout and silently re-initialising
+            // it as empty, so degrading to a warning here would hand back exactly the failure it
+            // exists to prevent (Req R8.2).
+            Layout foundLayout;
+            String recordedLayout;
             try {
                 JsonNode node = jsonMapper.readTree(markerFile.toFile());
-                String recordedLayout = null;
+                String recorded = null;
                 if (node.has("layout")) {
-                    recordedLayout = node.get("layout").asText();
+                    recorded = node.get("layout").asText();
                 } else if (node.has("pathHelper")) {
-                    recordedLayout = node.get("pathHelper").asText();
+                    recorded = node.get("pathHelper").asText();
                 }
-                Layout foundLayout;
-                if (recordedLayout == null || recordedLayout.isBlank()) {
+                if (recorded == null || recorded.isBlank()) {
+                    // An absent field is the single permitted inference: markers predate this field,
+                    // and every such namespace is on the flat layout.
                     foundLayout = Layout.FLAT_SHA256;
                     recordedLayout = Layout.FLAT_SHA256.id();
                 } else {
-                    foundLayout = Layout.fromId(recordedLayout);
+                    foundLayout = Layout.fromId(recorded);
+                    recordedLayout = recorded;
                 }
-                if (foundLayout != placement.layout()) {
-                    throw new IllegalStateException(String.format(
-                            "Namespace layout mismatch for namespace '%s': expected %s (%s), found %s (%s)",
-                            namespaceId, placement.layout(), placement.layout().id(), foundLayout, recordedLayout));
-                }
-            } catch (IllegalStateException e) {
-                throw e;
-            } catch (Exception e) {
-                log.warn("[NamespaceResolver] failed to parse layout marker {}: {}", markerFile, e.getMessage());
+            } catch (IOException | IllegalArgumentException e) {
+                throw new IllegalStateException(String.format(
+                        "Namespace '%s' has an unreadable or unrecognised layout marker at %s. Refusing to "
+                                + "open it: the recorded layout cannot be compared against the expected %s, and "
+                                + "proceeding risks re-initialising the namespace as empty.",
+                        namespaceId, markerFile, placement.layout().id()), e);
+            }
+            if (foundLayout != placement.layout()) {
+                throw new IllegalStateException(String.format(
+                        "Namespace layout mismatch for namespace '%s': expected %s (%s), found %s (%s)",
+                        namespaceId, placement.layout(), placement.layout().id(), foundLayout, recordedLayout));
             }
         } else {
             try {
@@ -610,7 +620,12 @@ public class NamespaceResolver implements AutoCloseable {
                 markerData.put("namespaceId", placement.namespaceId());
                 jsonMapper.writeValue(markerFile.toFile(), markerData);
             } catch (IOException e) {
-                log.warn("[NamespaceResolver] failed to write layout marker {}: {}", markerFile, e.getMessage());
+                // An unmarked namespace is indistinguishable from a flat-layout one on the next open,
+                // so a namespace that cannot record its layout must not be served (Req R8.1).
+                throw new IllegalStateException(String.format(
+                        "Could not record the layout marker for namespace '%s' at %s. Refusing to open it: "
+                                + "an unmarked directory would be read as flat-layout on the next open.",
+                        namespaceId, markerFile), e);
             }
         }
 

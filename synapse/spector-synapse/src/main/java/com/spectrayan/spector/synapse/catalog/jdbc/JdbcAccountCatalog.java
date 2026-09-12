@@ -371,6 +371,18 @@ public class JdbcAccountCatalog implements AccountCatalog {
     }
 
     @Override
+    public List<NamespaceRecord> listOwnedNamespaces(String accountId) {
+        Objects.requireNonNull(accountId, "accountId must not be null");
+        // Unfiltered on status so tombstoned namespaces, whose bundle files still exist, remain
+        // visible to migration and tenant-prefix wipe (Req R9.1).
+        String sql = sqlLoader.load("catalog/namespaces/list-owned");
+        return jdbc.sql(sql)
+                .param("ownerAccountId", accountId)
+                .query(this::mapNamespaceRow)
+                .list();
+    }
+
+    @Override
     @Transactional
     public void setDefaultNamespace(String accountId, String namespaceId) {
         Objects.requireNonNull(accountId, "accountId must not be null");

@@ -207,9 +207,11 @@ public class TenantNamespaceMigrator {
             String accountId = account.id();
             List<NamespaceRecord> records;
             try {
-                records = catalog.listAccessible(accountId).stream()
-                        .filter(r -> accountId.equals(r.ownerAccountId()))
-                        .toList();
+                // Owner-scoped and status-inclusive. listAccessible is an authorization view: it hides
+                // tombstoned namespaces and includes ones the account only holds a grant on, so using
+                // it left tombstoned directories stranded on the flat layout, outside the tenant
+                // prefix a wipe would delete (Req R9.1).
+                records = catalog.listOwnedNamespaces(accountId);
             } catch (Exception e) {
                 log.error("[TenantNamespaceMigrator] Failed to list namespaces for account '{}': {}", accountId, e.getMessage(), e);
                 errors.incrementAndGet();

@@ -15,11 +15,9 @@
  */
 package com.spectrayan.spector.kernel.storage;
 
-import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 
 import java.nio.file.Path;
-import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -103,11 +101,7 @@ public final class NamespacePathResolver {
                     namespaceId
             );
         }
-        StoragePaths.validateNamespaceId(tenantId);
-        if (!tenantId.equals(tenantId.toLowerCase(Locale.ROOT))) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
-                    "namespace identifier", "tenant identifier must be lowercase");
-        }
+        StoragePaths.validateTenantId(tenantId);
         return new Placement(
                 StoragePaths.tenantRootedNamespaceDir(root, tenantId, namespaceId),
                 Layout.TENANT_SHA256,
@@ -130,11 +124,7 @@ public final class NamespacePathResolver {
      */
     public static Path tenantPrefix(Path root, String tenantId) {
         Objects.requireNonNull(root, "root path must not be null");
-        StoragePaths.validateNamespaceId(tenantId);
-        if (!tenantId.equals(tenantId.toLowerCase(Locale.ROOT))) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
-                    "namespace identifier", "tenant identifier must be lowercase");
-        }
+        StoragePaths.validateTenantId(tenantId);
         Path tenantDir = StoragePaths.shard2(root.resolve(StoragePaths.DIR_TENANTS), tenantId).resolve(tenantId);
         return StoragePaths.safeResolve(root, tenantDir);
     }

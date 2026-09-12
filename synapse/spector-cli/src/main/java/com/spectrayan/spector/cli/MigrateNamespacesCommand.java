@@ -24,6 +24,7 @@ import com.spectrayan.spector.synapse.migration.TenantNamespaceMigrator;
 import com.spectrayan.spector.synapse.migration.TenantNamespaceMigrator.MigrationSummary;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -118,8 +119,14 @@ public class MigrateNamespacesCommand extends BaseCommand {
         }
 
         if (summary.hasErrors()) {
-            err.println("Migration completed with errors.");
-            System.exit(1);
+            // Signal failure by throwing, not System.exit. SpectorCtl.ExceptionHandler maps this to
+            // exit code 1 and SpectorCliApplication owns the single top-level System.exit, so the
+            // Spring context still shuts down cleanly. Calling System.exit here skipped context
+            // shutdown entirely, which means mmap arenas and the rememberer root lock were never
+            // released, and it made the command untestable in-process.
+            throw new CommandLine.ExecutionException(spec.commandLine(), String.format(
+                    "Migration completed with errors: %d namespace(s) failed. See the log for details.",
+                    summary.errors()));
         }
     }
 }

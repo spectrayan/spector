@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.synapse.migration;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.kernel.storage.NamespacePathResolver;
@@ -58,6 +59,7 @@ class TenantNamespaceMigratorTest {
     private static final String NS_ALICE = "018f9b8c000070008000000000000010";
     private static final String NS_BOB = "018f9b8c000070008000000000000020";
     private static final String NS_CHARLIE = "018f9b8c000070008000000000000030";
+    private static final String NS_TOMBSTONED = "018f9b8c000070008000000000000040";
 
     @BeforeEach
     void setUp() {
@@ -86,6 +88,30 @@ class TenantNamespaceMigratorTest {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * Registers an additional owned namespace on an already-seeded account, with an explicit status.
+     * Written straight into the catalog files because {@code tombstone()} refuses to touch a DEFAULT
+     * namespace, and a DEFAULT namespace is all {@link #seedAccount} creates.
+     */
+    private void seedAdditionalNamespace(String accountId, String namespaceId, String slug,
+            NamespaceType type, NamespaceStatus status) throws IOException {
+        Path accountDir = StoragePaths.accountDir(tempDir, accountId);
+        Map<String, NamespaceRecord> namespaces = new java.util.HashMap<>(objectMapper.readValue(
+                accountDir.resolve("namespaces.json").toFile(),
+                new TypeReference<Map<String, NamespaceRecord>>() {}));
+        Map<String, String> slugs = new java.util.HashMap<>(objectMapper.readValue(
+                accountDir.resolve("slugs.json").toFile(),
+                new TypeReference<Map<String, String>>() {}));
+
+        namespaces.put(namespaceId, new NamespaceRecord(
+                namespaceId, slug, accountId, type, status,
+                slug, "Test namespace", null, Instant.now(), Instant.now()));
+        slugs.put(slug, namespaceId);
+
+        objectMapper.writeValue(accountDir.resolve("namespaces.json").toFile(), namespaces);
+        objectMapper.writeValue(accountDir.resolve("slugs.json").toFile(), slugs);
     }
 
     private String seedNamespaceAtLayoutA(String namespaceId, byte[] payload) throws IOException {
@@ -256,6 +282,37 @@ class TenantNamespaceMigratorTest {
         assertThat(summary.migrated()).isEqualTo(1);
         assertThat(summary.errors()).isEqualTo(0);
         assertThat(Files.exists(aliceLayoutB)).isTrue();
+    }
+
+    @Test
+    @DisplayName("M2 / Req R9.1: A tombstoned namespace is still migrated, so a tenant wipe reaches it")
+    void tombstonedNamespaceIsStillMigrated() throws IOException {
+        seedAccount(ALICE_ID, TENANT_ACME, NS_ALICE);
+        seedNamespaceAtLayoutA(NS_ALICE, "Alice default data".getBytes(StandardCharsets.UTF_8));
+
+        // A tombstoned namespace is logically deleted but its bundle files remain on disk, because no
+        // tombstone garbage collector exists.
+        seedAdditionalNamespace(ALICE_ID, NS_TOMBSTONED, "archived",
+                NamespaceType.AGENT, NamespaceStatus.TOMBSTONED);
+        byte[] payload = "Alice tombstoned data".getBytes(StandardCharsets.UTF_8);
+        String expectedDigest = seedNamespaceAtLayoutA(NS_TOMBSTONED, payload);
+
+        Path tombstonedLayoutB = NamespacePathResolver.resolve(tempDir, TENANT_ACME, NS_TOMBSTONED).dir();
+        Path tenantPrefix = NamespacePathResolver.tenantPrefix(tempDir, TENANT_ACME);
+
+        MigrationSummary summary = TenantNamespaceMigrator.migrate(
+                tempDir, catalog, null, meterRegistry, objectMapper, false);
+
+        assertThat(summary.migrated())
+                .as("both the default and the tombstoned namespace must move. listAccessible hides "
+                        + "tombstoned records, which left their files stranded on the flat layout outside "
+                        + "the tenant wipe prefix")
+                .isEqualTo(2);
+        assertThat(summary.errors()).isZero();
+        assertThat(sha256(Files.readAllBytes(tombstonedLayoutB.resolve("records.dat")))).isEqualTo(expectedDigest);
+        assertThat(tombstonedLayoutB)
+                .as("a tenant-prefix wipe must now reach the tombstoned namespace's files")
+                .startsWith(tenantPrefix);
     }
 
     @Test

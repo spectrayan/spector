@@ -17,6 +17,7 @@ import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.synapse.catalog.Account;
 import com.spectrayan.spector.synapse.catalog.AccountCatalog;
 import com.spectrayan.spector.synapse.catalog.NamespaceRecord;
+import com.spectrayan.spector.synapse.catalog.NamespaceStatus;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,8 +92,11 @@ public class TenantNamespaceStartupDetector {
         for (Account account : tenantedAccounts) {
             String tenantId = account.tenantId();
             String accountId = account.id();
-            List<NamespaceRecord> records = catalog.listAccessible(accountId).stream()
-                    .filter(r -> accountId.equals(r.ownerAccountId()))
+            // Tombstoned namespaces are migrated (so a tenant wipe reaches them) but must not block
+            // readiness: nothing can open one, so an unmigrated tombstone is not a correctness risk
+            // at boot. Migration completeness is the migrator's concern, not the gate's.
+            List<NamespaceRecord> records = catalog.listOwnedNamespaces(accountId).stream()
+                    .filter(r -> r.status() != NamespaceStatus.TOMBSTONED)
                     .toList();
             for (NamespaceRecord record : records) {
                 String nsId = record.namespaceId();

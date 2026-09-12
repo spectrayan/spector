@@ -75,6 +75,10 @@ class TenantNamespaceStartupDetectorTest {
 
         catalog = mock(AccountCatalog.class);
         when(catalog.listTenantedAccounts()).thenReturn(List.of(alice));
+        // The detector reads owned namespaces, not the accessible view, so tombstoned records are
+        // visible to migration (Req R9.1). Mockito does not run interface default methods, so this
+        // must be stubbed explicitly rather than inherited from listAccessible.
+        when(catalog.listOwnedNamespaces(ALICE_ID)).thenReturn(List.of(record));
         when(catalog.listAccessible(ALICE_ID)).thenReturn(List.of(record));
     }
 

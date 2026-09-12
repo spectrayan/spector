@@ -23,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.file.*;
@@ -633,6 +634,26 @@ public class FileAccountCatalog implements AccountCatalog {
             return List.of();
         }
         return snapshot.accessibleNamespaces(accountId);
+    }
+
+    @Override
+    public List<NamespaceRecord> listOwnedNamespaces(String accountId) {
+        // Reads the namespaces file directly rather than going through the accessible-namespaces
+        // view, so tombstoned records are included (Req R9.1).
+        Path namespacesFile = StoragePaths.accountDir(basePath, accountId).resolve(FILE_NAMESPACES);
+        if (!Files.exists(namespacesFile)) {
+            return List.of();
+        }
+        try {
+            Map<String, NamespaceRecord> namespaces = objectMapper.readValue(
+                    namespacesFile.toFile(), new TypeReference<Map<String, NamespaceRecord>>() {});
+            return namespaces.values().stream()
+                    .filter(r -> accountId.equals(r.ownerAccountId()))
+                    .toList();
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] failed to list owned namespaces for account {}", accountId, e);
+            throw new UncheckedIOException("Failed to list owned namespaces for account " + accountId, e);
+        }
     }
 
     @Override

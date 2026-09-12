@@ -284,6 +284,29 @@ public final class StoragePaths {
     }
 
     /**
+     * Validates a tenant identifier that is about to become a path component.
+     *
+     * <p>Applies every {@link #validateNamespaceId(String)} rule — so the hardened fail-closed error
+     * contract carries over unchanged — and additionally requires lowercase.</p>
+     *
+     * <p>The lowercase requirement exists because the shard segments are lowercased while the tenant
+     * segment keeps its original case. On a case-insensitive filesystem such as macOS APFS, tenants
+     * {@code Acme} and {@code acme} would then resolve to the same directory and their data would be
+     * mixed. Rejecting mixed case is the cheapest way to make the layout behave identically on every
+     * platform (Req R4.3, R4.6).</p>
+     *
+     * @param tenantId the tenant identifier
+     * @throws SpectorValidationException if the identifier is invalid or not lowercase
+     */
+    public static void validateTenantId(String tenantId) {
+        validateNamespaceId(tenantId);
+        if (!tenantId.equals(tenantId.toLowerCase(java.util.Locale.ROOT))) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "namespace identifier", "tenant identifier must be lowercase");
+        }
+    }
+
+    /**
      * Resolves a two-level SHA-256 shard path under {@code parent}: {@code parent/XX/YY/}.
      *
      * @param parent the parent directory
@@ -351,11 +374,7 @@ public final class StoragePaths {
      * @throws SpectorValidationException if either identifier is invalid or fails traversal checks
      */
     public static Path tenantRootedNamespaceDir(Path basePath, String tenantId, String namespaceId) {
-        validateNamespaceId(tenantId);
-        if (!tenantId.equals(tenantId.toLowerCase(java.util.Locale.ROOT))) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
-                    "namespace identifier", "tenant identifier must be lowercase");
-        }
+        validateTenantId(tenantId);
         validateNamespaceId(namespaceId);
         Path tenantDir = shard2(basePath.resolve(DIR_TENANTS), tenantId).resolve(tenantId);
         Path nsDir = shard2(tenantDir.resolve(DIR_NAMESPACES), namespaceId).resolve(namespaceId);
