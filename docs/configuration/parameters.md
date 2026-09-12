@@ -264,12 +264,12 @@ SPECTOR_API_KEY=my-secret-key mvn -Psynapse -pl synapse/spector-synapse spring-b
 
 | Parameter | Default | Range | Description |
 |-----------|---------|-------|-------------|
-| `spector.namespace.tenant-rooted.enabled` | `true` | true/false | Enables tenant-rooted namespace sharding layout (`tenants/XX/YY/tenantId/namespaces/ZZ/WW/namespaceId`) for tenanted accounts (ADR-0034). Untenanted accounts (`tenantId == null`) always resolve to legacy flat sharded path (`namespaces/XX/YY/namespaceId`). |
+| `spector.namespace.tenant-rooted.enabled` | `true` | true/false | Enables tenant-rooted namespace sharding layout (`tenants/XX/YY/tenantId/namespaces/ZZ/WW/namespaceId`) for tenanted accounts. Untenanted accounts (`tenantId == null`) always resolve to legacy flat sharded path (`namespaces/XX/YY/namespaceId`). |
 | `spector.namespace.dual-read.enabled` | `true` | true/false | Enables dual-read fallback from layout B (tenant-rooted) to layout A (flat) during migration window (Req R5.3). Never dual-writes (I6). Fallbacks increment `spector.namespace.layout.fallback`. |
 
 > [!NOTE]
 > **Data Plane vs. Identity Plane Root Distinction**:
-> - `spector.data-dir`: The node-level data directory holding `db/synapse.mv.db` (catalog) and `identity/` (character-prefix sharded soul & salience bundles per ADR-0029 §23).
+> - `spector.data-dir`: The node-level data directory holding `db/synapse.mv.db` (catalog) and `identity/` (character-prefix sharded soul & salience bundles).
 > - `spector.memory.persistence-path` (or `persistence-path`): The rememberer persistence root (defaults to `${spector.data-dir}/cognitive` in Synapse, or `.spector/memory` in embedded kernel). All data plane rememberers (`NamespacePathResolver`) resolve relative to this directory.
 
 ### Retrieval Stack Parameters
@@ -392,7 +392,7 @@ var config = SpectorConfig.DEFAULT
 
 ## 🌐 Cell High Availability & Ownership Ring (`spector.cell.*`)
 
-Spector Synapse supports multi-node Cell High Availability via a Ketama consistent hash ring (ADR-0034, Phase 1).
+Spector Synapse supports multi-node Cell High Availability via a Ketama consistent hash ring.
 
 | Property | Environment Variable | Default | Allowed Values | Description |
 |:---|:---|:---|:---|:---|
@@ -404,8 +404,8 @@ Spector Synapse supports multi-node Cell High Availability via a Ketama consiste
 | `spector.cell.ring.members-file`| `SPECTOR_CELL_RING_MEMBERS_FILE`| `null` | Path string | Path to newline-delimited member list file (used in Docker Compose). |
 
 > [!IMPORTANT]
-> **Phase 1 Reload Semantics & Single-Writer Invariants**:
-> - **Restart-Only**: In Phase 1, membership and ring configuration are loaded at startup and are **restart-only** (Req R7.4). Dynamic ring membership and coordinator-managed leases arrive in Phase 4.
+> **Cell Topology Semantics & Single-Writer Invariants**:
+> - **Dynamic Reload**: Membership and ring configuration can be loaded at startup or reloaded dynamically without restart via control store updates.
 > - **Ownership vs. Placement**: Namespace **ownership** (which server process is the authoritative single writer) is decided purely in-memory by the Ketama ring prior to namespace open. **Placement** (which filesystem directory holds the partition bundle) is determined by storage tenant paths (`StoragePaths`) and remains completely invariant to cluster routing changes (Invariant J6).
 > - **Fail-Closed**: Non-owner nodes refuse both writes and recall with HTTP `421 Misdirected Request` (`NamespaceNotOwnedException`) identifying the authoritative owner node and ring epoch. Non-owner nodes **never** invoke `runtime.attach` or map files into memory.
 
@@ -413,7 +413,7 @@ Spector Synapse supports multi-node Cell High Availability via a Ketama consiste
 
 ## ⚡ Cell Routing Cache & Gateway Resilience (`spector.routing.*`)
 
-Spector Synapse Phase 2 accelerates routing resolution via a three-tier waterfall (`L1 Caffeine` $\to$ `L2 Redis` $\to$ `L3 Ketama Hash Ring fallback`), provides pub/sub invalidation, and implements gateway forwarding with bounded retry (ADR-0034, Phase 2).
+Spector Synapse accelerates routing resolution via a three-tier waterfall (`L1 Caffeine` $\to$ `L2 Redis` $\to$ `L3 Ketama Hash Ring fallback`), provides pub/sub invalidation, and implements gateway forwarding with bounded retry.
 
 | Property | Environment Variable | Default | Allowed Values | Description |
 |:---|:---|:---|:---|:---|
@@ -427,7 +427,7 @@ Spector Synapse Phase 2 accelerates routing resolution via a three-tier waterfal
 
 > [!NOTE]
 > **Operational Note — Redis Outage Behavior (Req R9.2)**:
-> - **What breaks when Redis is down**: Latency increases slightly as lookups fall back to local pure-computation Ketama ring evaluation. Failover overrides (Phase 4) are temporarily masked until the control store republishes.
+> - **What breaks when Redis is down**: Latency increases slightly as lookups fall back to local pure-computation Ketama ring evaluation. Failover overrides are temporarily masked until the control store republishes.
 > - **What does NOT break**: **Single-writer correctness and write availability never break.** The cell functions continuously as a single-writer system even if Redis crashes entirely (Invariant K1). Zero dual-writers, zero data loss. Operators should not page on transient Redis hiccups.
 > - **Production Topology (Req R9.3, R9.4)**: Managed cloud offerings (AWS ElastiCache, GCP Memorystore, Azure Cache for Redis) are recommended for production; containerized Redis is for local testing. Redis instances **must be provisioned per cell**, never shared across multi-region cells.
 
@@ -435,7 +435,7 @@ Spector Synapse Phase 2 accelerates routing resolution via a three-tier waterfal
 
 ## 🔄 Cell Snapshot Replication & Replica Recall (`spector.replication.*`)
 
-Spector Synapse Phase 3 enables high-throughput asynchronous namespace replication from authoritative cell owners to clean replica nodes over a dedicated mutual TLS 1.3 transport, bounded-staleness replica recall, and sealed-partition deduplication (ADR-0034, Phase 3).
+Spector Synapse enables high-throughput asynchronous namespace replication from authoritative cell owners to clean replica nodes over a dedicated mutual TLS 1.3 transport, bounded-staleness replica recall, and sealed-partition deduplication.
 
 | Property | Environment Variable | Default | Allowed Values | Description |
 |:---|:---|:---|:---|:---|
@@ -455,6 +455,32 @@ Spector Synapse Phase 3 enables high-throughput asynchronous namespace replicati
 > - **Three Simultaneous Conditions (Req R10.1, N7)**: A replica serves recall if and only if: (1) namespace is locally mapped, (2) $(\text{now} - \text{snapshotTime}) \le \text{maxReplicaLagSeconds}$, and (3) incoming request permits replica reads. If staleness bound is violated, the replica **refuses rather than serves** stale data (`ReplicaStalenessExceededException`).
 > - **Unconditional Write Refusal (Req R10.6, Invariant N2)**: A replica **never** writes. Any write operation dispatched to a replica is rejected immediately with HTTP 405 (`ReplicaWriteRefusedException`). The `X-Spector-Allow-Replica` header widens read consistency, never write routing.
 > - **HWM-Advance-Last Crash Safety (Req R5.2, N5)**: The replica apply engine extracts bundles to temporary staging, fsyncs, cryptographically verifies magic `0x534D4B4D`, layout `0x42554E44`, and SHA-256 digests against the manifest, atomically renames files into place, replays WAL records, and advances the High-Water Mark **last**. A crash during transfer or apply leaves existing data intact and corrupt bytes unpublishable.
+
+---
+
+## 🛡️ Cell Failover, Fencing & Coordination (`spector.failover.*`, `spector.coordinator.*`, `spector.control-store.*`)
+
+Spector Synapse provides lease coordinator election, monotonic write fence tokens, automated monitored failover, dynamic ring reloads, and maintenance draining across multi-node cells.
+
+| Property | Environment Variable | Default | Allowed Values | Description |
+|:---|:---|:---|:---|:---|
+| `spector.failover.enabled` | `SPECTOR_FAILOVER_ENABLED` | `false` | Boolean | **Safety Pin**: Master switch for automated failover orchestration. Defaults strictly `false`. |
+| `spector.failover.mode` | `SPECTOR_FAILOVER_MODE` | `observe_only` | `observe_only`, `active` | Staged rollout mode. `observe_only` evaluates and logs structured audit records without mutating cluster topology. |
+| `spector.failover.fail-after-seconds` | `SPECTOR_FAILOVER_FAIL_AFTER_SECONDS` | `15` | Integer $\ge 1$ | Continuous readiness probe failure duration before declaring owner node down. Prevents false positives from single missed probes. |
+| `spector.failover.cooldown-seconds` | `SPECTOR_FAILOVER_COOLDOWN_SECONDS` | `60` | Integer $\ge 1$ | Hysteresis bound suppressing repeated promotions on flapping or oscillating nodes. |
+| `spector.coordinator.lease-duration-seconds` | `SPECTOR_COORDINATOR_LEASE_DURATION_SECONDS` | `15` | Integer $\ge 5$ | Duration of renewable cell coordinator lease held in the control store. |
+| `spector.coordinator.renew-interval-seconds` | `SPECTOR_COORDINATOR_RENEW_INTERVAL_SECONDS` | `10` | Integer $\ge 1$ | Background heartbeat interval for coordinator lease renewal. |
+| `spector.override.ttl-seconds` | `SPECTOR_OVERRIDE_TTL_SECONDS` | `300` | Integer $\ge 10$ | Time-to-live for explicit namespace override leases pinning namespaces to survivor nodes. |
+| `spector.control-store.type` | `SPECTOR_CONTROL_STORE_TYPE` | `in-memory` | `in-memory`, `file`, `k8s` | Single-source-of-truth store holding membership, coordinator lease, and override records. |
+| `spector.control-store.file-path` | `SPECTOR_CONTROL_STORE_FILE_PATH` | `null` | Path string | Filesystem path for durable JSON control store when `control-store.type=file`. |
+
+> [!IMPORTANT]
+> **Fencing, Single-Writer Invariance & Recovery Guarantees**:
+> - **Monotonic Fence Tokens**: Every write request carries the current namespace fence token (`X-Spector-Fence`). Writing to a partitioned, stale, or superseded owner node is rejected with HTTP 409 Conflict (`FENCED`). Validation is in-memory, allocation-free, and I/O-free.
+> - **Precedence Over Hash**: Active override leases in the control store strictly supersede consistent hash ring resolution. Hash ring resolution resumes only after safe lease expiration or explicit release.
+> - **Verify Before Promote**: Survivor candidate data is cryptographically and structurally validated before promotion. If validation fails, promotion is refused to prevent defect propagation into data loss.
+> - **In-Flight Request Expectations**: In-flight requests holding region leases on a failed node die with the process. Clients receive connection drops or refusals and retry transparently against the newly promoted survivor.
+> - **Volatile Memory Handling**: In-memory working state is lost during ungraceful node crash. Durable committed records are preserved with zero data loss (RPO = 0). Clients detect failover transitions via the incremented namespace epoch.
 
 ---
 

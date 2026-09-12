@@ -118,6 +118,17 @@ public class MemoryRequestBinder {
             AccountCatalog catalog,
             MemoryRegistry registry,
             SynapseProperties synapseProps,
+            ObjectProvider<SpectorMemory> sharedMemoryProvider,
+            ObjectProvider<IdentityPlane> identityPlaneProvider,
+            ObjectProvider<OwnershipResolver> ownershipResolverProvider,
+            ObjectProvider<MeterRegistry> meterRegistryProvider) {
+        this(catalog, registry, synapseProps, sharedMemoryProvider, identityPlaneProvider, ownershipResolverProvider, meterRegistryProvider, null);
+    }
+
+    public MemoryRequestBinder(
+            AccountCatalog catalog,
+            MemoryRegistry registry,
+            SynapseProperties synapseProps,
             OwnershipResolver ownershipResolver) {
         this(catalog, registry, synapseProps, ownershipResolver, null);
     }
