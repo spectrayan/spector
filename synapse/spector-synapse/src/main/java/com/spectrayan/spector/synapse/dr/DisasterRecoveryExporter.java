@@ -163,20 +163,26 @@ public class DisasterRecoveryExporter {
 
     /**
      * Computes the measured 99th percentile RPO in seconds (G29).
+     * Returns empty when no export intervals have been measured yet.
      */
-    public double getMeasuredP99RpoSeconds() {
+    public OptionalDouble getMeasuredP99RpoSeconds() {
         List<Long> intervals = new ArrayList<>(measuredIntervalsSec);
         if (intervals.isEmpty()) {
-            return properties.getExportIntervalSeconds();
+            return OptionalDouble.empty();
         }
         Collections.sort(intervals);
         int p99Index = (int) Math.ceil(0.99 * intervals.size()) - 1;
         p99Index = Math.max(0, Math.min(p99Index, intervals.size() - 1));
-        return intervals.get(p99Index);
+        return OptionalDouble.of(intervals.get(p99Index));
     }
 
-    public long getMeasuredP99Rpo() {
-        return Math.round(getMeasuredP99RpoSeconds());
+    public OptionalLong getMeasuredP99Rpo() {
+        OptionalDouble p99 = getMeasuredP99RpoSeconds();
+        return p99.isPresent() ? OptionalLong.of(Math.round(p99.getAsDouble())) : OptionalLong.empty();
+    }
+
+    public int getMeasuredIntervalCount() {
+        return measuredIntervalsSec.size();
     }
 
     /**
@@ -201,9 +207,16 @@ public class DisasterRecoveryExporter {
         Objects.requireNonNull(namespaceDir, "namespaceDir must not be null");
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
 
-        // 1. Data Residency Validation (Req R9.3, V6)
+        // G31: Resolve effective jurisdiction from configuration if not explicitly provided
+        String effectiveJurisdiction = tenantJurisdiction;
+        if ((effectiveJurisdiction == null || effectiveJurisdiction.isBlank()) && properties != null && tenantId != null) {
+            effectiveJurisdiction = properties.getTenantJurisdictions().get(tenantId);
+        }
+        boolean requireExplicitJurisdiction = properties != null && properties.isRequireTenantJurisdiction();
+
+        // 1. Data Residency Validation (Req R9.3, V6, G31)
         try {
-            DataResidencyEnforcer.validateExportResidency(tenantJurisdiction, objectStoreClient.getRegion());
+            DataResidencyEnforcer.validateExportResidency(effectiveJurisdiction, objectStoreClient.getRegion(), requireExplicitJurisdiction);
         } catch (ResidencyViolationException e) {
             recordFailure(namespaceId, "Residency violation: " + e.getMessage());
             throw e;
