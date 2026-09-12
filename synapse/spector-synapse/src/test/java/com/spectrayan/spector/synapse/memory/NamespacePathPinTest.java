@@ -125,4 +125,31 @@ class NamespacePathPinTest {
             throw new RuntimeException("Failed to read application.yml", e);
         }
     }
+
+    @Test
+    @DisplayName("Task 3.1: Pin tenant-rooted flag default to OFF so upgrades are bit-identical (Req R11.1)")
+    void testPinTenantRootedFlagDefaultsOff() {
+        assertThat(SpectorPropertyConstants.DEFAULT_NAMESPACE_TENANT_ROOTED_ENABLED)
+                .as("The tenant-rooted layout must default to OFF. Defaulting it ON flips existing installs "
+                        + "onto layout B with no migration run, which is exactly what the staged rollout "
+                        + "in spec design §5 exists to prevent (Req R11.1).")
+                .isFalse();
+
+        assertThat(new SynapseProperties().getNamespace().isTenantRootedEnabled())
+                .as("A freshly constructed SynapseProperties must report the tenant-rooted layout as disabled")
+                .isFalse();
+    }
+
+    @Test
+    @DisplayName("Task 4.4: Pin dual-read fallback default to ON so a premature flag flip degrades safely (Req R5.3)")
+    void testPinDualReadDefaultsOn() {
+        assertThat(SpectorPropertyConstants.DEFAULT_NAMESPACE_DUAL_READ_ENABLED)
+                .as("Dual-read must default ON: an operator who enables the tenant-rooted layout before "
+                        + "migrating should get a fallback read, not a silently empty namespace.")
+                .isTrue();
+
+        assertThat(new SynapseProperties().getNamespace().isDualReadEnabled())
+                .as("A freshly constructed SynapseProperties must report dual-read as enabled")
+                .isTrue();
+    }
 }
