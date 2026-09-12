@@ -14,17 +14,15 @@ The main façade for all cognitive memory operations.
 ### Builder
 
 ```java
-SpectorMemory memory = SpectorMemory.builder()
+SpectorMemory memory = SpectorMemoryBuilder.createEmpty()
     .dimensions(int)                        // Vector dimensionality (required)
     .embeddingProvider(EmbeddingProvider)    // Embedding provider (required)
     .workingCapacity(int)                   // Working memory slots (default: 100)
     .episodicPartitionCapacity(int)         // Records per episodic partition (default: 10,000)
-    .nodesPerPartition(int)                 // Records per semantic partition file (default: 10,000)
-    .semanticCapacity(int)                  // Single-file semantic capacity (default: 5,000)
+    .semanticCapacity(int)                  // Semantic capacity (default: 5,000)
     .proceduralCapacity(int)                // Procedural memory slots (default: 500)
-    .quantizer(ScalarQuantizer)             // Custom quantizer (default: identity)
-    .persistenceDir(Path)                   // Episodic mmap directory (default: temp dir)
-    .idStrategy(IdStrategy.TSID)            // Auto-ID strategy: TSID, UUID, SEQUENCE
+    .quantizer(ScalarQuantizer)             // Custom quantizer
+    .persistenceDir(Path)                   // Episodic mmap directory
     .build();
 ```
 

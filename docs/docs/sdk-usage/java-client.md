@@ -58,7 +58,6 @@ The lightweight `SpectorClient` provides a fluent, thread-safe client that conne
 
 ```java
 import com.spectrayan.spector.client.SpectorClient;
-import com.spectrayan.spector.client.model.MemoryTier;
 import java.util.List;
 
 // Fluent builder with custom timeouts and optional API key
@@ -120,7 +119,7 @@ try (SpectorMemory memory = DefaultSpectorMemory.builder()
 ### 📥 Remembering Memories
 
 ```java
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryType;
 
 // Store a factual/semantic memory
 String memoryId = memory.remember(

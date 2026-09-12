@@ -91,7 +91,41 @@ main();
 
 ---
 
-## Path 4: Instant Local Server (Docker Compose)
+## Path 4: Java Client SDK (`spector-client`)
+
+Add the dependency to your `pom.xml`:
+
+```xml
+<dependency>
+    <groupId>com.spectrayan</groupId>
+    <artifactId>spector-client</artifactId>
+    <version>0.1.0-alpha</version>
+</dependency>
+```
+
+Connect and query with standard Java (no vector flags or preview options needed):
+
+```java
+import com.spectrayan.spector.client.SpectorClient;
+import java.util.List;
+
+try (var client = SpectorClient.builder().baseUri("http://localhost:7070").build()) {
+    // 1. Remember
+    var record = client.memory().store(
+        "User prefers concise responses with architectural diagrams",
+        List.of("preferences", "formatting")
+    );
+    System.out.println("Stored engram: " + record.getId());
+
+    // 2. Recall
+    var results = client.memory().recall("user formatting preferences", 5);
+    results.forEach(m -> System.out.println(m.getText()));
+}
+```
+
+---
+
+## Path 5: Instant Local Server (Docker Compose)
 
 Start the Spector memory daemon with a single command:
 
@@ -112,7 +146,7 @@ curl http://localhost:7070/actuator/health
 
 ---
 
-## Path 5: One-Line CLI Installers
+## Path 6: One-Line CLI Installers
 
 Install the standalone `spector` CLI binary on your machine:
 

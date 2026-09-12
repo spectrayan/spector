@@ -139,7 +139,7 @@ Every time a memory is explicitly reinforced by an agent or user (`client.memory
     )
 
     # Reinforce memory via Long-Term Potentiation (LTP)
-    client.memory.reinforce(record.id, weight=1.0)
+    client.memory.reinforce(record.get('id', 'stored'), valence=1)
     ```
 
 === "TypeScript"
@@ -159,20 +159,20 @@ Every time a memory is explicitly reinforced by an agent or user (`client.memory
     });
 
     // Reinforce memory via Long-Term Potentiation (LTP)
-    await client.memory.reinforce(record.id, 1.0);
+    await client.memory.reinforce(record.id as string, 1);
     ```
 
 === "Java"
 
     ```java
     import com.spectrayan.spector.client.SpectorClient;
-    import com.spectrayan.spector.client.model.MemoryTier;
+    import java.util.List;
 
     try (var client = SpectorClient.builder().baseUri("http://localhost:7070").build()) {
         // Store with synaptic tags
         var record = client.memory().remember(
             "Production database failover drill successful",
-            MemoryTier.SEMANTIC,
+            "SEMANTIC",
             List.of("database", "drill", "dr")
         );
 
@@ -190,7 +190,7 @@ Every time a memory is explicitly reinforced by an agent or user (`client.memory
       -d '{
         "text": "Production database failover drill successful",
         "tier": "SEMANTIC",
-        "tags": ["database", "drill", "dr"],
+        "tags": "database,drill,dr",
         "interest": 0.9,
         "valence": 1
       }'

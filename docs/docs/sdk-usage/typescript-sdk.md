@@ -69,13 +69,12 @@ async function main() {
     tags: ['preferences', 'formatting'],
     interest: 0.9,
     valence: 1,
-    arousal: 0.5,
+    arousal: 50,
   });
-  console.log('Ingested memory TSID:', record.id);
+  console.log('Ingestion accepted:', record.status ?? 'ACCEPTED');
 
   // 3. Recall — Query using multi-tier associative cognitive scoring
-  const memories = await client.memory.recall({
-    query: 'formatting preferences',
+  const memories = await client.memory.recall('formatting preferences', {
     topK: 5,
     minSalience: 0.2,
   });
@@ -84,11 +83,18 @@ async function main() {
     console.log(`[${memory.id}] score=${memory.score.toFixed(4)} | ${memory.text}`);
   }
 
-  // 4. Hebbian Reinforcement (Long-Term Potentiation)
-  await client.memory.reinforce(record.id, 1);
+  // 4. Store synchronously when immediate ID is required
+  const engram = await client.memory.store(
+    'User prefers dark mode and high-contrast theme',
+    ['preferences', 'ui']
+  );
+  console.log('Stored engram ID:', engram.id);
 
-  // 5. Zeigarnik Loop Closure
-  await client.memory.resolve(record.id);
+  // 5. Hebbian Reinforcement (Long-Term Potentiation)
+  await client.memory.reinforce(engram.id, 1);
+
+  // 6. Zeigarnik Loop Closure
+  await client.memory.resolve(engram.id);
 }
 
 main().catch(console.error);
@@ -116,46 +122,44 @@ const record = await client.memory.remember({
 });
 ```
 
-### `recall(params)`
+### `recall(query, options)`
 Retrieve memories using fused cognitive scoring (similarity × importance × decay × valence):
 
 ```typescript
-const memories = await client.memory.recall({
-  query: 'database engine version',
+const memories = await client.memory.recall('database engine version', {
   topK: 10,
-  tier: MemoryTier.SEMANTIC,
   tags: ['database'],
   minSalience: 0.3,
   profile: 'BALANCED', // Or 'HYPERFOCUS', 'THE_EXECUTOR', 'DIVERGENT', 'DEBUGGING'
 });
 ```
 
-### `reinforce(id, strength)`
+### `reinforce(id, valence)`
 Apply Long-Term Potentiation (LTP) to strengthen synaptic associations and counteract forgetting decay:
 
 ```typescript
-await client.memory.reinforce(record.id, 1);
+await client.memory.reinforce(engram.id, 1);
 ```
 
 ### `suppress(id, reason)`
 Actively inhibit recall of an obsolete or superseded memory without permanently deleting it:
 
 ```typescript
-await client.memory.suppress(record.id, 'Superseded by Postgres 17 migration');
+await client.memory.suppress(engram.id, 'Superseded by Postgres 17 migration');
 ```
 
 ### `resolve(id)`
 Close open task-oriented loops (Zeigarnik effect resolution):
 
 ```typescript
-await client.memory.resolve(record.id);
+await client.memory.resolve(engram.id);
 ```
 
 ### `forget(id)`
 Permanently remove a memory and prune connected associative graph edges:
 
 ```typescript
-await client.memory.forget(record.id);
+await client.memory.forget(engram.id);
 ```
 
 ### `browse(tags)`
@@ -170,7 +174,7 @@ Fetch node cognitive statistics, memory tier distribution, and active cache coun
 
 ```typescript
 const stats = await client.memory.status();
-console.log(`Total memories: ${stats.totalMemories}, Tier breakdown:`, stats.tierCounts);
+console.log(`Total memories: ${stats.totalMemories}, Semantic: ${stats.semanticCount}, Working: ${stats.workingCount}`);
 ```
 
 ---
@@ -189,7 +193,7 @@ const client = SpectorClient.createDefault('http://localhost:7070');
 async function watchEvents() {
   console.log('📡 Subscribing to Spector memory stream...');
   const eventStream = client.events.stream({
-    topics: ['memory', 'consolidation', 'graph'],
+    filter: ['memory', 'consolidation', 'graph'],
   });
 
   for await (const event of eventStream) {
@@ -204,18 +208,26 @@ watchEvents().catch(console.error);
 
 ## Error Handling
 
-All SDK exceptions derive from `SpectorError`:
+All SDK exceptions derive from `SpectorClientError`:
 
 ```typescript
-import { SpectorError, SpectorConnectionError, SpectorApiError } from '@spectrayan/spector-client';
+import {
+  SpectorClientError,
+  TransportError,
+  MemoryNotFoundError,
+  SpectorAuthError,
+  SpectorServerError,
+} from '@spectrayan/spector-client';
 
 try {
-  await client.memory.recall({ query: 'test' });
+  await client.memory.recall('test');
 } catch (err) {
-  if (err instanceof SpectorConnectionError) {
+  if (err instanceof TransportError) {
     console.error('Cannot reach Spector Synapse daemon:', err.message);
-  } else if (err instanceof SpectorApiError) {
-    console.error(`API Error HTTP ${err.status}:`, err.data);
+  } else if (err instanceof MemoryNotFoundError) {
+    console.error(`Memory ${err.memoryId} not found`);
+  } else if (err instanceof SpectorClientError) {
+    console.error(`Client Error [${err.statusCode}]:`, err.message);
   } else {
     console.error('Unexpected error:', err);
   }

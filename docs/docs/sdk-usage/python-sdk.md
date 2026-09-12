@@ -54,7 +54,7 @@ record = client.memory.remember(
     interest=0.9,
     valence=1,
 )
-print(f"Stored memory: {record.id}")
+print(f"Stored memory: {record.get('id', 'stored')}")
 
 # 2. Recall — Retrieve using multi-tier associative cognitive scoring
 results = client.memory.recall("user preferences", top_k=5)
@@ -126,7 +126,6 @@ Queries memories with fused similarity × importance × temporal decay:
 memories = client.memory.recall(
     query="cluster networking CNI",
     top_k=5,
-    tier=MemoryTier.SEMANTIC,
     tags=["infrastructure"],
     min_salience=0.25,
     profile="BALANCED",  # Or HYPERFOCUS, THE_EXECUTOR, DIVERGENT, DEBUGGING
@@ -136,17 +135,19 @@ memories = client.memory.recall(
 ### Lifecycle Operations
 
 ```python
+memory_id = record.get("id", "mem-101")
+
 # Apply Long-Term Potentiation (Hebbian reinforcement)
-client.memory.reinforce(record.id, strength=1)
+client.memory.reinforce(memory_id, valence=1)
 
 # Close an active task loop (Zeigarnik closure)
-client.memory.resolve(record.id)
+client.memory.resolve(memory_id)
 
 # Inhibit recall without deleting
-client.memory.suppress(record.id, reason="Deprecated configuration")
+client.memory.suppress(memory_id, reason="Deprecated configuration")
 
 # Permanently tombstone and prune memory graph edges
-client.memory.forget(record.id)
+client.memory.forget(memory_id)
 
 # Tag index browsing
 matches = client.memory.browse(tags=["infrastructure", "kubernetes"])
@@ -158,25 +159,25 @@ print(f"Total memories: {stats.total_memories}")
 
 ---
 
-## Multi-Transport Modes
+## Multi-Transport & Authentication
 
 ### 1. High-Throughput HTTP REST (Default)
-Connects to Spector Synapse over standard HTTP:
+Connects to Spector Synapse over standard HTTP with optional API key and isolated tenant namespace:
 ```python
 client = SpectorClient.builder() \
-    .with_rest(base_url="http://localhost:7070", api_key="secret-key") \
+    .with_rest(base_url="http://localhost:7070") \
+    .with_api_key("secret-key") \
+    .with_namespace("agent-alpha") \
     .build()
 ```
 
-### 2. Standalone Subprocess (`spector.jar`)
-Spawns the local Spector JVM with vector incubator flags:
+### 2. Custom Transport Adapter (MCP HTTP / Stdio)
+Pass custom transport implementations directly:
 ```python
+from spector_client.transports.mcp_http import McpHttpTransport
+
 client = SpectorClient.builder() \
-    .with_jar(
-        jar_path="/opt/spector/spector.jar",
-        config_path="/opt/spector/spector.yml",
-        java_bin="/usr/lib/jvm/java-25/bin/java",
-    ) \
+    .with_transport(McpHttpTransport(url="http://localhost:7070/mcp")) \
     .build()
 ```
 
@@ -184,19 +185,25 @@ client = SpectorClient.builder() \
 
 ## Error Handling
 
-Exceptions derive from `SpectorError`:
+All SDK exceptions derive from `SpectorClientError`:
 
 ```python
-from spector_client.exceptions import SpectorError, SpectorConnectionError, SpectorApiError
+from spector_client.exceptions import (
+    SpectorClientError,
+    TransportError,
+    MemoryNotFoundError,
+    SpectorAuthError,
+    SpectorServerError,
+)
 
 try:
     client.memory.recall("query")
-except SpectorConnectionError as err:
-    print(f"Failed to connect to Spector daemon: {err}")
-except SpectorApiError as err:
-    print(f"HTTP {err.status}: {err.message}")
-except SpectorError as err:
-    print(f"Spector SDK error: {err}")
+except TransportError as err:
+    print(f"Failed to connect to Spector daemon: {err.message}")
+except MemoryNotFoundError as err:
+    print(f"Memory not found: {err.memory_id}")
+except SpectorClientError as err:
+    print(f"Spector error [{err.status_code}]: {err.message}")
 ```
 
 ---

@@ -113,16 +113,15 @@ curl http://localhost:7070/api/v1/system/metrics
 
 ### `POST /api/v1/memory`
 
-Ingest a single document with pre-computed vector and metadata.
+Store a cognitive memory synchronously (standard store). Returns `201 Created` with the assigned memory ID.
 
 ```bash
 curl -X POST http://localhost:7070/api/v1/memory \
   -H "Content-Type: application/json" \
   -d '{
-    "id": "doc-1",
-    "text": "Spector hybrid search engine",
-    "vector": [0.1, 0.2, 0.3, 0.4, 0.5],
-    "tags": ["documentation"]
+    "text": "Spector hybrid search engine and cognitive memory",
+    "tags": ["documentation", "architecture"],
+    "importance": 0.85
   }'
 ```
 
@@ -130,12 +129,9 @@ curl -X POST http://localhost:7070/api/v1/memory \
 
 ## 🧠 Memory Endpoints
 
-> [!NOTE]
-> Memory endpoints are available when `spector.mode` is `MEMORY` or `HYBRID`. Note that some older engine paths have been consolidated under `/api/v1/memory`.
-
 ### `POST /api/v1/memory/remember`
 
-Store a cognitive memory with tags and source provenance.
+Store a cognitive memory asynchronously with biological tier, provenance, and affective hints. Returns `202 Accepted`.
 
 ```bash
 curl -X POST http://localhost:7070/api/v1/memory/remember \
@@ -143,9 +139,11 @@ curl -X POST http://localhost:7070/api/v1/memory/remember \
   -d '{
     "id": "pref-dark-mode",
     "text": "The user prefers dark mode for all editors",
-    "type": "EPISODIC",
+    "tier": "SEMANTIC",
     "source": "USER_STATED",
-    "tags": ["ui", "preferences"]
+    "tags": "ui,preferences",
+    "interest": 0.9,
+    "valence": 1
   }'
 ```
 
@@ -163,17 +161,39 @@ curl -X POST http://localhost:7070/api/v1/memory/recall \
 
 Tombstone (forget) a memory by ID.
 
+```bash
+curl -X DELETE http://localhost:7070/api/v1/memory/pref-dark-mode
+```
+
 ### `POST /api/v1/memory/{id}/reinforce`
 
-Report positive/negative outcome for a memory.
+Report positive or negative feedback for a memory via Long-Term Potentiation (LTP).
+
+```bash
+curl -X POST http://localhost:7070/api/v1/memory/pref-dark-mode/reinforce \
+  -H "Content-Type: application/json" \
+  -d '{"valence": 1}'
+```
 
 ### `POST /api/v1/memory/{id}/suppress`
 
-Suppress or unsuppress a memory from recall results.
+Suppress or unsuppress a memory from recall consideration without deleting it.
+
+```bash
+curl -X POST http://localhost:7070/api/v1/memory/pref-dark-mode/suppress \
+  -H "Content-Type: application/json" \
+  -d '{"action": "suppress", "reason": "Deprecated configuration"}'
+```
 
 ### `POST /api/v1/memory/{id}/resolve`
 
-Mark a memory as resolved.
+Mark an active goal or tension as resolved (Zeigarnik closure).
+
+```bash
+curl -X POST http://localhost:7070/api/v1/memory/task-101/resolve \
+  -H "Content-Type: application/json" \
+  -d '{"resolved": true}'
+```
 
 ### `POST /api/v1/memory/introspect`
 

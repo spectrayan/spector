@@ -1,6 +1,6 @@
 # 🌱 Spring AI Integration
 
-> **Seamlessly integrate Spector into your Spring AI applications.** The `spector-spring` module implements Spring AI's `VectorStore` interface, giving you access to filter expressions, RAG patterns, and the full Spring AI ecosystem backed by sub-millisecond search.
+> **Seamlessly integrate Spector into your Spring AI applications.** The `spring-ai-starter-spector-store` module implements Spring AI's standard `VectorStore` interface, giving you access to metadata filter expressions, RAG patterns, and the entire Spring AI ecosystem backed by sub-millisecond memory-mapped search.
 
 ---
 
@@ -9,8 +9,8 @@
 ```xml
 <dependency>
     <groupId>com.spectrayan</groupId>
-    <artifactId>spector-spring</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <artifactId>spring-ai-starter-spector-store</artifactId>
+    <version>0.1.0-alpha</version>
 </dependency>
 ```
 
@@ -32,73 +32,67 @@ Spring AI dependencies (BOM recommended):
 
 ---
 
-## ⚡ Configuration Modes
+## ⚡ Integration & Configuration
+
+`SpectorVectorStore` implements Spring AI's `VectorStore` backed by the in-process `SpectorMemory` engine.
 
 ```mermaid
 graph LR
-    subgraph "🏠 Embedded Mode"
-        A[Your App] --> B[SpectorVectorStore]
-        B --> C[SpectorMemory<br/>In-process, zero latency]
-    end
-
-    subgraph "🌐 Remote Mode"
-        D[Your App] --> E[SpectorVectorStore]
-        E --> F[SpectorClient<br/>REST to server]
-        F --> G[Spector Server]
-    end
+    A[Spring AI Application] --> B[VectorStore<br/><i>SpectorVectorStore</i>]
+    B --> C[SpectorMemory<br/><i>In-Process Off-Heap FFM Kernel</i>]
 ```
 
-### 🏠 Embedded Mode (In-Process)
+### 1. Spring Boot Auto-Configuration (Recommended)
 
-Use `SpectorMemory` directly — no network, lowest latency:
+When `spring-ai-starter-spector-store` is on the classpath, `SpectorAutoConfiguration` automatically wires the `SpectorMemory` and `SpectorVectorStore` beans. Simply inject `VectorStore` into your services:
 
 ```java
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.stereotype.Service;
+
+@Service
+public class KnowledgeService {
+
+    private final VectorStore vectorStore;
+
+    public KnowledgeService(VectorStore vectorStore) {
+        this.vectorStore = vectorStore;
+    }
+}
+```
+
+### 2. Explicit Bean Configuration (Custom Setup)
+
+If you need programmatic control over engine parameters and embedding models:
+
+```java
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.spector.SpectorVectorStore;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
+import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.ollama.OllamaEmbeddingProvider;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class VectorStoreConfig {
 
     @Bean
-    public SpectorMemory spectorMemory(EmbeddingProvider embeddingProvider) {
+    public SpectorMemory spectorMemory() {
+        SpectorProperties props = SpectorProperties.load();
+        EmbeddingProvider embedder = new OllamaEmbeddingProvider(props.provider().embedding());
+
         return DefaultSpectorMemory.builder()
-            .dimensions(384)
-            .semanticCapacity(100_000)
-            .embeddingProvider(embeddingProvider)
+            .properties(props)
+            .embeddingProvider(embedder)
             .build();
     }
 
     @Bean
     public VectorStore vectorStore(SpectorMemory memory) {
         return new SpectorVectorStore(memory);
-    }
-}
-```
-
-### 🌐 Remote Mode (Client SDK)
-
-Connect to a running Spector server:
-
-```java
-import com.spectrayan.spector.client.SpectorClient;
-
-@Configuration
-public class VectorStoreConfig {
-
-    @Bean
-    public SpectorClient spectorClient() {
-        return SpectorClient.builder()
-            .host("spector-node.internal")
-            .port(7070)
-            .apiKey("my-api-key")
-            .build();
-    }
-
-    @Bean
-    public VectorStore vectorStore(SpectorClient client) {
-        return new SpectorVectorStore(client);
     }
 }
 ```
@@ -199,49 +193,31 @@ vectorStore.delete(List.of("doc-id-1", "doc-id-2"));
 
 ---
 
-## 🤖 RAG Service
+## 🤖 RAG with Spring AI ChatClient
 
-The `SpectorRagService` provides end-to-end retrieval-augmented generation:
-
-```java
-import org.springframework.ai.vectorstore.spector.rag.SpectorRagService;
-
-@Service
-public class AiAssistant {
-
-    private final SpectorRagService ragService;
-
-    public AiAssistant(SpectorRagService ragService) {
-        this.ragService = ragService;
-    }
-
-    public String getContext(String userQuery) {
-        RagConfig config = new RagConfig(
-            10,      // topK
-            0.7f,    // similarity threshold
-            4096     // token limit
-        );
-
-        RetrievalResult result = ragService.retrieve(userQuery, config);
-        return result.contextText();
-    }
-}
-```
-
-### 💬 RAG with Spring AI ChatClient
+Integrate Spector directly into conversational AI flows using Spring AI's `ChatClient` and `QuestionAnswerAdvisor`:
 
 ```java
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.stereotype.Service;
+
 @Service
-public class RagChatService {
+public class AssistantService {
 
     private final ChatClient chatClient;
-    private final VectorStore vectorStore;
+
+    public AssistantService(ChatClient.Builder builder, VectorStore vectorStore) {
+        this.chatClient = builder
+            .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore))
+            .build();
+    }
 
     public String ask(String question) {
         return chatClient.prompt()
-            .system("Answer based on the provided context.")
+            .system("You are an expert AI assistant answering questions based on stored knowledge.")
             .user(question)
-            .advisors(new QuestionAnswerAdvisor(vectorStore))
             .call()
             .content();
     }
@@ -249,77 +225,87 @@ public class RagChatService {
 ```
 
 > [!TIP]
-> Spring AI's `QuestionAnswerAdvisor` automatically retrieves relevant context from the VectorStore and includes it in the prompt — no manual context assembly needed.
+> Spring AI's `QuestionAnswerAdvisor` automatically queries `SpectorVectorStore` for top-k similar documents and injects them as grounding context into the prompt.
 
 ---
 
-## ⚙️ Spring Boot Auto-Configuration
+## ⚙️ Spring Boot Configuration
 
-Configure via `application.yml`:
+Configure off-heap persistence and embedding models via `application.yml`:
 
 ```yaml
 spector:
-  search:
-    mode: embedded          # or "remote"
+  memory:
     dimensions: 384
-    capacity: 100000
-    # Remote mode settings
-    host: localhost
-    port: 7070
-    api-key: ${SPECTOR_API_KEY:}
+    persistence-mode: ON_CLOSE  # OFF, ON_CLOSE, PERIODIC
+    persistence-path: ./data/spector
+  provider:
+    embedding:
+      type: ollama
+      model: nomic-embed-text
+      base-url: http://localhost:11434
+  metrics:
+    enabled: true
 ```
 
 ---
 
 ## ⚠️ Error Handling
 
-| Exception | Cause |
-|-----------|-------|
-| `SpectorVectorStoreException` | Connection failure, server error |
-| `SpectorRagServiceException` | RAG pipeline errors |
+All vector store exceptions derive from `SpectorVectorStoreException`:
 
 ```java
+import org.springframework.ai.vectorstore.spector.SpectorVectorStoreException;
+
 try {
     vectorStore.add(documents);
 } catch (SpectorVectorStoreException e) {
-    log.error("Failed to add documents: {}", e.getMessage());
+    log.error("Failed to add documents to SpectorVectorStore: {}", e.getMessage());
 }
 ```
 
 ---
 
-## 🎯 Complete Example
+## 🎯 Complete Example Application
 
 ```java
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+
+import java.util.List;
+import java.util.Map;
+
 @SpringBootApplication
 public class SearchApp {
 
-    @Bean
-    public VectorStore vectorStore() {
-        var engine = new SpectorEngine(
-            SpectorConfig.DEFAULT.withDimensions(384));
-        return new SpectorVectorStore(engine);
+    public static void main(String[] args) {
+        SpringApplication.run(SearchApp.class, args);
     }
 
     @Bean
     CommandLineRunner demo(VectorStore store) {
         return args -> {
-            // Add documents
+            // 1. Ingest documents
             store.add(List.of(
-                new Document("HNSW uses multi-layer graphs for fast ANN search",
+                new Document("HNSW uses multi-layer graphs for fast approximate nearest neighbor search",
                     Map.of("topic", "indexing")),
-                new Document("Product quantization compresses vectors 32x",
+                new Document("Product quantization compresses vectors up to 32x for sub-millisecond retrieval",
                     Map.of("topic", "compression"))
             ));
 
-            // Search with filter
+            // 2. Perform similarity search with metadata filter
             var results = store.similaritySearch(
                 SearchRequest.query("compression techniques")
                     .withTopK(5)
                     .withFilterExpression("topic == 'compression'"));
 
             results.forEach(doc ->
-                System.out.println(doc.getContent()));
+                System.out.println("Found: " + doc.getText()));
         };
     }
 }

@@ -165,12 +165,12 @@ Client applications can target specific tiers or allow cognitive routing:
 
     ```java
     import com.spectrayan.spector.client.SpectorClient;
-    import com.spectrayan.spector.client.model.MemoryTier;
+    import java.util.List;
 
     try (var client = SpectorClient.builder().baseUri("http://localhost:7070").build()) {
         client.memory().remember(
             "The client application utilizes OAuth 2.0 PKCE authentication",
-            MemoryTier.SEMANTIC,
+            "SEMANTIC",
             List.of("auth", "security")
         );
     }
@@ -184,7 +184,7 @@ Client applications can target specific tiers or allow cognitive routing:
       -d '{
         "text": "The client application utilizes OAuth 2.0 PKCE authentication",
         "tier": "SEMANTIC",
-        "tags": ["auth", "security"],
+        "tags": "auth,security",
         "interest": 0.9
       }'
     ```

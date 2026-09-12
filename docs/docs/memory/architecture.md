@@ -231,8 +231,7 @@ Client applications connect to the cognitive architecture through our multi-lang
     });
 
     // Associative Recall
-    const memories = await client.memory.recall({
-      query: 'Where is the agent deployed?',
+    const memories = await client.memory.recall('Where is the agent deployed?', {
       topK: 3,
     });
     for (const mem of memories) {
@@ -244,13 +243,13 @@ Client applications connect to the cognitive architecture through our multi-lang
 
     ```java
     import com.spectrayan.spector.client.SpectorClient;
-    import com.spectrayan.spector.client.model.MemoryTier;
+    import java.util.List;
 
     try (var client = SpectorClient.builder().baseUri("http://localhost:7070").build()) {
         // Store memory
         var record = client.memory().remember(
             "Agent deployment target is AWS EKS us-west-2",
-            MemoryTier.SEMANTIC,
+            "SEMANTIC",
             List.of("infrastructure", "kubernetes")
         );
 
@@ -271,7 +270,7 @@ Client applications connect to the cognitive architecture through our multi-lang
       -d '{
         "text": "Agent deployment target is AWS EKS us-west-2",
         "tier": "SEMANTIC",
-        "tags": ["infrastructure", "kubernetes"],
+        "tags": "infrastructure,kubernetes",
         "interest": 0.85
       }'
 
@@ -280,7 +279,7 @@ Client applications connect to the cognitive architecture through our multi-lang
       -H "Content-Type: application/json" \
       -d '{
         "query": "Where is the agent deployed?",
-        "top_k": 3
+        "topK": 3
       }'
     ```
 

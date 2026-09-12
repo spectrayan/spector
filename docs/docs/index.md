@@ -66,7 +66,6 @@ Connect your agent or application to Spector in seconds:
 
     ```java
     import com.spectrayan.spector.client.SpectorClient;
-    import com.spectrayan.spector.client.model.MemoryTier;
     import java.util.List;
 
     // Lightweight client SDK — zero vector/Panama preview flags required
@@ -93,7 +92,7 @@ Connect your agent or application to Spector in seconds:
       -d '{
         "text": "User prefers dark mode and high-contrast syntax highlighting",
         "tier": "SEMANTIC",
-        "tags": ["preferences", "ui"],
+        "tags": "preferences,ui",
         "interest": 0.9,
         "valence": 1
       }'
@@ -107,15 +106,17 @@ Connect your agent or application to Spector in seconds:
 === "CLI (`spector`)"
 
     ```bash
-    # 1. Remember
-    spector remember \
+    # 1. Remember with cognitive metadata
+    spector memory remember \
+      --id "pref-dark-mode" \
+      --text "User prefers dark mode and high-contrast syntax highlighting" \
       --tier SEMANTIC \
       --tags "preferences,ui" \
       --interest 0.9 \
-      "User prefers dark mode and high-contrast syntax highlighting"
+      --valence 1
 
-    # 2. Recall
-    spector recall --top-k 5 "user ui preferences"
+    # 2. Recall with 6-phase fused cognitive scoring
+    spector memory recall "user ui preferences" --top-k 5 --profile BALANCED
     ```
 
 ---
