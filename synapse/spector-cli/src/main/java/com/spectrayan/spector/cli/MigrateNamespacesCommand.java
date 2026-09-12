@@ -16,8 +16,10 @@
 package com.spectrayan.spector.cli;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.synapse.catalog.AccountCatalog;
 import com.spectrayan.spector.synapse.catalog.file.FileAccountCatalog;
+import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.synapse.migration.TenantNamespaceMigrator;
 import com.spectrayan.spector.synapse.migration.TenantNamespaceMigrator.MigrationSummary;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,23 +47,36 @@ public class MigrateNamespacesCommand extends BaseCommand {
     @Option(names = {"--dry-run"}, description = "Report the migration plan without modifying the filesystem.")
     private boolean dryRun;
 
-    @Option(names = {"--data-dir"}, description = "Base directory for memory persistence (default: ~/.spector/data).")
-    private String dataDir;
+    @Option(
+            names = {"--rememberer-root", "--data-dir"},
+            description = "Rememberer root holding namespace directories, i.e. spector.memory.persistence-path. "
+                    + "Defaults to the running configuration's rememberer root."
+    )
+    private String remembererRoot;
 
     @Autowired(required = false)
     private AccountCatalog injectedCatalog;
+
+    @Autowired(required = false)
+    private SynapseProperties synapseProperties;
 
     @Override
     public void run() {
         PrintWriter out = out();
         PrintWriter err = err();
 
+        // The root MUST match SynapseProperties.remembererRoot() — the tree NamespaceResolver opens.
+        // Defaulting to ~/.spector/data pointed the CLI at a directory nothing else in the system
+        // uses, so migration silently reported success having moved nothing (Req R3.1, R3.4).
         Path basePath;
-        if (dataDir != null && !dataDir.isBlank()) {
-            basePath = Paths.get(dataDir);
+        if (remembererRoot != null && !remembererRoot.isBlank()) {
+            basePath = Paths.get(remembererRoot);
+        } else if (synapseProperties != null) {
+            basePath = synapseProperties.remembererRoot();
         } else {
-            String userHome = System.getProperty("user.home", ".");
-            basePath = Paths.get(userHome, ".spector", "data");
+            basePath = SpectorPropertyConstants.DEFAULT_MEMORY_PERSISTENCE_PATH;
+            err.println("Warning: no Spector configuration found; falling back to the framework default "
+                    + "rememberer root '" + basePath + "'. Pass --rememberer-root to be explicit.");
         }
 
         AccountCatalog catalog = injectedCatalog;

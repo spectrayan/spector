@@ -202,12 +202,10 @@ public class NamespaceResolver implements AutoCloseable {
         this.quartzSchedulerProvider = quartzSchedulerProvider;
         this.meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
         this.maxInstances = Math.max(1, maxInstances);
-        String baseStr = synapseProps.getMemory() != null ? synapseProps.getMemory().getPersistencePath() : null;
-        if (baseStr == null || baseStr.isBlank()) {
-            baseStr = synapseProps.dataDir();
-        }
-        this.basePath = Path.of(baseStr);
-        log.info("[NamespaceResolver] initialized: maxInstances={}", this.maxInstances);
+        // Canonical rememberer root (Req R3.1) — shared with the migrator, detector, and CLI.
+        this.basePath = synapseProps.remembererRoot();
+        log.info("[NamespaceResolver] initialized: maxInstances={}, remembererRoot={}",
+                this.maxInstances, this.basePath);
     }
 
     /**
@@ -672,16 +670,16 @@ public class NamespaceResolver implements AutoCloseable {
         return built;
     }
 
+    /** The rememberer root — see {@link SynapseProperties#remembererRoot()} (Req R3.1). */
     Path basePath() {
         return this.basePath;
     }
 
+    /** The identity-plane root — see {@link SynapseProperties#identityRoot()} (Req R3.1). */
     Path identityRoot() {
-        String dataDir = synapseProps != null ? synapseProps.dataDir() : null;
-        if (dataDir == null || dataDir.isBlank()) {
-            dataDir = "./spector-data";
-        }
-        return Path.of(dataDir);
+        return synapseProps != null
+                ? synapseProps.identityRoot()
+                : Path.of(SynapseProperties.DEFAULT_DATA_DIR);
     }
 
     private MemoryHandle evictOldestAccountUnleasedLocked(String accountId) {

@@ -83,12 +83,18 @@ public class TenantNamespaceMigrator {
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
     }
 
+    /**
+     * Resolves the rememberer root the migrator must operate on.
+     *
+     * <p>This MUST be {@link SynapseProperties#remembererRoot()} — the same root
+     * {@code NamespaceResolver} opens. Using {@code dataDir()} here made the migrator scan a tree
+     * the resolver never reads, so every namespace fell through the "source does not exist" branch
+     * and was silently counted as skipped (Req R3.1).</p>
+     */
     private static Path resolveBasePath(SynapseProperties props) {
-        String dataDir = props != null ? props.dataDir() : null;
-        if (dataDir == null || dataDir.isBlank()) {
-            dataDir = "./spector-data";
-        }
-        return Path.of(dataDir);
+        return props != null
+                ? props.remembererRoot()
+                : Path.of(SynapseProperties.DEFAULT_DATA_DIR);
     }
 
     /**

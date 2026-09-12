@@ -48,11 +48,9 @@ public class TenantNamespaceStartupDetector {
     public TenantNamespaceStartupDetector(SynapseProperties synapseProps, AccountCatalog catalog) {
         this.synapseProps = Objects.requireNonNull(synapseProps, "synapseProps");
         this.catalog = Objects.requireNonNull(catalog, "catalog");
-        String dataDir = synapseProps.dataDir();
-        if (dataDir == null || dataDir.isBlank()) {
-            dataDir = "./spector-data";
-        }
-        this.basePath = Path.of(dataDir);
+        // Must be the rememberer root, not dataDir() — otherwise the detector inspects a tree the
+        // resolver never reads and always reports zero unmigrated namespaces (Req R3.1).
+        this.basePath = synapseProps.remembererRoot();
     }
 
     @EventListener(ApplicationReadyEvent.class)

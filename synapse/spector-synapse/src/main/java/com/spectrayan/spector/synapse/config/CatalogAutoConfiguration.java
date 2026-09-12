@@ -63,11 +63,7 @@ public class CatalogAutoConfiguration {
     @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
             name = "spector.catalog.type", havingValue = "file", matchIfMissing = false)
     public AccountCatalog fileAccountCatalog(SynapseProperties synapseProps, ObjectMapper objectMapper) {
-        String path = synapseProps.getMemory().getPersistencePath();
-        if (path == null || path.isBlank()) {
-            path = synapseProps.dataDir();
-        }
-        Path basePath = Path.of(path);
+        Path basePath = synapseProps.remembererRoot();
         boolean tenantRooted = synapseProps.getNamespace() != null && synapseProps.getNamespace().isTenantRootedEnabled();
         log.info("[CatalogAutoConfiguration] creating FileAccountCatalog at basePath={}, tenantRooted={}", basePath, tenantRooted);
         return new FileAccountCatalog(basePath, objectMapper, tenantRooted);
