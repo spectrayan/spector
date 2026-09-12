@@ -56,10 +56,13 @@ spector-local.yml
 !**/src/test/resources/spector-defaults.yml
 
 # ──────────── Documentation build ────────────
+site/
 docs/site/
-docs/docs/labs/*
-!docs/docs/labs/roadmap.md
-docs/docs/apidocs/
+docs/labs/*
+!docs/labs/roadmap.md
+!docs/labs/index.md
+.venv/
+docs/.venv/
 RnD
 
 .scratch/

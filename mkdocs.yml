@@ -1,5 +1,5 @@
 site_name: Spector Documentation
-site_description: "Spector — Zero-Overhead, Agent-Ready AI Cognitive Memory Backbone. Dense vector similarity, BM25 text matching, SPLADE sparse retrieval, Hebbian graph structures, and biologically-inspired cognitive memory tiers."
+site_description: "Spector — Zero-Overhead, Agent-Ready AI Cognitive Memory Backbone. Dense vector similarity, BM25 text matching, SPLADE sparse retrieval, Hebbian graph structures, and multi-tier cognitive memory."
 site_url: https://spectrayan.github.io/spector/
 repo_url: https://github.com/spectrayan/spector
 repo_name: spectrayan/spector
@@ -7,7 +7,7 @@ copyright: "Copyright &copy; 2026 Spectrayan — Apache 2.0 / BSL 1.1"
 
 theme:
   name: material
-  custom_dir: overrides
+  custom_dir: docs/overrides
   icon:
     logo: material/lightning-bolt
   logo: assets/spector-logo-icon.png
@@ -73,10 +73,8 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - pymdownx.snippets:
       base_path:
-        - docs/docs
         - docs
         - .
-        - ..                       # Repo root — enables --8<-- "spector-core/README.md"
       check_paths: true
   - pymdownx.superfences:
       custom_fences:
@@ -170,7 +168,7 @@ nav:
       - "Salience & Importance":
           - "Salience & Persona Profiles": memory/salience-importance.md
       - Cognitive Subsystems:
-          - Overview: memory/biological-systems.md
+          - Overview: memory/cognitive-systems.md
           - "Cortex — 4-Tier Memory": memory/cortex.md
           - "Hippocampus — Sleep Consolidation": memory/hippocampus.md
           - "Synapse — Tags & Scoring": memory/synapse.md

@@ -7,6 +7,7 @@ on:
       - 'labs/**'
     paths:
       - 'docs/**'
+      - 'mkdocs.yml'
       - 'scripts/collect-labs.sh'
       - 'LABS.md'
   workflow_dispatch:
@@ -53,12 +54,11 @@ jobs:
 
       - name: Build documentation
         run: mkdocs build
-        working-directory: docs
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/site
+          path: site
 
   deploy:
     environment:
@@ -94,9 +94,9 @@ jobs:
           python3 << 'PYSCRIPT'
           import yaml, os, shutil, glob, re
 
-          DOCS_DIR = 'main/docs/docs'
+          DOCS_DIR = 'main/docs'
           WIKI_DIR = 'wiki'
-          MKDOCS_YML = 'main/docs/mkdocs.yml'
+          MKDOCS_YML = 'main/mkdocs.yml'
           SCREENSHOTS_DIR = 'main/docs/screenshots'
 
           # ── MkDocs YAML loader (ignores !!python/name: tags) ────────

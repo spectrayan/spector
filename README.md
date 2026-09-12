@@ -1,8 +1,8 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/docs/assets/spector-logo-full-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/docs/assets/spector-logo-full-light.png">
-    <img src="docs/docs/assets/spector-logo-full-dark.png" alt="Spector" width="600" />
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/spector-logo-full-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/spector-logo-full-light.png">
+    <img src="docs/assets/spector-logo-full-dark.png" alt="Spector" width="600" />
   </picture>
 </p>
 
