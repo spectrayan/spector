@@ -103,14 +103,20 @@ class CoordinatorElectionChaosTest {
         manager.heartbeat();
         assertThat(manager.isCoordinator()).isTrue();
         assertThat(manager.checkStoreEnforcedLeaseActive()).isTrue();
+        assertThat(manager.getLeaseGeneration()).isEqualTo(1L);
+
+        java.util.concurrent.atomic.AtomicBoolean notified = new java.util.concurrent.atomic.AtomicBoolean(false);
+        manager.addLeaseLossListener(reason -> notified.set(true));
 
         // Expire lease by advancing store clock
         now.set(now.get().plusSeconds(20));
 
-        // Attempting coordinator action checks store and immediately stops
+        // Attempting coordinator action checks store and immediately stops (G23)
         boolean active = manager.checkStoreEnforcedLeaseActive();
         assertThat(active).isFalse();
         assertThat(manager.isCoordinator()).isFalse();
+        assertThat(manager.getLeaseGeneration()).isEqualTo(2L);
+        assertThat(notified.get()).isTrue();
 
         manager.close();
     }

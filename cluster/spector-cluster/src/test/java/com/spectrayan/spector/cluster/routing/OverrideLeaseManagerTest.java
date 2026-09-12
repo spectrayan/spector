@@ -134,7 +134,9 @@ class OverrideLeaseManagerTest {
     void testActiveOverrideMetrics() {
         MutableClock clock = new MutableClock(Instant.parse("2026-09-12T00:00:00Z"));
         InMemoryControlStore store = new InMemoryControlStore(clock);
-        OverrideLeaseManager manager = new OverrideLeaseManager(store);
+        CoordinatorLeaseManager coordMgr = new CoordinatorLeaseManager(store, "node-coord", Duration.ofSeconds(60), Duration.ofSeconds(10));
+        coordMgr.heartbeat();
+        OverrideLeaseManager manager = new OverrideLeaseManager(store, coordMgr, Duration.ofSeconds(300));
 
         assertThat(manager.getActiveOverrideCount()).isEqualTo(0);
         assertThat(manager.getMaxOverrideAge()).isEqualTo(Duration.ZERO);
@@ -142,11 +144,11 @@ class OverrideLeaseManagerTest {
         store.setOverride(new OverrideLeaseRecord(
                 "ns-1", "node-1", 1L, "f-1",
                 clock.instant().plusSeconds(60), clock.instant().minusSeconds(10)
-        ));
+        ), coordMgr.getLeaseVersion());
         store.setOverride(new OverrideLeaseRecord(
                 "ns-2", "node-2", 1L, "f-2",
                 clock.instant().plusSeconds(60), clock.instant().minusSeconds(35)
-        ));
+        ), coordMgr.getLeaseVersion());
 
         assertThat(manager.getActiveOverrideCount()).isEqualTo(2);
         assertThat(manager.getMaxOverrideAge()).isEqualTo(Duration.ofSeconds(35));
@@ -157,12 +159,57 @@ class OverrideLeaseManagerTest {
     @DisplayName("Safely checks hash-default owner liveness to prevent black holes (Req R3.4)")
     void testBlackHoleSafetyCheck() {
         InMemoryControlStore store = new InMemoryControlStore();
-        OverrideLeaseManager manager = new OverrideLeaseManager(store);
+        CoordinatorLeaseManager coordMgr = new CoordinatorLeaseManager(store, "node-coord", Duration.ofSeconds(60), Duration.ofSeconds(10));
+        coordMgr.heartbeat();
+        OverrideLeaseManager manager = new OverrideLeaseManager(store, coordMgr, Duration.ofSeconds(300));
 
         boolean safeWhenDead = manager.canSafelyExpireOrRemove("ns-1", "dead-node", node -> false);
         assertThat(safeWhenDead).isFalse();
 
         boolean safeWhenAlive = manager.canSafelyExpireOrRemove("ns-1", "live-node", "live-node"::equals);
         assertThat(safeWhenAlive).isTrue();
+    }
+
+    @Test
+    @DisplayName("G19: Authority check is hoisted before epoch bump — non-coordinator never burns epochs")
+    void testAuthorityCheckHoistedBeforeEpochBump() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-09-12T00:00:00Z"));
+        InMemoryControlStore store = new InMemoryControlStore(clock);
+        CoordinatorLeaseManager follower = new CoordinatorLeaseManager(store, "follower-node", Duration.ofSeconds(15), Duration.ofSeconds(10));
+        // follower does NOT heartbeat/acquire lease
+
+        OverrideLeaseManager manager = new OverrideLeaseManager(store, follower, Duration.ofSeconds(60));
+
+        assertThatThrownBy(() -> manager.setOverride("ns-target", "survivor", "f-1", Duration.ofSeconds(60)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Only the active cell coordinator may create, update, or remove override leases");
+
+        // Monotonic epoch was NEVER burned/incremented!
+        assertThat(store.getNamespaceEpoch("ns-target")).isEqualTo(0L);
+    }
+
+    @Test
+    @DisplayName("G21: Active reaper renews override when hash owner is dead and safely removes when alive and verified")
+    void testActiveOverrideReaperRenewsWhenOwnerDeadAndRemovesWhenAlive() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-09-12T00:00:00Z"));
+        InMemoryControlStore store = new InMemoryControlStore(clock);
+        CoordinatorLeaseManager coordMgr = new CoordinatorLeaseManager(store, "coord-node", Duration.ofSeconds(60), Duration.ofSeconds(10));
+        coordMgr.heartbeat();
+
+        OverrideLeaseManager manager = new OverrideLeaseManager(store, coordMgr, Duration.ofSeconds(60));
+        manager.setOverride("ns-active", "survivor-1", "f-1", Duration.ofSeconds(40));
+
+        // Advance 20 seconds: remaining TTL = 20s (< 30s threshold)
+        clock.advance(Duration.ofSeconds(20));
+
+        // 1. Hash owner is dead: reaper renews override to hold pin (never snaps back to dead owner)
+        manager.reapOrRenewOverrides(ns -> "hash-dead", node -> false, (ns, node) -> false);
+        Optional<OverrideLeaseRecord> renewed = manager.getOverride("ns-active");
+        assertThat(renewed).isPresent();
+        assertThat(renewed.get().expiresAt()).isAfter(clock.instant().plusSeconds(30));
+
+        // 2. Hash owner is alive and verified: reaper safely removes override
+        manager.reapOrRenewOverrides(ns -> "hash-alive", node -> true, (ns, node) -> true);
+        assertThat(manager.getOverride("ns-active")).isEmpty();
     }
 }

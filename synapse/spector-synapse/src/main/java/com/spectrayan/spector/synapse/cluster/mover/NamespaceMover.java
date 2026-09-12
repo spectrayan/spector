@@ -74,7 +74,7 @@ public class NamespaceMover {
             Duration overrideTtl,
             Clock clock) {
         this.controlStore = Objects.requireNonNull(controlStore, "controlStore must not be null");
-        this.coordinatorLeaseManager = coordinatorLeaseManager;
+        this.coordinatorLeaseManager = Objects.requireNonNull(coordinatorLeaseManager, "coordinatorLeaseManager must not be null");
         this.overrideLeaseManager = Objects.requireNonNull(overrideLeaseManager, "overrideLeaseManager must not be null");
         this.fenceTokenManager = Objects.requireNonNull(fenceTokenManager, "fenceTokenManager must not be null");
         this.dataVerifier = Objects.requireNonNull(dataVerifier, "dataVerifier must not be null");
@@ -119,9 +119,10 @@ public class NamespaceMover {
             status = status.withPhase(MovePhase.TARGET_CATCH_UP, 0L, null, clock.instant());
             inFlightMoves.put(namespaceId, status);
 
-            // Phase 3: TRANSFER_OWNERSHIP under new fence (Req R5.4, R5.5)
+            // Phase 3: TRANSFER_OWNERSHIP under new fence (Req R5.4, R5.5, G16 CAS)
             log.info("[NamespaceMover] Phase 3/4: Transferring ownership to '{}' under new fence", targetNodeId);
-            long newEpoch = controlStore.advanceNamespaceEpoch(namespaceId);
+            long leaseVersion = coordinatorLeaseManager.getLeaseVersion();
+            long newEpoch = controlStore.advanceNamespaceEpoch(namespaceId, leaseVersion);
             String newFence = fenceTokenManager.mintFenceForEpoch(namespaceId, newEpoch).toTokenString();
             overrideLeaseManager.setOverrideWithEpoch(namespaceId, targetNodeId, newEpoch, newFence, overrideTtl);
             status = status.withPhase(MovePhase.TRANSFER_OWNERSHIP, newEpoch, newFence, clock.instant());
@@ -139,8 +140,8 @@ public class NamespaceMover {
                     namespaceId, targetNodeId, newEpoch, newFence);
             return status;
         } catch (Exception e) {
-            log.error("[NamespaceMover] Interrupted or error during move of namespace '{}': {}", namespaceId, e.getMessage(), e);
-            status = status.withPhase(MovePhase.FAILED, status.targetEpoch(), status.targetFence(), clock.instant());
+            log.error("[NamespaceMover] Move FAILED for namespace '{}': {}", namespaceId, e.getMessage(), e);
+            status = status.withPhase(MovePhase.FAILED, 0L, null, clock.instant());
             inFlightMoves.put(namespaceId, status);
             return status;
         }
@@ -157,7 +158,7 @@ public class NamespaceMover {
     }
 
     private void verifyCoordinatorAuthority() {
-        if (coordinatorLeaseManager != null && !coordinatorLeaseManager.checkStoreEnforcedLeaseActive()) {
+        if (coordinatorLeaseManager == null || !coordinatorLeaseManager.checkStoreEnforcedLeaseActive()) {
             throw new IllegalStateException("Only the active cell coordinator may execute namespace moves (Req R5.3, Q4)");
         }
     }

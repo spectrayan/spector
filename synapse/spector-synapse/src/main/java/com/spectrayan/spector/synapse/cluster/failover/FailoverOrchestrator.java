@@ -132,7 +132,7 @@ public class FailoverOrchestrator {
             NamespaceInventory namespaceInventory,
             Clock clock) {
         this.controlStore = Objects.requireNonNull(controlStore, "controlStore must not be null");
-        this.coordinatorLeaseManager = coordinatorLeaseManager;
+        this.coordinatorLeaseManager = Objects.requireNonNull(coordinatorLeaseManager, "coordinatorLeaseManager must not be null (G19)");
         this.overrideLeaseManager = Objects.requireNonNull(overrideLeaseManager, "overrideLeaseManager must not be null");
         this.fenceTokenManager = Objects.requireNonNull(fenceTokenManager, "fenceTokenManager must not be null");
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
@@ -149,7 +149,7 @@ public class FailoverOrchestrator {
         if (!properties.isEnabled()) {
             return;
         }
-        if (coordinatorLeaseManager != null && !coordinatorLeaseManager.checkStoreEnforcedLeaseActive()) {
+        if (!coordinatorLeaseManager.checkStoreEnforcedLeaseActive()) {
             log.debug("[FailoverOrchestrator] Not the active coordinator; skipping failover evaluation");
             return;
         }
@@ -235,6 +235,15 @@ public class FailoverOrchestrator {
             Instant triggerTime) {
         Instant start = clock.instant();
 
+        // G19: Verify coordinator authority FIRST before any mutation or verification!
+        if (!isObserveOnly) {
+            if (!coordinatorLeaseManager.checkStoreEnforcedLeaseActive()) {
+                log.error("[FailoverOrchestrator] Refusing failover for namespace '{}': not the active coordinator (G19)",
+                        namespaceId);
+                return false;
+            }
+        }
+
         // 1. Verify candidate replica data before promotion (Req R4.4, Q6)
         boolean dataValid = dataVerifier.verifyCandidateData(namespaceId, survivorNodeId);
         if (!dataValid) {
@@ -259,8 +268,9 @@ public class FailoverOrchestrator {
             return true;
         }
 
-        // 2. Advance monotonic epoch in control store (Req R4.2, R4.7)
-        long newEpoch = controlStore.advanceNamespaceEpoch(namespaceId);
+        // 2. Advance monotonic epoch in control store under coordinator lease version (Req R4.2, R4.7, G16 CAS)
+        long leaseVersion = coordinatorLeaseManager.getLeaseVersion();
+        long newEpoch = controlStore.advanceNamespaceEpoch(namespaceId, leaseVersion);
 
         // 3. Mint new fence token (Req R4.3, R2.1)
         String newFence = fenceTokenManager.mintFenceForEpoch(namespaceId, newEpoch).toTokenString();

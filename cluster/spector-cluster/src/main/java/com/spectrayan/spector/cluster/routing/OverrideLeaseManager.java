@@ -47,16 +47,12 @@ public class OverrideLeaseManager {
     private final CoordinatorLeaseManager coordinatorLeaseManager;
     private final Duration defaultTtl;
 
-    public OverrideLeaseManager(ControlStore controlStore) {
-        this(controlStore, null, Duration.ofSeconds(300));
-    }
-
     public OverrideLeaseManager(
             ControlStore controlStore,
             CoordinatorLeaseManager coordinatorLeaseManager,
             Duration defaultTtl) {
         this.controlStore = Objects.requireNonNull(controlStore, "controlStore must not be null");
-        this.coordinatorLeaseManager = coordinatorLeaseManager;
+        this.coordinatorLeaseManager = Objects.requireNonNull(coordinatorLeaseManager, "coordinatorLeaseManager must not be null (G19)");
         this.defaultTtl = Objects.requireNonNull(defaultTtl, "defaultTtl must not be null");
     }
 
@@ -81,8 +77,11 @@ public class OverrideLeaseManager {
      * @return the created override record
      */
     public OverrideLeaseRecord setOverride(String namespaceId, String targetNodeId, String fence, Duration ttl) {
-        long epoch = controlStore.advanceNamespaceEpoch(namespaceId);
-        return setOverrideWithEpoch(namespaceId, targetNodeId, epoch, fence, ttl);
+        Objects.requireNonNull(namespaceId, "namespaceId must not be null");
+        Objects.requireNonNull(targetNodeId, "targetNodeId must not be null");
+        long leaseVersion = verifyCoordinatorAuthority(); // Hoist authority check to the very top (G19)
+        long epoch = controlStore.advanceNamespaceEpoch(namespaceId, leaseVersion); // G16 CAS
+        return setOverrideWithEpochInternal(namespaceId, targetNodeId, epoch, fence, ttl, leaseVersion);
     }
 
     /**
@@ -103,15 +102,27 @@ public class OverrideLeaseManager {
             Duration ttl) {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
         Objects.requireNonNull(targetNodeId, "targetNodeId must not be null");
-        verifyCoordinatorAuthority();
+        long leaseVersion = verifyCoordinatorAuthority(); // Hoist authority check to the very top (G19)
+        return setOverrideWithEpochInternal(namespaceId, targetNodeId, epoch, fence, ttl, leaseVersion);
+    }
 
+    private OverrideLeaseRecord setOverrideWithEpochInternal(
+            String namespaceId,
+            String targetNodeId,
+            long epoch,
+            String fence,
+            Duration ttl,
+            long leaseVersion) {
         Duration effectiveTtl = ttl != null ? ttl : defaultTtl;
         Instant expiresAt = controlStore.now().plus(effectiveTtl);
 
         OverrideLeaseRecord record = new OverrideLeaseRecord(namespaceId, targetNodeId, epoch, fence, expiresAt);
-        controlStore.setOverride(record);
-        log.info("[OverrideLeaseManager] Coordinator pinned namespace '{}' -> node '{}' (epoch={}, fence='{}', ttl={}s)",
-                namespaceId, targetNodeId, epoch, fence, effectiveTtl.toSeconds());
+        boolean success = controlStore.setOverride(record, leaseVersion);
+        if (!success) {
+            throw new IllegalStateException("Failed to set override in control store: coordinator lease version mismatch (v" + leaseVersion + ")");
+        }
+        log.info("[OverrideLeaseManager] Coordinator pinned namespace '{}' -> node '{}' (epoch={}, fence='{}', ttl={}s, leaseVersion={})",
+                namespaceId, targetNodeId, epoch, fence, effectiveTtl.toSeconds(), leaseVersion);
         return record;
     }
 
@@ -124,7 +135,7 @@ public class OverrideLeaseManager {
      */
     public OverrideLeaseRecord renewOverride(String namespaceId, Duration ttl) {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
-        verifyCoordinatorAuthority();
+        long leaseVersion = verifyCoordinatorAuthority();
 
         Optional<OverrideLeaseRecord> existing = controlStore.getOverride(namespaceId);
         if (existing.isEmpty()) {
@@ -142,9 +153,12 @@ public class OverrideLeaseManager {
                 expiresAt,
                 current.createdAt()
         );
-        controlStore.setOverride(renewed);
-        log.info("[OverrideLeaseManager] Coordinator renewed override for namespace '{}' -> node '{}' until {}",
-                namespaceId, renewed.targetNodeId(), expiresAt);
+        boolean success = controlStore.setOverride(renewed, leaseVersion);
+        if (!success) {
+            throw new IllegalStateException("Failed to renew override in control store: coordinator lease version mismatch (v" + leaseVersion + ")");
+        }
+        log.info("[OverrideLeaseManager] Coordinator renewed override for namespace '{}' -> node '{}' until {} (leaseVersion={})",
+                namespaceId, renewed.targetNodeId(), expiresAt, leaseVersion);
         return renewed;
     }
 
@@ -155,10 +169,14 @@ public class OverrideLeaseManager {
      */
     public void removeOverride(String namespaceId) {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
-        verifyCoordinatorAuthority();
+        long leaseVersion = verifyCoordinatorAuthority();
 
-        controlStore.removeOverride(namespaceId);
-        log.info("[OverrideLeaseManager] Coordinator removed override for namespace '{}'", namespaceId);
+        boolean success = controlStore.removeOverride(namespaceId, leaseVersion);
+        if (!success) {
+            throw new IllegalStateException("Failed to remove override in control store: coordinator lease version mismatch (v" + leaseVersion + ")");
+        }
+        log.info("[OverrideLeaseManager] Coordinator removed override for namespace '{}' (leaseVersion={})",
+                namespaceId, leaseVersion);
     }
 
     /**
@@ -178,6 +196,52 @@ public class OverrideLeaseManager {
         Objects.requireNonNull(hashDefaultOwner, "hashDefaultOwner must not be null");
         Objects.requireNonNull(isNodeAliveAndReady, "isNodeAliveAndReady must not be null");
         return isNodeAliveAndReady.test(hashDefaultOwner);
+    }
+
+    /**
+     * Evaluates all active overrides under coordinator authority (G21).
+     *
+     * <p>Renews overrides if the hash default owner is not alive and ready. If an override's TTL
+     * has lapsed or is expiring, it is NEVER allowed to passively snap back to a dead or unverified
+     * owner: it is actively renewed to hold the pin, or an alarm is raised. Only safely removes an
+     * override when both hash default owner is alive/ready AND candidate data is verified.</p>
+     *
+     * @param hashDefaultOwnerResolver function resolving hash-ring owner for namespace
+     * @param isNodeAliveAndReady       probe testing whether hash owner is healthy
+     * @param candidateDataVerifier     verifier checking whether hash owner possesses catch-up data
+     */
+    public void reapOrRenewOverrides(
+            java.util.function.Function<String, String> hashDefaultOwnerResolver,
+            java.util.function.Predicate<String> isNodeAliveAndReady,
+            java.util.function.BiPredicate<String, String> candidateDataVerifier) {
+        if (coordinatorLeaseManager == null || !coordinatorLeaseManager.checkStoreEnforcedLeaseActive()) {
+            return;
+        }
+        Instant now = controlStore.now();
+        for (OverrideLeaseRecord override : controlStore.listOverrides()) {
+            String ns = override.namespaceId();
+            String hashOwner = hashDefaultOwnerResolver != null ? hashDefaultOwnerResolver.apply(ns) : null;
+            if (hashOwner == null) {
+                continue;
+            }
+            boolean hashOwnerReady = isNodeAliveAndReady != null && canSafelyExpireOrRemove(ns, hashOwner, isNodeAliveAndReady);
+            boolean dataVerified = hashOwnerReady && (candidateDataVerifier == null || candidateDataVerifier.test(ns, hashOwner));
+
+            if (hashOwnerReady && dataVerified) {
+                // Safe to remove override and return to hash owner
+                log.info("[OverrideLeaseManager] Hash owner '{}' is healthy and verified for namespace '{}'; safely releasing override pin",
+                        hashOwner, ns);
+                removeOverride(ns);
+            } else {
+                // Hash owner is NOT ready or data NOT verified.
+                // Do NOT let override expire into dead owner! Renew it to hold the pin (G21).
+                if (override.isExpired(now) || override.expiresAt().isBefore(now.plusSeconds(30))) {
+                    log.warn("[OverrideLeaseManager] G21: Override for namespace '{}' near expiration but hash owner '{}' is not ready/verified; holding pin and renewing",
+                            ns, hashOwner);
+                    renewOverride(ns, defaultTtl);
+                }
+            }
+        }
     }
 
     /**
@@ -223,9 +287,10 @@ public class OverrideLeaseManager {
                 .map(record -> record.age(now));
     }
 
-    private void verifyCoordinatorAuthority() {
-        if (coordinatorLeaseManager != null && !coordinatorLeaseManager.checkStoreEnforcedLeaseActive()) {
-            throw new IllegalStateException("Only the active cell coordinator may create, update, or remove override leases (Req R3.2, Q4)");
+    private long verifyCoordinatorAuthority() {
+        if (coordinatorLeaseManager == null || !coordinatorLeaseManager.checkStoreEnforcedLeaseActive()) {
+            throw new IllegalStateException("Only the active cell coordinator may create, update, or remove override leases (Req R3.2, Q4, G19)");
         }
+        return coordinatorLeaseManager.getLeaseVersion();
     }
 }
