@@ -49,7 +49,7 @@ public final class OwnershipResolver {
 
     private final NodeIdentity identity;
     private final MembershipSource membershipSource;
-    private final ConsistentHashRing ring;
+    private final java.util.concurrent.atomic.AtomicReference<ConsistentHashRing> ringRef = new java.util.concurrent.atomic.AtomicReference<>();
     private final OverrideLeaseManager overrideLeaseManager;
 
     /**
@@ -87,7 +87,6 @@ public final class OwnershipResolver {
         this.overrideLeaseManager = overrideLeaseManager;
         if (identity.role() == NodeRole.STANDALONE) {
             this.membershipSource = membershipSource;
-            this.ring = null;
             log.info("Initialized OwnershipResolver in STANDALONE mode (owns all namespaces, ring bypassed)");
         } else {
             this.membershipSource = Objects.requireNonNull(membershipSource,
@@ -97,9 +96,43 @@ public final class OwnershipResolver {
                 throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
                         "membership", "membership must not be empty for role " + identity.role() + " (Req R7.3, L2)");
             }
-            this.ring = ConsistentHashRing.of(membership.ringVersion(), membership.members());
+            ConsistentHashRing ring = ConsistentHashRing.of(membership.ringVersion(), membership.members());
+            this.ringRef.set(ring);
             log.info("Initialized OwnershipResolver for cell '{}', node '{}', role '{}' with ring version {} and members: {}",
                     identity.cellId(), identity.nodeId(), identity.role(), ring.ringVersion(), ring.members());
+        }
+    }
+
+    /**
+     * Atomically reloads the hash ring with updated cell membership without node restart (Req R5.1, R5.2).
+     *
+     * @param newMembership new membership snapshot
+     */
+    public void reloadRing(CellMembership newMembership) {
+        if (identity.role() == NodeRole.STANDALONE) {
+            return;
+        }
+        Objects.requireNonNull(newMembership, "newMembership must not be null");
+        if (newMembership.members().isEmpty()) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "membership", "membership must not be empty for role " + identity.role());
+        }
+        ConsistentHashRing newRing = ConsistentHashRing.of(newMembership.ringVersion(), newMembership.members());
+        ringRef.set(newRing);
+        log.info("[OwnershipResolver] Atomically reloaded hash ring for cell '{}' to version {} with members: {}",
+                identity.cellId(), newMembership.ringVersion(), newMembership.members());
+    }
+
+    /**
+     * Atomically reloads the hash ring from the configured membership source without node restart (Req R5.1, R5.2).
+     */
+    public void reloadRingFromSource() {
+        if (identity.role() == NodeRole.STANDALONE || membershipSource == null) {
+            return;
+        }
+        CellMembership current = membershipSource.current();
+        if (current != null) {
+            reloadRing(current);
         }
     }
 
@@ -120,7 +153,8 @@ public final class OwnershipResolver {
                         yield Objects.equals(identity.nodeId(), overrideOpt.get().targetNodeId());
                     }
                 }
-                String owner = ring.ownerOf(key);
+                ConsistentHashRing ring = ringRef.get();
+                String owner = ring != null ? ring.ownerOf(key) : null;
                 yield Objects.equals(identity.nodeId(), owner);
             }
             case REPLICA, GATEWAY -> false;
@@ -154,10 +188,11 @@ public final class OwnershipResolver {
                         );
                     }
                 }
+                ConsistentHashRing ring = ringRef.get();
                 yield RouteBinding.ofHash(
                         key,
-                        ring.ownerOf(key),
-                        ring.ringVersion()
+                        ring != null ? ring.ownerOf(key) : identity.nodeId(),
+                        ring != null ? ring.ringVersion() : 0L
                 );
             }
         };
@@ -185,6 +220,6 @@ public final class OwnershipResolver {
      * @return optional containing the hash ring, or empty if standalone
      */
     public Optional<ConsistentHashRing> ring() {
-        return Optional.ofNullable(ring);
+        return Optional.ofNullable(ringRef.get());
     }
 }
