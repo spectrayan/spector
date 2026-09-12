@@ -1,4 +1,4 @@
-﻿// Fluid scroll reveal & instant navigation lifecycle enhancement
+// Fluid scroll reveal & instant navigation lifecycle enhancement
 (function() {
   'use strict';
 
@@ -6,7 +6,7 @@
     if (!('IntersectionObserver' in window)) return;
 
     var targets = document.querySelectorAll(
-      '.md-typeset .grid > *, .md-typeset details, .md-typeset table:not([class]), .mermaid'
+      '.md-typeset .grid > *, .md-typeset details, .mermaid'
     );
 
     var observer = new IntersectionObserver(function(entries) {

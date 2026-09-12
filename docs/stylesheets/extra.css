@@ -1412,135 +1412,146 @@ code, kbd, pre, samp, .highlight, .md-typeset code {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   Universal Table Formatting & Responsiveness Overhaul
+   Universal Table Formatting & High-Contrast Grid Overhaul
    ═══════════════════════════════════════════════════════════════ */
 
-.md-typeset table:not([class]) {
-  display: table;
-  width: 100%;
-  max-width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  margin: 1.5em 0;
-  font-size: 0.84rem;
-  line-height: 1.55;
-  border: 1px solid #94a3b8; /* Crisp, distinctly visible outer border */
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+/* Table container and layout */
+.md-typeset table:not(.highlighttable),
+.md-typeset table:not([class]),
+.md-typeset__table table {
+  display: table !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  margin: 1.5em 0 !important;
+  font-size: 0.84rem !important;
+  line-height: 1.55 !important;
+  border: 2px solid #94a3b8 !important; /* Thick solid outer border */
+  border-radius: 6px !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06) !important;
 }
 
-/* Ensure horizontal scroll on mobile viewports */
+/* Ensure horizontal scroll on small viewports */
 @media screen and (max-width: 60em) {
-  .md-typeset table:not([class]) {
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    width: 100%;
+  .md-typeset .md-typeset__scrollwrap,
+  .md-typeset table:not(.highlighttable) {
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
 }
 
-.md-typeset table:not([class]) th {
-  background: #f1f5f9;
-  color: #0f172a;
-  font-weight: 700;
-  font-size: 0.80rem;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  padding: 0.85em 1.1em;
-  border-bottom: 2px solid #00b4d8; /* Distinct cyan accent bottom line */
-  border-right: 1px solid #cbd5e1; /* Visible vertical column divider */
-  text-align: left;
-  white-space: nowrap;
+/* ── Light Mode Header: Unmistakable contrast against records ── */
+.md-typeset table:not(.highlighttable) thead {
+  display: table-header-group !important;
 }
 
-.md-typeset table:not([class]) th:last-child {
-  border-right: none;
+.md-typeset table:not(.highlighttable) thead tr {
+  background-color: #e2e8f0 !important; /* Solid Slate-200 */
+  border-bottom: 3px solid #00b4d8 !important; /* Bold cyan accent line */
 }
 
-.md-typeset table:not([class]) td {
-  padding: 0.75em 1.1em;
-  border-bottom: 1px solid #cbd5e1; /* Clearly visible row divider */
-  border-right: 1px solid #e2e8f0; /* Clearly visible column divider */
-  vertical-align: top;
-  color: #1e293b;
+.md-typeset table:not(.highlighttable) th {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;            /* High contrast dark text */
+  font-weight: 800 !important;          /* Extra bold */
+  font-size: 0.82rem !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  padding: 0.85em 1em !important;
+  border: 1px solid #cbd5e1 !important; /* Grid border on every cell */
+  border-bottom: 3px solid #00b4d8 !important;
+  text-align: left !important;
+  vertical-align: middle !important;
 }
 
-.md-typeset table:not([class]) td:last-child {
-  border-right: none;
+/* ── Light Mode Data Records ── */
+.md-typeset table:not(.highlighttable) td {
+  padding: 0.75em 1em !important;
+  border: 1px solid #cbd5e1 !important; /* Complete grid border on every cell */
+  vertical-align: top !important;
+  color: #1e293b !important;
+  font-weight: 400 !important;
 }
 
-.md-typeset table:not([class]) tr:last-child td {
-  border-bottom: none;
+.md-typeset table:not(.highlighttable) tbody tr:nth-child(even) td {
+  background-color: #f8fafc !important;
 }
 
-/* Zebra striping */
-.md-typeset table:not([class]) tbody tr:nth-child(even) {
-  background: rgba(0, 180, 216, 0.03);
+.md-typeset table:not(.highlighttable) tbody tr:nth-child(odd) td {
+  background-color: #ffffff !important;
 }
 
-/* Interactive row hover highlight */
-.md-typeset table:not([class]) tbody tr:hover {
-  background: rgba(0, 180, 216, 0.08);
-  transition: background 0.15s ease-in-out;
+.md-typeset table:not(.highlighttable) tbody tr:hover td {
+  background-color: #f0f9ff !important;
 }
 
-/* Inline code badges in tables */
-.md-typeset table:not([class]) code {
-  font-size: 0.78rem;
-  padding: 0.18em 0.45em;
-  border-radius: 4px;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  word-break: break-word;
-  white-space: normal;
-  color: #0369a1;
+/* Inline code badges */
+.md-typeset table:not(.highlighttable) code {
+  font-size: 0.78rem !important;
+  padding: 0.15em 0.45em !important;
+  border-radius: 4px !important;
+  background-color: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  word-break: break-word !important;
+  white-space: normal !important;
+  color: #0369a1 !important;
 }
 
-/* ── Dark Mode (Slate Scheme) High-Contrast Table Styling ── */
-[data-md-color-scheme="slate"] .md-typeset table:not([class]) {
-  border: 1px solid #475569; /* Slate-600: Clearly visible outer border against dark background */
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-  background: #0f1422;
+/* ═══════════════════════════════════════════════════════════════
+   Dark Mode (Slate Scheme) High-Contrast Table Styling
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-md-color-scheme="slate"] .md-typeset table:not(.highlighttable),
+[data-md-color-scheme="slate"] .md-typeset table:not([class]),
+[data-md-color-scheme="slate"] .md-typeset__table table {
+  border: 2px solid #475569 !important; /* Thick slate-600 border */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45) !important;
+  background-color: #0b0f19 !important;
 }
 
-[data-md-color-scheme="slate"] .md-typeset table:not([class]) th {
-  background: #151d30;
-  color: #f8fafc;
-  border-bottom: 2px solid #00d2ff; /* Brilliant cyan separator */
-  border-right: 1px solid #334155;
+/* Header: Dark slate with electric cyan accent text & line */
+[data-md-color-scheme="slate"] .md-typeset table:not(.highlighttable) thead tr {
+  background-color: #1e293b !important;
+  border-bottom: 3px solid #00d2ff !important;
 }
 
-[data-md-color-scheme="slate"] .md-typeset table:not([class]) th:last-child {
-  border-right: none;
+[data-md-color-scheme="slate"] .md-typeset table:not(.highlighttable) th {
+  background-color: #1e293b !important; /* Distinct Slate-800 header */
+  color: #38bdf8 !important;            /* Electric cyan/sky header text */
+  font-weight: 800 !important;
+  font-size: 0.82rem !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  border: 1px solid #334155 !important;
+  border-bottom: 3px solid #00d2ff !important;
 }
 
-[data-md-color-scheme="slate"] .md-typeset table:not([class]) td {
-  border-bottom: 1px solid #1e293b; /* Clearly visible row divider */
-  border-right: 1px solid #1e293b; /* Clearly visible column divider */
-  color: #e2e8f0;
+/* Data Records */
+[data-md-color-scheme="slate"] .md-typeset table:not(.highlighttable) td {
+  border: 1px solid #334155 !important; /* Crisp high-contrast cell grid */
+  color: #e2e8f0 !important;
+  font-weight: 400 !important;
 }
 
-[data-md-color-scheme="slate"] .md-typeset table:not([class]) td:last-child {
-  border-right: none;
+[data-md-color-scheme="slate"] .md-typeset table:not(.highlighttable) tbody tr:nth-child(even) td {
+  background-color: #111827 !important;
 }
 
-[data-md-color-scheme="slate"] .md-typeset table:not([class]) tr:last-child td {
-  border-bottom: none;
+[data-md-color-scheme="slate"] .md-typeset table:not(.highlighttable) tbody tr:nth-child(odd) td {
+  background-color: #0b0f19 !important;
 }
 
-[data-md-color-scheme="slate"] .md-typeset table:not([class]) tbody tr:nth-child(even) {
-  background: rgba(255, 255, 255, 0.025);
+[data-md-color-scheme="slate"] .md-typeset table:not(.highlighttable) tbody tr:hover td {
+  background-color: #172554 !important;
 }
 
-[data-md-color-scheme="slate"] .md-typeset table:not([class]) tbody tr:hover {
-  background: rgba(0, 210, 255, 0.10);
-}
-
-[data-md-color-scheme="slate"] .md-typeset table:not([class]) code {
-  background: #182238;
-  border-color: #334155;
-  color: #38bdf8;
+[data-md-color-scheme="slate"] .md-typeset table:not(.highlighttable) code {
+  background-color: #1e293b !important;
+  border: 1px solid #475569 !important;
+  color: #38bdf8 !important;
 }
 
 
