@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
+import com.spectrayan.spector.cluster.OwnershipResolver;
+import com.spectrayan.spector.cluster.node.NodeRole;
+import com.spectrayan.spector.cluster.routing.RoutingKey;
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
@@ -30,6 +33,7 @@ import com.spectrayan.spector.synapse.catalog.exception.FederationDisabledExcept
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -47,6 +51,9 @@ import java.util.Optional;
  *
  * <p>Enforces account federation flags, query and cold-open budgets, parallel fan-out
  * with virtual threads, and provenance-annotated heuristic merging.</p>
+ *
+ * <p>In cluster mode, federated recall filters candidate targets to locally-owned namespaces
+ * only (ADR-0034, Req R6.4).</p>
  */
 @Service
 @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
@@ -61,19 +68,42 @@ public class FederatedRecallService {
     private final AccountCatalog catalog;
     private final MemoryRegistry userMemoryRegistry;
     private final SynapseProperties synapseProps;
+    private final OwnershipResolver ownershipResolver;
 
     @Autowired
     public FederatedRecallService(
             AccountCatalog catalog,
             MemoryRegistry userMemoryRegistry,
-            SynapseProperties synapseProps) {
+            SynapseProperties synapseProps,
+            ObjectProvider<OwnershipResolver> ownershipResolverProvider) {
         this.catalog = catalog;
         this.userMemoryRegistry = userMemoryRegistry;
         this.synapseProps = synapseProps;
+        this.ownershipResolver = (ownershipResolverProvider != null && ownershipResolverProvider.getIfAvailable() != null)
+                ? ownershipResolverProvider.getIfAvailable()
+                : (synapseProps != null && synapseProps.cell() != null ? synapseProps.cell().toOwnershipResolver() : OwnershipResolver.standalone());
+    }
+
+    public FederatedRecallService(
+            AccountCatalog catalog,
+            MemoryRegistry userMemoryRegistry,
+            SynapseProperties synapseProps) {
+        this(catalog, userMemoryRegistry, synapseProps, (OwnershipResolver) null);
     }
 
     public FederatedRecallService(AccountCatalog catalog, MemoryRegistry userMemoryRegistry) {
-        this(catalog, userMemoryRegistry, null);
+        this(catalog, userMemoryRegistry, null, (OwnershipResolver) null);
+    }
+
+    public FederatedRecallService(
+            AccountCatalog catalog,
+            MemoryRegistry userMemoryRegistry,
+            SynapseProperties synapseProps,
+            OwnershipResolver ownershipResolver) {
+        this.catalog = catalog;
+        this.userMemoryRegistry = userMemoryRegistry;
+        this.synapseProps = synapseProps;
+        this.ownershipResolver = ownershipResolver != null ? ownershipResolver : OwnershipResolver.standalone();
     }
 
     /**
@@ -93,14 +123,16 @@ public class FederatedRecallService {
         final long startTime = System.currentTimeMillis();
         final boolean authEnabled = synapseProps == null || synapseProps.auth().enabled();
 
+        Account loadedAccount = null;
         // 1. Quota & account federation flag check
         if (authEnabled && accountId != null && !accountId.isBlank() && !"default".equals(accountId)) {
-            Account account = catalog.getOrCreateAccount(accountId);
-            if (account.flags() != null && !account.flags().federation()) {
+            loadedAccount = catalog.getOrCreateAccount(accountId);
+            if (loadedAccount.flags() != null && !loadedAccount.flags().federation()) {
                 log.warn("[FederatedRecall] Account '{}' attempted federated recall but federation flag is disabled", accountId);
                 throw new FederationDisabledException(accountId);
             }
         }
+        final Account account = loadedAccount;
 
         // 2. Target Namespace Resolution
         final List<String> requested = request.namespaces();
@@ -117,6 +149,16 @@ public class FederatedRecallService {
                 for (NamespaceRecord rec : accessible) {
                     if (rec.status() == NamespaceStatus.TOMBSTONED) {
                         continue;
+                    }
+                    if (ownershipResolver.identity().role() != NodeRole.STANDALONE) {
+                        String tenantId = (userMemoryRegistry.namespaceResolver() != null)
+                                ? userMemoryRegistry.namespaceResolver().placementTenantIdFor(rec.namespaceId(), rec.ownerAccountId(), accountId, account)
+                                : (account != null ? account.tenantId() : null);
+                        String cellId = synapseProps != null && synapseProps.cell() != null ? synapseProps.cell().getId() : null;
+                        if (!ownershipResolver.ownsLocally(new RoutingKey(cellId, tenantId, rec.namespaceId()))) {
+                            log.debug("[FederatedRecall] Skipping namespace '{}' not owned by this cell node", rec.namespaceId());
+                            continue;
+                        }
                     }
                     GrantRole role = catalog.authorize(accountId, rec.namespaceId(), GrantRole.READER)
                             .map(Grant::role)
@@ -142,6 +184,17 @@ public class FederatedRecallService {
                     if (rec.status() == NamespaceStatus.TOMBSTONED) {
                         failed.add(trimmed);
                         continue;
+                    }
+                    if (ownershipResolver.identity().role() != NodeRole.STANDALONE) {
+                        String tenantId = (userMemoryRegistry.namespaceResolver() != null)
+                                ? userMemoryRegistry.namespaceResolver().placementTenantIdFor(rec.namespaceId(), rec.ownerAccountId(), accountId, account)
+                                : (account != null ? account.tenantId() : null);
+                        String cellId = synapseProps != null && synapseProps.cell() != null ? synapseProps.cell().getId() : null;
+                        if (!ownershipResolver.ownsLocally(new RoutingKey(cellId, tenantId, rec.namespaceId()))) {
+                            log.debug("[FederatedRecall] Refusing namespace '{}' not owned by this cell node", rec.namespaceId());
+                            denied.add(trimmed);
+                            continue;
+                        }
                     }
                     Optional<Grant> authOpt = catalog.authorize(accountId, rec.namespaceId(), GrantRole.READER);
                     if (authOpt.isEmpty() && !accountId.equals(rec.ownerAccountId())) {

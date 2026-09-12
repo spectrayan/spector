@@ -18,9 +18,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import com.spectrayan.spector.cluster.OwnershipResolver;
+import com.spectrayan.spector.cluster.node.NodeRole;
+import com.spectrayan.spector.cluster.routing.RouteBinding;
+import com.spectrayan.spector.cluster.routing.RoutingKey;
+import com.spectrayan.spector.synapse.cluster.exception.NamespaceNotOwnedException;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -44,6 +51,9 @@ import com.spectrayan.spector.synapse.identity.IdentityPlane;
 /**
  * Shared binder that resolves an authenticated request to a {@link MemoryBinding}
  * holding the target {@link SpectorMemory}, lease, and security context (ADR-0029 §16).
+ *
+ * <p>Enforces authoritative cell namespace ownership via {@link OwnershipResolver} at this
+ * single choke point prior to opening the rememberer or attaching memory (ADR-0034 §15.2, Req R6.1).</p>
  */
 @Component
 public class MemoryRequestBinder {
@@ -56,6 +66,35 @@ public class MemoryRequestBinder {
     private final SynapseProperties synapseProps;
     private final SpectorMemory sharedMemory;
     private final IdentityPlane identityPlane;
+    private final OwnershipResolver ownershipResolver;
+    private final MeterRegistry meterRegistry;
+
+    @Autowired
+    public MemoryRequestBinder(
+            AccountCatalog catalog,
+            MemoryRegistry registry,
+            SynapseProperties synapseProps,
+            ObjectProvider<SpectorMemory> sharedMemoryProvider,
+            ObjectProvider<IdentityPlane> identityPlaneProvider,
+            ObjectProvider<OwnershipResolver> ownershipResolverProvider,
+            ObjectProvider<MeterRegistry> meterRegistryProvider) {
+        this.catalog = catalog;
+        this.registry = registry;
+        this.synapseProps = synapseProps;
+        this.sharedMemory = sharedMemoryProvider != null ? sharedMemoryProvider.getIfAvailable() : null;
+        this.identityPlane = identityPlaneProvider != null ? identityPlaneProvider.getIfAvailable() : null;
+        this.ownershipResolver = (ownershipResolverProvider != null && ownershipResolverProvider.getIfAvailable() != null)
+                ? ownershipResolverProvider.getIfAvailable()
+                : (synapseProps != null && synapseProps.cell() != null ? synapseProps.cell().toOwnershipResolver() : OwnershipResolver.standalone());
+        this.meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
+
+        if (this.meterRegistry != null) {
+            this.meterRegistry.gauge("spector.ns.owner", this, binder -> {
+                NamespaceResolver res = binder.registry != null ? binder.registry.namespaceResolver() : null;
+                return res != null ? res.cachedInstanceCount() : 0;
+            });
+        }
+    }
 
     public MemoryRequestBinder(
             AccountCatalog catalog,
@@ -63,11 +102,59 @@ public class MemoryRequestBinder {
             SynapseProperties synapseProps,
             ObjectProvider<SpectorMemory> sharedMemoryProvider,
             ObjectProvider<IdentityPlane> identityPlaneProvider) {
+        this(catalog, registry, synapseProps, sharedMemoryProvider, identityPlaneProvider, null, null);
+    }
+
+    public MemoryRequestBinder(
+            AccountCatalog catalog,
+            MemoryRegistry registry,
+            SynapseProperties synapseProps,
+            OwnershipResolver ownershipResolver) {
         this.catalog = catalog;
         this.registry = registry;
         this.synapseProps = synapseProps;
-        this.sharedMemory = sharedMemoryProvider != null ? sharedMemoryProvider.getIfAvailable() : null;
-        this.identityPlane = identityPlaneProvider != null ? identityPlaneProvider.getIfAvailable() : null;
+        this.sharedMemory = null;
+        this.identityPlane = null;
+        this.ownershipResolver = ownershipResolver != null ? ownershipResolver : OwnershipResolver.standalone();
+        this.meterRegistry = null;
+    }
+
+    public OwnershipResolver ownershipResolver() {
+        return ownershipResolver;
+    }
+
+    private void checkDefaultOwnership() {
+        if (ownershipResolver.identity().role() != NodeRole.STANDALONE) {
+            String cellId = synapseProps != null && synapseProps.cell() != null ? synapseProps.cell().getId() : null;
+            RoutingKey routingKey = new RoutingKey(cellId, null, "default");
+            enforceOwnership(routingKey);
+        }
+    }
+
+    private void enforceOwnership(RoutingKey routingKey) {
+        if (ownershipResolver.identity().role() == NodeRole.STANDALONE) {
+            return;
+        }
+        long startNanos = System.nanoTime();
+        RouteBinding routeBinding = ownershipResolver.resolve(routingKey);
+        long elapsedNanos = System.nanoTime() - startNanos;
+        if (meterRegistry != null) {
+            meterRegistry.timer("spector.route.lookup", "mode", routeBinding.mode().name().toLowerCase())
+                    .record(elapsedNanos, java.util.concurrent.TimeUnit.NANOSECONDS);
+        }
+
+        if (!ownershipResolver.ownsLocally(routingKey)) {
+            if (meterRegistry != null) {
+                meterRegistry.counter("spector.route.not_owner",
+                        "namespace", routingKey.namespaceId(),
+                        "owner", routeBinding.ownerId()
+                ).increment();
+            }
+            log.warn("[MemoryRequestBinder] Refusing access to namespace '{}': owned by node '{}' at epoch {} (this node is '{}', role='{}')",
+                    routingKey.namespaceId(), routeBinding.ownerId(), routeBinding.epoch(),
+                    ownershipResolver.identity().nodeId(), ownershipResolver.identity().role());
+            throw new NamespaceNotOwnedException(routingKey.namespaceId(), routeBinding.ownerId(), routeBinding.epoch());
+        }
     }
 
     public MemoryBinding bind(Authentication auth, Optional<String> selector) {
@@ -86,6 +173,7 @@ public class MemoryRequestBinder {
 
         if (!synapseProps.auth().enabled() || auth == null || !auth.isAuthenticated()
                 || auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
+            checkDefaultOwnership();
             AutoCloseable lease = sharedMemory != null ? sharedMemory.acquireLease() : null;
             RequestMemoryContext reqCtx = new RequestMemoryContext(
                     null, List.of(), DEFAULT_USER_ID, DEFAULT_USER_ID, "default",
@@ -95,6 +183,7 @@ public class MemoryRequestBinder {
 
         String accountId = auth.getName();
         if (accountId == null || accountId.isBlank() || DEFAULT_USER_ID.equals(accountId)) {
+            checkDefaultOwnership();
             AutoCloseable lease = sharedMemory != null ? sharedMemory.acquireLease() : null;
             RequestMemoryContext reqCtx = new RequestMemoryContext(
                     null, List.of(), DEFAULT_USER_ID, DEFAULT_USER_ID, "default",
@@ -146,12 +235,21 @@ public class MemoryRequestBinder {
         }
         GrantRole role = authGrant.get().role();
 
+        NamespaceResolver resolver = registry.namespaceResolver();
+        String ownerAccountId = record != null ? record.ownerAccountId() : accountId;
+        String routingTenantId = (resolver != null)
+                ? resolver.placementTenantIdFor(targetNamespaceId, ownerAccountId, accountId, account)
+                : (account != null ? account.tenantId() : null);
+
+        String cellId = synapseProps != null && synapseProps.cell() != null ? synapseProps.cell().getId() : null;
+        RoutingKey routingKey = new RoutingKey(cellId, routingTenantId, targetNamespaceId);
+        enforceOwnership(routingKey);
+
         if (record != null) {
             catalog.recordAccess(record.namespaceId());
         }
 
-        NamespaceResolver resolver = registry.namespaceResolver();
-        SpectorMemory memory = resolver.resolve(accountId, targetNamespaceId);
+        SpectorMemory memory = resolver != null ? resolver.resolve(accountId, targetNamespaceId) : null;
         AutoCloseable lease = memory != null ? memory.acquireLease() : null;
 
         try {
