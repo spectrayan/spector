@@ -29,18 +29,32 @@ import java.util.Objects;
  * @param epoch       monotonic epoch of this override
  * @param fence       fence token string associated with this override
  * @param expiresAt   timestamp when this override expires
+ * @param createdAt   timestamp when this override was created
  */
 public record OverrideLeaseRecord(
         String namespaceId,
         String targetNodeId,
         long epoch,
         String fence,
-        Instant expiresAt) {
+        Instant expiresAt,
+        Instant createdAt) {
+
+    public OverrideLeaseRecord(
+            String namespaceId,
+            String targetNodeId,
+            long epoch,
+            String fence,
+            Instant expiresAt) {
+        this(namespaceId, targetNodeId, epoch, fence, expiresAt, Instant.now());
+    }
 
     public OverrideLeaseRecord {
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
         Objects.requireNonNull(targetNodeId, "targetNodeId must not be null");
         Objects.requireNonNull(expiresAt, "expiresAt must not be null");
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
         if (namespaceId.isBlank()) {
             throw new IllegalArgumentException("namespaceId must not be blank");
         }
@@ -58,5 +72,16 @@ public record OverrideLeaseRecord(
     public boolean isExpired(Instant now) {
         Objects.requireNonNull(now, "now must not be null");
         return now.isAfter(expiresAt) || now.equals(expiresAt);
+    }
+
+    /**
+     * Returns the elapsed age of this override lease since its creation (Req R3.6).
+     *
+     * @param now current timestamp to calculate age against
+     * @return duration elapsed since creation
+     */
+    public java.time.Duration age(Instant now) {
+        Objects.requireNonNull(now, "now must not be null");
+        return java.time.Duration.between(createdAt, now);
     }
 }

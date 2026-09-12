@@ -20,6 +20,7 @@ import com.spectrayan.spector.cluster.membership.MembershipSource;
 import com.spectrayan.spector.cluster.node.NodeIdentity;
 import com.spectrayan.spector.cluster.node.NodeRole;
 import com.spectrayan.spector.cluster.routing.ConsistentHashRing;
+import com.spectrayan.spector.cluster.routing.OverrideLeaseManager;
 import com.spectrayan.spector.cluster.routing.RouteBinding;
 import com.spectrayan.spector.cluster.routing.RoutingKey;
 import com.spectrayan.spector.commons.error.ErrorCode;
@@ -49,6 +50,7 @@ public final class OwnershipResolver {
     private final NodeIdentity identity;
     private final MembershipSource membershipSource;
     private final ConsistentHashRing ring;
+    private final OverrideLeaseManager overrideLeaseManager;
 
     /**
      * Creates an ownership resolver with a standalone identity (bypassing the ring).
@@ -67,7 +69,22 @@ public final class OwnershipResolver {
      * @throws SpectorValidationException if role is not standalone and membership is null or empty (Req R7.3, L2)
      */
     public OwnershipResolver(NodeIdentity identity, MembershipSource membershipSource) {
+        this(identity, membershipSource, null);
+    }
+
+    /**
+     * Constructs an ownership resolver with override lease support (Req R3.1).
+     *
+     * @param identity             node identity (role, cellId, nodeId)
+     * @param membershipSource     membership source
+     * @param overrideLeaseManager manager tracking active namespace override leases
+     */
+    public OwnershipResolver(
+            NodeIdentity identity,
+            MembershipSource membershipSource,
+            OverrideLeaseManager overrideLeaseManager) {
         this.identity = Objects.requireNonNull(identity, "identity must not be null");
+        this.overrideLeaseManager = overrideLeaseManager;
         if (identity.role() == NodeRole.STANDALONE) {
             this.membershipSource = membershipSource;
             this.ring = null;
@@ -87,7 +104,7 @@ public final class OwnershipResolver {
     }
 
     /**
-     * Determines whether the current node authoritatively owns the specified routing key locally (Req R5.1).
+     * Determines whether the current node authoritatively owns the specified routing key locally (Req R5.1, R3.1).
      *
      * @param key routing key
      * @return {@code true} if this node owns the key locally; {@code false} otherwise
@@ -97,6 +114,12 @@ public final class OwnershipResolver {
         return switch (identity.role()) {
             case STANDALONE -> true;
             case OWNER -> {
+                if (overrideLeaseManager != null) {
+                    var overrideOpt = overrideLeaseManager.getOverride(key.namespaceId());
+                    if (overrideOpt.isPresent()) {
+                        yield Objects.equals(identity.nodeId(), overrideOpt.get().targetNodeId());
+                    }
+                }
                 String owner = ring.ownerOf(key);
                 yield Objects.equals(identity.nodeId(), owner);
             }
@@ -105,7 +128,7 @@ public final class OwnershipResolver {
     }
 
     /**
-     * Resolves the full authoritative route binding for the specified routing key (Req R5.5).
+     * Resolves the full authoritative route binding for the specified routing key (Req R5.5, R3.1).
      *
      * @param key routing key
      * @return route binding containing the owner node identifier and ring epoch
@@ -118,12 +141,33 @@ public final class OwnershipResolver {
                     identity.nodeId() != null ? identity.nodeId() : "standalone",
                     0L
             );
-            case OWNER, REPLICA, GATEWAY -> RouteBinding.ofHash(
-                    key,
-                    ring.ownerOf(key),
-                    ring.ringVersion()
-            );
+            case OWNER, REPLICA, GATEWAY -> {
+                if (overrideLeaseManager != null) {
+                    var overrideOpt = overrideLeaseManager.getOverride(key.namespaceId());
+                    if (overrideOpt.isPresent()) {
+                        var override = overrideOpt.get();
+                        yield RouteBinding.ofOverride(
+                                key,
+                                override.targetNodeId(),
+                                override.epoch(),
+                                override.fence()
+                        );
+                    }
+                }
+                yield RouteBinding.ofHash(
+                        key,
+                        ring.ownerOf(key),
+                        ring.ringVersion()
+                );
+            }
         };
+    }
+
+    /**
+     * Returns optional override lease manager.
+     */
+    public Optional<OverrideLeaseManager> overrideLeaseManager() {
+        return Optional.ofNullable(overrideLeaseManager);
     }
 
     /**
