@@ -27,7 +27,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -113,7 +113,7 @@ class LiveBundleConvergencePrototypeTest {
         Path walDir = tempDir.resolve("wal-quiesce");
         MemoryWal wal = new MemoryWal(walDir);
 
-        ReentrantReadWriteLock quiesceLock = new ReentrantReadWriteLock();
+        ReentrantLock quiesceLock = new ReentrantLock();
         int writerCount = 6;
         int writesPerThread = 30;
 
@@ -130,12 +130,12 @@ class LiveBundleConvergencePrototypeTest {
                     startLatch.await();
                     for (int i = 1; i <= writesPerThread; i++) {
                         String id = "mem-" + threadId + "-" + i;
-                        quiesceLock.readLock().lock();
+                        quiesceLock.lock();
                         try {
                             wal.appendRemember(id, ("content-" + threadId + "-" + i).getBytes());
                             allWrittenIds.add(id);
                         } finally {
-                            quiesceLock.readLock().unlock();
+                            quiesceLock.unlock();
                         }
                         Thread.sleep(1);
                     }
@@ -156,12 +156,12 @@ class LiveBundleConvergencePrototypeTest {
         Path snapshotCopy = tempDir.resolve("snapshot-copy.bundle");
 
         long hwmAtSnapshot;
-        quiesceLock.writeLock().lock();
+        quiesceLock.lock();
         try {
             hwmAtSnapshot = wal.highWaterMark();
             Files.copy(bundlePath, snapshotCopy, StandardCopyOption.REPLACE_EXISTING);
         } finally {
-            quiesceLock.writeLock().unlock();
+            quiesceLock.unlock();
         }
         long pauseNanos = System.nanoTime() - startNanos;
         double pauseMs = pauseNanos / 1_000_000.0;
