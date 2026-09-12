@@ -507,9 +507,35 @@ Spector cells separate cluster responsibilities into three distinct roles: **own
 > - **Memory Parity Invariant**: StatefulSet owner configurations must enforce `requests.memory == limits.memory == 16Gi` (with 2 GiB heap). This prevents Linux cgroups v2 from evicting clean page-cache pages prematurely under transient memory pressure.
 > - **Inter-Pod Anti-Affinity**: Owner pods require strict host anti-affinity (`topologyKey: kubernetes.io/hostname`) to prevent multiple owner replicas from co-locating on the same physical compute node.
 
+## 🛡️ Cell Disaster Recovery & Compliance (`spector.dr.*`)
+
+Disaster recovery provides cross-cell resilience and snapshot exports to S3-compatible object stores for mutable active namespaces. Remote uploads pace background bandwidth to avoid competing with foreground client traffic, enforce geographic residency boundaries, and preserve verifiable bundle integrity.
+
+| Property | Environment Variable | Default | Allowed Values | Description |
+|:---|:---|:---|:---|:---|
+| `spector.dr.export-enabled` | `SPECTOR_DR_EXPORT_ENABLED` | `false` | `true`, `false` | Master toggle enabling periodic snapshot exports of active mutable namespaces to object storage. Defaults to disabled. |
+| `spector.dr.export-interval-seconds` | `SPECTOR_DR_EXPORT_INTERVAL_SECONDS` | `900` | Integer $\ge 60$ | Export cadence defining the mutable snapshot Recovery Point Objective (RPO). Default is 900 seconds (15 minutes). |
+| `spector.dr.bandwidth-limit-bytes-per-sec` | `SPECTOR_DR_BANDWIDTH_LIMIT_BYTES_PER_SEC` | `52428800` | Long $\ge 0$ | Token-bucket rate-limiter bandwidth cap in bytes per second (default 50 MB/s; `0` disables throttling). |
+| `spector.dr.alert-lag-multiplier` | `SPECTOR_DR_ALERT_LAG_MULTIPLIER` | `2` | Integer $\ge 1$ | SLA lag multiplier before emitting high-severity export lag alerts (e.g., $2 \times 900\text{s} = 1800\text{s}$). |
+| `spector.dr.object-store.endpoint` | `SPECTOR_DR_OBJECT_STORE_ENDPOINT` | `null` | URL string | REST endpoint for S3-compatible cloud object store (AWS S3, MinIO, Cloudflare R2). |
+| `spector.dr.object-store.bucket` | `SPECTOR_DR_OBJECT_STORE_BUCKET` | `spector-dr` | String identifier | Destination bucket name holding exported snapshot manifests and bundles. |
+| `spector.dr.object-store.region` | `SPECTOR_DR_OBJECT_STORE_REGION` | `us-east-1` | Cloud region string | Geographic region identifier validated against organization data residency pins. |
+| `spector.dr.object-store.access-key` | `SPECTOR_DR_OBJECT_STORE_ACCESS_KEY` | `null` | Secret string | AWS SigV4 HMAC access key identifier. |
+| `spector.dr.object-store.secret-key` | `SPECTOR_DR_OBJECT_STORE_SECRET_KEY` | `null` | Secret string | AWS SigV4 HMAC secret access key. |
+
+> [!IMPORTANT]
+> **Disaster Recovery, Integrity & Compliance Invariants**:
+> - **Atomic Manifest Publication**: Partition bundles and payload files are transferred to object storage first. The `manifest.json` descriptor is uploaded strictly last to guarantee atomic visibility. Restorations ignore partial or unmanifested epochs.
+> - **Strict Verification Before Serving**: Restoring nodes validate bundle preamble magic (`0x534D4B4D`), layout identifiers (`0x42554E44`), and SHA-256 payload checksums. Corrupted or mismatched snapshots are strictly rejected and refuse to serve.
+> - **Explicit Standby Promotion**: Standby cell activation requires human decision-making with mandatory `--force` acknowledgment and audit trail logging. Automatic failover across cell boundaries is forbidden to eliminate split-brain write corruption.
+> - **Compliance Erasure & Legal Hold**: Tenant deletion executes physical recursive wiping across local NVMe storage and prefix purging across cloud object storage. Namespaces tagged with legal hold strictly refuse deletion.
+> - **Data Residency Enforcement**: Org-to-cell residency bindings are enforced during both export and restore. Any transfer violating regional jurisdiction triggers hard refusal.
+
 ---
 
 ## 🔗 See Also
+
+- [Disaster Recovery Runbook](../operations/disaster-recovery.md) — Step-by-step failover, rehydration, and verification playbook
 
 - [Performance Tuning](../operations/performance-tuning.md) — Benchmarks and optimization strategies
 

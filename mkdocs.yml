@@ -150,6 +150,7 @@ nav:
           - Docker & Compose: deployment/docker.md
           - Kubernetes & Helm: deployment/helm.md
           - Terraform Cloud Modules: deployment/terraform.md
+          - Disaster Recovery Runbook: operations/disaster-recovery.md
 
   # Tab 3: Cognitive Memory — the differentiator (own tab)
   - Cognitive Memory:
