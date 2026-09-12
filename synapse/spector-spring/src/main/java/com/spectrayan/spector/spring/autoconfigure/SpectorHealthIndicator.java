@@ -76,6 +76,9 @@ public class SpectorHealthIndicator implements HealthIndicator {
     /** Default Linux sysctl max_map_count file path. */
     public static final String DEFAULT_SYSCTL_MAX_MAP_COUNT_PATH = "/proc/sys/vm/max_map_count";
 
+    /** Default data directory when spector.data-dir is not injected. */
+    public static final String DEFAULT_DATA_DIR = "./spector-data";
+
     private final SpectorMemory memory;
     private Path dataDir;
     private int hotCap = DEFAULT_HOT_CAP;
@@ -86,7 +89,7 @@ public class SpectorHealthIndicator implements HealthIndicator {
     private boolean clusterMode = false;
 
     public SpectorHealthIndicator(SpectorMemory memory) {
-        this(memory, Path.of(resolveDefaultDataDir()), DEFAULT_HOT_CAP, null, false);
+        this(memory, Path.of(DEFAULT_DATA_DIR), DEFAULT_HOT_CAP, null, false);
     }
 
     public SpectorHealthIndicator(
@@ -96,7 +99,7 @@ public class SpectorHealthIndicator implements HealthIndicator {
             BooleanSupplier ringLoadedSupplier,
             boolean clusterMode) {
         this.memory = memory;
-        this.dataDir = dataDir != null ? dataDir : Path.of(resolveDefaultDataDir());
+        this.dataDir = dataDir != null ? dataDir : Path.of(DEFAULT_DATA_DIR);
         this.hotCap = hotCap > 0 ? hotCap : DEFAULT_HOT_CAP;
         this.ringLoadedSupplier = ringLoadedSupplier;
         this.clusterMode = clusterMode;
@@ -111,7 +114,7 @@ public class SpectorHealthIndicator implements HealthIndicator {
             ObjectProvider<com.spectrayan.spector.cluster.OwnershipResolver> ownershipResolverProvider) {
         this(
                 memoryProvider != null ? memoryProvider.getIfAvailable() : null,
-                Path.of(dataDir != null && !dataDir.isBlank() ? dataDir : resolveDefaultDataDir()),
+                Path.of(dataDir != null && !dataDir.isBlank() ? dataDir : DEFAULT_DATA_DIR),
                 hotCap,
                 resolveRingSupplier(ownershipResolverProvider),
                 clusterMode
@@ -128,18 +131,6 @@ public class SpectorHealthIndicator implements HealthIndicator {
             return null;
         }
         return () -> resolver.ring().isPresent();
-    }
-
-    private static String resolveDefaultDataDir() {
-        String prop = System.getProperty("spector.data-dir");
-        if (prop != null && !prop.isBlank()) {
-            return prop;
-        }
-        String env = System.getenv("SPECTOR_DATA_DIR");
-        if (env != null && !env.isBlank()) {
-            return env;
-        }
-        return "./spector-data";
     }
 
     /**
@@ -190,7 +181,7 @@ public class SpectorHealthIndicator implements HealthIndicator {
             }
 
             // 1. Data directory mount & writability check (Req R2.6, T5)
-            Path resolvedDir = dataDir != null ? dataDir : Path.of(resolveDefaultDataDir());
+            Path resolvedDir = dataDir != null ? dataDir : Path.of(DEFAULT_DATA_DIR);
             builder.withDetail("disk.path", resolvedDir.toAbsolutePath().toString());
             try {
                 if (!Files.exists(resolvedDir)) {
