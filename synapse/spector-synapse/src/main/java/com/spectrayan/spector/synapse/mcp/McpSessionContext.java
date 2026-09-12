@@ -43,6 +43,8 @@ public final class McpSessionContext {
 
     private static final ConcurrentHashMap<String, String> SESSION_DEFAULTS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Deque<ActiveWorkingItem>> SESSION_WORKING_SETS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, String> SESSION_OWNERS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Long> SESSION_EPOCHS = new ConcurrentHashMap<>();
     private static final ThreadLocal<String> FALLBACK_DEFAULT = new ThreadLocal<>();
 
     private McpSessionContext() {
@@ -132,6 +134,53 @@ public final class McpSessionContext {
     }
 
     /**
+     * Binds an MCP session to an authoritative owner node and epoch for its lifetime (Req R10.1).
+     *
+     * @param connectionId the MCP session/connection ID
+     * @param ownerNodeId  the owner node ID
+     * @param epoch        the epoch at bind time
+     */
+    public static void bindSessionOwner(String connectionId, String ownerNodeId, long epoch) {
+        if (connectionId != null && !connectionId.isBlank() && ownerNodeId != null) {
+            SESSION_OWNERS.put(connectionId, ownerNodeId);
+            SESSION_EPOCHS.put(connectionId, epoch);
+            log.debug("[McpSessionContext] bound session {} to owner node '{}' at epoch {}", connectionId, ownerNodeId, epoch);
+        }
+    }
+
+    /**
+     * Verifies that the session's affinity matches the expected owner node and epoch.
+     * If the owner or epoch has diverged mid-session, clears session state and returns false (Req R10.2).
+     *
+     * @param connectionId  the MCP session/connection ID
+     * @param expectedOwner the current resolved owner
+     * @param currentEpoch  the current resolved epoch
+     * @return true if affinity is intact, false if mid-session owner change occurred
+     */
+    public static boolean checkSessionAffinity(String connectionId, String expectedOwner, long currentEpoch) {
+        if (connectionId == null || connectionId.isBlank()) {
+            return true;
+        }
+        String boundOwner = SESSION_OWNERS.get(connectionId);
+        Long boundEpoch = SESSION_EPOCHS.get(connectionId);
+        if (boundOwner == null) {
+            bindSessionOwner(connectionId, expectedOwner, currentEpoch);
+            return true;
+        }
+        if (!boundOwner.equals(expectedOwner) || (boundEpoch != null && boundEpoch < currentEpoch)) {
+            log.warn("[McpSessionContext] Mid-session owner change detected for session {}: bound to '{}:{}' but now '{}:{}'; terminating session state (Req R10.2)",
+                    connectionId, boundOwner, boundEpoch, expectedOwner, currentEpoch);
+            clearSession(connectionId);
+            return false;
+        }
+        return true;
+    }
+
+    public static Optional<String> getSessionOwner(String connectionId) {
+        return Optional.ofNullable(connectionId != null ? SESSION_OWNERS.get(connectionId) : null);
+    }
+
+    /**
      * Clears session state when an MCP connection terminates.
      *
      * @param connectionId the MCP connection or session identifier
@@ -140,6 +189,8 @@ public final class McpSessionContext {
         if (connectionId != null) {
             SESSION_DEFAULTS.remove(connectionId);
             SESSION_WORKING_SETS.remove(connectionId);
+            SESSION_OWNERS.remove(connectionId);
+            SESSION_EPOCHS.remove(connectionId);
             log.debug("[McpSessionContext] cleared session: {}", connectionId);
         }
         FALLBACK_DEFAULT.remove();

@@ -411,6 +411,28 @@ Spector Synapse supports multi-node Cell High Availability via a Ketama consiste
 
 ---
 
+## ⚡ Cell Routing Cache & Gateway Resilience (`spector.routing.*`)
+
+Spector Synapse Phase 2 accelerates routing resolution via a three-tier waterfall (`L1 Caffeine` $\to$ `L2 Redis` $\to$ `L3 Ketama Hash Ring fallback`), provides pub/sub invalidation, and implements gateway forwarding with bounded retry (ADR-0034, Phase 2).
+
+| Property | Environment Variable | Default | Allowed Values | Description |
+|:---|:---|:---|:---|:---|
+| `spector.routing.redis.enabled` | `SPECTOR_ROUTING_REDIS_ENABLED` | `false` | Boolean | Enables distributed Redis L2 routing cache and pub/sub invalidation bus. When `false`, cell operates seamlessly in degraded L1+L3 mode. |
+| `spector.routing.redis.uri` | `SPECTOR_ROUTING_REDIS_URI` | `redis://localhost:6379` | URI string | Redis connection URI with cluster hash-tag support. Credentials should be supplied via environment variable placeholders only. |
+| `spector.routing.redis.timeout-ms` | `SPECTOR_ROUTING_REDIS_TIMEOUT_MS` | `100` | Integer $\ge 10$ | Short lookup timeout with fail-fast. A lookup slower than the recall it precedes defeats its purpose. |
+| `spector.routing.redis.ttl-seconds` | `SPECTOR_ROUTING_REDIS_TTL_SECONDS` | `30` | Integer $\ge 1$ | **Load-bearing staleness bound**. Missed invalidations self-heal within one TTL. Not merely a hit-rate tuning knob. |
+| `spector.routing.caffeine.ttl-seconds` | `SPECTOR_ROUTING_CAFFEINE_TTL_SECONDS` | `5` | Integer $\ge 1$ | Node-local and gateway L1 in-process cache TTL. |
+| `spector.routing.caffeine.max-size` | `SPECTOR_ROUTING_CAFFEINE_MAX_SIZE` | `200000` | Integer $\ge 1$ | Maximum entries retained in the L1 Caffeine cache. |
+| `spector.routing.gateway.retry-max` | `SPECTOR_ROUTING_GATEWAY_RETRY_MAX` | `2` | Integer $\ge 0$ | Maximum retry attempts on `STALE_ROUTE` (HTTP 421). Prevents retry storms under rebalances. |
+
+> [!NOTE]
+> **Operational Note — Redis Outage Behavior (Req R9.2)**:
+> - **What breaks when Redis is down**: Latency increases slightly as lookups fall back to local pure-computation Ketama ring evaluation. Failover overrides (Phase 4) are temporarily masked until the control store republishes.
+> - **What does NOT break**: **Single-writer correctness and write availability never break.** The cell functions continuously as a single-writer system even if Redis crashes entirely (Invariant K1). Zero dual-writers, zero data loss. Operators should not page on transient Redis hiccups.
+> - **Production Topology (Req R9.3, R9.4)**: Managed cloud offerings (AWS ElastiCache, GCP Memorystore, Azure Cache for Redis) are recommended for production; containerized Redis is for local testing. Redis instances **must be provisioned per cell**, never shared across multi-region cells.
+
+---
+
 ## 🔗 See Also
 
 - [Performance Tuning](../operations/performance-tuning.md) — Benchmarks and optimization strategies

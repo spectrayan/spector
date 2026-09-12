@@ -122,6 +122,10 @@
             <artifactId>spector-cluster</artifactId>
         </dependency>
         <dependency>
+            <groupId>io.lettuce</groupId>
+            <artifactId>lettuce-core</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-memory</artifactId>
         </dependency>

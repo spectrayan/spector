@@ -70,11 +70,100 @@ public record RoutingKey(String cellId, String tenantId, String namespaceId) {
     }
 
     /**
+     * Reconstructs a RoutingKey from cellId and canonical key material
+     * (e.g. {@code "tenantId/namespaceId"} or {@code "__NULL_TENANT__/namespaceId"}).
+     *
+     * @param cellId      the cell identifier
+     * @param keyMaterial the canonical key material
+     * @return the reconstructed RoutingKey
+     */
+    public static RoutingKey fromKeyMaterial(String cellId, String keyMaterial) {
+        Objects.requireNonNull(keyMaterial, "keyMaterial must not be null");
+        int slashIdx = keyMaterial.indexOf('/');
+        if (slashIdx == -1) {
+            return ofUntenanted(cellId, keyMaterial);
+        }
+        String tenant = keyMaterial.substring(0, slashIdx);
+        String ns = keyMaterial.substring(slashIdx + 1);
+        if (NULL_TENANT_SENTINEL.equals(tenant) || tenant.isBlank()) {
+            return ofUntenanted(cellId, ns);
+        }
+        return ofTenanted(cellId, tenant, ns);
+    }
+
+    /**
      * Computes the canonical key material fed into the consistent hash ring (ADR §15.2, Req R2.4).
      *
      * @return canonical key string {@code "{tenantId|__NULL_TENANT__}/{namespaceId}"}
      */
     public String keyMaterial() {
         return (tenantId != null ? tenantId : NULL_TENANT_SENTINEL) + "/" + namespaceId;
+    }
+
+    /**
+     * Emits the canonical Redis Cluster key with literal hash tag:
+     * {@code "rt:ns:{" + cell + ":" + tenant + ":" + namespaceId + "}"}
+     * per ADR-0034 §15.2, Req R2.2, and Decision B2.
+     *
+     * @return canonical Redis hash key
+     */
+    public String redisHashKey() {
+        return redisHashKey(cellId != null ? cellId : "default");
+    }
+
+    /**
+     * Emits the canonical Redis Cluster key for a specific cell override.
+     *
+     * @param effectiveCellId the cell identifier
+     * @return canonical Redis hash key with hash tag
+     */
+    public String redisHashKey(String effectiveCellId) {
+        String cell = (effectiveCellId != null && !effectiveCellId.isBlank()) ? effectiveCellId : "default";
+        String tenant = (tenantId != null && !tenantId.isBlank()) ? tenantId : NULL_TENANT_SENTINEL;
+        return "rt:ns:{" + cell + ":" + tenant + ":" + namespaceId + "}";
+    }
+
+    /**
+     * Reserved key format for Phase 3 replica freshness hints (Req R2.4).
+     * Must NOT be written in Phase 2.
+     *
+     * @return reserved Redis hint key
+     */
+    public String redisHintKey() {
+        return redisHintKey(cellId != null ? cellId : "default");
+    }
+
+    /**
+     * Reserved key format for Phase 3 replica freshness hints for a specific cell override.
+     *
+     * @param effectiveCellId the cell identifier
+     * @return reserved Redis hint key
+     */
+    public String redisHintKey(String effectiveCellId) {
+        return redisHashKey(effectiveCellId) + ":hint";
+    }
+
+    /**
+     * Emits the canonical key for published cell ring metadata:
+     * {@code "rt:cell:{" + cell + "}:ring"} per ADR-0034 §8.3 and Design §3.
+     *
+     * @param cellId the cell identifier
+     * @return Redis key for the ring metadata
+     */
+    public static String redisCellRingKey(String cellId) {
+        String cell = (cellId != null && !cellId.isBlank()) ? cellId : "default";
+        return "rt:cell:{" + cell + "}:ring";
+    }
+
+    /**
+     * Emits the canonical pub/sub invalidation channel name for a cell:
+     * {@code "rt:cell:{" + cell + "}:invalidation"} per Req R4.1.
+     *
+     * @param cellId the cell identifier
+     * @return Redis invalidation channel name
+     */
+    public static String redisInvalidationChannel(String cellId) {
+        String cell = (cellId != null && !cellId.isBlank()) ? cellId : "default";
+        return "rt:cell:{" + cell + "}:invalidation";
     }
 }

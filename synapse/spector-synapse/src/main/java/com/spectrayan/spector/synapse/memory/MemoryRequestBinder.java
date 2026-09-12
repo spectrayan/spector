@@ -23,9 +23,13 @@ import com.spectrayan.spector.cluster.node.NodeRole;
 import com.spectrayan.spector.cluster.routing.RouteBinding;
 import com.spectrayan.spector.cluster.routing.RoutingKey;
 import com.spectrayan.spector.synapse.cluster.exception.NamespaceNotOwnedException;
+import com.spectrayan.spector.synapse.cluster.exception.StaleRouteException;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
@@ -131,7 +135,7 @@ public class MemoryRequestBinder {
         }
     }
 
-    private void enforceOwnership(RoutingKey routingKey) {
+    public void enforceOwnership(RoutingKey routingKey, Long incomingEpoch) {
         if (ownershipResolver.identity().role() == NodeRole.STANDALONE) {
             return;
         }
@@ -155,6 +159,37 @@ public class MemoryRequestBinder {
                     ownershipResolver.identity().nodeId(), ownershipResolver.identity().role());
             throw new NamespaceNotOwnedException(routingKey.namespaceId(), routeBinding.ownerId(), routeBinding.epoch());
         }
+
+        // Owner-side epoch validation (Req R7.3, Invariant K2)
+        if (incomingEpoch != null && incomingEpoch < routeBinding.epoch()) {
+            if (meterRegistry != null) {
+                meterRegistry.counter("spector.route.stale",
+                        "namespace", routingKey.namespaceId(),
+                        "owner", routeBinding.ownerId()
+                ).increment();
+            }
+            log.warn("[MemoryRequestBinder] Rejecting stale route for namespace '{}': incoming epoch {} is older than active epoch {} (owner='{}')",
+                    routingKey.namespaceId(), incomingEpoch, routeBinding.epoch(), routeBinding.ownerId());
+            throw new StaleRouteException(routingKey.namespaceId(), routeBinding.ownerId(), incomingEpoch, routeBinding.epoch());
+        }
+    }
+
+    private void enforceOwnership(RoutingKey routingKey) {
+        Long incomingEpoch = extractIncomingEpoch();
+        enforceOwnership(routingKey, incomingEpoch);
+    }
+
+    private Long extractIncomingEpoch() {
+        try {
+            RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
+            if (attrs instanceof ServletRequestAttributes servletAttrs) {
+                String epochHeader = servletAttrs.getRequest().getHeader("X-Spector-Epoch");
+                if (epochHeader != null && !epochHeader.isBlank()) {
+                    return Long.parseLong(epochHeader.trim());
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     public MemoryBinding bind(Authentication auth, Optional<String> selector) {

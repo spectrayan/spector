@@ -532,6 +532,10 @@ public enum ErrorCode {
     NAMESPACE_NOT_OWNED       (700_005, ErrorCategory.CLUSTER,
             "Namespace '{}' is not owned by this node (owner='{}', epoch={})"),
 
+    /** The incoming route epoch is older than the owner's active epoch (ADR-0034 §8.3, Req R7.3). */
+    STALE_ROUTE               (700_006, ErrorCategory.CLUSTER,
+            "Route epoch {} for namespace '{}' is stale (owner='{}', activeEpoch={})"),
+
     // ══════════════════════════════════════════════════════════════════════
     // INTERNAL (SPE-900-xxx)
     // ══════════════════════════════════════════════════════════════════════

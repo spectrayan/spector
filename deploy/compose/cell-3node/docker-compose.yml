@@ -1,9 +1,11 @@
 # ═══════════════════════════════════════════════════════════════════
-# Spector Cell HA 3-Node Cluster — Phase 1 Test Harness (ADR-0034 §15.9)
+# Spector Cell HA 3-Node Cluster + Redis — Phase 2 Test Harness (ADR-0034 §15.9)
 # ═══════════════════════════════════════════════════════════════════
 #
-# Three owner nodes on a static Ketama hash ring with zero Redis dependency.
-# Demonstrates single-writer namespace ownership and client refusal (NOT_OWNER).
+# Three owner nodes on a static Ketama hash ring with Redis L2 routing cache,
+# pub/sub invalidation bus, and ingress gateway routing (Req R9.1).
+# Demonstrates >99% cache-hit ratio, degraded fallback on Redis outage,
+# and bounded retry on STALE_ROUTE signals.
 #
 # Usage:
 #   docker compose -f deploy/compose/cell-3node/docker-compose.yml up -d
@@ -24,11 +26,29 @@ x-owner-base: &owner-base
     SPECTOR_CELL_RING_VERSION: 1
     SPECTOR_CELL_RING_MEMBERS_FILE: /etc/spector/members.txt
     SPECTOR_NAMESPACE_TENANT_ROOTED_ENABLED: "true"
+    SPECTOR_ROUTING_REDIS_ENABLED: "true"
+    SPECTOR_ROUTING_REDIS_URI: redis://redis:6379
+    SPECTOR_ROUTING_REDIS_TIMEOUT_MS: 100
+    SPECTOR_ROUTING_REDIS_TTL_SECONDS: 30
+    SPECTOR_ROUTING_CAFFEINE_TTL_SECONDS: 5
+    SPECTOR_ROUTING_CAFFEINE_MAX_SIZE: 200000
+    SPECTOR_ROUTING_GATEWAY_RETRY_MAX: 2
   volumes:
     - ./members.txt:/etc/spector/members.txt:ro
+  depends_on:
+    - redis
   restart: unless-stopped
 
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: spector-redis
+    hostname: redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "no", "--save", ""]
+    restart: unless-stopped
+
   spector-owner-1:
     <<: *owner-base
     container_name: spector-owner-1
@@ -61,3 +81,15 @@ services:
       <<: *owner-base
       SPECTOR_CELL_NODE_ID: spector-owner-3
       SPECTOR_DATA_DIR: /data/owner-3
+
+  spector-gateway:
+    <<: *owner-base
+    container_name: spector-gateway
+    hostname: spector-gateway
+    ports:
+      - "7070:7070"
+    environment:
+      <<: *owner-base
+      SPECTOR_CELL_ROLE: gateway
+      SPECTOR_CELL_NODE_ID: spector-gateway
+      SPECTOR_DATA_DIR: /data/gateway

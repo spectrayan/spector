@@ -157,6 +157,7 @@
         <camel.version>4.11.0</camel.version>
         <bucket4j.version>8.10.1</bucket4j.version>
         <caffeine.version>3.2.0</caffeine.version>
+        <lettuce.version>6.5.3.RELEASE</lettuce.version>
         <quartz.version>2.3.2</quartz.version>
 
         <!-- Test dependency versions -->
@@ -439,6 +440,11 @@
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
                 <version>${caffeine.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.lettuce</groupId>
+                <artifactId>lettuce-core</artifactId>
+                <version>${lettuce.version}</version>
             </dependency>
 
             <!-- ── Quartz Scheduler (In-Memory Task Management) ── -->
