@@ -108,6 +108,34 @@ public final class SpectorPropertyConstants {
     public static final String ROUTING_GATEWAY_RETRY_MAX = "spector.routing.gateway.retry-max";
     public static final int DEFAULT_ROUTING_GATEWAY_RETRY_MAX = 2;
 
+    // Replication (ADR-0034 §9.7, §10, §15.5, Phase 3, Req R1, R3, R6, R8, R10)
+    public static final String REPLICATION_ENABLED = "spector.replication.enabled";
+    public static final boolean DEFAULT_REPLICATION_ENABLED = false;
+
+    public static final String REPLICATION_PORT = "spector.replication.port";
+    public static final int DEFAULT_REPLICATION_PORT = 9090;
+
+    public static final String REPLICATION_BIND_HOST = "spector.replication.bind-host";
+    public static final String DEFAULT_REPLICATION_BIND_HOST = "127.0.0.1";
+
+    public static final String REPLICATION_SNAPSHOT_INTERVAL_SECONDS = "spector.replication.snapshot-interval-seconds";
+    public static final long DEFAULT_REPLICATION_SNAPSHOT_INTERVAL_SECONDS = 60L;
+
+    public static final String REPLICATION_SNAPSHOT_MIN_CHANGES = "spector.replication.snapshot-min-changes";
+    public static final int DEFAULT_REPLICATION_SNAPSHOT_MIN_CHANGES = 100;
+
+    public static final String REPLICATION_MAX_REPLICA_LAG_SECONDS = "spector.replication.max-replica-lag-seconds";
+    public static final long DEFAULT_REPLICATION_MAX_REPLICA_LAG_SECONDS = 30L;
+
+    public static final String REPLICATION_FULL_RESYNC_LAG_THRESHOLD_SECONDS = "spector.replication.full-resync-lag-threshold-seconds";
+    public static final long DEFAULT_REPLICATION_FULL_RESYNC_LAG_THRESHOLD_SECONDS = 300L; // 5 minutes
+
+    public static final String REPLICATION_REPLICA_READS_ENABLED = "spector.replication.replica-reads.enabled";
+    public static final boolean DEFAULT_REPLICATION_REPLICA_READS_ENABLED = false;
+
+    public static final String REPLICATION_REPLICA_HOT_CAP = "spector.replication.replica-hot-cap";
+    public static final int DEFAULT_REPLICATION_REPLICA_HOT_CAP = 100;
+
     // Provider — Embedding
     public static final String PROVIDER_EMBEDDING_TYPE = "spector.provider.embedding.type";
     public static final String DEFAULT_PROVIDER_EMBEDDING_TYPE = "ollama";
