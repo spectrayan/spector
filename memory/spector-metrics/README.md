@@ -68,7 +68,7 @@ SpectorJvmMetrics.bind(registry);
 
 ### `MeteredSpectorEngine`
 
-Decorator (Proxy pattern) wrapping a `SpectorEngine` to record metrics for all coarse-grained operations. Accessor methods are passed through without overhead.
+Wraps a `SpectorEngine` to record metrics for all coarse-grained operations. Accessor methods are passed through without overhead.
 
 | Metric Name | Type | Description |
 |------------|------|-------------|

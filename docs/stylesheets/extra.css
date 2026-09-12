@@ -1,0 +1,1567 @@
+/* ═══════════════════════════════════════════════════════════════
+   Spector Documentation — Custom Theme Styles & Animations
+   Material for MkDocs Extension Stylesheet
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Smooth Scrolling & Anchor Offset ── */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 110px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Mermaid Variables — Injected into MkDocs Material Runtime
+   ═══════════════════════════════════════════════════════════════ */
+
+:root,
+[data-md-color-scheme="default"] {
+  --md-mermaid-node-bg-color: #ffffff;
+  --md-mermaid-node-fg-color: #2563eb;
+  --md-mermaid-label-fg-color: #0f172a;
+  --md-mermaid-label-bg-color: #ffffff;
+  --md-mermaid-edge-color: #334155;
+  --md-mermaid-sequence-actor-bg-color: #ffffff;
+  --md-mermaid-sequence-actor-fg-color: #0f172a;
+  --md-mermaid-sequence-actor-border-color: #2563eb;
+  --md-mermaid-sequence-actor-line-color: #334155;
+  --md-mermaid-sequence-message-line-color: #334155;
+  --md-mermaid-sequence-message-fg-color: #0f172a;
+  --md-mermaid-sequence-note-bg-color: #fefce8;
+  --md-mermaid-sequence-note-fg-color: #713f12;
+  --md-mermaid-sequence-note-border-color: #ca8a04;
+  --md-mermaid-sequence-loop-bg-color: #f8fafc;
+  --md-mermaid-sequence-loop-fg-color: #334155;
+  --md-mermaid-sequence-loop-border-color: #94a3b8;
+  --md-mermaid-sequence-label-bg-color: #f8fafc;
+  --md-mermaid-sequence-label-fg-color: #0f172a;
+  --md-mermaid-sequence-number-bg-color: #2563eb;
+  --md-mermaid-sequence-number-fg-color: #ffffff;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-mermaid-node-bg-color: #1e293b;
+  --md-mermaid-node-fg-color: #3b82f6;
+  --md-mermaid-label-fg-color: #f1f5f9;
+  --md-mermaid-label-bg-color: #0f172a;
+  --md-mermaid-edge-color: #60a5fa;
+  --md-mermaid-sequence-actor-bg-color: #1e293b;
+  --md-mermaid-sequence-actor-fg-color: #f1f5f9;
+  --md-mermaid-sequence-actor-border-color: #3b82f6;
+  --md-mermaid-sequence-actor-line-color: #60a5fa;
+  --md-mermaid-sequence-message-line-color: #60a5fa;
+  --md-mermaid-sequence-message-fg-color: #f1f5f9;
+  --md-mermaid-sequence-note-bg-color: #1e1e2e;
+  --md-mermaid-sequence-note-fg-color: #fef08a;
+  --md-mermaid-sequence-note-border-color: #eab308;
+  --md-mermaid-sequence-loop-bg-color: #0f172a;
+  --md-mermaid-sequence-loop-fg-color: #cbd5e1;
+  --md-mermaid-sequence-loop-border-color: #475569;
+  --md-mermaid-sequence-label-bg-color: #1e293b;
+  --md-mermaid-sequence-label-fg-color: #f1f5f9;
+  --md-mermaid-sequence-number-bg-color: #3b82f6;
+  --md-mermaid-sequence-number-fg-color: #ffffff;
+}
+
+/* Center mermaid diagrams */
+.mermaid {
+  text-align: center;
+  margin: 1.5em 0;
+  overflow-x: auto;
+}
+
+.mermaid svg {
+  margin: 0 auto;
+  display: block;
+  max-width: 100%;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Light mode (default) — High Contrast, Clean Enterprise Style
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Light mode: Node shapes ── */
+[data-md-color-scheme="default"] .mermaid .node rect,
+[data-md-color-scheme="default"] .mermaid .node polygon,
+[data-md-color-scheme="default"] .mermaid .node circle,
+[data-md-color-scheme="default"] .mermaid .node ellipse,
+[data-md-color-scheme="default"] .mermaid .node path:not(.flowchart-link) {
+  fill: #ffffff !important;
+  stroke: #2563eb !important;
+  stroke-width: 1.5px !important;
+}
+
+/* ── Light mode: Node text & labels (100% readable contrast) ── */
+[data-md-color-scheme="default"] .mermaid .node text,
+[data-md-color-scheme="default"] .mermaid .node tspan,
+[data-md-color-scheme="default"] .mermaid .node .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node .label,
+[data-md-color-scheme="default"] .mermaid .node foreignObject div,
+[data-md-color-scheme="default"] .mermaid .node foreignObject span,
+[data-md-color-scheme="default"] .mermaid .node foreignObject p,
+[data-md-color-scheme="default"] .mermaid .node foreignObject i,
+[data-md-color-scheme="default"] .mermaid .node foreignObject b,
+[data-md-color-scheme="default"] .mermaid .node foreignObject code {
+  color: #0f172a !important;
+  fill: #0f172a !important;
+}
+
+/* ── Light mode: Flowchart connector edges & links ── */
+[data-md-color-scheme="default"] .mermaid .edgePath .path,
+[data-md-color-scheme="default"] .mermaid .flowchart-link,
+[data-md-color-scheme="default"] .mermaid path.link {
+  stroke: #334155 !important;
+  stroke-width: 1.75px !important;
+}
+
+/* ── Light mode: Arrowheads & markers ── */
+[data-md-color-scheme="default"] .mermaid .marker,
+[data-md-color-scheme="default"] .mermaid #arrowhead path,
+[data-md-color-scheme="default"] .mermaid .arrowheadPath {
+  fill: #334155 !important;
+  stroke: #334155 !important;
+}
+
+/* ── Light mode: Edge labels ── */
+[data-md-color-scheme="default"] .mermaid .edgeLabel {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  font-weight: 500 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .edgeLabel rect {
+  fill: #ffffff !important;
+  opacity: 0.95;
+  stroke: #cbd5e1 !important;
+  stroke-width: 1px !important;
+}
+
+/* ── Light mode: Cluster/subgraph backgrounds ── */
+[data-md-color-scheme="default"] .mermaid .cluster rect {
+  fill: #f8fafc !important;
+  stroke: #94a3b8 !important;
+  stroke-width: 1.5px !important;
+  stroke-dasharray: 4, 4;
+  rx: 8px !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .cluster span,
+[data-md-color-scheme="default"] .mermaid .cluster .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .cluster text {
+  color: #1e293b !important;
+  fill: #1e293b !important;
+  font-weight: 600 !important;
+}
+
+/* ── Light mode: Sequence diagrams ── */
+[data-md-color-scheme="default"] .mermaid .actor {
+  fill: #ffffff !important;
+  stroke: #2563eb !important;
+  stroke-width: 1.5px !important;
+}
+
+[data-md-color-scheme="default"] .mermaid text.actor,
+[data-md-color-scheme="default"] .mermaid .actor-man text {
+  fill: #0f172a !important;
+  font-weight: 600 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .messageLine0,
+[data-md-color-scheme="default"] .mermaid .messageLine1 {
+  stroke: #2563eb !important;
+  stroke-width: 1.5px !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .messageText {
+  fill: #0f172a !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .loopText,
+[data-md-color-scheme="default"] .mermaid .loopText > tspan {
+  fill: #334155 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .loopLine {
+  stroke: #94a3b8 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .note {
+  fill: #fefce8 !important;
+  stroke: #ca8a04 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .noteText,
+[data-md-color-scheme="default"] .mermaid .noteText > tspan {
+  fill: #713f12 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .activation {
+  fill: #dbeafe !important;
+  stroke: #2563eb !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .label-container {
+  fill: #ffffff !important;
+  stroke: #2563eb !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   Dark mode (slate) — Rich Contrast on Dark Backgrounds
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Dark mode: Node shapes ── */
+[data-md-color-scheme="slate"] .mermaid .node rect,
+[data-md-color-scheme="slate"] .mermaid .node polygon,
+[data-md-color-scheme="slate"] .mermaid .node circle,
+[data-md-color-scheme="slate"] .mermaid .node ellipse,
+[data-md-color-scheme="slate"] .mermaid .node path:not(.flowchart-link) {
+  fill: #1e293b !important;
+  stroke: #3b82f6 !important;
+  stroke-width: 1.5px !important;
+}
+
+/* ── Dark mode: Node text ── */
+[data-md-color-scheme="slate"] .mermaid .node text,
+[data-md-color-scheme="slate"] .mermaid .node tspan,
+[data-md-color-scheme="slate"] .mermaid .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .label,
+[data-md-color-scheme="slate"] .mermaid .node foreignObject div,
+[data-md-color-scheme="slate"] .mermaid .node foreignObject span,
+[data-md-color-scheme="slate"] .mermaid .node foreignObject p,
+[data-md-color-scheme="slate"] .mermaid .node foreignObject i,
+[data-md-color-scheme="slate"] .mermaid .node foreignObject b {
+  color: #f1f5f9 !important;
+  fill: #f1f5f9 !important;
+}
+
+/* ── Dark mode: Edges ── */
+[data-md-color-scheme="slate"] .mermaid .edgePath .path,
+[data-md-color-scheme="slate"] .mermaid .flowchart-link,
+[data-md-color-scheme="slate"] .mermaid path.link {
+  stroke: #60a5fa !important;
+  stroke-width: 1.75px !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .edgeLabel {
+  background-color: #0f172a !important;
+  color: #f1f5f9 !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .edgeLabel rect {
+  fill: #0f172a !important;
+  opacity: 0.9;
+  stroke: #334155 !important;
+}
+
+/* ── Dark mode: Cluster/subgraph backgrounds ── */
+[data-md-color-scheme="slate"] .mermaid .cluster rect {
+  fill: #0f172a !important;
+  stroke: #334155 !important;
+  stroke-dasharray: 4, 4;
+  rx: 8px !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .cluster span,
+[data-md-color-scheme="slate"] .mermaid .cluster .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .cluster text {
+  color: #94a3b8 !important;
+  fill: #94a3b8 !important;
+  font-weight: 600 !important;
+}
+
+/* ── Dark mode: Sequence diagrams ── */
+[data-md-color-scheme="slate"] .mermaid .actor {
+  fill: #1e293b !important;
+  stroke: #3b82f6 !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid text.actor,
+[data-md-color-scheme="slate"] .mermaid .actor-man text {
+  fill: #f1f5f9 !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .messageLine0,
+[data-md-color-scheme="slate"] .mermaid .messageLine1 {
+  stroke: #60a5fa !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .messageText {
+  fill: #f1f5f9 !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .loopText,
+[data-md-color-scheme="slate"] .mermaid .loopText > tspan {
+  fill: #cbd5e1 !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .loopLine {
+  stroke: #475569 !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .note {
+  fill: #1e1e2e !important;
+  stroke: #eab308 !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .noteText,
+[data-md-color-scheme="slate"] .mermaid .noteText > tspan {
+  fill: #fef08a !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .activation {
+  fill: #1e3a8a !important;
+  stroke: #60a5fa !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .label-container {
+  fill: #1e293b !important;
+  stroke: #3b82f6 !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .marker,
+[data-md-color-scheme="slate"] .mermaid #arrowhead path,
+[data-md-color-scheme="slate"] .mermaid .arrowheadPath {
+  fill: #60a5fa !important;
+  stroke: #60a5fa !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   Spector Enterprise Theme-Aware Semantic Memory Nodes
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Light Mode (default) Semantic Nodes ── */
+[data-md-color-scheme="default"] .mermaid .node.working rect,
+[data-md-color-scheme="default"] .mermaid .node.working polygon,
+[data-md-color-scheme="default"] .mermaid .node.working circle {
+  fill: #fef2f2 !important;
+  stroke: #ef4444 !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.working .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.working text,
+[data-md-color-scheme="default"] .mermaid .node.working .label {
+  color: #991b1b !important;
+  fill: #991b1b !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.episodic rect,
+[data-md-color-scheme="default"] .mermaid .node.episodic polygon,
+[data-md-color-scheme="default"] .mermaid .node.episodic circle {
+  fill: #eff6ff !important;
+  stroke: #3b82f6 !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.episodic .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.episodic text,
+[data-md-color-scheme="default"] .mermaid .node.episodic .label {
+  color: #1d4ed8 !important;
+  fill: #1d4ed8 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.semantic rect,
+[data-md-color-scheme="default"] .mermaid .node.semantic polygon,
+[data-md-color-scheme="default"] .mermaid .node.semantic circle {
+  fill: #f0fdf4 !important;
+  stroke: #22c55e !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.semantic .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.semantic text,
+[data-md-color-scheme="default"] .mermaid .node.semantic .label {
+  color: #15803d !important;
+  fill: #15803d !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.procedural rect,
+[data-md-color-scheme="default"] .mermaid .node.procedural polygon,
+[data-md-color-scheme="default"] .mermaid .node.procedural circle {
+  fill: #faf5ff !important;
+  stroke: #a855f7 !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.procedural .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.procedural text,
+[data-md-color-scheme="default"] .mermaid .node.procedural .label {
+  color: #7e22ce !important;
+  fill: #7e22ce !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.cortex rect,
+[data-md-color-scheme="default"] .mermaid .node.cortex polygon,
+[data-md-color-scheme="default"] .mermaid .node.cortex circle {
+  fill: #eef2ff !important;
+  stroke: #6366f1 !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.cortex .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.cortex text,
+[data-md-color-scheme="default"] .mermaid .node.cortex .label {
+  color: #3730a3 !important;
+  fill: #3730a3 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.synapse rect,
+[data-md-color-scheme="default"] .mermaid .node.synapse polygon,
+[data-md-color-scheme="default"] .mermaid .node.synapse circle {
+  fill: #f0f9ff !important;
+  stroke: #0284c7 !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.synapse .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.synapse text,
+[data-md-color-scheme="default"] .mermaid .node.synapse .label {
+  color: #0369a1 !important;
+  fill: #0369a1 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.core rect,
+[data-md-color-scheme="default"] .mermaid .node.core polygon,
+[data-md-color-scheme="default"] .mermaid .node.core circle {
+  fill: #ecfdf5 !important;
+  stroke: #10b981 !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.core .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.core text,
+[data-md-color-scheme="default"] .mermaid .node.core .label {
+  color: #065f46 !important;
+  fill: #065f46 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.success rect,
+[data-md-color-scheme="default"] .mermaid .node.success polygon,
+[data-md-color-scheme="default"] .mermaid .node.success circle {
+  fill: #dcfce7 !important;
+  stroke: #16a34a !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.success .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.success text,
+[data-md-color-scheme="default"] .mermaid .node.success .label {
+  color: #14532d !important;
+  fill: #14532d !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.fail rect,
+[data-md-color-scheme="default"] .mermaid .node.fail polygon,
+[data-md-color-scheme="default"] .mermaid .node.fail circle {
+  fill: #fee2e2 !important;
+  stroke: #dc2626 !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.fail .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.fail text,
+[data-md-color-scheme="default"] .mermaid .node.fail .label {
+  color: #7f1d1d !important;
+  fill: #7f1d1d !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.info rect,
+[data-md-color-scheme="default"] .mermaid .node.info polygon,
+[data-md-color-scheme="default"] .mermaid .node.info circle {
+  fill: #dbeafe !important;
+  stroke: #2563eb !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.info .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.info text,
+[data-md-color-scheme="default"] .mermaid .node.info .label {
+  color: #1e3a8a !important;
+  fill: #1e3a8a !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.warning rect,
+[data-md-color-scheme="default"] .mermaid .node.warning polygon,
+[data-md-color-scheme="default"] .mermaid .node.warning circle {
+  fill: #fef3c7 !important;
+  stroke: #d97706 !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.warning .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.warning text,
+[data-md-color-scheme="default"] .mermaid .node.warning .label {
+  color: #78350f !important;
+  fill: #78350f !important;
+}
+
+
+/* ── Dark Mode (slate) Semantic Nodes ── */
+[data-md-color-scheme="slate"] .mermaid .node.working rect,
+[data-md-color-scheme="slate"] .mermaid .node.working polygon,
+[data-md-color-scheme="slate"] .mermaid .node.working circle {
+  fill: #e74c3c !important;
+  stroke: #c0392b !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.working .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.working text,
+[data-md-color-scheme="slate"] .mermaid .node.working .label {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.episodic rect,
+[data-md-color-scheme="slate"] .mermaid .node.episodic polygon,
+[data-md-color-scheme="slate"] .mermaid .node.episodic circle {
+  fill: #3498db !important;
+  stroke: #2980b9 !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.episodic .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.episodic text,
+[data-md-color-scheme="slate"] .mermaid .node.episodic .label {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.semantic rect,
+[data-md-color-scheme="slate"] .mermaid .node.semantic polygon,
+[data-md-color-scheme="slate"] .mermaid .node.semantic circle {
+  fill: #2ecc71 !important;
+  stroke: #27ae60 !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.semantic .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.semantic text,
+[data-md-color-scheme="slate"] .mermaid .node.semantic .label {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.procedural rect,
+[data-md-color-scheme="slate"] .mermaid .node.procedural polygon,
+[data-md-color-scheme="slate"] .mermaid .node.procedural circle {
+  fill: #9b59b6 !important;
+  stroke: #8e44ad !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.procedural .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.procedural text,
+[data-md-color-scheme="slate"] .mermaid .node.procedural .label {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.cortex rect,
+[data-md-color-scheme="slate"] .mermaid .node.cortex polygon,
+[data-md-color-scheme="slate"] .mermaid .node.cortex circle {
+  fill: #1e1b4b !important;
+  stroke: #6366f1 !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.cortex .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.cortex text,
+[data-md-color-scheme="slate"] .mermaid .node.cortex .label {
+  color: #e0e7ff !important;
+  fill: #e0e7ff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.synapse rect,
+[data-md-color-scheme="slate"] .mermaid .node.synapse polygon,
+[data-md-color-scheme="slate"] .mermaid .node.synapse circle {
+  fill: #082f49 !important;
+  stroke: #0ea5e9 !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.synapse .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.synapse text,
+[data-md-color-scheme="slate"] .mermaid .node.synapse .label {
+  color: #e0f2fe !important;
+  fill: #e0f2fe !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.core rect,
+[data-md-color-scheme="slate"] .mermaid .node.core polygon,
+[data-md-color-scheme="slate"] .mermaid .node.core circle {
+  fill: #062f4f !important;
+  stroke: #10b981 !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.core .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.core text,
+[data-md-color-scheme="slate"] .mermaid .node.core .label {
+  color: #ecfdf5 !important;
+  fill: #ecfdf5 !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.success rect,
+[data-md-color-scheme="slate"] .mermaid .node.success polygon,
+[data-md-color-scheme="slate"] .mermaid .node.success circle {
+  fill: #059669 !important;
+  stroke: #047857 !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.success .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.success text,
+[data-md-color-scheme="slate"] .mermaid .node.success .label {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.fail rect,
+[data-md-color-scheme="slate"] .mermaid .node.fail polygon,
+[data-md-color-scheme="slate"] .mermaid .node.fail circle {
+  fill: #dc2626 !important;
+  stroke: #b91c1c !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.fail .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.fail text,
+[data-md-color-scheme="slate"] .mermaid .node.fail .label {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.info rect,
+[data-md-color-scheme="slate"] .mermaid .node.info polygon,
+[data-md-color-scheme="slate"] .mermaid .node.info circle {
+  fill: #2563eb !important;
+  stroke: #1d4ed8 !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.info .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.info text,
+[data-md-color-scheme="slate"] .mermaid .node.info .label {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.warning rect,
+[data-md-color-scheme="slate"] .mermaid .node.warning polygon,
+[data-md-color-scheme="slate"] .mermaid .node.warning circle {
+  fill: #d97706 !important;
+  stroke: #b45309 !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.warning .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.warning text,
+[data-md-color-scheme="slate"] .mermaid .node.warning .label {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   Material for MkDocs — Interactive Polish & Animations
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Card Grid Hover & Lift ── */
+.md-typeset .grid.cards > ul > li {
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.28s ease !important;
+  border-radius: 8px !important;
+}
+
+.md-typeset .grid.cards > ul > li:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.12),
+              0 6px 12px -4px rgba(0, 0, 0, 0.08);
+  border-color: var(--md-primary-fg-color) !important;
+}
+
+/* ── Card Icon Micro-Interaction ── */
+.md-typeset .grid.cards > ul > li .twemoji,
+.md-typeset .grid.cards > ul > li svg {
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), color 0.28s ease;
+}
+
+.md-typeset .grid.cards > ul > li:hover .twemoji,
+.md-typeset .grid.cards > ul > li:hover svg {
+  transform: scale(1.1);
+  color: var(--md-primary-fg-color);
+}
+
+/* ── Fluid Kinetic Button Transitions (Spring Physics) ── */
+.md-button {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.25s ease,
+              color 0.25s ease,
+              border-color 0.25s ease !important;
+  border-radius: 8px !important;
+  will-change: transform, box-shadow;
+}
+
+.md-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -4px rgba(99, 102, 241, 0.4), 0 0 12px rgba(56, 189, 248, 0.2) !important;
+}
+
+.md-button:active {
+  transform: translateY(0.5px) scale(0.965);
+  box-shadow: 0 2px 8px -2px rgba(99, 102, 241, 0.3) !important;
+  transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.12s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Fluid expanding glow ripple on click */
+.md-button::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150%;
+  height: 150%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.35) 10%, transparent 65%);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.md-button:active::after {
+  transform: translate(-50%, -50%) scale(2);
+  opacity: 1;
+  transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.45s ease;
+}
+
+/* ── Interactive Table Rows ── */
+.md-typeset table:not([class]) tbody tr {
+  transition: background-color 0.18s ease;
+}
+
+[data-md-color-scheme="default"] .md-typeset table:not([class]) tbody tr:hover {
+  background-color: rgba(99, 102, 241, 0.05);
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) tbody tr:hover {
+  background-color: rgba(137, 180, 250, 0.08);
+}
+
+/* ── Code Blocks & Clipboard Actions ── */
+.md-clipboard {
+  transition: transform 0.18s ease, opacity 0.18s ease, color 0.18s ease !important;
+}
+
+.md-clipboard:hover {
+  transform: scale(1.12);
+}
+
+/* ── Admonitions & Details Expand/Collapse ── */
+.md-typeset details {
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+  border-radius: 6px;
+}
+
+.md-typeset details:hover {
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Navigation Sidebar Links Hover Shift ── */
+.md-nav__link {
+  transition: color 0.18s ease, transform 0.18s ease;
+}
+
+.md-nav__link:hover {
+  transform: translateX(2px);
+}
+
+/* ── Top Tabs Smooth Transition ── */
+.md-tabs__link {
+  transition: opacity 0.22s ease, transform 0.22s ease, color 0.22s ease;
+}
+
+/* ── Mermaid Diagram Interactivity & Subtle Node Hover ── */
+.mermaid .node {
+  transition: filter 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
+}
+
+.mermaid .node:hover rect,
+.mermaid .node:hover polygon,
+.mermaid .node:hover circle {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+  stroke-width: 2.25px !important;
+}
+
+/* ── Keyframe Pulse for Accent Badges ── */
+@keyframes accentPulse {
+  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+}
+
+.badge-pulse {
+  animation: accentPulse 2.5s infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Developer Typography & Code Block Ergonomics
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── JetBrains Mono Ligatures ── */
+code, kbd, pre, samp, .highlight, .md-typeset code {
+  font-family: var(--md-code-font, "JetBrains Mono", monospace) !important;
+  font-variant-ligatures: normal;
+  font-feature-settings: "liga" 1, "calt" 1;
+}
+
+/* ── Code Block Header Bar (`title="..."`) ── */
+.md-typeset .highlight .filename {
+  background: linear-gradient(90deg, #1e293b, #0f172a);
+  color: #94a3b8;
+  font-family: var(--md-code-font, "JetBrains Mono", monospace);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  padding: 0.5rem 1rem;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-md-color-scheme="default"] .md-typeset .highlight .filename {
+  background: linear-gradient(90deg, #f1f5f9, #e2e8f0);
+  color: #475569;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HTTP Method Badges & Micro-Pills
+   ═══════════════════════════════════════════════════════════════ */
+
+.badge-method {
+  display: inline-block;
+  font-family: var(--md-code-font, "JetBrains Mono", monospace);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.32em 0.65em;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+  margin-right: 0.4em;
+}
+
+.badge-get {
+  background-color: rgba(16, 185, 129, 0.18);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.badge-post {
+  background-color: rgba(59, 130, 246, 0.18);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.badge-put {
+  background-color: rgba(245, 158, 11, 0.18);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.badge-delete {
+  background-color: rgba(239, 68, 68, 0.18);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.badge-patch {
+  background-color: rgba(139, 92, 246, 0.18);
+  color: #8b5cf6;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Latency & Feature Chips
+   ═══════════════════════════════════════════════════════════════ */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--md-code-font, "JetBrains Mono", monospace);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  line-height: 1.2;
+}
+
+.chip-latency {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.chip-zero-gc {
+  background: rgba(139, 92, 246, 0.12);
+  color: #a78bfa;
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.chip-benchmark {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Dark Theme Polish & Glassmorphism Hover-Lift
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-md-color-scheme="slate"] .md-typeset .grid > * {
+  background: rgba(30, 41, 59, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.22s ease,
+              border-color 0.22s ease !important;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .grid > *:hover {
+  transform: translateY(-3px);
+  border-color: rgba(99, 102, 241, 0.45);
+  box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.5), 0 0 16px 2px rgba(99, 102, 241, 0.15);
+}
+
+[data-md-color-scheme="default"] .md-typeset .grid > * {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  transition: transform 0.22s ease, box-shadow 0.22s ease !important;
+}
+
+[data-md-color-scheme="default"] .md-typeset .grid > *:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px -4px rgba(0, 0, 0, 0.08);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Spector Brand Nav Header & Tabs — Mobius Palette Integration
+   Exact Logo Palette:
+   • Midnight Obsidian Base: #0a0e1a (matches spector-logo-full-dark.png)
+   • Electric Cyan:         #00c8ff / #38bdf8
+   • Cobalt Azure:          #3b82f6 / #4f46e5
+   • Deep Violet:           #6366f1 / #8b5cf6
+   • Mint / Diamond:        #14b8a6 / #00f5d4
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Dark Mode Header & Tabs (Slate Scheme) ── */
+[data-md-color-scheme="slate"] .md-header {
+  background-color: rgba(10, 14, 26, 0.94) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+}
+
+[data-md-color-scheme="slate"] .md-header__topic {
+  color: #f8fafc !important;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+[data-md-color-scheme="slate"] .md-header__button {
+  color: #94a3b8 !important;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+[data-md-color-scheme="slate"] .md-header__button:hover {
+  color: #38bdf8 !important; /* Electric Cyan */
+}
+
+/* GitHub repo button in dark header */
+[data-md-color-scheme="slate"] .md-source {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: #cbd5e1 !important;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+[data-md-color-scheme="slate"] .md-source:hover {
+  background-color: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #38bdf8 !important;
+}
+
+/* Search bar inside dark header */
+[data-md-color-scheme="slate"] .md-search__inner {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-md-color-scheme="slate"] .md-search__inner:focus-within {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25) !important;
+}
+
+/* Dark Mode Navigation Tabs */
+[data-md-color-scheme="slate"] .md-tabs {
+  background-color: rgba(10, 14, 26, 0.92) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  position: relative;
+}
+
+[data-md-color-scheme="slate"] .md-tabs__link {
+  color: #94a3b8 !important;
+  font-weight: 500;
+  opacity: 0.85;
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+[data-md-color-scheme="slate"] .md-tabs__link:hover {
+  color: #38bdf8 !important; /* Electric Cyan */
+  opacity: 1;
+}
+
+[data-md-color-scheme="slate"] .md-tabs__item--active .md-tabs__link {
+  color: #ffffff !important;
+  font-weight: 600;
+  opacity: 1;
+}
+
+/* Active tab cyan-to-purple glow underline */
+[data-md-color-scheme="slate"] .md-tabs__item--active .md-tabs__link::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 12%;
+  right: 12%;
+  height: 2px;
+  background: linear-gradient(90deg, #00c8ff, #8b5cf6);
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(0, 200, 255, 0.5);
+}
+
+/* ── Light Mode Header & Tabs (Default Scheme) ── */
+[data-md-color-scheme="default"] .md-header {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  color: #0a0e1a !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+[data-md-color-scheme="default"] .md-header__topic {
+  color: #0a0e1a !important;
+  font-weight: 600;
+}
+
+[data-md-color-scheme="default"] .md-header__button {
+  color: #475569 !important;
+}
+
+[data-md-color-scheme="default"] .md-header__button:hover {
+  color: #0284c7 !important;
+}
+
+[data-md-color-scheme="default"] .md-tabs {
+  background-color: rgba(248, 250, 252, 0.96) !important;
+  border-bottom: 1px solid #e2e8f0;
+  position: relative;
+}
+
+[data-md-color-scheme="default"] .md-tabs__link {
+  color: #64748b !important;
+  font-weight: 500;
+}
+
+[data-md-color-scheme="default"] .md-tabs__link:hover,
+[data-md-color-scheme="default"] .md-tabs__item--active .md-tabs__link {
+  color: #0284c7 !important;
+  font-weight: 600;
+}
+
+/* ── Signature Mobius Ribbon Gradient Hairline ── */
+/* When tabs are active on wide screens, place hairline at bottom of tabs */
+.md-tabs {
+  position: relative;
+}
+
+.md-tabs::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #00c8ff 0%, #3b82f6 28%, #6366f1 55%, #8b5cf6 80%, #14b8a6 100%);
+  z-index: 3;
+}
+
+/* On mobile screens when tabs are hidden, place hairline at bottom of header */
+@media screen and (max-width: 76.1875em) {
+  .md-header::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #00c8ff 0%, #3b82f6 28%, #6366f1 55%, #8b5cf6 80%, #14b8a6 100%);
+    z-index: 3;
+  }
+}
+
+/* ── Logo Micro-Interactions ── */
+.md-header__button.md-logo img {
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), filter 0.28s ease;
+}
+
+.md-header__button.md-logo:hover img {
+  transform: scale(1.08);
+  filter: drop-shadow(0 0 12px rgba(0, 200, 255, 0.6)) drop-shadow(0 0 20px rgba(139, 92, 246, 0.4));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Page Entrance Crossfade & Fluid Glide-In
+   GPU-composited dissolve and vertical slide
+   ═══════════════════════════════════════════════════════════════ */
+
+.md-content__inner {
+  animation: pageGlideIn 0.36s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+@keyframes pageGlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Fluid Scroll Reveal Animations
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Smooth transitions for interactive elements entering viewport */
+.md-typeset .grid > *,
+.md-typeset details,
+.md-typeset table:not([class]),
+.mermaid {
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Native CSS Scroll-Driven In-View Animations (Chromium / WebKit) */
+@supports (animation-timeline: view()) {
+  .md-typeset .grid > *,
+  .md-typeset details,
+  .mermaid {
+    animation: scrollReveal linear both;
+    animation-timeline: view();
+    animation-range: entry 5% cover 25%;
+  }
+
+  @keyframes scrollReveal {
+    from {
+      opacity: 0.35;
+      transform: translateY(10px) scale(0.99);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+}
+
+/* Fallback class for IntersectionObserver progressive enhancement */
+.fade-in-element {
+  opacity: 0.35;
+  transform: translateY(10px);
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fade-in-element.in-view {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Respect user's accessibility preferences */
+@media (prefers-reduced-motion: reduce) {
+  .md-content__inner,
+  .md-button,
+  .md-typeset .grid > *,
+  .fade-in-element {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Mermaid Interactive Zoom, Pan & Fullscreen Modal
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Wrapper */
+.mermaid-interactive-wrapper {
+  position: relative !important;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 1.5em 0;
+}
+
+/* Floating Micro-Toolbar (Positioned at bottom, transparent, visible on hover only) */
+.mermaid-toolbar {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 5px;
+  border-radius: 6px;
+  background: rgba(10, 14, 26, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  z-index: 30;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease;
+}
+
+[data-md-color-scheme="default"] .mermaid-toolbar {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.mermaid-interactive-wrapper:hover .mermaid-toolbar,
+.mermaid-interactive-wrapper:focus-within .mermaid-toolbar {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.mermaid-interactive-wrapper:hover .mermaid-toolbar:hover {
+  background: rgba(10, 14, 26, 0.78);
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 10px rgba(56, 189, 248, 0.2);
+}
+
+[data-md-color-scheme="default"] .mermaid-interactive-wrapper:hover .mermaid-toolbar:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+/* Micro-Toolbar Buttons */
+.mermaid-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94a3b8;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+[data-md-color-scheme="default"] .mermaid-tool-btn {
+  color: #64748b;
+}
+
+.mermaid-tool-btn:hover {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8 !important; /* Electric Cyan */
+  transform: scale(1.08);
+}
+
+.mermaid-tool-btn:active {
+  transform: scale(0.92);
+}
+
+.mermaid-tool-btn--primary {
+  color: #818cf8 !important;
+}
+
+.mermaid-tool-btn--primary:hover {
+  background: rgba(129, 140, 248, 0.2);
+  color: #a78bfa !important;
+}
+
+
+
+/* Fullscreen Modal Backdrop */
+.mermaid-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(10, 14, 26, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: modalFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mermaid-modal-backdrop.closing {
+  animation: modalFadeOut 0.2s ease forwards;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Fullscreen Modal Window */
+.mermaid-modal-dialog {
+  width: 94vw;
+  height: 92vh;
+  background: #0b0f19;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.8), 0 0 35px rgba(99, 102, 241, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: dialogScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-md-color-scheme="default"] .mermaid-modal-dialog {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+@keyframes dialogScaleUp {
+  from { transform: scale(0.96) translateY(10px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Modal Header */
+.mermaid-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.95);
+}
+
+[data-md-color-scheme="default"] .mermaid-modal-header {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.mermaid-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mermaid-modal-actions .mermaid-tool-btn {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+
+.mermaid-tool-btn--close {
+  color: #f87171 !important;
+}
+
+.mermaid-tool-btn--close:hover {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #ef4444 !important;
+}
+
+/* Modal Viewport & Canvas */
+.mermaid-modal-viewport {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(30, 41, 59, 0.35) 0%, rgba(11, 15, 25, 0.95) 100%);
+  user-select: none;
+}
+
+[data-md-color-scheme="default"] .mermaid-modal-viewport {
+  background: #f8fafc;
+}
+
+.mermaid-modal-canvas {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform;
+}
+
+.mermaid-modal-canvas svg {
+  max-width: 90%;
+  max-height: 90%;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.35));
+}
+
+/* Modal Footer */
+.mermaid-modal-footer {
+  padding: 8px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(10, 14, 26, 0.85);
+  color: #64748b;
+  font-size: 0.78rem;
+  font-family: var(--md-code-font, monospace);
+  text-align: center;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Universal Table Formatting & High-Contrast Grid Overhaul
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Table container and layout */
+.md-typeset table:not(.highlighttable),
+.md-typeset table:not([class]),
+.md-typeset__table table {
+  display: table !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  margin: 1.25em 0 !important;
+  font-size: 0.74rem !important;
+  line-height: 1.45 !important;
+  border: 1px solid #94a3b8 !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Ensure horizontal scroll on small viewports */
+@media screen and (max-width: 60em) {
+  .md-typeset .md-typeset__scrollwrap,
+  .md-typeset table:not(.highlighttable) {
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+}
+
+/* ── Light Mode Header: Unmistakable contrast against records ── */
+.md-typeset table:not(.highlighttable) thead {
+  display: table-header-group !important;
+}
+
+.md-typeset table:not(.highlighttable) thead tr {
+  background-color: #e2e8f0 !important; /* Solid Slate-200 */
+  border-bottom: 2px solid #00b4d8 !important;
+}
+
+.md-typeset table:not(.highlighttable) th {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  font-size: 0.70rem !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  padding: 0.55em 0.75em !important;
+  border: 1px solid #cbd5e1 !important;
+  border-bottom: 2px solid #00b4d8 !important;
+  text-align: left !important;
+  vertical-align: middle !important;
+}
+
+/* ── Light Mode Data Records ── */
+.md-typeset table:not(.highlighttable) td {
+  padding: 0.45em 0.75em !important;
+  border: 1px solid #cbd5e1 !important;
+  vertical-align: top !important;
+  color: #1e293b !important;
+  font-size: 0.74rem !important;
+  font-weight: 400 !important;
+}
+
+.md-typeset table:not(.highlighttable) tbody tr:nth-child(even) td {
+  background-color: #f8fafc !important;
+}
+
+.md-typeset table:not(.highlighttable) tbody tr:nth-child(odd) td {
+  background-color: #ffffff !important;
+}
+
+.md-typeset table:not(.highlighttable) tbody tr:hover td {
+  background-color: #f0f9ff !important;
+}
+
+/* Inline code badges */
+.md-typeset table:not(.highlighttable) code {
+  font-size: 0.70rem !important;
+  padding: 0.1em 0.35em !important;
+  border-radius: 4px !important;
+  background-color: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  word-break: break-word !important;
+  white-space: normal !important;
+  color: #0369a1 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Dark Mode (Slate Scheme) High-Contrast Table Styling
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-md-color-scheme="slate"] .md-typeset table:not(.highlighttable),
+[data-md-color-scheme="slate"] .md-typeset table:not([class]),
+[data-md-color-scheme="slate"] .md-typeset__table table {
+  border: 1px solid #475569 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+  background-color: transparent !important;
+}
+
+/* Header: Elevated dark slate with electric cyan accent text & line */
+[data-md-color-scheme="slate"] .md-typeset table:not(.highlighttable) thead tr {
+  background-color: #242d3d !important;
+  border-bottom: 2px solid #00d2ff !important;
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not(.highlighttable) th {
+  background-color: #242d3d !important;
+  color: #38bdf8 !important;
+  font-weight: 700 !important;
+  font-size: 0.70rem !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  padding: 0.55em 0.75em !important;
+  border: 1px solid #334155 !important;
+  border-bottom: 2px solid #00d2ff !important;
+}
+
+/* Data Records: Clean transparent cells on slate background with crisp grid borders */
+[data-md-color-scheme="slate"] .md-typeset table:not(.highlighttable) td {
+  padding: 0.45em 0.75em !important;
+  border: 1px solid #334155 !important;
+  color: #e2e8f0 !important;
+  font-size: 0.74rem !important;
+  font-weight: 400 !important;
+  background-color: transparent !important;
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not(.highlighttable) tbody tr:nth-child(even) td {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not(.highlighttable) tbody tr:nth-child(odd) td {
+  background-color: transparent !important;
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not(.highlighttable) tbody tr:hover td {
+  background-color: rgba(56, 189, 248, 0.08) !important;
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not(.highlighttable) code {
+  background-color: #1e293b !important;
+  border: 1px solid #475569 !important;
+  color: #38bdf8 !important;
+  font-size: 0.70rem !important;
+  padding: 0.1em 0.35em !important;
+}
+
+
+
+
+

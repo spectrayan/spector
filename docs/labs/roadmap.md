@@ -1,0 +1,760 @@
+---
+title: "Labs — Experimental Features"
+description: "Research roadmap for Spector's experimental cognitive features: 4-Layer Retrieval Stack, SPLARE, ColPali, Neuromodulatory Gain Control, Executive Dysfunction Profile, Two-Factor Memory Strength, and Dynamic Quantization Stepping."
+---
+
+# 🔬 Labs — Experimental Features
+
+> **Status**: Research / Future Work (partially implemented)
+>
+> Some features have graduated from Labs into the main release. Others remain
+> under active research and planned for implementation in the `labs` branch.
+>
+> **Recently graduated:** SPLADE sparse retrieval, ColBERT v2 reranking, Two-Factor Memory, ProfileAdaptor Contextual Bandit, and Executive Dysfunction Profile.
+
+---
+
+## Neuromodulatory Gain Control
+
+### Concept
+
+Dynamic retrieval tuning via simulated neurotransmitter modulation. Rather than using static cognitive profiles, the system would maintain a **runtime neuromodulatory state** that continuously adjusts retrieval parameters based on the agent's recent activity, outcomes, and context.
+
+### Biological Basis
+
+The brain's retrieval characteristics aren't fixed — they shift moment-to-moment based on neuromodulatory tone. A developer who just encountered a production outage has elevated norepinephrine, which sharpens recency bias and narrows attention. A developer brainstorming during a design review has elevated serotonin, which broadens associative scope.
+
+Currently, Spector models this via discrete [Cognitive Profiles](../memory/cognitive-profiles.md) (DEBUGGING, EXPLORING, etc.). Neuromodulatory Gain Control would replace discrete switching with **continuous, gradient modulation**.
+
+### Proposed Architecture
+
+```mermaid
+flowchart TD
+    subgraph "Neuromodulatory State"
+        ACh["Acetylcholine<br/>attention sharpness"]
+        5HT["Serotonin<br/>retrieval breadth"]
+        DA["Dopamine<br/>novelty seeking"]
+        NE["Norepinephrine<br/>urgency bias"]
+    end
+
+    subgraph "Retrieval Modulation"
+        TM["Tag Match Strictness"]
+        LS["Lateral Scope"]
+        NW["Novelty Weight"]
+        RB["Recency Bias"]
+    end
+
+    ACh --> TM
+    5HT --> LS
+    DA --> NW
+    NE --> RB
+
+    subgraph "Inputs"
+        O["Outcome Feedback<br/>(reinforce calls)"]
+        C["Context Signals<br/>(tags, valence)"]
+        T["Temporal Patterns<br/>(query rate, errors)"]
+    end
+
+    O --> DA
+    O --> NE
+    C --> ACh
+    C --> 5HT
+    T --> NE
+    T --> DA
+```
+
+### Modulation Parameters
+
+| Neurotransmitter | Parameter Affected | Low Level Effect | High Level Effect |
+|:---|:---|:---|:---|
+| Acetylcholine (ACh) | `tagMatchStrictness` | Loose tag gating (any overlap passes) | Strict tag gating (all bits must match) |
+| Serotonin (5-HT) | `lateralDistanceThreshold` | Narrow scope (close matches only) | Wide scope (cross-domain retrieval active) |
+| Dopamine (DA) | `noveltyWeight` in ICNU | Familiar memories preferred | Novel/surprising memories preferred |
+| Norepinephrine (NE) | `recencyBias` | All ages equal | Strong recency bias (last hour dominates) |
+
+### State Update Model
+
+Each neurotransmitter level $n_i(t)$ follows an exponential decay toward a baseline, with spikes driven by events:
+
+$$
+n_i(t + \Delta t) = n_i^{\text{base}} + \left(n_i(t) - n_i^{\text{base}}\right) \cdot e^{-\Delta t / \tau_i} + \sum_{\text{events}} \Delta n_i
+$$
+
+Where:
+
+- $n_i^{\text{base}}$ — resting level for neurotransmitter $i$ (profile-dependent)
+- $\tau_i$ — decay constant (how quickly it returns to baseline after a spike)
+- $\Delta n_i$ — event-driven spike (e.g., negative reinforcement → +NE, +ACh)
+
+**Example decay constants:**
+
+| Neurotransmitter | $\tau$ | Rationale |
+|:---|:---|:---|
+| ACh | 5 minutes | Attention shifts are fast |
+| 5-HT | 30 minutes | Mood/scope changes are slow |
+| DA | 10 minutes | Novelty-seeking is moderate |
+| NE | 2 minutes | Urgency is very transient |
+
+### Event-to-Spike Mapping
+
+| Event | ACh | 5-HT | DA | NE |
+|:---|:---:|:---:|:---:|:---:|
+| Negative reinforcement (bug found) | +0.3 | -0.1 | — | +0.5 |
+| Positive reinforcement (solution worked) | — | +0.2 | +0.3 | -0.2 |
+| High recall latency (slow query) | +0.1 | — | — | +0.2 |
+| Lateral result selected by agent | — | +0.3 | +0.2 | — |
+| Repeated query (same topic, 3rd time) | +0.4 | -0.2 | -0.1 | — |
+| No results found | — | +0.2 | +0.4 | +0.1 |
+
+### Implementation Sketch
+
+```java
+public final class NeuromodulatoryState {
+    
+    private volatile float acetylcholine = 0.5f;  // baseline
+    private volatile float serotonin = 0.5f;
+    private volatile float dopamine = 0.5f;
+    private volatile float norepinephrine = 0.3f;
+    
+    private volatile long lastUpdateMs = System.currentTimeMillis();
+    
+    /**
+     * Applies exponential decay toward baseline, then adds event spikes.
+     */
+    public synchronized void update(NeuroEvent... events) {
+        long now = System.currentTimeMillis();
+        float dtSeconds = (now - lastUpdateMs) / 1000f;
+        
+        // Exponential decay toward baseline
+        acetylcholine = decayToward(acetylcholine, 0.5f, dtSeconds, TAU_ACH);
+        serotonin = decayToward(serotonin, 0.5f, dtSeconds, TAU_5HT);
+        dopamine = decayToward(dopamine, 0.5f, dtSeconds, TAU_DA);
+        norepinephrine = decayToward(norepinephrine, 0.3f, dtSeconds, TAU_NE);
+        
+        // Apply event spikes
+        for (var event : events) {
+            acetylcholine = clamp(acetylcholine + event.deltaACh());
+            serotonin = clamp(serotonin + event.delta5HT());
+            dopamine = clamp(dopamine + event.deltaDA());
+            norepinephrine = clamp(norepinephrine + event.deltaNE());
+        }
+        
+        lastUpdateMs = now;
+    }
+    
+    /**
+     * Modulates RecallOptions based on current neuromodulatory state.
+     */
+    public RecallOptions modulate(RecallOptions base) {
+        return base.toBuilder()
+            .lateralDistanceThreshold(base.lateralDistanceThreshold() * (2.0f * serotonin))
+            .hyperfocusBoost(base.hyperfocusBoost() * (1.0f + acetylcholine))
+            // ... other modulations
+            .build();
+    }
+}
+```
+
+### Dependencies & Complexity
+
+- **Dependencies:** CognitiveProfile extensions, configurable ICNU weights
+- **Complexity:** High — requires runtime state management, thread-safe neuromodulatory state, and careful calibration of decay constants and spike magnitudes
+- **Risk:** Over-tuning can create oscillatory behavior (agent flip-flops between modes)
+
+---
+
+## ✅ Executive Dysfunction Profile
+
+!!! success "Graduated to Main Release"
+    Implemented in `CognitiveProfile.EXECUTIVE_DYSFUNCTION`, `ProfileAdaptor`, and `RecallHistory` (graduated in issue #295). It is fully integrated into the `RecallPipeline` as the `ASSOCIATIVE` scoring mode routing path.
+
+
+### Concept
+
+A Hebbian-first recall path that bypasses vector similarity entirely. When the agent can't formulate a clear query (analogous to executive dysfunction), it falls back to associative recall: "what have I been thinking about recently?"
+
+### Biological Basis
+
+In executive dysfunction, the prefrontal cortex struggles with **top-down, goal-directed retrieval** — the ability to say "I need to find X" and systematically search for it. However, **bottom-up, associative recall** remains intact — memories surface via association chains rather than directed search.
+
+This is common in ADHD: you can't remember the specific thing you were looking for, but a tangential mention triggers a cascade of related memories. The [STDP infrastructure](../memory/hebbian.md#layer-1-hebbian-association-graph) now makes this possible — directed causal edges encode "thinking about A leads to thinking about B."
+
+### Proposed Architecture
+
+```mermaid
+flowchart TD
+    Q["Query: 'I was working on something...'"] --> D{"Executive<br/>Dysfunction<br/>Profile?"}
+    D -->|No| VS["Standard: Vector Search"]
+    D -->|Yes| STDP["STDP Edge Lookup"]
+    
+    STDP --> CT["Get context tags from<br/>recent recall history"]
+    CT --> CE["Follow causal edges<br/>(predictive strength > 0.3)"]
+    CE --> R1["Memory: database config"]
+    CE --> R2["Memory: connection pool tuning"]
+    CE --> R3["Memory: timeout settings"]
+    
+    VS --> S["6-Phase Scoring Pipeline"]
+    
+    R1 --> M["Merge & Rank"]
+    R2 --> M
+    R3 --> M
+    S --> M
+    M --> F["Final Results"]
+
+    style STDP fill:#e74c3c,color:white
+    style CE fill:#e74c3c,color:white
+```
+
+### Recall Algorithm
+
+1. **Collect context tags** from the last N recall results (default N=10)
+2. **Query STDP edges** for all causal predictions from those context tags
+3. **Filter edges** by predictive strength threshold (default > 0.3)
+4. **Retrieve memories** whose synaptic tags match the predicted tags
+5. **Rank by STDP weight** instead of vector similarity
+6. **Optionally blend** with a low-weight vector search for hybrid results
+
+### Key Differences from Standard Recall
+
+| Aspect | Standard Recall | Executive Dysfunction |
+|:---|:---|:---|
+| Primary signal | Vector similarity | STDP causal edges |
+| Query requirement | Clear, specific query | Vague or absent query |
+| Scoring formula | $\alpha \cdot sim + \beta \cdot imp \cdot decay$ | $stdp\_weight \cdot recency$ |
+| Tag usage | Bloom filter pre-screen | Primary retrieval key |
+| Lateral mode | Optional (DIVERGENT) | Always enabled |
+
+### Implementation Sketch
+
+```java
+public List<CognitiveResult> recallAssociative(RecallOptions options) {
+    // Step 1: Collect recent context tags
+    Set<String> contextTags = recallHistory.recentTags(10);
+    
+    // Step 2: Query STDP for causal predictions
+    Map<String, Float> predictions = new LinkedHashMap<>();
+    for (String tag : contextTags) {
+        tracker.getStdpEdgesFrom(tag).forEach((targetTag, weight) -> {
+            if (weight.weight() > 0.3f) {
+                predictions.merge(targetTag, weight.weight(), Math::max);
+            }
+        });
+    }
+    
+    // Step 3: Encode predicted tags as a synaptic mask
+    long predictedMask = SynapticTagEncoder.encode(
+        predictions.keySet().toArray(String[]::new));
+    
+    // Step 4: Scan with STDP-weighted scoring
+    var modifiedOptions = options.toBuilder()
+        .synapticTagMask(predictedMask)
+        .alpha(0.1f)   // minimal vector similarity
+        .beta(0.9f)    // importance-dominated
+        .build();
+    
+    return recallPipeline.execute(queryVector, modifiedOptions);
+}
+```
+
+### Dependencies & Complexity
+
+- **Dependencies:** Full STDP (Stage 3) ✅ **Complete** — directed, timestamped edges are live in `CoActivationTracker`
+- **Complexity:** Medium — the STDP infrastructure is the hard part (done). Remaining work is the bypass routing logic and recall history tracking.
+- **Risk:** Cold-start problem — STDP edges are empty until the agent has sufficient recall history
+
+---
+
+## ✅ Two-Factor Memory Strength (Bjork & Bjork, 1992)
+
+!!! success "Graduated to Main Release"
+    Implemented in `CognitiveScorer`, `LtpReconsolidationListener`, and `TwoFactorConfig`. Storage strength scoring uses a precomputed 64-entry LUT for `S(t)^0.3` (~50× faster than `Math.pow`).
+
+### Concept
+
+Separate **retrieval strength** R(t) from **storage strength** S(t). Currently, Spector uses a single decay curve based on age. The Two-Factor model captures a deeper truth: a memory's *accessibility* (can I recall it now?) and its *durability* (will it survive long-term?) are independent dimensions.
+
+### Biological Basis
+
+The New Theory of Disuse (Bjork & Bjork, 1992) explains several well-known memory phenomena:
+
+| Phenomenon | Explanation via R(t) and S(t) |
+|:---|:---|
+| **Spacing effect** | Spaced retrieval at low R(t) produces higher ΔS than massed retrieval at high R(t) |
+| **Testing effect** | Active retrieval (low R(t)) boosts S(t) more than passive re-study |
+| **Savings in relearning** | High S(t) memory with low R(t) relearns faster than a genuinely new memory |
+| **Tip-of-the-tongue** | High S(t), very low R(t) — the memory is stored but temporarily inaccessible |
+
+### Mathematical Model
+
+**Retrieval strength** decays with time since last access:
+
+$$
+R(t) = e^{-\lambda / S(t) \cdot (t - t_{\text{last}})}
+$$
+
+Where $\lambda$ is the base decay rate (currently modeled by `DecayStrategy.ageToBucket()`).
+
+**Storage strength** increases at each retrieval, with the boost inversely proportional to R(t):
+
+$$
+\Delta S = S_{\text{gain}} \times (1 - R(t))
+$$
+
+This creates the spacing effect: when R(t) is near 0 (memory is hard to retrieve), the storage boost is maximal. When R(t) is near 1 (memory is easily retrieved), the storage boost is minimal.
+
+### Visual Model
+
+```mermaid
+graph LR
+    subgraph "Easy Retrieval (High R)"
+        E1["R(t) = 0.9"] --> E2["ΔS = 0.1 × S_gain"]
+        E2 --> E3["Low storage boost"]
+    end
+    
+    subgraph "Hard Retrieval (Low R)"
+        H1["R(t) = 0.1"] --> H2["ΔS = 0.9 × S_gain"]
+        H2 --> H3["High storage boost"]
+    end
+
+    style E3 fill:#f39c12,color:white
+    style H3 fill:#27ae60,color:white
+```
+
+### Integration with Existing Header Layout
+
+The `storage_strength` field is present in the 64-byte header layout at offset 36:
+
+```
+64-Byte Header Layout:
+  [0B   header_version]     Offset 0  — version byte
+  [1B   flags]              Offset 1  — state flags
+  [1B   valence]            Offset 2  — emotional coloring
+  [1B   arousal]            Offset 3  — emotional intensity
+  [4B   importance]         Offset 4  — cognitive importance
+  [8B   timestamp_ms]       Offset 8  — when memory was formed
+  ...                                 — (other core fields)
+  [4B   storage_str]        Offset 36 — S(t) ← THIS FIELD
+  ...                                 — (reserved fields)
+```
+
+**Current default:** `storage_strength = 1.0f` for all new memories. The field is written and read but not yet used in scoring.
+
+### Proposed Scoring Integration
+
+The current scoring formula:
+
+$$
+\text{score} = \alpha \cdot \text{similarity} + \beta \cdot \text{importance} \cdot \text{decay}(t)
+$$
+
+Would become:
+
+$$
+\text{score} = \alpha \cdot \text{similarity} + \beta \cdot \text{importance} \cdot R(t) \cdot S(t)^{0.3}
+$$
+
+Where $S(t)^{0.3}$ provides a gentle boost for well-stored memories without dominating the score.
+
+### Wiring into `reinforce()`
+
+The `reinforce()` cognitive operation updates valence, increments the recall counter, and applies the Bjork Two-Factor storage update:
+
+$$\Delta S = S_{\text{gain}} \times (1 - R(t))$$
+
+When retrieval is difficult (low current retrieval strength $R(t)$), the memory receives the maximum storage gain $\Delta S$, directly modeling the biological spacing effect. The updated storage strength $S(t)$ is written to the dedicated off-heap strength region without modifying the immutable 64-byte encoding header.
+
+### Calibration Challenges
+
+| Parameter | Proposed Default | Notes |
+|:---|:---|:---|
+| $S_{\text{gain}}$ | 0.1 | Per-retrieval storage increment |
+| $S_{\text{max}}$ | 5.0 | Cap to prevent runaway storage strength |
+| $\lambda$ | 0.1 | Base decay rate |
+| S(t) exponent in scoring | 0.3 | Gentle boost, prevents S domination |
+
+These need empirical calibration with real agent workloads. The key question: how quickly should storage strength accumulate to produce meaningful behavioral differences?
+
+### Dependencies & Complexity
+
+- **Dependencies:** 64-byte header layout (`storage_strength` field) ✅ **Ready**
+- **Complexity:** Medium — ✅ **Implemented**
+- **Implementation details:**
+    - `TwoFactorConfig` record: `sGain=0.1`, `sMax=5.0`, `sExponent=0.3`, `enabled=true`
+    - `CognitiveScorer`: Reads `storageStrength` from header, applies `fastStorageBoost()` using precomputed 64-entry LUT (linear interpolation, <0.2% error)
+    - `LtpReconsolidationListener`: Updates `storage_strength` on `reinforce()` calls with `ΔS = S_gain × (1 - R(t))`
+    - `RecallOptions`: Includes `TwoFactorConfig` for per-query configuration
+    - `DefaultSpectorMemory.Builder`: Exposes `twoFactorConfig(TwoFactorConfig)` builder method
+
+---
+
+## Dynamic Quantization Stepping
+
+### Concept
+
+Auto-downgrade vector precision under memory pressure. When off-heap memory usage exceeds a configurable threshold, the system progressively reduces vector quantization from SQ8 (8-bit scalar) to SQ4 (4-bit scalar), trading a small amount of recall accuracy for 2× memory savings.
+
+### Biological Basis
+
+The brain performs a similar optimization — older memories are stored with less perceptual detail (lower precision) but retain their gist (semantic meaning). You remember *that* you had a great dinner, but not the exact flavors. The gist is sufficient for retrieval; the sensory detail is pruned.
+
+### Quantization Precision Impact
+
+| Format | Bits/Dim | Memory/Vector (768d) | Recall@10 Impact |
+|:---|:---:|:---:|:---|
+| FP32 | 32 | 3,072 bytes | Baseline |
+| SQ8 (current) | 8 | 768 bytes | ~0.5% degradation |
+| SQ4 (proposed) | 4 | 384 bytes | ~2-3% degradation |
+| Binary | 1 | 96 bytes | ~8-12% degradation |
+
+### Pressure-Based Stepping
+
+```mermaid
+flowchart TD
+    M["Monitor: off-heap usage"] --> C{"Usage > threshold?"}
+    C -->|"< 70%"| OK["Phase 0: Normal (SQ8)"]
+    C -->|"70-85%"| P1["Phase 1: SQ4 oldest 25%"]
+    C -->|"85-95%"| P2["Phase 2: SQ4 all non-pinned"]
+    C -->|"> 95%"| P3["Phase 3: Deep Sleep + aggressive prune"]
+
+    P1 -.- S1["~12% memory saved<br/>~0.5% recall impact"]
+    P2 -.- S2["~50% memory saved<br/>~2% recall impact"]
+    P3 -.- S3["Variable savings<br/>memories permanently lost"]
+
+    style OK fill:#27ae60,color:white
+    style P1 fill:#f39c12,color:white
+    style P2 fill:#e67e22,color:white
+    style P3 fill:#e74c3c,color:white
+```
+
+### SQ4 Encoding
+
+SQ4 packs two dimensions into a single byte using 4-bit uniform quantization:
+
+$$
+q_4(x) = \text{round}\left(\frac{x - \min}{\max - \min} \times 15\right)
+$$
+
+```java
+/**
+ * Encodes two float values into a single byte (4 bits each).
+ */
+static byte encodeSQ4Pair(float v1, float v2, float min, float scale) {
+    int q1 = Math.clamp(Math.round((v1 - min) / scale * 15f), 0, 15);
+    int q2 = Math.clamp(Math.round((v2 - min) / scale * 15f), 0, 15);
+    return (byte) ((q1 << 4) | q2);
+}
+
+/**
+ * Decodes a byte back to two approximate float values.
+ */
+static float[] decodeSQ4Pair(byte packed, float min, float scale) {
+    int q1 = (packed >> 4) & 0x0F;
+    int q2 = packed & 0x0F;
+    return new float[]{
+        min + (q1 / 15f) * scale,
+        min + (q2 / 15f) * scale
+    };
+}
+```
+
+### Online Re-Quantization
+
+The critical engineering challenge: re-quantizing vectors **without locking the store**. The proposed approach:
+
+1. **Shadow copy:** Create a parallel SQ4 segment alongside the existing SQ8 segment
+2. **Background conversion:** A background Virtual Thread re-quantizes records in batches of 1,000
+3. **Atomic swap:** Once complete, atomically update the `EngramLayout` stride to use SQ4 offsets
+4. **Lazy cleanup:** The old SQ8 bytes become dead space, reclaimed at next compaction
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant W as Worker (Virtual Thread)
+    participant B as Bundle Region (SQ8)
+    participant S as Target Region (SQ4)
+    participant H as Encoding Header
+
+    W->>B: Read unpinned SQ8 vector
+    W->>W: Downsample to nibble-packed SQ4
+    W->>S: Write compacted 4-bit payload
+    W->>H: Atomically set FLAG_QUANT_SQ4
+```
+
+### Mixed-Precision Scoring
+
+The `CognitiveScorer` must handle mixed SQ8/SQ4 segments:
+
+```java
+// Phase 5: Vector distance — check quantization format per-record
+byte flags = segment.get(LAYOUT_FLAGS, offset + OFFSET_FLAGS);
+float l2dist;
+if (isSQ4(flags)) {
+    l2dist = SimilarityFunction.EUCLIDEAN.computeSQ4FromSegment(
+        queryVector, segment, layout.vectorOffset(offset),
+        effectiveMins, effectiveScales, layout.quantizedVecBytes() / 2);
+} else {
+    l2dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
+        queryVector, segment, layout.vectorOffset(offset),
+        effectiveMins, effectiveScales, layout.quantizedVecBytes());
+}
+```
+
+### Dependencies & Complexity
+
+- **Dependencies:** ReflectDaemon Phase 0 (memory pressure monitoring), ScalarQuantizer SQ4 support (new)
+- **Complexity:** High — online re-quantization without locking, mixed-precision scoring in the hot loop, SIMD kernel for SQ4 distance computation
+- **Risk:** SQ4 distance computation is not yet SIMD-optimized; 4-bit unpacking adds ~30% overhead per distance call until a dedicated SIMD kernel is written
+
+---
+
+## ✅ SPLADE / Li-LSR Learned Sparse Retrieval
+
+!!! success "Graduated to Main Release"
+    Implemented in `SpladeIndex`, `MemorySpladeIndex` (spector-index/memory), `SparseEncodingProvider` SPI (spector-embed-api). Wired into `CognitiveIngestionTarget` Step 9a-splade and `RecallPipeline` Step 3c.
+
+### Concept
+
+Neural term expansion via learned sparse retrieval. Unlike BM25 which matches exact keywords, SPLADE/Li-LSR models learn to **expand** queries and documents with semantically related terms — e.g., "car" also activates "vehicle", "automobile", "driving".
+
+### Architecture
+
+```
+Ingestion:  text → SparseEncodingProvider.encode() → {term: weight} → SpladeIndex.index()
+Recall:     query → SparseEncodingProvider.encode() → MemorySpladeIndex.search() → RRF fusion
+```
+
+### Components
+
+| Component | Module | Role |
+|:---|:---|:---|
+| `SparseEncodingProvider` | spector-embed-api | SPI for SPLADE/Li-LSR/SPLARE encoding |
+| `SparseEncodingResult` | spector-embed-api | `Map<String, Float>` term-weight result |
+| `SpladeIndex` | spector-index | In-memory inverted index for sparse vectors |
+| `MemorySpladeIndex` | spector-memory | Partition manager with parallel search via `ConcurrentTasks.forkJoinAll` |
+
+### Integration Points
+
+- **Ingestion:** `CognitiveIngestionTarget` Step 9a-splade (after BM25 Step 9a)
+- **Recall:** `RecallPipeline` Step 3c (parallel to BM25, fused via `fuseBM25Candidates` RRF)
+- **Configuration:** `TextSearchMode.SPLADE`, `SPLADE_HYBRID`, `LI_LSR`, `FULL_STACK`
+- **Graceful degradation:** null `SparseEncodingProvider` → silently skipped, WARN logged once
+
+---
+
+## ✅ ColBERT v2 Late Interaction Reranking
+
+!!! success "Graduated to Main Release"
+    Implemented in `ColBERTReranker` (spector-index). SIMD-accelerated MaxSim scoring via Panama `FloatVector`. Wired into `RecallPipeline` Step 6b.
+
+### Concept
+
+Token-level late interaction reranking. Unlike bi-encoders (which compress each document to a single vector), ColBERT stores a vector **per token** and computes relevance via **MaxSim** — the sum of per-query-token maximum similarities across all document tokens.
+
+### MaxSim Scoring
+
+$$
+\text{MaxSim}(q, d) = \sum_{i=1}^{|q|} \max_{j=1}^{|d|} \mathbf{q}_i \cdot \mathbf{d}_j
+$$
+
+### Components
+
+| Component | Module | Role |
+|:---|:---|:---|
+| `TokenEmbeddingProvider` | spector-embed-api | SPI for per-token embedding arrays |
+| `TokenEmbeddingResult` | spector-embed-api | `float[][]` token-level embeddings |
+| `ColBERTReranker` | spector-index | MaxSim scoring + SIMD-accelerated `simdDotProduct` |
+
+### Integration
+
+- **Recall:** `RecallPipeline` Step 6b (after first-stage sort, before final return)
+- **Scoring:** `combinedScore = α·maxSimScore + (1-α)·firstStageScore` (default α=0.7)
+- **Configuration:** `RecallOptions.enableReranker(true).rerankerDepth(50)`
+- **TextSearchMode:** `COLBERT_RERANK` or `FULL_STACK`
+
+---
+
+## 🔬 SPLARE — Sparse Autoencoder Learned Retrieval
+
+### Concept
+
+SPLARE uses sparse autoencoders to extract interpretable sparse features from dense embeddings. Unlike SPLADE which uses a masked language model, SPLARE operates on the embedding space directly, making it model-agnostic and naturally multilingual.
+
+### Proposed Architecture
+
+```mermaid
+flowchart TD
+    subgraph "Dense Embedding"
+        E["EmbeddingProvider.embed()"]
+    end
+    
+    subgraph "Sparse Autoencoder"
+        SAE["Encoder: d → K features"]
+        F["Top-K feature selection"]
+    end
+    
+    subgraph "Sparse Index"
+        SI["SpladeIndex (reused)"]
+    end
+    
+    E --> SAE
+    SAE --> F
+    F --> SI
+    
+    style SAE fill:#9b59b6,color:white
+    style F fill:#9b59b6,color:white
+```
+
+### Advantages over SPLADE
+
+| Aspect | SPLADE | SPLARE |
+|:---|:---|:---|
+| Model dependency | Requires MLM (BERT-family) | Model-agnostic (any embedding) |
+| Vocabulary | WordPiece (~30K) | Learned feature dictionary (configurable) |
+| Multilingual | Requires multilingual MLM | Inherits from base embedder |
+| Interpretability | Token-level (human readable) | Feature-level (less interpretable) |
+| Infrastructure | Needs separate model | Reuses existing `SpladeIndex` |
+
+### Implementation Plan
+
+1. Train sparse autoencoder on embedding provider's dense vectors
+2. Implement `SparseEncodingProvider` adapter that wraps autoencoder inference
+3. Use feature indices + activations as sparse retrieval keys
+4. Index into existing `SpladeIndex` infrastructure (same posting list format)
+
+### Dependencies & Complexity
+
+- **Dependencies:** Sparse autoencoder training pipeline, feature dictionary management
+- **Complexity:** High — autoencoder training requires representative corpus, feature stability across model updates is unknown
+- **Risk:** Feature drift when the base embedding model is updated
+
+---
+
+## 🔬 ColPali — Vision-Language Late Interaction
+
+### Concept
+
+Extend ColBERT's late interaction paradigm to **visual documents** using the ColPali architecture (Faysse et al., 2024). Instead of OCR → text → embed, ColPali directly produces per-patch token embeddings from document images.
+
+### Biological Basis
+
+Human memory doesn't separate "text memory" from "visual memory" — the hippocampal indexing system operates over multi-modal representations. ColPali brings this to Spector: a diagram, a screenshot, or a handwritten note can be retrieved with the same MaxSim infrastructure as text.
+
+### Proposed Architecture
+
+```mermaid
+flowchart TD
+    subgraph "Query Path"
+        QT["Query text"] --> TE["TokenEmbeddingProvider"]
+        TE --> QV["float[][] query tokens"]
+    end
+    
+    subgraph "Document Path"
+        IMG["Document image"] --> VE["VisionPatchProvider"]
+        VE --> PV["float[][] image patches"]
+    end
+    
+    subgraph "Scoring"
+        QV --> MS["MaxSim (SIMD)"]
+        PV --> MS
+        MS --> SC["Combined score"]
+    end
+    
+    style VE fill:#e74c3c,color:white
+    style MS fill:#27ae60,color:white
+```
+
+### Key Design Decisions
+
+| Decision | Choice | Rationale |
+|:---|:---|:---|
+| Vision encoder | PaliGemma / SigLIP | Strong patch-level embeddings, open weights |
+| Patch granularity | 16×16 or 32×32 | Balance quality vs token count |
+| Storage | New `MediaDataStore` | Images require separate storage from text |
+| MaxSim kernel | Reuse `ColBERTReranker` | Same SIMD infrastructure, different input |
+
+### Dependencies & Complexity
+
+- **Dependencies:** Vision encoder model integration, ONNX Runtime or similar inference engine
+- **New SPIs:** `VisionPatchProvider`, multi-modal `MemoryType` extension
+- **Complexity:** Very High — vision encoder integration, image storage lifecycle, multi-modal index management
+- **Estimated effort:** 6-8 weeks
+
+---
+
+## ✅ Hypergraphs & Spectral Sparsification
+
+> **Status**: Hypergraphs — **🟢 Graduated & Active (Primary Graph Structure)**. Spectral Sparsification — **Research** (Epic #416).
+>
+> **Current status:** HyperEntityGraph has successfully graduated to be the sole entity graph structure in Spector, completely replacing the legacy binary EntityGraph (Phase 4 binary excision completed). Recall and remember pathways are fully hyper-only, supported by a central EntityDirectory companion.
+
+
+### Concept
+
+Preventing graph node and edge explosion in Spector's Cognitive Architecture through mathematical compression:
+
+1. **Hypergraphs** ✅: Collapsing pairwise relationships into n-body hyperedges. Instead of creating binary edges between entities (e.g. `Alice → ProjectAlpha` and `Alice → OrgX`), a single hyperedge `{Alice, ProjectAlpha, OrgX}` connects all entities with typed roles. This collapses representation complexity by 40-60%.
+2. **Spectral Sparsification** 🔬: Using eigenvalue-guided (effective resistance) sampling to prune Hebbian memory-to-memory edges during the sleep consolidation cycle. This maintains spreading activation recall quality with a 50% lower edge degree limit.
+
+### Biological Basis
+
+Cognitive memory doesn't just store flat pairs; it stores n-body event-based memories (episodes involving multiple entities, locations, and contexts). Furthermore, consolidation processes selectively prune weak associative connections while preserving global topological path connectivity (modeled as spectral sparsification).
+
+### Implemented Architecture
+
+The `HyperEntityGraph` uses three off-heap Panama FFM segments:
+
+```
+Hyperedge Node (32B):
+  [edgeId:4B][type:4B][weight:4B][vertexCount:4B]
+  [vertexOffset:4B][memoryIdx:4B][timestamp:8B]
+
+Vertex Entry (8B):
+  [entityId:4B][roleId:4B]
+
+Incidence Index (4B × entityCapacity):
+  [hyperedgeListOffset] → per-entity list of participating hyperedges
+
+Incidence List Entry (4B):
+  [hyperedgeId]
+```
+
+| Property | Value |
+|---|---|
+| Max vertices per hyperedge | 3-8 entities with typed roles |
+| Max hyperedges per entity | 64 (participation cap, weakest eviction) |
+| Persistence | Binary file ("HYEG" magic, V1) |
+
+### Remaining Work (Spectral Sparsification)
+
+- **Effective Resistance Sparsification**: To be computed during the `ReflectDaemon` background consolidation cycle using randomized SVD/Lanczos approximations.
+- **Dependencies:** Approximate eigenvalue computation library, integration with decay cycle.
+- **Estimated effort:** 2-3 weeks
+
+---
+
+## Priority Matrix
+
+| Feature | Value | Complexity | Dependencies Ready? | Estimated Effort | Status |
+|:---|:---:|:---:|:---:|:---|:---:|
+| Two-Factor Memory (R+S) | 🟢 High | Medium | ✅ | 1-2 weeks | ✅ Done |
+| SPLADE Sparse Retrieval | 🟢 High | High | ✅ | 2-3 weeks | ✅ Done |
+| ColBERT v2 Reranking | 🟢 High | High | ✅ | 2-3 weeks | ✅ Done |
+| Executive Dysfunction | 🟡 Medium | Medium | ✅ | 1-2 weeks | 🔜 Planned |
+| Hypergraphs | 🟢 High | High | ✅ | 3-4 weeks | ✅ Done |
+| Spectral Sparsification | 🟢 High | High | ⏳ | 2-3 weeks | 🔬 Research |
+| Neuromodulatory Gain | 🟡 Medium | High | ⏳ | 3-4 weeks | 🔬 Research |
+| Dynamic Quantization | 🟡 Medium | High | ⏳ | 4-6 weeks | 🔬 Research |
+| SPLARE (Sparse Autoencoders) | 🟡 Medium | High | ⏳ | 3-4 weeks | 🔬 Research |
+| ColPali (Vision-Language) | 🟡 Medium | Very High | ⏳ | 6-8 weeks | 🔬 Research |
+
+---
+
+## Contributing to Labs
+
+Labs features are developed on `labs/*` branches and are not merged to `main` until they graduate from experimental status. If you're interested in contributing:
+
+1. Check the [Contributing Guide](../operations/contributing.md)
+2. Open an issue with the `labs` label describing which feature and your proposed approach
+3. Branch from `main` as `labs/feature-name`
+4. Labs branches have relaxed test coverage requirements (60% vs 80% for main)
+5. Features graduate to `main` after passing a design review + benchmark validation

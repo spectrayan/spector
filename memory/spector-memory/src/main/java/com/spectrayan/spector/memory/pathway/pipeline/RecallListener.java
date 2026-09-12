@@ -18,13 +18,13 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
 import java.util.List;
 
 /**
- * Observer interface for post-recall hooks.
+ * Post-recall listener interface for pipeline hooks.
  *
- * <h3>Design Pattern: Observer</h3>
+ * <h3>Post-Recall Listeners</h3>
  * <p>Instead of hardcoding post-recall behavior (LTP reconsolidation, Hebbian
  * co-activation recording, analytics, etc.) directly in the recall pipeline,
- * these are implemented as listeners. This is OCP-compliant — new post-recall
- * behaviors can be added without modifying the pipeline.</p>
+ * these are implemented as listeners. New post-recall behaviors can be added
+ * without modifying the pipeline.</p>
  *
  * <h3>Built-in Listeners</h3>
  * <ul>

@@ -1,0 +1,385 @@
+# 🤖 MCP Server Usage Guide
+
+> **Connect any AI agent to Spector's search engine in minutes.**
+
+This guide covers practical setup for Claude Desktop, Cursor IDE, and custom MCP clients.
+
+---
+
+## Quick Start (3 Steps)
+
+### 1. Build the Distribution JAR
+
+```bash
+cd spector
+mvn package -pl synapse/spector-cli -am -DskipTests
+```
+
+The standalone executable fat JAR is produced at `synapse/spector-cli/target/spector.jar`.
+
+### 2. Configure Your AI Agent
+
+Add the following to your agent's MCP configuration (see per-agent sections below):
+
+```json
+{
+  "mcpServers": {
+    "spector": {
+      "command": "java",
+      "args": [
+        "--add-modules", "jdk.incubator.vector",
+        "--enable-native-access=ALL-UNNAMED",
+        "--enable-preview",
+        "-jar", "/path/to/synapse/spector-cli/target/spector.jar",
+        "mcp",
+        "--config", "/path/to/spector.yml"
+      ]
+    }
+  }
+}
+```
+
+### 3. Start Using
+
+With cognitive memory enabled (`spector.memory.enabled: true`), your AI agent now has access to **37+ agent-ready tools** across memory operations, graph context, multi-tenant RBAC, and persona governance:
+
+- *"Remember that the user prefers dark mode"* → `memory_remember`
+- *"What do you remember about the user's preferences?"* → `memory_recall`
+- *"Walk the associative graph to find related concepts"* → `memory_graph_recall`
+- *"That answer was wrong — downgrade it"* → `memory_reinforce`
+- *"Jot this down while I think it through"* → `memory_scratchpad`
+- *"What do you actually know about this project?"* → `memory_introspect`
+- *"Forget what I told you about the old API key"* → `memory_forget`
+- *"Switch to tenant production namespace"* → `namespace_switch`
+
+---
+
+## CLI Options
+
+| Flag | Default | Description |
+|:---|:---|:---|
+| `--config <FILE>` | *(none)* | Explicit config file (YAML or .properties) |
+| `--profile <NAME>` | *(none)* | Configuration profile (loads `spector-{profile}.yml`) |
+| `--dims <N>` | 384 | Vector dimensionality (must match your embedding model) |
+| `--capacity <N>` | 100,000 | Maximum document capacity |
+| `--data-dir <DIR>` | *(none)* | Persistence directory (auto-enables DISK mode) |
+| `--ollama-url <URL>` | *(none)* | Ollama embedding server URL (e.g., `http://localhost:11434`) |
+| `--ollama-model <NAME>` | *(none)* | Ollama embedding model name (e.g., `nomic-embed-text`) |
+| `--help`, `-h` | — | Show help message |
+
+> [!TIP]
+> **Recommended approach:** Use a `spector.yml` config file rather than CLI flags. CLI flags override values from the config file.
+
+### Configuration File
+
+All settings can be specified in a `spector.yml` file:
+
+```yaml
+spector:
+  mode: MEMORY                   # Global mode (MEMORY)
+  memory:
+    enabled: true                  # Enable cognitive memory tools
+    persistence-mode: DISK
+    persistence-path: .spector/memory
+    dimensions: 768
+    nodes-per-partition: 10000     # Records per semantic partition file
+  provider:
+    embedding:
+      model: nomic-embed-text
+      base-url: http://localhost:11434
+```
+
+See the [Configuration Guide](../configuration/parameters.md) for the complete list of settings.
+
+### Choosing Dimensions
+
+The `--dims` flag must match your embedding model's output dimensionality:
+
+| Model | Dimensions | Flag |
+|:---|:---|:---|
+| `nomic-embed-text` | 768 | `--dims 768` |
+| `all-minilm` | 384 | `--dims 384` |
+| `mxbai-embed-large` | 1024 | `--dims 1024` |
+| `qwen3-embedding` | 4096 | `--dims 4096` |
+
+---
+
+## Agent Configuration
+
+### Claude Desktop
+
+Edit your `claude_desktop_config.json`:
+
+=== "macOS"
+
+    ```
+    ~/Library/Application Support/Claude/claude_desktop_config.json
+    ```
+
+=== "Windows"
+
+    ```
+    %APPDATA%\Claude\claude_desktop_config.json
+    ```
+
+=== "Linux"
+
+    ```
+    ~/.config/Claude/claude_desktop_config.json
+    ```
+
+**Configuration:**
+
+```json
+{
+  "mcpServers": {
+    "spector": {
+      "command": "java",
+      "args": [
+        "--add-modules", "jdk.incubator.vector",
+        "--enable-native-access=ALL-UNNAMED",
+        "--enable-preview",
+        "-jar", "/absolute/path/to/spector.jar",
+        "--config", "/absolute/path/to/spector.yml"
+      ]
+    }
+  }
+}
+```
+
+> [!TIP]
+> Use absolute paths for the JAR file. Relative paths may not resolve correctly from Claude Desktop's working directory.
+
+### Cursor IDE
+
+Add to your Cursor MCP settings (`.cursor/mcp.json` in your project, or global settings):
+
+```json
+{
+  "mcpServers": {
+    "spector": {
+      "command": "java",
+      "args": [
+        "--add-modules", "jdk.incubator.vector",
+        "--enable-native-access=ALL-UNNAMED",
+        "--enable-preview",
+        "-jar", "/absolute/path/to/spector.jar",
+        "--config", "/absolute/path/to/spector.yml"
+      ]
+    }
+  }
+}
+```
+
+### Custom MCP Clients (Stdio)
+
+Any application implementing the [MCP client specification](https://modelcontextprotocol.io/docs/concepts/clients) can connect to Spector. The stdio transport communicates via **JSON-RPC 2.0 over stdio** (stdin/stdout).
+
+**Key requirements:**
+
+1. Spawn the Java process with the correct JVM flags
+2. Write JSON-RPC messages to the process's stdin
+3. Read JSON-RPC responses from the process's stdout
+4. All logging goes to stderr (stdout is reserved for protocol messages)
+
+**Example initialization sequence:**
+
+```json
+// Client → Server
+{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "my-app", "version": "1.0"}}}
+
+// Server → Client
+{"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2025-03-26", "capabilities": {"tools": {}}, "serverInfo": {"name": "spector-mcp", "version": "0.1.0"}}}
+
+// Client → Server
+{"jsonrpc": "2.0", "method": "notifications/initialized"}
+```
+
+### Streamable HTTP Clients (Remote Agents)
+
+When Spector runs as a server (via `SpectorNode` or Spector Enterprise), the same MCP tools are available over **Streamable HTTP** at the `/mcp` endpoint. This transport follows the [MCP 2025-03-26 specification](https://modelcontextprotocol.io/) and is implemented by `ArmeriaMcpTransport` on the Armeria HTTP server.
+
+**Endpoint:** `http://localhost:7070/mcp`
+
+| Method | Purpose |
+|:---|:---|
+| `POST /mcp` | JSON-RPC request → JSON response |
+| `GET /mcp` | SSE notification stream (stateful mode only) |
+| `DELETE /mcp` | Session termination (stateful mode only) |
+
+**Modes:**
+
+- **Stateless** (default, recommended) — No `Mcp-Session-Id` header. Server restart doesn't break clients.
+- **Stateful** — `Mcp-Session-Id` header for session tracking. Supports GET (SSE notifications) and DELETE (session teardown).
+
+**Example — initialize and call a tool:**
+
+```bash
+# Step 1: Initialize
+curl -X POST http://localhost:7070/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"my-app","version":"1.0"}}}'
+
+# Step 2: Send initialized notification
+curl -X POST http://localhost:7070/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+
+# Step 3: Call a tool
+curl -X POST http://localhost:7070/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"memory_status","arguments":{}}}'
+```
+
+> [!TIP]
+> The Streamable HTTP transport is particularly useful for web applications, remote AI agents, and Spector Enterprise's Cortex Dashboard. No process spawning required — just HTTP.
+
+---
+
+## MCP Tools Overview (37+ Tools)
+
+Once connected, your agent has access to Spector's comprehensive suite of 37+ tools across memory, graph context, multi-tenancy, and persona governance:
+
+### 1. Memory Tier Operations (16 Tools)
+
+| Tool | Description |
+|:---|:---|
+| `memory_remember` | Store a cognitive memory with tags, importance, valence, and source |
+| `memory_recall` | 6-Phase SIMD cognitive recall across memory tiers |
+| `memory_inspect` | Full cognitive X-ray of a memory (encoding header, vector, strength) |
+| `memory_browse` | Browse memories by tag filter (AND semantics, zero vector math) |
+| `memory_export` | Bulk JSON export of all live memories in a namespace |
+| `memory_forget` | Tombstone a memory by ID (intentional forgetting) |
+| `memory_reinforce` | Report positive/negative feedback to update Bjork strength |
+| `memory_suppress` | Temporarily suppress a memory from recall results |
+| `memory_resolve` | Mark a memory engram as resolved or unresolved |
+| `memory_introspect` | Metamemory self-analysis on a conceptual topic |
+| `memory_compute_importance` | Read-only importance estimation for candidate text |
+| `memory_scratchpad` | Quick-write and manage working memory scratchpad |
+| `memory_reminder` | Schedule time-triggered prospective memory reminders |
+| `memory_why_not` | Explain why a specific memory was filtered out during recall |
+| `memory_status` | Memory tier counts, off-heap bundle capacity, and health |
+| `memory_salience` | Inspect and tune the active salience profile (topics/boosts) |
+
+### 2. Graph & Multi-Evidence Retrieval (7 Tools)
+
+| Tool | Description |
+|:---|:---|
+| `memory_graph_recall` | Spreading activation multi-hop walk over associative graphs |
+| `memory_context_pack` | Assemble a complete context pack for LLM prompt injection |
+| `memory_fact_history` | Retrieve chronological evolution along temporal causal chains |
+| `memory_persona_context` | Inject soul-aligned persona context into an active conversation |
+| `memory_multi_evidence_recall` | Multi-vector evidence aggregation and consensus scoring |
+| `vector_search` | Pure dense vector cosine similarity search |
+| `memory_express` | Synthesize natural language responses grounded in retrieved memories |
+
+### 3. Namespace Multi-Tenancy & RBAC (9 Tools)
+
+| Tool | Description |
+|:---|:---|
+| `namespace_create` | Provision a new isolated on-disk namespace with V4 bundles |
+| `namespace_list` | Enumerate all registered namespaces in the cluster |
+| `namespace_info` | Inspect storage layout, bundle sizes, and engram counts |
+| `namespace_switch` | Switch the active session to a target namespace |
+| `namespace_set_default` | Configure the default operational namespace |
+| `namespace_delete` | Safely purge and deallocate a namespace's physical bundles |
+| `namespace_grant` | Grant tenant or user permissions to a namespace |
+| `namespace_revoke` | Revoke permissions and access delegation |
+| `namespace_list_grants` | Audit all active security and access grants |
+
+### 4. Persona Enactment & Agent Soul (5 Tools)
+
+| Tool | Description |
+|:---|:---|
+| `update_agent_soul` | Mutate agent persona traits, ethical guardrails, and dogmas |
+| `persona_enact` | Execute dual-process cognitive appraisal and policy selection |
+| `account_introspect` | Introspect account hierarchies and tenant soul configurations |
+| `invoke_connector_route` | Dispatch queries to registered external data connectors |
+| `send_notification` | Dispatch proactive agent alerts and event webhooks |
+
+> [!NOTE]
+> For full tool schemas and parameter details, see the [MCP Integration Architecture](../architecture/mcp-integration.md#tool-reference) page.
+
+---
+
+## Troubleshooting
+
+### Agent can't find or start the server
+
+- **Check the JAR path** — Use absolute paths, not relative
+- **Check Java version** — Spector requires JDK 25+. Run `java -version` to verify
+- **Check JVM flags** — `--add-modules jdk.incubator.vector` is required
+
+### "Embedding provider not configured" errors
+
+The cognitive memory tools embed text to store and recall memories, so they require an embedding provider. Ensure:
+
+1. Ollama is running: `ollama serve`
+2. The model is pulled: `ollama pull nomic-embed-text`
+3. Both `--ollama-url` and `--ollama-model` are specified in the args
+
+### Stdout corruption / garbled output
+
+Spector redirects all logging to **stderr**. If you see garbled output:
+
+- Check that nothing else is writing to stdout
+- Verify the logback configuration routes to stderr
+- Check for print statements in any custom code
+
+### Performance issues
+
+- **High latency on first query** — The HNSW index is built lazily. First query triggers graph construction. Subsequent queries are fast.
+- **Memory usage** — Vectors are stored off-heap. Monitor with `-XX:NativeMemoryTracking=summary` and `jcmd <pid> VM.native_memory summary`
+
+---
+
+## Adding a New Tool
+
+To extend the MCP server with a custom tool:
+
+1. **Create a new class** extending `McpToolHandler`:
+
+```java
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
+import io.modelcontextprotocol.spec.McpSchema;
+import java.util.Map;
+
+public final class MyCustomTool extends McpToolHandler {
+    @Override public String name() { return "my_custom_tool"; }
+    @Override public String description() { return "Does something useful."; }
+    @Override public Map<String, Object> inputSchema() {
+        return ToolSchemaBuilder.object()
+                .requiredString("input", "The input parameter.")
+                .build();
+    }
+    @Override public McpSchema.CallToolResult execute(Map<String, Object> args) throws Exception {
+        String input = requireString(args, "input");
+        // Your custom logic using memory or search services
+        return textResult("Result: " + input);
+    }
+}
+```
+
+2. **Register it** in `SpectorToolRegistry`:
+
+```java
+import com.spectrayan.spector.mcp.tools.memory.MemoryRecallTool;
+
+List.of(
+    new MemoryRecallTool(memory),
+    // ... existing tools ...
+    new MyCustomTool()  // ← add here
+);
+```
+
+That's it — the tool is automatically available to all connected agents.
+
+---
+
+## See Also
+
+- [MCP Integration Architecture](../architecture/mcp-integration.md) — Module structure, data flow, and performance analysis
+- [Python SDK](python-sdk.md) — Python client wrapping the MCP server
+- [Architecture Overview](../architecture/overview.md) — Full system architecture
+- [REST API Reference](../api-reference/rest-endpoints.md) — Alternative HTTP interface

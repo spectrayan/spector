@@ -169,9 +169,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added — spector-mcp (Agent-Native MCP Server)
 - **spector-mcp:** Built-in Model Context Protocol (MCP) server for AI agent integration (Claude Desktop, Cursor, autonomous agents)
 - **spector-mcp:** 6 MCP tools: `semantic_search`, `hybrid_search`, `rag_query`, `ingest_document`, `delete_document`, `engine_status`
-- **spector-mcp:** `McpToolHandler` abstract base class with template method pattern (timing, error handling, arg parsing)
+- **spector-mcp:** `McpToolHandler` abstract base class with standard execution pipeline (timing, error handling, arg parsing)
 - **spector-mcp:** `ToolSchemaBuilder` — type-safe fluent builder for JSON schemas (replaces error-prone `Map.of()` literals)
-- **spector-mcp:** `SpectorToolRegistry` — tool discovery and registration with Open/Closed Principle
+- **spector-mcp:** `SpectorToolRegistry` — extensible tool discovery and registration
 - **spector-mcp:** `SpectorResourceProvider` and `SpectorPromptProvider` — MCP resource/prompt definitions
 - **spector-mcp:** `ResultFormatter` — shared formatting utilities for search results, RAG context, engine status
 - **spector-mcp:** `SpectorMcpMain` CLI entry point with Ollama embedding provider auto-detection

@@ -42,7 +42,7 @@ import com.spectrayan.spector.kernel.score.DecayStrategy;
 /**
  * Cognitive record memory store registry and polymorphic routing — zero switch statements.
  *
- * <h3>Design Pattern: Strategy + Registry</h3>
+ * <h3>Store Registry &amp; Routing</h3>
  * <p>Holds an {@code EnumMap<MemoryType, EngramRegion>} for fixed-stride tiers and provides direct
  * typed access to {@link EpisodicMemory} (variable-length append log). Realizes R5.1 (single wrapper per
  * region slice), R5.2 (unconditional store registration), and R5.3 (layout-mismatch fence).</p>

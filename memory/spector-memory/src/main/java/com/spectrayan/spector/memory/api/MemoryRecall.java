@@ -28,7 +28,7 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * Interface Segregation (ISP): Recall, inspection, query, and search operations on cognitive memory.
+ * Recall, inspection, query, and search operations on cognitive memory.
  *
  * @since 1.4.0
  */

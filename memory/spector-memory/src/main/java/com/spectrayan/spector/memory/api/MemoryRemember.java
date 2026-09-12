@@ -24,7 +24,7 @@ import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import java.nio.file.Path;
 
 /**
- * Interface Segregation (ISP): Ingestion and memory encoding operations (remember) on cognitive memory.
+ * Ingestion and memory encoding operations (remember) on cognitive memory.
  *
  * @since 1.4.0
  */

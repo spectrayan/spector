@@ -35,9 +35,8 @@ import java.util.List;
  * "activated later." This creates directional STDP edges: high-score tags
  * <b>predict</b> lower-score tags.</p>
  *
- * <h3>Design Pattern: Observer</h3>
- * <p>Previously hardcoded in SpectorMemory.recall() Step 8, now a standalone
- * listener registered with {@code RecallPipeline#addListener}.</p>
+ * <h3>Recall Listener Hook</h3>
+ * <p>Registered as a listener with {@code RecallPipeline#addListener}.</p>
  */
 public final class HebbianCoActivationListener implements RecallListener {
 

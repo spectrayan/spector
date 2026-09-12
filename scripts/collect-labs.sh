@@ -6,8 +6,8 @@
 # This script is run by CI before `mkdocs build`. It:
 #   1. Discovers all remote branches matching `origin/labs/*`
 #   2. Extracts LABS.md from each branch via `git show`
-#   3. Copies each LABS.md into docs/docs/labs/<branch-name>.md
-#   4. Auto-generates docs/docs/labs/index.md with overview cards
+#   3. Copies each LABS.md into docs/labs/<branch-name>.md
+#   4. Auto-generates docs/labs/index.md with overview cards
 #
 # Convention: Each labs/* branch must have a LABS.md at the repo root.
 #   - Line 1: `# <Title>` (becomes the nav entry and card title)
@@ -19,7 +19,7 @@
 #
 set -eu
 
-DOCS_LABS_DIR="docs/docs/labs"
+DOCS_LABS_DIR="docs/labs"
 DRY_RUN=false
 
 if [[ "${1:-}" == "--dry-run" ]]; then

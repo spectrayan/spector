@@ -5,7 +5,7 @@
 > A biologically-inspired, off-heap memory system that gives AI agents the ability to **remember**, **forget**, **consolidate**, and **associate** — with microsecond latency and zero garbage collection pressure. Built on Java Project Panama, SIMD-accelerated vector math, and Virtual Threads.
 
 [![Java](https://img.shields.io/badge/Java-25-orange.svg)](https://openjdk.org/)
-[![License](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](https://github.com/spectrayan/spector/blob/main/memory/spector-memory/LICENSE)
 [![Panama](https://img.shields.io/badge/Panama-Off--Heap-blueviolet.svg)](#)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX2%2FAVX--512-green.svg)](#)
 [![Virtual Threads](https://img.shields.io/badge/Loom-Virtual_Threads-blue.svg)](#)
@@ -31,11 +31,11 @@ Traditional vector databases treat memories as static documents in a flat index.
 
 ```
 spector-memory/
-├── SpectorMemory.java              ← Façade (Builder pattern entry point)
+├── SpectorMemory.java              ← Unified entry point for memory operations
 ├── pipeline/                       ← "Neural Pathways" — ingestion + recall pipelines
 │     ├── IngestionPipeline.java        (10-step remember pipeline)
 │     ├── RecallPipeline.java           (parallel tier scanning + scoring)
-│     └── HebbianCoActivationListener   (Observer pattern post-recall)
+│     └── HebbianCoActivationListener   (Post-recall co-activation updater)
 │
 ├── kernel/                         ← "Memory Kernel" — Memory<Layout> & Shapes
 │     ├── Memory.java                   (Base interface)
@@ -44,7 +44,7 @@ spector-memory/
 │     └── shape/                        (RecordMemory, AppendMemory, GraphMemory, etc.)
 │
 ├── cortex/                         ← "Cerebral Cortex" — 4 tier stores
-│     ├── TierStore.java                (Strategy interface)
+│     ├── TierStore.java                (Tier storage interface)
 │     ├── TierRouter.java               (Registry + polymorphic dispatch)
 │     ├── WorkingMemoryStore.java       (Prefrontal Cortex — volatile circular buffer)
 │     ├── EpisodicPartitionedMemory.java      (Hippocampus — time-partitioned mmap)
@@ -256,7 +256,7 @@ Total: 443 tests, 0 failures
 
 📖 **Full documentation**: See the [Cognitive Memory Guide](https://spectrayan.github.io/spector/memory/) for:
 
-- [System Architecture](https://spectrayan.github.io/spector/memory/architecture/) — package hierarchy, data flow, design patterns
+- [System Architecture](https://spectrayan.github.io/spector/memory/architecture/) — package hierarchy, data flow, subsystem architecture
 - [6-Phase Scoring Pipeline](https://spectrayan.github.io/spector/memory/scoring-pipeline/) — deep dive with math and cycle counts
 - [Biological Systems](https://spectrayan.github.io/spector/memory/cortex/) — each brain region mapped to code
 - [Performance & SIMD](https://spectrayan.github.io/spector/memory/performance/) — benchmarks, optimization techniques
@@ -273,6 +273,6 @@ This module is licensed under the **Business Source License 1.1 (BSL 1.1)**.
 - Permits production use for all purposes **except** offering it as a managed service or embedding/integrating it in a competing AI cognitive memory product or service.
 - Automatically transitions to the **Apache License 2.0** on **May 27, 2030** (4 years from release).
 
-See the [LICENSE](LICENSE) file for the full terms and conditions.
+See the [LICENSE](https://github.com/spectrayan/spector/blob/main/memory/spector-memory/LICENSE) file for the full terms and conditions.
 
 **Built with ⚡ by [Spectrayan](https://www.spectrayan.com/)**

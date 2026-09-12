@@ -1,5 +1,5 @@
 # Copyright 2026 Spectrayan — Apache 2.0
-"""Unit tests for SpectorClient and builder pattern."""
+"""Unit tests for SpectorClient and builder configuration."""
 
 import unittest
 from spector_client.client import SpectorClient, AsyncSpectorClient

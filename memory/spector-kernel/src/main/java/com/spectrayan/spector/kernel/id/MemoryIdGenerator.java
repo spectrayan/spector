@@ -16,10 +16,10 @@
 package com.spectrayan.spector.kernel.id;
 
 /**
- * Strategy interface for generating unique memory identifiers.
+ * Pluggable generator for unique memory identifiers.
  *
- * <h3>Design Pattern: Strategy</h3>
- * <p>Allows pluggable ID generation strategies. The default is {@link TsidGenerator}
+ * <h3>Pluggable Identifiers</h3>
+ * <p>Allows pluggable ID generation implementations. The default is {@link TsidGenerator}
  * (Time-Sorted ID), which produces compact, time-ordered, distributed-safe identifiers.</p>
  *
  * <h3>Built-in Strategies</h3>

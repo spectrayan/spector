@@ -1,0 +1,175 @@
+---
+title: "Quick Start — 30 Seconds to First Memory"
+description: "Get started with Spector in 30 seconds: NPX runner for AI agents, Python/TypeScript SDKs, Docker Compose, or standalone CLI."
+---
+
+# 🚀 Quick Start — 30 Seconds to First Memory
+
+> **Store and recall your first AI agent memory in seconds.** Choose your preferred path below.
+
+---
+
+## Path 1: Zero-Install AI Agent MCP (No Setup Required)
+
+If you are connecting Spector to **Claude Desktop**, **Cursor**, **Windsurf**, or **Claude Code**, run the zero-install launcher:
+
+```bash title="Terminal"
+npx -y @spectrayan/spector mcp
+```
+
+This connects directly to your local Spector node on `:7070` if running, or automatically downloads `spector.jar` and runs an in-process memory kernel with embedded ONNX neural embeddings (requires OpenJDK 25+).
+
+---
+
+## Path 2: Python Client SDK
+
+Install the lightweight client SDK:
+
+```bash title="Terminal"
+pip install spector-client
+```
+
+Store and recall memories with authentic cognitive verbs:
+
+```python title="quickstart.py" hl_lines="10-16 20"
+from spector_client import SpectorClient, MemoryTier
+
+# Connect to running daemon or local test instance
+client = SpectorClient.builder().with_rest("http://localhost:7070").build()
+
+# 1. Remember
+record = client.memory.remember(
+    text="User is designing a low-latency RAG system with pgvector and Spector",
+    tier=MemoryTier.SEMANTIC,
+    tags=["rag", "architecture", "database"],
+    interest=0.9,
+    valence=1,
+)
+print(f"Memory recorded: {record.get('id', 'stored')}")
+
+# 2. Recall with associative cognitive scoring
+memories = client.memory.recall("database architecture preferences", top_k=3)
+for memory in memories:
+    print(f"[{memory.id}] score={memory.score:.4f} | {memory.text}")
+```
+
+---
+
+## Path 3: Universal TypeScript / Node.js SDK
+
+Install via npm:
+
+```bash title="Terminal"
+npm install @spectrayan/spector-client
+```
+
+Run in Node.js 18+, Bun, or Deno:
+
+```typescript title="quickstart.ts" hl_lines="7-11 14-16"
+import { SpectorClient, MemoryTier } from '@spectrayan/spector-client';
+
+const client = SpectorClient.createDefault('http://localhost:7070');
+
+async function main() {
+  // Store
+  const record = await client.memory.remember({
+    text: 'User prefers dark mode, high contrast, and TypeScript examples',
+    tier: MemoryTier.SEMANTIC,
+    tags: ['preferences', 'ui'],
+  });
+
+  // Recall
+  const results = await client.memory.recall('user ui preferences', {
+    topK: 5,
+  });
+
+  results.forEach(m => console.log(`[${m.id}] ${m.text}`));
+}
+
+main();
+```
+
+---
+
+## Path 4: Java Client SDK (`spector-client`)
+
+Add the dependency to your `pom.xml`:
+
+```xml title="pom.xml"
+<dependency>
+    <groupId>com.spectrayan</groupId>
+    <artifactId>spector-client</artifactId>
+    <version>0.1.0-alpha</version>
+</dependency>
+```
+
+Connect and query with standard Java (no vector flags or preview options needed):
+
+```java title="SpectorClientDemo.java" hl_lines="6-9 13"
+import com.spectrayan.spector.client.SpectorClient;
+import java.util.List;
+
+try (var client = SpectorClient.builder().baseUri("http://localhost:7070").build()) {
+    // 1. Remember
+    var record = client.memory().store(
+        "User prefers concise responses with architectural diagrams",
+        List.of("preferences", "formatting")
+    );
+    System.out.println("Stored engram: " + record.getId());
+
+    // 2. Recall
+    var results = client.memory().recall("user formatting preferences", 5);
+    results.forEach(m -> System.out.println(m.getText()));
+}
+```
+
+---
+
+## Path 5: Instant Local Server (Docker Compose)
+
+Start the Spector memory daemon with a single command:
+
+```bash title="Terminal"
+# Clone the repository
+git clone https://github.com/spectrayan/spector.git
+cd spector
+
+# Start core daemon (REST + SSE on :7070) and Cortex Dashboard (on :7700)
+docker compose up -d
+
+# Check health
+curl http://localhost:7070/actuator/health
+
+# Open the 3D Neural Galaxy UI (Cortex) in your browser:
+# http://localhost:7700
+```
+
+---
+
+## Path 6: One-Line CLI Installers
+
+Install the standalone `spector` CLI binary on your machine:
+
+=== "Linux / macOS (POSIX)"
+    ```bash title="Terminal"
+    curl -fsSL https://raw.githubusercontent.com/spectrayan/spector/main/scripts/install.sh | sh
+    ```
+
+=== "Windows (PowerShell)"
+    ```powershell title="Terminal"
+    irm https://raw.githubusercontent.com/spectrayan/spector/main/scripts/install.ps1 | iex
+    ```
+
+Verify your environment:
+```bash title="Terminal"
+spector doctor
+```
+
+---
+
+## Next Steps
+
+- 🔷 [**TypeScript SDK Guide**](../sdk-usage/typescript-sdk.md) — Explore full async APIs and event streaming
+- 🐍 [**Python SDK Guide**](../sdk-usage/python-sdk.md) — Learn how to build agentic memory loops
+- 🤖 [**MCP Server Configuration**](../sdk-usage/mcp-server.md) — Configure Cursor, Claude, and Windsurf
+- 🐳 [**Docker & Compose Guide**](../deployment/docker.md) — Profiles, volumes, and GPU options
