@@ -39,6 +39,8 @@ public record RoutingKey(String cellId, String tenantId, String namespaceId) {
     public static final String NULL_TENANT_SENTINEL = "__NULL_TENANT__";
 
     public RoutingKey {
+        cellId = (cellId != null && !cellId.isBlank()) ? cellId.trim() : "default";
+        ClusterValidation.validateCellId(cellId);
         Objects.requireNonNull(namespaceId, "namespaceId must not be null");
         ClusterValidation.validateNamespaceId(namespaceId);
         if (tenantId != null) {

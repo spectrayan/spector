@@ -148,4 +148,101 @@ class GatewayForwardingTest {
         // Verification of R7.5 and Invariant K7: exact same idempotency key was reused across retries!
         assertThat(seenIdempotencyKeys).containsExactly(clientUniqueIdempotencyKey, clientUniqueIdempotencyKey);
     }
+
+    @Test
+    @DisplayName("G40: 421 retry leaves OVERRIDE binding in Redis cache intact")
+    void test421RetryDoesNotDestroyClusterOverride() throws Exception {
+        String cellId = "cell-1";
+        ConsistentHashRing ring = ConsistentHashRing.of(1, List.of("node-1", "node-2", "node-3"));
+
+        RoutingKey key = RoutingKey.ofTenanted(cellId, "tenant-a", "ns-override");
+        RouteBinding overrideBinding = new RouteBinding(key, "node-override", 1L, null, null, RouteMode.OVERRIDE);
+
+        Map<RoutingKey, RouteBinding> fakeRedisStorage = new ConcurrentHashMap<>();
+        fakeRedisStorage.put(key, overrideBinding);
+
+        RedisRoutingCache mockRedis = new RedisRoutingCache() {
+            @Override
+            public Optional<RouteBinding> get(RoutingKey k) {
+                return Optional.ofNullable(fakeRedisStorage.get(k));
+            }
+
+            @Override
+            public boolean putIfAbsent(RoutingKey k, RouteBinding b, long ttl) {
+                return fakeRedisStorage.putIfAbsent(k, b) == null;
+            }
+
+            @Override
+            public void invalidate(RoutingKey k) {
+                fakeRedisStorage.remove(k);
+            }
+
+            @Override
+            public void publishInvalidation(String cell, String nsKey, long epoch, String reason) {}
+
+            @Override
+            public boolean isAvailable() {
+                return true;
+            }
+        };
+
+        WaterfallRoutingResolver resolver = new WaterfallRoutingResolver(
+                ring, mockRedis, Duration.ofMinutes(1), 1000L, 30L, null, Runnable::run
+        );
+
+        AtomicInteger dispatchCount = new AtomicInteger(0);
+        GatewayHttpTransport transport = (targetNodeId, targetUrl, req, routingHeaders) -> {
+            int attempt = dispatchCount.incrementAndGet();
+            if (attempt == 1) {
+                // Returns 421 on first attempt
+                return new ForwardResponse(421, Map.of(), "not_owner".getBytes(StandardCharsets.UTF_8), targetNodeId, 1);
+            }
+            return new ForwardResponse(200, Map.of(), "success".getBytes(StandardCharsets.UTF_8), targetNodeId, 2);
+        };
+
+        GatewayForwarder forwarder = new GatewayForwarder(resolver, 2, transport, nodeId -> "http://" + nodeId + ":7070");
+        ForwardRequest request = new ForwardRequest("GET", "/api/v1/memory", Map.of(), new byte[0], "idem-1");
+
+        forwarder.forward(key, request);
+
+        // Crucial invariant G40: The OVERRIDE in Redis must NOT have been destroyed by 421 retry!
+        assertThat(fakeRedisStorage.get(key)).isEqualTo(overrideBinding);
+    }
+
+    @Test
+    @DisplayName("G45: 421 retry retargets directly to reported owner from X-Spector-Owner header")
+    void test421RetryRetargetsToReportedOwner() throws Exception {
+        String cellId = "cell-1";
+        ConsistentHashRing ring = ConsistentHashRing.of(1, List.of("node-1", "node-2", "node-3"));
+        WaterfallRoutingResolver resolver = new WaterfallRoutingResolver(
+                ring, null, Duration.ofMinutes(1), 1000L, 30L, null, Runnable::run
+        );
+
+        List<String> targets = new ArrayList<>();
+        GatewayHttpTransport transport = (targetNodeId, targetUrl, req, routingHeaders) -> {
+            targets.add(targetNodeId);
+            if (targets.size() == 1) {
+                // First target reports 421 and directs forwarder to node-special
+                return new ForwardResponse(
+                        421,
+                        Map.of("X-Spector-Owner", List.of("node-special")),
+                        "{\"error\":\"NOT_OWNER\",\"details\":{\"owner\":\"node-special\"}}".getBytes(StandardCharsets.UTF_8),
+                        targetNodeId,
+                        1
+                );
+            }
+            return new ForwardResponse(200, Map.of(), "ok".getBytes(StandardCharsets.UTF_8), targetNodeId, 2);
+        };
+
+        GatewayForwarder forwarder = new GatewayForwarder(resolver, 2, transport, nodeId -> "http://" + nodeId + ":7070");
+        RoutingKey key = RoutingKey.ofTenanted(cellId, "tenant-a", "ns-retarget");
+        ForwardRequest request = new ForwardRequest("GET", "/api/v1/memory", Map.of(), new byte[0], "idem-2");
+
+        ForwardResponse response = forwarder.forward(key, request);
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(targets).hasSize(2);
+        // Second attempt must be dispatched to the reported owner "node-special" rather than blind ring resolution
+        assertThat(targets.get(1)).isEqualTo("node-special");
+    }
 }

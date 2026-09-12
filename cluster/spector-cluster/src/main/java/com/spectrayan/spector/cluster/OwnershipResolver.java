@@ -96,6 +96,11 @@ public final class OwnershipResolver {
                 throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
                         "membership", "membership must not be empty for role " + identity.role() + " (Req R7.3, L2)");
             }
+            if (identity.role() == NodeRole.OWNER && !membership.members().contains(identity.nodeId())) {
+                throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                        "membership", "Node with role OWNER ('" + identity.nodeId()
+                                + "') must be present in membership members: " + membership.members() + " (G42)");
+            }
             ConsistentHashRing ring = ConsistentHashRing.of(membership.ringVersion(), membership.members());
             this.ringRef.set(ring);
             log.info("Initialized OwnershipResolver for cell '{}', node '{}', role '{}' with ring version {} and members: {}",
@@ -116,6 +121,11 @@ public final class OwnershipResolver {
         if (newMembership.members().isEmpty()) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
                     "membership", "membership must not be empty for role " + identity.role());
+        }
+        if (identity.role() == NodeRole.OWNER && !newMembership.members().contains(identity.nodeId())) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "membership", "Node with role OWNER ('" + identity.nodeId()
+                            + "') must be present in reloaded membership members: " + newMembership.members() + " (G42)");
         }
         ConsistentHashRing newRing = ConsistentHashRing.of(newMembership.ringVersion(), newMembership.members());
         ringRef.set(newRing);
@@ -221,5 +231,14 @@ public final class OwnershipResolver {
      */
     public Optional<ConsistentHashRing> ring() {
         return Optional.ofNullable(ringRef.get());
+    }
+
+    /**
+     * Returns the current hash ring, or null if standalone (G39).
+     *
+     * @return current hash ring
+     */
+    public ConsistentHashRing currentRing() {
+        return ringRef.get();
     }
 }

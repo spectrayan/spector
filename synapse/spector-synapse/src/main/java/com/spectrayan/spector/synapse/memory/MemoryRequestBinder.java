@@ -23,6 +23,8 @@ import com.spectrayan.spector.cluster.fencing.FenceTokenManager;
 import com.spectrayan.spector.cluster.node.NodeRole;
 import com.spectrayan.spector.cluster.routing.RouteBinding;
 import com.spectrayan.spector.cluster.routing.RoutingKey;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.synapse.cluster.exception.NamespaceNotOwnedException;
 import com.spectrayan.spector.synapse.cluster.exception.StaleRouteException;
 import com.spectrayan.spector.synapse.cluster.fencing.FencedException;
@@ -217,15 +219,18 @@ public class MemoryRequestBinder {
     }
 
     private Long extractIncomingEpoch() {
-        try {
-            RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
-            if (attrs instanceof ServletRequestAttributes servletAttrs) {
-                String epochHeader = servletAttrs.getRequest().getHeader("X-Spector-Epoch");
-                if (epochHeader != null && !epochHeader.isBlank()) {
+        RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
+        if (attrs instanceof ServletRequestAttributes servletAttrs) {
+            String epochHeader = servletAttrs.getRequest().getHeader("X-Spector-Epoch");
+            if (epochHeader != null && !epochHeader.isBlank()) {
+                try {
                     return Long.parseLong(epochHeader.trim());
+                } catch (NumberFormatException e) {
+                    throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                            "X-Spector-Epoch", "Malformed epoch header: '" + epochHeader + "' (G47)");
                 }
             }
-        } catch (Exception ignored) {}
+        }
         return null;
     }
 

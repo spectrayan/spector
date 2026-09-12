@@ -143,7 +143,8 @@ class ChaosRedisOutageTest {
 
         @Override
         public boolean isAvailable() {
-            return isAlive.get();
+            // G41: Return true even when killed to simulate mid-flight failure during get()
+            return true;
         }
     }
 }

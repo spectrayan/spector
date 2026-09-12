@@ -14,6 +14,8 @@ package com.spectrayan.spector.synapse.config;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorException;
+import com.spectrayan.spector.synapse.cluster.exception.NamespaceNotOwnedException;
+import com.spectrayan.spector.synapse.cluster.exception.StaleRouteException;
 import com.spectrayan.spector.synapse.error.SynapseConflictException;
 import com.spectrayan.spector.synapse.error.SynapseDatabaseException;
 import com.spectrayan.spector.synapse.error.SynapseException;
@@ -21,6 +23,8 @@ import com.spectrayan.spector.synapse.error.SynapseNotFoundException;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -91,10 +95,22 @@ public class GlobalExceptionHandler {
             case SERVER -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
+        Map<String, Object> details = null;
+        if (ex instanceof NamespaceNotOwnedException nnoe) {
+            details = nnoe.details();
+        } else if (ex instanceof StaleRouteException sre) {
+            details = sre.details();
+        }
         log.warn("[SynapseException] [{}] status={} message={}", code.id(), status.value(), ex.getMessage());
-        return ResponseEntity.status(status)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(new ErrorResponse(status.value(), code.id(), ex.getMessage()));
+        var responseBuilder = ResponseEntity.status(status)
+                .contentType(MediaType.APPLICATION_JSON);
+        if (details != null && details.containsKey("owner") && details.get("owner") != null) {
+            responseBuilder.header("X-Spector-Owner", String.valueOf(details.get("owner")));
+        }
+        if (details != null && details.containsKey("epoch") && details.get("epoch") != null) {
+            responseBuilder.header("X-Spector-Epoch", String.valueOf(details.get("epoch")));
+        }
+        return responseBuilder.body(new ErrorResponse(status.value(), code.id(), ex.getMessage(), details));
     }
 
     @ExceptionHandler(SpectorException.class)

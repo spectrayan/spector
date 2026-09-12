@@ -64,4 +64,16 @@ public class StaleRouteException extends SynapseException {
     public long activeEpoch() {
         return activeEpoch;
     }
+
+    /**
+     * Machine-readable error details for G45.
+     */
+    public java.util.Map<String, Object> details() {
+        return java.util.Map.of(
+                "namespace", namespaceId != null ? namespaceId : "",
+                "owner", ownerId != null ? ownerId : "",
+                "epoch", activeEpoch,
+                "staleEpoch", staleEpoch
+        );
+    }
 }

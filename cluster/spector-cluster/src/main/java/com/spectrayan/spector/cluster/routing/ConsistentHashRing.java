@@ -167,20 +167,32 @@ public final class ConsistentHashRing {
         return ringOwners[idx];
     }
 
+    private static final ThreadLocal<MessageDigest> SHA_256 = ThreadLocal.withInitial(() -> {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 message digest algorithm not found", e);
+        }
+    });
+
     /**
-     * Computes the 64-bit cryptographic digest using SHA-256 truncated to 8 bytes (Req R2.3, ADR §15.2).
+     * Computes the 64-bit cryptographic digest using SHA-256 truncated to 8 bytes (Req R2.3, ADR §15.2, G50).
      *
      * @param value input string
      * @return 64-bit integer hash
      */
     public static long hash64(String value) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] digest = md.digest(value.getBytes(StandardCharsets.UTF_8));
-            return ByteBuffer.wrap(digest).getLong();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 message digest algorithm not found", e);
-        }
+        MessageDigest md = SHA_256.get();
+        md.reset();
+        byte[] digest = md.digest(value.getBytes(StandardCharsets.UTF_8));
+        return (((long) digest[0] & 0xFF) << 56)
+                | (((long) digest[1] & 0xFF) << 48)
+                | (((long) digest[2] & 0xFF) << 40)
+                | (((long) digest[3] & 0xFF) << 32)
+                | (((long) digest[4] & 0xFF) << 24)
+                | (((long) digest[5] & 0xFF) << 16)
+                | (((long) digest[6] & 0xFF) << 8)
+                | (((long) digest[7] & 0xFF));
     }
 
     public int ringVersion() {

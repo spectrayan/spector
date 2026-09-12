@@ -71,14 +71,29 @@ public class GatewayForwarder {
         Objects.requireNonNull(request, "request must not be null");
 
         int attempts = 0;
+        String explicitTargetOwner = null;
 
         while (true) {
             attempts++;
-            ResolvedRoute resolved = resolver.resolve(routingKey);
-            RouteBinding route = resolved.binding();
-            String ownerId = resolved.ownerId();
-            long epoch = resolved.epoch();
-            RouteSource source = resolved.source();
+            String ownerId;
+            long epoch;
+            RouteSource source;
+            String fence;
+
+            if (explicitTargetOwner != null) {
+                ownerId = explicitTargetOwner;
+                epoch = 0L;
+                fence = "";
+                source = RouteSource.REDIS;
+                explicitTargetOwner = null;
+            } else {
+                ResolvedRoute resolved = resolver.resolve(routingKey);
+                RouteBinding route = resolved.binding();
+                ownerId = resolved.ownerId();
+                epoch = resolved.epoch();
+                source = resolved.source();
+                fence = route.fence() != null ? route.fence() : "";
+            }
 
             String targetBaseUrl = nodeBaseUrlResolver.apply(ownerId);
 
@@ -88,7 +103,7 @@ public class GatewayForwarder {
                 routingHeaders.put(HEADER_TENANT, routingKey.tenantId());
             }
             routingHeaders.put(HEADER_EPOCH, String.valueOf(epoch));
-            routingHeaders.put(HEADER_FENCE, route.fence() != null ? route.fence() : "");
+            routingHeaders.put(HEADER_FENCE, fence);
 
             log.debug("Forwarding request {} to owner '{}' at {} with epoch {} (source={}, attempt={}/{})",
                     request.uriPath(), ownerId, targetBaseUrl, epoch, source, attempts, retryMax + 1);
@@ -97,13 +112,6 @@ public class GatewayForwarder {
 
             // Check for STALE_ROUTE / NOT_OWNER refusal (HTTP 421 Misdirected Request)
             if (response.statusCode() == 421) {
-                // Req R7.6: If route came from degraded path (HASH_FALLBACK), do NOT forward again!
-                if (source == RouteSource.HASH_FALLBACK) {
-                    log.warn("Target node '{}' refused request for namespace '{}' resolved via degraded HASH_FALLBACK; surfacing refusal immediately (Req R7.6)",
-                            ownerId, routingKey.namespaceId());
-                    return new ForwardResponse(response.statusCode(), response.headers(), response.body(), ownerId, attempts);
-                }
-
                 // Check retry bounds (Req R7.4)
                 if (attempts > retryMax) {
                     log.warn("Exhausted bounded retries ({}/{}) for namespace '{}' after node '{}' returned 421; surfacing refusal",
@@ -111,19 +119,51 @@ public class GatewayForwarder {
                     return new ForwardResponse(response.statusCode(), response.headers(), response.body(), ownerId, attempts);
                 }
 
-                // Bounded retry (Req R7.4):
-                // 1. Invalidate local Caffeine L1 cache
+                // G45: Check if refusing node reported the true authoritative owner
+                String reportedOwner = extractReportedOwner(response);
+                if (reportedOwner != null && !reportedOwner.isBlank() && !reportedOwner.equals(ownerId)) {
+                    log.info("Retargeting gateway forward for namespace '{}' directly to reported owner '{}' (was '{}', attempt {}/{})",
+                            routingKey.namespaceId(), reportedOwner, ownerId, attempts, retryMax);
+                    explicitTargetOwner = reportedOwner;
+                } else if (source == RouteSource.HASH_FALLBACK) {
+                    // Req R7.6: If route came from degraded path (HASH_FALLBACK) and node reported no alternative owner, do NOT forward again!
+                    log.warn("Target node '{}' refused request for namespace '{}' resolved via degraded HASH_FALLBACK; surfacing refusal immediately (Req R7.6)",
+                            ownerId, routingKey.namespaceId());
+                    return new ForwardResponse(response.statusCode(), response.headers(), response.body(), ownerId, attempts);
+                } else {
+                    log.info("Retrying gateway forward for namespace '{}' after 421 refusal from node '{}' (attempt {}/{})",
+                            routingKey.namespaceId(), ownerId, attempts, retryMax);
+                }
+
+                // Bounded retry (Req R7.4, G40):
+                // Invalidate local Caffeine L1 cache, and evict Redis ONLY if mode == HASH (never delete shared Redis overrides!)
                 resolver.invalidateLocal(routingKey);
-                // 2. Invalidate distributed Redis cache
-                resolver.invalidateAll(routingKey);
-                // 3. Loop re-resolves and retries, reusing the original idempotency key (Req R7.5, Invariant K7)!
-                log.info("Retrying gateway forward for namespace '{}' after 421 refusal from node '{}' (attempt {}/{})",
-                        routingKey.namespaceId(), ownerId, attempts, retryMax);
+                resolver.invalidateIfHash(routingKey);
                 continue;
             }
 
             return new ForwardResponse(response.statusCode(), response.headers(), response.body(), ownerId, attempts);
         }
+    }
+
+    private static String extractReportedOwner(ForwardResponse response) {
+        if (response.headers() != null) {
+            java.util.List<String> ownerHeaders = response.headers().get("X-Spector-Owner");
+            if (ownerHeaders != null && !ownerHeaders.isEmpty()) {
+                String val = ownerHeaders.get(0);
+                if (val != null && !val.isBlank()) {
+                    return val.trim();
+                }
+            }
+        }
+        if (response.body() != null && response.body().length > 0) {
+            String bodyStr = new String(response.body(), java.nio.charset.StandardCharsets.UTF_8);
+            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\"owner\"\\s*:\\s*\"([^\"]+)\"").matcher(bodyStr);
+            if (matcher.find()) {
+                return matcher.group(1).trim();
+            }
+        }
+        return null;
     }
 
     public static Function<String, String> defaultNodeUrlResolver(int defaultPort) {
