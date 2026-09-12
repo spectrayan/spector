@@ -87,6 +87,9 @@
         <module>memory/spector-inspect</module>
         <module>memory/spector-metrics</module>
 
+        <!-- ── Cluster: Cell topology, consistent hashing, ownership ── -->
+        <module>cluster/spector-cluster</module>
+
         <!-- ── Synapse: Nervous system — API, agents, wiring ── -->
         <module>synapse/spector-connector</module>
         <module>synapse/spector-mcp</module>
@@ -1109,14 +1112,6 @@
                     </plugin>
                 </plugins>
             </build>
-        </profile>
-
-        <!-- Synapse module (opt-in: mvn verify -Psynapse) -->
-        <profile>
-            <id>synapse</id>
-            <modules>
-                <module>synapse/spector-synapse</module>
-            </modules>
         </profile>
     </profiles>
 

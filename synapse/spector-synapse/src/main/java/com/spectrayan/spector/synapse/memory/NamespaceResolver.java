@@ -482,7 +482,7 @@ public class NamespaceResolver implements AutoCloseable {
      * @param callerAccount    the already-loaded caller account, reused when caller == owner
      * @return the owner's tenant, or {@code null} to select the flat layout
      */
-    private String placementTenantIdFor(String namespaceId, String ownerAccountId,
+    public String placementTenantIdFor(String namespaceId, String ownerAccountId,
             String callerAccountId, Account callerAccount) {
         if (ownerAccountId == null) {
             // An ownerless record (e.g. a SHARED namespace with no single parent account) has no

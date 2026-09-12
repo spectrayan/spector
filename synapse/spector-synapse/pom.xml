@@ -119,6 +119,10 @@
         </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>
+            <artifactId>spector-cluster</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
             <artifactId>spector-memory</artifactId>
         </dependency>
         <dependency>

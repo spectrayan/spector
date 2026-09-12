@@ -528,6 +528,10 @@ public enum ErrorCode {
     PARTITION_REPLICATION_FAILED(700_004, ErrorCategory.CLUSTER,
             "Partition replication failed for {} to {}: {}"),
 
+    /** The target namespace is not owned by this cell node (ADR-0034 §15.2, Req R5). */
+    NAMESPACE_NOT_OWNED       (700_005, ErrorCategory.CLUSTER,
+            "Namespace '{}' is not owned by this node (owner='{}', epoch={})"),
+
     // ══════════════════════════════════════════════════════════════════════
     // INTERNAL (SPE-900-xxx)
     // ══════════════════════════════════════════════════════════════════════
