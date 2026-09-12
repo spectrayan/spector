@@ -3,9 +3,10 @@
    Material for MkDocs Extension Stylesheet
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Smooth Scrolling ── */
+/* ── Smooth Scrolling & Anchor Offset ── */
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 110px;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -650,22 +651,49 @@ html {
   color: var(--md-primary-fg-color);
 }
 
-/* ── Button Transitions ── */
+/* ── Fluid Kinetic Button Transitions (Spring Physics) ── */
 .md-button {
-  transition: background-color 0.22s ease,
-              color 0.22s ease,
-              transform 0.18s ease,
-              box-shadow 0.22s ease !important;
-  border-radius: 6px !important;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.25s ease,
+              color 0.25s ease,
+              border-color 0.25s ease !important;
+  border-radius: 8px !important;
+  will-change: transform, box-shadow;
 }
 
 .md-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px -4px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 8px 20px -4px rgba(99, 102, 241, 0.4), 0 0 12px rgba(56, 189, 248, 0.2) !important;
 }
 
 .md-button:active {
-  transform: translateY(0) scale(0.98);
+  transform: translateY(0.5px) scale(0.965);
+  box-shadow: 0 2px 8px -2px rgba(99, 102, 241, 0.3) !important;
+  transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.12s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Fluid expanding glow ripple on click */
+.md-button::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150%;
+  height: 150%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.35) 10%, transparent 65%);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.md-button:active::after {
+  transform: translate(-50%, -50%) scale(2);
+  opacity: 1;
+  transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.45s ease;
 }
 
 /* ── Interactive Table Rows ── */
@@ -1067,5 +1095,86 @@ code, kbd, pre, samp, .highlight, .md-typeset code {
   transform: scale(1.08);
   filter: drop-shadow(0 0 12px rgba(0, 200, 255, 0.6)) drop-shadow(0 0 20px rgba(139, 92, 246, 0.4));
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Page Entrance Crossfade & Fluid Glide-In
+   GPU-composited dissolve and vertical slide
+   ═══════════════════════════════════════════════════════════════ */
+
+.md-content__inner {
+  animation: pageGlideIn 0.36s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+@keyframes pageGlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Fluid Scroll Reveal Animations
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Smooth transitions for interactive elements entering viewport */
+.md-typeset .grid > *,
+.md-typeset details,
+.md-typeset table:not([class]),
+.mermaid {
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Native CSS Scroll-Driven In-View Animations (Chromium / WebKit) */
+@supports (animation-timeline: view()) {
+  .md-typeset .grid > *,
+  .md-typeset details,
+  .mermaid {
+    animation: scrollReveal linear both;
+    animation-timeline: view();
+    animation-range: entry 5% cover 25%;
+  }
+
+  @keyframes scrollReveal {
+    from {
+      opacity: 0.35;
+      transform: translateY(10px) scale(0.99);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+}
+
+/* Fallback class for IntersectionObserver progressive enhancement */
+.fade-in-element {
+  opacity: 0.35;
+  transform: translateY(10px);
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fade-in-element.in-view {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Respect user's accessibility preferences */
+@media (prefers-reduced-motion: reduce) {
+  .md-content__inner,
+  .md-button,
+  .md-typeset .grid > *,
+  .fade-in-element {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 
 
