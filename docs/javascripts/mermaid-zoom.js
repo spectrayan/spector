@@ -72,19 +72,17 @@
     var toolbar = document.createElement('div');
     toolbar.className = 'mermaid-toolbar';
     toolbar.innerHTML =
-      '<span class="mermaid-toolbar-label">DIAGRAM</span>' +
-      '<div class="mermaid-toolbar-divider"></div>' +
       '<button type="button" class="mermaid-tool-btn" data-act="zoom-in" title="Zoom In">' +
-      '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>' +
+      '<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>' +
       '</button>' +
       '<button type="button" class="mermaid-tool-btn" data-act="zoom-out" title="Zoom Out">' +
-      '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 13H5v-2h14v2z"/></svg>' +
+      '<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M19 13H5v-2h14v2z"/></svg>' +
       '</button>' +
       '<button type="button" class="mermaid-tool-btn" data-act="reset" title="Reset Zoom">' +
-      '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>' +
+      '<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>' +
       '</button>' +
       '<button type="button" class="mermaid-tool-btn mermaid-tool-btn--primary" data-act="fullscreen" title="Maximize (Fullscreen)">' +
-      '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>' +
+      '<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>' +
       '</button>';
 
     wrapper.appendChild(toolbar);
@@ -210,11 +208,13 @@
       if (e.target === modal) closeModal();
     });
 
-    var viewport = modal.querySelector('.mermaid-modal-viewport');
     viewport.addEventListener('wheel', function (e) {
       e.preventDefault();
-      var delta = e.deltaY < 0 ? 1.15 : 0.87;
-      modalScale = Math.min(Math.max(modalScale * delta, 0.3), 5.0);
+      // Smooth deltaY-proportional zoom that handles both continuous touchpads and discrete mouse wheels
+      var zoomSensitivity = 0.0012;
+      var rawDelta = -e.deltaY * zoomSensitivity;
+      var clampedDelta = Math.max(Math.min(rawDelta, 0.1), -0.1);
+      modalScale = Math.min(Math.max(modalScale * (1 + clampedDelta), 0.3), 5.0);
       updateModalTransform(false);
     }, { passive: false });
 
