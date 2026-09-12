@@ -86,6 +86,28 @@ public final class SpectorPropertyConstants {
     public static final String CELL_RING_MEMBERS = "spector.cell.ring.members";
     public static final String CELL_RING_MEMBERS_FILE = "spector.cell.ring.members-file";
 
+    // Routing Cache & Gateway (ADR-0034 §8, §15.6, Phase 2, Req R1, R3, R5, R8)
+    public static final String ROUTING_REDIS_ENABLED = "spector.routing.redis.enabled";
+    public static final boolean DEFAULT_ROUTING_REDIS_ENABLED = false;
+
+    public static final String ROUTING_REDIS_URI = "spector.routing.redis.uri";
+    public static final String DEFAULT_ROUTING_REDIS_URI = "redis://localhost:6379";
+
+    public static final String ROUTING_REDIS_TIMEOUT_MS = "spector.routing.redis.timeout-ms";
+    public static final long DEFAULT_ROUTING_REDIS_TIMEOUT_MS = 100L;
+
+    public static final String ROUTING_REDIS_TTL_SECONDS = "spector.routing.redis.ttl-seconds";
+    public static final long DEFAULT_ROUTING_REDIS_TTL_SECONDS = 30L;
+
+    public static final String ROUTING_CAFFEINE_TTL_SECONDS = "spector.routing.caffeine.ttl-seconds";
+    public static final long DEFAULT_ROUTING_CAFFEINE_TTL_SECONDS = 5L;
+
+    public static final String ROUTING_CAFFEINE_MAX_SIZE = "spector.routing.caffeine.max-size";
+    public static final long DEFAULT_ROUTING_CAFFEINE_MAX_SIZE = 200_000L;
+
+    public static final String ROUTING_GATEWAY_RETRY_MAX = "spector.routing.gateway.retry-max";
+    public static final int DEFAULT_ROUTING_GATEWAY_RETRY_MAX = 2;
+
     // Provider — Embedding
     public static final String PROVIDER_EMBEDDING_TYPE = "spector.provider.embedding.type";
     public static final String DEFAULT_PROVIDER_EMBEDDING_TYPE = "ollama";
