@@ -55,16 +55,19 @@ public class TenantNamespaceStartupDetector {
 
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
-        // Step 1: Cleanup any leftover staging directories from previous interrupted migrations (R5.5)
-        TenantNamespaceMigrator.cleanupStagedDirectories(basePath);
-
-        // Step 2: If tenant-rooted layout is not enabled, skip detector
+        // Step 1: If the tenant-rooted layout is off, do nothing at all. Boot must not touch the
+        // filesystem for a feature that is disabled — the previous ordering ran staging cleanup
+        // first, so a disabled install still performed deletions under the rememberer root.
         boolean tenantRootedEnabled = synapseProps.getNamespace() != null
                 && synapseProps.getNamespace().isTenantRootedEnabled();
         if (!tenantRootedEnabled) {
             log.debug("[TenantNamespaceStartupDetector] tenant-rooted layout is disabled; startup readiness check skipped");
             return;
         }
+
+        // Step 2: Discard redundant staging copies from an interrupted migration (R5.5). Safe by the
+        // migrator's invariant that staging is never the only copy of a namespace.
+        TenantNamespaceMigrator.cleanupStagedDirectories(basePath);
 
         // Step 3: Count unmigrated tenanted namespaces
         int unmigrated = countUnmigratedNamespaces();

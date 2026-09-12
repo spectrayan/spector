@@ -175,9 +175,15 @@ class TenantNamespaceMigratorTest {
         assertThat(sha256(migratedBobData)).isEqualTo(bobHash);
         assertThat(sha256(intactCharlieData)).isEqualTo(charlieHash);
 
-        // Layout marker in relocated namespaces updated to TENANT_SHA256 (R8.1)
+        // Layout marker in relocated namespaces records the resolver identity, matching what
+        // NamespaceResolver and FileAccountCatalog write. Asserting the enum name here previously
+        // locked in a value no other writer produced (Req R8.1, R8.3).
+        String tenantLayoutId = NamespacePathResolver.Layout.TENANT_SHA256.id();
         JsonNode aliceMarker = objectMapper.readTree(aliceLayoutB.resolve(StoragePaths.FILE_NAMESPACE).toFile());
-        assertThat(aliceMarker.get("layout").asText()).isEqualTo("TENANT_SHA256");
+        assertThat(aliceMarker.get("layout").asText()).isEqualTo(tenantLayoutId);
+        assertThat(aliceMarker.get("pathHelper").asText())
+                .as("pathHelper must name the live resolver, never the deprecated tenantNamespaceDirSharded")
+                .isEqualTo(tenantLayoutId);
         assertThat(aliceMarker.get("tenantId").asText()).isEqualTo(TENANT_ACME);
         assertThat(aliceMarker.get("namespaceId").asText()).isEqualTo(NS_ALICE);
 
@@ -250,5 +256,75 @@ class TenantNamespaceMigratorTest {
         assertThat(summary.migrated()).isEqualTo(1);
         assertThat(summary.errors()).isEqualTo(0);
         assertThat(Files.exists(aliceLayoutB)).isTrue();
+    }
+
+    @Test
+    @DisplayName("C4 / Req R5.5: Discarding a staging copy never loses data, because the source outlives it")
+    void stagingCleanup_neverDestroysTheOnlyCopy() throws IOException {
+        seedAccount(ALICE_ID, TENANT_ACME, NS_ALICE);
+        byte[] payload = "Alice irreplaceable data".getBytes(StandardCharsets.UTF_8);
+        String expectedDigest = seedNamespaceAtLayoutA(NS_ALICE, payload);
+
+        Path layoutA = NamespacePathResolver.resolve(tempDir, null, NS_ALICE).dir();
+        Path layoutB = NamespacePathResolver.resolve(tempDir, TENANT_ACME, NS_ALICE).dir();
+
+        // Reproduce the exact interrupted state: a staging directory holding a full copy of the
+        // namespace, as it exists between the copy and the final rename on a cross-filesystem move.
+        Path staging = layoutB.getParent().resolve(".migrating-" + NS_ALICE);
+        Files.createDirectories(staging);
+        Files.copy(layoutA.resolve("records.dat"), staging.resolve("records.dat"));
+        Files.copy(layoutA.resolve(StoragePaths.FILE_NAMESPACE), staging.resolve(StoragePaths.FILE_NAMESPACE));
+
+        // Boot-time cleanup discards the staging copy. This is only safe because the source is still
+        // there: the earlier implementation moved the source into staging, so this deletion removed
+        // the sole surviving copy of the namespace.
+        TenantNamespaceMigrator.cleanupStagedDirectories(tempDir);
+
+        assertThat(Files.exists(staging)).isFalse();
+        assertThat(layoutA.resolve("records.dat")).exists();
+        assertThat(sha256(Files.readAllBytes(layoutA.resolve("records.dat"))))
+                .as("the source payload must be byte-identical after staging cleanup")
+                .isEqualTo(expectedDigest);
+
+        // And the namespace is still fully migratable afterwards.
+        MigrationSummary summary = TenantNamespaceMigrator.migrate(
+                tempDir, catalog, null, meterRegistry, objectMapper, false);
+        assertThat(summary.migrated()).isEqualTo(1);
+        assertThat(summary.errors()).isZero();
+        assertThat(sha256(Files.readAllBytes(layoutB.resolve("records.dat")))).isEqualTo(expectedDigest);
+    }
+
+    @Test
+    @DisplayName("C4 / Req R5.2: Target populated plus surviving source repairs the marker and keeps both")
+    void interruptedAfterTargetRename_repairsMarkerAndPreservesBothCopies() throws IOException {
+        seedAccount(ALICE_ID, TENANT_ACME, NS_ALICE);
+        byte[] payload = "Alice data".getBytes(StandardCharsets.UTF_8);
+        String expectedDigest = seedNamespaceAtLayoutA(NS_ALICE, payload);
+
+        Path layoutA = NamespacePathResolver.resolve(tempDir, null, NS_ALICE).dir();
+        Path layoutB = NamespacePathResolver.resolve(tempDir, TENANT_ACME, NS_ALICE).dir();
+
+        // Reproduce a crash after the target rename but before the source was reclaimed: the target
+        // is populated, the source survives, and the target's marker still says layout A.
+        Files.createDirectories(layoutB);
+        Files.copy(layoutA.resolve("records.dat"), layoutB.resolve("records.dat"));
+        Files.copy(layoutA.resolve(StoragePaths.FILE_NAMESPACE), layoutB.resolve(StoragePaths.FILE_NAMESPACE));
+
+        MigrationSummary summary = TenantNamespaceMigrator.migrate(
+                tempDir, catalog, null, meterRegistry, objectMapper, false);
+
+        // Never merged, never overwritten, never auto-deleted.
+        assertThat(summary.skipped()).isEqualTo(1);
+        assertThat(summary.migrated()).isZero();
+        assertThat(summary.errors()).isZero();
+        assertThat(Files.exists(layoutA)).as("a stale source must be reported, not silently deleted").isTrue();
+        assertThat(sha256(Files.readAllBytes(layoutB.resolve("records.dat")))).isEqualTo(expectedDigest);
+
+        // The half-finished marker is repaired so the resolver's layout check does not reject the
+        // namespace on open (Req R8.2).
+        JsonNode marker = objectMapper.readTree(layoutB.resolve(StoragePaths.FILE_NAMESPACE).toFile());
+        assertThat(marker.get("layout").asText())
+                .isEqualTo(NamespacePathResolver.Layout.TENANT_SHA256.id());
+        assertThat(marker.get("tenantId").asText()).isEqualTo(TENANT_ACME);
     }
 }

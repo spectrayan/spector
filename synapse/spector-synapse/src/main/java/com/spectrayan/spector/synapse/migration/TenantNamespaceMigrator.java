@@ -55,6 +55,9 @@ public class TenantNamespaceMigrator {
 
     private static final Logger log = LoggerFactory.getLogger(TenantNamespaceMigrator.class);
 
+    /** Prefix for transient staging directories used on cross-filesystem migrations. */
+    static final String STAGING_PREFIX = ".migrating-";
+
     private final Path basePath;
     private final AccountCatalog catalog;
     private final Predicate<String> leaseGuard;
@@ -158,25 +161,46 @@ public class TenantNamespaceMigrator {
                 Path src = NamespacePathResolver.resolve(basePath, null, nsId).dir();
                 Path dst = NamespacePathResolver.resolve(basePath, tenantId, nsId).dir();
 
-                // Check 1: Already migrated or never created on disk
+                boolean targetPopulated = Files.exists(dst) && isNonEmptyDirectory(dst);
+
+                // Check 1: Target already populated. Never merge, never overwrite (R5.2). If the
+                // source also survives, a previous run was interrupted after the target rename but
+                // before the source was reclaimed; repair the marker and report the leftover instead
+                // of deleting data on the operator's behalf.
+                if (targetPopulated) {
+                    if (!dryRun) {
+                        try {
+                            writeLayoutMarker(dst, tenantId, nsId, mapper);
+                        } catch (IOException e) {
+                            log.error("[TenantNamespaceMigrator] Namespace '{}' is present at {} but its layout "
+                                    + "marker could not be repaired: {}", nsId, dst, e.getMessage(), e);
+                            errors.incrementAndGet();
+                            continue;
+                        }
+                    }
+                    if (Files.exists(src)) {
+                        log.warn("[TenantNamespaceMigrator] Namespace '{}' is already migrated to {} but a stale "
+                                + "source copy remains at {}. The target is authoritative; remove the source "
+                                + "manually once you have confirmed it. Not deleting it automatically.",
+                                nsId, dst, src);
+                    } else {
+                        log.debug("[TenantNamespaceMigrator] Namespace '{}' already migrated to {}", nsId, dst);
+                    }
+                    skipped.incrementAndGet();
+                    continue;
+                }
+
+                // Check 2: Nothing to migrate
                 if (!Files.exists(src)) {
-                    log.debug("[TenantNamespaceMigrator] Namespace '{}' at layout A ({}) does not exist; skipping (already migrated or never created)",
+                    log.debug("[TenantNamespaceMigrator] Namespace '{}' at layout A ({}) does not exist; skipping (never created)",
                             nsId, src);
                     skipped.incrementAndGet();
                     continue;
                 }
 
-                // Check 2: Sanity gate on namespace.json
+                // Check 3: Sanity gate on namespace.json
                 if (!Files.exists(src.resolve(StoragePaths.FILE_NAMESPACE))) {
                     log.warn("[TenantNamespaceMigrator] Namespace directory exists at {} but lacks namespace.json; skipping", src);
-                    skipped.incrementAndGet();
-                    continue;
-                }
-
-                // Check 3: Target already exists and non-empty -> skip with warning, never merge or overwrite (R5.2)
-                if (Files.exists(dst) && isNonEmptyDirectory(dst)) {
-                    log.warn("[TenantNamespaceMigrator] Sharded target already exists and is non-empty for namespace '{}' at {}. Skipping without merge or overwrite.",
-                            nsId, dst);
                     skipped.incrementAndGet();
                     continue;
                 }
@@ -196,30 +220,49 @@ public class TenantNamespaceMigrator {
                     continue;
                 }
 
-                // Execute move with crash-safe staging (R5.5)
-                Path staging = dst.getParent().resolve(".migrating-" + nsId);
+                // Execute the move (R5.5).
+                //
+                // Invariant: the source is never removed until the target is durably in place, and a
+                // staging directory is never the only copy of the data. The previous implementation
+                // violated both — it moved (or copied-then-deleted) the source into staging first, so
+                // a crash before the final rename left the data reachable only from `.migrating-*`,
+                // which cleanupStagedDirectories then deleted on the next boot.
+                //
+                // Two paths, both crash-safe:
+                //   same filesystem  -> one atomic rename src -> dst, then repair the marker at dst.
+                //                       A crash before the marker write is healed by Check 1 on the
+                //                       next run.
+                //   cross filesystem -> copy src -> staging, marker into staging, rename staging ->
+                //                       dst, and only then reclaim src. The source is intact for the
+                //                       whole window, so an orphaned staging copy is always safe to
+                //                       discard.
+                Path staging = dst.getParent().resolve(STAGING_PREFIX + nsId);
                 try {
                     if (Files.exists(staging)) {
                         deleteRecursively(staging);
                     }
                     Files.createDirectories(dst.getParent());
 
-                    // Move to staging directory first
+                    boolean movedInPlace;
                     try {
-                        Files.move(src, staging, StandardCopyOption.ATOMIC_MOVE);
+                        Files.move(src, dst, StandardCopyOption.ATOMIC_MOVE);
+                        movedInPlace = true;
                     } catch (AtomicMoveNotSupportedException e) {
                         copyRecursively(src, staging);
-                        deleteRecursively(src);
+                        writeLayoutMarker(staging, tenantId, nsId, mapper);
+                        try {
+                            Files.move(staging, dst, StandardCopyOption.ATOMIC_MOVE);
+                        } catch (AtomicMoveNotSupportedException e2) {
+                            Files.move(staging, dst);
+                        }
+                        movedInPlace = false;
                     }
 
-                    // Update layout marker in staging before final rename
-                    writeLayoutMarker(staging, tenantId, nsId, mapper);
-
-                    // Final atomic rename into target
-                    try {
-                        Files.move(staging, dst, StandardCopyOption.ATOMIC_MOVE);
-                    } catch (AtomicMoveNotSupportedException e) {
-                        Files.move(staging, dst);
+                    if (movedInPlace) {
+                        writeLayoutMarker(dst, tenantId, nsId, mapper);
+                    } else {
+                        // Target is durable; the source copy can now be reclaimed.
+                        deleteRecursively(src);
                     }
 
                     migrated.incrementAndGet();
@@ -263,7 +306,15 @@ public class TenantNamespaceMigrator {
     }
 
     /**
-     * Cleans up leftover {@code .migrating-*} directories from interrupted moves (R5.5).
+     * Discards leftover {@code .migrating-*} staging directories from interrupted moves (R5.5).
+     *
+     * <p>Safe only because of the invariant established in {@link #migrate}: a staging directory is
+     * always a <em>copy</em> made while the source is still intact, never the sole copy of a
+     * namespace. Anything found here is therefore redundant by construction.</p>
+     *
+     * <p>Do not weaken that invariant. An earlier version moved the source into staging before
+     * renaming it into place, which made this method delete the only surviving copy whenever a
+     * migration was interrupted mid-flight.</p>
      *
      * @param root base directory to scan
      * @return number of cleaned directories
@@ -276,7 +327,7 @@ public class TenantNamespaceMigrator {
         try (Stream<Path> stream = Files.walk(root)) {
             List<Path> migratingDirs = stream
                     .filter(Files::isDirectory)
-                    .filter(p -> p.getFileName().toString().startsWith(".migrating-"))
+                    .filter(p -> p.getFileName().toString().startsWith(STAGING_PREFIX))
                     .toList();
             for (Path dir : migratingDirs) {
                 try {
@@ -339,8 +390,15 @@ public class TenantNamespaceMigrator {
                 manifest = new LinkedHashMap<>();
             }
         }
-        manifest.put("layout", "TENANT_SHA256");
-        manifest.put("pathHelper", "tenantNamespaceDirSharded");
+        // Both fields carry the resolver's own identity, matching what NamespaceResolver and
+        // FileAccountCatalog write. Two earlier values were wrong here: "TENANT_SHA256" is the enum
+        // name rather than the layout id, and "tenantNamespaceDirSharded" names the *deprecated*
+        // helper, which shards tenants under namespaces/ and is incompatible with this layout. A
+        // Phase 3 replica reading that manifest would pick the wrong resolver — exactly the failure
+        // ADR-0033 KI-3 warns about (Req R8.1, R8.3).
+        String layoutId = NamespacePathResolver.Layout.TENANT_SHA256.id();
+        manifest.put("layout", layoutId);
+        manifest.put("pathHelper", layoutId);
         manifest.put("tenantId", tenantId);
         manifest.put("namespaceId", namespaceId);
         if (!manifest.containsKey("createdAt")) {
