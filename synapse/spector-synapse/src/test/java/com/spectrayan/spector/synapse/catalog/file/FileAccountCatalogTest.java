@@ -30,6 +30,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.synapse.catalog.Account;
+import com.spectrayan.spector.synapse.catalog.AccountProfile;
 import com.spectrayan.spector.synapse.catalog.Grant;
 import com.spectrayan.spector.synapse.catalog.GrantRole;
 import com.spectrayan.spector.synapse.catalog.NamespaceBias;
@@ -38,6 +39,7 @@ import com.spectrayan.spector.synapse.catalog.NamespaceStatus;
 import com.spectrayan.spector.synapse.catalog.NamespaceType;
 import com.spectrayan.spector.synapse.catalog.exception.DefaultNamespaceProtectedException;
 import com.spectrayan.spector.synapse.catalog.exception.NamespaceNotFoundException;
+import com.spectrayan.spector.synapse.catalog.exception.TenantReassignmentException;
 
 @DisplayName("FileAccountCatalog Specifications")
 class FileAccountCatalogTest {
@@ -215,5 +217,39 @@ class FileAccountCatalogTest {
         // Grantee no longer authorized
         Optional<Grant> authAfterRevoke = catalog.authorize(granteeId, created.namespaceId(), GrantRole.READER);
         assertThat(authAfterRevoke).isEmpty();
+    }
+
+    @Test
+    @DisplayName("tenantId round-trips through FileAccountCatalog account.json")
+    void testTenantIdRoundTripThroughJson() {
+        catalog.getOrCreateAccount(ACCOUNT_ID, AccountProfile.HUMAN_SOLO, null, "acme");
+        Account initial = catalog.getAccount(ACCOUNT_ID);
+        assertThat(initial.tenantId()).isEqualTo("acme");
+
+        // Reload catalog from the same directory
+        FileAccountCatalog reloaded = new FileAccountCatalog(tempDir, new ObjectMapper().registerModule(new JavaTimeModule()));
+        Account reloadedAccount = reloaded.getAccount(ACCOUNT_ID);
+        assertThat(reloadedAccount.tenantId()).isEqualTo("acme");
+    }
+
+    @Test
+    @DisplayName("assignTenant persists tenant and refuses reassignment when namespaces are owned")
+    void testAssignTenantAndReassignmentGuard() {
+        catalog.getOrCreateAccount(ACCOUNT_ID);
+        assertThat(catalog.getAccount(ACCOUNT_ID).tenantId()).isNull();
+
+        catalog.assignTenant(ACCOUNT_ID, "acme");
+        assertThat(catalog.getAccount(ACCOUNT_ID).tenantId()).isEqualTo("acme");
+
+        // Create a namespace
+        catalog.createNamespace(ACCOUNT_ID, "proj-alpha", NamespaceType.PROJECT);
+
+        // Attempting to reassign tenant throws TenantReassignmentException
+        assertThatThrownBy(() -> catalog.assignTenant(ACCOUNT_ID, "globex"))
+                .isInstanceOf(TenantReassignmentException.class);
+
+        // Idempotent assignment succeeds
+        catalog.assignTenant(ACCOUNT_ID, "acme");
+        assertThat(catalog.getAccount(ACCOUNT_ID).tenantId()).isEqualTo("acme");
     }
 }

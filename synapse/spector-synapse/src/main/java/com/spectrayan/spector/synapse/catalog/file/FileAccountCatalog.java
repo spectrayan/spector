@@ -14,6 +14,8 @@ package com.spectrayan.spector.synapse.catalog.file;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spectrayan.spector.kernel.storage.NamespacePathResolver;
+import com.spectrayan.spector.kernel.storage.NamespacePathResolver.Placement;
 import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.synapse.catalog.*;
 import com.spectrayan.spector.synapse.catalog.exception.*;
@@ -21,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.file.*;
@@ -28,6 +31,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Stream;
 
 /**
  * File-backed implementation of {@link AccountCatalog} using per-account JSON files
@@ -51,12 +55,18 @@ public class FileAccountCatalog implements AccountCatalog {
 
     private final Path basePath;
     private final ObjectMapper objectMapper;
+    private final boolean tenantRootedEnabled;
     private final ConcurrentHashMap<String, ReentrantLock> accountLocks = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CatalogSnapshot> snapshotCache = new ConcurrentHashMap<>();
 
     public FileAccountCatalog(Path basePath, ObjectMapper objectMapper) {
+        this(basePath, objectMapper, false);
+    }
+
+    public FileAccountCatalog(Path basePath, ObjectMapper objectMapper, boolean tenantRootedEnabled) {
         this.basePath = basePath;
         this.objectMapper = objectMapper;
+        this.tenantRootedEnabled = tenantRootedEnabled;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -122,11 +132,16 @@ public class FileAccountCatalog implements AccountCatalog {
 
     @Override
     public Account getOrCreateAccount(String accountId) {
-        return getOrCreateAccount(accountId, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN);
+        return getOrCreateAccount(accountId, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN, null);
     }
 
     @Override
     public Account getOrCreateAccount(String accountId, AccountProfile profile, PrincipalKind kind) {
+        return getOrCreateAccount(accountId, profile, kind, null);
+    }
+
+    @Override
+    public Account getOrCreateAccount(String accountId, AccountProfile profile, PrincipalKind kind, String tenantId) {
         if (accountId == null || accountId.isBlank()) {
             throw new IllegalArgumentException("accountId must not be null or blank");
         }
@@ -141,7 +156,16 @@ public class FileAccountCatalog implements AccountCatalog {
             Path accountFile = accountDir.resolve(FILE_ACCOUNT);
 
             if (Files.exists(accountFile)) {
-                return objectMapper.readValue(accountFile.toFile(), Account.class);
+                Account account = objectMapper.readValue(accountFile.toFile(), Account.class);
+                if (account.tenantId() != null && tenantId != null && !account.tenantId().equals(tenantId)) {
+                    CatalogSnapshot snapshot = loadSnapshot(accountId);
+                    boolean ownsNamespaces = snapshot.namespaces().values().stream()
+                            .anyMatch(ns -> accountId.equals(ns.ownerAccountId()));
+                    if (ownsNamespaces) {
+                        throw new TenantReassignmentException(accountId, account.tenantId(), tenantId);
+                    }
+                }
+                return account;
             }
 
             Files.createDirectories(accountDir);
@@ -163,7 +187,9 @@ public class FileAccountCatalog implements AccountCatalog {
                         AccountQuotas.forProfile(effProfile),
                         AccountFlags.forProfile(effProfile),
                         accountId,  // defaultNamespaceId == accountId (invariant §12)
-                        Instant.now()
+                        Instant.now(),
+                        tenantId,
+                        false
                 );
                 atomicWrite(accountFile, account);
 
@@ -210,6 +236,45 @@ public class FileAccountCatalog implements AccountCatalog {
     @Override
     public Account getAccount(String accountId) {
         return getOrCreateAccount(accountId);
+    }
+
+    @Override
+    public void assignTenant(String accountId, String tenantId) {
+        Objects.requireNonNull(accountId, "accountId must not be null");
+        ReentrantLock jvmLock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock());
+        jvmLock.lock();
+        try {
+            CatalogSnapshot snapshot = loadSnapshot(accountId);
+            Account account = snapshot.account();
+            if (account.tenantId() != null && !account.tenantId().equals(tenantId)) {
+                boolean ownsNamespaces = snapshot.namespaces().values().stream()
+                        .anyMatch(ns -> accountId.equals(ns.ownerAccountId()));
+                if (ownsNamespaces) {
+                    throw new TenantReassignmentException(accountId, account.tenantId(), tenantId);
+                }
+            }
+            Path accountDir = StoragePaths.accountDir(basePath, accountId);
+            Path accountFile = accountDir.resolve(FILE_ACCOUNT);
+            Account updatedAccount = new Account(
+                    account.id(),
+                    account.kind(),
+                    account.profile(),
+                    account.displayName(),
+                    account.quotas(),
+                    account.flags(),
+                    account.defaultNamespaceId(),
+                    account.createdAt(),
+                    tenantId,
+                    account.legalHold()
+            );
+            atomicWrite(accountFile, updatedAccount);
+            snapshotCache.remove(accountId);
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] failed to assign tenant for account {}", accountId, e);
+            throw new RuntimeException("Failed to assign tenant", e);
+        } finally {
+            jvmLock.unlock();
+        }
     }
 
     @Override
@@ -294,8 +359,22 @@ public class FileAccountCatalog implements AccountCatalog {
                 atomicWrite(namespacesFile, namespaces);
 
                 // Create data-plane directory
-                Path namespaceDir = StoragePaths.namespaceDirSharded(basePath, newNamespaceId);
+                Account account = objectMapper.readValue(accountDir.resolve(FILE_ACCOUNT).toFile(), Account.class);
+                String effectiveTenantId = tenantRootedEnabled ? account.tenantId() : null;
+                Placement placement = NamespacePathResolver.resolve(basePath, effectiveTenantId, newNamespaceId);
+                Path namespaceDir = placement.dir();
                 Files.createDirectories(namespaceDir);
+
+                // Write layout marker (Task 3.11, R8.1)
+                Path markerFile = namespaceDir.resolve(StoragePaths.FILE_NAMESPACE);
+                if (!Files.exists(markerFile)) {
+                    Map<String, Object> markerData = new LinkedHashMap<>();
+                    markerData.put("layout", placement.layout().id());
+                    markerData.put("pathHelper", placement.layout().id());
+                    markerData.put("tenantId", placement.tenantId());
+                    markerData.put("namespaceId", placement.namespaceId());
+                    atomicWrite(markerFile, markerData);
+                }
 
                 // Write implicit OWNER grant for new namespace
                 Grant implicitOwner = new Grant(
@@ -439,7 +518,10 @@ public class FileAccountCatalog implements AccountCatalog {
                 }
 
                 // Reset data-plane directory: delete bundle/index files and recreate
-                Path namespaceDir = StoragePaths.namespaceDirSharded(basePath, namespaceId);
+                Account account = objectMapper.readValue(accountDir.resolve(FILE_ACCOUNT).toFile(), Account.class);
+                String effectiveTenantId = tenantRootedEnabled ? account.tenantId() : null;
+                Placement placement = NamespacePathResolver.resolve(basePath, effectiveTenantId, namespaceId);
+                Path namespaceDir = placement.dir();
                 if (Files.exists(namespaceDir)) {
                     try (var stream = Files.walk(namespaceDir)) {
                         stream.sorted(Comparator.reverseOrder())
@@ -450,6 +532,15 @@ public class FileAccountCatalog implements AccountCatalog {
                     }
                 }
                 Files.createDirectories(namespaceDir);
+                // Re-write layout marker after reset
+                Path markerFile = namespaceDir.resolve(StoragePaths.FILE_NAMESPACE);
+                Map<String, Object> markerData = new LinkedHashMap<>();
+                markerData.put("layout", placement.layout().id());
+                markerData.put("pathHelper", placement.layout().id());
+                markerData.put("tenantId", placement.tenantId());
+                markerData.put("namespaceId", placement.namespaceId());
+                atomicWrite(markerFile, markerData);
+
                 snapshotCache.remove(accountId);
                 log.info("[FileAccountCatalog] reset namespace data directory: {}", namespaceId);
             }
@@ -543,6 +634,26 @@ public class FileAccountCatalog implements AccountCatalog {
             return List.of();
         }
         return snapshot.accessibleNamespaces(accountId);
+    }
+
+    @Override
+    public List<NamespaceRecord> listOwnedNamespaces(String accountId) {
+        // Reads the namespaces file directly rather than going through the accessible-namespaces
+        // view, so tombstoned records are included (Req R9.1).
+        Path namespacesFile = StoragePaths.accountDir(basePath, accountId).resolve(FILE_NAMESPACES);
+        if (!Files.exists(namespacesFile)) {
+            return List.of();
+        }
+        try {
+            Map<String, NamespaceRecord> namespaces = objectMapper.readValue(
+                    namespacesFile.toFile(), new TypeReference<Map<String, NamespaceRecord>>() {});
+            return namespaces.values().stream()
+                    .filter(r -> accountId.equals(r.ownerAccountId()))
+                    .toList();
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] failed to list owned namespaces for account {}", accountId, e);
+            throw new UncheckedIOException("Failed to list owned namespaces for account " + accountId, e);
+        }
     }
 
     @Override
@@ -818,6 +929,29 @@ public class FileAccountCatalog implements AccountCatalog {
     @Override
     public void recordAccess(String namespaceId) {
         // Phase 3: update lastAccessedAt in the catalog record
+    }
+
+    @Override
+    public List<Account> listAccounts() {
+        Path accountsRoot = basePath.resolve(StoragePaths.DIR_ACCOUNTS);
+        if (!Files.isDirectory(accountsRoot)) {
+            return List.of();
+        }
+        List<Account> result = new ArrayList<>();
+        try (Stream<Path> stream = Files.walk(accountsRoot, 8)) {
+            stream.filter(p -> p.getFileName().toString().equals(FILE_ACCOUNT))
+                    .forEach(accountFile -> {
+                        try {
+                            String accountId = accountFile.getParent().getFileName().toString();
+                            result.add(loadSnapshot(accountId).account());
+                        } catch (Exception e) {
+                            log.warn("[FileAccountCatalog] Failed to load account from {}: {}", accountFile, e.getMessage());
+                        }
+                    });
+        } catch (IOException e) {
+            log.error("[FileAccountCatalog] Failed to list accounts from {}: {}", accountsRoot, e.getMessage());
+        }
+        return result;
     }
 
     // ══════════════════════════════════════════════════════════════

@@ -59,6 +59,8 @@ public class SpectorInspectCli {
             inspectHeader(path);
         } else if (subcommand.equalsIgnoreCase("bundle")) {
             inspectBundle(path);
+        } else if (subcommand.equalsIgnoreCase("namespace")) {
+            inspectNamespace(path);
         } else {
             System.err.println("Unknown subcommand: " + subcommand);
             printUsage();
@@ -68,8 +70,47 @@ public class SpectorInspectCli {
 
     private static void printUsage() {
         System.err.println("Usage:");
-        System.err.println("  spector-inspect header <file-path>  - Inspect standard SMKM header");
-        System.err.println("  spector-inspect bundle <file-path>  - Inspect V4 partition/runtime bundle");
+        System.err.println("  spector-inspect header <file-path>      - Inspect standard SMKM header");
+        System.err.println("  spector-inspect bundle <file-path>      - Inspect V4 partition/runtime bundle");
+        System.err.println("  spector-inspect namespace <dir-or-file> - Inspect namespace layout and tenant");
+    }
+
+    private static void inspectNamespace(Path path) {
+        Path namespaceFile = Files.isDirectory(path) ? path.resolve("namespace.json") : path;
+        if (!Files.exists(namespaceFile)) {
+            System.err.println("Error: namespace.json not found at: " + namespaceFile.toAbsolutePath());
+            System.exit(1);
+        }
+
+        try {
+            String content = Files.readString(namespaceFile);
+            String layout = extractJsonField(content, "layout");
+            String tenantId = extractJsonField(content, "tenantId");
+            String namespaceId = extractJsonField(content, "namespaceId");
+
+            String tenantDisplay = (tenantId != null && !tenantId.isBlank()) ? tenantId : "none";
+
+            System.out.println("==================================================");
+            System.out.println("Spector Namespace Diagnostics: " + namespaceFile.getFileName());
+            System.out.println("==================================================");
+            System.out.printf("Layout:           %s\n", layout != null ? layout : "unknown");
+            System.out.printf("Tenant ID:        %s\n", tenantDisplay);
+            if (namespaceId != null) {
+                System.out.printf("Namespace ID:     %s\n", namespaceId);
+            }
+            System.out.println("==================================================");
+        } catch (IOException e) {
+            System.err.println("IO Error reading namespace metadata: " + e.getMessage());
+            System.exit(1);
+        }
+    }
+
+    private static String extractJsonField(String json, String field) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"" + java.util.regex.Pattern.quote(field) + "\"\\s*:\\s*\"([^\"]+)\"").matcher(json);
+        if (m.find()) {
+            return m.group(1);
+        }
+        return null;
     }
 
     private static void inspectHeader(Path path) {

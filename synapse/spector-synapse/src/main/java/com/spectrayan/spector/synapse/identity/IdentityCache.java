@@ -51,7 +51,8 @@ public class IdentityCache implements AutoCloseable {
 
     @Autowired
     public IdentityCache(SynapseProperties properties) {
-        this(properties.dataDir() != null ? Path.of(properties.dataDir()) : Path.of("./spector-data"));
+        // Identity plane is rooted at the identity root, never the rememberer root (Req R3.1).
+        this(properties.identityRoot());
     }
 
     public IdentityCache(Path dataDir) {

@@ -340,6 +340,11 @@ public class SpectorNamespaceManager {
     /**
      * Resolves the namespace directory path, using sharding if enabled.
      *
+     * <p><strong>Note (Embedded/OSS-only):</strong> This method is exclusively for embedded,
+     * single-tenant OSS usage and is completely unreachable from Synapse server deployments
+     * (Req R6.3). In Synapse multi-tenant environments, namespace resolution is strictly
+     * governed by {@code NamespacePathResolver} and {@code NamespaceResolver}.</p>
+     *
      * @param namespaceId the namespace ID
      * @return flat or sharded path
      */

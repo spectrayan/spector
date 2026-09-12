@@ -66,7 +66,6 @@ import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
-import com.spectrayan.spector.spring.autoconfigure.SpectorConfigProperties;
 import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.config.properties.AuthProperties.DefaultAdminProperties;
 import com.spectrayan.spector.config.properties.AuthProperties.JwtProperties;
@@ -440,9 +439,11 @@ class EndToEndIsolationIntegrationTest {
                     new DefaultAdminProperties("admin-secret"),
                     null, null, null);
             var synapseProps = new SynapseProperties(0, null, dataRoot.toString(), null, null, auth);
-            SpectorConfigProperties cfg = new SpectorConfigProperties();
-            cfg.getMemory().setPersistencePath(dataRoot.toString());
-            return new AuthStartupInitializer(synapseProps, cfg, accountStore);
+            // The rememberer root now comes from the single canonical accessor
+            // SynapseProperties.remembererRoot() (Req R3.1), so set persistence-path on the same
+            // properties object rather than passing a second config instance.
+            synapseProps.getMemory().setPersistencePath(dataRoot.toString());
+            return new AuthStartupInitializer(synapseProps, accountStore);
         }
 
         /** Reads every regular file under {@code root} into a relative-path -> bytes map. */

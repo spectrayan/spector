@@ -37,21 +37,21 @@ graph LR
 
 ---
 
-## Directory Sharding
-
 ### Path Resolution
 
-The `StorageLayout` class provides two path resolvers:
+Path resolution across all Spector components is governed by `NamespacePathResolver`:
 
-| Method | Layout | Example |
-|:-------|:-------|:--------|
-| `namespaceDir(base, id)` | Flat | `namespaces/agent-alpha/` |
-| `namespaceDirSharded(base, id)` | Sharded | `namespaces/a3/f7/agent-alpha/` |
-| `tenantNamespaceDirSharded(base, tenant, ns)` | Tenant-scoped | `namespaces/xx/yy/acme-corp/agent-alpha/` |
+| Layout | Context | Resolver & Physical Path |
+|:-------|:--------|:-------------------------|
+| Flat Sharded (`FLAT_SHA256`) | Untenanted / Solo / OSS (`tenantId == null`) | `namespaces/{s0}/{s1}/{namespaceId}/` |
+| Tenant-Rooted (`TENANT_SHA256`) | Enterprise / Multi-tenant (`tenantId != null`) | `tenants/{t0}/{t1}/{tenantId}/namespaces/{n0}/{n1}/{namespaceId}/` |
+
+> [!NOTE]
+> Direct calls to raw path helpers in `StoragePaths` are prohibited by architecture guard tests. All rememberer path resolutions must go through `NamespacePathResolver.resolve(persistenceRoot, tenantId, namespaceId)`.
 
 ### Hash Derivation
 
-The shard path is derived from the first 4 hex characters of `SHA-256(namespaceId)`:
+Both the tenant segment and the namespace segment use 2-level SHA-256 directory sharding (`StoragePaths.shard2`):
 
 ```
 SHA-256("agent-alpha") → "a3f7e2b1..."
@@ -64,12 +64,13 @@ Path: namespaces/a3/f7/agent-alpha/
 - **L2 bucket**: Characters 2-3 (256 possibilities)
 - **Total buckets**: 65,536
 
-For tenant-scoped namespaces, the hash is derived from the **tenant ID** (not the namespace ID), ensuring all namespaces for a tenant are colocated:
+For tenanted namespaces, the root is colocated under the tenant's prefix, allowing a single recursive delete for tenant wipe or offboarding without touching the identity plane:
 
 ```
-SHA-256("acme-corp") → "xx yy ..."
-Path: namespaces/xx/yy/acme-corp/agent-alpha/
-Path: namespaces/xx/yy/acme-corp/user-alice/
+Tenant:    SHA-256("acme-corp")   → "4b1a..." → tenants/4b/1a/acme-corp/
+Namespace: SHA-256("agent-alpha") → "a3f7..." → namespaces/a3/f7/agent-alpha/
+
+Full Path: tenants/4b/1a/acme-corp/namespaces/a3/f7/agent-alpha/
 ```
 
 ### Scaling Properties

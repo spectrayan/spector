@@ -49,6 +49,30 @@ public final class SpectorPropertyConstants {
     public static final String GRAPH_EXPANSION_THRESHOLD_BENCH_ALIAS = "spector.benchmark.graphExpansionThreshold";
     public static final String GRAPH_EXPANSION_MODE_PROPERTY = "spector.memory.graphExpansionMode";
 
+    // Namespace Storage Layout & Routing
+    /**
+     * Enables the tenant-rooted rememberer layout (ADR-0033 §9.2 layout B).
+     *
+     * <p><strong>Defaults to {@code false} deliberately.</strong> With the flag off, namespace
+     * resolution is bit-identical to the pre-unification flat layout, which is what lets the
+     * staged rollout land safely (spec task 3.1, Req R11.1). Enabling it on an install that has
+     * tenanted accounts without first running {@code spectorctl migrate-namespaces} will surface
+     * as a readiness failure from {@code TenantNamespaceStartupDetector}.</p>
+     */
+    public static final String NAMESPACE_TENANT_ROOTED_ENABLED = "spector.namespace.tenant-rooted.enabled";
+    public static final boolean DEFAULT_NAMESPACE_TENANT_ROOTED_ENABLED = false;
+
+    /**
+     * Enables dual-read fallback from the tenant-rooted layout to the flat layout during the
+     * migration window (Req R5.3). Read-only fallback: never a dual write (Invariant I6).
+     *
+     * <p>Defaults to {@code true} so that an operator who enables the tenant-rooted layout before
+     * completing migration degrades to a fallback read rather than a silently empty namespace.
+     * Turn it off once {@code spector.namespace.layout.fallback} has held at zero.</p>
+     */
+    public static final String NAMESPACE_DUAL_READ_ENABLED = "spector.namespace.dual-read.enabled";
+    public static final boolean DEFAULT_NAMESPACE_DUAL_READ_ENABLED = true;
+
     // Provider — Embedding
     public static final String PROVIDER_EMBEDDING_TYPE = "spector.provider.embedding.type";
     public static final String DEFAULT_PROVIDER_EMBEDDING_TYPE = "ollama";

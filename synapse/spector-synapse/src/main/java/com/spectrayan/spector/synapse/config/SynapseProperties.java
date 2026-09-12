@@ -34,9 +34,15 @@ import org.springframework.context.annotation.Primary;
 @ConfigurationProperties(prefix = "spector")
 public class SynapseProperties extends SpectorConfigProperties {
 
+    /**
+     * Fallback data directory when {@code spector.data-dir} is unset. Declared once here so the
+     * literal is not duplicated across the resolver, migrator, detector, and CLI (Req R3.4).
+     */
+    public static final String DEFAULT_DATA_DIR = "./spector-data";
+
     private int port = 7070;
     private String apiKey = "spector-dev-key";
-    private String dataDir = "./spector-data";
+    private String dataDir = DEFAULT_DATA_DIR;
     private CorsProperties cors = new CorsProperties();
     private AuthProperties auth = new AuthProperties();
     private RateLimitProperties rateLimit = new RateLimitProperties();
@@ -80,6 +86,51 @@ public class SynapseProperties extends SpectorConfigProperties {
 
     public com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties getCache() { return cache; }
     public void setCache(com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties cache) { if (cache != null) this.cache = cache; }
+
+    // ══════════════════════════════════════════════════════════════
+    // Canonical storage roots (ADR-0033 D1, Req R3.1, R3.4)
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * The rememberer (data-plane) root: the single source of truth for where namespace directories
+     * live. Every component that resolves, migrates, or inspects a rememberer path MUST use this
+     * accessor — the resolver, the migrator, the startup detector, and the CLI (Req R3.1).
+     *
+     * <p>Derived from {@code spector.memory.persistence-path}, falling back to
+     * {@code spector.data-dir}. The leaf name is deliberately <strong>not</strong> fixed: Synapse's
+     * shipped {@code application.yml} resolves this to {@code ${SPECTOR_DATA_DIR}/cognitive}, while
+     * the framework default is {@code .spector/memory}. No caller may hardcode either leaf
+     * (Req R3.4).</p>
+     *
+     * <p>This is intentionally <em>not</em> the same as {@link #identityRoot()}. Conflating the two
+     * is what made the migrator and detector operate on a tree the resolver never reads.</p>
+     *
+     * @return the absolute-or-relative rememberer root directory
+     */
+    public java.nio.file.Path remembererRoot() {
+        String path = getMemory() != null ? getMemory().getPersistencePath() : null;
+        if (path == null || path.isBlank()) {
+            path = getDataDir();
+        }
+        if (path == null || path.isBlank()) {
+            path = DEFAULT_DATA_DIR;
+        }
+        return java.nio.file.Path.of(path);
+    }
+
+    /**
+     * The identity-plane root, holding {@code identity/} and the catalog database. Derived from
+     * {@code spector.data-dir} and unrelated to {@link #remembererRoot()} (ADR-0029 §23.2).
+     *
+     * @return the identity root directory
+     */
+    public java.nio.file.Path identityRoot() {
+        String dir = getDataDir();
+        if (dir == null || dir.isBlank()) {
+            dir = DEFAULT_DATA_DIR;
+        }
+        return java.nio.file.Path.of(dir);
+    }
 
     // Record-style accessors for backward compatibility across existing call sites
     public int port() { return getPort(); }

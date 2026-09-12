@@ -41,6 +41,7 @@ import com.spectrayan.spector.synapse.catalog.NamespaceRecord;
 import com.spectrayan.spector.synapse.catalog.NamespaceStatus;
 import com.spectrayan.spector.synapse.catalog.NamespaceType;
 import com.spectrayan.spector.synapse.catalog.PrincipalKind;
+import com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException;
 import com.spectrayan.spector.synapse.catalog.exception.TokenNamespaceLockedException;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.synapse.identity.IdentityPlane;
@@ -159,5 +160,72 @@ class MemoryRequestBinderTest {
         // Binding to project-beta fails with TokenNamespaceLockedException
         assertThatThrownBy(() -> binder.bind(auth, Optional.of("project-beta")))
                 .isInstanceOf(TokenNamespaceLockedException.class);
+    }
+
+    @Test
+    @DisplayName("Enforces token narrowing on tid and rejects conflicting tid claim")
+    void jwtTenantNarrowingEnforcement() {
+        String accountId = "0123456789def";
+        Account tenantedAccount = new Account(accountId, PrincipalKind.HUMAN, AccountProfile.HUMAN_SOLO,
+                "Bob", AccountQuotas.forProfile(AccountProfile.HUMAN_SOLO),
+                AccountFlags.forProfile(AccountProfile.HUMAN_SOLO), "ns-default", Instant.now(), "acme", false);
+        when(catalog.getOrCreateAccount(accountId)).thenReturn(tenantedAccount);
+
+        NamespaceRecord defaultNs = new NamespaceRecord("ns-default", "default", accountId,
+                NamespaceType.DEFAULT, NamespaceStatus.ACTIVE, "Default", "Default NS", null, Instant.now(), Instant.now());
+        when(catalog.resolve(accountId, "default")).thenReturn(Optional.of(defaultNs));
+        when(catalog.resolve(accountId, "ns-default")).thenReturn(Optional.of(defaultNs));
+        when(resolver.resolve(accountId, "ns-default")).thenReturn(memory);
+        when(catalog.authorize(accountId, "ns-default", com.spectrayan.spector.synapse.catalog.GrantRole.READER))
+                .thenReturn(Optional.of(new com.spectrayan.spector.synapse.catalog.Grant(
+                        "grant-default", com.spectrayan.spector.synapse.catalog.GrantObjectType.NAMESPACE, "ns-default",
+                        accountId, com.spectrayan.spector.synapse.catalog.PrincipalType.ACCOUNT,
+                        com.spectrayan.spector.synapse.catalog.GrantRole.OWNER,
+                        null, accountId, Instant.now(), null, null)));
+
+        // 1. Conflicting tid claim ("other-corp" vs account's "acme") must throw NamespaceAccessDeniedException
+        Jwt conflictingJwt = Jwt.withTokenValue("mock-token-conflict")
+                .header("alg", "none")
+                .subject(accountId)
+                .claim("tid", "other-corp")
+                .build();
+        Authentication conflictingAuth = new JwtAuthenticationToken(conflictingJwt, List.of());
+        assertThatThrownBy(() -> binder.bind(conflictingAuth, Optional.of("default")))
+                .isInstanceOf(NamespaceAccessDeniedException.class);
+
+        // 2. Matching tid claim ("acme") succeeds
+        Jwt matchingJwt = Jwt.withTokenValue("mock-token-match")
+                .header("alg", "none")
+                .subject(accountId)
+                .claim("tid", "acme")
+                .build();
+        Authentication matchingAuth = new JwtAuthenticationToken(matchingJwt, List.of());
+        MemoryBinding matchingBinding = binder.bind(matchingAuth, Optional.of("default"));
+        assertThat(matchingBinding).isNotNull();
+
+        // 3. Absent tid claim succeeds (token narrows, does not widen)
+        Jwt absentTidJwt = Jwt.withTokenValue("mock-token-absent")
+                .header("alg", "none")
+                .subject(accountId)
+                .build();
+        Authentication absentTidAuth = new JwtAuthenticationToken(absentTidJwt, List.of());
+        MemoryBinding absentTidBinding = binder.bind(absentTidAuth, Optional.of("default"));
+        assertThat(absentTidBinding).isNotNull();
+
+        // 4. Untenanted account (tenantId == null) rejects any non-null tid claim
+        String untenantedAccountId = "0123456789ghi";
+        Account untenantedAccount = new Account(untenantedAccountId, PrincipalKind.HUMAN, AccountProfile.HUMAN_SOLO,
+                "Charlie", AccountQuotas.forProfile(AccountProfile.HUMAN_SOLO),
+                AccountFlags.forProfile(AccountProfile.HUMAN_SOLO), "ns-default-2", Instant.now(), null, false);
+        when(catalog.getOrCreateAccount(untenantedAccountId)).thenReturn(untenantedAccount);
+
+        Jwt tidOnUntenantedJwt = Jwt.withTokenValue("mock-token-untenanted")
+                .header("alg", "none")
+                .subject(untenantedAccountId)
+                .claim("tid", "acme")
+                .build();
+        Authentication tidOnUntenantedAuth = new JwtAuthenticationToken(tidOnUntenantedJwt, List.of());
+        assertThatThrownBy(() -> binder.bind(tidOnUntenantedAuth, Optional.empty()))
+                .isInstanceOf(NamespaceAccessDeniedException.class);
     }
 }

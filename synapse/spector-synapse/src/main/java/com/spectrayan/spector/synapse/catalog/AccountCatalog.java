@@ -28,10 +28,16 @@ public interface AccountCatalog {
     Account getOrCreateAccount(String accountId);
 
     default Account getOrCreateAccount(String accountId, AccountProfile profile, PrincipalKind kind) {
+        return getOrCreateAccount(accountId, profile, kind, null);
+    }
+
+    default Account getOrCreateAccount(String accountId, AccountProfile profile, PrincipalKind kind, String tenantId) {
         return getOrCreateAccount(accountId);
     }
 
     Account getAccount(String accountId);
+
+    default void assignTenant(String accountId, String tenantId) {}
 
     default void addOrgMember(String accountId, String orgUnitId) {}
 
@@ -83,4 +89,49 @@ public interface AccountCatalog {
     default java.util.List<String> orgUnitIdsForAccount(String accountId) {
         return java.util.List.of();
     }
+
+    /**
+     * Lists all accounts known to the catalog.
+     *
+     * @return list of all accounts
+     */
+    default List<Account> listAccounts() {
+        return List.of();
+    }
+
+    /**
+     * Lists all accounts that have an associated non-blank tenant ID.
+     *
+     * @return list of tenanted accounts
+     */
+    default List<Account> listTenantedAccounts() {
+        return listAccounts().stream()
+                .filter(a -> a.tenantId() != null && !a.tenantId().isBlank())
+                .toList();
+    }
+
+    /**
+     * Lists every namespace owned by {@code accountId}, <strong>including tombstoned ones</strong>.
+     *
+     * <p>Distinct from {@link #listAccessible(String)}, which is an authorization view: it excludes
+     * tombstoned namespaces and includes namespaces the account merely holds a grant on. Neither
+     * property is wanted when reasoning about files on disk.</p>
+     *
+     * <p>A tombstoned namespace still has bundle files, and no tombstone garbage collector exists, so
+     * migration and tenant-prefix wipe must be able to see it. Skipping them left their directories
+     * on the flat layout, outside the tenant prefix, where a tenant wipe would never reach them
+     * (Req R9.1).</p>
+     *
+     * <p>The default implementation degrades to the authorization view for catalogs that have not
+     * overridden it, and therefore cannot see tombstoned namespaces.</p>
+     *
+     * @param accountId the owning account
+     * @return every namespace owned by that account, whatever its status
+     */
+    default List<NamespaceRecord> listOwnedNamespaces(String accountId) {
+        return listAccessible(accountId).stream()
+                .filter(r -> accountId.equals(r.ownerAccountId()))
+                .toList();
+    }
 }
+

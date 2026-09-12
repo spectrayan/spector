@@ -34,6 +34,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import com.spectrayan.spector.synapse.catalog.AccountCatalog;
+import com.spectrayan.spector.synapse.catalog.NamespaceType;
 import com.spectrayan.spector.synapse.identity.IdentityPlane;
 import org.springframework.beans.factory.ObjectProvider;
 
@@ -70,17 +72,29 @@ public class CognitiveSoulService {
     private final SynapseSalienceProvider salienceProvider;
     private final SynapseProperties synapseProps;
     private final ObjectProvider<IdentityPlane> identityPlaneProvider;
+    private final ObjectProvider<AccountCatalog> catalogProvider;
 
     public CognitiveSoulService(MemoryRegistry userMemoryRegistry,
                                 ObjectMapper mapper,
                                 SynapseSalienceProvider salienceProvider,
                                 SynapseProperties synapseProps,
                                 ObjectProvider<IdentityPlane> identityPlaneProvider) {
+        this(userMemoryRegistry, mapper, salienceProvider, synapseProps, identityPlaneProvider, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CognitiveSoulService(MemoryRegistry userMemoryRegistry,
+                                ObjectMapper mapper,
+                                SynapseSalienceProvider salienceProvider,
+                                SynapseProperties synapseProps,
+                                ObjectProvider<IdentityPlane> identityPlaneProvider,
+                                ObjectProvider<AccountCatalog> catalogProvider) {
         this.userMemoryRegistry = userMemoryRegistry;
         this.mapper = mapper;
         this.salienceProvider = salienceProvider;
         this.synapseProps = synapseProps;
         this.identityPlaneProvider = identityPlaneProvider;
+        this.catalogProvider = catalogProvider;
     }
 
     /** Loads an agent soul by ID (or the default if ID is null). */
@@ -373,31 +387,27 @@ public class CognitiveSoulService {
         return "default";
     }
 
-    private Path basePath() {
-        String path = synapseProps.getMemory().getPersistencePath();
-        if (path == null || path.isBlank()) {
-            path = synapseProps.dataDir();
-        }
-        return Path.of(path);
-    }
-
     private List<String> discoverAgentIds() {
-        Path namespacesDir = basePath().resolve("namespaces");
-        if (!Files.exists(namespacesDir)) {
-            return List.of();
+        AccountCatalog catalog = catalogProvider != null ? catalogProvider.getIfAvailable() : null;
+        if (catalog != null) {
+            try {
+                String accountId = currentNamespaceId();
+                return catalog.listAccessible(accountId).stream()
+                        .filter(ns -> ns.type() == NamespaceType.AGENT
+                                || (ns.slug() != null && ns.slug().startsWith("agent-")))
+                        .map(ns -> {
+                            if (ns.slug() != null && ns.slug().startsWith("agent-")) {
+                                return ns.slug().substring("agent-".length());
+                            }
+                            return ns.slug() != null ? ns.slug() : ns.namespaceId();
+                        })
+                        .distinct()
+                        .toList();
+            } catch (Exception e) {
+                log.warn("[CognitiveSoul] Failed to discover agent ids from catalog: {}", e.getMessage());
+            }
         }
-        try (Stream<Path> stream = Files.walk(namespacesDir, 3)) {
-            return stream
-                    .filter(Files::isDirectory)
-                    .map(Path::getFileName)
-                    .map(Path::toString)
-                    .filter(name -> name.startsWith("agent-"))
-                    .map(name -> name.substring("agent-".length()))
-                    .toList();
-        } catch (IOException e) {
-            log.warn("Failed to walk namespaces directory: {}", e.getMessage());
-            return List.of();
-        }
+        return List.of();
     }
 
     private byte[] toJsonBytes(Object obj) {

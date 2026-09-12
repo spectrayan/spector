@@ -71,6 +71,7 @@ public final class SpectorProperties implements Serializable {
     private final HardwareProperties hardware;
     private final EventsProperties events;
     private final ConcurrencyProperties concurrency;
+    private final NamespaceProperties namespace;
     private final transient SpectorConfigSource source;
 
     /**
@@ -85,7 +86,7 @@ public final class SpectorProperties implements Serializable {
                       SpectorConfigSource source) {
         this(memory, provider, ingestion, hnsw, ivf, spectrum,
                 new TelemetryProperties(), new MultimodalProperties(), new HardwareProperties(),
-                new EventsProperties(), new ConcurrencyProperties(), source);
+                new EventsProperties(), new ConcurrencyProperties(), new NamespaceProperties(), source);
     }
 
     SpectorProperties(MemoryProperties memory,
@@ -100,6 +101,23 @@ public final class SpectorProperties implements Serializable {
                       EventsProperties events,
                       ConcurrencyProperties concurrency,
                       SpectorConfigSource source) {
+        this(memory, provider, ingestion, hnsw, ivf, spectrum,
+                telemetry, multimodal, hardware, events, concurrency, new NamespaceProperties(), source);
+    }
+
+    SpectorProperties(MemoryProperties memory,
+                      ProviderProperties provider,
+                      IngestionProperties ingestion,
+                      HnswProperties hnsw,
+                      IvfProperties ivf,
+                      SpectrumProperties spectrum,
+                      TelemetryProperties telemetry,
+                      MultimodalProperties multimodal,
+                      HardwareProperties hardware,
+                      EventsProperties events,
+                      ConcurrencyProperties concurrency,
+                      NamespaceProperties namespace,
+                      SpectorConfigSource source) {
         this.memory = memory != null ? memory : new MemoryProperties();
         this.provider = provider != null ? provider : new ProviderProperties();
         this.ingestion = ingestion != null ? ingestion : new IngestionProperties();
@@ -111,6 +129,7 @@ public final class SpectorProperties implements Serializable {
         this.hardware = hardware != null ? hardware : new HardwareProperties();
         this.events = events != null ? events : new EventsProperties();
         this.concurrency = concurrency != null ? concurrency : new ConcurrencyProperties();
+        this.namespace = namespace != null ? namespace : new NamespaceProperties();
         this.source = source;
     }
 
@@ -210,6 +229,7 @@ public final class SpectorProperties implements Serializable {
         private HardwareProperties hardware;
         private EventsProperties events;
         private ConcurrencyProperties concurrency;
+        private NamespaceProperties namespace;
         private SpectorConfigSource source;
 
         public Builder memory(MemoryProperties memory) { this.memory = memory; return this; }
@@ -223,6 +243,7 @@ public final class SpectorProperties implements Serializable {
         public Builder hardware(HardwareProperties hardware) { this.hardware = hardware; return this; }
         public Builder events(EventsProperties events) { this.events = events; return this; }
         public Builder concurrency(ConcurrencyProperties concurrency) { this.concurrency = concurrency; return this; }
+        public Builder namespace(NamespaceProperties namespace) { this.namespace = namespace; return this; }
         public Builder source(SpectorConfigSource source) { this.source = source; return this; }
 
         public SpectorProperties build() {
@@ -236,6 +257,7 @@ public final class SpectorProperties implements Serializable {
                     hardware != null ? hardware : new HardwareProperties(),
                     events != null ? events : new EventsProperties(),
                     concurrency != null ? concurrency : new ConcurrencyProperties(),
+                    namespace != null ? namespace : new NamespaceProperties(),
                     source
             );
         }
@@ -258,6 +280,7 @@ public final class SpectorProperties implements Serializable {
                 this.hardware != null ? this.hardware.copy() : new HardwareProperties(),
                 this.events != null ? this.events.copy() : new EventsProperties(),
                 this.concurrency != null ? this.concurrency.copy() : new ConcurrencyProperties(),
+                this.namespace != null ? this.namespace.copy() : new NamespaceProperties(),
                 this.source
         );
     }
@@ -348,6 +371,13 @@ public final class SpectorProperties implements Serializable {
      */
     public ConcurrencyProperties concurrency() { return concurrency; }
     public ConcurrencyProperties getConcurrency() { return concurrency; }
+
+    /**
+     * Returns the Namespace layout and routing configuration.
+     * Maps to {@code spector.namespace.*} namespace.
+     */
+    public NamespaceProperties namespace() { return namespace; }
+    public NamespaceProperties getNamespace() { return namespace; }
 
     /**
      * Returns the underlying raw configuration source.

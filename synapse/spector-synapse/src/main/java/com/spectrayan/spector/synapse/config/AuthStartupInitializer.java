@@ -22,7 +22,6 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import com.spectrayan.spector.memory.persist.LayoutMigrator;
-import com.spectrayan.spector.spring.autoconfigure.SpectorConfigProperties;
 import com.spectrayan.spector.synapse.security.UserAccountStore;
 
 /**
@@ -73,21 +72,20 @@ public class AuthStartupInitializer {
     private static final String DEFAULT_USER_ID = "default";
 
     private final SynapseProperties synapseProps;
-    private final SpectorConfigProperties spectorProps;
     private final UserAccountStore accountStore;
 
     /**
-     * @param synapseProps bound {@code spector.*} configuration (auth toggle, {@code dataDir},
-     *                     default-admin password)
-     * @param spectorProps embedded Spector config (memory persistence path)
+     * @param synapseProps bound {@code spector.*} configuration (auth toggle, storage roots,
+     *                     default-admin password). {@link SynapseProperties} already extends
+     *                     {@code SpectorConfigProperties}, so a separate embedded-config parameter
+     *                     would be redundant — the rememberer root now comes from
+     *                     {@link SynapseProperties#remembererRoot()} (Req R3.1).
      * @param accountStore JDBC-backed account store providing idempotent default-admin seeding
      */
     public AuthStartupInitializer(
             SynapseProperties synapseProps,
-            SpectorConfigProperties spectorProps,
             UserAccountStore accountStore) {
         this.synapseProps = Objects.requireNonNull(synapseProps, "synapseProps");
-        this.spectorProps = Objects.requireNonNull(spectorProps, "spectorProps");
         this.accountStore = Objects.requireNonNull(accountStore, "accountStore");
     }
 
@@ -112,15 +110,11 @@ public class AuthStartupInitializer {
     }
 
     /**
-     * Resolves the base persistence root: {@code spector.memory.persistence-path} when set,
-     * otherwise the Synapse {@code dataDir}. Mirrors {@code MemoryRegistry#basePath()} so the
-     * migration relocates the same tree the per-user registry roots its instances at.
+     * Resolves the rememberer root via the single canonical accessor
+     * {@link SynapseProperties#remembererRoot()} (Req R3.1), so the V3 layout migration relocates
+     * the same tree {@code NamespaceResolver} opens.
      */
     private Path basePath() {
-        String path = spectorProps.getMemory().getPersistencePath();
-        if (path == null || path.isBlank()) {
-            path = synapseProps.dataDir();
-        }
-        return Path.of(path);
+        return synapseProps.remembererRoot();
     }
 }

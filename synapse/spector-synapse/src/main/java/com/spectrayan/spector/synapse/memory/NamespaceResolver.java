@@ -12,15 +12,27 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
+import io.micrometer.core.instrument.MeterRegistry;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spectrayan.spector.kernel.storage.NamespacePathResolver;
+import com.spectrayan.spector.kernel.storage.NamespacePathResolver.Layout;
+import com.spectrayan.spector.kernel.storage.NamespacePathResolver.Placement;
+import com.spectrayan.spector.synapse.identity.IdentityPaths;
 
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.api.SalienceProfileProvider;
@@ -45,7 +57,6 @@ import com.spectrayan.spector.synapse.catalog.NamespaceStatus;
 import com.spectrayan.spector.synapse.catalog.exception.NamespaceNotFoundException;
 import com.spectrayan.spector.synapse.catalog.exception.NamespaceTombstonedException;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.ObjectProvider;
 
@@ -59,7 +70,8 @@ import org.springframework.beans.factory.ObjectProvider;
  * 2. Catalog:      AccountCatalog.getOrCreateAccount(accountId)
  *                  → account.defaultNamespaceId → namespaceId
  * 3. Authorize:    catalog.authorize(accountId, namespaceId, minimumRole)
- * 4. Bind:         cache.getOrOpen(namespaceId, () → buildInstance(namespaceId))
+ * 4. Place:        owner account → tenantId → NamespacePathResolver (ADR-0033 §9.2)
+ * 5. Bind:         cache.getOrOpen(namespaceId, () → buildInstance(tenantId, namespaceId, owner))
  * </pre>
  *
  * <p>Namespace selection via tool argument, header, or {@code namespace_switch}
@@ -68,6 +80,10 @@ import org.springframework.beans.factory.ObjectProvider;
  *
  * <p>The hot cache is keyed by {@code namespaceId} (ADR §6.3, Q7). Two principals
  * with grants on the same namespace share one {@code SpectorMemory} instance.</p>
+ *
+ * <p>Because of that shared-instance rule, on-disk placement must not depend on which principal
+ * opens a namespace first — it is derived from the <em>owner's</em> tenant. See
+ * {@link #placementTenantIdFor(String, String, String, com.spectrayan.spector.synapse.catalog.Account)}.</p>
  *
  * @see AccountCatalog
  * @see MemoryRegistry
@@ -107,6 +123,11 @@ public class NamespaceResolver implements AutoCloseable {
     private volatile EmbeddingProvider hoistedEmbeddingProvider;
     private volatile ParallelEmbeddingPipeline hoistedPipeline;
     private volatile SpectorRuntime runtime;
+
+    private final Path basePath;
+
+    private final AtomicLong fallbackCounter = new AtomicLong(0);
+    private final MeterRegistry meterRegistry;
 
     public ParallelEmbeddingPipeline hoistedPipeline() {
         return hoistedPipeline;
@@ -153,6 +174,26 @@ public class NamespaceResolver implements AutoCloseable {
             ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider,
             ObjectProvider<org.quartz.Scheduler> quartzSchedulerProvider,
             int maxInstances) {
+        this(catalog, synapseProps, embedderProvider, textGenProvider, salienceProvider,
+                objectMapperProvider, cacheManagerProvider, encryptorProvider,
+                observationRegistryProvider, observabilityConfigProvider,
+                quartzSchedulerProvider, null, maxInstances);
+    }
+
+    public NamespaceResolver(
+            AccountCatalog catalog,
+            SynapseProperties synapseProps,
+            ObjectProvider<EmbeddingProvider> embedderProvider,
+            ObjectProvider<LlmProvider> textGenProvider,
+            ObjectProvider<SalienceProfileProvider> salienceProvider,
+            ObjectProvider<ObjectMapper> objectMapperProvider,
+            ObjectProvider<org.springframework.cache.CacheManager> cacheManagerProvider,
+            ObjectProvider<com.spectrayan.spector.memory.persist.DataEncryptor> encryptorProvider,
+            ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistryProvider,
+            ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider,
+            ObjectProvider<org.quartz.Scheduler> quartzSchedulerProvider,
+            ObjectProvider<io.micrometer.core.instrument.MeterRegistry> meterRegistryProvider,
+            int maxInstances) {
         this.catalog = catalog;
         this.synapseProps = synapseProps;
         this.embedderProvider = embedderProvider;
@@ -164,8 +205,12 @@ public class NamespaceResolver implements AutoCloseable {
         this.observationRegistryProvider = observationRegistryProvider;
         this.observabilityConfigProvider = observabilityConfigProvider;
         this.quartzSchedulerProvider = quartzSchedulerProvider;
+        this.meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
         this.maxInstances = Math.max(1, maxInstances);
-        log.info("[NamespaceResolver] initialized: maxInstances={}", this.maxInstances);
+        // Canonical rememberer root (Req R3.1) — shared with the migrator, detector, and CLI.
+        this.basePath = synapseProps.remembererRoot();
+        log.info("[NamespaceResolver] initialized: maxInstances={}, remembererRoot={}",
+                this.maxInstances, this.basePath);
     }
 
     /**
@@ -204,6 +249,8 @@ public class NamespaceResolver implements AutoCloseable {
         if (slugOrId == null || slugOrId.isBlank()) {
             return resolve(accountId);
         }
+        // Ensures the caller's account exists before slug resolution. The returned Account is not
+        // used for placement: that is derived from the namespace owner in placementTenantIdFor.
         catalog.getOrCreateAccount(accountId);
         NamespaceRecord record = catalog.resolve(accountId, slugOrId)
                 .orElseThrow(() -> new NamespaceNotFoundException(slugOrId));
@@ -265,9 +312,10 @@ public class NamespaceResolver implements AutoCloseable {
                     return handle.memory;
                 }
 
+                Account account = null;
                 // 1. Account-level hot cap check (ADR-0029 §2.6, §6.3, Q4)
                 if (accountId != null) {
-                    Account account = catalog.getOrCreateAccount(accountId);
+                    account = catalog.getOrCreateAccount(accountId);
                     int maxHot = account.quotas().maxHotNamespaces();
                     if (maxHot > 0) {
                         long currentAccountHot = cache.values().stream()
@@ -297,7 +345,13 @@ public class NamespaceResolver implements AutoCloseable {
                     evicted = processEvicted;
                 }
 
-                SpectorMemory instance = buildInstance(namespaceId);
+                boolean tenantRooted = synapseProps != null
+                        && synapseProps.getNamespace() != null
+                        && synapseProps.getNamespace().isTenantRootedEnabled();
+                String tenantId = tenantRooted
+                        ? placementTenantIdFor(namespaceId, ownerAccountId, accountId, account)
+                        : null;
+                SpectorMemory instance = buildInstance(tenantId, namespaceId, ownerAccountId != null ? ownerAccountId : accountId);
                 handle = new MemoryHandle(namespaceId, ownerAccountId, accountId, instance);
                 cache.put(namespaceId, handle);
             } finally {
@@ -405,13 +459,175 @@ public class NamespaceResolver implements AutoCloseable {
     }
 
     /**
-     * Builds a {@link SpectorMemory} instance for the given namespaceId.
-     * Directory path: {@code StoragePaths.namespaceDirSharded(basePath, namespaceId)}.
-     * Mirrors the former {@code MemoryRegistry.buildInstance(userId)} exactly —
-     * since namespaceId == userId for default namespaces, the directory is identical.
+     * Resolves the tenant that determines a namespace's on-disk placement.
+     *
+     * <p><strong>Placement is a property of the namespace, never of the caller.</strong> A namespace
+     * belongs to its owning account, so the tenant segment of its directory must come from the
+     * owner's account — not from whichever principal happens to open it first.</p>
+     *
+     * <p>Deriving it from the caller produced two defects. Because the instance cache is keyed by
+     * {@code namespaceId} alone (Invariant I4), the directory a shared namespace landed in depended
+     * on open order: if a grantee in another tenant opened it first, the namespace was created empty
+     * under <em>that</em> tenant's prefix while the owner's data sat untouched under its own, and a
+     * subsequent write produced two divergent directories for one {@code namespaceId}. It also broke
+     * the tenant-wipe guarantee (Req R9.2), since a grantee's tenant prefix could contain another
+     * tenant's namespace.</p>
+     *
+     * <p>{@code FileAccountCatalog} creates the directory using the owner's tenant, so any other
+     * choice here also desynchronises create from open (Req R6.1, risk K1).</p>
+     *
+     * @param namespaceId      the namespace being opened, for diagnostics
+     * @param ownerAccountId   the owning account, or {@code null} for an ownerless record
+     * @param callerAccountId  the requesting principal
+     * @param callerAccount    the already-loaded caller account, reused when caller == owner
+     * @return the owner's tenant, or {@code null} to select the flat layout
      */
-    private SpectorMemory buildInstance(String namespaceId) {
-        Path dir = StoragePaths.namespaceDirSharded(basePath(), namespaceId);
+    private String placementTenantIdFor(String namespaceId, String ownerAccountId,
+            String callerAccountId, Account callerAccount) {
+        if (ownerAccountId == null) {
+            // An ownerless record (e.g. a SHARED namespace with no single parent account) has no
+            // account to inherit a tenant from, and NamespaceRecord carries no tenantId of its own.
+            // Fall back to the flat layout: it is at least deterministic, being a function of
+            // namespaceId alone. The trade-off is that such a namespace sits outside every tenant
+            // prefix, so a tenant wipe will not reach it — see the spec's follow-up on denormalising
+            // tenantId onto NamespaceRecord.
+            log.warn("[NamespaceResolver] namespace '{}' has no owner account; placing it on the flat "
+                    + "layout because no tenant can be derived deterministically. It will not be "
+                    + "covered by a tenant-prefix wipe.", namespaceId);
+            return null;
+        }
+        if (ownerAccountId.equals(callerAccountId) && callerAccount != null) {
+            // Common case: the caller owns the namespace. Reuse the account already loaded for the
+            // hot-cap check rather than issuing a second catalog lookup.
+            return callerAccount.tenantId();
+        }
+        try {
+            Account owner = catalog.getAccount(ownerAccountId);
+            if (owner == null) {
+                throw new IllegalStateException("catalog returned no account for owner '" + ownerAccountId + "'");
+            }
+            return owner.tenantId();
+        } catch (RuntimeException e) {
+            // Guessing here is not an option: defaulting to the flat layout would strand a tenanted
+            // namespace outside its tenant prefix, and using the caller's tenant is the defect this
+            // method exists to prevent. Fail loud instead.
+            throw new IllegalStateException(String.format(
+                    "Cannot determine tenant placement for namespace '%s': owner account '%s' is not "
+                            + "resolvable in the catalog. Refusing to open it rather than risk placing it "
+                            + "under the wrong tenant.", namespaceId, ownerAccountId), e);
+        }
+    }
+
+    /**
+     * Builds a {@link SpectorMemory} instance for the given tenant and namespace.
+     *
+     * <p>Directory resolution is governed by {@link NamespacePathResolver}:
+     * <ul>
+     *   <li>When {@code tenantId == null}: resolves to the flat sharded layout (Layout A:
+     *       {@code namespaces/XX/YY/namespaceId}).</li>
+     *   <li>When {@code tenantId != null}: resolves to the tenant-rooted sharded layout (Layout B:
+     *       {@code tenants/XX/YY/tenantId/namespaces/ZZ/WW/namespaceId}).</li>
+     * </ul>
+     * </p>
+     *
+     * @param tenantId the tenant TSID or null for untenanted/legacy layout
+     * @param namespaceId the globally unique namespace TSID
+     * @param ownerAccountId the owning account TSID for identity bundle probe
+     * @return the newly-built and attached SpectorMemory instance
+     */
+    private SpectorMemory buildInstance(String tenantId, String namespaceId, String ownerAccountId) {
+        Placement placement = NamespacePathResolver.resolve(basePath(), tenantId, namespaceId);
+        Path dir = placement.dir();
+
+        // Dual-read fallback (Task 4.4, Req R5.3, Invariant I6)
+        boolean dualReadEnabled = synapseProps != null
+                && synapseProps.getNamespace() != null
+                && synapseProps.getNamespace().isDualReadEnabled();
+        if (tenantId != null && !tenantId.isBlank() && dualReadEnabled) {
+            Path marker = dir.resolve(StoragePaths.FILE_NAMESPACE);
+            if (!Files.exists(marker)) {
+                Placement fallbackPlacement = NamespacePathResolver.resolve(basePath(), null, namespaceId);
+                Path fallbackMarker = fallbackPlacement.dir().resolve(StoragePaths.FILE_NAMESPACE);
+                if (Files.exists(fallbackMarker)) {
+                    log.info("[NamespaceResolver] dual-read fallback for nsId='{}' tenant='{}': falling back to layout A at {}",
+                            namespaceId, tenantId, fallbackPlacement.dir());
+                    placement = fallbackPlacement;
+                    dir = placement.dir();
+                    fallbackCounter.incrementAndGet();
+                    if (meterRegistry != null) {
+                        try {
+                            meterRegistry.counter("spector.namespace.layout.fallback").increment();
+                        } catch (Exception ignored) {}
+                    }
+                }
+            }
+        }
+
+        // R8.1, R8.2, R8.3: Verify layout marker if present, or create on fresh directory
+        Path markerFile = dir.resolve(StoragePaths.FILE_NAMESPACE);
+        ObjectMapper jsonMapper = null;
+        if (objectMapperProvider != null) {
+            try {
+                jsonMapper = objectMapperProvider.getIfAvailable();
+            } catch (Exception ignored) {}
+        }
+        if (jsonMapper == null) {
+            jsonMapper = new ObjectMapper();
+        }
+        if (Files.exists(markerFile)) {
+            // A marker that cannot be read or understood must not be shrugged off. The marker is the
+            // backstop against opening a namespace under the wrong layout and silently re-initialising
+            // it as empty, so degrading to a warning here would hand back exactly the failure it
+            // exists to prevent (Req R8.2).
+            Layout foundLayout;
+            String recordedLayout;
+            try {
+                JsonNode node = jsonMapper.readTree(markerFile.toFile());
+                String recorded = null;
+                if (node.has("layout")) {
+                    recorded = node.get("layout").asText();
+                } else if (node.has("pathHelper")) {
+                    recorded = node.get("pathHelper").asText();
+                }
+                if (recorded == null || recorded.isBlank()) {
+                    // An absent field is the single permitted inference: markers predate this field,
+                    // and every such namespace is on the flat layout.
+                    foundLayout = Layout.FLAT_SHA256;
+                    recordedLayout = Layout.FLAT_SHA256.id();
+                } else {
+                    foundLayout = Layout.fromId(recorded);
+                    recordedLayout = recorded;
+                }
+            } catch (IOException | IllegalArgumentException e) {
+                throw new IllegalStateException(String.format(
+                        "Namespace '%s' has an unreadable or unrecognised layout marker at %s. Refusing to "
+                                + "open it: the recorded layout cannot be compared against the expected %s, and "
+                                + "proceeding risks re-initialising the namespace as empty.",
+                        namespaceId, markerFile, placement.layout().id()), e);
+            }
+            if (foundLayout != placement.layout()) {
+                throw new IllegalStateException(String.format(
+                        "Namespace layout mismatch for namespace '%s': expected %s (%s), found %s (%s)",
+                        namespaceId, placement.layout(), placement.layout().id(), foundLayout, recordedLayout));
+            }
+        } else {
+            try {
+                Files.createDirectories(dir);
+                Map<String, Object> markerData = new LinkedHashMap<>();
+                markerData.put("layout", placement.layout().id());
+                markerData.put("pathHelper", placement.layout().id());
+                markerData.put("tenantId", placement.tenantId());
+                markerData.put("namespaceId", placement.namespaceId());
+                jsonMapper.writeValue(markerFile.toFile(), markerData);
+            } catch (IOException e) {
+                // An unmarked namespace is indistinguishable from a flat-layout one on the next open,
+                // so a namespace that cannot record its layout must not be served (Req R8.1).
+                throw new IllegalStateException(String.format(
+                        "Could not record the layout marker for namespace '%s' at %s. Refusing to open it: "
+                                + "an unmarked directory would be read as flat-layout on the next open.",
+                        namespaceId, markerFile), e);
+            }
+        }
 
         EmbeddingProvider embedder = embedderProvider.getIfAvailable();
         if (embedder == null) {
@@ -444,8 +660,7 @@ public class NamespaceResolver implements AutoCloseable {
         com.spectrayan.spector.memory.persist.DataEncryptor encryptor = encryptorProvider != null
                 ? encryptorProvider.getIfAvailable(() -> com.spectrayan.spector.memory.persist.DataEncryptor.NOOP)
                 : com.spectrayan.spector.memory.persist.DataEncryptor.NOOP;
-        ObjectMapper mapper = objectMapperProvider != null
-                ? objectMapperProvider.getIfAvailable(ObjectMapper::new) : new ObjectMapper();
+        ObjectMapper mapper = jsonMapper;
 
         io.micrometer.observation.ObservationRegistry obsRegistry = observationRegistryProvider != null
                 ? observationRegistryProvider.getIfAvailable() : null;
@@ -454,8 +669,9 @@ public class NamespaceResolver implements AutoCloseable {
         org.quartz.Scheduler springQuartz = quartzSchedulerProvider != null
                 ? quartzSchedulerProvider.getIfAvailable() : null;
 
+        final Path effectiveDir = dir;
         SpectorMemory built = runtime.attach(namespaceId, builder -> {
-            builder.persistence(dir);
+            builder.persistence(effectiveDir);
             if (textGen != null) {
                 builder.llmProvider(textGen);
             }
@@ -493,20 +709,27 @@ public class NamespaceResolver implements AutoCloseable {
             built = new com.spectrayan.spector.metrics.ObservedSpectorMemory(built, obsRegistry, obsConfig);
         }
 
-        log.info("[NamespaceResolver] built namespace memory instance nsId={} (dims={}, persistenceMode={}) via SpectorRuntime",
-                namespaceId, memory.getDimensions(), memory.getPersistenceMode());
+        String tenantLog = (tenantId != null && !tenantId.isBlank()) ? tenantId : "none";
+        log.info("[NamespaceResolver] built namespace memory instance nsId={} tenant={} layout={} (dims={}, persistenceMode={}) via SpectorRuntime",
+                namespaceId, tenantLog, placement.layout().id(), memory.getDimensions(), memory.getPersistenceMode());
 
         // INSULA fallback: only restore salience/soul from Region 24 when no identity bundle
         // exists for this namespace's owner. Post-migration, IdentityPlane supplies the soul
         // stack at bind time — Region 24 is not authoritative (ADR-0029 §23.6).
         try {
-            StoragePaths.validateNamespaceId(namespaceId);
-            Path idBundlePath = com.spectrayan.spector.synapse.identity.IdentityPaths.accountIdentityBundle(basePath(), namespaceId);
-            if (java.nio.file.Files.exists(idBundlePath)) {
+            String probeAccountId = ownerAccountId != null ? ownerAccountId : namespaceId;
+            StoragePaths.validateNamespaceId(probeAccountId);
+            Path idBundlePath;
+            if (tenantId != null && !tenantId.isBlank()) {
+                idBundlePath = IdentityPaths.tenantAccountIdentityBundle(identityRoot(), tenantId, probeAccountId);
+            } else {
+                idBundlePath = IdentityPaths.accountIdentityBundle(identityRoot(), probeAccountId);
+            }
+            if (Files.exists(idBundlePath)) {
                 return built;
             }
 
-            java.util.Optional<byte[]> bytes = built.admin().insularCortex().get();
+            Optional<byte[]> bytes = built.admin().insularCortex().get();
             if (bytes.isPresent() && mapper != null) {
                 InsulaSelfModel model = mapper.readValue(bytes.get(), InsulaSelfModel.class);
                 if (model != null && model.salience() != null) {
@@ -527,12 +750,16 @@ public class NamespaceResolver implements AutoCloseable {
         return built;
     }
 
-    private Path basePath() {
-        String path = synapseProps.getMemory().getPersistencePath();
-        if (path == null || path.isBlank()) {
-            path = synapseProps.dataDir();
-        }
-        return Path.of(path);
+    /** The rememberer root — see {@link SynapseProperties#remembererRoot()} (Req R3.1). */
+    Path basePath() {
+        return this.basePath;
+    }
+
+    /** The identity-plane root — see {@link SynapseProperties#identityRoot()} (Req R3.1). */
+    Path identityRoot() {
+        return synapseProps != null
+                ? synapseProps.identityRoot()
+                : Path.of(SynapseProperties.DEFAULT_DATA_DIR);
     }
 
     private MemoryHandle evictOldestAccountUnleasedLocked(String accountId) {
@@ -583,6 +810,21 @@ public class NamespaceResolver implements AutoCloseable {
 
     MemoryHandle evictOldestLocked() {
         return evictOldestProcessUnleasedLocked();
+    }
+
+    public boolean isNamespaceLeased(String namespaceId) {
+        if (namespaceId == null) return false;
+        MemoryHandle handle = cache.get(namespaceId);
+        return handle != null && isLeased(handle.memory);
+    }
+
+    public boolean isNamespaceOpen(String namespaceId) {
+        if (namespaceId == null) return false;
+        return cache.containsKey(namespaceId);
+    }
+
+    public long fallbackCount() {
+        return fallbackCounter.get();
     }
 
     private static boolean isLeased(SpectorMemory memory) {

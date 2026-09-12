@@ -111,6 +111,7 @@ public final class MemoryRegistry implements AutoCloseable {
             ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistryProvider,
             ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider,
             ObjectProvider<org.quartz.Scheduler> quartzSchedulerProvider,
+            ObjectProvider<io.micrometer.core.instrument.MeterRegistry> meterRegistryProvider,
             AccountCatalog accountCatalog,
             @Value("${spector.auth.memory.max-instances:512}") int maxInstances) {
         this.sharedProvider = sharedProvider;
@@ -120,7 +121,7 @@ public final class MemoryRegistry implements AutoCloseable {
                 embedderProvider, textGenProvider, salienceProvider,
                 objectMapperProvider, cacheManagerProvider, encryptorProvider,
                 observationRegistryProvider, observabilityConfigProvider,
-                quartzSchedulerProvider, maxInstances);
+                quartzSchedulerProvider, meterRegistryProvider, maxInstances);
         log.info("[MemoryRegistry] initialized: authEnabled={}, maxInstances={}, catalog={}",
                 synapseProps.auth().enabled(), maxInstances, accountCatalog.getClass().getSimpleName());
     }

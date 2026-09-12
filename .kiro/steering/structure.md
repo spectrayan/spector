@@ -19,7 +19,7 @@ spector/
 | Layer | Directory | Modules | Depends On |
 |-------|-----------|---------|------------|
 | Foundation & Acceleration | `nucleus/` | bom, commons, core, cpu, gpu, hdc, index, config, events, test-support | Foundation only |
-| Cognitive Memory | `memory/` | provider-api, providers, ingestion, inspect, metrics, memory | Foundation |
+| Cognitive Memory | `memory/` | kernel, provider-api, providers, ingestion, inspect, metrics, memory | Foundation |
 | Runtime & Gateways | `synapse/` | runtime, synapse, connector, mcp, cli, client, spring, batch, dist | Foundation + Memory |
 | Infrastructure & Benchmarks | `bench/`, `deploy/` | spector-bench, Docker | Foundation + Memory + Synapse |
 
@@ -44,6 +44,7 @@ spector/
 
 | Module | Purpose |
 |--------|---------|
+| `spector-kernel` | Off-heap memory storage kernel (V4 bundles, StoragePaths, NamespacePathResolver, mmap segments) |
 | `spector-provider-api` | Model-agnostic LLM/embedding provider SPI |
 | `spector-providers` | Concrete AI providers (Ollama, OpenAI, Google, Anthropic, ONNX) |
 | `spector-ingestion` | Document ingestion pipeline and multi-modal sensory extractors |

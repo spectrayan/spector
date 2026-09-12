@@ -27,7 +27,7 @@ import com.spectrayan.spector.synapse.catalog.*;
  *
  * <p>This produces identical behavior to the pre-Phase-1 {@code MemoryRegistry}:
  * every accountId resolves to a SpectorMemory at
- * {@code StoragePaths.namespaceDirSharded(basePath, accountId)}.</p>
+ * {@code NamespacePathResolver.resolve(basePath, null, accountId)}.</p>
  */
 final class PassthroughCatalog implements AccountCatalog {
 

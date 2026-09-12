@@ -93,17 +93,32 @@ public class JdbcAccountCatalog implements AccountCatalog {
     @Override
     @Transactional
     public Account getOrCreateAccount(String accountId) {
-        return getOrCreateAccount(accountId, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN);
+        return getOrCreateAccount(accountId, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN, null);
     }
 
     @Override
     @Transactional
     public Account getOrCreateAccount(String accountId, AccountProfile profile, PrincipalKind kind) {
+        return getOrCreateAccount(accountId, profile, kind, null);
+    }
+
+    @Override
+    @Transactional
+    public Account getOrCreateAccount(String accountId, AccountProfile profile, PrincipalKind kind, String tenantId) {
         Objects.requireNonNull(accountId, "accountId must not be null");
 
         Optional<Account> existing = findAccountById(accountId);
         if (existing.isPresent()) {
             Account account = existing.get();
+            if (account.tenantId() != null && tenantId != null && !account.tenantId().equals(tenantId)) {
+                int ownedCount = jdbc.sql("SELECT COUNT(*) FROM namespaces WHERE owner_account_id = :accountId")
+                        .param("accountId", accountId)
+                        .query(Integer.class)
+                        .single();
+                if (ownedCount > 0) {
+                    throw new TenantReassignmentException(accountId, account.tenantId(), tenantId);
+                }
+            }
             ensureDefaultNamespaceExists(account);
             return account;
         }
@@ -118,10 +133,10 @@ public class JdbcAccountCatalog implements AccountCatalog {
         String insertUserSql = """
                 INSERT INTO users (
                     user_id, username, password_hash, display_name, roles, scopes,
-                    profile, kind, flags, default_namespace_id, created_at, updated_at
+                    profile, kind, flags, default_namespace_id, tenant_id, created_at, updated_at
                 ) VALUES (
                     :userId, :username, '', :displayName, 'ROLE_USER', '',
-                    :profile, :kind, '{}', :defaultNamespaceId, :now, :now
+                    :profile, :kind, '{}', :defaultNamespaceId, :tenantId, :now, :now
                 )
                 """;
 
@@ -132,6 +147,7 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 .param("profile", effProfile.name())
                 .param("kind", effKind.name())
                 .param("defaultNamespaceId", accountId)
+                .param("tenantId", tenantId)
                 .param("now", Timestamp.from(now))
                 .update();
 
@@ -160,10 +176,33 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 defaultQuotas(effProfile, null, null),
                 new AccountFlags(true, true, true),
                 accountId,
-                now
+                now,
+                tenantId,
+                false
         );
 
         return newAccount;
+    }
+
+    @Override
+    @Transactional
+    public void assignTenant(String accountId, String tenantId) {
+        Objects.requireNonNull(accountId, "accountId must not be null");
+        Account account = getAccount(accountId);
+        if (account.tenantId() != null && !account.tenantId().equals(tenantId)) {
+            int ownedCount = jdbc.sql("SELECT COUNT(*) FROM namespaces WHERE owner_account_id = :accountId")
+                    .param("accountId", accountId)
+                    .query(Integer.class)
+                    .single();
+            if (ownedCount > 0) {
+                throw new TenantReassignmentException(accountId, account.tenantId(), tenantId);
+            }
+        }
+        jdbc.sql("UPDATE users SET tenant_id = :tenantId, updated_at = :now WHERE user_id = :userId")
+                .param("tenantId", tenantId)
+                .param("now", Timestamp.from(Instant.now()))
+                .param("userId", accountId)
+                .update();
     }
 
     @Override
@@ -327,6 +366,18 @@ public class JdbcAccountCatalog implements AccountCatalog {
         String sql = sqlLoader.load("catalog/namespaces/list-accessible");
         return jdbc.sql(sql)
                 .param("accountId", accountId)
+                .query(this::mapNamespaceRow)
+                .list();
+    }
+
+    @Override
+    public List<NamespaceRecord> listOwnedNamespaces(String accountId) {
+        Objects.requireNonNull(accountId, "accountId must not be null");
+        // Unfiltered on status so tombstoned namespaces, whose bundle files still exist, remain
+        // visible to migration and tenant-prefix wipe (Req R9.1).
+        String sql = sqlLoader.load("catalog/namespaces/list-owned");
+        return jdbc.sql(sql)
+                .param("ownerAccountId", accountId)
                 .query(this::mapNamespaceRow)
                 .list();
     }
@@ -936,16 +987,8 @@ public class JdbcAccountCatalog implements AccountCatalog {
         Integer maxNs = rs.getObject("max_namespaces", Integer.class);
         Integer maxHotNs = rs.getObject("max_hot_namespaces", Integer.class);
         Timestamp createdAt = rs.getTimestamp("created_at");
-        String tenantId = null;
-        try {
-            tenantId = rs.getString("tenant_id");
-        } catch (SQLException ignored) {
-        }
-        boolean legalHold = false;
-        try {
-            legalHold = rs.getBoolean("legal_hold");
-        } catch (SQLException ignored) {
-        }
+        String tenantId = rs.getString("tenant_id");
+        boolean legalHold = rs.getBoolean("legal_hold");
 
         PrincipalKind kind = kindStr != null ? PrincipalKind.valueOf(kindStr) : PrincipalKind.HUMAN;
         AccountProfile profile = profileStr != null ? AccountProfile.valueOf(profileStr) : AccountProfile.HUMAN_SOLO;
@@ -977,11 +1020,7 @@ public class JdbcAccountCatalog implements AccountCatalog {
         String biasJson = rs.getString("bias_json");
         Timestamp createdAt = rs.getTimestamp("created_at");
         Timestamp lastAccessedAt = rs.getTimestamp("last_accessed_at");
-        boolean legalHold = false;
-        try {
-            legalHold = rs.getBoolean("legal_hold");
-        } catch (SQLException ignored) {
-        }
+        boolean legalHold = rs.getBoolean("legal_hold");
 
         return new NamespaceRecord(
                 namespaceId,
@@ -1102,4 +1141,21 @@ public class JdbcAccountCatalog implements AccountCatalog {
             return null;
         }
     }
+
+    @Override
+    public List<Account> listAccounts() {
+        String sql = sqlLoader.load("catalog/account/list-all");
+        return jdbc.sql(sql)
+                .query(this::mapAccountRow)
+                .list();
+    }
+
+    @Override
+    public List<Account> listTenantedAccounts() {
+        String sql = sqlLoader.load("catalog/account/list-tenanted");
+        return jdbc.sql(sql)
+                .query(this::mapAccountRow)
+                .list();
+    }
 }
+
