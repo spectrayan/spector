@@ -1504,5 +1504,30 @@ public final class SpectorPropertyConstants {
 
     public static final String SERVER_DATA_DIR = "spector.server.data-dir";
     public static final String DEFAULT_SERVER_DATA_DIR = "./spector-data";
+
+    // Disaster Recovery & Cloud Export (ADR-0034 §11.2, Phase 6)
+    public static final String DR_EXPORT_ENABLED = "spector.dr.export.enabled";
+    public static final boolean DEFAULT_DR_EXPORT_ENABLED = false;
+
+    public static final String DR_EXPORT_INTERVAL_SECONDS = "spector.dr.export.interval-seconds";
+    public static final long DEFAULT_DR_EXPORT_INTERVAL_SECONDS = 900L; // 15 minutes
+
+    public static final String DR_BANDWIDTH_LIMIT_BYTES_PER_SEC = "spector.dr.bandwidth-limit-bytes-per-sec";
+    public static final long DEFAULT_DR_BANDWIDTH_LIMIT_BYTES_PER_SEC = 0L; // 0 = unlimited
+
+    public static final String DR_OBJECT_STORE_ENDPOINT = "spector.dr.object-store.endpoint";
+    public static final String DEFAULT_DR_OBJECT_STORE_ENDPOINT = "";
+
+    public static final String DR_OBJECT_STORE_BUCKET = "spector.dr.object-store.bucket";
+    public static final String DEFAULT_DR_OBJECT_STORE_BUCKET = "";
+
+    public static final String DR_OBJECT_STORE_REGION = "spector.dr.object-store.region";
+    public static final String DEFAULT_DR_OBJECT_STORE_REGION = "";
+
+    public static final String DR_ALERT_LAG_MULTIPLIER = "spector.dr.alert-lag-multiplier";
+    public static final int DEFAULT_DR_ALERT_LAG_MULTIPLIER = 2;
+
+    public static final String DR_STANDBY_MODE = "spector.dr.standby-mode";
+    public static final String DEFAULT_DR_STANDBY_MODE = "COLD";
 }
 
