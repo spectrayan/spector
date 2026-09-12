@@ -117,6 +117,9 @@ public class NamespaceResolver implements AutoCloseable {
     /** Guards the cold path: lazy build, LRU eviction, and shutdown close. */
     private final ReentrantLock coldPathLock = new ReentrantLock();
 
+    /** Guards runtime and embedding pipeline lazy initialization without virtual-thread pinning. */
+    private final ReentrantLock runtimeInitLock = new ReentrantLock();
+
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     // ── Composition Hoists (R12.2) ──────────────────────────────
@@ -416,7 +419,8 @@ public class NamespaceResolver implements AutoCloseable {
 
     private void ensureHoistedEmbeddingPipeline(EmbeddingProvider rawEmbedder, com.spectrayan.spector.config.SpectorProperties spectorProps) {
         if (this.hoistedPipeline == null && rawEmbedder != null) {
-            synchronized (this) {
+            runtimeInitLock.lock();
+            try {
                 if (this.hoistedPipeline == null) {
                     org.springframework.cache.CacheManager springCacheManager = cacheManagerProvider != null
                             ? cacheManagerProvider.getIfAvailable() : null;
@@ -437,13 +441,16 @@ public class NamespaceResolver implements AutoCloseable {
                             && spectorProps.provider().getEmbedding().isSequential();
                     this.hoistedPipeline = new ParallelEmbeddingPipeline(this.hoistedEmbeddingProvider, sequential);
                 }
+            } finally {
+                runtimeInitLock.unlock();
             }
         }
     }
 
     private void ensureSpectorRuntime(EmbeddingProvider embedder, com.spectrayan.spector.config.SpectorProperties spectorProps) {
         if (this.runtime == null && embedder != null) {
-            synchronized (this) {
+            runtimeInitLock.lock();
+            try {
                 if (this.runtime == null) {
                     ensureHoistedEmbeddingPipeline(embedder, spectorProps);
                     LlmProvider textGen = textGenProvider != null ? textGenProvider.getIfAvailable() : null;
@@ -454,6 +461,8 @@ public class NamespaceResolver implements AutoCloseable {
                             .llmProvider(textGen)
                             .build();
                 }
+            } finally {
+                runtimeInitLock.unlock();
             }
         }
     }
