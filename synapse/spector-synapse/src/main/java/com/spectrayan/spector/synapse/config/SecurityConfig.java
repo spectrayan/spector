@@ -236,7 +236,9 @@ public class SecurityConfig {
                 // Configured public paths bypass authentication (Requirement 6.2).
                 for (String path : publicPaths) {
                     authz.requestMatchers(path).permitAll();
-                    authz.requestMatchers(path + "/**").permitAll();
+                    if (!path.endsWith("/**") && !path.endsWith("/*")) {
+                        authz.requestMatchers(path + "/**").permitAll();
+                    }
                 }
                 // Static assets, SPA root, and Swagger/OpenAPI documentation remain public.
                 authz
@@ -245,6 +247,7 @@ public class SecurityConfig {
                         .requestMatchers("/assets/**").permitAll()
                         .requestMatchers("/*.js", "/*.css", "/*.ico", "/*.png").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
                         // Protected surfaces require a non-anonymous Authentication (Requirement 6.1).
                         .requestMatchers("/api/**").authenticated()
                         .requestMatchers("/mcp", "/mcp/**").authenticated()

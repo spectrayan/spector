@@ -36,3 +36,13 @@ data:
         m: 16
         ef-construction: 200
         ef-search: 50
+      cell:
+        id: ${SPECTOR_CELL_ID:cell-1}
+        role: ${SPECTOR_CELL_ROLE:${SPECTOR_NODE_ROLE:standalone}}
+        node-id: ${SPECTOR_CELL_NODE_ID:${SPECTOR_NODE_ID:}}
+        ring:
+          members: ${SPECTOR_CELL_RING_MEMBERS:}
+      routing:
+        redis:
+          enabled: ${SPECTOR_ROUTING_REDIS_ENABLED:{{ .Values.routing.redis.enabled }}}
+          uri: ${SPECTOR_ROUTING_REDIS_URI:{{ .Values.routing.redis.url }}}

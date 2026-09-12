@@ -75,22 +75,32 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
         log.info("[SynapseSalience] Provider initialized (profile=NEUTRAL, awaiting user persona)");
     }
 
+    private static final ThreadLocal<Boolean> IN_EFFECTIVE_PROFILE = ThreadLocal.withInitial(() -> Boolean.FALSE);
+
     @Override
     public SalienceProfile effectiveProfile() {
-        if (registryProvider != null) {
-            com.spectrayan.spector.synapse.memory.MemoryRegistry registry = registryProvider.getIfAvailable();
-            if (registry != null) {
-                try {
-                    com.spectrayan.spector.memory.SpectorMemory memory = registry.resolveForCurrentRequest();
-                    if (memory != null) {
-                        return memory.salienceProfile();
+        if (IN_EFFECTIVE_PROFILE.get()) {
+            return currentProfile;
+        }
+        IN_EFFECTIVE_PROFILE.set(Boolean.TRUE);
+        try {
+            if (registryProvider != null) {
+                com.spectrayan.spector.synapse.memory.MemoryRegistry registry = registryProvider.getIfAvailable();
+                if (registry != null) {
+                    try {
+                        com.spectrayan.spector.memory.SpectorMemory memory = registry.resolveForCurrentRequest();
+                        if (memory != null) {
+                            return memory.salienceProfile();
+                        }
+                    } catch (Exception e) {
+                        log.warn("[SynapseSalience] Failed to resolve memory for current request: {}", e.getMessage());
                     }
-                } catch (Exception e) {
-                    log.warn("[SynapseSalience] Failed to resolve memory for current request: {}", e.getMessage());
                 }
             }
+            return currentProfile;
+        } finally {
+            IN_EFFECTIVE_PROFILE.remove();
         }
-        return currentProfile;
     }
 
     /**

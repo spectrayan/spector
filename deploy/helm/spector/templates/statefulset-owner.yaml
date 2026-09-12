@@ -81,12 +81,22 @@ spec:
               value: {{ if eq (default "split" .Values.topology.mode) "single-role" }}"-Xms2G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:+UnlockDiagnosticVMOptions -XX:+UnlockExperimentalVMOptions --add-modules=jdk.incubator.vector --enable-preview --enable-native-access=ALL-UNNAMED -Djava.lang.foreign.restricted=permit"{{ else }}{{ .Values.owners.jvmOpts | quote }}{{ end }}
             - name: SPECTOR_CELL_ID
               value: {{ include "spector.cellId" . | quote }}
+            - name: SPECTOR_CELL_ROLE
+              value: "owner"
             - name: SPECTOR_NODE_ROLE
               value: "owner"
-            - name: SPECTOR_NODE_ID
+            - name: POD_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: SPECTOR_CELL_NODE_ID
+              value: "$(POD_NAME).{{ include "spector.owner.fullname" . }}-headless"
+            - name: SPECTOR_NODE_ID
+              value: "$(POD_NAME).{{ include "spector.owner.fullname" . }}-headless"
+            - name: SPECTOR_CELL_RING_MEMBERS
+              value: {{ include "spector.owner.ringMembers" . | quote }}
+            - name: SPECTOR_ROUTING_REDIS_ENABLED
+              value: {{ .Values.routing.redis.enabled | quote }}
             - name: SPECTOR_ROUTING_REDIS_URI
               value: {{ .Values.routing.redis.url | quote }}
             - name: SPECTOR_PAGER_HOT_CAP

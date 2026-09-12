@@ -40,6 +40,7 @@ import com.spectrayan.spector.synapse.config.sql.SqlQueryLoader;
  * of the presented token.</p>
  */
 @Repository
+@org.springframework.context.annotation.DependsOn("flyway")
 public class RefreshTokenStore {
 
     private static final Logger log = LoggerFactory.getLogger(RefreshTokenStore.class);

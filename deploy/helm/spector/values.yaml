@@ -131,6 +131,7 @@ gateway:
 # ── Routing & Coordination ──
 routing:
   redis:
+    enabled: true
     url: "redis://spector-redis:6379"
     inChart:
       enabled: false

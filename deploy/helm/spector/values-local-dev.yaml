@@ -12,7 +12,7 @@ topology:
 image:
   repository: spector
   pullPolicy: IfNotPresent
-  tag: v3
+  tag: v3.6
 
 # Sysctl disabled for local unprivileged single-node Docker Desktop
 sysctl:
@@ -28,7 +28,7 @@ owners:
       memory: "512Mi"
     limits:
       cpu: "1000m"
-      memory: "1Gi"
+      memory: "4Gi"
   jvmOpts: "-Xms256m -Xmx512m -XX:+UseG1GC --add-modules=jdk.incubator.vector --enable-preview --enable-native-access=ALL-UNNAMED"
   # Soft anti-affinity to allow co-scheduling on single local k8s node
   affinity:
@@ -63,7 +63,7 @@ replicas:
       memory: "512Mi"
     limits:
       cpu: "1000m"
-      memory: "1Gi"
+      memory: "3Gi"
   jvmOpts: "-Xms256m -Xmx512m -XX:+UseG1GC --add-modules=jdk.incubator.vector --enable-preview --enable-native-access=ALL-UNNAMED"
   persistence:
     enabled: true
@@ -81,10 +81,14 @@ gateway:
       memory: "512Mi"
     limits:
       cpu: "1000m"
-      memory: "1Gi"
+      memory: "3Gi"
   jvmOpts: "-Xms256m -Xmx512m -XX:+UseG1GC --add-modules=jdk.incubator.vector --enable-preview --enable-native-access=ALL-UNNAMED"
 
 # ── Coordination & Routing ──
+routing:
+  redis:
+    enabled: false
+
 coordinator:
   leaseDurationSeconds: 15
   renewIntervalSeconds: 5
@@ -106,10 +110,10 @@ service:
 env:
   SPECTOR_PORT: "7070"
   SPECTOR_DATA_DIR: "/data"
-  SPECTOR_EMBEDDING_PROVIDER: "ollama"
-  SPECTOR_EMBEDDING_MODEL: "nomic-embed-text"
+  SPECTOR_EMBEDDING_PROVIDER: "onnx"
+  SPECTOR_EMBEDDING_MODEL: "all-MiniLM-L6-v2"
   SPECTOR_EMBEDDING_BASE_URL: ""
-  SPECTOR_EMBEDDING_DIMS: "768"
+  SPECTOR_EMBEDDING_DIMS: "384"
   SPECTOR_GENERATION_PROVIDER: "ollama"
   SPECTOR_GENERATION_MODEL: "llama3.2"
   SPECTOR_GENERATION_BASE_URL: ""
@@ -117,3 +121,4 @@ env:
   SPECTOR_ENTITY_EXTRACTION_MODE: "NONE"
   SPECTOR_TAG_EXTRACTOR: "content"
   SPECTOR_TEXT_SEARCH_MODE: "HYBRID"
+  SPECTOR_ROUTING_REDIS_ENABLED: "false"
