@@ -31,8 +31,8 @@ graph TB
 
     subgraph "Spector Memory (Cognitive Orchestration)"
         SM["SpectorMemory Facade"]
-        ING["Cognitive Ingestion Target"]
-        REC["6-Phase Recall Pipeline"]
+        REM["Remember Pathway<br/><i>Pathway: Remember</i>"]
+        REC["Recall Pathway<br/><i>Pathway: Recall</i>"]
         DAE["Biological Daemons<br/><i>Consolidation, Circadian, Surprise, Habituation</i>"]
     end
 
@@ -44,10 +44,10 @@ graph TB
 
     SDK --> SYN
     SYN --> SM
-    SM --> ING
+    SM --> REM
     SM --> REC
     SM --> DAE
-    ING --> NK
+    REM --> NK
     REC --> NK
     DAE --> NK
     NK --> ENG
@@ -56,15 +56,15 @@ graph TB
 
 ---
 
-## Data Flow: Cognitive Ingestion
+## Pathway: Remember
 
-Ingesting a memory transforms unstructured text and metadata into an off-heap engram record:
+The Remember Pathway transforms unstructured text and metadata into an off-heap engram record through a sequence of cognitive stages:
 
 ```mermaid
 sequenceDiagram
     participant App as Client Application
     participant SM as SpectorMemory
-    participant CT as Cognitive Ingestion
+    participant RP as Remember Pathway
     participant EP as Embedding Provider
     participant SD as Surprise Detector
     participant FP as Flashbulb Policy
@@ -76,60 +76,60 @@ sequenceDiagram
     participant ED as Entity Directory
 
     App->>SM: remember(text, tier, tags, valence)
-    SM->>CT: ingestCognitive(text, tier, tags, ...)
+    SM->>RP: remember(context, text, tier, ...)
     
-    Note over CT: Step 1: Neural Embedding
-    CT->>EP: embed(text)
-    EP-->>CT: float vector [dim]
+    Note over RP: Step 1: Neural Embedding
+    RP->>EP: embed(text)
+    EP-->>RP: float vector [dim]
     
-    Note over CT: Step 2: Synaptic Tag Hashing
-    CT->>CT: Encode tags into 128-bit Bloom Filter
+    Note over RP: Step 2: Synaptic Tag Hashing
+    RP->>RP: Encode tags into 128-bit Bloom Filter
     
-    Note over CT: Step 3: Bayesian Surprise Detection
-    CT->>SD: computeSurprise(l2Norm, vector)
-    SD-->>CT: surprise z-score
+    Note over RP: Step 3: Bayesian Surprise Detection
+    RP->>SD: computeSurprise(l2Norm, vector)
+    SD-->>RP: surprise z-score
     
-    Note over CT: Step 4: Flashbulb Evaluation
-    CT->>FP: evaluate(zScore)
-    FP-->>CT: flashbulb? (pin & maximize importance)
+    Note over RP: Step 4: Flashbulb Evaluation
+    RP->>FP: evaluate(zScore)
+    FP-->>RP: flashbulb? (pin & maximize importance)
     
-    Note over CT: Step 5: Quantization
-    CT->>SQ: quantize(float[]) → INT8 / INT4 bytes
+    Note over RP: Step 5: Quantization
+    RP->>SQ: quantize(float[]) → INT8 / INT4 bytes
     
-    Note over CT: Step 6: Assemble Encoding Header
-    CT->>CT: 64-Byte Pure Encoding Header (V2)
+    Note over RP: Step 6: Assemble Encoding Header
+    RP->>RP: 64-Byte Pure Encoding Header (V2)
     
-    Note over CT: Step 7: Off-Heap Kernel Write
-    CT->>NK: engramMemory().write(tier, header, quantized)
-    NK-->>CT: memoryLocation
+    Note over RP: Step 7: Off-Heap Kernel Write
+    RP->>NK: engramMemory().write(tier, header, quantized)
+    NK-->>RP: memoryLocation
     
-    Note over CT: Step 8a: Write-Ahead Log Commit
-    CT->>WAL: append(REMEMBER, eventPayload)
+    Note over RP: Step 8a: Write-Ahead Log Commit
+    RP->>WAL: append(REMEMBER, eventPayload)
     
-    Note over CT: Step 8b: Synaptic Graph Associative Linking
-    CT->>HG: strengthen(currentIndex, previousIndex)
+    Note over RP: Step 8b: Synaptic Graph Associative Linking
+    RP->>HG: strengthen(currentIndex, previousIndex)
     
-    Note over CT: Step 8c: Temporal Sequence Linking
-    CT->>TC: link(currentIndex, lastIndex, sessionId)
+    Note over RP: Step 8c: Temporal Sequence Linking
+    RP->>TC: link(currentIndex, lastIndex, sessionId)
     
-    Note over CT: Step 8d: Entity Directory Interning
-    CT->>ED: intern(entityName, entityType)
+    Note over RP: Step 8d: Entity Directory Interning
+    RP->>ED: intern(entityName, entityType)
     
-    CT-->>SM: MemoryRecord
+    RP-->>SM: MemoryRecord
     SM-->>App: MemoryRecord (id, score, status)
 ```
 
 ---
 
-## Data Flow: 6-Phase Cognitive Recall
+## Pathway: Recall
 
-When an agent queries memory, Spector executes a 6-phase associative retrieval pipeline:
+When an agent queries memory, Spector executes the associative **Recall Pathway**:
 
 ```mermaid
 sequenceDiagram
     participant App as Client Application
     participant SM as SpectorMemory
-    participant RP as Recall Pipeline
+    participant RP as Recall Pathway
     participant NK as Namespace Kernel
     participant SIMD as SIMD Vector Kernel
     participant SC as Cognitive Scorer

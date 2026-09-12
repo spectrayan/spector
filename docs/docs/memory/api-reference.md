@@ -32,9 +32,9 @@ SpectorMemory memory = SpectorMemory.builder()
 
 | Method | Return Type | Description |
 |---|---|---|
-| `remember(id, text, type, source, tags...)` | `CompletableFuture<Void>` | Async ingestion — embeds, quantizes, stores, indexes |
-| `remember(text, type, source, tags...)` | `CompletableFuture<String>` | Auto-ID ingestion — generates TSID, returns the ID |
-| `recall(queryText, options)` | `List<CognitiveResult>` | Parallel SIMD-accelerated recall with cognitive scoring |
+| `remember(id, text, type, source, tags...)` | `CompletableFuture<Void>` | Async Remember Pathway — embeds, quantizes, stores, indexes |
+| `remember(text, type, source, tags...)` | `CompletableFuture<String>` | Auto-ID Remember Pathway — generates TSID, returns the ID |
+| `recall(queryText, options)` | `List<CognitiveResult>` | Recall Pathway — parallel SIMD-accelerated recall with cognitive scoring |
 | `inspect(id)` | `Optional<CognitiveRecord>` | Full cognitive X-ray: text ↔ header ↔ vector |
 | `browse(tags...)` | `List<CognitiveRecord>` | Tag-based browsing with AND semantics |
 | `exportJson()` | `String` | Bulk JSON export of all live memories |
@@ -79,7 +79,7 @@ $$\text{FinalScore} = \alpha \cdot \text{Similarity} + \beta \cdot \text{Importa
 Where:
 
 - **Similarity** = `1 / (1 + L2_distance)` — semantic relevance
-- **Importance** = `[0.0 - 1.0]` — computed by SurpriseDetector at ingestion
+- **Importance** = `[0.0 - 1.0]` — computed by SurpriseDetector during the Remember Pathway
 - **Decay** = precomputed bucket lookup based on memory age
 
 ---
@@ -93,7 +93,7 @@ public record CognitiveResult(
     String id,                // Unique memory identifier
     String text,              // Raw text content
     float score,              // Final cognitive score (after habituation)
-    float importance,         // Original importance at ingestion
+    float importance,         // Original importance at formation
     float ageDays,            // Age in fractional days
     short recallCount,        // Times previously recalled
     byte valence,             // Emotional coloring [-128 to +127]
@@ -293,7 +293,7 @@ SpectorMemory memory = SpectorMemory.builder()
     .idGenerator(myCustomGen)       // or provide custom MemoryIdGenerator
     .build();
 
-// Auto-ID ingestion — returns the generated ID
+// Auto-ID Remember Pathway — returns the generated ID
 String id = memory.remember("User prefers dark mode",
     MemoryType.SEMANTIC, MemorySource.USER_STATED, "preferences").join();
 // id = "0HJGQK4N00000"

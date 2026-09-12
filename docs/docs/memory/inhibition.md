@@ -28,7 +28,7 @@ Tombstoning modifies the off-heap flags byte (bit 0 = 1). Suppression maintains 
 flowchart TD
     subgraph "Suppress (Reversible)"
         S1["memory.suppress(id, reason)"] --> S2["Add to suppression set<br/><i>in-memory, auditable</i>"]
-        S2 --> S3["Recall pipeline filters<br/>suppressed IDs after scoring"]
+        S2 --> S3["Recall pathway filters<br/>suppressed IDs after scoring"]
         S3 --> S4["memory.unsuppress(id)<br/><i>restores to recall</i>"]
     end
 
@@ -42,11 +42,11 @@ flowchart TD
     style F4 fill:#e74c3c,color:white
 ```
 
-**Performance difference**: Tombstoned memories are skipped in Phase 1 of the scorer (~1 cycle). Suppressed memories go through the full 6-phase scoring pipeline and are only filtered afterward. For bulk removal, `forget()` is more efficient.
+**Performance difference**: Tombstoned memories are skipped in Phase 1 of the scorer (~1 cycle). Suppressed memories go through the full 6-phase scoring engine in the Recall Pathway and are only filtered afterward. For bulk removal, `forget()` is more efficient.
 
 ---
 
-## Where It Fits in the Pipeline
+## Where It Fits in the Recall Pathway
 
 Suppression is checked **after** the 6-phase scorer completes but **before** habituation:
 

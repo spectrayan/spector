@@ -67,8 +67,8 @@ Spector Memory maps every major cognitive subsystem from neuroscience to a dedic
 ```mermaid
 graph TB
     subgraph "🧠 Spector Memory"
-        SM[SpectorMemory<br/>Façade]:::core --> CT[CognitiveIngestionTarget<br/>Cognitive remember]:::core
-        SM --> RP[RecallPipeline<br/>Parallel recall]:::core
+        SM[SpectorMemory<br/>Façade]:::core --> CT[RememberPathway<br/>Pathway: Remember]:::core
+        SM --> RP[RecallPathway<br/>Pathway: Recall]:::core
         
         subgraph "Cortex — Tier Stores"
             TR[TierRouter]:::core --> WM[Working<br/>Prefrontal Cortex]:::working
@@ -148,13 +148,13 @@ Spector Memory collapses the entire cognitive stack onto a **zero-overhead, off-
 
     [:octicons-arrow-right-24: Architecture](architecture.md)
 
--   :material-lightning-bolt:{ .lg .middle } **6-Phase Scoring Pipeline**
+-   :material-lightning-bolt:{ .lg .middle } **Recall Pathway & 6-Phase Scoring**
 
     ---
 
     Deep dive into the SIMD hot-loop: tombstone → tags → valence → importance → L2 → fused score
 
-    [:octicons-arrow-right-24: Scoring Pipeline](scoring-pipeline.md)
+    [:octicons-arrow-right-24: Scoring Engine](scoring-pipeline.md)
 
 -   :material-share-variant:{ .lg .middle } **3-Layer Cognitive Graph**
 

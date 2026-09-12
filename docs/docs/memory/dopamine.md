@@ -77,7 +77,7 @@ When the Z-score exceeds a threshold (default: 3.0), the flashbulb policy activa
 **Effects**:
 
 - Importance is set to **1.0** (maximum)
-- The **pinned flag** is set — this memory is exempt from temporal decay in Phase 4 of the scoring pipeline
+- The **pinned flag** is set — this memory is exempt from temporal decay in Phase 4 of the scoring engine inside the Recall Pathway
 - The memory will persist indefinitely unless explicitly `forget()`'d
 
 !!! example "Use Case"
@@ -85,9 +85,9 @@ When the Z-score exceeds a threshold (default: 3.0), the flashbulb policy activa
 
 ---
 
-## Where It Fits in the Pipeline
+## Where It Fits in the Remember Pathway
 
-Surprise detection happens at **Step 3** of the ingestion pipeline:
+Surprise detection happens at **Step 3** of the Remember Pathway:
 
 ```mermaid
 flowchart LR

@@ -98,4 +98,4 @@ flowchart TD
 
 - :material-cancel: [**Inhibition — Suppression**](inhibition.md) — explicit memory blocking
 - :material-link: [**Hebbian — Association Learning**](hebbian.md) — how co-activation creates associations
-- :material-lightning-bolt: [**6-Phase Scoring Pipeline**](scoring-pipeline.md) — the full recall pipeline
+- :material-lightning-bolt: [**6-Phase Scoring Engine**](scoring-pipeline.md) — the fused SIMD kernel inside the Recall Pathway

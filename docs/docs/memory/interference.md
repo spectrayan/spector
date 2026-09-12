@@ -1,6 +1,6 @@
 ---
 title: "Interference — Deduplication"
-description: "Near-duplicate detection and merge at ingestion time — preventing proactive interference from redundant memories."
+description: "Near-duplicate detection and merge in the Remember Pathway — preventing proactive interference from redundant memories."
 ---
 
 # 🔀 Interference — Deduplication
@@ -31,7 +31,7 @@ The deduplication system detects near-duplicates by computing L2 distance betwee
 flowchart TD
     NEW["New memory arrives<br/><i>with embedding vector</i>"] --> SCAN["Scan existing memories<br/><i>compute L2 distance</i>"]
     SCAN --> CHECK{"Distance < threshold?"}
-    CHECK -->|"No match"| WRITE["Write new record<br/><i>normal ingestion</i>"]
+    CHECK -->|"No match"| WRITE["Write new record<br/><i>normal remember flow</i>"]
     CHECK -->|"Near-duplicate found"| MERGE["Merge into existing record"]
 
     MERGE --> M1["importance = max(existing, new)"]
@@ -58,7 +58,7 @@ flowchart TD
 
 ## Where It Fits
 
-Deduplication runs during the **ingestion pipeline** — after embedding but before writing. If a merge occurs, no new record is created — the existing record is updated in-place:
+Deduplication runs during the **Remember Pathway** — after embedding but before writing. If a merge occurs, no new record is created — the existing record is updated in-place:
 
 ```mermaid
 flowchart LR

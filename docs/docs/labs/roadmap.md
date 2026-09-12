@@ -729,7 +729,7 @@ flowchart TD
 
 > **Status**: Hypergraphs — **🟢 Graduated & Active (Primary Graph Structure)**. Spectral Sparsification — **Research** (Epic #416).
 >
-> **Current status:** HyperEntityGraph has successfully graduated to be the sole entity graph structure in Spector, completely replacing the legacy binary EntityGraph (Phase 4 binary excision completed). Recall and ingestion pipelines are fully hyper-only, supported by a central EntityDirectory companion.
+> **Current status:** HyperEntityGraph has successfully graduated to be the sole entity graph structure in Spector, completely replacing the legacy binary EntityGraph (Phase 4 binary excision completed). Recall and remember pathways are fully hyper-only, supported by a central EntityDirectory companion.
 
 
 ### Concept

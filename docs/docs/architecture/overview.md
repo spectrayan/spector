@@ -428,7 +428,7 @@ sequenceDiagram
     Graph-->>Client: ✨ Final cognitive memories
 ```
 
-1. **Recall Pipeline** receives options (`TextSearchMode`, `RecallMode`, etc.)
+1. **Recall Pathway** receives options (`TextSearchMode`, `RecallMode`, etc.)
 2. **Dense Vector, BM25, and Sparse (SPLADE)** searches run in parallel on virtual threads
 3. **RRF Fusion** merges the ranked lists using reciprocal rank scores
 4. **ColBERT v2 Reranking** scores the top candidates using SIMD MaxSim operations

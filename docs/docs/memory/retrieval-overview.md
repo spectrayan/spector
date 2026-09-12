@@ -5,11 +5,11 @@ description: "Overview of Spector's 4-layer hybrid retrieval stack: dense vector
 
 # 🔍 Retrieval Stack Overview
 
-Spector features a unified **4-layer hybrid retrieval stack** that acts as the candidate generation and reranking phases of the Memory Recall pipeline. Rather than relying on simple semantic vector matches, Spector combines lexical precision, learned sparse expansions, deep late-interaction reranking, and multi-layer graph traversal in a single cohesive pass.
+Spector features a unified **4-layer hybrid retrieval stack** that acts as the candidate generation and reranking stages of the **Recall Pathway**. Rather than relying on simple semantic vector matches, Spector combines lexical precision, learned sparse expansions, deep late-interaction reranking, and multi-layer graph traversal in a single cohesive pass.
 
 ---
 
-## 🏗️ The Memory Recall Flow
+## 🏗️ The Recall Pathway Flow
 
 Spector coordinates query execution by retrieving candidates in parallel from the first three layers, merging them, reranking them, and finally traversing the cognitive graph to discover associated memories:
 

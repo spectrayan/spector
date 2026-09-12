@@ -129,7 +129,7 @@ try (SpectorMemory memory = SpectorMemory.builder()
 
 ## Core Operations
 
-### Remember (Ingestion)
+### Remember (Remember Pathway)
 
 ```java
 // Async — returns CompletableFuture
@@ -143,7 +143,7 @@ CompletableFuture<Void> future = memory.remember(
 future.get(); // Block if needed
 ```
 
-### Recall (Retrieval)
+### Recall (Recall Pathway)
 
 ```java
 List<CognitiveResult> results = memory.recall("query text",

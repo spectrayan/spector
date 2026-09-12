@@ -253,7 +253,7 @@ Replay recall from a frozen point-in-time state by reconstructing memory state f
 1. User calls `memory_recall` with `recall_mode=REPLAY` and a target `replay_timestamp`
 2. System reads WAL events (ingestions, reinforcements, suppressions) up to the target timestamp
 3. Reconstructs a temporary off-heap `MemorySegment` representing the memory state at time T
-4. Runs the standard recall pipeline against the frozen snapshot (no mutations)
+4. Runs the standard Recall Pathway against the frozen snapshot (no mutations)
 5. Returns results with a `[REPLAY @ 2025-06-02T14:00:00Z]` provenance marker
 
 **Implementation options:**

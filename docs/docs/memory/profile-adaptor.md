@@ -30,7 +30,7 @@ flowchart TD
     Strategy -->|Exploit (90%)| Best["Select profile with<br/>highest positive EMA"]
     Strategy -->|Explore (10%)| Random["Select random profile<br/>to discover performance"]
     
-    Default --> Recall["Execute Recall Pipeline"]
+    Default --> Recall["Execute Recall Pathway"]
     Best --> Recall
     Random --> Recall
     

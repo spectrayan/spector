@@ -59,9 +59,9 @@ Each reminder carries:
 
 ---
 
-## Where It Fits in the Pipeline
+## Where It Fits in the Recall Pathway
 
-Due reminders are injected at **Step 2** of the recall pipeline — before scoring, ensuring they always appear at the top of results with maximum score (10.0):
+Due reminders are injected at **Step 2** of the Recall Pathway — before scoring, ensuring they always appear at the top of results with maximum score (10.0):
 
 ```mermaid
 flowchart TD

@@ -132,7 +132,7 @@ These errors relate to the cognitive memory subsystem.
 | Code | Message | Resolution |
 |---|---|---|
 | `SPE-310-001` | Memory tier has reached capacity | Configure higher capacity or enable consolidation. |
-| `SPE-310-002` | Cognitive recall pipeline failed | Check logs for underlying cause. |
+| `SPE-310-002` | Cognitive recall pathway failed | Check logs for underlying cause. |
 | `SPE-310-003` | Memory consolidation failed | Check disk space and WAL integrity. |
 | `SPE-310-004` | Memory ID not found | The specified memory ID does not exist in any tier. |
 | `SPE-310-005` | Memory WAL file corrupted | WAL file is unreadable. Recovery may require reinitialization. |

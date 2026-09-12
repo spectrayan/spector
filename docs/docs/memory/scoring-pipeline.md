@@ -5,7 +5,7 @@ description: "A deep dive into CognitiveScorer — the SIMD hot-loop that fuses 
 
 # The 6-Phase Scoring Pipeline
 
-The `CognitiveScorer` is the performance-critical inner loop of Spector Memory. It scans off-heap `MemorySegment` data using **six sequential phases**, each eliminating candidates before the expensive SIMD vector math. This design is inspired by the brain's **sensory gating** — the auditory cortex filters out background noise before the prefrontal cortex evaluates it.
+The `CognitiveScorer` is the performance-critical inner loop of Spector Memory's **Recall Pathway**. It scans off-heap `MemorySegment` data using **six sequential phases**, each eliminating candidates before the expensive SIMD vector math. This design is inspired by the brain's **sensory gating** — the auditory cortex filters out background noise before the prefrontal cortex evaluates it.
 
 ---
 
@@ -301,7 +301,7 @@ graph TD
 
 ## Parallel Tier Scanning
 
-The `RecallPipeline` scans all tiers in parallel using Virtual Threads:
+The `RecallPathway` scans all tiers in parallel using Virtual Threads:
 
 ```mermaid
 gantt

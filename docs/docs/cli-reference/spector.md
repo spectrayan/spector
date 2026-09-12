@@ -103,15 +103,15 @@ spector init
 
 ---
 
-### 📥 `remember` — Document & Memory Ingestion
+### 📥 `remember` — Document & Memory Remember Pathway
 
-Store memories directly into the cognitive store or batch ingest documents:
+Store memories directly into the cognitive store or batch remember documents:
 
 ```bash
 # Remember a text fact
 spector remember --id doc-1 --content "Fast SIMD vector memory"
 
-# Batch ingestion from markdown directory
+# Batch remember from markdown directory
 spector remember --root /path/to/docs --pattern "**/*.md"
 ```
 

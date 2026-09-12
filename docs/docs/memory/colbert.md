@@ -47,7 +47,7 @@ To execute late-interaction scoring at microsecond speeds, Spector employs two m
 Spector parallelizes the MaxSim dot-product search loop using hardware SIMD registers (such as AVX2 or AVX-512). The scoring kernel processes multiple query and document tokens concurrently in registers, evaluating millions of token comparisons in under 200 microseconds per candidate list.
 
 ### 2. Off-Heap Token Caching
-Generating token embeddings for documents on every search is highly expensive. Spector's ingestion pipeline extracts token vectors and caches them in contiguous memory blocks. At search time, Spector reads these token vectors directly without creating garbage collection pressure or serialization overhead.
+Generating token embeddings for documents on every search is highly expensive. Spector's Remember Pathway extracts token vectors and caches them in contiguous memory blocks. At search time, Spector reads these token vectors directly without creating garbage collection pressure or serialization overhead.
 
 ---
 

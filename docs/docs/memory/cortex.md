@@ -104,8 +104,8 @@ stateDiagram-v2
 ### Semantic Memory Creation
 
 Semantic memories enter the system through two primary pathways:
-1. **Explicit Ingestion**: Client applications directly store verified facts into the semantic tier (`tier: SEMANTIC`).
-2. **Consolidation Promotion**: The hippocampal sleep consolidation engine analyzes clusters of repeated episodic memories, synthesizes generalized summaries, and promotes them to permanent semantic engrams.
+1. **Remember Pathway**: Client applications directly store verified facts into the semantic tier (`tier: SEMANTIC`).
+2. **Reflect Pathway (Sleep Consolidation)**: The hippocampal sleep consolidation engine analyzes clusters of repeated episodic memories, synthesizes generalized summaries, and promotes them to permanent semantic engrams.
 
 ---
 

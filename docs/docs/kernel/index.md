@@ -27,7 +27,7 @@ graph TB
 
     subgraph "Application & Gateway Layer"
         SYN["Spector Synapse Gateway<br/><i>Authentication, Routing, SSE Telemetry</i>"]
-        COG["Spector Memory Engine<br/><i>Cognitive Daemons, Recall Pipeline, Scoring</i>"]
+        COG["Spector Memory Engine<br/><i>Cognitive Daemons, Cognitive Pathways, Scoring</i>"]
     end
 
     subgraph "Sealed Memory Kernel Boundary (Zero-GC Off-Heap)"

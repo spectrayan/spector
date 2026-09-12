@@ -342,7 +342,7 @@ When the persona has an identity (name, role, domain), memories containing entit
 | **Moderate** | 1.2× | Default — mild preference for self-relevant information |
 | **None** | 1.0× | Analytical agent — treats all entities equally |
 
-### Persona in the Ingestion Pipeline
+### Persona in the Remember Pathway
 
 Persona modulation occurs after topic boosting (Stage 2) and before the flashbulb decision:
 
@@ -460,9 +460,9 @@ Salience can also be managed via the MCP protocol:
 
 ---
 
-## Full Ingestion Pipeline
+## Full Remember Pathway
 
-Here's where importance fits in the complete ingestion flow, including persona modulation:
+Here's where importance fits in the complete Remember Pathway flow, including persona modulation:
 
 ```mermaid
 flowchart TD

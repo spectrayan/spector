@@ -21,7 +21,7 @@ graph TB
     end
 
     subgraph memory["memory/ (Cognitive Memory Engine)"]
-        spectormemory["spector-memory<br/><i>Bundle Kernel, Recall Pipeline & Daemons</i>"]
+        spectormemory["spector-memory<br/><i>Bundle Kernel, Cognitive Pathways & Daemons</i>"]
         providerApi["spector-provider-api<br/><i>Provider SPI</i>"]
         providers["spector-providers<br/><i>AI Providers (Ollama, OpenAI, ONNX)</i>"]
         ingestion["spector-ingestion<br/><i>File & sensory ingest pipeline</i>"]
@@ -115,7 +115,7 @@ graph TD
     mcp --> memory
     synapseapp --> memory
 
-    memory --> recall["Recall Pipeline<br/><i>Dense + Sparse + Graph + Metamemory</i>"]
+    memory --> recall["Recall Pathway<br/><i>Dense + Sparse + Graph + Metamemory</i>"]
     memory --> daemons["Consolidation Daemons<br/><i>Eager, Synaptic, Circadian</i>"]
     memory --> storage["Bundle Kernel<br/><i>Off-Heap Memory Mapped</i>"]
 ```
@@ -144,7 +144,7 @@ graph TD
 | Module | Description |
 |:---|:---|
 | [spector-kernel](spector-kernel.md) | Sealed off-heap memory-mapped kernel — Java 25 Panama FFM, bundle containers, memory shapes, zero-GC |
-| [spector-memory](spector-memory.md) | Flagship cognitive memory engine — 4-tier memory, recall pipeline, consolidation daemons |
+| [spector-memory](spector-memory.md) | Flagship cognitive memory engine — 4-tier memory, cognitive pathways (Remember, Recall, Reflect), consolidation daemons |
 | [spector-provider-api](spector-provider-api.md) | Model-agnostic LLM and embedding provider SPI |
 | [spector-providers](spector-providers.md) | Out-of-the-box LLM/embedding providers (Ollama, OpenAI, Google, Anthropic, ONNX) |
 | [spector-ingestion](spector-ingestion.md) | Unified ingestion pipeline — chunking, sensory extractors (PDF, audio, images), metadata extraction |

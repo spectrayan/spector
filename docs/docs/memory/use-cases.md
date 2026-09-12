@@ -27,7 +27,7 @@ Practical recipes for configuring Spector Memory across real-world scenarios. Ea
 
 **Scenario:** A user journals daily. The assistant should remember preferences, recall emotional memories when appropriate, and let transient details fade naturally.
 
-### Ingestion
+### Remember Pathway
 
 ```java
 // Important life event — high arousal ensures slow decay
@@ -51,7 +51,7 @@ memory.remember("mem-daughter-bday", "Daughter Emma's birthday is March 15",
     "family", "emma", "birthday");
 ```
 
-### Recall: "Tell me about happy times"
+### Recall Pathway: "Tell me about happy times"
 
 **Java API:**
 
