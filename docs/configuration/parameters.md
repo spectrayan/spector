@@ -1,16 +1,63 @@
-# ⚙️ Configuration Guide
+# 🎛️ Engine & Algorithmic Tuning
 
-> **Every knob, dial, and lever in Spector — with sensible defaults and expert tuning advice.** Whether you're optimizing for recall, latency, throughput, or memory, this page has you covered.
+> **Deep tuning guide for Spector's programmatic Java engine, HNSW graph parameters, quantization profiles, and hybrid search weights.** Learn how to optimize for recall, latency, throughput, or memory footprint using the `SpectorConfig` builder API.
+
+<div class="grid cards" markdown>
+
+-   :material-layers-outline: **Configuration Architecture**
+
+    ---
+
+    6-layer resolution hierarchy, precedence order, and profile mechanism.
+
+    [View Architecture Guide ↗](index.md){ .md-button }
+
+-   :material-file-document-outline: **spector.yml Master Reference**
+
+    ---
+
+    Exhaustive dictionary of all 32 configuration domains and 150+ YAML keys.
+
+    [Explore spector.yml ↗](spector-yml.md){ .md-button }
+
+-   :material-variable: **Environment Variables & Secrets**
+
+    ---
+
+    Canonical screaming snake_case mappings, short aliases, and Docker secrets.
+
+    [Browse Environment Guide ↗](environment-variables.md){ .md-button }
+
+-   :material-cloud-outline: **Deployment & Cloud Config**
+
+    ---
+
+    Docker container matrices, Helm `values.yaml`, and multi-cloud Terraform modules.
+
+    [View Cloud Config ↗](deployment-config.md){ .md-button }
+
+-   :material-api: **REST API & Runtime Parameters**
+
+    ---
+
+    Complete request schemas, headers, query parameters, and cognitive modifiers.
+
+    [Explore API Parameters ↗](api-parameters.md){ .md-button }
+
+</div>
 
 ---
 
-## 🎯 Core Parameters
+## 🎯 Programmatic Core Parameters
+
+When initializing Spector via the Java API, `SpectorConfig` provides the foundational builder for vector memory:
 
 | Parameter | Default | Range | Description |
-|-----------|---------|-------|-------------|
-| `dimensions` | 384 | 1–2048 | Vector dimensionality (must match your embedding model) |
+|:---|:---|:---|:---|
+| `dimensions` | 384 | 1–4096 | Vector dimensionality (must match your embedding model) |
 | `capacity` | 100,000 | 1–10,000,000 | Maximum document count |
 | `similarityFunction` | COSINE | COSINE, DOT_PRODUCT, EUCLIDEAN | Distance metric |
+
 
 > [!TIP]
 > **Quick model reference:**

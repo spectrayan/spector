@@ -1411,6 +1411,113 @@ code, kbd, pre, samp, .highlight, .md-typeset code {
   text-align: center;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Universal Table Formatting & Responsiveness Overhaul
+   ═══════════════════════════════════════════════════════════════ */
+
+.md-typeset table:not([class]) {
+  display: table;
+  width: 100%;
+  max-width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  margin: 1.5em 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  border: 1px solid var(--md-default-fg-color--lightest, #e2e8f0);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+/* Ensure horizontal scroll on mobile viewports */
+@media screen and (max-width: 60em) {
+  .md-typeset table:not([class]) {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+}
+
+.md-typeset table:not([class]) th {
+  background: var(--md-default-bg-color--light, #f8fafc);
+  color: var(--md-default-fg-color, #0f172a);
+  font-weight: 600;
+  font-size: 0.80rem;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  padding: 0.85em 1.1em;
+  border-bottom: 2px solid rgba(0, 210, 255, 0.45); /* Spectrayan cyan accent line */
+  text-align: left;
+  white-space: nowrap;
+}
+
+.md-typeset table:not([class]) td {
+  padding: 0.75em 1.1em;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest, #f1f5f9);
+  vertical-align: top;
+  color: var(--md-default-fg-color--dark, #334155);
+}
+
+.md-typeset table:not([class]) tr:last-child td {
+  border-bottom: none;
+}
+
+/* Zebra striping */
+.md-typeset table:not([class]) tbody tr:nth-child(even) {
+  background: rgba(0, 210, 255, 0.02);
+}
+
+/* Interactive row hover highlight */
+.md-typeset table:not([class]) tbody tr:hover {
+  background: rgba(0, 210, 255, 0.06);
+  transition: background 0.15s ease-in-out;
+}
+
+/* Inline code badges in tables */
+.md-typeset table:not([class]) code {
+  font-size: 0.78rem;
+  padding: 0.18em 0.45em;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+  word-break: break-word;
+  white-space: normal;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Dark mode (Slate) adjustments */
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) {
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) th {
+  background: #111624;
+  color: #f1f5f9;
+  border-bottom: 2px solid rgba(0, 210, 255, 0.4);
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.018);
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) tbody tr:hover {
+  background: rgba(0, 210, 255, 0.08);
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) code {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #38bdf8;
+}
+
+
 
 
 

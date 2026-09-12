@@ -139,7 +139,13 @@ nav:
       - REST API: api-reference/rest-endpoints.md
       - "API Playground": api-reference/playground.md
       - Error Codes: api-reference/error-codes.md
-      - Configuration: configuration/parameters.md
+      - Configuration:
+          - Overview & Precedence: configuration/index.md
+          - spector.yml Reference: configuration/spector-yml.md
+          - Environment Variables & Secrets: configuration/environment-variables.md
+          - Deployment & Cloud Config: configuration/deployment-config.md
+          - REST API & Runtime Parameters: configuration/api-parameters.md
+          - Engine & Algorithmic Tuning: configuration/parameters.md
       - Deployment:
           - Docker & Compose: deployment/docker.md
           - Kubernetes & Helm: deployment/helm.md
