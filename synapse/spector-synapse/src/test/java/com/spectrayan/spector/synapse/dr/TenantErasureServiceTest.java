@@ -71,7 +71,10 @@ class TenantErasureServiceTest {
                 s3Client,
                 BUCKET,
                 remembererDir,
-                dispatchedReplicas::add
+                ns -> {
+                    dispatchedReplicas.add(ns);
+                    return ReplicaErasureDispatcher.ReplicaErasureResult.success(1);
+                }
         );
     }
 
@@ -150,6 +153,59 @@ class TenantErasureServiceTest {
 
         assertThat(report.uninspectedClasses())
                 .as("Report must name the classes of data not inspected")
-                .contains("ownerless_namespaces", "untenanted_account_namespaces");
+                .contains("ownerless_namespaces", "untenanted_account_namespaces", "cold_tier_objects");
+    }
+
+    @Test
+    @DisplayName("G24: Unresolvable namespace fails closed with IllegalStateException")
+    void testUnresolvableNamespaceFailsClosed() {
+        assertThatThrownBy(() -> erasureService.eraseNamespace("acc-unknown", "ghost-ns", true, "admin"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Cannot verify legal hold for unresolvable namespace");
+    }
+
+    @Test
+    @DisplayName("G24: Legal hold blocks deletion before any disk files or cloud keys are touched")
+    void testLegalHoldBlocksBeforeAnyFileDeleted() throws IOException {
+        String accountId = "acc-legal-protected";
+        catalog.getOrCreateAccount(accountId);
+        NamespaceRecord ns = catalog.createNamespace(accountId, "protected-vault", NamespaceType.PROJECT);
+        catalog.setLegalHold(accountId, "protected-vault", true);
+
+        Path nsDiskDir = remembererDir.resolve("namespaces").resolve(ns.namespaceId());
+        Files.createDirectories(nsDiskDir);
+        Path testFile = nsDiskDir.resolve("important.data");
+        Files.writeString(testFile, "vital evidence");
+
+        String s3Key = "snapshots/" + accountId + "/" + ns.namespaceId() + "/manifest.json";
+        s3Client.putObject(BUCKET, s3Key, "manifest".getBytes(StandardCharsets.UTF_8), null, null);
+
+        assertThatThrownBy(() -> erasureService.eraseNamespace(accountId, "protected-vault", true, "auditor"))
+                .isInstanceOf(NamespaceLegalHoldException.class);
+
+        // Disk files and S3 keys MUST be untouched
+        assertThat(Files.exists(testFile)).isTrue();
+        assertThat(s3Client.getObject(BUCKET, s3Key)).isPresent();
+    }
+
+    @Test
+    @DisplayName("G37: Replica erasure returns structured acknowledgments and records unreachable replicas")
+    void testReplicaErasureRecordsAcksAndFailures() {
+        String accountId = "acc-replica-acks";
+        catalog.getOrCreateAccount(accountId);
+        catalog.createNamespace(accountId, "replica-ns", NamespaceType.PROJECT);
+
+        TenantErasureService customService = new TenantErasureService(
+                catalog,
+                s3Client,
+                BUCKET,
+                remembererDir,
+                ns -> ReplicaErasureDispatcher.ReplicaErasureResult.failed(2, List.of("node-3:9090"))
+        );
+
+        ErasureAuditReport report = customService.eraseNamespace(accountId, "replica-ns", true, "compliance-lead");
+        assertThat(report.replicaPropagationDispatched()).isTrue();
+        assertThat(report.replicaAcks()).isEqualTo(2);
+        assertThat(report.unreachableReplicas()).containsExactly("node-3:9090");
     }
 }
