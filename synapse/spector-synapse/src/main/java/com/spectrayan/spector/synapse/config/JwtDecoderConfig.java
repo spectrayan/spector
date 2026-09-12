@@ -141,6 +141,12 @@ public class JwtDecoderConfig {
     private static final String SCOPE_PREFIX = "SCOPE_";
     private static final String ROLE_PREFIX = "ROLE_";
 
+    @Bean
+    @ConditionalOnProperty(name = "spector.auth.enabled", havingValue = "true")
+    AuthProperties authProperties(SynapseProperties properties) {
+        return properties.auth();
+    }
+
     /**
      * Server-issued HS256 {@link JwtDecoder}.
      *
