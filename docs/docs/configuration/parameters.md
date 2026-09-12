@@ -217,8 +217,13 @@ SPECTOR_API_KEY=my-secret-key mvn -Psynapse -pl synapse/spector-synapse spring-b
 
 | Parameter | Default | Range | Description |
 |-----------|---------|-------|-------------|
-| `spector.namespace.tenant-rooted.enabled` | `false` | true/false | Enables tenant-rooted namespace sharding layout (`tenants/XX/YY/tenantId/namespaces/ZZ/WW/namespaceId`) for tenanted accounts (ADR-0033). When `false` (default), all namespaces resolve to the legacy flat sharded path (`namespaces/XX/YY/namespaceId`). |
+| `spector.namespace.tenant-rooted.enabled` | `true` | true/false | Enables tenant-rooted namespace sharding layout (`tenants/XX/YY/tenantId/namespaces/ZZ/WW/namespaceId`) for tenanted accounts (ADR-0033). Untenanted accounts (`tenantId == null`) always resolve to legacy flat sharded path (`namespaces/XX/YY/namespaceId`). |
 | `spector.namespace.dual-read.enabled` | `true` | true/false | Enables dual-read fallback from layout B (tenant-rooted) to layout A (flat) during migration window (Req R5.3). Never dual-writes (I6). Fallbacks increment `spector.namespace.layout.fallback`. |
+
+> [!NOTE]
+> **Data Plane vs. Identity Plane Root Distinction**:
+> - `spector.data-dir`: The node-level data directory holding `db/synapse.mv.db` (catalog) and `identity/` (character-prefix sharded soul & salience bundles per ADR-0029 §23).
+> - `spector.memory.persistence-path` (or `persistence-path`): The rememberer persistence root (defaults to `${spector.data-dir}/cognitive` in Synapse, or `.spector/memory` in embedded kernel). All data plane rememberers (`NamespacePathResolver`) resolve relative to this directory.
 
 ### Retrieval Stack Parameters
 
