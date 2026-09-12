@@ -77,19 +77,30 @@ The official [`deploy/docker/Dockerfile`](https://github.com/spectrayan/spector/
 
 ### Building Locally
 
+**Option A: Multi-Stage Build (Zero host toolchains)**
 ```bash
 docker build -t spector:local -f deploy/docker/Dockerfile .
+```
+
+**Option B: Host-Assisted Build (Fast 5-second packaging)**
+When you have built the Java JAR (`mvn package -DskipTests`) and Cortex UI (`npm run build`):
+```bash
+docker build -t spector:local -f deploy/docker/Dockerfile.synapse-local .
 ```
 
 Run the locally built image:
 ```bash
 docker run -d \
   --name spector \
-  -p 7070:7070 \
   -p 7700:8080 \
+  -p 7070:7070 \
+  -p 9090:9090 \
   -v spector-data:/data \
   spector:local
 ```
+- **Port `7700`**: Cortex Neural UI (reverse proxied via internal Nginx `8080`)
+- **Port `7070`**: Synapse REST API, MCP tools, and Actuator health check
+- **Port `9090`**: Internal node-to-node replication plane (mTLS 1.3)
 
 ---
 

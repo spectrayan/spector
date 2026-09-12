@@ -26,20 +26,30 @@ Spector includes modular Terraform packages located in [`deploy/terraform/module
 
 ## 1. AWS ECS Fargate Module
 
-Provisions an ECS Fargate cluster, task definition, and Amazon EFS filesystem for persistent memory storage:
+Provisions an ECS Fargate service and task definition mounted to Amazon EFS:
 
 ```hcl
 module "spector_aws" {
   source = "github.com/spectrayan/spector//deploy/terraform/modules/aws-ecs"
 
-  environment        = "production"
-  vpc_id             = "vpc-0123456789abcdef0"
-  subnet_ids         = ["subnet-0123", "subnet-0456"]
-  cpu                = 2048   # 2 vCPU
-  memory             = 4096   # 4 GB RAM
-  image              = "ghcr.io/spectrayan/spector:latest"
-  storage_size_gb    = 50
-  enable_efs_backup  = true
+  name                = "spector-prod"
+  aws_region          = "us-east-1"
+  cluster_id          = aws_ecs_cluster.main.id
+  subnets             = module.vpc.private_subnets
+  security_groups     = [aws_security_group.spector.id]
+  execution_role_arn  = aws_iam_role.ecs_execution.arn
+  task_role_arn       = aws_iam_role.ecs_task.arn
+  efs_file_system_id  = aws_efs_file_system.spector.id
+  efs_access_point_id = aws_efs_access_point.spector.id
+
+  # Provider configuration (optional — defaults to Ollama)
+  embedding_provider  = "openai"
+  embedding_model     = "text-embedding-3-small"
+  embedding_api_key   = var.openai_api_key
+  dimensions          = 1536
+  generation_provider = "openai"
+  generation_model    = "gpt-4o-mini"
+  generation_api_key  = var.openai_api_key
 }
 
 output "spector_endpoint" {
@@ -57,13 +67,9 @@ Provisions a Cloud Run v2 service mounting a persistent Cloud Storage bucket via
 module "spector_gcp" {
   source = "github.com/spectrayan/spector//deploy/terraform/modules/gcp-cloudrun"
 
-  project_id  = "my-gcp-project"
-  region      = "us-central1"
-  service_name = "spector-prod"
-  image       = "ghcr.io/spectrayan/spector:latest"
-  memory      = "4Gi"
-  cpu         = "2"
-  bucket_name = "spector-persistent-storage-prod"
+  name            = "spector-prod"
+  region          = "us-central1"
+  gcs_bucket_name = google_storage_bucket.spector_data.name
 }
 
 output "spector_url" {
@@ -75,19 +81,16 @@ output "spector_url" {
 
 ## 3. Azure Container Apps Module
 
-Provisions an Azure Container Apps environment with an Azure Storage account and file share:
+Provisions an Azure Container App mounting Azure Files storage:
 
 ```hcl
 module "spector_azure" {
   source = "github.com/spectrayan/spector//deploy/terraform/modules/azure-aca"
 
-  resource_group_name = "rg-spector-prod"
-  location            = "eastus"
-  app_name            = "spector-prod"
-  image               = "ghcr.io/spectrayan/spector:latest"
-  cpu                 = 2.0
-  memory              = "4.0Gi"
-  storage_share_name  = "spector-share"
+  name                         = "spector-prod"
+  resource_group_name          = azurerm_resource_group.main.name
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  storage_name                 = "spectorfiles"
 }
 
 output "spector_fqdn" {
