@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spector-ring-{{ include "spector.cellId" . }}
+  labels:
+    {{- include "spector.labels" . | nindent 4 }}
+    app.kubernetes.io/component: control-store
+data:
+  cell-id: {{ include "spector.cellId" . | quote }}
+  ring-version: "1"
+  members: |
+    # Initial seed members for cell ring topology

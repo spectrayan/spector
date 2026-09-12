@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "spector.owner.fullname" . }}-headless
+  labels:
+    {{- include "spector.labels" . | nindent 4 }}
+    app.kubernetes.io/component: owner
+spec:
+  clusterIP: None
+  ports:
+    - port: 7070
+      targetPort: 7070
+      protocol: TCP
+      name: api
+    - port: 9090
+      targetPort: 9090
+      protocol: TCP
+      name: replication
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: dashboard
+  selector:
+    {{- include "spector.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: owner

@@ -17,3 +17,4 @@ spec:
       name: api
   selector:
     {{- include "spector.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ if eq (default "split" .Values.topology.mode) "single-role" }}owner{{ else }}gateway{{ end }}
