@@ -204,8 +204,12 @@ class VideoIngestionE2ETest {
     // ══════════════════════════════════════════════════════════════
 
     private static boolean checkFfmpeg() {
+        String ffmpeg = findFfmpegBinary();
+        if (ffmpeg == null) {
+            return false;
+        }
         try {
-            Process p = new ProcessBuilder("ffmpeg", "-version")
+            Process p = new ProcessBuilder(ffmpeg, "-version")
                     .redirectErrorStream(true)
                     .start();
             int exit = p.waitFor();
@@ -213,6 +217,15 @@ class VideoIngestionE2ETest {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private static String findFfmpegBinary() {
+        for (String candidate : List.of("/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/opt/homebrew/bin/ffmpeg")) {
+            if (Files.isExecutable(Path.of(candidate))) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private static Path resolveTestResource(String relativePath) {

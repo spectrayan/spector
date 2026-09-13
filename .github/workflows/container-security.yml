@@ -57,7 +57,8 @@ jobs:
         with:
           image-ref: 'spector:scan-target'
           format: 'table'
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          ignore-unfixed: true
           exit-code: '0'
 
       - name: Generate Trivy SARIF Report
@@ -66,7 +67,8 @@ jobs:
           image-ref: 'spector:scan-target'
           format: 'sarif'
           output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          ignore-unfixed: true
 
       - name: Upload SARIF to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v4

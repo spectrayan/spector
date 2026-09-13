@@ -44,13 +44,14 @@ LABEL org.opencontainers.image.url="https://github.com/spectrayan/spector"
 LABEL org.opencontainers.image.source="https://github.com/spectrayan/spector"
 LABEL org.opencontainers.image.licenses="Apache-2.0 AND BSL-1.1"
 
-# Install Nginx, tini, and network utilities
+# Install Nginx, tini, and network utilities, and upgrade packages with known vulnerabilities
 RUN apt-get update && apt-get install -y --no-install-recommends \
     nginx \
     tini \
     curl \
     wget \
     ca-certificates \
+    && apt-get --only-upgrade install -y perl-base \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user spector (UID/GID 1000) and purge unused pebble binary

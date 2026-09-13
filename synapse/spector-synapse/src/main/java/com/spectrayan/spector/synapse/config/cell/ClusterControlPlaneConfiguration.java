@@ -32,8 +32,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.core.type.AnnotatedTypeMetadata;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
+import java.util.EnumSet;
 
 /**
  * Spring configuration wiring the cluster control plane foundation (G0, ADR-0034).
@@ -91,12 +96,36 @@ public class ClusterControlPlaneConfiguration {
         if (filePathStr != null && !filePathStr.isBlank()) {
             stateFile = Path.of(filePathStr);
         } else {
-            Path root = properties != null ? properties.remembererRoot() : Path.of(System.getProperty("java.io.tmpdir"));
-            stateFile = root.resolve(".control_store").resolve("control_state.json");
+            stateFile = resolveSecureControlStateFile(properties);
         }
 
         log.info("[ClusterControlPlaneConfiguration] Initializing FileControlStore at {}", stateFile);
         return new FileControlStore(stateFile);
+    }
+
+    private static Path resolveSecureControlStateFile(SynapseProperties properties) {
+        if (properties != null && properties.remembererRoot() != null) {
+            return properties.remembererRoot().resolve(".control_store").resolve("control_state.json");
+        }
+        try {
+            Path tempDir = Path.of(System.getProperty("java.io.tmpdir")).resolve(".control_store");
+            if (tempDir.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+                var posixAttrs = PosixFilePermissions.asFileAttribute(
+                        EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
+                if (!Files.exists(tempDir)) {
+                    Files.createDirectories(tempDir, posixAttrs);
+                } else {
+                    Files.setPosixFilePermissions(tempDir,
+                            EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
+                }
+            } else if (!Files.exists(tempDir)) {
+                Files.createDirectories(tempDir);
+            }
+            return tempDir.resolve("control_state.json");
+        } catch (IOException e) {
+            log.warn("[ClusterControlPlaneConfiguration] Could not set secure POSIX permissions on control store directory: {}", e.getMessage());
+            return Path.of(System.getProperty("java.io.tmpdir")).resolve(".control_store").resolve("control_state.json");
+        }
     }
 
     @Bean(initMethod = "start", destroyMethod = "close")
