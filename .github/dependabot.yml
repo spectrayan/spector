@@ -29,3 +29,34 @@ updates:
     labels:
       - "dependencies"
       - "ci"
+
+  - package-ecosystem: "npm"
+    directory: "/cortex/spector-cortex"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "npm"
+      - "cortex"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "npm"
+    directory: "/plugins/openclaw"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "npm"
+      - "openclaw"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "npm"
+    directory: "/sdks/typescript/spector-client"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "npm"
+      - "client"
+    open-pull-requests-limit: 5
+

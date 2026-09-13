@@ -21,7 +21,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20, 22]
+        node-version: [24, 26]
 
     steps:
       - uses: actions/checkout@v7
@@ -42,7 +42,8 @@ jobs:
       - name: Build
         run: npm run build
 
-      # TODO: add 'npm test' step once test files exist
+      - name: Run tests
+        run: npm test
 
   publish:
     name: Publish to npm
@@ -60,7 +61,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies

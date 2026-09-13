@@ -15,8 +15,8 @@ import {
   readdirSync,
   chmodSync,
 } from "node:fs";
-import { join } from "node:path";
-import { execSync } from "node:child_process";
+import { join, basename, resolve } from "node:path";
+import { spawnSync, execFileSync } from "node:child_process";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { SpectorPaths } from "./config.js";
@@ -134,14 +134,15 @@ export async function ensureJava(
  * Detect the major Java version from a java binary.
  * Returns 0 if detection fails.
  */
-function detectVersion(javaBin: string): number {
+export function detectVersion(javaBin: string): number {
   try {
-    const output = execSync(`"${javaBin}" -version 2>&1`, {
+    const result = spawnSync(javaBin, ["-version"], {
       encoding: "utf-8",
       timeout: 10_000,
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: ["ignore", "pipe", "pipe"],
     });
 
+    const output = `${result.stdout || ""} ${result.stderr || ""}`;
     // Parse version from output like: openjdk version "25" or "25.0.1"
     const match = output.match(/version\s+"?(\d+)/);
     if (match) {
@@ -269,8 +270,20 @@ async function downloadTemurin(
   }
 
   const downloadUrl = assets[0].binary.package.link;
-  const fileName = assets[0].binary.package.name;
+  const rawFileName = assets[0].binary.package.name;
   const fileSize = assets[0].binary.package.size;
+
+  // Strict validation of the remote archive file name to prevent path traversal and shell injection
+  const fileName = basename(rawFileName);
+  if (
+    !fileName ||
+    fileName !== rawFileName ||
+    !/^[a-zA-Z0-9_\-+.]+\.(tar\.gz|zip)$/.test(fileName)
+  ) {
+    throw new Error(
+      `Refusing to process unsafe or unrecognized archive filename from Adoptium: ${rawFileName}`
+    );
+  }
 
   log(
     `[Spector] Downloading ${fileName} (${(fileSize / 1024 / 1024).toFixed(0)} MB)...`
@@ -281,8 +294,12 @@ async function downloadTemurin(
     throw new Error(`JDK download failed: HTTP ${downloadResponse.status}`);
   }
 
-  // Save archive to temp location
-  const archivePath = join(jdkDir, fileName);
+  // Save archive to temp location inside jdkDir
+  const archivePath = resolve(jdkDir, fileName);
+  if (!archivePath.startsWith(resolve(jdkDir))) {
+    throw new Error(`Invalid archive path resolution: ${archivePath}`);
+  }
+
   const fileStream = createWriteStream(archivePath);
   const readable = Readable.fromWeb(
     downloadResponse.body as import("node:stream/web").ReadableStream
@@ -291,17 +308,29 @@ async function downloadTemurin(
 
   log("[Spector] Extracting JDK...");
 
-  // Extract based on platform
+  // Extract based on platform using safe argument arrays (no shell interpretation)
   if (ext === "zip") {
-    // Windows: use PowerShell to extract
-    execSync(
-      `powershell -Command "Expand-Archive -Path '${archivePath}' -DestinationPath '${jdkDir}' -Force"`,
-      { timeout: 120_000 }
+    // Windows: use PowerShell with argument array (avoids shell string interpolation)
+    execFileSync(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "Expand-Archive",
+        "-Path",
+        archivePath,
+        "-DestinationPath",
+        jdkDir,
+        "-Force",
+      ],
+      { timeout: 120_000, stdio: "ignore" }
     );
   } else {
-    // Linux/macOS: use tar
-    execSync(`tar -xzf "${archivePath}" -C "${jdkDir}"`, {
+    // Linux/macOS: use tar with argument array (avoids shell string interpolation)
+    execFileSync("tar", ["-xzf", archivePath, "-C", jdkDir], {
       timeout: 120_000,
+      stdio: "ignore",
     });
   }
 

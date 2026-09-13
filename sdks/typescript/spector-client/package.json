@@ -48,5 +48,8 @@
     "@types/node": "^20.14.0",
     "tsup": "^8.1.0",
     "typescript": "^5.5.4"
+  },
+  "overrides": {
+    "esbuild": "^0.28.1"
   }
 }
