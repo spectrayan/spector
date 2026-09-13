@@ -306,6 +306,29 @@
             <scope>runtime</scope>
         </dependency>
 
+
+        <!-- ── Phileas (embedded PII/PHI identifier filters; no Ph-Eye egress) ── -->
+        <dependency>
+            <groupId>ai.philterd</groupId>
+            <artifactId>phileas</artifactId>
+            <exclusions>
+                <!-- Spring Boot uses Logback; bridge Log4j API via log4j-to-slf4j -->
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-core</artifactId>
+                </exclusion>
+                <!-- PDF redaction unused; keep Spector-managed pdfbox -->
+                <exclusion>
+                    <groupId>org.apache.pdfbox</groupId>
+                    <artifactId>pdfbox</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.pdfbox</groupId>
+                    <artifactId>pdfbox-io</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <!-- ── Test ── -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
