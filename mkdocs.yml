@@ -273,6 +273,7 @@ nav:
   - Community:
       - Contributing: operations/contributing.md
       - FAQ: faq.md
+      - Glossary: glossary.md
       - Roadmap: roadmap.md
       - "🔬 Labs":
           - labs/index.md
