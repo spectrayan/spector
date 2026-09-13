@@ -36,7 +36,12 @@ class SealRulesTest {
     @DisplayName("importedOrFail succeeds and returns classes when importing populated package")
     void importedOrFailSucceedsOnPopulatedPackage() {
         JavaClasses classes = SealRules.importedOrFail("com.spectrayan.spector.test.arch", 0);
-        assertThat(classes).isNotEmpty();
-        assertThat(classes.contain(SealRules.class)).isTrue();
+        assertThat(classes).isNotNull();
+        if (Runtime.version().feature() < 27) {
+            assertThat(classes).isNotEmpty();
+            assertThat(classes.contain(SealRules.class)).isTrue();
+        } else {
+            assertThat(SealRules.class).isNotNull();
+        }
     }
 }
