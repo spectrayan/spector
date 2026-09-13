@@ -45,17 +45,39 @@ import com.spectrayan.spector.commons.ParseUtils;
  * <h3>Configuration Properties</h3>
  * <ul>
  *   <li>{@code timeout} — request timeout in seconds (default: 30 for embed, 60 for gen)</li>
- *   <li>{@code deploymentName} — Azure deployment name (required, defaults to model name)</li>
- *   <li>{@code temperature} — sampling temperature (optional)</li>
- *   <li>{@code maxTokens} — maximum output tokens (optional)</li>
+ *   <li>{@code deploymentName} — Azure deployment name (defaults to the model name)</li>
+ *   <li>{@code temperature} — sampling temperature (optional, generation only)</li>
+ *   <li>{@code maxTokens} — maximum output tokens (optional, generation only)</li>
+ *   <li>{@code proxyHost} / {@code proxyPort} — HTTP proxy (optional; ignored if the port is not a number)</li>
+ *   <li>{@code header.*} — custom request headers (optional)</li>
  * </ul>
+ *
+ * <h3>Authentication and Endpoint</h3>
+ * <p>The API key is taken from {@link ProviderConfig#apiKey()}. The endpoint is set from
+ * {@link ProviderConfig#baseUrl()} only when a base URL is configured; this factory defines
+ * no default endpoint. Unlike the other LangChain4j factories, it does not use
+ * {@link LangChain4jHelper#resolveHttpClient(ProviderConfig, Duration)}, so mTLS settings are
+ * not applied. This factory does not configure retries or fallback.</p>
+ *
+ * <h3>Embedding Dimensions</h3>
+ * <p>If {@link ProviderConfig#dimensions()} is positive it is sent to Azure and reported by the
+ * provider; otherwise the provider reports 1536 dimensions.</p>
  */
 public class AzureOpenAiProviderFactory extends AbstractProviderFactory {
 
+    /**
+     * Creates a factory without a cache manager; embedding providers are returned without caching.
+     */
     public AzureOpenAiProviderFactory() {
         super();
     }
 
+    /**
+     * Creates a factory with the given cache manager.
+     *
+     * @param cacheManager cache manager used to wrap created embedding providers with caching when
+     *                     caching is enabled in the provider configuration; may be {@code null}
+     */
     public AzureOpenAiProviderFactory(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
         super(cacheManager);
     }
@@ -65,6 +87,13 @@ public class AzureOpenAiProviderFactory extends AbstractProviderFactory {
     @Override public boolean supportsEmbedding() { return true; }
     @Override public boolean supportsGeneration() { return true; }
 
+    /**
+     * Creates an Azure OpenAI embedding provider.
+     *
+     * @param config provider configuration supplying the API key, deployment/model, endpoint,
+     *               optional dimensions, and the properties listed in the class documentation
+     * @return a provider wrapping an {@code AzureOpenAiEmbeddingModel}; never empty
+     */
     @Override
     protected Optional<EmbeddingProvider> createRawEmbeddingProvider(ProviderConfig config) {
         String deploymentName = config.property("deploymentName", config.model());
@@ -105,6 +134,13 @@ public class AzureOpenAiProviderFactory extends AbstractProviderFactory {
         return Optional.of(new LangChain4jEmbeddingAdapter(model, config.model(), dims));
     }
 
+    /**
+     * Creates an Azure OpenAI text-generation provider.
+     *
+     * @param config provider configuration supplying the API key, deployment/model, endpoint,
+     *               and the properties listed in the class documentation
+     * @return a provider wrapping an {@code AzureOpenAiChatModel}; never empty
+     */
     @Override
     public Optional<LlmProvider> createGenerationProvider(ProviderConfig config) {
         String deploymentName = config.property("deploymentName", config.model());

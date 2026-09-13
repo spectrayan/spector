@@ -29,6 +29,9 @@ import java.util.concurrent.Semaphore;
 
 /**
  * Text generation provider backed by a local Ollama server, utilizing LangChain4j and reusing the core adapter.
+ *
+ * <p>Generation requests are serialized by a fair single-permit gate, so only one request runs at a
+ * time per instance. No retries are configured on the underlying model.</p>
  */
 public class OllamaLlmProvider implements LlmProvider {
 
@@ -39,6 +42,14 @@ public class OllamaLlmProvider implements LlmProvider {
     private final LangChain4jGenerationAdapter adapter;
     private final Semaphore llmGate = new Semaphore(1, true);
 
+    /**
+     * Creates a provider for the given model and server.
+     *
+     * @param model   Ollama model name
+     * @param baseUrl Ollama server base URL
+     * @param timeout request timeout
+     * @throws NullPointerException if any argument is {@code null}
+     */
     public OllamaLlmProvider(String model, String baseUrl, Duration timeout) {
         this.model = Objects.requireNonNull(model, "model");
         this.baseUrl = Objects.requireNonNull(baseUrl, "baseUrl");
@@ -51,6 +62,12 @@ public class OllamaLlmProvider implements LlmProvider {
         this.adapter = new LangChain4jGenerationAdapter(delegate, model);
     }
 
+    /**
+     * Creates a provider for the given model at {@code http://localhost:11434} with a 60 second timeout.
+     *
+     * @param model Ollama model name
+     * @return a new provider
+     */
     public static OllamaLlmProvider create(String model) {
         return new OllamaLlmProvider(
                 model,
@@ -58,6 +75,13 @@ public class OllamaLlmProvider implements LlmProvider {
                 Duration.ofSeconds(60));
     }
 
+    /**
+     * Creates a provider for the given model and server with a 60 second timeout.
+     *
+     * @param model   Ollama model name
+     * @param baseUrl Ollama server base URL
+     * @return a new provider
+     */
     public static OllamaLlmProvider create(String model, String baseUrl) {
         return new OllamaLlmProvider(
                 model,
@@ -65,6 +89,11 @@ public class OllamaLlmProvider implements LlmProvider {
                 Duration.ofSeconds(60));
     }
 
+    /**
+     * Creates a provider for {@code qwen3:0.6b} at {@code http://localhost:11434} with a 60 second timeout.
+     *
+     * @return a new provider
+     */
     public static OllamaLlmProvider createDefault() {
         return new OllamaLlmProvider(
                 "qwen3:0.6b",
@@ -72,6 +101,16 @@ public class OllamaLlmProvider implements LlmProvider {
                 Duration.ofSeconds(60));
     }
 
+    /**
+     * Generates a response for the given request.
+     *
+     * @param request the generation request; must contain at least one message and no blank text content
+     * @param options generation options
+     * @return the model response
+     * @throws NullPointerException if {@code request} is {@code null}
+     * @throws GenerationException  if the request is invalid, the thread is interrupted while waiting,
+     *                              the server is unreachable, or generation fails
+     */
     @Override
     public LlmResponse generate(LlmRequest request, GenerationOptions options) {
         Objects.requireNonNull(request, "request must not be null");
@@ -136,6 +175,13 @@ public class OllamaLlmProvider implements LlmProvider {
         return model;
     }
 
+    /**
+     * Checks whether the Ollama server responds to {@code GET {baseUrl}/api/tags}.
+     *
+     * <p>Uses a 500 millisecond connect and request timeout.</p>
+     *
+     * @return {@code true} if the server returns a 2xx or 3xx status, {@code false} otherwise
+     */
     @Override
     public boolean isAvailable() {
         try {
@@ -154,6 +200,11 @@ public class OllamaLlmProvider implements LlmProvider {
         }
     }
 
+    /**
+     * Returns the underlying LangChain4j chat model.
+     *
+     * @return the underlying chat model
+     */
     public dev.langchain4j.model.chat.ChatModel delegate() {
         return delegate;
     }

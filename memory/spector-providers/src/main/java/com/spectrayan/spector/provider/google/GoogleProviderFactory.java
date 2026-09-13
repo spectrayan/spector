@@ -45,13 +45,37 @@ import com.spectrayan.spector.commons.ParseUtils;
  *   <li>{@code maxOutputTokens} — maximum output tokens (optional)</li>
  *   <li>{@code topP} — nucleus sampling probability (optional)</li>
  * </ul>
+ *
+ * <h3>Authentication and Endpoint</h3>
+ * <p>The API key is taken from {@link ProviderConfig#apiKey()} and the model from
+ * {@link ProviderConfig#model()}. {@link ProviderConfig#baseUrl()} is not applied by this
+ * factory, so the LangChain4j Google AI Gemini default endpoint is always used.</p>
+ *
+ * <h3>Networking</h3>
+ * <p>Proxy, mTLS, and HTTP client settings are applied via
+ * {@link LangChain4jHelper#resolveHttpClient(ProviderConfig, Duration)} for both embedding and
+ * generation. {@code header.*} custom headers are applied to generation only. This factory
+ * does not configure retries or fallback.</p>
+ *
+ * <h3>Embedding Dimensions</h3>
+ * <p>If {@link ProviderConfig#dimensions()} is positive it is used as the output
+ * dimensionality; otherwise 768 is requested.</p>
  */
 public class GoogleProviderFactory extends AbstractProviderFactory {
 
+    /**
+     * Creates a factory without a cache manager; embedding providers are returned without caching.
+     */
     public GoogleProviderFactory() {
         super();
     }
 
+    /**
+     * Creates a factory with the given cache manager.
+     *
+     * @param cacheManager cache manager used to wrap created embedding providers with caching when
+     *                     caching is enabled in the provider configuration; may be {@code null}
+     */
     public GoogleProviderFactory(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
         super(cacheManager);
     }
@@ -61,6 +85,13 @@ public class GoogleProviderFactory extends AbstractProviderFactory {
     @Override public boolean supportsEmbedding() { return true; }
     @Override public boolean supportsGeneration() { return true; }
 
+    /**
+     * Creates a Google Gemini embedding provider.
+     *
+     * @param config provider configuration supplying the API key, model, optional dimensions,
+     *               and the properties listed in the class documentation
+     * @return a provider wrapping a {@code GoogleAiEmbeddingModel}; never empty
+     */
     @Override
     protected Optional<EmbeddingProvider> createRawEmbeddingProvider(ProviderConfig config) {
         long timeoutSeconds = ParseUtils.parseLongOrDefault(config.property("timeout").orElse(null), 30L);
@@ -84,6 +115,13 @@ public class GoogleProviderFactory extends AbstractProviderFactory {
         return Optional.of(new LangChain4jEmbeddingAdapter(model, config.model(), dims));
     }
 
+    /**
+     * Creates a Google Gemini text-generation provider.
+     *
+     * @param config provider configuration supplying the API key, model, and the properties
+     *               listed in the class documentation
+     * @return a provider wrapping a {@code GoogleAiGeminiChatModel}; never empty
+     */
     @Override
     public Optional<LlmProvider> createGenerationProvider(ProviderConfig config) {
         long timeoutSeconds = ParseUtils.parseLongOrDefault(config.property("timeout").orElse(null), 60L);

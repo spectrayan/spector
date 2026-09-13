@@ -39,16 +39,34 @@ import com.spectrayan.spector.commons.ParseUtils;
  *   <li>{@code maxConcurrent} — max concurrent embedding requests (default: 0 = unlimited)</li>
  *   <li>{@code batchSize} — batch size for embedding requests (default: 32)</li>
  * </ul>
+ *
+ * <h3>Endpoint</h3>
+ * <p>Requests go to {@link ProviderConfig#baseUrl()} when set, otherwise to the default
+ * {@code http://localhost:11434} from {@link EmbeddingConfig#OLLAMA_DEFAULT}. Proxy, mTLS, and
+ * {@code header.*} properties are not applied by this factory.</p>
+ *
+ * <h3>Retries and Concurrency</h3>
+ * <p>The embedding model is configured with up to 3 retries. The generation provider does not
+ * configure retries and serializes requests so that only one runs at a time.</p>
  */
 public class OllamaProviderFactory extends AbstractProviderFactory {
 
     /** Default Ollama base URL. */
     private static final String DEFAULT_BASE_URL = EmbeddingConfig.OLLAMA_DEFAULT.baseUrl();
 
+    /**
+     * Creates a factory without a cache manager; embedding providers are returned without caching.
+     */
     public OllamaProviderFactory() {
         super();
     }
 
+    /**
+     * Creates a factory with the given cache manager.
+     *
+     * @param cacheManager cache manager used to wrap created embedding providers with caching when
+     *                     caching is enabled in the provider configuration; may be {@code null}
+     */
     public OllamaProviderFactory(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
         super(cacheManager);
     }
@@ -73,6 +91,13 @@ public class OllamaProviderFactory extends AbstractProviderFactory {
         return true;
     }
 
+    /**
+     * Creates an Ollama embedding provider.
+     *
+     * @param config provider configuration supplying the model, optional base URL, and the
+     *               {@code timeout}, {@code maxConcurrent}, and {@code batchSize} properties
+     * @return an {@link OllamaEmbeddingProvider}; never empty
+     */
     @Override
     protected Optional<EmbeddingProvider> createRawEmbeddingProvider(ProviderConfig config) {
         String baseUrl = config.hasBaseUrl() ? config.baseUrl() : DEFAULT_BASE_URL;
@@ -91,6 +116,13 @@ public class OllamaProviderFactory extends AbstractProviderFactory {
         return Optional.of(new OllamaEmbeddingProvider(embeddingConfig));
     }
 
+    /**
+     * Creates an Ollama text-generation provider.
+     *
+     * @param config provider configuration supplying the model, optional base URL, and the
+     *               {@code timeout} property
+     * @return an {@link OllamaLlmProvider}; never empty
+     */
     @Override
     public Optional<LlmProvider> createGenerationProvider(ProviderConfig config) {
         String baseUrl = config.hasBaseUrl() ? config.baseUrl() : DEFAULT_BASE_URL;

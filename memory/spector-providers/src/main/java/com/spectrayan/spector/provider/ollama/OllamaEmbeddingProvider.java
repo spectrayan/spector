@@ -30,6 +30,11 @@ import java.util.concurrent.Semaphore;
 
 /**
  * Embedding provider backed by a local Ollama server, reusing the core LangChain4j embedding adapter.
+ *
+ * <p>The underlying LangChain4j model uses the configured timeout (3 minutes if the config has
+ * none) and up to 3 retries. When {@link EmbeddingConfig#maxConcurrent()} is positive, concurrent
+ * {@link #embed(String)} and {@link #embedBatch(List)} calls are limited to that number.
+ * Vector dimensions are learned from the first successful response.</p>
  */
 public class OllamaEmbeddingProvider implements EmbeddingProvider {
 
@@ -39,6 +44,12 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
     private final Semaphore concurrencyLimiter;
     private volatile int cachedDimensions = -1;
 
+    /**
+     * Creates a provider from the given embedding configuration.
+     *
+     * @param config configuration supplying the model, base URL, timeout, and maximum concurrency
+     * @throws NullPointerException if {@code config} is {@code null}
+     */
     public OllamaEmbeddingProvider(EmbeddingConfig config) {
         this.config = Objects.requireNonNull(config, "config");
         Duration timeout = config.timeout() != null ? config.timeout() : Duration.ofMinutes(3);
@@ -55,18 +66,43 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
                 : null;
     }
 
+    /**
+     * Creates a provider for the given model using the defaults from {@link EmbeddingConfig#OLLAMA_DEFAULT}.
+     *
+     * @param model Ollama embedding model name
+     * @return a new provider
+     */
     public static OllamaEmbeddingProvider create(String model) {
         return new OllamaEmbeddingProvider(EmbeddingConfig.ollama(model));
     }
 
+    /**
+     * Creates a provider using {@link EmbeddingConfig#OLLAMA_DEFAULT}
+     * ({@code nomic-embed-text} at {@code http://localhost:11434}, 30 second timeout).
+     *
+     * @return a new provider
+     */
     public static OllamaEmbeddingProvider createDefault() {
         return new OllamaEmbeddingProvider(EmbeddingConfig.OLLAMA_DEFAULT);
     }
 
+    /**
+     * Returns the configuration this provider was created with.
+     *
+     * @return the embedding configuration
+     */
     public EmbeddingConfig config() {
         return config;
     }
 
+    /**
+     * Embeds a single text.
+     *
+     * @param text the text to embed
+     * @return the embedding result
+     * @throws SpectorEmbeddingException if the text is null or blank, the thread is interrupted while
+     *                                   waiting for a concurrency permit, or the Ollama request fails
+     */
     @Override
     public EmbeddingResult embed(String text) {
         if (text == null || text.isBlank()) {
@@ -95,6 +131,15 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
         }
     }
 
+    /**
+     * Embeds a batch of texts in a single request.
+     *
+     * @param texts the texts to embed
+     * @return one result per input text, or an empty list if {@code texts} is empty
+     * @throws NullPointerException      if {@code texts} is {@code null}
+     * @throws SpectorEmbeddingException if the thread is interrupted while waiting for a concurrency
+     *                                   permit or the Ollama request fails
+     */
     @Override
     public List<EmbeddingResult> embedBatch(List<String> texts) {
         Objects.requireNonNull(texts, "texts must not be null");
@@ -126,6 +171,14 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
         }
     }
 
+    /**
+     * Returns the vector dimensions of this model.
+     *
+     * <p>If no embedding has been produced yet, this sends a probe request to the Ollama server.</p>
+     *
+     * @return the vector dimensions
+     * @throws SpectorEmbeddingException if the probe request fails
+     */
     @Override
     public int dimensions() {
         if (cachedDimensions > 0) {
