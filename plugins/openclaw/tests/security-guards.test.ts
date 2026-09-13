@@ -1,14 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { detectVersion } from "../src/jdk-manager.js";
 
 describe("OpenClaw Security Guards", () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = join(tmpdir(), `spector-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    testDir = join(process.cwd(), ".test-data", `sec-guard-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(testDir, { recursive: true });
   });
 

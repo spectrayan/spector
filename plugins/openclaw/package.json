@@ -42,7 +42,7 @@
     "url": "https://github.com/spectrayan/spector/issues"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.16.0 <25 || >=26.1.0"
   },
   "dependencies": {
     "openclaw": "^2026.0.0"
