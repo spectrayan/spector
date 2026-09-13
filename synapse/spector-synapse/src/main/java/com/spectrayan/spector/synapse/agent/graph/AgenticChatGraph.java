@@ -17,6 +17,9 @@ import com.spectrayan.spector.synapse.agent.ToolRegistry;
 import com.spectrayan.spector.synapse.bridge.LlmBridge;
 import com.spectrayan.spector.synapse.security.injection.InjectionInterceptor;
 import com.spectrayan.spector.synapse.security.injection.PromptInjectionException;
+import com.spectrayan.spector.synapse.security.pii.PiiInterceptor;
+import com.spectrayan.spector.synapse.security.pii.PiiRedactionResult;
+import com.spectrayan.spector.synapse.security.pii.PiiRedactionSession;
 
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
@@ -79,19 +82,29 @@ public class AgenticChatGraph {
     private final LlmBridge llmBridge;
     private final ToolRegistry toolRegistry;
     private final InjectionInterceptor injectionInterceptor;
+    private final PiiInterceptor piiInterceptor;
 
     public AgenticChatGraph(LlmBridge llmBridge, ToolRegistry toolRegistry) {
-        this(llmBridge, toolRegistry, null);
+        this(llmBridge, toolRegistry, null, null);
+    }
+
+    public AgenticChatGraph(LlmBridge llmBridge,
+                            ToolRegistry toolRegistry,
+                            InjectionInterceptor injectionInterceptor) {
+        this(llmBridge, toolRegistry, injectionInterceptor, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
     public AgenticChatGraph(LlmBridge llmBridge,
                             ToolRegistry toolRegistry,
                             @org.springframework.beans.factory.annotation.Autowired(required = false)
-                            InjectionInterceptor injectionInterceptor) {
+                            InjectionInterceptor injectionInterceptor,
+                            @org.springframework.beans.factory.annotation.Autowired(required = false)
+                            PiiInterceptor piiInterceptor) {
         this.llmBridge = llmBridge;
         this.toolRegistry = toolRegistry;
         this.injectionInterceptor = injectionInterceptor;
+        this.piiInterceptor = piiInterceptor;
     }
 
     /**
@@ -205,32 +218,51 @@ public class AgenticChatGraph {
                 }
             }
 
-            // Seed state with the history + user message
-            List<ChatMessage> initialMessages = new ArrayList<>(history);
-            initialMessages.add(UserMessage.from(safeMessage));
+            // PII redaction — mask before LLM context, rehydrate after response (#203)
+            PiiRedactionSession piiSession = null;
+            if (piiInterceptor != null && piiInterceptor.isActive()) {
+                PiiRedactionResult redacted = piiInterceptor.redact(safeMessage);
+                safeMessage = redacted.redactedText();
+                piiSession = redacted.session();
+                piiInterceptor.beginSession(piiSession);
+            }
 
-            Map<String, Object> input = Map.of(
-                    MESSAGES_KEY, initialMessages
-            );
+            try {
+                // Seed state with the history + user message
+                List<ChatMessage> initialMessages = new ArrayList<>(history);
+                initialMessages.add(UserMessage.from(safeMessage));
 
-            var result = compiled.invoke(input);
-            @SuppressWarnings("unchecked")
-            List<ChatMessage> messages = result.map(state ->
-                    state.<List<ChatMessage>>value(MESSAGES_KEY)
-                            .orElse(List.of()))
-                    .orElse(List.of());
+                Map<String, Object> input = Map.of(
+                        MESSAGES_KEY, initialMessages
+                );
 
-            // Extract the last assistant message
-            String response = messages.reversed().stream()
-                    .filter(m -> m instanceof AiMessage)
-                    .map(m -> ((AiMessage) m).text())
-                    .filter(t -> t != null && !t.isBlank())
-                    .findFirst()
-                    .orElse("I couldn't generate a response.");
+                var result = compiled.invoke(input);
+                @SuppressWarnings("unchecked")
+                List<ChatMessage> messages = result.map(state ->
+                        state.<List<ChatMessage>>value(MESSAGES_KEY)
+                                .orElse(List.of()))
+                        .orElse(List.of());
 
-            listener.onContent(response);
-            listener.onDone("Completed");
-            return response;
+                // Extract the last assistant message
+                String response = messages.reversed().stream()
+                        .filter(m -> m instanceof AiMessage)
+                        .map(m -> ((AiMessage) m).text())
+                        .filter(t -> t != null && !t.isBlank())
+                        .findFirst()
+                        .orElse("I couldn't generate a response.");
+
+                if (piiInterceptor != null && piiSession != null) {
+                    response = piiInterceptor.rehydrate(response, piiSession);
+                }
+
+                listener.onContent(response);
+                listener.onDone("Completed");
+                return response;
+            } finally {
+                if (piiInterceptor != null) {
+                    piiInterceptor.endSession();
+                }
+            }
 
         } catch (Exception e) {
             log.error("[AgenticChatGraph] Chat execution failed: {}", e.getMessage(), e);
@@ -326,6 +358,9 @@ public class AgenticChatGraph {
             String result = toolRegistry.executeTool(req);
             if (injectionInterceptor != null) {
                 result = injectionInterceptor.interceptToolOutput(result);
+            }
+            if (piiInterceptor != null) {
+                result = piiInterceptor.redactUsingActiveSession(result);
             }
 
             toolResults.add(ToolExecutionResultMessage.from(req, result));

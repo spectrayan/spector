@@ -17,6 +17,7 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.synapse.agent.graph.CognitiveState;
 import com.spectrayan.spector.synapse.security.injection.InjectionInterceptor;
+import com.spectrayan.spector.synapse.security.pii.PiiInterceptor;
 
 import org.bsc.langgraph4j.action.NodeAction;
 import org.slf4j.Logger;
@@ -41,19 +42,27 @@ public final class RetrieveNode implements NodeAction<CognitiveState> {
     private final SpectorMemory memory;
     private final int topK;
     private final InjectionInterceptor injectionInterceptor;
+    private final PiiInterceptor piiInterceptor;
 
     public RetrieveNode(SpectorMemory memory, int topK) {
-        this(memory, topK, null);
+        this(memory, topK, null, null);
     }
 
     public RetrieveNode(SpectorMemory memory) {
-        this(memory, 10, null);
+        this(memory, 10, null, null);
     }
 
     public RetrieveNode(SpectorMemory memory, int topK, InjectionInterceptor injectionInterceptor) {
+        this(memory, topK, injectionInterceptor, null);
+    }
+
+    public RetrieveNode(SpectorMemory memory, int topK,
+                        InjectionInterceptor injectionInterceptor,
+                        PiiInterceptor piiInterceptor) {
         this.memory = Objects.requireNonNull(memory, "memory");
         this.topK = topK > 0 ? topK : 10;
         this.injectionInterceptor = injectionInterceptor;
+        this.piiInterceptor = piiInterceptor;
     }
 
     @Override
@@ -84,6 +93,13 @@ public final class RetrieveNode implements NodeAction<CognitiveState> {
                 log.warn("[RetrieveNode] Excluded {} document(s) due to prompt injection",
                         before - contextEntries.size());
             }
+        }
+
+        // PII redaction — mask before LLM context when a session is active (#203)
+        if (piiInterceptor != null) {
+            contextEntries = contextEntries.stream()
+                    .map(piiInterceptor::redactUsingActiveSession)
+                    .collect(Collectors.toList());
         }
 
         return Map.of(
