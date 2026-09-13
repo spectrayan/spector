@@ -278,6 +278,7 @@ nav:
           - labs/index.md
           - Research Roadmap: labs/roadmap.md
           - "Hyperdimensional Computing": labs/hdc.md
+          - "Project Valhalla & Value Classes": labs/valhalla.md
       - "Third-Party Legal":
           - "DejaVu Fonts": apidocs/legal/dejavufonts.md
           - "jQuery": apidocs/legal/jquery.md

@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.store;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.layout.TemporalFactLayout;
 
 import java.lang.foreign.MemorySegment;
@@ -26,6 +27,10 @@ import java.time.Instant;
  * Analogous to a biological synaptic engram, this structure encodes declarative memories
  * with temporal boundaries and confidence levels.
  */
+@ValueCandidate(
+    reason = "Core 64-byte C-struct-equivalent temporal fact record; pure primitive fields directly mapped to off-heap engram store",
+    hotPathFrequency = ValueCandidate.Frequency.CRITICAL
+)
 public record TemporalFact(
         int factId,
         int subjectEntityId,

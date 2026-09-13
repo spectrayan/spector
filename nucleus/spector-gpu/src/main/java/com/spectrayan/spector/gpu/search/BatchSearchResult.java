@@ -15,12 +15,18 @@
  */
 package com.spectrayan.spector.gpu.search;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 /**
  * A scored search result from a batch GPU search operation.
  *
  * @param vectorIndex the index of the matched vector in the database
  * @param score       the similarity score (higher is more similar)
  */
+@ValueCandidate(
+    reason = "Tens of millions of allocations per bulk GPU similarity query; ideal for flat contiguous layout",
+    hotPathFrequency = ValueCandidate.Frequency.CRITICAL
+)
 public record BatchSearchResult(int vectorIndex, float score) implements Comparable<BatchSearchResult> {
 
     /**

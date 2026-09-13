@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.commons.chunker;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 import java.util.Map;
 
 /**
@@ -40,6 +42,10 @@ import java.util.Map;
  * @param endChar    end character offset (exclusive) in the original content ({@code -1} if N/A)
  * @param metadata   per-chunk metadata (block_type, heading_context, etc.)
  */
+@ValueCandidate(
+    reason = "Core document segmentation unit across RAG and retrieval pipelines",
+    hotPathFrequency = ValueCandidate.Frequency.HIGH
+)
 public record Chunk(
         String parentId,
         String chunkId,

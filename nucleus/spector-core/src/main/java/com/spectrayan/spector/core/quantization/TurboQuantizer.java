@@ -18,6 +18,7 @@ package com.spectrayan.spector.core.quantization;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorInternalException;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.core.simd.RandomRotation;
 
 import java.lang.foreign.MemorySegment;
@@ -484,6 +485,10 @@ public final class TurboQuantizer {
      * @param packed the quantized and packed bytes
      * @param norm   the original L2 norm (for inner product / cosine reconstruction)
      */
+    @ValueCandidate(
+        reason = "Encoded TurboQuant output allocated per-vector during bulk quantization and search",
+        hotPathFrequency = ValueCandidate.Frequency.CRITICAL
+    )
     public record TurboCode(byte[] packed, float norm) {
         public TurboCode {
             if (packed == null) throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "packed");

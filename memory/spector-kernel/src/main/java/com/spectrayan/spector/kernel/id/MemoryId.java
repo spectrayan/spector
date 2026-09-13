@@ -17,6 +17,7 @@ package com.spectrayan.spector.kernel.id;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 
 import java.util.Objects;
 
@@ -28,6 +29,10 @@ import java.util.Objects;
  * @param memoryName   The unique name of the memory within the namespace.
  * @param partitionSeq The partition sequence number, defaulting to 0 for non-partitioned memories.
  */
+@ValueCandidate(
+    reason = "Universal memory coordinate passed across every kernel read/write and partition lookup",
+    hotPathFrequency = ValueCandidate.Frequency.HIGH
+)
 public record MemoryId(String namespace, String memoryName, int partitionSeq) implements Comparable<MemoryId> {
 
     /**

@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.cluster.routing;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 import java.util.Objects;
 
 /**
@@ -28,6 +30,10 @@ import java.util.Objects;
  * @param hwm     WAL high-water mark (unpopulated in Phase 1, populated in Phase 3)
  * @param mode    resolution mode ({@link RouteMode#HASH} or {@link RouteMode#OVERRIDE})
  */
+@ValueCandidate(
+    reason = "Authoritative route binding cached in Caffeine and evaluated on cluster request dispatch",
+    hotPathFrequency = ValueCandidate.Frequency.HIGH
+)
 public record RouteBinding(
         RoutingKey key,
         String ownerId,
