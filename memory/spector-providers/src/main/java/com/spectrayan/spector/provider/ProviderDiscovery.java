@@ -62,9 +62,13 @@ public final class ProviderDiscovery {
      * the config's {@link ProviderConfig#type()} is used to create providers.
      * Created providers are registered in a new {@link DefaultProviderRegistry}.</p>
      *
+     * <p>Configs whose type matches no discovered factory are logged and skipped. If a
+     * factory throws while creating a provider, the error is logged and discovery continues
+     * with the remaining configs.</p>
+     *
      * @param configs list of provider configurations
      * @return a populated registry with all successfully created providers
-     * @throws IllegalArgumentException if a config references an unknown factory type
+     * @throws NullPointerException if {@code configs} is {@code null}
      */
     public static ProviderRegistry discover(List<ProviderConfig> configs) {
         Objects.requireNonNull(configs, "configs must not be null");

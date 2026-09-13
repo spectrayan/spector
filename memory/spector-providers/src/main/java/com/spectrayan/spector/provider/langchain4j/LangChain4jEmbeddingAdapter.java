@@ -74,6 +74,15 @@ public class LangChain4jEmbeddingAdapter implements EmbeddingProvider {
         return new EmbeddingResult(vector, tokens, modelName);
     }
 
+    /**
+     * Embeds all texts in a single call to the underlying model.
+     *
+     * <p>Token counts are not reported for batch results; each result has a token count of 0.</p>
+     *
+     * @param texts the texts to embed
+     * @return one result per input text
+     * @throws NullPointerException if {@code texts} is {@code null}
+     */
     @Override
     public List<EmbeddingResult> embedBatch(List<String> texts) {
         Objects.requireNonNull(texts, "texts must not be null");

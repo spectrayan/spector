@@ -29,13 +29,34 @@ import java.util.Optional;
  *
  * <p>Supports in-memory zero-network vector generation across arbitrary dimensions
  * (384, 768, 1024, etc.) adapting LangChain4j {@link EmbeddingModel} implementations.</p>
+ *
+ * <p>No API key or endpoint is used. Text generation is not supported.</p>
+ *
+ * <h3>Configuration Properties</h3>
+ * <ul>
+ *   <li>{@code modelPath} (or {@code model-path}) — path to an ONNX model file (optional)</li>
+ *   <li>{@code tokenizerPath} (or {@code vocabPath}) — path to the tokenizer file (optional)</li>
+ *   <li>{@code executionProvider} — execution backend label reported by the provider
+ *       (default: {@code CPU}); it is not passed to the ONNX model</li>
+ * </ul>
+ *
+ * <p>If no model name is configured, {@code all-MiniLM-L6-v2} is used.</p>
  */
 public class OnnxProviderFactory extends AbstractProviderFactory {
 
+    /**
+     * Creates a factory without a cache manager; embedding providers are returned without caching.
+     */
     public OnnxProviderFactory() {
         super();
     }
 
+    /**
+     * Creates a factory with the given cache manager.
+     *
+     * @param cacheManager cache manager used to wrap created embedding providers with caching when
+     *                     caching is enabled in the provider configuration; may be {@code null}
+     */
     public OnnxProviderFactory(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
         super(cacheManager);
     }
@@ -60,6 +81,15 @@ public class OnnxProviderFactory extends AbstractProviderFactory {
         return false;
     }
 
+    /**
+     * Creates an in-process ONNX embedding provider.
+     *
+     * @param config provider configuration supplying the model name, optional dimensions, and the
+     *               properties listed in the class documentation
+     * @return an {@link OnnxEmbeddingProvider}; never empty
+     * @throws IllegalStateException if no ONNX model can be loaded (see
+     *                               {@link #createEmbeddingModel(String, String, String)})
+     */
     @Override
     protected Optional<EmbeddingProvider> createRawEmbeddingProvider(ProviderConfig config) {
         String modelName = config.model() != null && !config.model().isBlank() ? config.model() : "all-MiniLM-L6-v2";
@@ -72,11 +102,37 @@ public class OnnxProviderFactory extends AbstractProviderFactory {
         return Optional.of(new OnnxEmbeddingProvider(delegate, modelName, dimensions, executionProvider));
     }
 
+    /**
+     * Text generation is not supported by this factory.
+     *
+     * @param config provider configuration (ignored)
+     * @return always {@link Optional#empty()}
+     */
     @Override
     public Optional<LlmProvider> createGenerationProvider(ProviderConfig config) {
         return Optional.empty();
     }
 
+    /**
+     * Loads a LangChain4j ONNX embedding model.
+     *
+     * <p>Resolution order:</p>
+     * <ol>
+     *   <li>If {@code modelPath} is non-blank, builds {@code OnnxEmbeddingModel} from that path
+     *       (and {@code tokenizerPath}, if non-blank). Failure here is not retried with other options.</li>
+     *   <li>If the model name contains {@code bge-small}/{@code bge_small}, tries the pre-packaged
+     *       {@code BgeSmallEnV15QuantizedEmbeddingModel} if it is on the classpath.</li>
+     *   <li>If the model name contains {@code minilm}, or is blank, {@code default}, or {@code onnx},
+     *       tries the pre-packaged {@code AllMiniLmL6V2QuantizedEmbeddingModel} if it is on the classpath.</li>
+     * </ol>
+     *
+     * @param modelName     model name used to select a pre-packaged model
+     * @param modelPath     path to an ONNX model file, or blank/{@code null} to use a pre-packaged model
+     * @param tokenizerPath path to the tokenizer file, or blank/{@code null}
+     * @return the loaded embedding model
+     * @throws IllegalStateException if the model cannot be built from {@code modelPath}, or no
+     *                               matching pre-packaged model is available
+     */
     public static EmbeddingModel createEmbeddingModel(String modelName, String modelPath, String tokenizerPath) {
         // 1. If explicit modelPath and tokenizerPath are provided, try OnnxEmbeddingModel builder via reflection
         if (modelPath != null && !modelPath.isBlank()) {
@@ -114,6 +170,18 @@ public class OnnxProviderFactory extends AbstractProviderFactory {
                 + ". Please specify 'modelPath' in configuration or add langchain4j-embeddings-all-minilm-l6-v2 dependency.");
     }
 
+    /**
+     * Resolves the embedding dimensions for a model.
+     *
+     * <p>Model names containing {@code minilm} or {@code bge-small}/{@code bge_small} always resolve
+     * to 384. Otherwise a positive {@code configuredDims} is used; failing that, names containing
+     * {@code large} or {@code 1024} resolve to 1024, names containing {@code base}, {@code 768},
+     * {@code nomic}, or {@code mpnet} resolve to 768, and anything else resolves to 384.</p>
+     *
+     * @param model          model name (may be {@code null})
+     * @param configuredDims configured dimensions, or 0 or less if not configured
+     * @return the resolved dimensions
+     */
     public static int resolveDimensions(String model, int configuredDims) {
         String lower = model != null ? model.toLowerCase(Locale.ROOT) : "";
         if (lower.contains("minilm") || lower.contains("bge-small") || lower.contains("bge_small")) {

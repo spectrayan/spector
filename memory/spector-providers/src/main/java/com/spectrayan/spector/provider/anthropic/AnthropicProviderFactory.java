@@ -44,13 +44,32 @@ import com.spectrayan.spector.commons.ParseUtils;
  *   <li>{@code temperature} — sampling temperature (optional)</li>
  *   <li>{@code topP} — nucleus sampling probability (optional)</li>
  * </ul>
+ *
+ * <h3>Authentication and Endpoint</h3>
+ * <p>The API key is taken from {@link ProviderConfig#apiKey()} and the model from
+ * {@link ProviderConfig#model()}. When {@link ProviderConfig#baseUrl()} is set it overrides
+ * the endpoint; otherwise the LangChain4j {@code AnthropicChatModel} default is used.</p>
+ *
+ * <h3>Networking</h3>
+ * <p>Proxy, mTLS, and HTTP client settings are applied via
+ * {@link LangChain4jHelper#resolveHttpClient(ProviderConfig, Duration)}, and {@code header.*}
+ * properties are sent as custom headers. This factory does not configure retries or fallback.</p>
  */
 public class AnthropicProviderFactory extends AbstractProviderFactory {
 
+    /**
+     * Creates a factory without a cache manager.
+     */
     public AnthropicProviderFactory() {
         super();
     }
 
+    /**
+     * Creates a factory with the given cache manager.
+     *
+     * @param cacheManager cache manager passed to the base factory; unused because this factory does
+     *                     not create embedding providers
+     */
     public AnthropicProviderFactory(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
         super(cacheManager);
     }
@@ -60,6 +79,13 @@ public class AnthropicProviderFactory extends AbstractProviderFactory {
     @Override public boolean supportsEmbedding() { return false; }
     @Override public boolean supportsGeneration() { return true; }
 
+    /**
+     * Creates an Anthropic Claude text-generation provider.
+     *
+     * @param config provider configuration supplying the API key, model, optional base URL,
+     *               and the properties listed in the class documentation
+     * @return a provider wrapping an {@code AnthropicChatModel}; never empty
+     */
     @Override
     public Optional<LlmProvider> createGenerationProvider(ProviderConfig config) {
         long timeoutSeconds = ParseUtils.parseLongOrDefault(config.property("timeout").orElse(null), 60L);

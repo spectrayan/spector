@@ -45,13 +45,37 @@ import com.spectrayan.spector.commons.ParseUtils;
  *   <li>{@code temperature} — sampling temperature (optional)</li>
  *   <li>{@code maxTokens} — maximum output tokens (optional)</li>
  * </ul>
+ *
+ * <h3>Authentication and Endpoint</h3>
+ * <p>The API key is taken from {@link ProviderConfig#apiKey()} and the model from
+ * {@link ProviderConfig#model()}. When {@link ProviderConfig#baseUrl()} is set it overrides
+ * the endpoint; otherwise the LangChain4j OpenAI default is used.</p>
+ *
+ * <h3>Networking</h3>
+ * <p>Proxy, mTLS, and HTTP client settings are applied via
+ * {@link LangChain4jHelper#resolveHttpClient(ProviderConfig, Duration)}, and {@code header.*}
+ * properties are sent as custom headers. This factory does not configure retries or fallback.</p>
+ *
+ * <h3>Embedding Dimensions</h3>
+ * <p>If {@link ProviderConfig#dimensions()} is positive it is sent to OpenAI and reported by the
+ * provider. Otherwise the provider reports 3072 for {@code text-embedding-3-large} and 1536 for
+ * any other model.</p>
  */
 public class OpenAiProviderFactory extends AbstractProviderFactory {
 
+    /**
+     * Creates a factory without a cache manager; embedding providers are returned without caching.
+     */
     public OpenAiProviderFactory() {
         super();
     }
 
+    /**
+     * Creates a factory with the given cache manager.
+     *
+     * @param cacheManager cache manager used to wrap created embedding providers with caching when
+     *                     caching is enabled in the provider configuration; may be {@code null}
+     */
     public OpenAiProviderFactory(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
         super(cacheManager);
     }
@@ -76,6 +100,13 @@ public class OpenAiProviderFactory extends AbstractProviderFactory {
         return true;
     }
 
+    /**
+     * Creates an OpenAI embedding provider.
+     *
+     * @param config provider configuration supplying the API key, model, optional base URL and
+     *               dimensions, and the properties listed in the class documentation
+     * @return a provider wrapping an {@code OpenAiEmbeddingModel}; never empty
+     */
     @Override
     protected Optional<EmbeddingProvider> createRawEmbeddingProvider(ProviderConfig config) {
         long timeoutSeconds = ParseUtils.parseLongOrDefault(config.property("timeout").orElse(null), 30L);
@@ -111,6 +142,13 @@ public class OpenAiProviderFactory extends AbstractProviderFactory {
         return Optional.of(new LangChain4jEmbeddingAdapter(model, config.model(), dims));
     }
 
+    /**
+     * Creates an OpenAI text-generation provider.
+     *
+     * @param config provider configuration supplying the API key, model, optional base URL,
+     *               and the properties listed in the class documentation
+     * @return a provider wrapping an {@code OpenAiChatModel}; never empty
+     */
     @Override
     public Optional<LlmProvider> createGenerationProvider(ProviderConfig config) {
         long timeoutSeconds = ParseUtils.parseLongOrDefault(config.property("timeout").orElse(null), 60L);

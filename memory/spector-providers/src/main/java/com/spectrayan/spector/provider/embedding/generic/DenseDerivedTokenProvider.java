@@ -28,6 +28,11 @@ import java.util.regex.Pattern;
 /**
  * Dense-derived token embedding provider.
  * Simulates ColBERT multi-vector embeddings from any standard dense embedding provider.
+ *
+ * <p>The text is split on whitespace and punctuation into up to 128 lowercase tokens of at least
+ * 2 characters. Each token is embedded with the wrapped provider, truncated or zero-padded to
+ * {@link #tokenDimensions()}, and L2-normalized. Token vectors are cached in memory for the
+ * lifetime of this instance, and only uncached tokens are embedded.</p>
  */
 public class DenseDerivedTokenProvider implements TokenEmbeddingProvider {
 
@@ -40,6 +45,13 @@ public class DenseDerivedTokenProvider implements TokenEmbeddingProvider {
     private final String modelName;
     private final Map<String, float[]> tokenVectorCache = new java.util.concurrent.ConcurrentHashMap<>();
 
+    /**
+     * Creates a provider producing token vectors of the given size.
+     *
+     * @param embeddingProvider dense embedding provider used for tokens
+     * @param tokenDimensions   dimensions of each output token vector
+     * @throws NullPointerException if {@code embeddingProvider} is {@code null}
+     */
     public DenseDerivedTokenProvider(EmbeddingProvider embeddingProvider, int tokenDimensions) {
         this.embeddingProvider = Objects.requireNonNull(embeddingProvider, "embeddingProvider");
         this.tokenDimensions = tokenDimensions;
@@ -47,6 +59,12 @@ public class DenseDerivedTokenProvider implements TokenEmbeddingProvider {
         log.info("DenseDerivedTokenProvider initialized: model={}, tokenDimensions={}", modelName, tokenDimensions);
     }
 
+    /**
+     * Creates a provider producing 128-dimensional token vectors.
+     *
+     * @param embeddingProvider dense embedding provider used for tokens
+     * @throws NullPointerException if {@code embeddingProvider} is {@code null}
+     */
     public DenseDerivedTokenProvider(EmbeddingProvider embeddingProvider) {
         this(embeddingProvider, 128);
     }
@@ -101,6 +119,11 @@ public class DenseDerivedTokenProvider implements TokenEmbeddingProvider {
         return modelName;
     }
 
+    /**
+     * Returns the wrapped dense embedding provider.
+     *
+     * @return the dense embedding provider
+     */
     public EmbeddingProvider embeddingProvider() {
         return embeddingProvider;
     }

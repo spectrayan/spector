@@ -41,6 +41,11 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * automatically activated, providing sensible defaults without explicit
  * activation calls.</p>
  *
+ * <h3>Health Checks</h3>
+ * <p>Embedding providers are checked by embedding the text {@code "health check"}, which
+ * issues a real request to the backend. Generation providers are checked with
+ * {@link LlmProvider#isAvailable()}. Names that are not registered report an unknown status.</p>
+ *
  * <h3>Thread Safety</h3>
  * <p>All methods are safe for concurrent access. Active provider switching
  * is atomic with respect to ongoing operations.</p>

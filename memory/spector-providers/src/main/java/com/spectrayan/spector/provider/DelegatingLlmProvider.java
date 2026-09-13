@@ -33,6 +33,12 @@ public class DelegatingLlmProvider implements LlmProvider {
 
     private final ProviderRegistry providerRegistry;
 
+    /**
+     * Creates a provider that delegates to the active generation provider of the given registry.
+     *
+     * @param providerRegistry registry whose active generation provider receives all calls
+     * @throws NullPointerException if {@code providerRegistry} is {@code null}
+     */
     public DelegatingLlmProvider(ProviderRegistry providerRegistry) {
         this.providerRegistry = Objects.requireNonNull(providerRegistry, "providerRegistry must not be null");
     }
@@ -43,21 +49,49 @@ public class DelegatingLlmProvider implements LlmProvider {
                         "No active text generation provider registered in the ProviderRegistry"));
     }
 
+    /**
+     * Forwards the request to the currently active generation provider.
+     *
+     * @param request the generation request
+     * @param options generation options
+     * @return the active provider's response
+     * @throws LlmProvider.GenerationException if no generation provider is active
+     */
     @Override
     public LlmResponse generate(LlmRequest request, GenerationOptions options) {
         return getActive().generate(request, options);
     }
 
+    /**
+     * Forwards the prompt to the currently active generation provider.
+     *
+     * @param prompt the prompt text
+     * @return the generated text
+     * @throws LlmProvider.GenerationException if no generation provider is active
+     */
     @Override
     public String generate(String prompt) {
         return getActive().generate(prompt);
     }
 
+    /**
+     * Forwards the prompt and options to the currently active generation provider.
+     *
+     * @param prompt  the prompt text
+     * @param options generation options
+     * @return the generated text
+     * @throws LlmProvider.GenerationException if no generation provider is active
+     */
     @Override
     public String generate(String prompt, GenerationOptions options) {
         return getActive().generate(prompt, options);
     }
 
+    /**
+     * Returns the model name of the active generation provider.
+     *
+     * @return the active provider's model name, or {@code "none"} if no provider is active
+     */
     @Override
     public String modelName() {
         return providerRegistry.activeGeneration()
@@ -65,6 +99,11 @@ public class DelegatingLlmProvider implements LlmProvider {
                 .orElse("none");
     }
 
+    /**
+     * Returns whether the active generation provider reports itself as available.
+     *
+     * @return the active provider's availability, or {@code false} if no provider is active
+     */
     @Override
     public boolean isAvailable() {
         return providerRegistry.activeGeneration()

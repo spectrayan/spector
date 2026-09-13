@@ -29,20 +29,45 @@ public class OnnxEmbeddingProvider extends LangChain4jEmbeddingAdapter implement
 
     private final String executionBackend;
 
+    /**
+     * Creates a provider wrapping the given LangChain4j embedding model.
+     *
+     * @param delegate         the LangChain4j embedding model
+     * @param modelName        model identifier
+     * @param dimensions       vector dimensions; must be positive
+     * @param executionBackend execution backend label; {@code CPU} if {@code null} or blank
+     */
     public OnnxEmbeddingProvider(EmbeddingModel delegate, String modelName, int dimensions, String executionBackend) {
         super(delegate, modelName, dimensions);
         this.executionBackend = executionBackend != null && !executionBackend.isBlank() ? executionBackend : "CPU";
     }
 
+    /**
+     * Creates a provider wrapping the given LangChain4j embedding model with the {@code CPU} backend label.
+     *
+     * @param delegate   the LangChain4j embedding model
+     * @param modelName  model identifier
+     * @param dimensions vector dimensions; must be positive
+     */
     public OnnxEmbeddingProvider(EmbeddingModel delegate, String modelName, int dimensions) {
         this(delegate, modelName, dimensions, "CPU");
     }
 
+    /**
+     * Returns {@code true}; embeddings are computed inside the JVM.
+     *
+     * @return {@code true}
+     */
     @Override
     public boolean isInProcess() {
         return true;
     }
 
+    /**
+     * Returns the execution backend label supplied at construction.
+     *
+     * @return the execution backend label (default {@code CPU})
+     */
     @Override
     public String executionBackend() {
         return executionBackend;

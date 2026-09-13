@@ -27,10 +27,10 @@ import java.util.Optional;
 /**
  * Factory for creating AWS Bedrock generation providers.
  *
- * <p>AWS Bedrock provides access to foundation models from multiple providers
- * <p>Uses standard AWS credential chain (environment variables, IAM role, etc.).
- * The {@code apiKey} field in config is not used — AWS authentication is
- * handled by the AWS SDK credential provider chain.</p>
+ * <p>AWS Bedrock provides access to foundation models from multiple providers.
+ * The {@code apiKey} field in config is not read by this factory; AWS authentication
+ * is intended to be handled by the AWS SDK credential provider chain once Bedrock
+ * support is implemented.</p>
  *
  * <p><strong>Note:</strong> This factory is a placeholder. Full Bedrock support
  * requires the {@code langchain4j-amazon-bedrock} module, which may not be
@@ -41,10 +41,19 @@ public class BedrockProviderFactory extends AbstractProviderFactory {
 
     private static final Logger log = LoggerFactory.getLogger(BedrockProviderFactory.class);
 
+    /**
+     * Creates a factory without a cache manager.
+     */
     public BedrockProviderFactory() {
         super();
     }
 
+    /**
+     * Creates a factory with the given cache manager.
+     *
+     * @param cacheManager cache manager passed to the base factory; unused because this factory does
+     *                     not create embedding providers
+     */
     public BedrockProviderFactory(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
         super(cacheManager);
     }
@@ -54,6 +63,14 @@ public class BedrockProviderFactory extends AbstractProviderFactory {
     @Override public boolean supportsEmbedding() { return false; }
     @Override public boolean supportsGeneration() { return true; }
 
+    /**
+     * Placeholder that does not create a provider.
+     *
+     * <p>Logs a warning containing the configured model name and returns empty.</p>
+     *
+     * @param config provider configuration; only the model name is read, for logging
+     * @return always {@link Optional#empty()}
+     */
     @Override
     public Optional<LlmProvider> createGenerationProvider(ProviderConfig config) {
         // Bedrock requires the langchain4j-amazon-bedrock module.

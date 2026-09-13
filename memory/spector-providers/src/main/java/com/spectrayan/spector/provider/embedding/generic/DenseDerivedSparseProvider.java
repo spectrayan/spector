@@ -29,6 +29,11 @@ import java.util.regex.Pattern;
 /**
  * Dense-derived sparse embedding provider.
  * Simulates sparse term weights (SPLADE) from any standard dense embedding provider.
+ *
+ * <p>The text is embedded once, then split on whitespace and punctuation into up to 200 unique
+ * lowercase terms of at least 2 characters. Each term's weight is its cosine similarity with the
+ * document vector (clamped at 0); terms below the weight threshold are dropped. Term vectors are
+ * cached in memory for the lifetime of this instance, and only uncached terms are embedded.</p>
  */
 public class DenseDerivedSparseProvider implements SparseEmbeddingProvider {
 
@@ -42,6 +47,13 @@ public class DenseDerivedSparseProvider implements SparseEmbeddingProvider {
     private final String modelName;
     private final Map<String, float[]> termVectorCache = new java.util.concurrent.ConcurrentHashMap<>();
 
+    /**
+     * Creates a provider with the given weight threshold.
+     *
+     * @param embeddingProvider dense embedding provider used for documents and terms
+     * @param weightThreshold   minimum term weight to include in results
+     * @throws NullPointerException if {@code embeddingProvider} is {@code null}
+     */
     public DenseDerivedSparseProvider(EmbeddingProvider embeddingProvider, float weightThreshold) {
         this.embeddingProvider = Objects.requireNonNull(embeddingProvider, "embeddingProvider");
         this.weightThreshold = weightThreshold;
@@ -49,6 +61,12 @@ public class DenseDerivedSparseProvider implements SparseEmbeddingProvider {
         log.info("DenseDerivedSparseProvider initialized: model={}, threshold={}", modelName, weightThreshold);
     }
 
+    /**
+     * Creates a provider with a weight threshold of {@code 0.1}.
+     *
+     * @param embeddingProvider dense embedding provider used for documents and terms
+     * @throws NullPointerException if {@code embeddingProvider} is {@code null}
+     */
     public DenseDerivedSparseProvider(EmbeddingProvider embeddingProvider) {
         this(embeddingProvider, 0.1f);
     }
@@ -114,11 +132,21 @@ public class DenseDerivedSparseProvider implements SparseEmbeddingProvider {
         return modelName;
     }
 
+    /**
+     * Returns a fixed nominal vocabulary size.
+     *
+     * @return {@code 50000}
+     */
     @Override
     public int vocabularySize() {
         return 50_000;
     }
 
+    /**
+     * Returns the wrapped dense embedding provider.
+     *
+     * @return the dense embedding provider
+     */
     public EmbeddingProvider embeddingProvider() {
         return embeddingProvider;
     }

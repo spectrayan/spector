@@ -32,6 +32,13 @@ import java.util.Objects;
 
 /**
  * Adapts a LangChain4j {@link ChatModel} to Spector's {@link LlmProvider} SPI.
+ *
+ * <p>Temperature, top-p, max tokens (when positive), and stop sequences from
+ * {@link GenerationOptions} are passed to the model. A non-blank response JSON schema on the
+ * request selects the JSON response format; the schema itself is not sent. {@code TOOL} messages
+ * are sent as user messages, and only text and image content blocks are mapped.</p>
+ *
+ * <p>No retry or fallback is performed; exceptions from the underlying model propagate.</p>
  */
 public class LangChain4jGenerationAdapter implements LlmProvider {
 
@@ -40,6 +47,13 @@ public class LangChain4jGenerationAdapter implements LlmProvider {
     private final ChatModel delegate;
     private final String modelName;
 
+    /**
+     * Creates an adapter wrapping a LangChain4j chat model.
+     *
+     * @param delegate  the LangChain4j chat model
+     * @param modelName model identifier reported in responses
+     * @throws NullPointerException if either argument is {@code null}
+     */
     public LangChain4jGenerationAdapter(ChatModel delegate, String modelName) {
         this.delegate = Objects.requireNonNull(delegate, "ChatModel must not be null");
         this.modelName = Objects.requireNonNull(modelName, "modelName must not be null");
@@ -131,11 +145,23 @@ public class LangChain4jGenerationAdapter implements LlmProvider {
         return modelName;
     }
 
+    /**
+     * Returns whether a delegate model is present.
+     *
+     * <p>This does not contact the remote service.</p>
+     *
+     * @return {@code true} if the delegate is non-null
+     */
     @Override
     public boolean isAvailable() {
         return delegate != null;
     }
 
+    /**
+     * Returns the underlying LangChain4j chat model.
+     *
+     * @return the underlying chat model
+     */
     public ChatModel delegate() {
         return delegate;
     }

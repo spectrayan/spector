@@ -63,6 +63,8 @@ public final class LangChain4jHelper {
 
     /**
      * Registers the Spring RestClient.Builder.
+     *
+     * @param builder a Spring {@code RestClient.Builder} instance, or {@code null} to clear it
      */
     public static void setSpringRestClientBuilder(Object builder) {
         springRestClientBuilder = builder;
@@ -70,6 +72,8 @@ public final class LangChain4jHelper {
 
     /**
      * Registers the Spring WebClient.Builder.
+     *
+     * @param builder a Spring {@code WebClient.Builder} instance, or {@code null} to clear it
      */
     public static void setSpringWebClientBuilder(Object builder) {
         springWebClientBuilder = builder;
@@ -79,9 +83,23 @@ public final class LangChain4jHelper {
      * Resolves an {@link HttpClientBuilder} configured with HTTP proxy and SSL/mTLS client certificates
      * if specified in the provider properties, or reuses Spring's managed connection pool.
      *
+     * <p>The {@code httpClientType} property ({@code auto} by default) selects the client. Resolution
+     * falls back in this order:</p>
+     * <ol>
+     *   <li>Spring RestClient — when {@code httpClientType} is {@code spring-restclient}, or {@code auto}
+     *       and a RestClient builder has been registered, and the LangChain4j Spring RestClient module
+     *       is on the classpath</li>
+     *   <li>Spring WebClient — same conditions for {@code spring-webclient}</li>
+     *   <li>JDK {@code HttpClient} (HTTP/1.1), using {@code proxyHost}/{@code proxyPort} if set, a PEM
+     *       client certificate and PKCS#8 key from {@code clientCertPath}/{@code clientKeyPath} if set,
+     *       or otherwise a trust-all SSL context if {@code insecure}, {@code trustAllCertificates}, or
+     *       {@code sslInsecure} is {@code true}</li>
+     * </ol>
+     * <p>{@code defaultTimeout} is used as the connect timeout (and, for Spring clients, the read timeout).</p>
+     *
      * @param config the provider configuration
      * @param defaultTimeout standard timeout to apply to the client
-     * @return a configured {@link HttpClientBuilder}, or {@code null} if no custom network configuration is needed
+     * @return a configured {@link HttpClientBuilder}, or {@code null} if building the JDK client fails
      */
     public static HttpClientBuilder resolveHttpClient(ProviderConfig config, Duration defaultTimeout) {
         String clientType = config.properties().getOrDefault("httpClientType", "auto");
