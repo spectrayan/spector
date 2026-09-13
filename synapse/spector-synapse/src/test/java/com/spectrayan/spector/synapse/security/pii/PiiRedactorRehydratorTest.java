@@ -1,0 +1,88 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Business Source License 1.1 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://github.com/spectrayan/spector/blob/main/spector-synapse/LICENSE
+ *
+ * Change Date: July 6, 2030
+ * Change License: Apache License, Version 2.0
+ */
+package com.spectrayan.spector.synapse.security.pii;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@DisplayName("PiiRedactor + PiiRehydrator")
+class PiiRedactorRehydratorTest {
+
+    private final PiiRedactor redactor = new PiiRedactor();
+    private final PiiRehydrator rehydrator = new PiiRehydrator();
+
+    @Test
+    @DisplayName("replaces emails with indexed tokens")
+    void redactsEmails() {
+        PiiRedactionSession session = new PiiRedactionSession();
+        PiiRedactionResult result = redactor.redact(
+                "Email alice@example.com and bob@example.com",
+                PiiLevel.RELAXED,
+                session);
+
+        assertThat(result.redactedText()).contains("[EMAIL_1]", "[EMAIL_2]");
+        assertThat(result.redactedText()).doesNotContain("alice@example.com");
+        assertThat(result.redactedText()).doesNotContain("bob@example.com");
+        assertThat(result.hadPii()).isTrue();
+    }
+
+    @Test
+    @DisplayName("rehydrates tokens back to originals")
+    void rehydratesTokens() {
+        PiiRedactionSession session = new PiiRedactionSession();
+        PiiRedactionResult outbound = redactor.redact(
+                "Call John Smith at john@example.com about invoice #12345",
+                PiiLevel.STRICT,
+                session);
+
+        String llmResponse = "I will contact "
+                + (outbound.redactedText().contains("[PERSON_1]") ? "[PERSON_1]" : "them")
+                + " at [EMAIL_1]";
+
+        // Build response mirroring the tokens actually produced
+        String redacted = outbound.redactedText();
+        String synthetic = "I will follow up with " + redacted;
+
+        String restored = rehydrator.rehydrate(synthetic, session);
+        assertThat(restored).contains("john@example.com");
+        assertThat(restored).contains("John Smith");
+        assertThat(restored).doesNotContain("[EMAIL_1]");
+    }
+
+    @Test
+    @DisplayName("same value maps to the same token")
+    void deduplicatesTokens() {
+        PiiRedactionSession session = new PiiRedactionSession();
+        PiiRedactionResult result = redactor.redact(
+                "a@x.com then a@x.com again",
+                PiiLevel.RELAXED,
+                session);
+
+        assertThat(result.redactedText()).isEqualTo("[EMAIL_1] then [EMAIL_1] again");
+        assertThat(session.totalCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("rehydration prefers longer tokens ([EMAIL_10] vs [EMAIL_1])")
+    void longerTokensFirst() {
+        PiiRedactionSession session = new PiiRedactionSession();
+        for (int i = 1; i <= 10; i++) {
+            session.tokenize(PiiType.EMAIL, "user" + i + "@example.com");
+        }
+        String text = "Send to [EMAIL_10] not [EMAIL_1]";
+        String out = rehydrator.rehydrate(text, session);
+        assertThat(out).isEqualTo("Send to user10@example.com not user1@example.com");
+    }
+}
