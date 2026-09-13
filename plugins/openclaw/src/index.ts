@@ -289,11 +289,16 @@ function ensureSpectorConfig(
     mkdirSync(dataDir, { recursive: true });
   }
 
-  // Generate config file if it doesn't exist
-  if (!existsSync(configPath)) {
+  // Generate config file atomically if it doesn't exist (eliminating TOCTOU race)
+  try {
     const yaml = generateSpectorYaml(config);
-    writeFileSync(configPath, yaml, "utf-8");
+    writeFileSync(configPath, yaml, { encoding: "utf-8", flag: "wx" });
     api.log.info(`[Spector] Generated config: ${configPath}`);
+  } catch (err: unknown) {
+    const nodeErr = err as NodeJS.ErrnoException;
+    if (nodeErr?.code !== "EEXIST") {
+      throw err;
+    }
   }
 }
 

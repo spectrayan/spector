@@ -13,8 +13,9 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "vitest",
-    "test:integration": "vitest --config vitest.integration.config.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },

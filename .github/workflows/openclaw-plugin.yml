@@ -42,7 +42,8 @@ jobs:
       - name: Build
         run: npm run build
 
-      # TODO: add 'npm test' step once test files exist
+      - name: Run tests
+        run: npm test
 
   publish:
     name: Publish to npm

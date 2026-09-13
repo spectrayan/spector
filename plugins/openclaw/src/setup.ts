@@ -12,7 +12,7 @@
  * @module setup
  */
 
-import { existsSync, writeFileSync, readFileSync, mkdirSync } from "node:fs";
+import { existsSync, writeFileSync, readFileSync, mkdirSync, renameSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { createInterface } from "node:readline/promises";
@@ -238,12 +238,13 @@ function updateOpenClawConfig(_config: SpectorConfig): void {
 
   let existingConfig: Record<string, unknown> = {};
 
-  if (existsSync(openclawConfigPath)) {
-    try {
-      const content = readFileSync(openclawConfigPath, "utf-8");
-      existingConfig = JSON.parse(content) as Record<string, unknown>;
-    } catch {
-      // Start fresh if parse fails
+  try {
+    const content = readFileSync(openclawConfigPath, "utf-8");
+    existingConfig = JSON.parse(content) as Record<string, unknown>;
+  } catch (err: unknown) {
+    const nodeErr = err as NodeJS.ErrnoException;
+    if (nodeErr?.code !== "ENOENT") {
+      // Non-ENOENT read errors (e.g. parse failure) start fresh
     }
   }
 
@@ -276,17 +277,19 @@ function updateOpenClawConfig(_config: SpectorConfig): void {
   mcp["servers"] = servers;
   existingConfig["mcp"] = mcp;
 
-  // Write back
+  // Write back atomically via temporary file to eliminate filesystem race condition
   const configDir = dirname(openclawConfigPath);
   if (!existsSync(configDir)) {
     mkdirSync(configDir, { recursive: true });
   }
 
+  const tempPath = join(configDir, `.openclaw.json.tmp.${Date.now()}.${process.pid}`);
   writeFileSync(
-    openclawConfigPath,
+    tempPath,
     JSON.stringify(existingConfig, null, 2) + "\n",
-    "utf-8"
+    { encoding: "utf-8", mode: 0o600 }
   );
+  renameSync(tempPath, openclawConfigPath);
 
   console.log(`   Updated: ${openclawConfigPath}`);
 }
