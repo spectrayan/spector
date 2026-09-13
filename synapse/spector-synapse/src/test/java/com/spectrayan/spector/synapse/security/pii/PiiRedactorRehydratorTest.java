@@ -39,26 +39,24 @@ class PiiRedactorRehydratorTest {
     }
 
     @Test
-    @DisplayName("rehydrates tokens back to originals")
+    @DisplayName("rehydrates Spector tokens built from Phileas spans")
     void rehydratesTokens() {
         PiiRedactionSession session = new PiiRedactionSession();
         PiiRedactionResult outbound = redactor.redact(
-                "Call John Smith at john@example.com about invoice #12345",
-                PiiLevel.STRICT,
+                "Call (512) 555-1234 or john@example.com about invoice #12345",
+                PiiLevel.MODERATE,
                 session);
 
-        String llmResponse = "I will contact "
-                + (outbound.redactedText().contains("[PERSON_1]") ? "[PERSON_1]" : "them")
-                + " at [EMAIL_1]";
+        assertThat(outbound.redactedText()).contains("[EMAIL_1]");
+        assertThat(outbound.redactedText()).contains("[PHONE_1]");
+        assertThat(outbound.redactedText()).doesNotContain("{{{REDACTED-");
 
-        // Build response mirroring the tokens actually produced
-        String redacted = outbound.redactedText();
-        String synthetic = "I will follow up with " + redacted;
-
+        String synthetic = "I will follow up with " + outbound.redactedText();
         String restored = rehydrator.rehydrate(synthetic, session);
         assertThat(restored).contains("john@example.com");
-        assertThat(restored).contains("John Smith");
+        assertThat(restored).contains("(512) 555-1234");
         assertThat(restored).doesNotContain("[EMAIL_1]");
+        assertThat(restored).doesNotContain("[PHONE_1]");
     }
 
     @Test
@@ -84,5 +82,13 @@ class PiiRedactorRehydratorTest {
         String text = "Send to [EMAIL_10] not [EMAIL_1]";
         String out = rehydrator.rehydrate(text, session);
         assertThat(out).isEqualTo("Send to user10@example.com not user1@example.com");
+    }
+
+    @Test
+    @DisplayName("session context id is stable for Phileas scoping")
+    void sessionContextIdStable() {
+        PiiRedactionSession session = new PiiRedactionSession();
+        assertThat(session.contextId()).isNotBlank();
+        assertThat(session.contextId()).isEqualTo(session.contextId());
     }
 }

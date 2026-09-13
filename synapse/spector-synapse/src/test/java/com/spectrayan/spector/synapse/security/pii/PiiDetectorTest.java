@@ -18,8 +18,9 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@DisplayName("PiiDetector")
+@DisplayName("PiiDetector (Phileas facade)")
 class PiiDetectorTest {
 
     private final PiiDetector detector = new PiiDetector();
@@ -63,27 +64,25 @@ class PiiDetectorTest {
     }
 
     @Test
-    @DisplayName("STRICT detects CapWord person names via heuristic NER stub")
-    void strictDetectsPersonNames() {
-        String text = "Please ask John Smith about the invoice.";
+    @DisplayName("STRICT detects street addresses via Phileas identifier filter")
+    void strictDetectsStreetAddress() {
+        String text = "Mail invoices to 100 Main Street please.";
         List<PiiMatch> matches = detector.detect(text, PiiLevel.STRICT);
 
-        assertThat(matches).anyMatch(m -> m.type() == PiiType.PERSON
-                && m.value().contains("John Smith"));
+        assertThat(matches).anyMatch(m -> m.type() == PiiType.ADDRESS
+                && m.value().contains("100 Main Street"));
     }
 
     @Test
-    @DisplayName("MODERATE detects honorific person names but not bare CapWords")
-    void moderateHonorificOnly() {
-        assertThat(detector.detect("Ask Mr. John Smith tomorrow.", PiiLevel.MODERATE))
-                .anyMatch(m -> m.type() == PiiType.PERSON);
-
-        assertThat(detector.detect("Please ask John Smith tomorrow.", PiiLevel.MODERATE))
+    @DisplayName("STRICT does not invent PERSON spans without Ph-Eye NER")
+    void strictDoesNotDetectBarePersonNames() {
+        String text = "Please ask John Smith about the invoice.";
+        assertThat(detector.detect(text, PiiLevel.STRICT))
                 .noneMatch(m -> m.type() == PiiType.PERSON);
     }
 
     @Test
-    @DisplayName("rejects credit cards that fail Luhn")
+    @DisplayName("rejects credit cards that fail Luhn (Phileas validation)")
     void rejectsInvalidCards() {
         String text = "Card 4111111111111112 is invalid.";
         assertThat(detector.detect(text, PiiLevel.RELAXED))
@@ -91,16 +90,29 @@ class PiiDetectorTest {
     }
 
     @Test
-    @DisplayName("loads patterns from classpath YAML")
-    void loadsYamlPatterns() {
-        assertThat(detector.patterns()).isNotEmpty();
-        assertThat(detector.patterns()).anyMatch(p -> p.id().equals("email"));
+    @DisplayName("loads PhiSQL policies for all three levels")
+    void loadsClasspathPolicies() {
+        assertThat(detector.hasPolicy(PiiLevel.RELAXED)).isTrue();
+        assertThat(detector.hasPolicy(PiiLevel.MODERATE)).isTrue();
+        assertThat(detector.hasPolicy(PiiLevel.STRICT)).isTrue();
     }
 
     @Test
-    @DisplayName("passesLuhn accepts known Visa test number")
-    void luhnAcceptsVisaTest() {
-        assertThat(PiiDetector.passesLuhn("4111-1111-1111-1111")).isTrue();
-        assertThat(PiiDetector.passesLuhn("4111111111111112")).isFalse();
+    @DisplayName("fail-closed when a required PhiSQL policy is missing")
+    void failClosedMissingPolicy() {
+        assertThatThrownBy(() -> PhileasPiiEngine.loadPolicy("/security/does-not-exist.phisql"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("fail-closed");
+    }
+
+    @Test
+    @DisplayName("maps Phileas filter types onto Spector PiiType without leaking NER")
+    void mapsFilterTypes() {
+        assertThat(PhileasPiiEngine.mapType(ai.philterd.phileas.model.filtering.FilterType.EMAIL_ADDRESS))
+                .isEqualTo(PiiType.EMAIL);
+        assertThat(PhileasPiiEngine.mapType(ai.philterd.phileas.model.filtering.FilterType.PH_EYE))
+                .isNull();
+        assertThat(PhileasPiiEngine.mapType(ai.philterd.phileas.model.filtering.FilterType.PERSON))
+                .isNull();
     }
 }
