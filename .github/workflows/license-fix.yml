@@ -21,9 +21,12 @@ permissions:
 
 jobs:
   fix-license-headers:
+    # Do not run auto-fix on forked PRs — external contributions cannot be pushed to via GITHUB_TOKEN
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     name: Fix License Headers
     timeout-minutes: 5
+    continue-on-error: true
 
     steps:
       - name: Checkout PR branch
@@ -52,12 +55,14 @@ jobs:
 
       - name: Format license headers
         if: steps.license-check.outputs.status == 'fail'
+        continue-on-error: true
         run: |
-          mvn -B license:format --no-transfer-progress
+          mvn -B license:format --no-transfer-progress || true
 
       - name: Check for changes
         if: steps.license-check.outputs.status == 'fail'
         id: changes
+        continue-on-error: true
         run: |
           if git diff --quiet; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
@@ -69,57 +74,13 @@ jobs:
 
       # ─── Same-repo PRs: auto-commit the fix ──────────────────────
       - name: Commit license fixes (same-repo PRs)
-        if: |
-          steps.changes.outputs.has_changes == 'true' &&
-          github.event.pull_request.head.repo.full_name == github.repository
+        if: steps.changes.outputs.has_changes == 'true'
+        continue-on-error: true
         run: |
           git config user.name "spectrayan-bot"
           git config user.email "bot@spectrayan.dev"
           git add -A
           git commit -m "chore(license): auto-fix license headers
 
-          Applied by CI — see CONTRIBUTING.md#license-headers"
-          git push
-
-      # ─── Fork PRs: post a helpful comment ────────────────────────
-      - name: Comment on fork PRs
-        if: |
-          steps.changes.outputs.has_changes == 'true' &&
-          github.event.pull_request.head.repo.full_name != github.repository
-        uses: actions/github-script@v9
-        with:
-          script: |
-            const files = require('child_process')
-              .execSync('git diff --name-only')
-              .toString().trim();
-            const fileCount = files.split('\n').length;
-
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `## 📋 License Headers Need Fixing
-
-            Some files are missing the required license headers. This is easy to fix!
-
-            **Run this command in your branch:**
-            \`\`\`bash
-            mvn license:format
-            \`\`\`
-
-            Then commit and push:
-            \`\`\`bash
-            git add -A && git commit -s -m "chore(license): add license headers" && git push
-            \`\`\`
-
-            <details>
-            <summary>Files that need headers (${fileCount} file${fileCount > 1 ? 's' : ''})</summary>
-
-            \`\`\`
-            ${files}
-            \`\`\`
-            </details>
-
-            > 💡 **Tip:** Running \`mvn compile\` locally will catch missing headers before you push.
-            > See our [Contributing Guide](https://github.com/spectrayan/spector/blob/main/CONTRIBUTING.md#license-headers) for details.`
-            });
+          Applied by CI — see CONTRIBUTING.md#license-headers" || echo "Nothing to commit"
+          git push || echo "::warning::Failed to push auto-fix commit (branch may be protected or remote changed)"
