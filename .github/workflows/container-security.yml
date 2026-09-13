@@ -1,0 +1,72 @@
+name: Container Security Scan
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'deploy/docker/**'
+      - '**/Dockerfile*'
+      - '.github/workflows/container-security.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'deploy/docker/**'
+      - '**/Dockerfile*'
+      - '.github/workflows/container-security.yml'
+  schedule:
+    - cron: '0 4 * * 1'  # Weekly Monday 4:00 AM UTC
+  workflow_dispatch:
+
+concurrency:
+  group: container-security-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    name: Docker Container Vulnerability Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build local Docker image for scanning
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          load: true
+          tags: spector:scan-target
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan Docker image with Trivy (Console & Step Summary)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'spector:scan-target'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      - name: Generate Trivy SARIF Report
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'spector:scan-target'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: 'container-docker'
