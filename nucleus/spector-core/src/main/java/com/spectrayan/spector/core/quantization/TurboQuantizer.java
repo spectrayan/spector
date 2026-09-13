@@ -204,12 +204,17 @@ public final class TurboQuantizer {
         // Step 2: Rotate
         float[] rotated = rotation.rotate(vector);
 
-        // Step 3: Scalar quantize in rotated space
+        // Step 3: Scalar quantize in rotated space with primitive patterns (JEP 532)
         int[] quantized = new int[dimensions];
         int maxLevel = levels - 1;
         for (int d = 0; d < dimensions; d++) {
             float normalized = (rotated[d] - mins[d]) * invScales[d];
-            quantized[d] = Math.max(0, Math.min(maxLevel, Math.round(normalized)));
+            int q = Math.round(normalized);
+            quantized[d] = switch (q) {
+                case int v when v <= 0 -> 0;
+                case int v when v >= maxLevel -> maxLevel;
+                case int v -> v;
+            };
         }
 
         // Step 4: Pack into bytes
@@ -231,7 +236,12 @@ public final class TurboQuantizer {
         int maxLevel = levels - 1;
         for (int d = 0; d < dimensions; d++) {
             float normalized = (rotated[d] - mins[d]) * invScales[d];
-            quantized[d] = Math.max(0, Math.min(maxLevel, Math.round(normalized)));
+            int q = Math.round(normalized);
+            quantized[d] = switch (q) {
+                case int v when v <= 0 -> 0;
+                case int v when v >= maxLevel -> maxLevel;
+                case int v -> v;
+            };
         }
         return pack(quantized);
     }
@@ -411,12 +421,13 @@ public final class TurboQuantizer {
     public float[] maxs() { return Arrays.copyOf(maxs, dimensions); }
 
     /** Returns the bytes required to store a single quantized vector. */
+    @SuppressWarnings("preview")
     public int bytesPerVector() {
         return switch (bitsPerDimension) {
             case 8 -> dimensions;
             case 4 -> NibblePacker.packedSize(dimensions);
             case 2 -> CrumbPacker.packedSize(dimensions);
-            default -> throw new SpectorInternalException(ErrorCode.ARGUMENT_INVALID, "bits", bitsPerDimension);
+            case int b -> throw new SpectorInternalException(ErrorCode.ARGUMENT_INVALID, "bits", b);
         };
     }
 
@@ -427,6 +438,7 @@ public final class TurboQuantizer {
 
     // ─────────────── Packing / Unpacking ───────────────
 
+    @SuppressWarnings("preview")
     private byte[] pack(int[] quantized) {
         return switch (bitsPerDimension) {
             case 8 -> {
@@ -438,10 +450,11 @@ public final class TurboQuantizer {
             }
             case 4 -> NibblePacker.pack(quantized, dimensions);
             case 2 -> CrumbPacker.pack(quantized, dimensions);
-            default -> throw new SpectorInternalException(ErrorCode.ARGUMENT_INVALID, "bits", bitsPerDimension);
+            case int b -> throw new SpectorInternalException(ErrorCode.ARGUMENT_INVALID, "bits", b);
         };
     }
 
+    @SuppressWarnings("preview")
     private int[] unpack(byte[] packed) {
         return switch (bitsPerDimension) {
             case 8 -> {
@@ -453,7 +466,7 @@ public final class TurboQuantizer {
             }
             case 4 -> NibblePacker.unpack(packed, dimensions);
             case 2 -> CrumbPacker.unpack(packed, dimensions);
-            default -> throw new SpectorInternalException(ErrorCode.ARGUMENT_INVALID, "bits", bitsPerDimension);
+            case int b -> throw new SpectorInternalException(ErrorCode.ARGUMENT_INVALID, "bits", b);
         };
     }
 
