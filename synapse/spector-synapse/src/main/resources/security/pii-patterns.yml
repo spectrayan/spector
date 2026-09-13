@@ -1,0 +1,44 @@
+# Regex PII patterns for PiiDetector.
+# Loaded once from the classpath and cached immutably.
+# Edit this file to add/remove patterns without a Java change.
+#
+# minLevel gates which sensitivity levels apply the pattern:
+#   RELAXED  — email, SSN, credit card only
+#   MODERATE — + phone, IP
+#   STRICT   — + address (person names use a separate heuristic)
+patterns:
+  - id: email
+    type: EMAIL
+    minLevel: RELAXED
+    regex: '(?i)\b[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}\b'
+
+  - id: ssn
+    type: SSN
+    minLevel: RELAXED
+    regex: '\b(?!000|666|9\d{2})\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b'
+
+  - id: credit-card
+    type: CREDIT_CARD
+    minLevel: RELAXED
+    # 13–19 digit sequences with optional spaces/dashes; Luhn-validated in code
+    regex: '\b(?:\d[ \-]?){13,19}\d\b'
+
+  - id: phone-us
+    type: PHONE
+    minLevel: MODERATE
+    regex: '\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b'
+
+  - id: ipv4
+    type: IP_ADDRESS
+    minLevel: MODERATE
+    regex: '\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b'
+
+  - id: ipv6
+    type: IP_ADDRESS
+    minLevel: MODERATE
+    regex: '\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b|\b(?:[0-9a-fA-F]{1,4}:){1,7}:\b|\b(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}\b'
+
+  - id: street-address
+    type: ADDRESS
+    minLevel: STRICT
+    regex: '\b\d{1,5}\s+[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*\s+(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Way|Pkwy|Parkway)\.?\b'

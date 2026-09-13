@@ -12,13 +12,15 @@
  */
 package com.spectrayan.spector.synapse.security.config;
 
+import com.spectrayan.spector.synapse.security.pii.PiiLevel;
+
 import java.io.Serializable;
 
 /**
  * Security configuration bound under {@code spector.security.*}.
  *
- * <p>Currently hosts prompt-injection detection settings
- * ({@code spector.security.injection.*}). Nested under {@link
+ * <p>Hosts prompt-injection detection ({@code spector.security.injection.*})
+ * and PII redaction ({@code spector.security.pii.*}). Nested under {@link
  * com.spectrayan.spector.synapse.config.SynapseProperties} so existing
  * {@code @ConfigurationProperties(prefix = "spector")} binding picks it up.</p>
  */
@@ -27,6 +29,7 @@ public class SecurityProperties implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private InjectionProperties injection = new InjectionProperties();
+    private PiiProperties pii = new PiiProperties();
 
     public InjectionProperties getInjection() {
         return injection;
@@ -35,6 +38,16 @@ public class SecurityProperties implements Serializable {
     public void setInjection(InjectionProperties injection) {
         if (injection != null) {
             this.injection = injection;
+        }
+    }
+
+    public PiiProperties getPii() {
+        return pii;
+    }
+
+    public void setPii(PiiProperties pii) {
+        if (pii != null) {
+            this.pii = pii;
         }
     }
 
@@ -85,6 +98,47 @@ public class SecurityProperties implements Serializable {
 
         public boolean isWarn() {
             return isActive() && mode == Mode.WARN;
+        }
+    }
+
+    /**
+     * PII detection and redaction settings ({@code spector.security.pii.*}).
+     *
+     * <ul>
+     *   <li>{@code enabled} — master switch; when {@code false}, interceptor is a no-op</li>
+     *   <li>{@code level} — {@code RELAXED} / {@code MODERATE} / {@code STRICT}</li>
+     * </ul>
+     */
+    public static class PiiProperties implements Serializable {
+
+        private static final long serialVersionUID = 1L;
+
+        /** Master enable flag. Default {@code true} for safe rollout with MODERATE level. */
+        private boolean enabled = true;
+
+        /** Detection sensitivity. Default {@link PiiLevel#MODERATE}. */
+        private PiiLevel level = PiiLevel.MODERATE;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public PiiLevel getLevel() {
+            return level;
+        }
+
+        public void setLevel(PiiLevel level) {
+            if (level != null) {
+                this.level = level;
+            }
+        }
+
+        public boolean isActive() {
+            return enabled;
         }
     }
 
