@@ -1,0 +1,18 @@
+# Heuristic vocabulary for ClassifierInjectionDetector.
+# Loaded once from the classpath and cached immutably.
+# Edit this file to add/remove signals without a Java change.
+#
+# Scoring: score = min(1.0, hits / 3.0). A hit is recorded when
+# score >= threshold. Two distinct signals are enough at 0.55.
+threshold: 0.55
+signals:
+  - ignore previous
+  - ignore all instructions
+  - system prompt
+  - jailbreak
+  - developer mode
+  - do anything now
+  - no restrictions
+  - override instructions
+  - reveal your prompt
+  - unfiltered responses
