@@ -187,6 +187,10 @@ public final class CoActivationLayout implements RegionLayout {
      * @param count    co-activation count
      * @param flags    flags bitfield (see {@link #FLAG_OCCUPIED})
      */
+    @ValueCandidate(
+            reason = "Immutable 24-byte pure primitive projection of tag co-activation pair slots",
+            hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+    )
     public record CoActivationPair(long tagHashA, long tagHashB, int count, int flags) {
         /** Returns {@code true} if this slot is occupied. */
         public boolean isOccupied() {

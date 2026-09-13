@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.layout;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
@@ -89,6 +90,10 @@ public record EpisodicLayout(
      * @param minTimestampMs minimum record timestamp in epoch milliseconds (0 if none)
      * @param maxTimestampMs maximum record timestamp in epoch milliseconds (0 if none)
      */
+    @ValueCandidate(
+            reason = "Pure primitive summary statistics collected from episodic framing walks",
+            hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+    )
     public record FramingStats(int liveCount, long minTimestampMs, long maxTimestampMs) {}
 
     /**

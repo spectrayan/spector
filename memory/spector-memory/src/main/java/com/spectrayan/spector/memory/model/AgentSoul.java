@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -129,6 +130,10 @@ public record AgentSoul(
     /**
      * The agent's default emotional state — influences recall bias.
      */
+    @ValueCandidate(
+            reason = "Pure primitive 2-byte emotional homeostatic baseline anchor",
+            hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+    )
     public record EmotionalBaseline(byte defaultValence, byte defaultArousal) {
         public static final EmotionalBaseline NEUTRAL = new EmotionalBaseline((byte) 0, (byte) 128);
         public static final EmotionalBaseline WARM = new EmotionalBaseline((byte) 30, (byte) 100);

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 /**
  * Aggregate statistics for the 3-layer cognitive graph subsystem.
  *
@@ -24,6 +26,10 @@ package com.spectrayan.spector.memory.model;
  * @param entityEdges total edges in the entity-relationship graph
  * @since 1.1.0
  */
+@ValueCandidate(
+        reason = "Pure primitive 16-byte aggregate topology counts for the 3-layer cognitive graph subsystem",
+        hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+)
 public record GraphStats(
         int hebbianEdges,
         int temporalLinks,

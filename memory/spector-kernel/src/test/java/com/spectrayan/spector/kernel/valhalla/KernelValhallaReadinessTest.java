@@ -16,13 +16,23 @@
 package com.spectrayan.spector.kernel.valhalla;
 
 import com.spectrayan.spector.commons.valhalla.ValueClassValidator;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.layout.CoActivationLayout;
+import com.spectrayan.spector.kernel.layout.EpisodicLayout;
+import com.spectrayan.spector.kernel.migration.FormatId;
 import com.spectrayan.spector.kernel.region.RegionSizeSpec;
+import com.spectrayan.spector.kernel.scan.ScanFilter;
+import com.spectrayan.spector.kernel.store.AbstractEngramMemory;
+import com.spectrayan.spector.kernel.store.CoActivationMemory;
 import com.spectrayan.spector.kernel.store.ContinuityRecord;
 import com.spectrayan.spector.kernel.store.EpisodicMemory;
 import com.spectrayan.spector.kernel.store.HebbianEdge;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 import com.spectrayan.spector.kernel.store.TemporalFact;
 import com.spectrayan.spector.kernel.store.TemporalFactsMemory;
+import com.spectrayan.spector.kernel.store.TextBlobMemory;
+import com.spectrayan.spector.kernel.sync.CheckpointResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -52,6 +62,39 @@ class KernelValhallaReadinessTest {
                 .doesNotThrowAnyException();
 
         assertThatCode(() -> ValueClassValidator.assertValueClassCompliant(RegionSizeSpec.class))
+                .doesNotThrowAnyException();
+
+        assertThatCode(() -> ValueClassValidator.assertValueClassCompliant(CoActivationLayout.StdpEdge.class))
+                .doesNotThrowAnyException();
+
+        assertThatCode(() -> ValueClassValidator.assertValueClassCompliant(CoActivationLayout.CoActivationPair.class))
+                .doesNotThrowAnyException();
+
+        assertThatCode(() -> ValueClassValidator.assertValueClassCompliant(CoActivationMemory.EdgeWeight.class))
+                .doesNotThrowAnyException();
+
+        assertThatCode(() -> ValueClassValidator.assertValueClassCompliant(HyperEntityGraphMemory.HyperEdgeVertex.class))
+                .doesNotThrowAnyException();
+
+        assertThatCode(() -> ValueClassValidator.assertValueClassCompliant(TextBlobMemory.TextPosition.class))
+                .doesNotThrowAnyException();
+
+        assertThatCode(() -> ValueClassValidator.assertValueClassCompliant(ScanFilter.class))
+                .doesNotThrowAnyException();
+
+        assertThatCode(() -> ValueClassValidator.assertValueClassCompliant(MemoryLocation.class))
+                .doesNotThrowAnyException();
+
+        assertThatCode(() -> ValueClassValidator.assertValueClassCompliant(EpisodicLayout.FramingStats.class))
+                .doesNotThrowAnyException();
+
+        assertThatCode(() -> ValueClassValidator.assertValueClassCompliant(AbstractEngramMemory.SummaryStats.class))
+                .doesNotThrowAnyException();
+
+        assertThatCode(() -> ValueClassValidator.assertValueClassCompliant(FormatId.class))
+                .doesNotThrowAnyException();
+
+        assertThatCode(() -> ValueClassValidator.assertValueClassCompliant(CheckpointResult.class))
                 .doesNotThrowAnyException();
     }
 }
