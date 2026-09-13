@@ -53,11 +53,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user spector (UID/GID 1000)
+# Create non-root user spector (UID/GID 1000) and purge unused pebble binary
 RUN (userdel -r ubuntu 2>/dev/null || true) && \
     (groupdel ubuntu 2>/dev/null || true) && \
     (groupadd -g 1000 spector 2>/dev/null || true) && \
-    (id -u 1000 >/dev/null 2>&1 || useradd -u 1000 -g 1000 -m -s /bin/bash spector)
+    (id -u 1000 >/dev/null 2>&1 || useradd -u 1000 -g 1000 -m -s /bin/bash spector) && \
+    rm -f /usr/bin/pebble
 
 WORKDIR /app
 
