@@ -16,6 +16,7 @@ import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.synapse.agent.graph.CognitiveState;
+import com.spectrayan.spector.synapse.security.injection.InjectionInterceptor;
 
 import org.bsc.langgraph4j.action.NodeAction;
 import org.slf4j.Logger;
@@ -39,14 +40,20 @@ public final class RetrieveNode implements NodeAction<CognitiveState> {
 
     private final SpectorMemory memory;
     private final int topK;
+    private final InjectionInterceptor injectionInterceptor;
 
     public RetrieveNode(SpectorMemory memory, int topK) {
-        this.memory = Objects.requireNonNull(memory, "memory");
-        this.topK = topK > 0 ? topK : 10;
+        this(memory, topK, null);
     }
 
     public RetrieveNode(SpectorMemory memory) {
-        this(memory, 10);
+        this(memory, 10, null);
+    }
+
+    public RetrieveNode(SpectorMemory memory, int topK, InjectionInterceptor injectionInterceptor) {
+        this.memory = Objects.requireNonNull(memory, "memory");
+        this.topK = topK > 0 ? topK : 10;
+        this.injectionInterceptor = injectionInterceptor;
     }
 
     @Override
@@ -68,6 +75,16 @@ public final class RetrieveNode implements NodeAction<CognitiveState> {
                 .map(r -> String.format("[%s | score=%.3f | importance=%.2f] %s",
                         r.memoryType(), r.score(), r.importance(), r.text()))
                 .collect(Collectors.toList());
+
+        // Prompt-injection shield — filter poisoned RAG / memory chunks (#204)
+        if (injectionInterceptor != null) {
+            int before = contextEntries.size();
+            contextEntries = injectionInterceptor.filterDocuments(contextEntries);
+            if (contextEntries.size() < before) {
+                log.warn("[RetrieveNode] Excluded {} document(s) due to prompt injection",
+                        before - contextEntries.size());
+            }
+        }
 
         return Map.of(
                 "context", contextEntries,

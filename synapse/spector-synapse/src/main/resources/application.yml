@@ -64,6 +64,14 @@ spector:
       minutes: ${SPECTOR_AUTH_LOCKOUT_MINUTES:15}
     public-paths: ${SPECTOR_AUTH_PUBLIC_PATHS:/actuator/health,/api/docs,/swagger-ui.html,/swagger-ui/**,/v3/api-docs/**,/v3/api-docs}
 
+
+  # ── Prompt Injection Shield (spector.security.injection.*) ──
+  # Pattern-based fast path (<50ms P99). Modes: BLOCK | WARN | OFF
+  security:
+    injection:
+      enabled: ${SPECTOR_SECURITY_INJECTION_ENABLED:true}
+      mode: ${SPECTOR_SECURITY_INJECTION_MODE:WARN}
+
   # ── Cell High Availability & Routing (spector.cell.*, spector.routing.*) ──
   cell:
     id: ${SPECTOR_CELL_ID:cell-1}
