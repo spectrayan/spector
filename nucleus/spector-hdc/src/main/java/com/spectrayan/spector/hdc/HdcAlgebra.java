@@ -26,7 +26,11 @@ import java.util.Objects;
  * Core HDC SIMD operations.
  */
 public final class HdcAlgebra {
-    private static final VectorSpecies<Long> SPECIES = LongVector.SPECIES_PREFERRED;
+    @SuppressWarnings("preview")
+    private static final LazyConstant<VectorSpecies<Long>> SPECIES_CONSTANT =
+            LazyConstant.of(() -> LongVector.SPECIES_PREFERRED);
+
+    private static final VectorSpecies<Long> SPECIES = SPECIES_CONSTANT.get();
 
     private HdcAlgebra() {
         // Utility class

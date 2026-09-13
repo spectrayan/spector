@@ -48,8 +48,9 @@ public final class AcceleratorRegistry {
     /** Default batch threshold when no custom property is set. */
     public static final int DEFAULT_BATCH_THRESHOLD = 10_000;
 
-    private static final ReentrantLock INIT_LOCK = new ReentrantLock();
-    private static volatile RegistryState state;
+    @SuppressWarnings("preview")
+    private static volatile LazyConstant<RegistryState> state =
+            LazyConstant.of(AcceleratorRegistry::initialize);
 
     private AcceleratorRegistry() {
     }
@@ -71,21 +72,7 @@ public final class AcceleratorRegistry {
     }
 
     private static RegistryState getState() {
-        RegistryState localState = state;
-        if (localState != null) {
-            return localState;
-        }
-
-        INIT_LOCK.lock();
-        try {
-            if (state != null) {
-                return state;
-            }
-            state = initialize();
-            return state;
-        } finally {
-            INIT_LOCK.unlock();
-        }
+        return state.get();
     }
 
     private static RegistryState initialize() {
@@ -206,13 +193,9 @@ public final class AcceleratorRegistry {
     /**
      * Resets the registry state (forces reload on next access). Primarily for testing.
      */
+    @SuppressWarnings("preview")
     public static void reset() {
-        INIT_LOCK.lock();
-        try {
-            state = null;
-        } finally {
-            INIT_LOCK.unlock();
-        }
+        state = LazyConstant.of(AcceleratorRegistry::initialize);
     }
 
     /**
