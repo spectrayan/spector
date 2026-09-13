@@ -141,7 +141,8 @@
         <armeria.version>1.41.0</armeria.version>
         <langchain4j.version>1.18.1</langchain4j.version>
         <langchain4j-embeddings.version>1.0.0-beta1</langchain4j-embeddings.version>
-        <spring-boot.version>4.1.0</spring-boot.version>
+        <spring-boot.version>4.1.1</spring-boot.version>
+        <tomcat.version>11.0.25</tomcat.version>
         <flyway.version>12.4.0</flyway.version>
         <spring-ai.version>2.0.0</spring-ai.version>
         <langgraph4j.version>1.8.20</langgraph4j.version>
@@ -151,10 +152,10 @@
         <sse-server.version>2.0.0</sse-server.version>
         <tabula.version>1.0.5</tabula.version>
         <pdfbox.version>3.0.8</pdfbox.version>
-        <netty.version>4.2.13.Final</netty.version>
+        <netty.version>4.2.17.Final</netty.version>
         <picocli.version>4.7.6</picocli.version>
         <handlebars.version>4.4.0</handlebars.version>
-        <camel.version>4.11.0</camel.version>
+        <camel.version>4.14.6</camel.version>
         <bucket4j.version>8.10.1</bucket4j.version>
         <caffeine.version>3.2.0</caffeine.version>
         <lettuce.version>6.5.3.RELEASE</lettuce.version>
@@ -580,6 +581,23 @@
                 <version>${camel.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <!-- ── Apache Tomcat Embed (security override for CVE-2026-68525, CVE-2026-65905, CVE-2026-65182) ── -->
+            <dependency>
+                <groupId>org.apache.tomcat.embed</groupId>
+                <artifactId>tomcat-embed-core</artifactId>
+                <version>${tomcat.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tomcat.embed</groupId>
+                <artifactId>tomcat-embed-el</artifactId>
+                <version>${tomcat.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tomcat.embed</groupId>
+                <artifactId>tomcat-embed-websocket</artifactId>
+                <version>${tomcat.version}</version>
             </dependency>
 
             <!-- Awaitility (for async testing) -->
