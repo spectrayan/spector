@@ -46,7 +46,7 @@ public final class PiiRedactor {
             return new PiiRedactionResult(text, text == null ? "" : text, List.of(), session);
         }
         PiiLevel effective = level != null ? level : PiiLevel.MODERATE;
-        List<PiiMatch> matches = detector.detect(text, effective);
+        List<PiiMatch> matches = detector.detect(text, effective, session.contextId());
         if (matches.isEmpty()) {
             return new PiiRedactionResult(text, text, List.of(), session);
         }

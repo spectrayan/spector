@@ -14,6 +14,9 @@ package com.spectrayan.spector.synapse.security.pii;
 
 /**
  * Categories of personally identifiable information detected before LLM calls.
+ *
+ * <p>{@link #PERSON} is reserved for a future optional local NER/ONNX path;
+ * default Phileas policies ship identifier filters only (no remote Ph-Eye).</p>
  */
 public enum PiiType {
     EMAIL,

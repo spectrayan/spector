@@ -13,6 +13,7 @@
 package com.spectrayan.spector.synapse.security.pii;
 
 import java.util.Collections;
+import java.util.UUID;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -26,11 +27,20 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public final class PiiRedactionSession {
 
+    private final String contextId = UUID.randomUUID().toString();
     private final ReentrantLock lock = new ReentrantLock();
     private final Map<String, String> tokenToOriginal = new LinkedHashMap<>();
     private final Map<String, String> originalToToken = new LinkedHashMap<>();
     private final EnumMap<PiiType, Integer> counters = new EnumMap<>(PiiType.class);
     private final EnumMap<PiiType, Integer> typeCounts = new EnumMap<>(PiiType.class);
+
+    /**
+     * Phileas filter context id for this session (stable for the request).
+     * Spector tokens are still allocated here — not Phileas opaque replacements.
+     */
+    public String contextId() {
+        return contextId;
+    }
 
     /**
      * Returns an existing token for {@code original} if already mapped, otherwise

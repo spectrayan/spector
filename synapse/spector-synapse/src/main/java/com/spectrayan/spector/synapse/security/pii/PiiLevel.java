@@ -15,10 +15,11 @@ package com.spectrayan.spector.synapse.security.pii;
 /**
  * Sensitivity level for PII detection ({@code spector.security.pii.level}).
  *
+ * <p>Each level selects a classpath Phileas PhiSQL policy under {@code /security/}:</p>
  * <ul>
- *   <li>{@link #RELAXED} — high-confidence patterns only (email, SSN, credit card)</li>
- *   <li>{@link #MODERATE} — + phone, IP, light honorific name heuristics</li>
- *   <li>{@link #STRICT} — + person-name CapWord heuristic and street addresses</li>
+ *   <li>{@link #RELAXED} — email, SSN, credit card</li>
+ *   <li>{@link #MODERATE} — + phone, IP address</li>
+ *   <li>{@link #STRICT} — + street address (identifier filters only; no remote NER)</li>
  * </ul>
  */
 public enum PiiLevel {
