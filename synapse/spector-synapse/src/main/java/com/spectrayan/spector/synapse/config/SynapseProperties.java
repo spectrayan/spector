@@ -52,6 +52,7 @@ public class SynapseProperties extends SpectorConfigProperties {
     private com.spectrayan.spector.synapse.config.replication.ReplicationProperties replication = new com.spectrayan.spector.synapse.config.replication.ReplicationProperties();
     private com.spectrayan.spector.synapse.config.failover.FailoverProperties failover = new com.spectrayan.spector.synapse.config.failover.FailoverProperties();
     private com.spectrayan.spector.synapse.config.dr.DisasterRecoveryProperties dr = new com.spectrayan.spector.synapse.config.dr.DisasterRecoveryProperties();
+    private com.spectrayan.spector.synapse.security.config.SecurityProperties security = new com.spectrayan.spector.synapse.security.config.SecurityProperties();
 
     public SynapseProperties() {}
 
@@ -106,6 +107,9 @@ public class SynapseProperties extends SpectorConfigProperties {
 
     public com.spectrayan.spector.synapse.config.dr.DisasterRecoveryProperties getDr() { return dr; }
     public void setDr(com.spectrayan.spector.synapse.config.dr.DisasterRecoveryProperties dr) { if (dr != null) this.dr = dr; }
+
+    public com.spectrayan.spector.synapse.security.config.SecurityProperties getSecurity() { return security; }
+    public void setSecurity(com.spectrayan.spector.synapse.security.config.SecurityProperties security) { if (security != null) this.security = security; }
 
     // ══════════════════════════════════════════════════════════════
     // Canonical storage roots (ADR-0034 D1, Req R3.1, R3.4)
@@ -165,4 +169,5 @@ public class SynapseProperties extends SpectorConfigProperties {
     public com.spectrayan.spector.synapse.config.replication.ReplicationProperties replication() { return getReplication(); }
     public com.spectrayan.spector.synapse.config.failover.FailoverProperties failover() { return getFailover(); }
     public com.spectrayan.spector.synapse.config.dr.DisasterRecoveryProperties dr() { return getDr(); }
+    public com.spectrayan.spector.synapse.security.config.SecurityProperties security() { return getSecurity(); }
 }

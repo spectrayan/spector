@@ -428,6 +428,10 @@ public enum ErrorCode {
     TASK_QUEUE_INTERRUPTED    (500_011, ErrorCategory.SERVER,
             "Task queue '{}' worker interrupted: {}"),
 
+    /** Prompt injection detected and blocked by PromptShield. */
+    PROMPT_INJECTION_BLOCKED  (500_012, ErrorCategory.SERVER,
+            "Prompt injection blocked ({}): {}"),
+
     // ══════════════════════════════════════════════════════════════════════
     // CLIENT (SPE-510-xxx)
     // ══════════════════════════════════════════════════════════════════════
