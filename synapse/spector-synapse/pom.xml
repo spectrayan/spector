@@ -24,10 +24,28 @@
 
         <!-- Armeria (bumped for Spring Boot 4 compatibility) -->
         <armeria.version>1.40.0</armeria.version>
+        <tomcat.version>11.0.25</tomcat.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+
+            <!-- Tomcat Embed security override (CVE-2026-68525, CVE-2026-65905, CVE-2026-65182) -->
+            <dependency>
+                <groupId>org.apache.tomcat.embed</groupId>
+                <artifactId>tomcat-embed-core</artifactId>
+                <version>${tomcat.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tomcat.embed</groupId>
+                <artifactId>tomcat-embed-el</artifactId>
+                <version>${tomcat.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tomcat.embed</groupId>
+                <artifactId>tomcat-embed-websocket</artifactId>
+                <version>${tomcat.version}</version>
+            </dependency>
 
             <!-- Spring Boot 4 BOM -->
             <dependency>

@@ -7,12 +7,16 @@ on:
       - 'deploy/docker/**'
       - '**/Dockerfile*'
       - '.github/workflows/container-security.yml'
+      - 'pom.xml'
+      - '**/pom.xml'
   pull_request:
     branches: [ main ]
     paths:
       - 'deploy/docker/**'
       - '**/Dockerfile*'
       - '.github/workflows/container-security.yml'
+      - 'pom.xml'
+      - '**/pom.xml'
   schedule:
     - cron: '0 4 * * 1'  # Weekly Monday 4:00 AM UTC
   workflow_dispatch:
