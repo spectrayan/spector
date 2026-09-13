@@ -81,6 +81,7 @@ RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 ENV SPECTOR_DATA_DIR=/data
 ENV JAVA_OPTS="-Xms512m -Xmx1536m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 \
 -XX:G1HeapRegionSize=8m -XX:MaxDirectMemorySize=2g \
+-XX:+UseCompactObjectHeaders \
 --enable-preview --add-modules=jdk.incubator.vector \
 --enable-native-access=ALL-UNNAMED -Djava.io.tmpdir=/data/tmp"
 
