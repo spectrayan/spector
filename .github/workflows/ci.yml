@@ -30,8 +30,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  JAVA_VERSION: '25'
-  JAVA_DISTRIBUTION: 'temurin'
+  JAVA_VERSION: '27-ea'
+  JAVA_DISTRIBUTION: 'oracle'
   MAVEN_OPTS: '-Xmx2g'
 
 jobs:
