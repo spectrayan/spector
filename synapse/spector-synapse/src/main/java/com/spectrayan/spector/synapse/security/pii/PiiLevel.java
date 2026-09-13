@@ -19,7 +19,7 @@ package com.spectrayan.spector.synapse.security.pii;
  * <ul>
  *   <li>{@link #RELAXED} — email, SSN, credit card</li>
  *   <li>{@link #MODERATE} — + phone, IP address</li>
- *   <li>{@link #STRICT} — + street address (identifier filters only; no remote NER)</li>
+ *   <li>{@link #STRICT} — + street address and ZIP_CODE (identifier filters only; no remote NER)</li>
  * </ul>
  */
 public enum PiiLevel {

@@ -29,7 +29,7 @@ import java.util.Objects;
  * <ul>
  *   <li>{@link PiiLevel#RELAXED} — email, SSN, credit card</li>
  *   <li>{@link PiiLevel#MODERATE} — + phone, IP</li>
- *   <li>{@link PiiLevel#STRICT} — + street address</li>
+ *   <li>{@link PiiLevel#STRICT} — + street address and ZIP_CODE</li>
  * </ul>
  *
  * <p>Identifier filters only by default (no remote Ph-Eye NER). Fail-closed if

@@ -74,6 +74,16 @@ class PiiDetectorTest {
     }
 
     @Test
+    @DisplayName("STRICT detects US ZIP codes via Phileas ZIP_CODE filter")
+    void strictDetectsZipCode() {
+        String text = "Ship to zip 90210 please.";
+        List<PiiMatch> matches = detector.detect(text, PiiLevel.STRICT);
+
+        assertThat(matches).anyMatch(m -> m.type() == PiiType.ADDRESS
+                && m.value().contains("90210"));
+    }
+
+    @Test
     @DisplayName("STRICT does not invent PERSON spans without Ph-Eye NER")
     void strictDoesNotDetectBarePersonNames() {
         String text = "Please ask John Smith about the invoice.";
@@ -110,6 +120,8 @@ class PiiDetectorTest {
     void mapsFilterTypes() {
         assertThat(PhileasPiiEngine.mapType(ai.philterd.phileas.model.filtering.FilterType.EMAIL_ADDRESS))
                 .isEqualTo(PiiType.EMAIL);
+        assertThat(PhileasPiiEngine.mapType(ai.philterd.phileas.model.filtering.FilterType.ZIP_CODE))
+                .isEqualTo(PiiType.ADDRESS);
         assertThat(PhileasPiiEngine.mapType(ai.philterd.phileas.model.filtering.FilterType.PH_EYE))
                 .isNull();
         assertThat(PhileasPiiEngine.mapType(ai.philterd.phileas.model.filtering.FilterType.PERSON))
