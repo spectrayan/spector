@@ -15,6 +15,8 @@ package com.spectrayan.spector.synapse.agent.graph;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
 import com.spectrayan.spector.synapse.bridge.LlmBridge;
+import com.spectrayan.spector.synapse.security.injection.InjectionInterceptor;
+import com.spectrayan.spector.synapse.security.injection.PromptInjectionException;
 
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
@@ -76,10 +78,20 @@ public class AgenticChatGraph {
 
     private final LlmBridge llmBridge;
     private final ToolRegistry toolRegistry;
+    private final InjectionInterceptor injectionInterceptor;
 
     public AgenticChatGraph(LlmBridge llmBridge, ToolRegistry toolRegistry) {
+        this(llmBridge, toolRegistry, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AgenticChatGraph(LlmBridge llmBridge,
+                            ToolRegistry toolRegistry,
+                            @org.springframework.beans.factory.annotation.Autowired(required = false)
+                            InjectionInterceptor injectionInterceptor) {
         this.llmBridge = llmBridge;
         this.toolRegistry = toolRegistry;
+        this.injectionInterceptor = injectionInterceptor;
     }
 
     /**
@@ -180,9 +192,22 @@ public class AgenticChatGraph {
         try {
             listener.onThinking("Processing message...");
 
+            // Prompt-injection shield — user input before graph entry (#204)
+            String safeMessage = message;
+            if (injectionInterceptor != null) {
+                try {
+                    safeMessage = injectionInterceptor.interceptUserInput(message);
+                } catch (PromptInjectionException pie) {
+                    log.warn("[AgenticChatGraph] Blocked prompt injection: {}", pie.getMessage());
+                    listener.onError(pie.getMessage());
+                    return "Your message was blocked by the prompt injection shield. "
+                            + "Please rephrase without attempts to override system instructions.";
+                }
+            }
+
             // Seed state with the history + user message
             List<ChatMessage> initialMessages = new ArrayList<>(history);
-            initialMessages.add(UserMessage.from(message));
+            initialMessages.add(UserMessage.from(safeMessage));
 
             Map<String, Object> input = Map.of(
                     MESSAGES_KEY, initialMessages
@@ -299,6 +324,9 @@ public class AgenticChatGraph {
             log.info("[AgenticChatGraph] Executing tool: {} ({})", req.name(), req.arguments());
 
             String result = toolRegistry.executeTool(req);
+            if (injectionInterceptor != null) {
+                result = injectionInterceptor.interceptToolOutput(result);
+            }
 
             toolResults.add(ToolExecutionResultMessage.from(req, result));
             log.debug("[AgenticChatGraph] Tool '{}' → {} chars", req.name(), result.length());

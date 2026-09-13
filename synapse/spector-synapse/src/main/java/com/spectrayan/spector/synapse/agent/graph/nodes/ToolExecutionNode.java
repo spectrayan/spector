@@ -17,6 +17,7 @@ import com.spectrayan.spector.synapse.agent.ToolRegistry;
 import com.spectrayan.spector.synapse.agent.approval.model.ApprovalExecutionResult;
 import com.spectrayan.spector.synapse.agent.approval.service.AgentApprovalService;
 import com.spectrayan.spector.synapse.agent.graph.CognitiveState;
+import com.spectrayan.spector.synapse.security.injection.InjectionInterceptor;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -45,14 +46,22 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
 
     private final ToolRegistry toolRegistry;
     private final AgentApprovalService approvalService;
+    private final InjectionInterceptor injectionInterceptor;
 
     public ToolExecutionNode(ToolRegistry toolRegistry) {
-        this(toolRegistry, null);
+        this(toolRegistry, null, null);
     }
 
     public ToolExecutionNode(ToolRegistry toolRegistry, AgentApprovalService approvalService) {
+        this(toolRegistry, approvalService, null);
+    }
+
+    public ToolExecutionNode(ToolRegistry toolRegistry,
+                             AgentApprovalService approvalService,
+                             InjectionInterceptor injectionInterceptor) {
         this.toolRegistry = Objects.requireNonNull(toolRegistry, "toolRegistry");
         this.approvalService = approvalService;
+        this.injectionInterceptor = injectionInterceptor;
     }
 
     @Override
@@ -98,7 +107,7 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
                     );
 
                     if (gateResult instanceof ApprovalExecutionResult.Success success) {
-                        result = success.output();
+                        result = sanitizeToolResult(success.output());
                         log.debug("[ToolExecutionNode] {}(approved) → {}", toolName,
                                 result.length() > 100 ? result.substring(0, 100) + "..." : result);
                         results.add(String.format("[Tool: %s] %s", toolName, result));
@@ -110,7 +119,7 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
                         contextEntries.add(String.format("[tool_result | %s | DENIED] %s", toolName, result));
                     }
                 } else {
-                    result = executeToolInternal(tool, args);
+                    result = sanitizeToolResult(executeToolInternal(tool, args));
                     log.debug("[ToolExecutionNode] {}({}) → {}", toolName, args,
                             result.length() > 100 ? result.substring(0, 100) + "..." : result);
                     results.add(String.format("[Tool: %s] %s", toolName, result));
@@ -128,6 +137,13 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
                 "tool_results", results,
                 "context", contextEntries
         );
+    }
+
+    private String sanitizeToolResult(String result) {
+        if (injectionInterceptor == null || result == null) {
+            return result;
+        }
+        return injectionInterceptor.interceptToolOutput(result);
     }
 
     private static String executeToolInternal(McpToolHandler tool, Map<String, Object> args) throws Exception {
