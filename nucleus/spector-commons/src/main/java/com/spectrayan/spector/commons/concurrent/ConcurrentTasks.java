@@ -387,21 +387,13 @@ public final class ConcurrentTasks {
     private static <T> List<T> forkJoinAllStructured(List<Callable<T>> tasks)
             throws ConcurrentExecutionException, InterruptedException {
         try (var scope = StructuredTaskScope.open(
-                StructuredTaskScope.Joiner.<T>awaitAllSuccessfulOrThrow(),
+                StructuredTaskScope.Joiner.<T>allSuccessfulOrThrow(),
                 cf -> cf.withThreadFactory(Thread.ofVirtual().name("spector-vt-concurrent-", 0).factory()))) {
-            List<Subtask<T>> subtasks = new ArrayList<>(tasks.size());
             for (Callable<T> task : tasks) {
-                subtasks.add(scope.fork(task::call));
+                scope.fork(task::call);
             }
-            scope.join(); // auto-cancels siblings on first failure
-
-            // Direct loop — avoids Stream/Iterator/intermediate list allocation
-            List<T> results = new ArrayList<>(subtasks.size());
-            for (Subtask<T> st : subtasks) {
-                results.add(st.get());
-            }
-            return results;
-        } catch (StructuredTaskScope.FailedException e) {
+            return scope.join(); // auto-cancels siblings on first failure, returns direct List<T> in JDK 27
+        } catch (ExecutionException e) {
             throw new ConcurrentExecutionException("Structured fork-join failed", e.getCause());
         }
     }
@@ -416,7 +408,7 @@ public final class ConcurrentTasks {
                 scope.fork(() -> { task.run(); return null; });
             }
             scope.join();
-        } catch (StructuredTaskScope.FailedException e) {
+        } catch (ExecutionException e) {
             throw new ConcurrentExecutionException("Structured fork-run failed", e.getCause());
         }
     }
@@ -431,7 +423,7 @@ public final class ConcurrentTasks {
             Subtask<B> b = scope.fork(taskB::call);
             scope.join();
             return new Pair<>(a.get(), b.get());
-        } catch (StructuredTaskScope.FailedException e) {
+        } catch (ExecutionException e) {
             throw new ConcurrentExecutionException("Structured fork-join failed", e.getCause());
         }
     }
@@ -554,9 +546,9 @@ public final class ConcurrentTasks {
     @SuppressWarnings("preview")
     private static <T> PartialResult<T> forkJoinPartialStructured(
             List<LabeledTask<T>> tasks, Duration timeout) throws InterruptedException {
-        // Use awaitAll() joiner (never auto-cancels) + Configuration.withTimeout()
+        // Use allUntil(st -> false) joiner (never auto-cancels early) + Configuration.withTimeout()
         try (var scope = StructuredTaskScope.open(
-                StructuredTaskScope.Joiner.<T>awaitAll(),
+                StructuredTaskScope.Joiner.<T>allUntil(st -> false),
                 cf -> cf.withThreadFactory(Thread.ofVirtual().name("spector-vt-concurrent-", 0).factory())
                         .withTimeout(timeout))) {
 
@@ -565,11 +557,7 @@ public final class ConcurrentTasks {
                 subtasks.add(scope.fork(task.callable()::call));
             }
 
-            try {
-                scope.join();
-            } catch (StructuredTaskScope.TimeoutException e) {
-                // Expected — some tasks didn't finish within the deadline
-            }
+            scope.join(); // waits for completion or timeout deadline
 
             // Inspect subtask states after join — pre-sized to avoid resize
             int n = subtasks.size();

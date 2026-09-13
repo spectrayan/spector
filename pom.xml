@@ -114,7 +114,7 @@
         <changelist></changelist>
 
         <!-- Java -->
-        <java.version>25</java.version>
+        <java.version>27</java.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <maven.compiler.release>${java.version}</maven.compiler.release>
@@ -682,7 +682,7 @@
     <build>
         <pluginManagement>
             <plugins>
-                <!-- Compiler: Java 25 + Vector API incubator -->
+                <!-- Compiler: Java 27 + Vector API incubator -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>

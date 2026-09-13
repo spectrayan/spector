@@ -71,8 +71,11 @@ import java.nio.ByteOrder;
  */
 public final class SvasqSimdKernel {
 
-    // Preferred float species: AVX2 → 8 lanes (256-bit), AVX-512 → 16 lanes (512-bit)
-    private static final VectorSpecies<Float> F_SPECIES = SimdCapability.PREFERRED_SPECIES;
+    // Float species: at least 8 lanes (256-bit) to ensure valid 64-bit B_SPECIES on 128-bit platforms (NEON)
+    private static final VectorSpecies<Float> F_SPECIES =
+            SimdCapability.PREFERRED_SPECIES.length() < 8
+                    ? FloatVector.SPECIES_256
+                    : SimdCapability.PREFERRED_SPECIES;
 
     // Byte species with the SAME lane count as F_SPECIES.
     // VectorShape.forBitSize(length × 8): 8 lanes → 64-bit, 16 lanes → 128-bit.
