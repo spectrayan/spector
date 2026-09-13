@@ -86,6 +86,7 @@ public class ChatService {
     private final AgenticChatGraph agenticChatGraph;
     private final TsidGenerator tsid;
     private final String ollamaBaseUrl;
+    private final HttpClient httpClient;
 
     /** Lazily initialized cognitive engines. */
     private final ConversationSummarizer summarizer;
@@ -122,6 +123,10 @@ public class ChatService {
         this.tokenUsageTracker = tokenUsageTracker;
         var genProps = props.getProvider().getGeneration();
         this.ollamaBaseUrl = genProps.baseUrl();
+        this.httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_3)
+                .connectTimeout(Duration.ofSeconds(5))
+                .build();
 
         // Initialize cognitive engines
         this.summarizer = new ConversationSummarizer(
@@ -384,14 +389,13 @@ public class ChatService {
     @SuppressWarnings("unchecked")
     public ModelsResponse listModels() {
         try {
-            var client = HttpClient.newHttpClient();
             var req = HttpRequest.newBuilder()
                     .uri(URI.create(ollamaBaseUrl + "/api/tags"))
                     .GET()
                     .timeout(Duration.ofSeconds(5))
                     .build();
 
-            var resp = client.send(req, HttpResponse.BodyHandlers.ofString());
+            var resp = this.httpClient.send(req, HttpResponse.BodyHandlers.ofString());
             if (resp.statusCode() == 200) {
                 var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                 var body = mapper.readValue(resp.body(), Map.class);

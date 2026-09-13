@@ -46,12 +46,14 @@ public final class SpectorClient implements AutoCloseable {
     private final ApiClient apiClient;
     private final HttpClient httpClient;
     private final boolean ownsHttpClient;
+    private final boolean http3Enabled;
     private final MemoryClient memoryClient;
 
-    private SpectorClient(ApiClient apiClient, HttpClient httpClient, boolean ownsHttpClient) {
+    private SpectorClient(ApiClient apiClient, HttpClient httpClient, boolean ownsHttpClient, boolean http3Enabled) {
         this.apiClient = Objects.requireNonNull(apiClient, "apiClient must not be null");
         this.httpClient = httpClient;
         this.ownsHttpClient = ownsHttpClient;
+        this.http3Enabled = http3Enabled;
         this.memoryClient = new MemoryClient(apiClient);
     }
 
@@ -99,6 +101,20 @@ public final class SpectorClient implements AutoCloseable {
         return apiClient;
     }
 
+    /**
+     * Returns whether HTTP/3 QUIC protocol support is enabled for this client.
+     */
+    public boolean isHttp3Enabled() {
+        return http3Enabled;
+    }
+
+    /**
+     * Access the underlying {@link HttpClient}.
+     */
+    public HttpClient httpClient() {
+        return httpClient;
+    }
+
     @Override
     public void close() {
         if (ownsHttpClient && httpClient != null) {
@@ -116,6 +132,7 @@ public final class SpectorClient implements AutoCloseable {
         private String bearerToken;
         private Duration connectTimeout = Duration.ofSeconds(10);
         private Duration readTimeout = Duration.ofSeconds(30);
+        private boolean http3Enabled = false;
         private HttpClient customHttpClient;
         private final Map<String, String> customHeaders = new LinkedHashMap<>();
         private Consumer<HttpRequest.Builder> customInterceptor;
@@ -190,6 +207,30 @@ public final class SpectorClient implements AutoCloseable {
         }
 
         /**
+         * Enables or disables HTTP/3 (QUIC) protocol support (JEP 517).
+         *
+         * <p>When enabled, the client configures {@link HttpClient.Version#HTTP_3},
+         * negotiating QUIC connections with automatic fallback to HTTP/2 or HTTP/1.1
+         * if the remote server does not support HTTP/3.</p>
+         *
+         * @param http3Enabled true to enable HTTP/3 QUIC
+         * @return this builder
+         */
+        public Builder http3Enabled(boolean http3Enabled) {
+            this.http3Enabled = http3Enabled;
+            return this;
+        }
+
+        /**
+         * Returns whether HTTP/3 QUIC protocol support is enabled on this builder.
+         *
+         * @return true if HTTP/3 is enabled
+         */
+        public boolean isHttp3Enabled() {
+            return this.http3Enabled;
+        }
+
+        /**
          * Builds the configured {@link SpectorClient}.
          */
         public SpectorClient build() {
@@ -200,23 +241,39 @@ public final class SpectorClient implements AutoCloseable {
             if (this.customHttpClient != null) {
                 finalHttpClient = this.customHttpClient;
                 httpBuilder = HttpClient.newBuilder();
+                if (this.http3Enabled) {
+                    httpBuilder.version(HttpClient.Version.HTTP_3);
+                }
             } else {
                 httpBuilder = HttpClient.newBuilder();
                 if (connectTimeout != null) {
                     httpBuilder.connectTimeout(connectTimeout);
                 }
+                if (this.http3Enabled) {
+                    httpBuilder.version(HttpClient.Version.HTTP_3);
+                }
                 finalHttpClient = httpBuilder.build();
             }
 
+            HttpClient.Builder apiHttpBuilder = HttpClient.newBuilder()
+                    .connectTimeout(connectTimeout != null ? connectTimeout : Duration.ofSeconds(10));
+            if (this.http3Enabled) {
+                apiHttpBuilder.version(HttpClient.Version.HTTP_3);
+            }
+
             ApiClient apiClient = new ApiClient(
-                    HttpClient.newBuilder().connectTimeout(connectTimeout != null ? connectTimeout : Duration.ofSeconds(10)),
+                    apiHttpBuilder,
                     ApiClient.createDefaultObjectMapper(),
                     baseUri
             );
 
             // If customHttpClient was provided, configure ApiClient with builder wrapper
             if (customHttpClient != null) {
-                apiClient.setHttpClientBuilder(HttpClient.newBuilder());
+                HttpClient.Builder customBuilder = HttpClient.newBuilder();
+                if (this.http3Enabled) {
+                    customBuilder.version(HttpClient.Version.HTTP_3);
+                }
+                apiClient.setHttpClientBuilder(customBuilder);
             }
 
             if (readTimeout != null) {
@@ -246,7 +303,9 @@ public final class SpectorClient implements AutoCloseable {
                 }
             });
 
-            return new SpectorClient(apiClient, finalHttpClient, ownsHttpClient);
+            boolean effectiveHttp3 = this.http3Enabled
+                    || (finalHttpClient != null && finalHttpClient.version() == HttpClient.Version.HTTP_3);
+            return new SpectorClient(apiClient, finalHttpClient, ownsHttpClient, effectiveHttp3);
         }
     }
 }

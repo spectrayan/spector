@@ -76,23 +76,52 @@ public final class OllamaCompletionClient implements AutoCloseable {
     }
 
     /**
-     * Creates a new completion client with explicit parameters.
+     * Creates a new completion client with explicit parameters, defaulting HTTP/3 enabled.
      *
      * @param baseUrl    Ollama server base URL
      * @param model      model name for chat completions
      * @param maxRetries maximum number of retry attempts
      */
     public OllamaCompletionClient(String baseUrl, String model, int maxRetries) {
+        this(baseUrl, model, maxRetries, true);
+    }
+
+    /**
+     * Creates a new completion client with explicit parameters and optional HTTP/3 support.
+     *
+     * @param baseUrl      Ollama server base URL
+     * @param model        model name for chat completions
+     * @param maxRetries   maximum number of retry attempts
+     * @param http3Enabled true to configure HTTP/3 QUIC protocol (JEP 517)
+     */
+    public OllamaCompletionClient(String baseUrl, String model, int maxRetries, boolean http3Enabled) {
         this.baseUrl = baseUrl;
         this.model = model;
         this.maxRetries = maxRetries;
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
-                .build();
+        HttpClient.Builder builder = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10));
+        if (http3Enabled) {
+            builder.version(HttpClient.Version.HTTP_3);
+        }
+        this.httpClient = builder.build();
         this.mapper = JsonMapper.builder().build();
         this.chatUri = URI.create(baseUrl + "/api/chat");
-        log.info("OllamaCompletionClient initialized: model={}, baseUrl={}, maxRetries={}",
-                model, baseUrl, maxRetries);
+        log.info("OllamaCompletionClient initialized: model={}, baseUrl={}, maxRetries={}, http3={}",
+                model, baseUrl, maxRetries, http3Enabled);
+    }
+
+    /**
+     * Returns whether HTTP/3 QUIC protocol is enabled on this client.
+     */
+    public boolean isHttp3Enabled() {
+        return httpClient.version() == HttpClient.Version.HTTP_3;
+    }
+
+    /**
+     * Returns the underlying {@link HttpClient}.
+     */
+    public HttpClient httpClient() {
+        return httpClient;
     }
 
     /**
