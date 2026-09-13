@@ -21,7 +21,7 @@ concurrency:
 
 env:
   JAVA_VERSION: '27-ea'
-  JAVA_DISTRIBUTION: 'oracle'
+  JAVA_DISTRIBUTION: 'temurin'
   MAVEN_OPTS: '-Xmx2g'
   MAVEN_USERNAME: ${{ github.actor }}
   MAVEN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
