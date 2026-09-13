@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.neuromod.dopamine;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,6 +62,10 @@ public final class FlashbulbPolicy {
      * @param importance  the importance to assign (10.0 for flashbulb, original otherwise)
      * @param pinned      whether to set the pinned flag (exempt from pruning)
      */
+    @ValueCandidate(
+            reason = "Neuromodulatory flashbulb decision tuple (boolean, float, boolean)",
+            hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+    )
     public record FlashbulbDecision(boolean isFlashbulb, float importance, boolean pinned) {
 
         /** Normal memory — no special treatment. */

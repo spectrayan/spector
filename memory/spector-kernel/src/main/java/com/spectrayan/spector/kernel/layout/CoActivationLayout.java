@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.layout;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.layout.RegionLayout;
 
 import java.lang.foreign.MemorySegment;
@@ -194,17 +195,19 @@ public final class CoActivationLayout implements RegionLayout {
     }
 
     /**
-     * Immutable projection of a 40-byte STDP edge slot. Used at API boundaries,
-     * checkpoint serialization, diagnostics, and unit tests — never in hot-path
-     * inner loops.
+     * Strongly-typed carrier for an edge entry read from the edge table.
      *
-     * @param sourceHash      source tag hash
-     * @param targetHash      target tag hash
-     * @param weight          STDP weight [0.0, 1.0]
-     * @param lastActivatedMs epoch millis of last activation
+     * @param sourceHash      64-bit tag hash of source
+     * @param targetHash      64-bit tag hash of target
+     * @param weight          synaptic connection strength [0.0, 1.0]
+     * @param lastActivatedMs epoch ms of last update
      * @param activationCount total activation count
      * @param flags           flags bitfield (see {@link #FLAG_OCCUPIED})
      */
+    @ValueCandidate(
+            reason = "Spike-Timing-Dependent Plasticity edge in co-activation tables",
+            hotPathFrequency = ValueCandidate.Frequency.CRITICAL
+    )
     public record StdpEdge(long sourceHash, long targetHash, float weight,
                            long lastActivatedMs, int activationCount, int flags) {
         /** Returns {@code true} if this slot is occupied. */
