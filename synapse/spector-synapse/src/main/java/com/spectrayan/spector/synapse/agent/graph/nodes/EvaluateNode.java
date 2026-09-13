@@ -116,7 +116,7 @@ public final class EvaluateNode implements NodeAction<CognitiveState> {
                 .replace("{{available_tools}}", availableToolsStr);
 
         String response = llmBridge.generate(prompt);
-        log.debug("[EvaluateNode] LLM response: {}", truncate(response, 200));
+        log.debug("[EvaluateNode] LLM response length: {}", response == null ? 0 : response.length());
 
         // Parse decision  --  check USE_TOOLS first (most specific)
         Matcher useToolsMatcher = USE_TOOLS_PATTERN.matcher(response);
@@ -124,7 +124,8 @@ public final class EvaluateNode implements NodeAction<CognitiveState> {
             String toolCallsStr = useToolsMatcher.group(1).trim();
             List<String> toolCallsList = parseToolCalls(toolCallsStr);
             if (!toolCallsList.isEmpty()) {
-                log.info("[EvaluateNode] USE_TOOLS  ->  {}", toolCallsList);
+                log.info("[EvaluateNode] USE_TOOLS -> {} tool(s): {}",
+                        toolCallsList.size(), toolNamesOnly(toolCallsList));
                 return Map.of(
                         "decision", "USE_TOOLS",
                         "tool_calls", toolCallsList
@@ -135,7 +136,8 @@ public final class EvaluateNode implements NodeAction<CognitiveState> {
         Matcher requeryMatcher = REQUERY_PATTERN.matcher(response);
         if (requeryMatcher.find()) {
             String refinedQuery = requeryMatcher.group(1).trim();
-            log.info("[EvaluateNode] REQUERY  ->  '{}'", refinedQuery);
+            log.info("[EvaluateNode] REQUERY -> refinedQueryLength={}",
+                    refinedQuery.length());
             return Map.of(
                     "decision", "REQUERY",
                     "query", refinedQuery
@@ -240,7 +242,16 @@ public final class EvaluateNode implements NodeAction<CognitiveState> {
                 """;
     }
 
-    private static String truncate(String s, int max) {
-        return s == null ? "" : s.length() <= max ? s : s.substring(0, max) + "...";
+    /** Extracts bare tool names (no args) for safe logging. */
+    private static List<String> toolNamesOnly(List<String> toolCalls) {
+        List<String> names = new ArrayList<>(toolCalls.size());
+        for (String call : toolCalls) {
+            if (call == null || call.isBlank()) {
+                continue;
+            }
+            int paren = call.indexOf('(');
+            names.add(paren > 0 ? call.substring(0, paren).trim() : call.trim());
+        }
+        return names;
     }
 }

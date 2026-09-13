@@ -70,7 +70,7 @@ public final class RetrieveNode implements NodeAction<CognitiveState> {
         String query = state.query();
         int attempt = state.attempt();
 
-        log.info("[RetrieveNode] query='{}', attempt={}", query, attempt);
+        log.info("[RetrieveNode] queryLength={}, attempt={}", query == null ? 0 : query.length(), attempt);
 
         RecallOptions options = RecallOptions.builder()
                 .topK(topK)
