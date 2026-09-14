@@ -183,7 +183,7 @@ A set of brain regions that becomes active when a person is *not* focused on an 
 - **`DEFAULT_MODE_NETWORK` cognitive profile.** Searches only the Semantic and Procedural tiers and weights importance far above similarity (α = 0.2, β = 0.8), surfacing what the agent "knows deeply" about a topic.
 - **DMN wander pathway (AISME).** A scheduled background job performs spontaneous mind-wandering, synthesizing new associative edges between memories while the agent is idle. It is controlled by `spector.memory.aisme.dmn.enabled`.
 
-**See also:** [Cognitive Profiles](memory/cognitive-profiles.md) · [Autonomous Identity & AISME](memory/aisme.md) · [Generative Dreaming](memory/dreaming.md)
+**See also:** [Cognitive Profiles](memory/cognitive-profiles.md) · [Active Inference Self-Model Engine (AISME)](memory/aisme.md) · [Generative Dreaming](memory/dreaming.md)
 
 ---
 

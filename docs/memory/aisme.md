@@ -1,6 +1,6 @@
-# Autonomous Identity & AISME
+# Active Inference Self-Model Engine (AISME)
 
-The **Artificial Intelligence Self-Model Engine (AISME)** provides Spector with autobiographical narrative identity, homeostatic affective tracking, and predictive coding capabilities across recall and consolidation pathways.
+The **Active Inference Self-Model Engine (AISME)** provides Spector with autobiographical narrative identity, homeostatic affective tracking, and predictive coding capabilities across recall and consolidation pathways.
 
 ---
 
