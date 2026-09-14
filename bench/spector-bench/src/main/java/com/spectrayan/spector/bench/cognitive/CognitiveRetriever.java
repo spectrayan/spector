@@ -106,6 +106,11 @@ public final class CognitiveRetriever {
                 } catch (Exception ignored) {}
             }
         }
+        if (props == null) {
+            try {
+                props = com.spectrayan.spector.config.SpectorConfigSource.load();
+            } catch (Exception ignored) {}
+        }
         this.datasetProps = props;
     }
 
@@ -209,7 +214,7 @@ public final class CognitiveRetriever {
         }
         builder.enableMmr(enableMmr).mmrLambda(mmrLambda);
 
-        // Wire AISME configuration from spector-bench.yml or system property overrides
+        // Wire AISME configuration from spector-bench.yml or config source
         boolean enableAisme = false;
         if (datasetProps != null) {
             enableAisme = datasetProps.getBoolean(
@@ -218,7 +223,7 @@ public final class CognitiveRetriever {
                     datasetProps.getBoolean("spector.memory.aisme.enabled",
                     datasetProps.getBoolean("aisme.enabled", false))));
         }
-        String sysAisme = System.getProperty("spector.memory.aisme.enabled", System.getProperty("enableAisme"));
+        String sysAisme = System.getProperty("enableAisme");
         if (sysAisme != null && !sysAisme.isBlank()) {
             enableAisme = Boolean.parseBoolean(sysAisme);
         }
