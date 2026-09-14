@@ -19,6 +19,7 @@ import com.spectrayan.spector.synapse.agent.approval.service.AgentApprovalServic
 import com.spectrayan.spector.synapse.agent.graph.CognitiveState;
 import com.spectrayan.spector.synapse.security.injection.InjectionInterceptor;
 import com.spectrayan.spector.synapse.security.pii.PiiInterceptor;
+import com.spectrayan.spector.synapse.security.toolaccess.ToolAccessPolicy;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -49,29 +50,39 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
     private final AgentApprovalService approvalService;
     private final InjectionInterceptor injectionInterceptor;
     private final PiiInterceptor piiInterceptor;
+    private final List<String> soulToolsHint;
 
     public ToolExecutionNode(ToolRegistry toolRegistry) {
-        this(toolRegistry, null, null, null);
+        this(toolRegistry, null, null, null, null);
     }
 
     public ToolExecutionNode(ToolRegistry toolRegistry, AgentApprovalService approvalService) {
-        this(toolRegistry, approvalService, null, null);
+        this(toolRegistry, approvalService, null, null, null);
     }
 
     public ToolExecutionNode(ToolRegistry toolRegistry,
                              AgentApprovalService approvalService,
                              InjectionInterceptor injectionInterceptor) {
-        this(toolRegistry, approvalService, injectionInterceptor, null);
+        this(toolRegistry, approvalService, injectionInterceptor, null, null);
     }
 
     public ToolExecutionNode(ToolRegistry toolRegistry,
                              AgentApprovalService approvalService,
                              InjectionInterceptor injectionInterceptor,
                              PiiInterceptor piiInterceptor) {
+        this(toolRegistry, approvalService, injectionInterceptor, piiInterceptor, null);
+    }
+
+    public ToolExecutionNode(ToolRegistry toolRegistry,
+                             AgentApprovalService approvalService,
+                             InjectionInterceptor injectionInterceptor,
+                             PiiInterceptor piiInterceptor,
+                             List<String> soulToolsHint) {
         this.toolRegistry = Objects.requireNonNull(toolRegistry, "toolRegistry");
         this.approvalService = approvalService;
         this.injectionInterceptor = injectionInterceptor;
         this.piiInterceptor = piiInterceptor;
+        this.soulToolsHint = soulToolsHint != null ? List.copyOf(soulToolsHint) : List.of();
     }
 
     @Override
@@ -89,11 +100,23 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
                         ? callSpec.substring(0, callSpec.indexOf('('))
                         : callSpec;
 
-                McpToolHandler tool = toolRegistry.get(toolName.trim()).orElse(null);
+                String trimmedName = toolName.trim();
+                McpToolHandler tool = toolRegistry.get(trimmedName).orElse(null);
                 if (tool == null) {
                     String error = String.format("Tool '%s' not found in registry", toolName);
                     log.warn("[ToolExecutionNode] {}", error);
                     results.add(error);
+                    continue;
+                }
+
+                String agentId = state.actingSoulId();
+                if (!toolRegistry.isToolAllowed(agentId, trimmedName, soulToolsHint)) {
+                    String error = ToolAccessPolicy.permissionDeniedMessage(trimmedName);
+                    log.warn("[ToolExecutionNode] Permission denied for tool '{}' agentId={}",
+                            trimmedName, agentId != null ? agentId : "");
+                    results.add(error);
+                    contextEntries.add(String.format("[tool_result | %s | DENIED] %s",
+                            trimmedName, error));
                     continue;
                 }
 
@@ -130,7 +153,7 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
                     }
                 } else {
                     result = sanitizeToolResult(executeToolInternal(tool, args));
-                    log.debug("[ToolExecutionNode] {}({}) → {}", toolName, args,
+                    log.debug("[ToolExecutionNode] {} → {}", toolName,
                             result.length() > 100 ? result.substring(0, 100) + "..." : result);
                     results.add(String.format("[Tool: %s] %s", toolName, result));
                     contextEntries.add(String.format("[tool_result | %s] %s", toolName, result));

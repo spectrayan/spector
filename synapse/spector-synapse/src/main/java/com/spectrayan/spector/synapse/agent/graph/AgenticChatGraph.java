@@ -127,9 +127,12 @@ public class AgenticChatGraph {
 
             // Build node actions as NodeAction (sync) and wrap to async
             String modelName = soul.model();
+            String agentId = soul.id();
+            List<String> soulToolsHint = soul.tools() != null ? soul.tools() : List.of();
             NodeAction<AgentState> agentAction =
                     state -> agentNode(state, systemPrompt, toolSpecs, modelName);
-            NodeAction<AgentState> toolAction = this::toolNode;
+            NodeAction<AgentState> toolAction =
+                    state -> toolNode(state, agentId, soulToolsHint);
 
             var stateSerializer = new LC4jStateSerializer<>(AgentState::new);
             stateSerializer.mapper().register(dev.langchain4j.data.message.ImageContent.class,
@@ -335,7 +338,7 @@ public class AgenticChatGraph {
      * and appends results back to the message history.
      */
     @SuppressWarnings("unchecked")
-    private Map<String, Object> toolNode(AgentState state) {
+    private Map<String, Object> toolNode(AgentState state, String agentId, List<String> soulToolsHint) {
         List<ChatMessage> messages = state.<List<ChatMessage>>value(MESSAGES_KEY)
                 .orElse(List.of());
 
@@ -353,9 +356,10 @@ public class AgenticChatGraph {
 
         List<ChatMessage> toolResults = new ArrayList<>();
         for (ToolExecutionRequest req : lastAi.toolExecutionRequests()) {
-            log.info("[AgenticChatGraph] Executing tool: {} ({})", req.name(), req.arguments());
+            // Do not log tool arguments — may contain sensitive payloads (CodeQL / #914).
+            log.info("[AgenticChatGraph] Executing tool: {}", req.name());
 
-            String result = toolRegistry.executeTool(req);
+            String result = toolRegistry.executeTool(req, agentId, soulToolsHint);
             if (injectionInterceptor != null) {
                 result = injectionInterceptor.interceptToolOutput(result);
             }
@@ -393,20 +397,11 @@ public class AgenticChatGraph {
     // ═══════════════════════════════════════════════════════════════
 
     /**
-     * Resolves tool specifications from the agent soul's tool list.
-     * If the soul specifies tools, only those are included; otherwise all are used.
+     * Resolves tool specifications via Synapse {@code ToolAccessPolicy}
+     * intersected with {@code soul.tools} when the hint is non-empty (ADR-0035).
      */
     private List<ToolSpecification> resolveToolSpecs(AgentSoul soul) {
-        if (soul.tools() != null && !soul.tools().isEmpty()) {
-            return toolRegistry.forNames(soul.tools()).stream()
-                    .map(tool -> toolRegistry.toolSpecifications().stream()
-                            .filter(spec -> spec.name().equals(tool.name()))
-                            .findFirst()
-                            .orElse(null))
-                    .filter(spec -> spec != null)
-                    .toList();
-        }
-        return toolRegistry.toolSpecifications();
+        return toolRegistry.resolveToolSpecs(soul);
     }
 
     /**
