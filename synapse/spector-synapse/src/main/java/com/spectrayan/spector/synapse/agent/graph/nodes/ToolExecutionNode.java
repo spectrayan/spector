@@ -18,6 +18,7 @@ import com.spectrayan.spector.synapse.agent.approval.model.ApprovalExecutionResu
 import com.spectrayan.spector.synapse.agent.approval.service.AgentApprovalService;
 import com.spectrayan.spector.synapse.agent.graph.CognitiveState;
 import com.spectrayan.spector.synapse.security.injection.InjectionInterceptor;
+import com.spectrayan.spector.synapse.security.pii.PiiInterceptor;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -47,21 +48,30 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
     private final ToolRegistry toolRegistry;
     private final AgentApprovalService approvalService;
     private final InjectionInterceptor injectionInterceptor;
+    private final PiiInterceptor piiInterceptor;
 
     public ToolExecutionNode(ToolRegistry toolRegistry) {
-        this(toolRegistry, null, null);
+        this(toolRegistry, null, null, null);
     }
 
     public ToolExecutionNode(ToolRegistry toolRegistry, AgentApprovalService approvalService) {
-        this(toolRegistry, approvalService, null);
+        this(toolRegistry, approvalService, null, null);
     }
 
     public ToolExecutionNode(ToolRegistry toolRegistry,
                              AgentApprovalService approvalService,
                              InjectionInterceptor injectionInterceptor) {
+        this(toolRegistry, approvalService, injectionInterceptor, null);
+    }
+
+    public ToolExecutionNode(ToolRegistry toolRegistry,
+                             AgentApprovalService approvalService,
+                             InjectionInterceptor injectionInterceptor,
+                             PiiInterceptor piiInterceptor) {
         this.toolRegistry = Objects.requireNonNull(toolRegistry, "toolRegistry");
         this.approvalService = approvalService;
         this.injectionInterceptor = injectionInterceptor;
+        this.piiInterceptor = piiInterceptor;
     }
 
     @Override
@@ -140,10 +150,16 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
     }
 
     private String sanitizeToolResult(String result) {
-        if (injectionInterceptor == null || result == null) {
-            return result;
+        if (result == null) {
+            return null;
         }
-        return injectionInterceptor.interceptToolOutput(result);
+        if (injectionInterceptor != null) {
+            result = injectionInterceptor.interceptToolOutput(result);
+        }
+        if (piiInterceptor != null) {
+            result = piiInterceptor.redactUsingActiveSession(result);
+        }
+        return result;
     }
 
     private static String executeToolInternal(McpToolHandler tool, Map<String, Object> args) throws Exception {

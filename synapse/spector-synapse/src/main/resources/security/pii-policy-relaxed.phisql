@@ -1,0 +1,4 @@
+POLICY spector_relaxed DESCRIPTION 'Spector RELAXED — high-confidence identifier filters only';
+REDACT EMAIL_ADDRESS WITH REDACT;
+REDACT SSN WITH REDACT;
+REDACT CREDIT_CARD WITH REDACT;

@@ -67,10 +67,15 @@ spector:
 
   # ── Prompt Injection Shield (spector.security.injection.*) ──
   # Pattern-based fast path (<50ms P99). Modes: BLOCK | WARN | OFF
+  # ── PII Redaction (spector.security.pii.*) ──
+  # Levels: RELAXED (email/SSN/CC) | MODERATE (+phone/IP/honorifics) | STRICT (+names/addresses)
   security:
     injection:
       enabled: ${SPECTOR_SECURITY_INJECTION_ENABLED:true}
       mode: ${SPECTOR_SECURITY_INJECTION_MODE:WARN}
+    pii:
+      enabled: ${SPECTOR_SECURITY_PII_ENABLED:true}
+      level: ${SPECTOR_SECURITY_PII_LEVEL:MODERATE}
 
   # ── Cell High Availability & Routing (spector.cell.*, spector.routing.*) ──
   cell:

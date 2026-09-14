@@ -34,6 +34,7 @@ import org.springframework.stereotype.Service;
 import com.spectrayan.spector.provider.ProviderRegistry;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jGenerationAdapter;
 import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
+import com.spectrayan.spector.synapse.security.pii.PiiInterceptor;
 
 import java.time.Duration;
 import java.util.List;
@@ -58,27 +59,36 @@ public class LlmBridge {
     private final ProviderRegistry providerRegistry;
     private final com.spectrayan.spector.synapse.config.service.ConfigResolutionService configResolutionService;
     private final com.spectrayan.spector.synapse.provider.usage.TokenUsageTracker tokenUsageTracker;
+    private final PiiInterceptor piiInterceptor;
     private final ConcurrentHashMap<String, ChatModel> chatModels = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, StreamingChatModel> streamingModels = new ConcurrentHashMap<>();
 
     public LlmBridge(SynapseProperties props, ProviderRegistry providerRegistry) {
-        this(props, providerRegistry, null, null);
+        this(props, providerRegistry, null, null, null);
     }
 
     public LlmBridge(SynapseProperties props, ProviderRegistry providerRegistry,
                      com.spectrayan.spector.synapse.config.service.ConfigResolutionService configResolutionService) {
-        this(props, providerRegistry, configResolutionService, null);
+        this(props, providerRegistry, configResolutionService, null, null);
+    }
+
+    public LlmBridge(SynapseProperties props, ProviderRegistry providerRegistry,
+                     com.spectrayan.spector.synapse.config.service.ConfigResolutionService configResolutionService,
+                     com.spectrayan.spector.synapse.provider.usage.TokenUsageTracker tokenUsageTracker) {
+        this(props, providerRegistry, configResolutionService, tokenUsageTracker, null);
     }
 
     @Autowired
     public LlmBridge(SynapseProperties props, ProviderRegistry providerRegistry,
                      com.spectrayan.spector.synapse.config.service.ConfigResolutionService configResolutionService,
-                     @Autowired(required = false) com.spectrayan.spector.synapse.provider.usage.TokenUsageTracker tokenUsageTracker) {
+                     @Autowired(required = false) com.spectrayan.spector.synapse.provider.usage.TokenUsageTracker tokenUsageTracker,
+                     @Autowired(required = false) PiiInterceptor piiInterceptor) {
         this.props = props;
         this.providerRegistry = providerRegistry;
         this.configResolutionService = configResolutionService;
         this.tokenUsageTracker = tokenUsageTracker;
-        log.info("[LlmBridge] Configured with ProviderRegistry, ConfigResolutionService, TokenUsageTracker, and Ollama fallback");
+        this.piiInterceptor = piiInterceptor;
+        log.info("[LlmBridge] Configured with ProviderRegistry, ConfigResolutionService, TokenUsageTracker, PiiInterceptor, and Ollama fallback");
     }
 
     /**
@@ -242,6 +252,13 @@ public class LlmBridge {
      */
     public String generate(String userMessage) {
         try {
+            if (piiInterceptor != null && piiInterceptor.isActive()) {
+                return piiInterceptor.protect(userMessage, msg -> {
+                    String response = chatModel().chat(msg);
+                    log.debug("[LlmBridge] Generated {} chars response", response.length());
+                    return response;
+                });
+            }
             String response = chatModel().chat(userMessage);
             log.debug("[LlmBridge] Generated {} chars response", response.length());
             return response;
@@ -261,36 +278,45 @@ public class LlmBridge {
      */
     public String generate(String systemPrompt, String userMessage) {
         try {
-            ChatResponse response = chatModel().chat(
-                    SystemMessage.from(systemPrompt),
-                    UserMessage.from(userMessage)
-            );
-            String text = response.aiMessage().text();
-            log.debug("[LlmBridge] Generated {} chars with system prompt", text.length());
-
-            if (tokenUsageTracker != null) {
-                int inTokens = (response.tokenUsage() != null && response.tokenUsage().inputTokenCount() != null)
-                        ? response.tokenUsage().inputTokenCount()
-                        : ((systemPrompt != null ? systemPrompt.length() : 0) + (userMessage != null ? userMessage.length() : 0)) / 4;
-                int outTokens = (response.tokenUsage() != null && response.tokenUsage().outputTokenCount() != null)
-                        ? response.tokenUsage().outputTokenCount()
-                        : text.length() / 4;
-                tokenUsageTracker.record(com.spectrayan.spector.synapse.provider.usage.TokenUsageEvent.ofGeneration(
-                        com.spectrayan.spector.synapse.provider.usage.TokenUsageCategory.SYSTEM,
-                        "default",
-                        modelName(),
-                        null,
-                        null,
-                        Math.max(1, inTokens),
-                        Math.max(1, outTokens)
-                ));
+            if (piiInterceptor != null && piiInterceptor.isActive()) {
+                return piiInterceptor.protect(systemPrompt, userMessage, this::generateUnprotected);
             }
-
-            return text;
+            return generateUnprotected(systemPrompt, userMessage);
+        } catch (LlmBridgeException e) {
+            throw e;
         } catch (Exception e) {
             log.error("[LlmBridge] Generation with system prompt failed: {}", e.getMessage(), e);
             throw new LlmBridgeException("LLM generation with system prompt failed: " + e.getMessage(), e);
         }
+    }
+
+    private String generateUnprotected(String systemPrompt, String userMessage) {
+        ChatResponse response = chatModel().chat(
+                SystemMessage.from(systemPrompt),
+                UserMessage.from(userMessage)
+        );
+        String text = response.aiMessage().text();
+        log.debug("[LlmBridge] Generated {} chars with system prompt", text.length());
+
+        if (tokenUsageTracker != null) {
+            int inTokens = (response.tokenUsage() != null && response.tokenUsage().inputTokenCount() != null)
+                    ? response.tokenUsage().inputTokenCount()
+                    : ((systemPrompt != null ? systemPrompt.length() : 0) + (userMessage != null ? userMessage.length() : 0)) / 4;
+            int outTokens = (response.tokenUsage() != null && response.tokenUsage().outputTokenCount() != null)
+                    ? response.tokenUsage().outputTokenCount()
+                    : text.length() / 4;
+            tokenUsageTracker.record(com.spectrayan.spector.synapse.provider.usage.TokenUsageEvent.ofGeneration(
+                    com.spectrayan.spector.synapse.provider.usage.TokenUsageCategory.SYSTEM,
+                    "default",
+                    modelName(),
+                    null,
+                    null,
+                    Math.max(1, inTokens),
+                    Math.max(1, outTokens)
+            ));
+        }
+
+        return text;
     }
 
     /**
@@ -306,6 +332,15 @@ public class LlmBridge {
      */
     public String generate(String userMessage, LlmSpec spec) {
         try {
+            if (piiInterceptor != null && piiInterceptor.isActive()) {
+                return piiInterceptor.protect(userMessage, msg -> {
+                    ChatModel model = chatModel(spec);
+                    String response = model.chat(msg);
+                    log.debug("[LlmBridge] Generated {} chars using spec (model={}, temp={})",
+                            response.length(), spec.model(), spec.temperature());
+                    return response;
+                });
+            }
             ChatModel model = chatModel(spec);
             String response = model.chat(userMessage);
             log.debug("[LlmBridge] Generated {} chars using spec (model={}, temp={})",

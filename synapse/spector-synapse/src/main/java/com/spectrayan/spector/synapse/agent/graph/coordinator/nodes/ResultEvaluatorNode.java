@@ -114,7 +114,7 @@ public final class ResultEvaluatorNode implements NodeAction<CoordinatorState> {
                 .replace("{{iteration}}", String.valueOf(iteration));
 
         String response = llmBridge.generate(prompt);
-        log.debug("[ResultEvaluatorNode] LLM response: {}", response);
+        log.debug("[ResultEvaluatorNode] LLM response length: {}", response == null ? 0 : response.length());
 
         String upper = response.toUpperCase();
 

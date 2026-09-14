@@ -97,8 +97,8 @@ public final class ReflectionNode implements NodeAction<CognitiveState> {
 
         int currentRetries = state.retryCount();
         if (currentRetries >= maxRetries) {
-            log.warn("[ReflectionNode] Max retries ({}) reached for query '{}', accepting best answer with warning",
-                    maxRetries, state.originalQuery());
+            log.warn("[ReflectionNode] Max retries ({}) reached (queryLength={}), accepting best answer with warning",
+                    maxRetries, state.originalQuery() == null ? 0 : state.originalQuery().length());
             String warningAnswer = answer + "\n\n*(Note: Generated with quality caveats after " + maxRetries + " reflection attempts)*";
             return Map.of(
                     "reflection_decision", "ACCEPT",
@@ -111,8 +111,9 @@ public final class ReflectionNode implements NodeAction<CognitiveState> {
                 ? "(No retrieved context available)"
                 : String.join("\n", contextEntries);
 
-        log.info("[ReflectionNode] Evaluating answer quality (attempt {}/{}) for query: '{}'",
-                currentRetries + 1, maxRetries, truncate(state.originalQuery(), 60));
+        log.info("[ReflectionNode] Evaluating answer quality (attempt {}/{}, queryLength={})",
+                currentRetries + 1, maxRetries,
+                state.originalQuery() == null ? 0 : state.originalQuery().length());
 
         String promptTemplate = loadPromptTemplate("cognitive-reflection");
         String prompt = promptTemplate
@@ -121,7 +122,8 @@ public final class ReflectionNode implements NodeAction<CognitiveState> {
                 .replace("{{answer}}", answer);
 
         String response = llmBridge.generate(prompt);
-        log.debug("[ReflectionNode] LLM evaluation response: {}", truncate(response, 200));
+        log.debug("[ReflectionNode] LLM evaluation response length: {}",
+                response == null ? 0 : response.length());
 
         // 1. Check RETRY_RETRIEVE
         Matcher retrieveMatcher = RETRY_RETRIEVE_PATTERN.matcher(response);
@@ -131,8 +133,8 @@ public final class ReflectionNode implements NodeAction<CognitiveState> {
                     ? retrieveMatcher.group(2).trim()
                     : "Additional retrieval needed for query: " + refinedQuery;
 
-            log.info("[ReflectionNode] Decision: RETRY_RETRIEVE -> refinedQuery='{}', critique='{}'",
-                    refinedQuery, truncate(critique, 80));
+            log.info("[ReflectionNode] Decision: RETRY_RETRIEVE -> refinedQueryLength={}, critiqueLength={}",
+                    refinedQuery.length(), critique.length());
 
             return Map.of(
                     "reflection_decision", "RETRY_RETRIEVE",
@@ -146,7 +148,7 @@ public final class ReflectionNode implements NodeAction<CognitiveState> {
         Matcher generateMatcher = RETRY_GENERATE_PATTERN.matcher(response);
         if (generateMatcher.find()) {
             String critique = generateMatcher.group(1).trim();
-            log.info("[ReflectionNode] Decision: RETRY_GENERATE -> critique='{}'", truncate(critique, 80));
+            log.info("[ReflectionNode] Decision: RETRY_GENERATE -> critiqueLength={}", critique.length());
 
             return Map.of(
                     "reflection_decision", "RETRY_GENERATE",
@@ -207,7 +209,4 @@ public final class ReflectionNode implements NodeAction<CognitiveState> {
                 """;
     }
 
-    private static String truncate(String s, int max) {
-        return s == null ? "" : s.length() <= max ? s : s.substring(0, max) + "...";
-    }
 }

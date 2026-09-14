@@ -158,6 +158,7 @@
         <camel.version>4.14.9</camel.version>
         <jsoup.version>1.23.1</jsoup.version>
         <bucket4j.version>8.10.1</bucket4j.version>
+        <phileas.version>4.4.0</phileas.version>
         <caffeine.version>3.2.0</caffeine.version>
         <lettuce.version>6.5.3.RELEASE</lettuce.version>
         <quartz.version>2.3.2</quartz.version>
@@ -437,6 +438,11 @@
                 <groupId>com.bucket4j</groupId>
                 <artifactId>bucket4j-core</artifactId>
                 <version>${bucket4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ai.philterd</groupId>
+                <artifactId>phileas</artifactId>
+                <version>${phileas.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.github.ben-manes.caffeine</groupId>
