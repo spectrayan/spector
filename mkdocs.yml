@@ -161,7 +161,7 @@ nav:
       - Architecture: memory/architecture.md
       - The 6-Phase Scoring Pipeline: memory/scoring-pipeline.md
       - "Scoring Regimes & Fusion Modes": memory/scoring-regimes.md
-      - "Autonomous Identity & AISME": memory/aisme.md
+      - "Active Inference Self-Model Engine (AISME)": memory/aisme.md
       - "Generative Dreaming & Thought Experiments": memory/dreaming.md
       - "Constructive Simulation & Provenance": memory/constructive-memory.md
       - "Theoretical Foundations": memory/theoretical-foundations.md

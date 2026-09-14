@@ -160,9 +160,9 @@ Parameters governing graph expansion, entity linkage, and semantic bridging:
 
 ---
 
-## 9. Autonomous Identity, Dreaming & Circadian Cycles
+## 9. Active Inference (AISME), Dreaming & Circadian Cycles
 
-Configurations for AISME (Autonomous Identity & State Maintenance Engine) and dreaming:
+Configurations for AISME (Active Inference Self-Model Engine) and dreaming:
 
 | Property | Type | Default | Range | Description |
 |:---|:---|:---|:---|:---|

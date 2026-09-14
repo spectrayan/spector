@@ -106,6 +106,11 @@ public final class CognitiveRetriever {
                 } catch (Exception ignored) {}
             }
         }
+        if (props == null) {
+            try {
+                props = com.spectrayan.spector.config.SpectorConfigSource.load();
+            } catch (Exception ignored) {}
+        }
         this.datasetProps = props;
     }
 
@@ -208,6 +213,27 @@ public final class CognitiveRetriever {
             } catch (NumberFormatException ignored) {}
         }
         builder.enableMmr(enableMmr).mmrLambda(mmrLambda);
+
+        // Wire AISME configuration from spector-bench.yml or config source
+        boolean enableAisme = false;
+        if (datasetProps != null) {
+            enableAisme = datasetProps.getBoolean(
+                    com.spectrayan.spector.config.SpectorPropertyConstants.MEMORY_AISME_ENABLED,
+                    datasetProps.getBoolean("memory.aisme.enabled",
+                    datasetProps.getBoolean("spector.memory.aisme.enabled",
+                    datasetProps.getBoolean("aisme.enabled", false))));
+        }
+        String sysAisme = System.getProperty("enableAisme");
+        if (sysAisme != null && !sysAisme.isBlank()) {
+            enableAisme = Boolean.parseBoolean(sysAisme);
+        }
+        if (enableAisme) {
+            var aismeProps = datasetProps != null
+                    ? com.spectrayan.spector.config.SpectorConfigFactory.aismeProperties(datasetProps)
+                    : com.spectrayan.spector.config.properties.AismeProperties.builder().enabled(true).build();
+            aismeProps.setEnabled(true);
+            builder.enableAisme(true).aismeConfig(aismeProps);
+        }
 
         return builder.build();
     }
