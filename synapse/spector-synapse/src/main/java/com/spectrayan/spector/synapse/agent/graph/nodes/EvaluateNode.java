@@ -124,8 +124,7 @@ public final class EvaluateNode implements NodeAction<CognitiveState> {
             String toolCallsStr = useToolsMatcher.group(1).trim();
             List<String> toolCallsList = parseToolCalls(toolCallsStr);
             if (!toolCallsList.isEmpty()) {
-                log.info("[EvaluateNode] USE_TOOLS -> {} tool(s): {}",
-                        toolCallsList.size(), toolNamesOnly(toolCallsList));
+                log.info("[EvaluateNode] USE_TOOLS -> {} tool(s)", toolCallsList.size());
                 return Map.of(
                         "decision", "USE_TOOLS",
                         "tool_calls", toolCallsList
