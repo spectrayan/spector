@@ -16,6 +16,8 @@ import com.spectrayan.spector.kernel.id.MemoryId;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.similarity.VectorOps;
+import com.spectrayan.spector.provider.generation.GenerationOptions;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,8 +91,85 @@ public final class SceneConstructRelay implements SynapticRelay<DreamSignal> {
             String insightDraft = String.format("Cross-domain relation: %s linked with %s through %s",
                     agentLabel, objectLabel, actionLabel);
 
+            // If LlmProvider is wired, synthesize a creative narrative scene and cross-domain insight
+            if (signal.llmProvider() != null) {
+                try {
+                    String soulName = signal.primarySoul() != null ? signal.primarySoul().name() : "Cognitive Companion";
+                    String prompt = String.format("""
+                            You are the cognitive dream engine for an autonomous agent.
+                            Mode: %s
+                            Active Persona: %s
+                            Concept Fragments:
+                            - Agent/Actor: %s
+                            - Action/Transition: %s
+                            - Target/Object: %s
+                            - Environment/Context: %s
+
+                            Synthesize a creative dream scenario connecting these disparate conceptual fragments.
+                            Provide:
+                            1. A vivid 1-2 sentence dream narrative scene describing this interaction.
+                            2. A single concise sentence articulating the novel cross-domain insight or emergent hypothesis.
+
+                            Format your response exactly as:
+                            NARRATIVE: <vivid narrative scene>
+                            INSIGHT: <concise cross-domain insight>
+                            """,
+                            signal.mode(), soulName, agentLabel, actionLabel, objectLabel, locLabel);
+
+                    float genTemp = Math.min(1.0f, Math.max(0.1f, temp * 0.35f));
+                    GenerationOptions genOptions = GenerationOptions.builder()
+                            .temperature(genTemp)
+                            .maxTokens(160)
+                            .topP(0.9f)
+                            .build();
+
+                    String response = signal.llmProvider().generate(prompt, genOptions);
+                    if (response != null && !response.isBlank()) {
+                        String upper = response.toUpperCase();
+                        int nIdx = upper.indexOf("NARRATIVE:");
+                        int iIdx = upper.indexOf("INSIGHT:");
+                        if (nIdx >= 0 && iIdx > nIdx) {
+                            String parsedNarrative = response.substring(nIdx + "NARRATIVE:".length(), iIdx).trim();
+                            String parsedInsight = response.substring(iIdx + "INSIGHT:".length()).trim();
+                            if (!parsedNarrative.isBlank()) {
+                                narrative = String.format("[%s Dream] %s", signal.mode(), parsedNarrative);
+                            }
+                            if (!parsedInsight.isBlank()) {
+                                insightDraft = parsedInsight;
+                            }
+                        } else if (nIdx >= 0) {
+                            String parsedNarrative = response.substring(nIdx + "NARRATIVE:".length()).trim();
+                            if (!parsedNarrative.isBlank()) {
+                                narrative = String.format("[%s Dream] %s", signal.mode(), parsedNarrative);
+                            }
+                        } else if (iIdx >= 0) {
+                            String parsedInsight = response.substring(iIdx + "INSIGHT:".length()).trim();
+                            if (!parsedInsight.isBlank()) {
+                                insightDraft = parsedInsight;
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("SceneConstructRelay: LLM synthesis failed, degrading gracefully to structural template: {}", e.getMessage());
+                }
+            }
+
             // Blend fragment vectors with temperature-scaled Gaussian noise using VectorOps SIMD
             float[] blended = blendVectors(List.of(agent, action, obj, loc), scaledNoise, random);
+            if (signal.embeddingProvider() != null && signal.llmProvider() != null) {
+                try {
+                    float[] textVec = signal.embeddingProvider().embed(narrative).vector();
+                    if (textVec != null && textVec.length > 0) {
+                        float[] noise = new float[textVec.length];
+                        for (int d = 0; d < textVec.length; d++) {
+                            noise[d] = (float) (random.nextGaussian() * scaledNoise);
+                        }
+                        blended = VectorOps.add(textVec, noise);
+                    }
+                } catch (Exception e) {
+                    log.debug("SceneConstructRelay: failed to embed synthesized narrative, using blended vector: {}", e.getMessage());
+                }
+            }
 
             DreamSignal.DreamScene scene = new DreamSignal.DreamScene(
                     signal.nextId(),

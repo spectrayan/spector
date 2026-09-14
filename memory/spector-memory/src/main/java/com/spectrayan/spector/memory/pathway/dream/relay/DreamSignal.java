@@ -32,6 +32,7 @@ import com.spectrayan.spector.kernel.shape.DistributedMemoryTensor;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -92,6 +93,7 @@ public final class DreamSignal {
     private final HyperEntityGraphMemory hyperEntityGraph;
     private final EmbeddingProvider embeddingProvider;
     private final ContinuousHopfieldNetwork hopfieldNetwork;
+    private final LlmProvider llmProvider;
 
     private final AtomicInteger dreamsGenerated = new AtomicInteger(0);
     private final AtomicInteger dreamsIngested = new AtomicInteger(0);
@@ -147,6 +149,7 @@ public final class DreamSignal {
         this.hyperEntityGraph = builder.hyperEntityGraph;
         this.embeddingProvider = builder.embeddingProvider;
         this.hopfieldNetwork = builder.hopfieldNetwork;
+        this.llmProvider = builder.llmProvider;
         this.rememberPathway = builder.rememberPathway;
         this.kernel = builder.kernel;
 
@@ -228,6 +231,7 @@ public final class DreamSignal {
     public HyperEntityGraphMemory hyperEntityGraph() { return hyperEntityGraph; }
     public EmbeddingProvider embeddingProvider() { return embeddingProvider; }
     public ContinuousHopfieldNetwork hopfieldNetwork() { return hopfieldNetwork; }
+    public LlmProvider llmProvider() { return llmProvider; }
     public com.spectrayan.spector.kernel.api.NamespaceKernel kernel() { return kernel; }
     public void kernel(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel) { this.kernel = kernel; }
 
@@ -318,6 +322,7 @@ public final class DreamSignal {
         private HyperEntityGraphMemory hyperEntityGraph;
         private EmbeddingProvider embeddingProvider;
         private ContinuousHopfieldNetwork hopfieldNetwork;
+        private LlmProvider llmProvider;
         private MemoryIdGenerator idGenerator;
         private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
 
@@ -349,6 +354,7 @@ public final class DreamSignal {
         public Builder hyperEntityGraph(HyperEntityGraphMemory graph) { this.hyperEntityGraph = graph; return this; }
         public Builder embeddingProvider(EmbeddingProvider provider) { this.embeddingProvider = provider; return this; }
         public Builder hopfieldNetwork(ContinuousHopfieldNetwork network) { this.hopfieldNetwork = network; return this; }
+        public Builder llmProvider(LlmProvider provider) { this.llmProvider = provider; return this; }
 
         public Builder simulationTimeMs(long simTime) { this.simulationTimeMs = simTime; return this; }
         public Builder queryTau(float[] tau) { this.queryTau = tau; return this; }

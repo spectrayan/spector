@@ -48,6 +48,7 @@ import com.spectrayan.spector.memory.pathway.dream.relay.SceneConstructRelay;
 import com.spectrayan.spector.memory.pathway.simulation.relay.SpacetimeSeedRelay;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,6 +85,7 @@ public final class DreamPathway implements AutoCloseable {
     private final HyperEntityGraphMemory hyperEntityGraph;
     private final EmbeddingProvider embeddingProvider;
     private final ContinuousHopfieldNetwork hopfieldNetwork;
+    private final LlmProvider llmProvider;
     private final MemoryIdGenerator idGenerator;
 
     private DreamPathway(final Builder builder) {
@@ -101,6 +103,7 @@ public final class DreamPathway implements AutoCloseable {
         this.hyperEntityGraph = builder.hyperEntityGraph;
         this.embeddingProvider = builder.embeddingProvider;
         this.hopfieldNetwork = builder.hopfieldNetwork;
+        this.llmProvider = builder.llmProvider;
         this.idGenerator = builder.idGenerator;
 
         var pathwayBuilder = CognitivePathway.<DreamSignal>pathway("dream_pathway");
@@ -178,6 +181,10 @@ public final class DreamPathway implements AutoCloseable {
         return salienceProfile;
     }
 
+    public LlmProvider llmProvider() {
+        return llmProvider;
+    }
+
     /**
      * Conducts a {@link DreamSignal} through the full 12-relay pipeline.
      */
@@ -244,6 +251,7 @@ public final class DreamPathway implements AutoCloseable {
                 .hyperEntityGraph(hyperEntityGraph)
                 .embeddingProvider(embeddingProvider)
                 .hopfieldNetwork(hopfieldNetwork)
+                .llmProvider(llmProvider)
                 .idGenerator(idGenerator)
                 .build();
 
@@ -293,6 +301,7 @@ public final class DreamPathway implements AutoCloseable {
         private HyperEntityGraphMemory hyperEntityGraph;
         private EmbeddingProvider embeddingProvider;
         private ContinuousHopfieldNetwork hopfieldNetwork;
+        private LlmProvider llmProvider;
         private MemoryIdGenerator idGenerator;
         private Function<SynapticRelay<DreamSignal>, SynapticRelay<DreamSignal>> interceptor;
 
@@ -319,6 +328,7 @@ public final class DreamPathway implements AutoCloseable {
         public Builder hyperEntityGraph(HyperEntityGraphMemory heg) { this.hyperEntityGraph = heg; return this; }
         public Builder embeddingProvider(EmbeddingProvider ep) { this.embeddingProvider = ep; return this; }
         public Builder hopfieldNetwork(ContinuousHopfieldNetwork hn) { this.hopfieldNetwork = hn; return this; }
+        public Builder llmProvider(LlmProvider llmProvider) { this.llmProvider = llmProvider; return this; }
         public Builder idGenerator(MemoryIdGenerator idGen) { this.idGenerator = idGen; return this; }
         public Builder interceptor(Function<SynapticRelay<DreamSignal>, SynapticRelay<DreamSignal>> inc) { this.interceptor = inc; return this; }
 

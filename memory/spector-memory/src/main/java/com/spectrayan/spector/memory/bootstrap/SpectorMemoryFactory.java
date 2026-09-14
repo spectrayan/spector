@@ -519,6 +519,7 @@ public final class SpectorMemoryFactory {
                 .hyperEntityGraph(graphs.hyperEntityGraph())
                 .embeddingProvider(embeddingProvider)
                 .hopfieldNetwork(aismeBundle != null ? aismeBundle.hopfieldNetwork() : null)
+                .llmProvider(builder.llmProvider())
                 .idGenerator(idGenerator)
                 .build();
 

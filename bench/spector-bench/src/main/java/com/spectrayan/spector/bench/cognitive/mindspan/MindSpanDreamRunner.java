@@ -53,7 +53,9 @@ import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.memory.model.UserSoul;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
 
 /**
  * Dedicated test runner for empirically validating the 7th canonical cognitive pathway
@@ -295,8 +297,22 @@ public final class MindSpanDreamRunner {
                 .build();
         memProps.setDream(dreamProps);
 
+        LlmProvider llmProvider = null;
+        try {
+            OllamaLlmProvider candidateLlm = OllamaLlmProvider.create("llama3.1:latest");
+            if (candidateLlm.isAvailable()) {
+                llmProvider = candidateLlm;
+                log.info("Initialized Ollama LLM provider for Dream Pathway: model={}", candidateLlm.modelName());
+            } else {
+                log.info("Ollama LLM provider not reachable, falling back to structural scene construction.");
+            }
+        } catch (Exception e) {
+            log.info("Ollama LLM provider check failed ({}), falling back to structural scene construction.", e.getMessage());
+        }
+
         try (SpectorMemory memory = SpectorMemory.builder(memProps)
                 .embeddingProvider(embeddingProvider)
+                .llmProvider(llmProvider)
                 .persistence(clonedStore)
                 .persistenceMode(MemoryPersistenceMode.DISK)
                 .bundleMode(true)
@@ -413,8 +429,8 @@ public final class MindSpanDreamRunner {
                 for (CognitiveResult r : expResults) {
                     if (EncodingHeaderFields.isDreamed(r.consolidationFlags())) {
                         dreamInsightsRetrieved++;
-                        log.info("Retrieved Dreamed Insight under exploratory recall: id=[{}] Q={:.3f} text='{}'",
-                                r.id(), r.score(), r.text());
+                        log.info("Retrieved Dreamed Insight under exploratory recall: id=[{}] score={} text='{}'",
+                                r.id(), String.format("%.3f", r.score()), r.text());
                     }
                 }
             }
