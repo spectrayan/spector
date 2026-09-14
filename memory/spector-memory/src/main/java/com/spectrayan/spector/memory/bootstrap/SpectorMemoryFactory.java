@@ -509,6 +509,7 @@ public final class SpectorMemoryFactory {
                 : DreamPathway.builder()
                 .dreamProperties(memProps.getDream())
                 .partitionManager(partitionManager)
+                .rememberPathway(rememberPathway)
                 .aismeConfig(aismeConfig)
                 .primarySoul(dreamPrimarySoul)
                 .soulContexts(dreamActiveSouls)

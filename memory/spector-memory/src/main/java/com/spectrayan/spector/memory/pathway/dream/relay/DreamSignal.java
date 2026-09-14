@@ -20,6 +20,7 @@ import com.spectrayan.spector.kernel.id.MemoryId;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.config.properties.DreamProperties;
+import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
@@ -67,6 +68,7 @@ public final class DreamSignal {
     private final DreamProperties config;
     private final float temperature;
     private final PartitionManager partitionManager;
+    private final RememberPathway rememberPathway;
     private final AismeProperties aismeConfig;
 
     private final SoulContext primarySoul;
@@ -145,6 +147,7 @@ public final class DreamSignal {
         this.hyperEntityGraph = builder.hyperEntityGraph;
         this.embeddingProvider = builder.embeddingProvider;
         this.hopfieldNetwork = builder.hopfieldNetwork;
+        this.rememberPathway = builder.rememberPathway;
         this.kernel = builder.kernel;
 
         final long now = System.currentTimeMillis();
@@ -194,6 +197,7 @@ public final class DreamSignal {
     public DreamProperties config() { return config; }
     public float temperature() { return temperature; }
     public PartitionManager partitionManager() { return partitionManager; }
+    public RememberPathway rememberPathway() { return rememberPathway; }
     public AismeProperties aismeConfig() { return aismeConfig; }
 
     public SoulContext primarySoul() { return primarySoul; }
@@ -298,6 +302,7 @@ public final class DreamSignal {
         private DreamProperties config;
         private float temperature;
         private PartitionManager partitionManager;
+        private RememberPathway rememberPathway;
         private AismeProperties aismeConfig;
         private SoulContext primarySoul;
         private List<SoulContext> soulContexts;
@@ -327,6 +332,7 @@ public final class DreamSignal {
         public Builder config(DreamProperties config) { this.config = config; return this; }
         public Builder temperature(float temperature) { this.temperature = temperature; return this; }
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
+        public Builder rememberPathway(RememberPathway rp) { this.rememberPathway = rp; return this; }
         public Builder aismeConfig(AismeProperties config) { this.aismeConfig = config; return this; }
         public Builder primarySoul(SoulContext soul) { this.primarySoul = soul; return this; }
         public Builder soulContexts(List<SoulContext> soulContexts) { this.soulContexts = soulContexts; return this; }

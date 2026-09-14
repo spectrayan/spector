@@ -140,6 +140,7 @@ public class RecallCandidateGatherer {
                 float ageDays = 0f;
                 short recallCount = 0;
                 long ts = 0L;
+                byte consolidationFlags = (byte) 0;
 
                 if (partitionRegistry != null) {
                     CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
@@ -150,10 +151,12 @@ public class RecallCandidateGatherer {
                                 if (episodic.isTombstoned(loc.offset())) continue;
                                 var header = episodic.readHeader(loc.offset());
                                 if (header != null) {
+                                    if (!options.allowSimulated() && (EncodingHeaderFields.isSimulated(header.consolidationFlags()) || header.source() == com.spectrayan.spector.kernel.api.EngramSource.SIMULATED)) continue;
                                     importance = header.importance();
                                     valence = header.valence();
                                     recallCount = (short) header.agentRecallCount();
                                     ts = header.timestampMs();
+                                    consolidationFlags = header.consolidationFlags();
                                     if (options.minTimestamp() != null && ts < options.minTimestamp()) continue;
                                     if (options.maxTimestamp() != null && ts > options.maxTimestamp()) continue;
                                     if (ts > 0) {
@@ -165,12 +168,14 @@ public class RecallCandidateGatherer {
                             var body = router.readRecordBody(loc, false);
                             if (body != null) {
                                 if (!options.includeContradictions() && EncodingHeaderFields.isContradicted(body.consolidationFlags())) continue;
+                                if (!options.allowSimulated() && (EncodingHeaderFields.isSimulated(body.consolidationFlags()) || EncodingHeaderFields.isDreamed(body.consolidationFlags()))) continue;
 
                                 var header = body.header();
                                 importance = header.importance();
                                 valence = header.valence();
                                 recallCount = (short) header.agentRecallCount();
                                 ts = header.timestampMs();
+                                consolidationFlags = body.consolidationFlags();
                                 if (options.minTimestamp() != null && ts < options.minTimestamp()) continue;
                                 if (options.maxTimestamp() != null && ts > options.maxTimestamp()) continue;
                                 if (ts > 0) {
@@ -216,7 +221,7 @@ public class RecallCandidateGatherer {
                         id, text, rrfScore * tierBoost * provenanceBoost, importance, ageDays,
                         recallCount, valence, type, source,
                         tags, 1.0f, 1.0f, CognitiveResult.RetrievalMode.STANDARD, null, null,
-                        bm25Modality, bm25Meta, (byte) 0, ts));
+                        bm25Modality, bm25Meta, consolidationFlags, ts));
             }
         }
 
