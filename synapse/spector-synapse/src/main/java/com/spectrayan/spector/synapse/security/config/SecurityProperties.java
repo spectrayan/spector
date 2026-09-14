@@ -13,14 +13,16 @@
 package com.spectrayan.spector.synapse.security.config;
 
 import com.spectrayan.spector.synapse.security.pii.PiiLevel;
+import com.spectrayan.spector.synapse.security.toolaccess.ToolAccessPolicy;
 
 import java.io.Serializable;
 
 /**
  * Security configuration bound under {@code spector.security.*}.
  *
- * <p>Hosts prompt-injection detection ({@code spector.security.injection.*})
- * and PII redaction ({@code spector.security.pii.*}). Nested under {@link
+ * <p>Hosts prompt-injection detection ({@code spector.security.injection.*}),
+ * PII redaction ({@code spector.security.pii.*}), and tool access policy
+ * ({@code spector.security.tool-access.*}). Nested under {@link
  * com.spectrayan.spector.synapse.config.SynapseProperties} so existing
  * {@code @ConfigurationProperties(prefix = "spector")} binding picks it up.</p>
  */
@@ -30,6 +32,7 @@ public class SecurityProperties implements Serializable {
 
     private InjectionProperties injection = new InjectionProperties();
     private PiiProperties pii = new PiiProperties();
+    private ToolAccessProperties toolAccess = new ToolAccessProperties();
 
     public InjectionProperties getInjection() {
         return injection;
@@ -48,6 +51,16 @@ public class SecurityProperties implements Serializable {
     public void setPii(PiiProperties pii) {
         if (pii != null) {
             this.pii = pii;
+        }
+    }
+
+    public ToolAccessProperties getToolAccess() {
+        return toolAccess;
+    }
+
+    public void setToolAccess(ToolAccessProperties toolAccess) {
+        if (toolAccess != null) {
+            this.toolAccess = toolAccess;
         }
     }
 
@@ -135,6 +148,51 @@ public class SecurityProperties implements Serializable {
             if (level != null) {
                 this.level = level;
             }
+        }
+
+        public boolean isActive() {
+            return enabled;
+        }
+    }
+
+    /**
+     * Per-agent tool authorization ({@code spector.security.tool-access.*}).
+     *
+     * <ul>
+     *   <li>{@code enabled} — master switch; when {@code false}, all registered tools pass policy</li>
+     *   <li>{@code default-when-no-entry} — {@code DENY_ALL} / {@code ALLOW_ALL} when no agent entry
+     *       matches (overrides YAML {@code default} when set)</li>
+     * </ul>
+     *
+     * <p>Agent allow/deny lists load from classpath {@code security/tool-access.yml} (ADR-0035).</p>
+     */
+    public static class ToolAccessProperties implements Serializable {
+
+        private static final long serialVersionUID = 1L;
+
+        /** Master enable flag. Default {@code true}. */
+        private boolean enabled = true;
+
+        /**
+         * Override for YAML {@code default} when no agent entry matches.
+         * {@code null} means use the classpath YAML value.
+         */
+        private ToolAccessPolicy.DefaultMode defaultWhenNoEntry;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public ToolAccessPolicy.DefaultMode getDefaultWhenNoEntry() {
+            return defaultWhenNoEntry;
+        }
+
+        public void setDefaultWhenNoEntry(ToolAccessPolicy.DefaultMode defaultWhenNoEntry) {
+            this.defaultWhenNoEntry = defaultWhenNoEntry;
         }
 
         public boolean isActive() {

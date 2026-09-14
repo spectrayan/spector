@@ -44,6 +44,11 @@ spector:
       batch-size: 32
   metrics:
     enabled: false
+  security:
+    tool-access:
+      enabled: true
+      # Tests default to allow-all so existing suites keep tools unless they assert policy.
+      default-when-no-entry: ALLOW_ALL
 
 spectrayan:
   sse:

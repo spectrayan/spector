@@ -14,6 +14,8 @@ package com.spectrayan.spector.synapse.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import com.spectrayan.spector.memory.model.AgentSoul;
+import com.spectrayan.spector.synapse.security.toolaccess.ToolAccessPolicy;
 import io.modelcontextprotocol.spec.McpSchema;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
@@ -48,11 +50,20 @@ public class ToolRegistry {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final ConcurrentHashMap<String, McpToolHandler> tools = new ConcurrentHashMap<>();
+    private final ToolAccessPolicy toolAccessPolicy;
 
     /**
      * Helper constructor for testing and manual registry creation.
      */
     public ToolRegistry(List<? extends McpToolHandler> individualBeans) {
+        this(individualBeans, null);
+    }
+
+    /**
+     * Helper constructor for testing with an explicit tool-access policy.
+     */
+    public ToolRegistry(List<? extends McpToolHandler> individualBeans, ToolAccessPolicy toolAccessPolicy) {
+        this.toolAccessPolicy = toolAccessPolicy;
         if (individualBeans != null) {
             for (McpToolHandler tool : individualBeans) {
                 tools.put(tool.name(), tool);
@@ -66,8 +77,12 @@ public class ToolRegistry {
     @org.springframework.beans.factory.annotation.Autowired
     public ToolRegistry(
             org.springframework.beans.factory.ObjectProvider<McpToolHandler> individualBeansProvider,
-            org.springframework.beans.factory.ObjectProvider<List<McpToolHandler>> bulkBeansProvider) {
-        
+            org.springframework.beans.factory.ObjectProvider<List<McpToolHandler>> bulkBeansProvider,
+            org.springframework.beans.factory.ObjectProvider<ToolAccessPolicy> toolAccessPolicyProvider) {
+        this.toolAccessPolicy = toolAccessPolicyProvider != null
+                ? toolAccessPolicyProvider.getIfAvailable()
+                : null;
+
         individualBeansProvider.orderedStream().forEach(tool -> {
             tools.put(tool.name(), tool);
             log.info("[ToolRegistry] Registered individual tool: {} [{}] — {}",
@@ -139,6 +154,73 @@ public class ToolRegistry {
         return tools.values().stream()
                 .map(ToolRegistry::toToolSpecification)
                 .toList();
+    }
+
+    /**
+     * Resolves tool specifications for an agent soul (list path).
+     *
+     * <p>Effective set = Synapse {@link ToolAccessPolicy} ∩ {@code soul.tools}
+     * when {@code soul.tools} is non-empty; otherwise policy alone. When no
+     * policy bean is present, falls back to the legacy soul.tools / all-tools
+     * behavior.</p>
+     */
+    public List<ToolSpecification> resolveToolSpecs(AgentSoul soul) {
+        String agentId = soul != null ? soul.id() : null;
+        List<String> hint = soul != null && soul.tools() != null ? soul.tools() : List.of();
+        Set<String> allowed = effectiveToolNames(agentId, hint);
+        return tools.values().stream()
+                .filter(t -> allowed.contains(t.name()))
+                .map(ToolRegistry::toToolSpecification)
+                .toList();
+    }
+
+    /**
+     * Returns whether the agent may invoke {@code toolName} (execute path).
+     * Must use the same effective set as {@link #resolveToolSpecs(AgentSoul)}.
+     */
+    public boolean isToolAllowed(String agentId, String toolName, List<String> soulToolsHint) {
+        if (toolName == null || toolName.isBlank()) {
+            return false;
+        }
+        return effectiveToolNames(agentId, soulToolsHint).contains(toolName);
+    }
+
+    /**
+     * Executes a tool after enforcing Synapse tool-access policy for the agent.
+     *
+     * @param request        LangChain4j tool request
+     * @param agentId        soul/agent id (may be null)
+     * @param soulToolsHint  {@code AgentSoul.tools} capability hint
+     * @return tool output or a clear permission error (SPE-500-013)
+     */
+    public String executeTool(ToolExecutionRequest request, String agentId, List<String> soulToolsHint) {
+        if (request == null || request.name() == null) {
+            return "Error: Invalid tool request";
+        }
+        if (!isToolAllowed(agentId, request.name(), soulToolsHint)) {
+            log.warn("[ToolRegistry] Permission denied for tool '{}' agentId={}",
+                    request.name(), agentId != null ? agentId : "");
+            return ToolAccessPolicy.permissionDeniedMessage(request.name());
+        }
+        return executeTool(request);
+    }
+
+    private Set<String> effectiveToolNames(String agentId, List<String> soulToolsHint) {
+        List<String> hint = soulToolsHint != null ? soulToolsHint : List.of();
+        if (toolAccessPolicy != null) {
+            return toolAccessPolicy.effectiveTools(agentId, hint, tools.keySet());
+        }
+        // Legacy: no policy bean — soul.tools allowlist or all tools
+        if (!hint.isEmpty()) {
+            java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
+            for (String name : hint) {
+                if (tools.containsKey(name)) {
+                    names.add(name);
+                }
+            }
+            return names;
+        }
+        return Set.copyOf(tools.keySet());
     }
 
     /** Executes a tool by name from a ToolExecutionRequest. */

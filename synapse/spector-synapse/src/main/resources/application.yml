@@ -69,6 +69,11 @@ spector:
   # Pattern-based fast path (<50ms P99). Modes: BLOCK | WARN | OFF
   # ── PII Redaction (spector.security.pii.*) ──
   # Levels: RELAXED (email/SSN/CC) | MODERATE (+phone/IP/honorifics) | STRICT (+names/addresses)
+  # ── Tool Access Policy (spector.security.tool-access.*) — ADR-0035 ──
+  # Synapse-owned allow/deny per agent/soul id (classpath security/tool-access.yml).
+  # default-when-no-entry: DENY_ALL (prefer production) | ALLOW_ALL (local/dev).
+  # Classpath YAML default is deny-all; local/dev overrides to ALLOW_ALL below.
+  # Soul.tools is a capability hint only — effective = policy ∩ soul.tools when non-empty.
   security:
     injection:
       enabled: ${SPECTOR_SECURITY_INJECTION_ENABLED:true}
@@ -76,6 +81,10 @@ spector:
     pii:
       enabled: ${SPECTOR_SECURITY_PII_ENABLED:true}
       level: ${SPECTOR_SECURITY_PII_LEVEL:MODERATE}
+    tool-access:
+      enabled: ${SPECTOR_SECURITY_TOOL_ACCESS_ENABLED:true}
+      # Production: set SPECTOR_SECURITY_TOOL_ACCESS_DEFAULT=DENY_ALL (or omit override to use YAML deny-all).
+      default-when-no-entry: ${SPECTOR_SECURITY_TOOL_ACCESS_DEFAULT:ALLOW_ALL}
 
   # ── Cell High Availability & Routing (spector.cell.*, spector.routing.*) ──
   cell:
