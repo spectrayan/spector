@@ -354,6 +354,19 @@ public final class MindSpanAismeRunner {
                         query.id(), baseResults.size(), aismeResults.size(), wsBounded,
                         baseTopId, String.format(java.util.Locale.ROOT, "%.4f", baseTopScore),
                         aismeTopId, String.format(java.util.Locale.ROOT, "%.4f", aismeTopScore));
+
+                if (!aismeResults.isEmpty() && aismeResults.get(0).breakdown() != null) {
+                    ScoreBreakdown sb = aismeResults.get(0).breakdown();
+                    log.info("  ↳ AISME Telemetry [{}]: regime={}, sim={}, epistemic(α)={}, teleological(β)={}, pragmatic(γ)={}, finalScore={}",
+                            aismeTopId, sb.scoringRegime(),
+                            String.format(java.util.Locale.ROOT, "%.4f", sb.similarity()),
+                            String.format(java.util.Locale.ROOT, "%.4f", sb.epistemicWeight()),
+                            String.format(java.util.Locale.ROOT, "%.4f", sb.teleologicalWeight()),
+                            String.format(java.util.Locale.ROOT, "%.4f", sb.pragmaticWeight()),
+                            String.format(java.util.Locale.ROOT, "%.4f", sb.finalScore()));
+                }
+                log.info("  ↳ Baseline Top-5 Candidates: {}", baseResults.stream().limit(5).map(r -> r.id() + "(" + String.format(java.util.Locale.ROOT, "%.4f", r.score()) + ")").toList());
+                log.info("  ↳ AISME GWS-7 Candidates:    {}", aismeResults.stream().limit(7).map(r -> r.id() + "(" + String.format(java.util.Locale.ROOT, "%.4f", r.score()) + ")").toList());
             }
 
             double avgDeltaF = comparisons.isEmpty() ? 0.0 : totalDeltaF / comparisons.size();
