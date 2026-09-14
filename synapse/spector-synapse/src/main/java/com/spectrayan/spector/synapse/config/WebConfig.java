@@ -19,6 +19,13 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.util.Arrays;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
 /**
  * Configures CORS for Spector Synapse using Spring MVC.
  *
@@ -54,6 +61,30 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addViewController("/graph").setViewName("forward:/index.html");
         registry.addViewController("/settings").setViewName("forward:/index.html");
         registry.addViewController("/memory-health").setViewName("forward:/index.html");
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        configuration.setAllowedOriginPatterns(
+                Arrays.stream(props.cors().allowedOrigins().split(","))
+                        .map(String::trim)
+                        .toList());
+
+        configuration.setAllowedMethods(
+                Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(
+                Arrays.asList("Content-Type", "Authorization", "X-API-Key"));
+        configuration.setExposedHeaders(
+                Arrays.asList("Content-Type"));
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+
+        return source;
     }
 
     @Override
