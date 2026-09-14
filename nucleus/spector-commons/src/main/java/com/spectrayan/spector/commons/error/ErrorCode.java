@@ -432,6 +432,10 @@ public enum ErrorCode {
     PROMPT_INJECTION_BLOCKED  (500_012, ErrorCategory.SERVER,
             "Prompt injection blocked ({}): {}"),
 
+    /** Agent attempted to invoke a tool outside its Synapse tool-access policy. */
+    TOOL_ACCESS_DENIED        (500_013, ErrorCategory.SERVER,
+            "Tool access denied for {}"),
+
     // ══════════════════════════════════════════════════════════════════════
     // CLIENT (SPE-510-xxx)
     // ══════════════════════════════════════════════════════════════════════

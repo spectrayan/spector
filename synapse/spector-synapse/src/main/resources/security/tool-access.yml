@@ -1,0 +1,20 @@
+# Synapse tool access policy (ADR-0035).
+# Authorization lives here — NOT on AgentSoul (soul = identity / capability hints only).
+#
+# Loaded once from the classpath and cached immutably.
+#
+# default: deny-all | allow-all
+#   Applied when no agents entry matches the agent/soul id (and no "*" entry).
+#   Prefer deny-all for production. Local/dev may override via
+#   spector.security.tool-access.default-when-no-entry (or SPECTOR_SECURITY_TOOL_ACCESS_DEFAULT).
+#
+# agents:
+#   "<soul-or-agent-id>":
+#     allow: [tool_a, tool_b]   # optional allowlist; omit = all registered tools
+#     deny:  [tool_c]           # optional denylist (subtracted after allow)
+#   "*":                        # fallback when specific id has no entry
+#     allow: [...]
+#
+default: deny-all
+
+agents: {}
