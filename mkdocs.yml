@@ -151,6 +151,7 @@ nav:
           - Kubernetes & Helm: deployment/helm.md
           - Terraform Cloud Modules: deployment/terraform.md
           - Disaster Recovery Runbook: operations/disaster-recovery.md
+          - "Observability & Metrics": operations/observability.md
 
   # Tab 3: Cognitive Memory — the differentiator (own tab)
   - Cognitive Memory:
