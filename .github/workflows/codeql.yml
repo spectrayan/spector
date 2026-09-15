@@ -51,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'java-kotlin', 'javascript-typescript', 'python' ]
+        language: [ 'java-kotlin', 'javascript-typescript', 'python', 'ruby' ]
 
     steps:
       - name: Checkout
