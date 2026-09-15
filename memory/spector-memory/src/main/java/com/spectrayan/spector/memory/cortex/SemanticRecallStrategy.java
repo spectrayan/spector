@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.kernel.score.Valence;
 import com.spectrayan.spector.kernel.store.SemanticMemory;
@@ -321,6 +322,10 @@ public final class SemanticRecallStrategy {
         return vectorIndex != null;
     }
 
+    @ValueCandidate(
+            reason = "Candidate scoring tuple flowing through semantic recall beam pruning",
+            hotPathFrequency = ValueCandidate.Frequency.CRITICAL
+    )
     private record CandidateMatch(
             String id,
             long timestamp,

@@ -12,4 +12,5 @@ Labs features are developed on `labs/*` branches and graduate to `main` after de
 ## Current Research
 
 - [**Research Roadmap**](roadmap.md) — Neuromodulatory Gain Control, Executive Dysfunction Profile, Dynamic Quantization Stepping, and more
-- [**Hyperdimensional Computing (HDC)**](hdc.md) — SIMD-native binary vector operations via Java Vector API `(NEW)`
+- [**Hyperdimensional Computing (HDC)**](hdc.md) — SIMD-native binary vector operations via Java Vector API
+- [**Project Valhalla & Value Classes**](valhalla.md) — JEP 401 value classes, memory flattening, and JDK 27 optimizations `(NEW)`

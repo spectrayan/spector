@@ -27,8 +27,21 @@ import jdk.incubator.vector.VectorSpecies;
  */
 public final class SimdCapability {
 
+    @SuppressWarnings("preview")
+    private static final LazyConstant<VectorSpecies<Float>> PREFERRED_SPECIES_CONSTANT =
+            LazyConstant.of(() -> FloatVector.SPECIES_PREFERRED);
+
     /** The preferred float vector species for this platform (AVX2 = 256-bit, AVX-512 = 512-bit, etc.). */
-    public static final VectorSpecies<Float> PREFERRED_SPECIES = FloatVector.SPECIES_PREFERRED;
+    public static final VectorSpecies<Float> PREFERRED_SPECIES = PREFERRED_SPECIES_CONSTANT.get();
+
+    /**
+     * Returns the preferred float vector species, constant-folded at runtime via LazyConstant.
+     *
+     * @return preferred float vector species
+     */
+    public static VectorSpecies<Float> preferredSpecies() {
+        return PREFERRED_SPECIES_CONSTANT.get();
+    }
 
     private SimdCapability() {
         // utility class

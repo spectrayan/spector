@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.model;
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.api.MemoryType;
 
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
@@ -50,6 +51,10 @@ import java.util.Map;
  * @param consolidationFlags consolidation provenance flags
  * @param timestampMs     epoch millisecond timestamp when the memory was formed (ADR-0030 v1)
  */
+@ValueCandidate(
+    reason = "Multimodal memory recall results ranked and fused across cognitive tiers",
+    hotPathFrequency = ValueCandidate.Frequency.HIGH
+)
 public record CognitiveResult(
         String id,
         String text,

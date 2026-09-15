@@ -115,4 +115,41 @@ class SpectorClientTest {
         // Ensure mockClient.close() was NOT called because client does not own it
         assertThatThrownBy(() -> verify(mockClient).close()).isInstanceOf(AssertionError.class);
     }
+
+    @Test
+    @DisplayName("HTTP/3 is disabled by default")
+    void http3DisabledByDefault() {
+        try (SpectorClient client = SpectorClient.createDefault()) {
+            assertThat(client.isHttp3Enabled()).isFalse();
+            assertThat(client.httpClient()).isNotNull();
+            assertThat(client.httpClient().version()).isEqualTo(HttpClient.Version.HTTP_2);
+        }
+    }
+
+    @Test
+    @DisplayName("Builder enables HTTP/3 QUIC protocol on HttpClient (JEP 517)")
+    void builderEnablesHttp3() {
+        SpectorClient.Builder builder = SpectorClient.builder().http3Enabled(true);
+        assertThat(builder.isHttp3Enabled()).isTrue();
+
+        try (SpectorClient client = builder.build()) {
+            assertThat(client.isHttp3Enabled()).isTrue();
+            assertThat(client.httpClient()).isNotNull();
+            assertThat(client.httpClient().version()).isEqualTo(HttpClient.Version.HTTP_3);
+        }
+    }
+
+    @Test
+    @DisplayName("Custom HTTP/3 client is recognized as http3Enabled")
+    void customHttp3ClientDetected() {
+        HttpClient customClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_3)
+                .build();
+        try (SpectorClient client = SpectorClient.builder()
+                .httpClient(customClient)
+                .build()) {
+            assertThat(client.isHttp3Enabled()).isTrue();
+            assertThat(client.httpClient().version()).isEqualTo(HttpClient.Version.HTTP_3);
+        }
+    }
 }

@@ -48,9 +48,13 @@ import java.util.concurrent.locks.ReentrantLock;
 public final class GpuCapability {
 
     private static final Logger log = LoggerFactory.getLogger(GpuCapability.class);
-    private static final ReentrantLock DETECT_LOCK = new ReentrantLock();
-
-    private static volatile GpuInfo cachedInfo;
+    @SuppressWarnings("preview")
+    private static final LazyConstant<GpuInfo> CACHED_INFO =
+            LazyConstant.of(() -> {
+                GpuInfo info = doDetect();
+                log.info(info.report());
+                return info;
+            });
 
     /** Immutable GPU detection result. */
     public record GpuInfo(
@@ -82,21 +86,12 @@ public final class GpuCapability {
     private GpuCapability() {}
 
     /**
-     * Detects CUDA GPU availability. Results are cached after first call.
+     * Detects CUDA GPU availability. Results are cached after first call via LazyConstant.
      *
      * @return GPU capability info
      */
     public static GpuInfo detect() {
-        if (cachedInfo != null) return cachedInfo;
-        DETECT_LOCK.lock();
-        try {
-            if (cachedInfo != null) return cachedInfo;
-            cachedInfo = doDetect();
-            log.info(cachedInfo.report());
-            return cachedInfo;
-        } finally {
-            DETECT_LOCK.unlock();
-        }
+        return CACHED_INFO.get();
     }
 
     /** Returns true if a CUDA GPU is available. */

@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.cluster.routing;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 import java.util.Objects;
 
 /**
@@ -24,6 +26,10 @@ import java.util.Objects;
  * @param binding the resolved route binding
  * @param source  the tier from which the binding was resolved (caffeine, redis, or hash-fallback)
  */
+@ValueCandidate(
+    reason = "Routing resolution outcome returned per cluster request lookup",
+    hotPathFrequency = ValueCandidate.Frequency.HIGH
+)
 public record ResolvedRoute(RouteBinding binding, RouteSource source) {
 
     public ResolvedRoute {

@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.store;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.id.MemoryId;
 
 import com.spectrayan.spector.kernel.engram.EncodingHeaderLayout;
@@ -431,6 +432,10 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
         return offsets;
     }
 
+    @ValueCandidate(
+        reason = "Extracted turn header snapshot during episodic scanning; 7-byte primitive tuple",
+        hotPathFrequency = ValueCandidate.Frequency.HIGH
+    )
     public record TurnHeaderSnapshot(boolean isOptionB, boolean tombstoned, float importance, byte arousal, byte valence) {}
 
     /**

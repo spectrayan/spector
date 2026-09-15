@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.store;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.store.EngramRegion;
 
 import java.lang.foreign.Arena;
@@ -295,6 +296,10 @@ public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout>
      * @param maxTimestampMs maximum record timestamp in epoch milliseconds (0 if none)
      * @param synapticTagMask cumulative bitwise-OR of synaptic tag masks
      */
+    @ValueCandidate(
+            reason = "Pure primitive summary statistics from engram record header scans",
+            hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+    )
     public record SummaryStats(int liveCount, long minTimestampMs, long maxTimestampMs, long synapticTagMask) {}
 
     /**

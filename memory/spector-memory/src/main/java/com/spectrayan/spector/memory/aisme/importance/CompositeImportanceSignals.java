@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.aisme.importance;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 /**
  * 5-dimensional normalized neurocognitive signal vector \(\boldsymbol{s}(o_t) \in [0.0, 1.0]^5\).
  *
@@ -30,6 +32,10 @@ package com.spectrayan.spector.memory.aisme.importance;
  * @param socialContext  social/interpersonal significance in [0.0, 1.0]
  * @param novelty        representational manifold novelty in [0.0, 1.0]
  */
+@ValueCandidate(
+        reason = "5-element neurocognitive salience signal vector evaluated on every engram formation",
+        hotPathFrequency = ValueCandidate.Frequency.HIGH
+)
 public record CompositeImportanceSignals(
         float surprise,
         float affect,

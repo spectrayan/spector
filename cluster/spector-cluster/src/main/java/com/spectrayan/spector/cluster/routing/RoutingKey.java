@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.cluster.routing;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 import java.util.Objects;
 
 /**
@@ -34,6 +36,10 @@ import java.util.Objects;
  * @param tenantId    the tenant identifier, or {@code null} for untenanted namespaces
  * @param namespaceId the global namespace identifier (TSID or unique name)
  */
+@ValueCandidate(
+    reason = "Distributed cluster routing coordinate evaluated on every inbound network request",
+    hotPathFrequency = ValueCandidate.Frequency.HIGH
+)
 public record RoutingKey(String cellId, String tenantId, String namespaceId) {
 
     public static final String NULL_TENANT_SENTINEL = "__NULL_TENANT__";

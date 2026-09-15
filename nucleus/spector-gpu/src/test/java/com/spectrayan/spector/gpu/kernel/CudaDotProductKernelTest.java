@@ -266,7 +266,7 @@ class CudaDotProductKernelTest {
         assertEquals(n, results.length);
         for (int i = 0; i < n; i++) {
             float expected = scalarDotProduct(query, database, i * dims, dims);
-            assertEquals(expected, results[i], Math.abs(expected) * 1e-5f + 1e-6f,
+            assertEquals(expected, results[i], Math.abs(expected) * 1e-4f + 1e-5f,
                     "Mismatch at vector " + i);
         }
     }

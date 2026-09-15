@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.persist.migration;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 
 /**
  * Represents a semantic version for namespace schema.
@@ -32,6 +33,10 @@ import com.spectrayan.spector.commons.error.SpectorValidationException;
  * @param minor new features (backward compatible)
  * @param patch bug fixes
  */
+@ValueCandidate(
+        reason = "Pure primitive 12-byte semantic version tuple (3 ints) for namespace schema migrations",
+        hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+)
 public record SchemaVersion(int major, int minor, int patch)
         implements Comparable<SchemaVersion> {
 

@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.index;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 /**
@@ -24,6 +25,10 @@ import com.spectrayan.spector.core.similarity.SimilarityFunction;
  * @param index the internal integer index in the store
  * @param score the similarity or distance score
  */
+@ValueCandidate(
+    reason = "Millions of allocations per HNSW search, beam exploration, and priority queue ranking",
+    hotPathFrequency = ValueCandidate.Frequency.CRITICAL
+)
 public record ScoredResult(String id, int index, float score) implements Comparable<ScoredResult> {
 
     /**

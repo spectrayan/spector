@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.replication;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.storage.NamespacePathResolver;
 import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.sync.WalEvent;
@@ -61,6 +62,10 @@ public final class ReplicaApplyEngine {
     private final Map<String, Long> appliedHwmMap = new ConcurrentHashMap<>();
     private final Map<String, SnapshotManifest> lastAppliedManifestMap = new ConcurrentHashMap<>();
 
+    @ValueCandidate(
+            reason = "Pure primitive 10-byte replication progress and high-water-mark result",
+            hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+    )
     public record ApplyResult(long appliedHwm, boolean updated, boolean remapped) {}
 
     public ReplicaApplyEngine(

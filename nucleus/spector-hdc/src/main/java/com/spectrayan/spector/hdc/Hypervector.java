@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.hdc;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.SplittableRandom;
@@ -26,6 +28,10 @@ import java.util.SplittableRandom;
  * @param words The backing long array storing the bits.
  * @param dimensions The total number of bits/dimensions.
  */
+@ValueCandidate(
+    reason = "Fundamental atomic carrier for Hyperdimensional Computing and binary symbolic representations",
+    hotPathFrequency = ValueCandidate.Frequency.CRITICAL
+)
 public record Hypervector(long[] words, int dimensions) {
 
     /**

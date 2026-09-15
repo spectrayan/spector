@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.aisme.phi;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 
 /**
  * Immutable record capturing the consciousness continuity state and IIT integration metrics.
@@ -22,6 +23,10 @@ import com.spectrayan.spector.commons.error.SpectorValidationException;
  * <p>Represents the holistic synergy of a retrieved memory subgraph, quantifying both
  * internal causal integration (Phi) and experiential alignment to the persona's core identity.</p>
  */
+@ValueCandidate(
+        reason = "Pure primitive 21-byte IIT consciousness continuity and coherence metric state",
+        hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+)
 public record ConsciousnessContinuityState(
         float rawPhi,
         float soulAlignment,

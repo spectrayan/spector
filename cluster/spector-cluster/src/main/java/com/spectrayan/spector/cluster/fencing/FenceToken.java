@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.cluster.fencing;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 import java.util.Objects;
 
 /**
@@ -26,6 +28,10 @@ import java.util.Objects;
  * @param epoch       monotonic epoch of this fence
  * @param fenceNumber monotonic sequence number
  */
+@ValueCandidate(
+    reason = "Monotonic distributed fencing token checked on distributed mutation operations",
+    hotPathFrequency = ValueCandidate.Frequency.HIGH
+)
 public record FenceToken(String namespaceId, long epoch, long fenceNumber) {
 
     public FenceToken {

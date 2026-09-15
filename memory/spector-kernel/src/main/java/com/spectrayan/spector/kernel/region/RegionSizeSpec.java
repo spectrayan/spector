@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.region;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.layout.RegionLayout;
 
 import com.spectrayan.spector.kernel.region.RegionId;
@@ -22,6 +23,10 @@ import com.spectrayan.spector.kernel.region.RegionId;
 /**
  * Specification for a single region's size requirements in a bundle.
  */
+@ValueCandidate(
+    reason = "Specification record for region sizing calculations in memory bundles",
+    hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+)
 public record RegionSizeSpec(
     RegionId regionId,
     long dataBytes,      // total data bytes (excluding region's own SMKM header)

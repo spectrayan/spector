@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.gpu.memory;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 /**
  * Metrics exposed by {@link PanamaMemoryDetector} via the monitoring API.
  *
@@ -23,6 +25,10 @@ package com.spectrayan.spector.gpu.memory;
  * @param thresholdExceedingCount number of segments that have exceeded the lifetime threshold
  * @param untrackedSegmentCount   number of segments that could not be tracked (hook attachment failed)
  */
+@ValueCandidate(
+    reason = "Pure primitive GPU memory monitoring tuple with zero object references",
+    hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+)
 public record AllocationMetrics(
         int totalSegments,
         long totalBytes,

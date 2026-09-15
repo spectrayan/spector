@@ -67,4 +67,18 @@ public class HypervectorTest {
         assertThat(v.words()).isEqualTo(bits);
         assertThat(v.dimensions()).isEqualTo(dims);
     }
+
+    @Test
+    void testValueBasedSubstitutability() {
+        // Valhalla / JEP 390 hygiene: instances with identical state must be substitutable
+        long[] bits1 = new long[]{ 0xDEADBEEFL, 0xCAFEBABE12345678L };
+        long[] bits2 = new long[]{ 0xDEADBEEFL, 0xCAFEBABE12345678L };
+        Hypervector a = Hypervector.fromBits(bits1, 120);
+        Hypervector b = Hypervector.fromBits(bits2, 120);
+
+        assertThat(a).isNotSameAs(b);
+        assertThat(a).isEqualTo(b);
+        assertThat(a.hashCode()).isEqualTo(b.hashCode());
+        assertThat(Hypervector.class.isRecord()).isTrue();
+    }
 }

@@ -18,6 +18,7 @@ package com.spectrayan.spector.kernel.store;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.error.SpectorGraphPersistenceException;
 
 import java.io.IOException;
@@ -1117,6 +1118,10 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
     /**
      * A vertex in a hyperedge — an entity with a role.
      */
+    @ValueCandidate(
+            reason = "64-bit pair representing hyperedge incidence list vertices",
+            hotPathFrequency = ValueCandidate.Frequency.CRITICAL
+    )
     public record HyperEdgeVertex(int entityId, int roleId) {}
 
     /** Standard semantic or procedural relationship hyperedge type. */

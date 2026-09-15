@@ -22,6 +22,7 @@ class Spector < Formula
         --enable-preview \\
         --add-modules=jdk.incubator.vector \\
         --enable-native-access=ALL-UNNAMED \\
+        -XX:+UseCompactObjectHeaders \\
         -jar "#{libexec}/spector.jar" "$@"
     EOS
   end

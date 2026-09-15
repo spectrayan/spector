@@ -150,12 +150,17 @@ public final class ScalarQuantizer {
      * @param dst       destination byte array
      * @param dstOffset offset into destination
      */
+    @SuppressWarnings("preview")
     public void encode(float[] src, int srcOffset, byte[] dst, int dstOffset) {
         for (int i = 0; i < dimensions; i++) {
             float normalized = (src[srcOffset + i] - mins[i]) * invScales[i];
             int quantized = Math.round(normalized);
-            // Clamp to [0, 255] and store as unsigned byte
-            dst[dstOffset + i] = (byte) Math.max(0, Math.min(255, quantized));
+            // Clamp to [0, 255] and store as unsigned byte using primitive pattern matching (JEP 532)
+            dst[dstOffset + i] = (byte) switch (quantized) {
+                case int q when q <= 0 -> 0;
+                case int q when q >= 255 -> 255;
+                case int q -> q;
+            };
         }
     }
 

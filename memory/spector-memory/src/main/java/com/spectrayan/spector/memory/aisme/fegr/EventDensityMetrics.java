@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.aisme.fegr;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 /**
  * Immutable metrics evaluating the instantaneous information-theoretic event density \(\nu(o_t)\)
  * and epistemic compression state for an incoming multimodal observation frame.
@@ -27,6 +29,10 @@ package com.spectrayan.spector.memory.aisme.fegr;
  * @param isSalientSpike {@code true} if \(\nu(o_t) \ge \tau_{\text{density}}\), indicating an informative event spike
  * @param dynamicSamplingRateHz recommended sensor sampling rate in Hz
  */
+@ValueCandidate(
+        reason = "Pure primitive 21-byte information-theoretic event density and epistemic compression state",
+        hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+)
 public record EventDensityMetrics(
         float klDivergence,
         float freeEnergyGradientNorm,

@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.kernel.score.RecordGates;
 import com.spectrayan.spector.kernel.store.EngramRegion;
@@ -45,6 +46,10 @@ public final class CognitiveScorer {
      *
      * @param lateral true if this record came from the lateral retrieval heap
      */
+    @ValueCandidate(
+            reason = "Allocated for every engram evaluated during hybrid recall; top-K priority queue candidate",
+            hotPathFrequency = ValueCandidate.Frequency.CRITICAL
+    )
     public record ScoredRecord(long offset, float score, int index, EncodingHeader header, boolean lateral)
             implements Comparable<ScoredRecord> {
 

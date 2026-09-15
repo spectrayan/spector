@@ -16,6 +16,7 @@
 package com.spectrayan.spector.kernel.store;
 
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.kernel.region.RegionPreamble;
@@ -289,6 +290,10 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
      * @param textOffset byte offset of the text content in text.dat (after entry header)
      * @param textLength byte length of the UTF-8 encoded text
      */
+    @ValueCandidate(
+            reason = "Offset and length coordinate for all off-heap text blob slices",
+            hotPathFrequency = ValueCandidate.Frequency.HIGH
+    )
     public record TextPosition(long textOffset, int textLength) {}
 
     /**

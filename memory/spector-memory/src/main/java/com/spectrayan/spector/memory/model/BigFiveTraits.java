@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 /**
  * Big Five (OCEAN) personality traits — continuous 0-100 scores.
  *
@@ -47,6 +49,10 @@ package com.spectrayan.spector.memory.model;
  * @param neuroticism       Neuroticism score (0-100)
  * @see PersonalityModifiers#derive(BigFiveTraits, EmotionalIntelligence, StressResponse)
  */
+@ValueCandidate(
+        reason = "Pure primitive 20-byte 5-factor psychological personality trait profile (5 floats)",
+        hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+)
 public record BigFiveTraits(
         float openness,
         float conscientiousness,

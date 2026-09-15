@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.commons;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +46,10 @@ public final class WordTokenizer {
      * @param endChar    end offset in original text (exclusive)
      * @param index      zero-based token index
      */
+    @ValueCandidate(
+        reason = "Allocated for every single word token during text segmentation and BM25 tokenization",
+        hotPathFrequency = ValueCandidate.Frequency.HIGH
+    )
     public record Token(String text, int startChar, int endChar, int index) {
         /** Returns the character length of this token. */
         public int length() { return text.length(); }

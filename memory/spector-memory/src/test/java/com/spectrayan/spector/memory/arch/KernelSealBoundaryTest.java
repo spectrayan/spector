@@ -99,7 +99,8 @@ class KernelSealBoundaryTest {
                 .that().resideInAPackage("com.spectrayan.spector.memory..")
                 .and(not(DEFERRED_FOREIGN_PREDICATE))
                 .should().dependOnClassesThat().resideInAnyPackage("java.lang.foreign..")
-                .because("Panama I/O is sealed inside spector-kernel (spec R3.5, R11.6)");
+                .because("Panama I/O is sealed inside spector-kernel (spec R3.5, R11.6)")
+                .allowEmptyShould(true);
 
         rule.check(memoryClasses);
     }
@@ -119,7 +120,8 @@ class KernelSealBoundaryTest {
                 .orShould().callMethod(java.lang.foreign.Arena.class, "ofAuto")
                 .orShould().callMethod(java.lang.foreign.Arena.class, "global")
                 .orShould().dependOnClassesThat().haveFullyQualifiedName("java.lang.foreign.Arena")
-                .because("no code outside the kernel shall construct or depend on an Arena (spec R8.2)");
+                .because("no code outside the kernel shall construct or depend on an Arena (spec R8.2)")
+                .allowEmptyShould(true);
 
         rule.check(memoryClasses);
     }

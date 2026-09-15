@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.sync;
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.score.Valence;
 
 import org.slf4j.Logger;
@@ -55,6 +56,10 @@ public final class CrdtMergeStrategy {
      * @param valence       LWW: valence from most recent timestamp
      * @param flags         Merged flags (tombstone wins, consolidated/pinned OR)
      */
+    @ValueCandidate(
+            reason = "Pure-primitive CRDT merged header payload (26 bytes) for multi-writer sync",
+            hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+    )
     public record MergedHeader(
             long timestampMs,
             long synapticTags,
@@ -67,6 +72,10 @@ public final class CrdtMergeStrategy {
     /**
      * Input header fields from a single source.
      */
+    @ValueCandidate(
+            reason = "Pure-primitive CRDT source header payload (26 bytes) for multi-writer sync",
+            hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+    )
     public record SourceHeader(
             long timestampMs,
             long synapticTags,

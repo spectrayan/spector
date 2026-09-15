@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.commons;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 /**
  * Represents a chunk of text produced by the chunking engine.
  *
@@ -24,6 +26,10 @@ package com.spectrayan.spector.commons;
  * @param endOffset   character end offset in the original text (exclusive)
  * @param sourceDocId the source document identifier (may be null if not applicable)
  */
+@ValueCandidate(
+    reason = "Passage chunk representation in ingestion pipeline with high throughput allocation",
+    hotPathFrequency = ValueCandidate.Frequency.HIGH
+)
 public record TextChunk(String text, int tokenCount, int startOffset, int endOffset, String sourceDocId) {
 
     /**

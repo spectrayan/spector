@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.neuromod.neurodivergent;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 /**
  * Configurable fusion weights for the ICNU importance formula with sigmoid gating.
  *
@@ -45,6 +47,10 @@ package com.spectrayan.spector.memory.neuromod.neurodivergent;
  * @param threshold  sigmoid threshold θ — stimuli below this produce near-zero importance
  * @param steepness  sigmoid steepness k — higher = sharper cutoff at threshold
  */
+@ValueCandidate(
+        reason = "Pure primitive 24-byte fusion parameter tuple (6 floats) for dopaminergic ICNU gating",
+        hotPathFrequency = ValueCandidate.Frequency.HIGH
+)
 public record IcnuWeights(float interest, float challenge, float novelty, float urgency,
                            float threshold, float steepness) {
 

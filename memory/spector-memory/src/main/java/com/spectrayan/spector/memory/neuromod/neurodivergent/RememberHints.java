@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.neuromod.neurodivergent;
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.kernel.score.Valence;
 
@@ -55,6 +56,10 @@ import com.spectrayan.spector.kernel.score.Valence;
  * @param valence   emotional valence: -128 (extremely negative) to +127 (extremely positive), 0 = neutral
  * @param arousal   emotional intensity: 0 (calm) to 255 (extreme), stored as unsigned byte. 0 = neutral
  */
+@ValueCandidate(
+        reason = "Pure-primitive cognitive hints payload (3 floats, 2 bytes) passed on every remember() call",
+        hotPathFrequency = ValueCandidate.Frequency.HIGH
+)
 public record RememberHints(float interest, float challenge, float urgency,
                               byte valence, byte arousal) {
 

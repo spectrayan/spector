@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.kernel.api;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 /**
  * Tracks where an engram record is physically located.
  *
@@ -25,6 +27,10 @@ package com.spectrayan.spector.kernel.api;
  * @param textOffset         byte offset within the companion text storage (-1 if none)
  * @param textLength         byte length within the companion text storage (-1 if none)
  */
+@ValueCandidate(
+        reason = "Fundamental spatial engram coordinate returned on every memory write and lookup",
+        hotPathFrequency = ValueCandidate.Frequency.HIGH
+)
 public record MemoryLocation(
         MemoryType type,
         long offset,
