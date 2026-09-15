@@ -21,6 +21,7 @@ import com.spectrayan.spector.commons.pathway.AbstractPathway;
 import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.config.properties.AismeProperties;
+import com.spectrayan.spector.memory.pathway.SoulVersionSource;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
@@ -215,14 +216,17 @@ public final class DreamPathway extends AbstractPathway<DreamSignal, DreamReport
         if (kernel != null) {
             signal.kernel(kernel);
         }
-        if (signal.context() == null) {
-            final DefaultPathwayContext.Builder ctxBuilder = DefaultPathwayContext.builder();
-            if (kernel != null) {
-                ctxBuilder.namespaceId(kernel.namespaceId());
-                ctxBuilder.bind(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
-            }
-            signal.bind(ctxBuilder.build());
+        final DefaultPathwayContext.Builder ctxBuilder = signal.context() != null
+                ? DefaultPathwayContext.from(signal.context())
+                : DefaultPathwayContext.builder();
+        if (kernel != null) {
+            ctxBuilder.namespaceId(kernel.namespaceId());
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
         }
+        if (signal.rememberPathway() != null) {
+            ctxBuilder.bindIfAbsent(SoulVersionSource.class, signal.rememberPathway());
+        }
+        signal.bind(ctxBuilder.build());
         return conduct(signal);
     }
 

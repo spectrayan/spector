@@ -162,4 +162,43 @@ class PathwayContextTest {
         assertThat(copied.get(DummyService.class)).isSameAs(service1);
         assertThat(copied.get(CONFIG_KEY)).isEqualTo("val1");
     }
+
+    @Test
+    @DisplayName("bindSupplier dynamically evaluates supplier and reflects mutations")
+    void bindSupplierEvaluatesDynamically() {
+        var mutableHolder = new java.util.concurrent.atomic.AtomicReference<>("initial-value");
+
+        var ctx = DefaultPathwayContext.builder()
+                .conductionId("dyn-id")
+                .bindSupplier(String.class, mutableHolder::get)
+                .bindSupplier(CONFIG_KEY, mutableHolder::get)
+                .build();
+
+        assertThat(ctx.get(String.class)).isEqualTo("initial-value");
+        assertThat(ctx.find(String.class)).contains("initial-value");
+        assertThat(ctx.get(CONFIG_KEY)).isEqualTo("initial-value");
+        assertThat(ctx.find(CONFIG_KEY)).contains("initial-value");
+
+        // Mutate dynamic value
+        mutableHolder.set("updated-value");
+
+        assertThat(ctx.get(String.class)).isEqualTo("updated-value");
+        assertThat(ctx.find(String.class)).contains("updated-value");
+        assertThat(ctx.get(CONFIG_KEY)).isEqualTo("updated-value");
+        assertThat(ctx.find(CONFIG_KEY)).contains("updated-value");
+    }
+
+    @Test
+    @DisplayName("bindSupplier throws CONTRACT when supplier returns null on get")
+    void bindSupplierThrowsWhenSupplierReturnsNull() {
+        var ctx = DefaultPathwayContext.builder()
+                .conductionId("null-supplier-id")
+                .bindSupplier(String.class, () -> null)
+                .build();
+
+        assertThat(ctx.find(String.class)).isEmpty();
+        assertThatThrownBy(() -> ctx.get(String.class))
+                .isInstanceOf(CognitivePathwayException.class)
+                .hasMessageContaining("Service supplier returned null");
+    }
 }

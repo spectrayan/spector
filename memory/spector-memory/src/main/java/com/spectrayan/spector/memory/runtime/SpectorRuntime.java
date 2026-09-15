@@ -34,6 +34,7 @@ import com.spectrayan.spector.kernel.api.NamespaceKernel;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
+import com.spectrayan.spector.memory.pathway.SoulVersionSource;
 import com.spectrayan.spector.memory.pathway.decide.DecidePathway;
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.pathway.express.ExpressPathway;
@@ -134,6 +135,9 @@ public class SpectorRuntime implements AutoCloseable {
         }
         if (this.quantizer != null) {
             ctxBuilder.bind(ScalarQuantizer.class, this.quantizer);
+        }
+        if (this.rememberPathway != null) {
+            ctxBuilder.bind(SoulVersionSource.class, this.rememberPathway);
         }
         this.processContext = ctxBuilder.build();
     }

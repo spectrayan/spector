@@ -21,6 +21,7 @@ import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.memory.pathway.SoulVersionSource;
 import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +55,9 @@ public final class DreamIngestionRelay implements SynapticRelay<DreamSignal> {
                         String durableId = signal.nextId();
                         byte procFlags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
                         float norm = VectorOps.magnitude(scene.embedding());
-                        short soulVer = signal.rememberPathway().currentSoulVersion();
+                        short soulVer = signal.context() != null && signal.context().find(SoulVersionSource.class).isPresent()
+                                ? signal.context().get(SoulVersionSource.class).currentSoulVersion()
+                                : (signal.rememberPathway() != null ? signal.rememberPathway().currentSoulVersion() : (short) 0);
                         byte dreamFlags = (byte) (EncodingHeaderFields.FLAG_DREAMED | EncodingHeaderFields.FLAG_SIMULATED);
 
                         EncodingHeader header = EncodingHeader.createSynthetic(

@@ -58,6 +58,7 @@ import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.memory.model.RememberResult;
+import com.spectrayan.spector.memory.pathway.SoulVersionSource;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,7 +72,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>Executes memory ingestion with a type-safe,
  * observable synaptic relay chain.</p>
  */
-public final class RememberPathway extends AbstractPathway<RememberSignal, RememberResult> {
+public final class RememberPathway extends AbstractPathway<RememberSignal, RememberResult> implements SoulVersionSource {
 
     private static final Logger log = LoggerFactory.getLogger(RememberPathway.class);
 
@@ -390,6 +391,7 @@ public final class RememberPathway extends AbstractPathway<RememberSignal, Remem
         this.currentSoulVersion = version;
     }
 
+    @Override
     public short currentSoulVersion() {
         return currentSoulVersion;
     }

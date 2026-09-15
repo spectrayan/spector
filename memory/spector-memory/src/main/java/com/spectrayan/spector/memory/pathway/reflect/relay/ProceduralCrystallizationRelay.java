@@ -32,6 +32,7 @@ import com.spectrayan.spector.kernel.api.EpisodeRecord;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.pathway.RelayNames;
+import com.spectrayan.spector.memory.pathway.SoulVersionSource;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
 
 /**
@@ -108,7 +109,9 @@ public final class ProceduralCrystallizationRelay implements SynapticRelay<Refle
                     float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
                     byte procFlags = EncodingHeaderFields.withMemoryType(
                             (byte) 0, MemoryType.PROCEDURAL.ordinal());
-                    short soulVer = signal.rememberPathway().currentSoulVersion();
+                    short soulVer = signal.context() != null && signal.context().find(SoulVersionSource.class).isPresent()
+                            ? signal.context().get(SoulVersionSource.class).currentSoulVersion()
+                            : (signal.rememberPathway() != null ? signal.rememberPathway().currentSoulVersion() : (short) 0);
                     EncodingHeader header = EncodingHeader.createSynthetic(
                             System.currentTimeMillis(), 0L, exactNorm, 1.0f,
                             (byte) 0, (byte) 0, procFlags,

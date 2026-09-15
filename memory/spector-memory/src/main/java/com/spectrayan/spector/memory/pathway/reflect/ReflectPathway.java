@@ -37,6 +37,7 @@ import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.pathway.SoulVersionSource;
 import com.spectrayan.spector.memory.pathway.reflect.relay.CrossLayerPromotionRelay;
 import com.spectrayan.spector.memory.pathway.reflect.relay.EntityMaintenanceRelay;
 import com.spectrayan.spector.memory.pathway.reflect.relay.EpisodicLogConsolidationRelay;
@@ -202,14 +203,22 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
         if (kernel != null) {
             signal.kernel(kernel);
         }
-        if (signal.context() == null) {
-            final DefaultPathwayContext.Builder ctxBuilder = DefaultPathwayContext.builder();
-            if (kernel != null) {
-                ctxBuilder.namespaceId(kernel.namespaceId());
-                ctxBuilder.bind(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
-            }
-            signal.bind(ctxBuilder.build());
+        final DefaultPathwayContext.Builder ctxBuilder = signal.context() != null
+                ? DefaultPathwayContext.from(signal.context())
+                : DefaultPathwayContext.builder();
+        if (kernel != null) {
+            ctxBuilder.namespaceId(kernel.namespaceId());
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
         }
+        if (signal.rememberPathway() != null) {
+            ctxBuilder.bindIfAbsent(SoulVersionSource.class, signal.rememberPathway());
+        }
+        if (signal.quantizer() != null) {
+            ctxBuilder.bindIfAbsent(ScalarQuantizer.class, signal.quantizer());
+        } else if (this.quantizer != null) {
+            ctxBuilder.bindIfAbsent(ScalarQuantizer.class, this.quantizer);
+        }
+        signal.bind(ctxBuilder.build());
         return conduct(signal);
     }
 

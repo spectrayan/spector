@@ -1656,6 +1656,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         if (this.index != null) {
             ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.cortex.index.MemoryIndex.class, this.index);
         }
+        if (this.rememberPathway != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.pathway.SoulVersionSource.class, this.rememberPathway);
+        }
+        if (this.quantizer != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.core.quantization.ScalarQuantizer.class, this.quantizer);
+        }
         signal.bind(ctxBuilder.build());
     }
 

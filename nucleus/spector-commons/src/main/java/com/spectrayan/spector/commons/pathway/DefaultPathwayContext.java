@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 /**
  * Default immutable implementation of {@link PathwayContext}.
@@ -98,6 +99,19 @@ public final class DefaultPathwayContext implements PathwayContext {
                     false,
                     new IllegalArgumentException("Required service not registered: " + type.getName()));
         }
+        if (service instanceof Supplier<?> supplier && !Supplier.class.isAssignableFrom(type)) {
+            final Object supplied = supplier.get();
+            if (supplied == null) {
+                throw new CognitivePathwayException(
+                        ErrorCode.MEMORY_PATHWAY_FAILED,
+                        "PathwayContext",
+                        "get",
+                        FaultKind.CONTRACT,
+                        false,
+                        new IllegalArgumentException("Service supplier returned null for: " + type.getName()));
+            }
+            return type.cast(supplied);
+        }
         return type.cast(service);
     }
 
@@ -105,7 +119,14 @@ public final class DefaultPathwayContext implements PathwayContext {
     public <T> Optional<T> find(final Class<T> type) {
         Objects.requireNonNull(type, "type cannot be null");
         final Object service = services.get(type);
-        return service != null ? Optional.of(type.cast(service)) : Optional.empty();
+        if (service == null) {
+            return Optional.empty();
+        }
+        if (service instanceof Supplier<?> supplier && !Supplier.class.isAssignableFrom(type)) {
+            final Object supplied = supplier.get();
+            return Optional.ofNullable(type.cast(supplied));
+        }
+        return Optional.of(type.cast(service));
     }
 
     @Override
@@ -121,6 +142,19 @@ public final class DefaultPathwayContext implements PathwayContext {
                     false,
                     new IllegalArgumentException("Required keyed service not registered: " + key));
         }
+        if (service instanceof Supplier<?> supplier && !Supplier.class.isAssignableFrom(key.type())) {
+            final Object supplied = supplier.get();
+            if (supplied == null) {
+                throw new CognitivePathwayException(
+                        ErrorCode.MEMORY_PATHWAY_FAILED,
+                        "PathwayContext",
+                        "get",
+                        FaultKind.CONTRACT,
+                        false,
+                        new IllegalArgumentException("Keyed service supplier returned null for: " + key));
+            }
+            return key.type().cast(supplied);
+        }
         return key.type().cast(service);
     }
 
@@ -128,7 +162,14 @@ public final class DefaultPathwayContext implements PathwayContext {
     public <T> Optional<T> find(final Key<T> key) {
         Objects.requireNonNull(key, "key cannot be null");
         final Object service = keyedServices.get(key);
-        return service != null ? Optional.of(key.type().cast(service)) : Optional.empty();
+        if (service == null) {
+            return Optional.empty();
+        }
+        if (service instanceof Supplier<?> supplier && !Supplier.class.isAssignableFrom(key.type())) {
+            final Object supplied = supplier.get();
+            return Optional.ofNullable(key.type().cast(supplied));
+        }
+        return Optional.of(key.type().cast(service));
     }
 
     @Override
@@ -246,6 +287,40 @@ public final class DefaultPathwayContext implements PathwayContext {
             Objects.requireNonNull(key, "key cannot be null");
             Objects.requireNonNull(instance, "instance cannot be null");
             keyedServices.putIfAbsent(key, instance);
+            return this;
+        }
+
+        public <T> Builder bindSupplier(final Class<T> type, final Supplier<T> supplier) {
+            Objects.requireNonNull(type, "type cannot be null");
+            Objects.requireNonNull(supplier, "supplier cannot be null");
+            if (services.containsKey(type)) {
+                throw new IllegalStateException("Service class already registered: " + type.getName());
+            }
+            services.put(type, supplier);
+            return this;
+        }
+
+        public <T> Builder bindSupplierIfAbsent(final Class<T> type, final Supplier<T> supplier) {
+            Objects.requireNonNull(type, "type cannot be null");
+            Objects.requireNonNull(supplier, "supplier cannot be null");
+            services.putIfAbsent(type, supplier);
+            return this;
+        }
+
+        public <T> Builder bindSupplier(final Key<T> key, final Supplier<T> supplier) {
+            Objects.requireNonNull(key, "key cannot be null");
+            Objects.requireNonNull(supplier, "supplier cannot be null");
+            if (keyedServices.containsKey(key)) {
+                throw new IllegalStateException("Keyed service already registered: " + key);
+            }
+            keyedServices.put(key, supplier);
+            return this;
+        }
+
+        public <T> Builder bindSupplierIfAbsent(final Key<T> key, final Supplier<T> supplier) {
+            Objects.requireNonNull(key, "key cannot be null");
+            Objects.requireNonNull(supplier, "supplier cannot be null");
+            keyedServices.putIfAbsent(key, supplier);
             return this;
         }
 
