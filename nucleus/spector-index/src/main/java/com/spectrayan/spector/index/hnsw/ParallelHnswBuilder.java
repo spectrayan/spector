@@ -106,6 +106,7 @@ public class ParallelHnswBuilder {
         }
 
         log.info("Sequential HNSW build complete: {} vectors, dims={}", vectors.length, dimensions);
+        log.info(HnswIndexDiagnostics.of(index).toLogString());
         return index;
     }
 
@@ -171,6 +172,7 @@ public class ParallelHnswBuilder {
 
         log.info("Parallel HNSW build complete: {} vectors, dims={}, maxLevel={}",
                 n, dimensions, result.maxLevel());
+        log.info(HnswIndexDiagnostics.of(result).toLogString());
         return result;
     }
 
