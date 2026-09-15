@@ -16,23 +16,17 @@
 package com.spectrayan.spector.commons.pathway;
 
 /**
- * Defines the policy for handling errors that occur during signal transmission.
+ * Declares the sequence of relays, gates, and error policies composing a cognitive pathway.
+ *
+ * @param <S> signal type
  */
-public enum ErrorPolicy {
+@FunctionalInterface
+public interface PathwayRecipe<S> {
 
     /**
-     * Halts execution immediately and propagates the error when a failure occurs.
+     * Composes relays and stages into the provided composer.
+     *
+     * @param composer pathway composer
      */
-    FAIL_FAST,
-
-    /**
-     * Logs the error but allows the pathway to continue executing subsequent relays.
-     */
-    DEGRADE_GRACEFULLY,
-
-    /**
-     * Stage failure becomes a short-circuit (stop remaining relays) without
-     * throwing out of the pathway conductor.
-     */
-    ABORT
+    void compose(PathwayComposer<S> composer);
 }

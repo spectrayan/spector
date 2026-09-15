@@ -61,6 +61,15 @@ public final class GatedRelay<S> implements SynapticRelay<S> {
         return true;
     }
 
+    /**
+     * Returns the underlying delegate relay.
+     *
+     * @return delegate relay
+     */
+    public SynapticRelay<S> delegate() {
+        return delegate;
+    }
+
     @Override
     public String relayName() {
         return name;

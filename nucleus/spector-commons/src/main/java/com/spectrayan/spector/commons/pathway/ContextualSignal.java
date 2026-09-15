@@ -16,23 +16,24 @@
 package com.spectrayan.spector.commons.pathway;
 
 /**
- * Defines the policy for handling errors that occur during signal transmission.
+ * A signal that carries a {@link PathwayContext} for runtime services and execution tracing.
  */
-public enum ErrorPolicy {
+public interface ContextualSignal extends TraceableSignal {
 
     /**
-     * Halts execution immediately and propagates the error when a failure occurs.
+     * Returns the context bound to this signal, or null if unbound.
+     *
+     * @return pathway context
      */
-    FAIL_FAST,
+    PathwayContext context();
 
     /**
-     * Logs the error but allows the pathway to continue executing subsequent relays.
+     * Binds (or re-binds) the context to this signal.
+     *
+     * <p>Must be idempotent-overwrite: retrying or re-conducting with a fresh context
+     * should successfully overwrite any prior context.</p>
+     *
+     * @param ctx pathway context to bind
      */
-    DEGRADE_GRACEFULLY,
-
-    /**
-     * Stage failure becomes a short-circuit (stop remaining relays) without
-     * throwing out of the pathway conductor.
-     */
-    ABORT
+    void bind(PathwayContext ctx);
 }

@@ -16,23 +16,17 @@
 package com.spectrayan.spector.commons.pathway;
 
 /**
- * Defines the policy for handling errors that occur during signal transmission.
+ * Factory for resolving or creating synaptic relays at pathway composition time.
  */
-public enum ErrorPolicy {
+@FunctionalInterface
+public interface RelayFactory {
 
     /**
-     * Halts execution immediately and propagates the error when a failure occurs.
+     * Creates or resolves a synaptic relay of the specified type.
+     *
+     * @param type relay type
+     * @param <S>  signal type
+     * @return synaptic relay instance, or null if unresolved
      */
-    FAIL_FAST,
-
-    /**
-     * Logs the error but allows the pathway to continue executing subsequent relays.
-     */
-    DEGRADE_GRACEFULLY,
-
-    /**
-     * Stage failure becomes a short-circuit (stop remaining relays) without
-     * throwing out of the pathway conductor.
-     */
-    ABORT
+    <S> SynapticRelay<S> create(Class<? extends SynapticRelay<S>> type);
 }

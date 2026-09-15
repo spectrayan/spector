@@ -181,6 +181,15 @@ public final class CircuitBreakerRelay<S> implements SynapticRelay<S> {
         lastStateChangeMs.set(0L);
     }
 
+    /**
+     * Returns the underlying delegate relay.
+     *
+     * @return delegate relay
+     */
+    public SynapticRelay<S> delegate() {
+        return delegate;
+    }
+
     @Override
     public String relayName() {
         return delegate.relayName();
