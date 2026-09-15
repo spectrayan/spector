@@ -258,6 +258,7 @@ public final class HnswPersistenceImpl implements HnswPersistence {
 
             log.info("HnswPersistence: loaded {} nodes ({} dims) from {} ({} bytes)",
                     nodeCount, dimensions, file, actualFileSize);
+            log.info(HnswIndexDiagnostics.of(index).toLogString());
 
             return index;
         }
