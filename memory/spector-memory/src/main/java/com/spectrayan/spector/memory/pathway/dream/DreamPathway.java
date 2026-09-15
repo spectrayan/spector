@@ -17,8 +17,11 @@ import com.spectrayan.spector.kernel.id.MemoryId;
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.commons.pathway.AbstractPathway;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.config.properties.AismeProperties;
+import com.spectrayan.spector.memory.pathway.SoulVersionSource;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
@@ -66,11 +69,10 @@ import java.util.function.Function;
  *
  * @since 1.4.0
  */
-public final class DreamPathway implements AutoCloseable {
+public final class DreamPathway extends AbstractPathway<DreamSignal, DreamReport> implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(DreamPathway.class);
 
-    private final CognitivePathway<DreamSignal> pathway;
     private final DreamProperties dreamProperties;
     private final PartitionManager partitionManager;
     private final RememberPathway rememberPathway;
@@ -89,6 +91,7 @@ public final class DreamPathway implements AutoCloseable {
     private final MemoryIdGenerator idGenerator;
 
     private DreamPathway(final Builder builder) {
+        super("dream", DreamSignal.class, DreamReport.class);
         this.dreamProperties = builder.dreamProperties != null ? builder.dreamProperties : new DreamProperties();
         this.partitionManager = builder.partitionManager;
         this.rememberPathway = builder.rememberPathway;
@@ -150,7 +153,12 @@ public final class DreamPathway implements AutoCloseable {
         // 12. Ingestion & Hebbian Synaptic Inhibition
         pathwayBuilder.gated("dream_ingestion", DreamGates.DREAMING_ENABLED, new DreamIngestionRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
-        this.pathway = pathwayBuilder.build();
+        final CognitivePathway<DreamSignal> engine = pathwayBuilder.build();
+        initEngine(engine);
+    }
+
+    public CognitivePathway<DreamSignal> pathway() {
+        return engine();
     }
 
     public static Builder builder() {
@@ -173,6 +181,11 @@ public final class DreamPathway implements AutoCloseable {
         return soulContexts;
     }
 
+    /**
+     * @deprecated Use {@code catalog.invoke(RememberPathway.class, ...)} via PathwayCatalog instead.
+     *             Retained for backwards compatibility — will be removed in a future release.
+     */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public RememberPathway rememberPathway() {
         return rememberPathway;
     }
@@ -185,27 +198,15 @@ public final class DreamPathway implements AutoCloseable {
         return llmProvider;
     }
 
-    /**
-     * Conducts a {@link DreamSignal} through the full 12-relay pipeline.
-     */
-    public DreamReport conduct(final DreamSignal signal) {
-        Objects.requireNonNull(signal, "signal cannot be null");
-        if (log.isTraceEnabled()) {
-            log.trace("DreamPathway: initiating dream cycle in {} mode...", signal.mode());
+    @Override
+    protected DreamReport project(final DreamSignal signal) {
+        final DreamReport report = signal.buildReport();
+        if (log.isDebugEnabled()) {
+            log.debug("DreamPathway: cycle complete in {}ms — seeds={}, scenes={}, ingested={}, failed={}",
+                    report.elapsed().toMillis(), report.seedsSampled(), report.scenesConstructed(),
+                    report.insightsIngested(), report.failedPairsInhibited());
         }
-        try {
-            pathway.conduct(signal);
-            DreamReport report = signal.buildReport();
-            if (log.isDebugEnabled()) {
-                log.debug("DreamPathway: cycle complete in {}ms — seeds={}, scenes={}, ingested={}, failed={}",
-                        report.elapsed().toMillis(), report.seedsSampled(), report.scenesConstructed(),
-                        report.insightsIngested(), report.failedPairsInhibited());
-            }
-            return report;
-        } catch (Exception e) {
-            log.error("DreamPathway: dream cycle aborted due to error: {}", e.getMessage(), e);
-            throw new com.spectrayan.spector.memory.error.SpectorPathwayException("DreamPathway execution failed: " + e.getMessage(), e);
-        }
+        return report;
     }
 
     /**
@@ -220,6 +221,17 @@ public final class DreamPathway implements AutoCloseable {
         if (kernel != null) {
             signal.kernel(kernel);
         }
+        final DefaultPathwayContext.Builder ctxBuilder = signal.context() != null
+                ? DefaultPathwayContext.from(signal.context())
+                : DefaultPathwayContext.builder();
+        if (kernel != null) {
+            ctxBuilder.namespaceId(kernel.namespaceId());
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
+        }
+        if (signal.rememberPathway() != null) {
+            ctxBuilder.bindIfAbsent(SoulVersionSource.class, signal.rememberPathway());
+        }
+        signal.bind(ctxBuilder.build());
         return conduct(signal);
     }
 
@@ -255,7 +267,7 @@ public final class DreamPathway implements AutoCloseable {
                 .idGenerator(idGenerator)
                 .build();
 
-        return conduct(signal);
+        return execute(kernel, signal);
     }
 
     /**
@@ -316,6 +328,10 @@ public final class DreamPathway implements AutoCloseable {
 
         
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
+        /**
+         * @deprecated Register RememberPathway in the PathwayCatalog instead.
+         */
+        @Deprecated(forRemoval = true, since = "1.5.0")
         public Builder rememberPathway(RememberPathway rp) { this.rememberPathway = rp; return this; }
         public Builder aismeConfig(AismeProperties ac) { this.aismeConfig = ac; return this; }
         public Builder primarySoul(SoulContext soul) { this.primarySoul = soul; return this; }

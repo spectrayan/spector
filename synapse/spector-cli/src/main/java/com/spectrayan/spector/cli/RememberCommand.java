@@ -35,8 +35,8 @@ import com.spectrayan.spector.commons.chunker.ChunkConfig;
 import com.spectrayan.spector.commons.chunker.MarkdownChunker;
 import com.spectrayan.spector.config.SpectorConfigFactory;
 import com.spectrayan.spector.config.SpectorConfigSource;
-import com.spectrayan.spector.ingestion.FileDiscoveryService;
-import com.spectrayan.spector.ingestion.IngestionPipeline;
+import com.spectrayan.spector.cli.ingestion.FileDiscoveryService;
+import com.spectrayan.spector.cli.ingestion.IngestionPipeline;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 
@@ -193,7 +193,7 @@ public class RememberCommand extends BaseCommand {
             long startMs = System.currentTimeMillis();
 
             IngestionPipeline pipeline = IngestionPipeline.builder()
-                    .target(memory.target())
+                    .memory(memory)
                     .embeddingProvider(embedder)
                     .chunker(chunker)
                     .chunkConfig(chunkConfig)

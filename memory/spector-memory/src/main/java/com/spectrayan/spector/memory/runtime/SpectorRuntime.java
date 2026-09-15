@@ -23,12 +23,18 @@ import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.spectrayan.spector.commons.pathway.DefaultPathwayCatalog;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
+import com.spectrayan.spector.commons.pathway.Pathway;
+import com.spectrayan.spector.commons.pathway.PathwayCatalog;
+import com.spectrayan.spector.commons.pathway.PathwayContext;
 import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.kernel.api.NamespaceKernel;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
+import com.spectrayan.spector.memory.pathway.SoulVersionSource;
 import com.spectrayan.spector.memory.pathway.decide.DecidePathway;
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.pathway.express.ExpressPathway;
@@ -61,6 +67,10 @@ public class SpectorRuntime implements AutoCloseable {
     private final ParallelEmbeddingPipeline parallelEmbeddingPipeline;
     private final LlmProvider llmProvider;
     private final ScalarQuantizer quantizer;
+
+    // ── Pathway Catalog & Context (ADR-0035 M3) ─────────────────
+    private final DefaultPathwayCatalog catalog = new DefaultPathwayCatalog();
+    private final PathwayContext processContext;
 
     // ── Process-Wide Shared Pathway Engines (ADR-0029 §8.1, Task 10.4) ──
     private final Object engineLock = new Object();
@@ -99,6 +109,37 @@ public class SpectorRuntime implements AutoCloseable {
                 ? builder.decidePathway
                 : DecidePathway.builder().build();
         this.wanderPathway = builder.wanderPathway;
+
+        registerPathwaySafe(RememberPathway.class, this.rememberPathway);
+        registerPathwaySafe(RecallPathway.class, this.recallPathway);
+        registerPathwaySafe(ReflectPathway.class, this.reflectPathway);
+        registerPathwaySafe(ExpressPathway.class, this.expressPathway);
+        registerPathwaySafe(DreamPathway.class, this.dreamPathway);
+        registerPathwaySafe(DecidePathway.class, this.decidePathway);
+        registerPathwaySafe(WanderPathway.class, this.wanderPathway);
+
+        DefaultPathwayContext.Builder ctxBuilder = DefaultPathwayContext.builder()
+                .namespaceId("_process_")
+                .catalog(this.catalog);
+        if (this.properties != null) {
+            ctxBuilder.bind(SpectorProperties.class, this.properties);
+        }
+        if (this.embeddingProvider != null) {
+            ctxBuilder.bind(EmbeddingProvider.class, this.embeddingProvider);
+        }
+        if (this.parallelEmbeddingPipeline != null) {
+            ctxBuilder.bind(ParallelEmbeddingPipeline.class, this.parallelEmbeddingPipeline);
+        }
+        if (this.llmProvider != null) {
+            ctxBuilder.bind(LlmProvider.class, this.llmProvider);
+        }
+        if (this.quantizer != null) {
+            ctxBuilder.bind(ScalarQuantizer.class, this.quantizer);
+        }
+        if (this.rememberPathway != null) {
+            ctxBuilder.bind(SoulVersionSource.class, this.rememberPathway);
+        }
+        this.processContext = ctxBuilder.build();
     }
 
     /**
@@ -164,15 +205,19 @@ public class SpectorRuntime implements AutoCloseable {
                 if (memory instanceof DefaultSpectorMemory dsm) {
                     if (recallPathway == null) {
                         recallPathway = dsm.recallPathway();
+                        registerPathwaySafe(RecallPathway.class, recallPathway);
                     }
                     if (reflectPathway == null) {
                         reflectPathway = dsm.reflectPathway();
+                        registerPathwaySafe(ReflectPathway.class, reflectPathway);
                     }
                     if (dreamPathway == null) {
                         dreamPathway = dsm.dreamPathway();
+                        registerPathwaySafe(DreamPathway.class, dreamPathway);
                     }
                     if (wanderPathway == null) {
                         wanderPathway = dsm.wanderPathway();
+                        registerPathwaySafe(WanderPathway.class, wanderPathway);
                     }
                 }
             }
@@ -250,6 +295,66 @@ public class SpectorRuntime implements AutoCloseable {
         return Collections.unmodifiableMap(hotKernels);
     }
 
+    // ── Pathway Catalog & Context (ADR-0035 M3) ─────────────────
+
+    /**
+     * @return the process-level pathway catalog
+     */
+    public PathwayCatalog catalog() {
+        return catalog;
+    }
+
+    /**
+     * @return the process-wide root pathway context
+     */
+    public PathwayContext processContext() {
+        return processContext;
+    }
+
+    /**
+     * Creates an execution {@link PathwayContext} bound to the given {@link NamespaceKernel}.
+     *
+     * @param kernel the namespace kernel
+     * @param trace  whether trace logging is enabled
+     * @return a context bound to the kernel
+     */
+    public PathwayContext contextFor(NamespaceKernel kernel, boolean trace) {
+        Objects.requireNonNull(kernel, "kernel must not be null");
+        return DefaultPathwayContext.builder()
+                .namespaceId(kernel.namespaceId())
+                .catalog(catalog)
+                .traceEnabled(trace)
+                .bind(NamespaceKernel.class, kernel)
+                .build();
+    }
+
+    /**
+     * Creates an execution {@link PathwayContext} bound to the given namespace ID.
+     *
+     * @param namespaceId the namespace ID
+     * @param trace       whether trace logging is enabled
+     * @return a context bound to the namespace
+     */
+    public PathwayContext contextFor(String namespaceId, boolean trace) {
+        Objects.requireNonNull(namespaceId, "namespaceId must not be null");
+        DefaultPathwayContext.Builder b = DefaultPathwayContext.builder()
+                .namespaceId(namespaceId)
+                .catalog(catalog)
+                .traceEnabled(trace);
+        NamespaceKernel kernel = getKernel(namespaceId);
+        if (kernel != null) {
+            b.bind(NamespaceKernel.class, kernel);
+        }
+        return b.build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private <I, O, P extends Pathway<I, O>> void registerPathwaySafe(Class<P> type, P instance) {
+        if (instance != null && catalog.find(type).isEmpty()) {
+            catalog.register((Class<Pathway<I, O>>) (Class<?>) type, instance);
+        }
+    }
+
     // ── Getters for Shared Engines and Resources ────────────────
 
     public SpectorProperties properties() { return properties; }
@@ -257,13 +362,13 @@ public class SpectorRuntime implements AutoCloseable {
     public ParallelEmbeddingPipeline parallelEmbeddingPipeline() { return parallelEmbeddingPipeline; }
     public LlmProvider llmProvider() { return llmProvider; }
     public ScalarQuantizer quantizer() { return quantizer; }
-    public RememberPathway rememberPathway() { return rememberPathway; }
-    public RecallPathway recallPathway() { return recallPathway; }
-    public ReflectPathway reflectPathway() { return reflectPathway; }
-    public ExpressPathway expressPathway() { return expressPathway; }
-    public DreamPathway dreamPathway() { return dreamPathway; }
-    public DecidePathway decidePathway() { return decidePathway; }
-    public WanderPathway wanderPathway() { return wanderPathway; }
+    public RememberPathway rememberPathway() { return (RememberPathway) catalog.find(RememberPathway.class).orElse(rememberPathway); }
+    public RecallPathway recallPathway() { return (RecallPathway) catalog.find(RecallPathway.class).orElse(recallPathway); }
+    public ReflectPathway reflectPathway() { return (ReflectPathway) catalog.find(ReflectPathway.class).orElse(reflectPathway); }
+    public ExpressPathway expressPathway() { return (ExpressPathway) catalog.find(ExpressPathway.class).orElse(expressPathway); }
+    public DreamPathway dreamPathway() { return (DreamPathway) catalog.find(DreamPathway.class).orElse(dreamPathway); }
+    public DecidePathway decidePathway() { return (DecidePathway) catalog.find(DecidePathway.class).orElse(decidePathway); }
+    public WanderPathway wanderPathway() { return (WanderPathway) catalog.find(WanderPathway.class).orElse(wanderPathway); }
 
     @Override
     public void close() {

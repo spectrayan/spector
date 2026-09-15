@@ -22,14 +22,20 @@ import java.util.function.Function;
 
 /**
  * Factory for creating the recall cognitive pathway with integrated Active Inference Self-Model Engine (AISME) relays.
+ *
+ * @deprecated Use {@link RecallRecipe} with {@link com.spectrayan.spector.commons.pathway.PathwayComposer} instead.
  */
+@Deprecated(forRemoval = true, since = "1.5.0")
 public final class RecallPathwayFactory {
 
     private RecallPathwayFactory() {}
 
     /**
      * Legacy factory overload without AISME relays (for backward compatibility).
+     *
+     * @deprecated Use {@link RecallRecipe} instead.
      */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public static CognitivePathway<RecallSignal> create(
             final SynapticRelay<RecallSignal> transductionRelay,
             final SynapticRelay<RecallSignal> prospectiveRelay,
@@ -215,91 +221,40 @@ public final class RecallPathwayFactory {
             final SynapticRelay<RecallSignal> epistemicLearningRelay,
             final ConsolidationRelay<RecallSignal> consolidationRelay) {
 
-        final var builder = CognitivePathway.<RecallSignal>pathway("recall");
+        final var composer = com.spectrayan.spector.commons.pathway.PathwayComposer.<RecallSignal>of("recall");
         if (interceptor != null) {
-            builder.withInterceptor(interceptor);
+            composer.withInterceptor(interceptor);
         }
 
-        builder.relay(RelayNames.TRANSDUCTION, transductionRelay)
-               .relay(RelayNames.PROSPECTIVE, prospectiveRelay)
-               .relay(RelayNames.GOVERNED_RELEASE_GATE, governedReleaseGateRelay)
-               .relay(RelayNames.VECTOR_SEARCH, vectorSearchRelay);
+        RecallRecipe.builder()
+                .transductionRelay(transductionRelay)
+                .prospectiveRelay(prospectiveRelay)
+                .governedReleaseGateRelay(governedReleaseGateRelay)
+                .homeostaticBiasRelay(homeostaticBiasRelay)
+                .vectorSearchRelay(vectorSearchRelay)
+                .freeEnergyGuidedRelay(freeEnergyGuidedRelay)
+                .spacetimeScoringRelay(spacetimeScoringRelay)
+                .scoringRelay(scoringRelay)
+                .graphExpansionRelay(graphExpansionRelay)
+                .hopfieldAssociativeRelay(hopfieldAssociativeRelay)
+                .evidenceFusionRelay(evidenceFusionRelay)
+                .lateralInhibitionRelay(lateralInhibitionRelay)
+                .bm25SearchRelay(bm25SearchRelay)
+                .rrfRescoreRelay(rrfRescoreRelay)
+                .manifoldRerankRelay(manifoldRerankRelay)
+                .constructiveSimulationRelay(constructiveSimulationRelay)
+                .consciousnessContinuityRelay(consciousnessContinuityRelay)
+                .sortAndTruncateRelay(sortAndTruncateRelay)
+                .cognitiveRerankRelay(cognitiveRerankRelay)
+                .mmrDiversityRelay(mmrDiversityRelay)
+                .temperatureSoftmaxRelay(temperatureSoftmaxRelay)
+                .consciousAccessRelay(consciousAccessRelay)
+                .constructiveMemoryPersistenceRelay(constructiveMemoryPersistenceRelay)
+                .epistemicLearningRelay(epistemicLearningRelay)
+                .consolidationRelay(consolidationRelay)
+                .build()
+                .compose(composer);
 
-        if (homeostaticBiasRelay != null) {
-            builder.gated(RelayNames.HOMEOSTATIC_BIAS, RecallGates.HOMEOSTASIS_ENABLED, homeostaticBiasRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
-        }
-
-        if (freeEnergyGuidedRelay != null) {
-            builder.gated(RelayNames.FREE_ENERGY_GUIDED, RecallGates.FREE_ENERGY_ENABLED, freeEnergyGuidedRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
-        }
-
-        final var effectiveSpacetimeRelay = spacetimeScoringRelay != null ? spacetimeScoringRelay : new SpacetimeScoringRelay();
-        builder.gated(RelayNames.SPACETIME_SCORING, RecallGates.SPACETIME_ENABLED, effectiveSpacetimeRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-               .relay(RelayNames.SCORING, scoringRelay)
-               .gated(RelayNames.BM25_SEARCH, RecallGates.TEXT_SEARCH_ENABLED, bm25SearchRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-               .gated(RelayNames.RRF_RESCORE, RecallGates.RRF_FUSED, rrfRescoreRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-               .relay(RelayNames.GRAPH_EXPANSION, graphExpansionRelay);
-
-        if (hopfieldAssociativeRelay != null) {
-            builder.gated(RelayNames.HOPFIELD_ASSOCIATIVE, RecallGates.HOPFIELD_ENABLED, hopfieldAssociativeRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
-        }
-
-        builder.relay(RelayNames.EVIDENCE_FUSION, evidenceFusionRelay);
-
-        if (lateralInhibitionRelay != null) {
-            builder.gated(RelayNames.LATERAL_INHIBITION, RecallGates.LATERAL_INHIBITION_ENABLED, lateralInhibitionRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
-        }
-
-        if (manifoldRerankRelay != null) {
-            builder.gated(RelayNames.MANIFOLD_RERANK, RecallGates.MANIFOLD_ENABLED, manifoldRerankRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
-        }
-
-        if (constructiveSimulationRelay != null) {
-            builder.gated(RelayNames.CONSTRUCTIVE_SIMULATION, RecallGates.CONSTRUCTIVE_SIMULATION_ENABLED, constructiveSimulationRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
-        }
-
-        if (consciousnessContinuityRelay != null) {
-            builder.gated(RelayNames.CONSCIOUSNESS_CONTINUITY, RecallGates.CONSCIOUSNESS_CONTINUITY_ENABLED, consciousnessContinuityRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
-        }
-
-        // ─── DIVERSITY FIRST, THEN TRUNCATION ───
-        // MMR must see the full candidate pool to enforce diversity.
-        // SortAndTruncate then limits output to topK.
-        if (mmrDiversityRelay != null) {
-            builder.gated(RelayNames.MMR_RERANK, RecallGates.MMR_ENABLED, mmrDiversityRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
-        }
-
-        if (sortAndTruncateRelay != null) {
-            builder.relay(RelayNames.SORT_TRUNCATE, sortAndTruncateRelay);
-        }
-
-        if (cognitiveRerankRelay != null) {
-            builder.circuitBreaker(RelayNames.COLBERT_RERANK,
-                    new com.spectrayan.spector.commons.pathway.GatedRelay<>(
-                            RelayNames.COLBERT_RERANK, RecallGates.RERANK_CONFIGURED, cognitiveRerankRelay),
-                    5, 30_000L, ErrorPolicy.DEGRADE_GRACEFULLY);
-        }
-
-        if (temperatureSoftmaxRelay != null) {
-            builder.relay(RelayNames.TEMPERATURE, temperatureSoftmaxRelay);
-        }
-
-        if (consciousAccessRelay != null) {
-            builder.gated(RelayNames.CONSCIOUS_ACCESS, RecallGates.CONSCIOUS_ACCESS_ENABLED, consciousAccessRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
-        }
-
-        if (constructiveMemoryPersistenceRelay != null) {
-            builder.gated(RelayNames.CONSTRUCTIVE_PERSISTENCE, RecallGates.CONSTRUCTIVE_PERSISTENCE_ENABLED, constructiveMemoryPersistenceRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
-        }
-
-        if (epistemicLearningRelay != null) {
-            builder.gated(RelayNames.EPISTEMIC_LEARNING, RecallGates.EPISTEMIC_LEARNING_ENABLED, epistemicLearningRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
-        }
-
-        if (consolidationRelay != null) {
-            builder.relay(RelayNames.CONSOLIDATION, consolidationRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
-        }
-
-        return builder.build();
+        return composer.build();
     }
 }

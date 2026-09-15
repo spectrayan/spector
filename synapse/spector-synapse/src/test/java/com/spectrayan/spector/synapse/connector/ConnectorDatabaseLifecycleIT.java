@@ -22,7 +22,7 @@ import com.spectrayan.spector.connector.spi.CompositeCredentialProvider;
 import com.spectrayan.spector.connector.spi.CredentialProvider;
 import com.spectrayan.spector.connector.spi.InMemoryExecutionLogger;
 import com.spectrayan.spector.connector.template.TemplateRegistry;
-import com.spectrayan.spector.ingestion.IngestionTarget;
+import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import com.spectrayan.spector.synapse.connector.api.dto.CreateCredentialRequest;
@@ -90,12 +90,12 @@ class ConnectorDatabaseLifecycleIT {
 
         templateRegistry = new TemplateRegistry(null);
 
-        IngestionTarget target = mock(IngestionTarget.class);
+        SpectorMemory memory = mock(SpectorMemory.class);
         EmbeddingProvider embeddingProvider = mock(EmbeddingProvider.class);
         when(embeddingProvider.embed(anyString()))
                 .thenReturn(new EmbeddingResult(new float[384], 384, "test-model"));
 
-        sink = new SpectorIngestionSink(target, embeddingProvider, new InMemoryExecutionLogger());
+        sink = new SpectorIngestionSink(memory, embeddingProvider, new InMemoryExecutionLogger());
         engine = new CamelConnectorEngine(sink, routeConfigProvider, templateRegistry);
         engine.start();
 

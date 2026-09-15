@@ -84,15 +84,11 @@ public class ConnectorAutoConfiguration {
         log.info("[ConnectorAutoConfig] Initializing SpectorIngestionSink");
         SpectorMemory memory = memoryProvider.getIfAvailable();
         EmbeddingProvider ep = embeddingProvider.getIfAvailable();
-        com.spectrayan.spector.ingestion.IngestionTarget target = null;
-        if (memory != null) {
-            try {
-                target = memory.target();
-            } catch (Exception ignored) {
-            }
-        }
-        if (target == null) {
-            target = (docId, text, vector) -> {};
+        if (memory == null) {
+            memory = (SpectorMemory) java.lang.reflect.Proxy.newProxyInstance(
+                    SpectorMemory.class.getClassLoader(),
+                    new Class<?>[]{SpectorMemory.class},
+                    (proxy, method, args) -> null);
         }
         EmbeddingProvider activeEp = ep != null ? ep : new EmbeddingProvider() {
             @Override
@@ -110,7 +106,7 @@ public class ConnectorAutoConfiguration {
             @Override
             public void close() {}
         };
-        return new SpectorIngestionSink(target, activeEp, new InMemoryExecutionLogger());
+        return new SpectorIngestionSink(memory, activeEp, new InMemoryExecutionLogger());
     }
 
     @Bean(initMethod = "start", destroyMethod = "close")

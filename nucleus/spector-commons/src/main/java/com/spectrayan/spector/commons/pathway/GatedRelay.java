@@ -55,10 +55,28 @@ public final class GatedRelay<S> implements SynapticRelay<S> {
         if (gate.test(signal)) {
             return delegate.transmit(signal);
         }
-        if (log.isDebugEnabled() && gate instanceof Specification<S> spec) {
-            log.debug("Relay '{}' gated off: {}", name, spec.unsatisfiedReason(signal));
+        final String reason = (gate instanceof Specification<S> spec)
+                ? spec.unsatisfiedReason(signal)
+                : "gate condition false";
+        if (log.isDebugEnabled()) {
+            log.debug("Relay '{}' gated off: {}", name, reason);
+        }
+        if (signal instanceof ContextualSignal cs && cs.context() != null) {
+            final String scopeName = (cs.context().scope() != null && cs.context().scope().pathwayName() != null)
+                    ? cs.context().scope().pathwayName() + "/" + name
+                    : name;
+            cs.context().outcome().markBypassed(scopeName, reason);
         }
         return true;
+    }
+
+    /**
+     * Returns the underlying delegate relay.
+     *
+     * @return delegate relay
+     */
+    public SynapticRelay<S> delegate() {
+        return delegate;
     }
 
     @Override

@@ -12,15 +12,15 @@
  */
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
-import com.spectrayan.spector.core.similarity.VectorOps;
-import com.spectrayan.spector.kernel.api.DreamMode;
-import com.spectrayan.spector.kernel.api.MemorySource;
-import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.kernel.api.TriageOutcome;
-import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
+import com.spectrayan.spector.commons.pathway.PathwayCatalog;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.memory.model.RememberResult;
+import com.spectrayan.spector.memory.pathway.SoulVersionSource;
+import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
+import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;
 import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +32,9 @@ import org.slf4j.LoggerFactory;
  * <p>Persists verified high-utility dream insights with {@code FLAG_DREAMED} provenance and applies
  * active Hebbian inhibition (\(\Delta w < 0\)) to the synaptic connections of failed dream fragment
  * pairs to prevent the cognitive engine from repeatedly simulating unproductive associations.</p>
+ *
+ * <p>As of Phase 7, this relay invokes Remember via {@link PathwayCatalog} when available,
+ * falling back to the legacy {@code signal.rememberPathway()} for backwards compatibility.</p>
  *
  * @since 1.4.0
  */
@@ -46,40 +49,31 @@ public final class DreamIngestionRelay implements SynapticRelay<DreamSignal> {
         float threshold = signal.config().persistenceThreshold();
         int eligibleCount = 0;
 
+        final short soulVersion = DreamPorts.resolveSoulVersion(signal);
+        final PathwayCatalog catalog = signal.context() != null ? signal.context().catalog() : null;
+
         // 1. Ingest qualified surviving dream insights
         for (DreamSignal.DreamScene scene : signal.survivingScenes()) {
             if (scene.qualityScore() >= threshold) {
-                if (signal.rememberPathway() != null && scene.embedding() != null) {
+                if (scene.embedding() != null) {
                     try {
                         String durableId = signal.nextId();
-                        byte procFlags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
-                        float norm = VectorOps.magnitude(scene.embedding());
-                        short soulVer = signal.rememberPathway().currentSoulVersion();
-                        byte dreamFlags = (byte) (EncodingHeaderFields.FLAG_DREAMED | EncodingHeaderFields.FLAG_SIMULATED);
 
-                        EncodingHeader header = EncodingHeader.createSynthetic(
-                                signal.simulationTimeMs(), 0L, norm,
-                                scene.qualityScore(), (byte) 0, (byte) 128, procFlags,
-                                dreamFlags, soulVer, 0.0f
-                        );
-
-                        MemorySource src = signal.mode() == DreamMode.THOUGHT_EXPERIMENT
-                                ? MemorySource.THOUGHT_EXPERIMENT
-                                : MemorySource.DREAMED;
-
-                        String text = scene.insightText() != null && !scene.insightText().isBlank()
-                                ? scene.narrative() + " | " + scene.insightText()
-                                : scene.narrative();
-
-                        signal.rememberPathway().ingestCognitiveWithHeader(
-                                durableId,
-                                text,
-                                scene.embedding(),
-                                MemoryType.SEMANTIC,
-                                new String[]{"dreamed", signal.mode().name().toLowerCase(), scene.triageOutcome().name().toLowerCase()},
-                                src,
-                                header
-                        );
+                        if (catalog != null && catalog.find(RememberPathway.class).isPresent()) {
+                            // Preferred: nested invocation via catalog
+                            RememberSignal rememberSignal = DreamPorts.toRememberSignal(
+                                    signal, scene, durableId, soulVersion);
+                            RememberResult result = catalog.invoke(
+                                    RememberPathway.class, signal.context(), rememberSignal);
+                            DreamPorts.absorbRemembered(signal, result);
+                        } else {
+                            // Fallback: legacy direct call
+                            @SuppressWarnings("deprecation")
+                            final var rp = signal.rememberPathway();
+                            if (rp != null) {
+                                legacyIngest(signal, scene, durableId, soulVersion, rp);
+                            }
+                        }
                     } catch (Exception e) {
                         log.warn("DreamIngestionRelay: failed to persist dream insight {}: {}", scene.id(), e.getMessage());
                     }
@@ -126,6 +120,43 @@ public final class DreamIngestionRelay implements SynapticRelay<DreamSignal> {
         }
 
         return true;
+    }
+
+    /**
+     * Legacy direct ingestion via RememberPathway — preserved for backwards compatibility
+     * when PathwayCatalog is not available.
+     */
+    @SuppressWarnings("deprecation")
+    private static void legacyIngest(final DreamSignal signal,
+                                     final DreamSignal.DreamScene scene,
+                                     final String durableId,
+                                     final short soulVersion,
+                                     final RememberPathway rp) {
+        com.spectrayan.spector.core.similarity.VectorOps.magnitude(scene.embedding()); // validate
+        byte procFlags = EncodingHeaderFields.withMemoryType((byte) 0, com.spectrayan.spector.kernel.api.MemoryType.SEMANTIC.ordinal());
+        float norm = com.spectrayan.spector.core.similarity.VectorOps.magnitude(scene.embedding());
+        byte dreamFlags = (byte) (EncodingHeaderFields.FLAG_DREAMED | EncodingHeaderFields.FLAG_SIMULATED);
+
+        com.spectrayan.spector.kernel.engram.EncodingHeader header = com.spectrayan.spector.kernel.engram.EncodingHeader.createSynthetic(
+                signal.simulationTimeMs(), 0L, norm,
+                scene.qualityScore(), (byte) 0, (byte) 128, procFlags,
+                dreamFlags, soulVersion, 0.0f
+        );
+
+        com.spectrayan.spector.kernel.api.MemorySource src = signal.mode() == com.spectrayan.spector.kernel.api.DreamMode.THOUGHT_EXPERIMENT
+                ? com.spectrayan.spector.kernel.api.MemorySource.THOUGHT_EXPERIMENT
+                : com.spectrayan.spector.kernel.api.MemorySource.DREAMED;
+
+        String text = scene.insightText() != null && !scene.insightText().isBlank()
+                ? scene.narrative() + " | " + scene.insightText()
+                : scene.narrative();
+
+        rp.ingestCognitiveWithHeader(
+                durableId, text, scene.embedding(),
+                com.spectrayan.spector.kernel.api.MemoryType.SEMANTIC,
+                new String[]{"dreamed", signal.mode().name().toLowerCase(), scene.triageOutcome().name().toLowerCase()},
+                src, header
+        );
     }
 
     private static int parseNodeIndex(String sourceId) {

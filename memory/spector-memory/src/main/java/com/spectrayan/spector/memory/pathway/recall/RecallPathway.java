@@ -89,8 +89,10 @@ import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.observation.MemoryObservationHook;
+import com.spectrayan.spector.commons.pathway.AbstractPathway;
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.pathway.ConsolidationRelay;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
@@ -158,13 +160,16 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * Orchestrates memory recall using the pathway/relay architecture.
  */
-public final class RecallPathway {
+public final class RecallPathway extends AbstractPathway<RecallSignal, List<CognitiveResult>> implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(RecallPathway.class);
-    private static final int RETRIEVAL_MODE_CACHE_MAX = 1024;
     private static final int SATIATION_CACHE_SIZE = 5000;
 
-    private final CognitivePathway<RecallSignal> pathway;
+    @SuppressWarnings("unchecked")
+    private static Class<List<CognitiveResult>> outputClass() {
+        return (Class<List<CognitiveResult>>) (Class<?>) List.class;
+    }
+
     private final QueryTransductionRelay transductionRelay;
 
     private final EmbeddingProvider embeddingProvider;
@@ -179,28 +184,20 @@ public final class RecallPathway {
     private final SalienceAndHabituationScorer salienceScorer;
     private final com.spectrayan.spector.memory.graph.hebbian.CoActivationAssociativePriorProvider associativePriorProvider;
 
-    private static final InheritableThreadLocal<RecallSignal> ACTIVE_SIGNAL = new InheritableThreadLocal<>();
-
-    public static RecallSignal activeSignal() {
-        return ACTIVE_SIGNAL.get();
-    }
-
-    private PartitionRegistry effectivePartitionRegistry() {
-        RecallSignal sig = ACTIVE_SIGNAL.get();
+    private PartitionRegistry effectivePartitionRegistry(final RecallSignal sig) {
         return (sig != null && sig.partitionRegistry() != null) ? sig.partitionRegistry() : this.partitionRegistry;
     }
 
-    private MemoryIndex effectiveIndex() {
-        RecallSignal sig = ACTIVE_SIGNAL.get();
+    private MemoryIndex effectiveIndex(final RecallSignal sig) {
         return (sig != null && sig.index() != null) ? sig.index() : this.index;
     }
 
     private final List<RecallListener> listeners = new CopyOnWriteArrayList<>();
-    private final ConcurrentHashMap<String, RetrievalMode> recentRetrievalModes = new ConcurrentHashMap<>();
 
     private volatile RecallOptions lastRecallOptions;
 
     private RecallPathway(final Builder builder, final RecallHistory recallHistory, final MmrReranker mmrReranker) {
+        super("recall", RecallSignal.class, outputClass());
         this.embeddingProvider = builder.embeddingProvider;
         this.wal = builder.wal;
         this.coActivationTracker = builder.bio != null ? builder.bio.coActivationTracker() : null;
@@ -273,9 +270,9 @@ public final class RecallPathway {
                 new com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor(
                         builder.index, builder.partitionManager, builder.cortex.quantizer());
         final com.spectrayan.spector.memory.pathway.recall.relay.LateralInhibitionRelay lateralInhibitionRelay =
-                new com.spectrayan.spector.memory.pathway.recall.relay.LateralInhibitionRelay(id -> {
-                    var effIdx = effectiveIndex();
-                    var effPr = effectivePartitionRegistry();
+                new com.spectrayan.spector.memory.pathway.recall.relay.LateralInhibitionRelay((id, sig) -> {
+                    var effIdx = effectiveIndex(sig);
+                    var effPr = effectivePartitionRegistry(sig);
                     if (effIdx != null && effPr != null) {
                         return new com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor(
                                 effIdx, effPr, builder.cortex.quantizer()).apply(id);
@@ -318,7 +315,7 @@ public final class RecallPathway {
         final var consciousAccessRelay = builder.aismeBundle != null ? builder.aismeBundle.consciousAccessRelay() : null;
         final var epistemicLearningRelay = builder.aismeBundle != null ? builder.aismeBundle.epistemicLearningRelay() : null;
 
-        this.pathway = RecallPathwayFactory.create(
+        final CognitivePathway<RecallSignal> engine = RecallPathwayFactory.create(
                 builder.interceptor,
                 transductionRelay, prospectiveRelay, governedReleaseGateRelay,
                 homeostaticBiasRelay,
@@ -342,6 +339,11 @@ public final class RecallPathway {
                 constructiveMemoryPersistenceRelay,
                 epistemicLearningRelay,
                 consolidationRelay);
+        initEngine(engine);
+    }
+
+    public CognitivePathway<RecallSignal> pathway() {
+        return engine();
     }
 
     /**
@@ -410,51 +412,71 @@ public final class RecallPathway {
         if (kernel != null) {
             signal.kernel(kernel);
         }
-        ACTIVE_SIGNAL.set(signal);
-        try {
-            this.lastRecallOptions = signal.options();
-
-            // Execute pathway
-            pathway.conduct(signal);
-
-            final List<CognitiveResult> allResults = new ArrayList<>(signal.candidates());
-            final RecallOptions opts = signal.options();
-
-            // Post-recall listeners
-            if (opts != null && opts.recallMode() == RecallMode.LEARN && !listeners.isEmpty()) {
-                final List<CognitiveResult> finalResults = List.copyOf(allResults);
-                final RecallSignal activeSig = signal;
-                for (final RecallListener listener : listeners) {
-                    ConcurrentTasks.fireAndForget(() -> {
-                        ACTIVE_SIGNAL.set(activeSig);
-                        try {
-                            listener.onRecallComplete(finalResults);
-                        } finally {
-                            ACTIVE_SIGNAL.remove();
-                        }
-                    });
-                }
+        if (signal.context() == null) {
+            final DefaultPathwayContext.Builder ctxBuilder = DefaultPathwayContext.builder();
+            if (kernel != null) {
+                ctxBuilder.namespaceId(kernel.namespaceId());
+                ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
             }
-
-            // Session bookkeeping
-            applySessionBookkeeping(allResults, opts);
-
-            // Write ordinal
-            writeProfileOrdinalToResults(allResults, opts);
-
-            // Record history
-            if (recallHistory != null && opts != null && opts.recallMode() == RecallMode.LEARN) {
-                for (final CognitiveResult r : allResults) {
-                    if (r.synapticTags() != null && r.synapticTags().length > 0) {
-                        recallHistory.record(r.synapticTags());
-                    }
-                }
+            if (signal.coActivationTracker() != null) {
+                ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.store.CoActivationMemory.class, signal.coActivationTracker());
             }
-
-            return allResults;
-        } finally {
-            ACTIVE_SIGNAL.remove();
+            if (signal.temporalKnowledgeGraph() != null) {
+                ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph.class, signal.temporalKnowledgeGraph());
+            }
+            if (signal.entityDirectory() != null) {
+                ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.graph.EntityDirectory.class, signal.entityDirectory());
+            }
+            if (signal.index() != null) {
+                ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.cortex.index.MemoryIndex.class, signal.index());
+            }
+            signal.bind(ctxBuilder.build());
+        } else if (kernel != null && signal.context().find(com.spectrayan.spector.kernel.api.NamespaceKernel.class).isEmpty()) {
+            final DefaultPathwayContext.Builder ctxBuilder = DefaultPathwayContext.from(signal.context());
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
+            signal.bind(ctxBuilder.build());
         }
+        this.lastRecallOptions = signal.options();
+        return conduct(signal);
+    }
+
+    @Override
+    protected List<CognitiveResult> project(final RecallSignal signal) {
+        final List<CognitiveResult> allResults = new ArrayList<>(signal.candidates());
+        final RecallOptions opts = signal.options();
+
+        // Post-recall listeners
+        if (opts != null && opts.recallMode() == RecallMode.LEARN && !listeners.isEmpty()) {
+            final List<CognitiveResult> finalResults = List.copyOf(allResults);
+            final com.spectrayan.spector.commons.pathway.PathwayContext ctx = signal.context();
+            for (final RecallListener listener : listeners) {
+                ConcurrentTasks.fireAndForget(() -> {
+                    listener.onRecallComplete(finalResults, ctx);
+                });
+            }
+        }
+
+        // Session bookkeeping
+        applySessionBookkeeping(allResults, opts);
+
+        // Write ordinal
+        writeProfileOrdinalToResults(signal, allResults, opts);
+
+        // Record history
+        if (recallHistory != null && opts != null && opts.recallMode() == RecallMode.LEARN) {
+            for (final CognitiveResult r : allResults) {
+                if (r.synapticTags() != null && r.synapticTags().length > 0) {
+                    recallHistory.record(r.synapticTags());
+                }
+            }
+        }
+
+        return allResults;
+    }
+
+    @Override
+    public void close() {
+        // AutoCloseable resource cleanup hook (ADR-0035 M2.2)
     }
 
     /**
@@ -632,17 +654,11 @@ public final class RecallPathway {
                 habituationPenalty.recordRecall(r.id(), nowMs);
             }
 
-            if (recentRetrievalModes.size() > RETRIEVAL_MODE_CACHE_MAX) {
-                final int toRemove = RETRIEVAL_MODE_CACHE_MAX / 4;
-                final var iter = recentRetrievalModes.keySet().iterator();
-                for (int i = 0; i < toRemove && iter.hasNext(); i++) {
-                    iter.next();
-                    iter.remove();
-                }
-            }
-            for (final CognitiveResult r : allResults) {
-                if (r.id() != null) {
-                    recentRetrievalModes.put(r.id(), r.retrievalMode());
+            if (recallHistory != null) {
+                for (final CognitiveResult r : allResults) {
+                    if (r.id() != null && r.retrievalMode() != null) {
+                        recallHistory.recordRetrievalMode(r.id(), r.retrievalMode());
+                    }
                 }
             }
 
@@ -669,13 +685,13 @@ public final class RecallPathway {
         }
     }
 
-    private void writeProfileOrdinalToResults(final List<CognitiveResult> results, final RecallOptions options) {
+    private void writeProfileOrdinalToResults(final RecallSignal signal, final List<CognitiveResult> results, final RecallOptions options) {
         final CognitiveProfile profile = options.profile();
         if (profile == null || results.isEmpty()) return;
 
         final byte profileOrdinal = (byte) profile.ordinal();
-        final MemoryIndex effIdx = effectiveIndex();
-        final PartitionRegistry effPr = effectivePartitionRegistry();
+        final MemoryIndex effIdx = effectiveIndex(signal);
+        final PartitionRegistry effPr = effectivePartitionRegistry(signal);
         for (final CognitiveResult result : results) {
             if (result.id() == null) continue;
             try {
@@ -705,7 +721,7 @@ public final class RecallPathway {
         }
     }
 
-    private List<CognitiveResult> scoreStoreToList(final int partitionSeq, final MemoryType type,
+    private List<CognitiveResult> scoreStoreToList(final RecallSignal signal, final int partitionSeq, final MemoryType type,
                                                    final FixedEngramLayout layout, final int recordCount,
                                                    final long baseOffset, final float[] queryVector,
                                                    final RecallOptions options, final long nowMs) {
@@ -714,7 +730,7 @@ public final class RecallPathway {
             priorContext = new com.spectrayan.spector.memory.synapse.QueryAssociativeContext(List.of(), List.of(), nowMs);
         }
 
-        PartitionRegistry pr = effectivePartitionRegistry();
+        PartitionRegistry pr = effectivePartitionRegistry(signal);
         var router = pr != null ? pr.routerFor(partitionSeq) : null;
         if (router == null) {
             return List.of();
@@ -728,7 +744,7 @@ public final class RecallPathway {
         final List<ScoredRecord> scored = visitor.drain();
         final List<CognitiveResult> results = new ArrayList<>(scored.size());
         for (final ScoredRecord sr : scored) {
-            final CognitiveResult cr = headerToResult(sr, sr.header(), type, partitionSeq);
+            final CognitiveResult cr = headerToResult(signal, sr, sr.header(), type, partitionSeq);
             if (cr.id() != null && !cr.id().startsWith("unknown-") && !cr.text().isBlank()) {
                 results.add(cr);
             }
@@ -736,7 +752,7 @@ public final class RecallPathway {
         return results;
     }
 
-    private List<CognitiveResult> scoreEpisodicToList(final EpisodicMemory episodic, final int partitionSeq,
+    private List<CognitiveResult> scoreEpisodicToList(final RecallSignal signal, final EpisodicMemory episodic, final int partitionSeq,
                                                       final float[] queryVector, final String rawQuery,
                                                       final RecallOptions options, final long nowMs) {
         final List<Long> offsets = episodic.unconsolidatedTurnOffsets();
@@ -804,7 +820,7 @@ public final class RecallPathway {
                     continue;
                 }
 
-            final MemoryIndex effIdx = effectiveIndex();
+            final MemoryIndex effIdx = effectiveIndex(signal);
             // Phase 5: Resolve ID and text
             final String id = effIdx != null ? effIdx.findIdByOffset(partitionSeq, MemoryType.EPISODIC, relOffset) : null;
             if (id == null) {
@@ -900,10 +916,10 @@ public final class RecallPathway {
         return results;
     }
 
-    private CognitiveResult headerToResult(final ScoredRecord sr, final EncodingHeader header, final MemoryType type,
+    private CognitiveResult headerToResult(final RecallSignal signal, final ScoredRecord sr, final EncodingHeader header, final MemoryType type,
                                            final int partitionSeq) {
-        final MemoryIndex effIdx = effectiveIndex();
-        final PartitionRegistry effPr = effectivePartitionRegistry();
+        final MemoryIndex effIdx = effectiveIndex(signal);
+        final PartitionRegistry effPr = effectivePartitionRegistry(signal);
 
         final String id = effIdx != null ? effIdx.findIdByOffset(partitionSeq, type, sr.offset()) : null;
         final String text = (id != null && effIdx != null) ? effIdx.text(id) : "";
@@ -978,8 +994,7 @@ public final class RecallPathway {
      * @return true if the memory was a lateral result, false otherwise
      */
     public boolean wasLateral(String memoryId) {
-        RetrievalMode mode = recentRetrievalModes.get(memoryId);
-        return mode == RetrievalMode.LATERAL;
+        return recallHistory != null && recallHistory.wasLateral(memoryId);
     }
 
     /**

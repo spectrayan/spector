@@ -348,6 +348,26 @@ public enum ErrorCode {
     MEMORY_ENCRYPTION_FAILED   (310_019, ErrorCategory.MEMORY,
             "Memory encryption operation failed: {}"),
 
+    /** Cognitive pathway stage execution timed out. */
+    PATHWAY_TIMEOUT            (310_020, ErrorCategory.MEMORY,
+            "Cognitive pathway execution timed out for {}: {}"),
+
+    /** Cognitive pathway circuit breaker is open. */
+    PATHWAY_CIRCUIT_OPEN       (310_021, ErrorCategory.MEMORY,
+            "Cognitive pathway circuit is open for {}: {}"),
+
+    /** Cognitive pathway recursion cycle detected. */
+    PATHWAY_CYCLE              (310_022, ErrorCategory.MEMORY,
+            "Cognitive pathway cycle detected: {}"),
+
+    /** Cognitive pathway bulkhead concurrency limit reached. */
+    PATHWAY_BULKHEAD           (310_023, ErrorCategory.MEMORY,
+            "Cognitive pathway bulkhead concurrency limit reached for {}: {}"),
+
+    /** Nested cognitive pathway execution failed. */
+    PATHWAY_NESTED_FAILED      (310_024, ErrorCategory.MEMORY,
+            "Nested cognitive pathway execution failed for {}: {}"),
+
     // ══════════════════════════════════════════════════════════════════════
     // GPU (SPE-400-xxx)
     // ══════════════════════════════════════════════════════════════════════

@@ -18,18 +18,17 @@ package com.spectrayan.spector.commons.pathway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
+import java.util.EnumSet;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * A decorating {@link SynapticRelay} that provides non-blocking adaptive circuit breaking.
+ * A decorating {@link SynapticRelay} that provides non-blocking adaptive circuit breaking
+ * as a façade over {@link CircuitBreaker}.
  *
- * <p>Protects external or high-latency downstream dependencies (e.g. remote rerankers,
- * neural sparse encoders, or LLM entity extractors) from cascading failures. When consecutive
- * errors cross {@code failureThreshold}, the circuit trips to {@link State#OPEN} for
- * {@code cooldownMs}, skipping delegate invocation and degrading gracefully without thread starvation.</p>
+ * <p>Protects external or high-latency downstream dependencies from cascading failures.
+ * Supports both standalone anonymous breakers with backwards-compatible defaults
+ * and shared named circuit breakers across pathways.</p>
  *
  * @param <S> the type of signal processed by the relay
  */
@@ -41,7 +40,7 @@ public final class CircuitBreakerRelay<S> implements SynapticRelay<S> {
     public static final long DEFAULT_COOLDOWN_MS = 30_000L;
 
     /**
-     * Circuit breaker operating states.
+     * Circuit breaker operating states matching {@link CircuitBreaker.State}.
      */
     public enum State {
         CLOSED,
@@ -50,89 +49,126 @@ public final class CircuitBreakerRelay<S> implements SynapticRelay<S> {
     }
 
     private final SynapticRelay<S> delegate;
-    private final int failureThreshold;
-    private final long cooldownMs;
-
-    private final AtomicReference<State> state = new AtomicReference<>(State.CLOSED);
-    private final AtomicInteger consecutiveFailures = new AtomicInteger(0);
-    private final AtomicLong lastStateChangeMs = new AtomicLong(0L);
+    private final CircuitBreaker breaker;
+    private final BreakerRef ref;
+    private final OnOpen onOpen;
+    private volatile CircuitBreaker resolvedBreaker;
 
     /**
-     * Constructs a CircuitBreakerRelay with default thresholds (5 failures, 30s cooldown).
+     * Constructs a CircuitBreakerRelay with default thresholds (5 failures, 30s cooldown, BYPASS on open).
      *
      * @param delegate the underlying relay to protect
+     * @deprecated Use {@link #CircuitBreakerRelay(SynapticRelay, BreakerRef, CircuitBreakerRegistry)} or {@link PathwayComposer.StageBuilder#breaker(BreakerRef)} instead.
      */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public CircuitBreakerRelay(final SynapticRelay<S> delegate) {
         this(delegate, DEFAULT_FAILURE_THRESHOLD, DEFAULT_COOLDOWN_MS);
     }
 
     /**
-     * Constructs a CircuitBreakerRelay with custom thresholds.
+     * Constructs a CircuitBreakerRelay with custom thresholds and BYPASS on open.
      *
      * @param delegate         the underlying relay to protect
      * @param failureThreshold number of consecutive failures before tripping open
      * @param cooldownMs       duration in milliseconds to stay open before half-open probe
+     * @deprecated Use {@link #CircuitBreakerRelay(SynapticRelay, BreakerRef, CircuitBreakerRegistry)} or {@link PathwayComposer.StageBuilder#breaker(BreakerRef)} instead.
      */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public CircuitBreakerRelay(final SynapticRelay<S> delegate, final int failureThreshold, final long cooldownMs) {
+        this(delegate, new CircuitBreaker(
+                "anon-" + delegate.relayName(),
+                CircuitBreakerConfig.builder()
+                        .failureThreshold(failureThreshold)
+                        .cooldown(Duration.ofMillis(cooldownMs))
+                        .tripOn(EnumSet.of(FaultKind.TRANSIENT, FaultKind.DOWNSTREAM, FaultKind.INTERNAL))
+                        .build()
+        ), OnOpen.BYPASS);
+    }
+
+    /**
+     * Constructs a CircuitBreakerRelay with a specified {@link CircuitBreaker} and call-site {@link OnOpen} action.
+     *
+     * @param delegate the underlying relay to protect
+     * @param breaker  the circuit breaker instance (may be shared)
+     * @param onOpen   the call-site action on open circuit (FAIL vs BYPASS)
+     */
+    public CircuitBreakerRelay(final SynapticRelay<S> delegate, final CircuitBreaker breaker, final OnOpen onOpen) {
         this.delegate = Objects.requireNonNull(delegate, "delegate cannot be null");
-        if (failureThreshold <= 0) {
-            throw new IllegalArgumentException("failureThreshold must be positive");
+        this.breaker = Objects.requireNonNull(breaker, "breaker cannot be null");
+        this.ref = null;
+        this.onOpen = Objects.requireNonNull(onOpen, "onOpen cannot be null");
+    }
+
+    /**
+     * Constructs a CircuitBreakerRelay from a {@link BreakerRef} and registry.
+     *
+     * @param delegate the underlying relay to protect
+     * @param ref      breaker reference defining name, config, and call-site onOpen
+     * @param registry circuit breaker registry
+     */
+    public CircuitBreakerRelay(final SynapticRelay<S> delegate, final BreakerRef ref, final CircuitBreakerRegistry registry) {
+        this(delegate, Objects.requireNonNull(registry, "registry cannot be null").get(ref), ref.onOpen());
+    }
+
+    /**
+     * Constructs a CircuitBreakerRelay from a {@link BreakerRef}, resolving the breaker
+     * dynamically from {@link PathwayContext} or falling back to a local breaker.
+     *
+     * @param delegate the underlying relay to protect
+     * @param ref      breaker reference defining name, config, and call-site onOpen
+     */
+    public CircuitBreakerRelay(final SynapticRelay<S> delegate, final BreakerRef ref) {
+        this.delegate = Objects.requireNonNull(delegate, "delegate cannot be null");
+        this.ref = Objects.requireNonNull(ref, "ref cannot be null");
+        this.breaker = null;
+        this.onOpen = ref.onOpen();
+    }
+
+    private CircuitBreaker effectiveBreaker(final S signal) {
+        if (breaker != null) {
+            return breaker;
         }
-        if (cooldownMs <= 0) {
-            throw new IllegalArgumentException("cooldownMs must be positive");
+        if (signal instanceof ContextualSignal cs && cs.context() != null) {
+            final CircuitBreaker fromCtx = cs.context().find(CircuitBreakerRegistry.class)
+                    .map(r -> r.get(ref))
+                    .orElse(null);
+            if (fromCtx != null) {
+                return fromCtx;
+            }
         }
-        this.failureThreshold = failureThreshold;
-        this.cooldownMs = cooldownMs;
+        if (resolvedBreaker == null) {
+            synchronized (this) {
+                if (resolvedBreaker == null) {
+                    resolvedBreaker = new CircuitBreaker(ref.name(), ref.config());
+                }
+            }
+        }
+        return resolvedBreaker;
     }
 
     @Override
     public boolean transmit(final S signal) throws Exception {
-        final long now = System.currentTimeMillis();
-        final State currentState = state.get();
+        final CircuitBreaker targetBreaker = effectiveBreaker(signal);
+        final CircuitBreaker.Permit permit = targetBreaker.tryAcquire(onOpen);
 
-        if (currentState == State.OPEN) {
-            if (now - lastStateChangeMs.get() > cooldownMs) {
-                if (state.compareAndSet(State.OPEN, State.HALF_OPEN)) {
-                    log.info("Circuit breaker for relay '{}' entering HALF_OPEN trial state.", relayName());
-                }
-            } else {
-                log.debug("Circuit breaker for relay '{}' is OPEN. Bypassing execution.", relayName());
-                return true; // Bypass gracefully
+        if (permit.isBypass()) {
+            log.debug("Circuit breaker for relay '{}' ({}) is OPEN. Bypassing execution.", relayName(), targetBreaker.name());
+            if (signal instanceof ContextualSignal cs && cs.context() != null) {
+                final String scopeName = (cs.context().scope() != null && cs.context().scope().pathwayName() != null)
+                        ? cs.context().scope().pathwayName() + "/" + relayName()
+                        : relayName();
+                cs.context().outcome().markBypassed(scopeName, "circuit_open:" + targetBreaker.name());
             }
+            return true;
         }
 
         try {
             final boolean result = delegate.transmit(signal);
-            onSuccess();
+            targetBreaker.onSuccess(permit);
             return result;
         } catch (final Exception e) {
-            onFailure(e);
+            targetBreaker.onFailure(permit, Faults.kindOf(e));
             throw e;
-        }
-    }
-
-    private void onSuccess() {
-        if (state.get() != State.CLOSED) {
-            log.info("Circuit breaker for relay '{}' closed successfully after recovery.", relayName());
-            state.set(State.CLOSED);
-        }
-        consecutiveFailures.set(0);
-    }
-
-    private void onFailure(final Exception cause) {
-        final int failures = consecutiveFailures.incrementAndGet();
-        final long now = System.currentTimeMillis();
-
-        if (state.get() == State.HALF_OPEN) {
-            log.warn("Probe trial failed for relay '{}'. Tripping circuit back to OPEN.", relayName(), cause);
-            state.set(State.OPEN);
-            lastStateChangeMs.set(now);
-        } else if (failures >= failureThreshold) {
-            if (state.compareAndSet(State.CLOSED, State.OPEN)) {
-                lastStateChangeMs.set(now);
-                log.warn("Circuit breaker for relay '{}' TRIPPED OPEN after {} consecutive failures.",
-                        relayName(), failures, cause);
-            }
         }
     }
 
@@ -142,7 +178,16 @@ public final class CircuitBreakerRelay<S> implements SynapticRelay<S> {
      * @return current state
      */
     public State state() {
-        return state.get();
+        return State.valueOf(effectiveBreaker(null).state().name());
+    }
+
+    /**
+     * Returns the underlying {@link CircuitBreaker.State}.
+     *
+     * @return breaker state
+     */
+    public CircuitBreaker.State breakerState() {
+        return effectiveBreaker(null).state();
     }
 
     /**
@@ -151,7 +196,7 @@ public final class CircuitBreakerRelay<S> implements SynapticRelay<S> {
      * @return failure count
      */
     public int failureCount() {
-        return consecutiveFailures.get();
+        return effectiveBreaker(null).consecutiveFailures();
     }
 
     /**
@@ -160,7 +205,7 @@ public final class CircuitBreakerRelay<S> implements SynapticRelay<S> {
      * @return threshold count
      */
     public int failureThreshold() {
-        return failureThreshold;
+        return effectiveBreaker(null).config().failureThreshold();
     }
 
     /**
@@ -169,16 +214,41 @@ public final class CircuitBreakerRelay<S> implements SynapticRelay<S> {
      * @return cooldown in ms
      */
     public long cooldownMs() {
-        return cooldownMs;
+        return effectiveBreaker(null).config().cooldown().toMillis();
     }
 
     /**
      * Resets the circuit breaker back to CLOSED state with 0 failures.
      */
     public void reset() {
-        state.set(State.CLOSED);
-        consecutiveFailures.set(0);
-        lastStateChangeMs.set(0L);
+        effectiveBreaker(null).reset();
+    }
+
+    /**
+     * Returns the underlying delegate relay.
+     *
+     * @return delegate relay
+     */
+    public SynapticRelay<S> delegate() {
+        return delegate;
+    }
+
+    /**
+     * Returns the underlying {@link CircuitBreaker} instance.
+     *
+     * @return circuit breaker
+     */
+    public CircuitBreaker circuitBreaker() {
+        return effectiveBreaker(null);
+    }
+
+    /**
+     * Returns the call-site {@link OnOpen} action.
+     *
+     * @return onOpen action
+     */
+    public OnOpen onOpen() {
+        return onOpen;
     }
 
     @Override

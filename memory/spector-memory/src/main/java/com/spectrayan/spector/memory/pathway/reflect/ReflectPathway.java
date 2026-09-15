@@ -14,7 +14,9 @@ package com.spectrayan.spector.memory.pathway.reflect;
 
 import com.spectrayan.spector.kernel.id.MemoryId;
 
+import com.spectrayan.spector.commons.pathway.AbstractPathway;
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.commons.template.TemplateEngine;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.config.properties.CircadianProperties;
@@ -35,6 +37,7 @@ import com.spectrayan.spector.kernel.store.TemporalChainMemory;
 import com.spectrayan.spector.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.pathway.SoulVersionSource;
 import com.spectrayan.spector.memory.pathway.reflect.relay.CrossLayerPromotionRelay;
 import com.spectrayan.spector.memory.pathway.reflect.relay.EntityMaintenanceRelay;
 import com.spectrayan.spector.memory.pathway.reflect.relay.EpisodicLogConsolidationRelay;
@@ -68,11 +71,10 @@ import java.util.Objects;
  * STC cross-layer promotion, Riemannian cognitive manifold consolidation, Soft Identity Anchor Lyapunov
  * restoring force, and entity maintenance into a unified, observable 14-relay pipeline.</p>
  */
-public final class ReflectPathway implements AutoCloseable {
+public final class ReflectPathway extends AbstractPathway<ReflectSignal, ReflectReport> implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(ReflectPathway.class);
 
-    private final CognitivePathway<ReflectSignal> pathway;
     private final ScalarQuantizer quantizer;
     private final EmbeddingProvider embeddingProvider;
     private final LlmProvider textGenerator;
@@ -107,6 +109,7 @@ public final class ReflectPathway implements AutoCloseable {
     private final float identityLyapunovThreshold;
 
     private ReflectPathway(final Builder builder) {
+        super("reflect", ReflectSignal.class, ReflectReport.class);
         this.quantizer = builder.quantizer;
         this.embeddingProvider = builder.embeddingProvider;
         this.textGenerator = builder.textGenerator;
@@ -151,7 +154,7 @@ public final class ReflectPathway implements AutoCloseable {
                 ? builder.softIdentityAnchorRelay
                 : new SoftIdentityAnchorRelay(builder.identityAnchorEta, builder.identityLyapunovThreshold);
 
-        this.pathway = ReflectPathwayFactory.create(
+        final CognitivePathway<ReflectSignal> engine = ReflectPathwayFactory.create(
                 builder.interceptor,
                 new SynapticPruningRelay(),
                 new EpisodicLogConsolidationRelay(),
@@ -168,32 +171,24 @@ public final class ReflectPathway implements AutoCloseable {
                 new WalJournalRelay(),
                 new com.spectrayan.spector.memory.pathway.reflect.relay.IdiolectLearningRelay()
         );
+        initEngine(engine);
+    }
+
+    public CognitivePathway<ReflectSignal> pathway() {
+        return engine();
     }
 
     public static Builder builder() {
         return new Builder();
     }
 
-    /**
-     * Conducts a full biological sleep consolidation cycle over the supplied signal.
-     *
-     * @param signal the populated reflection signal
-     * @return the resulting {@link ReflectReport}
-     */
-    public ReflectReport conduct(final ReflectSignal signal) {
-        Objects.requireNonNull(signal, "ReflectSignal cannot be null");
-        log.info("ReflectPathway: initiating sleep consolidation cycle...");
-        try {
-            pathway.conduct(signal);
-            ReflectReport report = signal.buildReport();
-            log.info("ReflectPathway: sleep cycle complete in {}ms — consolidated={}, tombstoned={}, compacted={}, soulRefused={}",
-                    report.duration().toMillis(), report.consolidatedCount(), report.tombstonedCount(),
-                    report.compactedPartitions(), report.soulRefusedCount());
-            return report;
-        } catch (Exception e) {
-            log.error("ReflectPathway: reflection cycle aborted due to error: {}", e.getMessage(), e);
-            throw new com.spectrayan.spector.memory.error.SpectorPathwayException("ReflectPathway execution failed: " + e.getMessage(), e);
-        }
+    @Override
+    protected ReflectReport project(final ReflectSignal signal) {
+        final ReflectReport report = signal.buildReport();
+        log.info("ReflectPathway: sleep cycle complete in {}ms — consolidated={}, tombstoned={}, compacted={}, soulRefused={}",
+                report.duration().toMillis(), report.consolidatedCount(), report.tombstonedCount(),
+                report.compactedPartitions(), report.soulRefusedCount());
+        return report;
     }
 
     /**
@@ -208,12 +203,31 @@ public final class ReflectPathway implements AutoCloseable {
         if (kernel != null) {
             signal.kernel(kernel);
         }
+        final DefaultPathwayContext.Builder ctxBuilder = signal.context() != null
+                ? DefaultPathwayContext.from(signal.context())
+                : DefaultPathwayContext.builder();
+        if (kernel != null) {
+            ctxBuilder.namespaceId(kernel.namespaceId());
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
+        }
+        if (signal.rememberPathway() != null) {
+            ctxBuilder.bindIfAbsent(SoulVersionSource.class, signal.rememberPathway());
+        }
+        if (signal.quantizer() != null) {
+            ctxBuilder.bindIfAbsent(ScalarQuantizer.class, signal.quantizer());
+        } else if (this.quantizer != null) {
+            ctxBuilder.bindIfAbsent(ScalarQuantizer.class, this.quantizer);
+        }
+        signal.bind(ctxBuilder.build());
         return conduct(signal);
     }
 
     /**
      * Executes a sleep reflection cycle for an explicit namespace kernel.
+     *
+     * @deprecated Use {@code conduct(ReflectSignal)} with RememberPathway registered in the catalog.
      */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public ReflectReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
                                  final PartitionManager partitionManager,
                                  final MemoryIndex index,
@@ -224,7 +238,10 @@ public final class ReflectPathway implements AutoCloseable {
 
     /**
      * Executes a sleep reflection cycle with explicit session index for an explicit namespace kernel.
+     *
+     * @deprecated Use {@code conduct(ReflectSignal)} with RememberPathway registered in the catalog.
      */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public ReflectReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
                                  final PartitionManager partitionManager,
                                  final MemoryIndex index,
@@ -236,7 +253,10 @@ public final class ReflectPathway implements AutoCloseable {
 
     /**
      * Executes a reflection cycle with an explicit sweep specification, checkpoint store, and namespace kernel.
+     *
+     * @deprecated Use {@code conduct(ReflectSignal)} with RememberPathway registered in the catalog.
      */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public ReflectReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
                                  final PartitionManager partitionManager,
                                  final MemoryIndex index,
@@ -292,7 +312,7 @@ public final class ReflectPathway implements AutoCloseable {
                 .checkpoint(initialCheckpoint)
                 .build();
 
-        return conduct(signal);
+        return execute(kernel, signal);
     }
 
     public CircadianProperties policy() {
@@ -301,7 +321,10 @@ public final class ReflectPathway implements AutoCloseable {
 
     /**
      * Convenience method to execute a sleep reflection cycle.
+     *
+     * @deprecated Use {@code conduct(ReflectSignal)} with RememberPathway registered in the catalog.
      */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public ReflectReport reflect(final PartitionManager partitionManager,
                                  final MemoryIndex index,
                                  final RememberPathway rememberPathway,
@@ -311,7 +334,10 @@ public final class ReflectPathway implements AutoCloseable {
 
     /**
      * Executes a sleep reflection cycle with explicit session index for prior-turn context.
+     *
+     * @deprecated Use {@code conduct(ReflectSignal)} with RememberPathway registered in the catalog.
      */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public ReflectReport reflect(final PartitionManager partitionManager,
                                  final MemoryIndex index,
                                  final RememberPathway rememberPathway,
@@ -322,7 +348,10 @@ public final class ReflectPathway implements AutoCloseable {
 
     /**
      * Executes a reflection cycle with an explicit sweep specification and checkpoint store.
+     *
+     * @deprecated Use {@code conduct(ReflectSignal)} with RememberPathway registered in the catalog.
      */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public ReflectReport reflect(final PartitionManager partitionManager,
                                  final MemoryIndex index,
                                  final RememberPathway rememberPathway,

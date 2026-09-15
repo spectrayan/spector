@@ -99,7 +99,7 @@ class WanderPathwayTest {
             signal.sampledVectors().addAll(List.of(v1, v2, v3, v4));
             signal.sampledMemoryIds().addAll(List.of("sem-0-1", "sem-0-2", "sem-0-3", "sem-0-4"));
 
-            WanderReport report = pathway.conduct(signal);
+            WanderReport report = pathway.execute(null, signal);
 
             assertThat(report).isNotNull();
             assertThat(report.snapshotRecorded()).isTrue();

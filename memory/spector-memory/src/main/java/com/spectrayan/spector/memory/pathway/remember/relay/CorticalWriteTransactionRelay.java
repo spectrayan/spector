@@ -106,7 +106,7 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
         // 2. Cognitive Header Assembly
         final MemoryType type = signal.type();
         final RememberHints hints = signal.hints();
-        final RememberContext context = signal.context();
+        final RememberContext context = signal.rememberContext();
         final SalienceProfile salienceProfile = signal.salienceProfile();
         final float l2Norm = (vector != null) ? VectorOps.magnitude(vector) : 0.0f;
 

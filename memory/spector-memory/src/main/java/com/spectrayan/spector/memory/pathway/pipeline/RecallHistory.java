@@ -14,9 +14,11 @@ package com.spectrayan.spector.memory.pathway.pipeline;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.memory.model.CognitiveResult.RetrievalMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -233,5 +235,54 @@ public final class RecallHistory {
      */
     public int capacity() {
         return capacity;
+    }
+
+    // ── Recent Retrieval Mode Tracking (ADR-0035 M4b) ─────────────
+
+    /** Maximum entries retained in recent retrieval mode cache before evicting oldest quarter. */
+    public static final int RETRIEVAL_MODE_CACHE_MAX = 4096;
+
+    private final ConcurrentHashMap<String, RetrievalMode> recentRetrievalModes = new ConcurrentHashMap<>();
+
+    /**
+     * Records the retrieval mode for a returned memory ID with bounded eviction (ADR-0035 M4b).
+     *
+     * @param memoryId the memory identifier
+     * @param mode     the retrieval mode used
+     */
+    public void recordRetrievalMode(String memoryId, RetrievalMode mode) {
+        if (memoryId == null || mode == null) return;
+        if (recentRetrievalModes.size() > RETRIEVAL_MODE_CACHE_MAX) {
+            final int toRemove = RETRIEVAL_MODE_CACHE_MAX / 4;
+            final var iter = recentRetrievalModes.keySet().iterator();
+            for (int i = 0; i < toRemove && iter.hasNext(); i++) {
+                iter.next();
+                iter.remove();
+            }
+        }
+        recentRetrievalModes.put(memoryId, mode);
+    }
+
+    /**
+     * Checks if a memory was recently returned as a lateral thought.
+     *
+     * @param memoryId the memory ID to check
+     * @return true if the memory was a lateral result, false otherwise
+     */
+    public boolean wasLateral(String memoryId) {
+        if (memoryId == null) return false;
+        RetrievalMode mode = recentRetrievalModes.get(memoryId);
+        return mode == RetrievalMode.LATERAL;
+    }
+
+    /**
+     * Returns the recorded retrieval mode for a memory ID, or null if not recorded.
+     *
+     * @param memoryId the memory ID to check
+     * @return the retrieval mode or null
+     */
+    public RetrievalMode retrievalMode(String memoryId) {
+        if (memoryId == null) return null;
+        return recentRetrievalModes.get(memoryId);
     }
 }

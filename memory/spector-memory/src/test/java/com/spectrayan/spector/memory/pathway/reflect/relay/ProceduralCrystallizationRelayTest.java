@@ -122,7 +122,7 @@ class ProceduralCrystallizationRelayTest {
     }
 
     @Test
-    void transmit_withIngestionTarget_crystallizesWithProvenanceFlagsAndSoulVersion() {
+    void transmit_withRememberPathway_crystallizesWithProvenanceFlagsAndSoulVersion() {
         PartitionManager partitionManager = mock(PartitionManager.class);
         PartitionHandle handle = mock(PartitionHandle.class);
         CognitiveMemoryRouter router = mock(CognitiveMemoryRouter.class);

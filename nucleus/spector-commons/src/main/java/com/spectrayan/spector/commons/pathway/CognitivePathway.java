@@ -66,25 +66,58 @@ public final class CognitivePathway<S> {
                 }
 
                 if (!shouldContinue) {
+                    if (signal instanceof ContextualSignal cs && cs.context() != null && cs.context().scope() != null) {
+                        cs.context().scope().markShortCircuited(pathwayName);
+                    }
                     log.debug("Pathway '{}' short-circuited at relay '{}'", pathwayName, entry.relay().relayName());
                     break;
                 }
             } catch (final Exception e) {
-                if (isTraceable) {
-                    final long elapsed = System.nanoTime() - startNanos;
-                    final RelayTrace.TraceStatus status = entry.errorPolicy() == ErrorPolicy.FAIL_FAST
-                            ? RelayTrace.TraceStatus.FAILED
-                            : RelayTrace.TraceStatus.DEGRADED;
-                    ((TraceableSignal) signal).recordTrace(new RelayTrace(entry.relay().relayName(), elapsed, status, e.getMessage()));
-                }
-
-                if (entry.errorPolicy() == ErrorPolicy.FAIL_FAST) {
+                final FaultKind kind = Faults.kindOf(e);
+                if (kind == FaultKind.INTERRUPTED) {
+                    Thread.currentThread().interrupt();
+                    if (isTraceable) {
+                        final long elapsed = System.nanoTime() - startNanos;
+                        ((TraceableSignal) signal).recordTrace(new RelayTrace(entry.relay().relayName(), elapsed, RelayTrace.TraceStatus.FAILED, e.getMessage()));
+                    }
                     if (e instanceof SpectorException se) throw se;
                     if (e.getCause() instanceof SpectorException se) throw se;
-                    throw new CognitivePathwayException(pathwayName, entry.relay().relayName(), e);
-                } else {
-                    log.warn("Pathway '{}' degraded gracefully at relay '{}' due to error.",
-                            pathwayName, entry.relay().relayName(), e);
+                    throw new CognitivePathwayException(pathwayName, entry.relay().relayName(), kind, false, e);
+                }
+
+                switch (entry.errorPolicy()) {
+                    case FAIL_FAST -> {
+                        if (isTraceable) {
+                            final long elapsed = System.nanoTime() - startNanos;
+                            ((TraceableSignal) signal).recordTrace(new RelayTrace(entry.relay().relayName(), elapsed, RelayTrace.TraceStatus.FAILED, e.getMessage()));
+                        }
+                        if (e instanceof SpectorException se) throw se;
+                        if (e.getCause() instanceof SpectorException se) throw se;
+                        throw new CognitivePathwayException(pathwayName, entry.relay().relayName(), kind, false, e);
+                    }
+                    case DEGRADE_GRACEFULLY -> {
+                        if (isTraceable) {
+                            final long elapsed = System.nanoTime() - startNanos;
+                            ((TraceableSignal) signal).recordTrace(new RelayTrace(entry.relay().relayName(), elapsed, RelayTrace.TraceStatus.DEGRADED, e.getMessage()));
+                        }
+                        if (signal instanceof ContextualSignal cs && cs.context() != null) {
+                            cs.context().outcome().markDegraded(entry.relay().relayName(), kind, e);
+                        }
+                        log.warn("Pathway '{}' degraded gracefully at relay '{}' due to error.",
+                                pathwayName, entry.relay().relayName(), e);
+                    }
+                    case ABORT -> {
+                        if (isTraceable) {
+                            final long elapsed = System.nanoTime() - startNanos;
+                            ((TraceableSignal) signal).recordTrace(new RelayTrace(entry.relay().relayName(), elapsed, RelayTrace.TraceStatus.SHORT_CIRCUITED, "aborted:" + kind));
+                        }
+                        if (signal instanceof ContextualSignal cs && cs.context() != null && cs.context().scope() != null) {
+                            cs.context().scope().markShortCircuited(pathwayName);
+                        }
+                        log.debug("Pathway '{}' aborted at relay '{}' due to error: {}",
+                                pathwayName, entry.relay().relayName(), e.getMessage());
+                        return signal;
+                    }
                 }
             }
         }
@@ -98,6 +131,24 @@ public final class CognitivePathway<S> {
      */
     public String pathwayName() {
         return pathwayName;
+    }
+
+    /**
+     * Returns an unmodifiable list of relay names in their configured execution order.
+     *
+     * @return ordered relay names
+     */
+    public List<String> relayNames() {
+        return entries.stream().map(e -> e.relay().relayName()).toList();
+    }
+
+    /**
+     * Returns an unmodifiable list of the configured relay entries.
+     *
+     * @return relay entries
+     */
+    public List<RelayEntry<S>> entries() {
+        return entries;
     }
 
     /**

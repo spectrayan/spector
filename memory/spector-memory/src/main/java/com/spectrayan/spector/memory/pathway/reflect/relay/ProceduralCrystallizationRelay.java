@@ -21,7 +21,10 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.spectrayan.spector.commons.pathway.PathwayCatalog;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
+import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.kernel.store.EpisodicMemory;
 import com.spectrayan.spector.kernel.api.MemorySource;
@@ -32,6 +35,7 @@ import com.spectrayan.spector.kernel.api.EpisodeRecord;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.pathway.RelayNames;
+import com.spectrayan.spector.memory.pathway.SoulVersionSource;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
 
 /**
@@ -104,20 +108,37 @@ public final class ProceduralCrystallizationRelay implements SynapticRelay<Refle
                 }
 
                 String[] tags = new String[]{"procedural", "crystallized", "skill"};
-                if (signal.rememberPathway() != null) {
+                final PathwayCatalog catalog = signal.context() != null ? signal.context().catalog() : null;
+                final boolean hasCatalogRemember = catalog != null && catalog.find(RememberPathway.class).isPresent();
+                @SuppressWarnings("deprecation")
+                final var legacyRp = !hasCatalogRemember ? signal.rememberPathway() : null;
+                if (hasCatalogRemember || legacyRp != null) {
                     float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
                     byte procFlags = EncodingHeaderFields.withMemoryType(
                             (byte) 0, MemoryType.PROCEDURAL.ordinal());
-                    short soulVer = signal.rememberPathway().currentSoulVersion();
+                    short soulVer = signal.context() != null && signal.context().find(SoulVersionSource.class).isPresent()
+                            ? signal.context().get(SoulVersionSource.class).currentSoulVersion()
+                            : (legacyRp != null ? legacyRp.currentSoulVersion() : (short) 0);
                     EncodingHeader header = EncodingHeader.createSynthetic(
                             System.currentTimeMillis(), 0L, exactNorm, 1.0f,
                             (byte) 0, (byte) 0, procFlags,
                             EncodingHeaderFields.FLAG_CRYSTALLIZED,
                             soulVer, 0.0f
                     );
-                    signal.rememberPathway().ingestCognitiveWithHeader(
-                            skillId, skillText, vector, MemoryType.PROCEDURAL, tags, MemorySource.REFLECTED, header
-                    );
+                    if (hasCatalogRemember) {
+                        RememberSignal rs = RememberSignal.forCognitiveWithHeader(
+                                skillId, skillText, vector, MemoryType.PROCEDURAL,
+                                tags, MemorySource.REFLECTED, header);
+                        try {
+                            catalog.invoke(RememberPathway.class, signal.context(), rs);
+                        } catch (Exception e) {
+                            log.warn("Failed to invoke Remember via catalog for skill {}: {}", skillId, e.getMessage());
+                        }
+                    } else {
+                        legacyRp.ingestCognitiveWithHeader(
+                                skillId, skillText, vector, MemoryType.PROCEDURAL, tags, MemorySource.REFLECTED, header
+                        );
+                    }
                     signal.addProceduralCrystallized(1);
                 }
 

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.recall.relay;
 
+import com.spectrayan.spector.commons.pathway.IdempotentRelay;
+import com.spectrayan.spector.commons.pathway.InterruptibleRelay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTReranker;
 import com.spectrayan.spector.memory.pathway.pipeline.reranker.ColBERTReranker.RerankCandidate;
@@ -32,7 +34,7 @@ import java.util.Map;
 /**
  * Relay that uses ColBERT v2 to rerank candidate results.
  */
-public final class CognitiveRerankRelay implements SynapticRelay<RecallSignal> {
+public final class CognitiveRerankRelay implements SynapticRelay<RecallSignal>, IdempotentRelay, InterruptibleRelay {
 
     private static final Logger log = LoggerFactory.getLogger(CognitiveRerankRelay.class);
     private final ColBERTReranker colbertReranker;

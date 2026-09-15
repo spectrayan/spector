@@ -51,10 +51,14 @@ import com.spectrayan.spector.memory.sync.MemoryWal;
 
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 
+import com.spectrayan.spector.commons.pathway.AbstractPathway;
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.ConductionOutcome;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.index.VectorIndex;
-import com.spectrayan.spector.ingestion.IngestionTarget;
+import com.spectrayan.spector.memory.model.RememberResult;
+import com.spectrayan.spector.memory.pathway.SoulVersionSource;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,105 +72,129 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>Executes memory ingestion with a type-safe,
  * observable synaptic relay chain.</p>
  */
-public final class RememberPathway implements IngestionTarget, AutoCloseable {
+public final class RememberPathway extends AbstractPathway<RememberSignal, RememberResult> implements SoulVersionSource {
 
     private static final Logger log = LoggerFactory.getLogger(RememberPathway.class);
 
-    private final CognitivePathway<RememberSignal> pathway;
     private final CorticalWriteTransactionRelay corticalWriteRelay;
     private final TagExtractor tagExtractor;
     private final AsyncEntityExtractionQueue asyncEntityExtractionQueue;
-    private final AtomicInteger lastIngestedMemoryIdx = new AtomicInteger(-1);
+    private final AtomicInteger lastIngestedMemoryIdx;
 
     private volatile SalienceProfile salienceProfile = SalienceProfile.NEUTRAL;
     private volatile short currentSoulVersion = 0;
     private volatile java.util.List<com.spectrayan.spector.memory.model.SoulContext> soulContexts = java.util.List.of();
 
-    private RememberPathway(final Builder builder) {
-        final ScalarQuantizer quantizer = builder.cortex.quantizer();
-        final SurpriseDetector surpriseDetector = builder.bio.surpriseDetector();
-        final ImportanceProvider importanceProvider = builder.importanceProvider != null
-                ? builder.importanceProvider
-                : ImportanceProvider.baseline();
-        final WorkingMemory workingStore = builder.cortex.workingStore();
-        final TagExtractor extractor = builder.tagExtractor != null
-                ? builder.tagExtractor
-                : new ContentTagExtractor();
-        this.tagExtractor = extractor;
+    private static final class RememberComponents {
+        final TagExtractor tagExtractor;
+        final CorticalWriteTransactionRelay corticalWriteRelay;
+        final AsyncEntityExtractionQueue asyncEntityExtractionQueue;
+        final CognitivePathway<RememberSignal> engine;
 
-        final SessionRegistry sessionRegistry = new SessionRegistry();
+        RememberComponents(final Builder builder, final AtomicInteger lastIngestedMemoryIdx) {
+            final ScalarQuantizer quantizer = builder.cortex.quantizer();
+            final SurpriseDetector surpriseDetector = builder.bio.surpriseDetector();
+            final ImportanceProvider importanceProvider = builder.importanceProvider != null
+                    ? builder.importanceProvider
+                    : ImportanceProvider.baseline();
+            final WorkingMemory workingStore = builder.cortex.workingStore();
+            final TagExtractor extractor = builder.tagExtractor != null
+                    ? builder.tagExtractor
+                    : new ContentTagExtractor();
+            this.tagExtractor = extractor;
 
-        final PostIngestSync postIngestSync = new PostIngestSync(
-                builder.cortex.cognitiveRouter(),
-                builder.index,
-                builder.wal,
-                builder.semanticIndex,
-                builder.graphs.hebbianGraph(),
-                builder.graphs.temporalChain(),
-                builder.graphs.entityExtractor(),
-                builder.graphs.entityDirectory(),
-                builder.retrieval.bm25Index(),
-                builder.retrieval.textDataStore(),
-                builder.activePartitionIndex,
-                builder.retrieval.memorySpladeIndex(),
-                builder.sparseEmbeddingProvider,
-                builder.dataEncryptor != null ? builder.dataEncryptor : DataEncryptor.NOOP,
-                builder.graphs.hyperEntityGraph(),
-                builder.graphs.temporalKnowledgeGraph()
-        );
+            final SessionRegistry sessionRegistry = new SessionRegistry();
 
-        final EntityExtractor entityExtractor = builder.graphs.entityExtractor();
-        if (entityExtractor != null && entityExtractor.isAvailable() && builder.entityExtractionParallelism > 0) {
-            this.asyncEntityExtractionQueue = new AsyncEntityExtractionQueue(
-                    builder.namespaceId,
-                    entityExtractor,
-                    postIngestSync,
-                    builder.entityExtractionParallelism,
-                    builder.entityExtractionQueueCapacity
+            final PostIngestSync postIngestSync = new PostIngestSync(
+                    builder.cortex.cognitiveRouter(),
+                    builder.index,
+                    builder.wal,
+                    builder.semanticIndex,
+                    builder.graphs.hebbianGraph(),
+                    builder.graphs.temporalChain(),
+                    builder.graphs.entityExtractor(),
+                    builder.graphs.entityDirectory(),
+                    builder.retrieval.bm25Index(),
+                    builder.retrieval.textDataStore(),
+                    builder.activePartitionIndex,
+                    builder.retrieval.memorySpladeIndex(),
+                    builder.sparseEmbeddingProvider,
+                    builder.dataEncryptor != null ? builder.dataEncryptor : DataEncryptor.NOOP,
+                    builder.graphs.hyperEntityGraph(),
+                    builder.graphs.temporalKnowledgeGraph()
             );
-        } else {
-            this.asyncEntityExtractionQueue = null;
+
+            final EntityExtractor entityExtractor = builder.graphs.entityExtractor();
+            if (entityExtractor != null && entityExtractor.isAvailable() && builder.entityExtractionParallelism > 0) {
+                this.asyncEntityExtractionQueue = new AsyncEntityExtractionQueue(
+                        builder.namespaceId,
+                        entityExtractor,
+                        postIngestSync,
+                        builder.entityExtractionParallelism,
+                        builder.entityExtractionQueueCapacity
+                );
+            } else {
+                this.asyncEntityExtractionQueue = null;
+            }
+
+            final DedupGuardRelay dedupGuardRelay = new DedupGuardRelay(builder.index);
+            final SynapticTagTransductionRelay tagTransductionRelay = new SynapticTagTransductionRelay(
+                    this.tagExtractor,
+                    builder.dataEncryptor,
+                    builder.normalizeAtIngest
+            );
+            final DopaminergicSurpriseRelay surpriseRelay = new DopaminergicSurpriseRelay(
+                    surpriseDetector,
+                    importanceProvider,
+                    workingStore,
+                    quantizer
+            );
+            this.corticalWriteRelay = new CorticalWriteTransactionRelay(
+                    quantizer,
+                    builder.cortex.cognitiveRouter(),
+                    postIngestSync,
+                    surpriseDetector,
+                    builder.normalizeAtIngest
+            );
+            final SynapticGraphLinkingRelay graphLinkingRelay = new SynapticGraphLinkingRelay(
+                    postIngestSync,
+                    lastIngestedMemoryIdx,
+                    sessionRegistry
+            );
+            final KnowledgeGraphEnrichmentRelay kgEnrichmentRelay = new KnowledgeGraphEnrichmentRelay(
+                    postIngestSync,
+                    this.asyncEntityExtractionQueue,
+                    entityExtractor
+            );
+
+            this.engine = RememberPathwayFactory.create(
+                    builder.interceptor,
+                    dedupGuardRelay,
+                    tagTransductionRelay,
+                    surpriseRelay,
+                    this.corticalWriteRelay,
+                    graphLinkingRelay,
+                    kgEnrichmentRelay
+            );
         }
+    }
 
-        final DedupGuardRelay dedupGuardRelay = new DedupGuardRelay(builder.index);
-        final SynapticTagTransductionRelay tagTransductionRelay = new SynapticTagTransductionRelay(
-                this.tagExtractor,
-                builder.dataEncryptor,
-                builder.normalizeAtIngest
-        );
-        final DopaminergicSurpriseRelay surpriseRelay = new DopaminergicSurpriseRelay(
-                surpriseDetector,
-                importanceProvider,
-                workingStore,
-                quantizer
-        );
-        this.corticalWriteRelay = new CorticalWriteTransactionRelay(
-                quantizer,
-                builder.cortex.cognitiveRouter(),
-                postIngestSync,
-                surpriseDetector,
-                builder.normalizeAtIngest
-        );
-        final SynapticGraphLinkingRelay graphLinkingRelay = new SynapticGraphLinkingRelay(
-                postIngestSync,
-                this.lastIngestedMemoryIdx,
-                sessionRegistry
-        );
-        final KnowledgeGraphEnrichmentRelay kgEnrichmentRelay = new KnowledgeGraphEnrichmentRelay(
-                postIngestSync,
-                this.asyncEntityExtractionQueue,
-                entityExtractor
-        );
+    private RememberPathway(final Builder builder) {
+        this(builder, new AtomicInteger(-1));
+    }
 
-        this.pathway = RememberPathwayFactory.create(
-                builder.interceptor,
-                dedupGuardRelay,
-                tagTransductionRelay,
-                surpriseRelay,
-                this.corticalWriteRelay,
-                graphLinkingRelay,
-                kgEnrichmentRelay
-        );
+    private RememberPathway(final Builder builder, final AtomicInteger lastIngestedMemoryIdx) {
+        this(builder, lastIngestedMemoryIdx, new RememberComponents(builder, lastIngestedMemoryIdx));
+    }
+
+    private RememberPathway(final Builder builder,
+                            final AtomicInteger lastIngestedMemoryIdx,
+                            final RememberComponents components) {
+        super("remember", RememberSignal.class, RememberResult.class, components.engine);
+        this.lastIngestedMemoryIdx = lastIngestedMemoryIdx;
+        this.tagExtractor = components.tagExtractor;
+        this.corticalWriteRelay = components.corticalWriteRelay;
+        this.asyncEntityExtractionQueue = components.asyncEntityExtractionQueue;
 
         // Seed active partition sequence
         this.corticalWriteRelay.postIngestSync().updateActivePartitionSeq(builder.cortex.initialPartitionSeq());
@@ -245,7 +273,33 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
         if (kernel != null) {
             signal.kernel(kernel);
         }
-        pathway.conduct(signal);
+        if (signal.context() == null) {
+            final DefaultPathwayContext.Builder ctxBuilder = DefaultPathwayContext.builder();
+            if (kernel != null) {
+                ctxBuilder.namespaceId(kernel.namespaceId());
+                ctxBuilder.bind(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
+            }
+            signal.bind(ctxBuilder.build());
+        }
+        conduct(signal);
+    }
+
+    @Override
+    protected RememberResult project(final RememberSignal signal) {
+        if (signal.context() != null && signal.context().outcome().finish() == ConductionOutcome.Finish.SHORT_CIRCUITED) {
+            return RememberResult.skipped();
+        }
+        return new RememberResult(
+                signal.id(),
+                signal.graphSlot(),
+                signal.isDuplicate(),
+                signal.type(),
+                signal.source()
+        );
+    }
+
+    public CognitivePathway<RememberSignal> pathway() {
+        return engine();
     }
 
     /**
@@ -337,6 +391,7 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
         this.currentSoulVersion = version;
     }
 
+    @Override
     public short currentSoulVersion() {
         return currentSoulVersion;
     }
@@ -377,7 +432,10 @@ public final class RememberPathway implements IngestionTarget, AutoCloseable {
         final RememberSignal signal = RememberSignal.forCognitiveWithHeader(
                 id, text, vector, type, tags, source, preservedHeader
         );
-        pathway.conduct(signal);
+        if (signal.context() == null) {
+            signal.bind(DefaultPathwayContext.builder().build());
+        }
+        conduct(signal);
         return signal.isSuccessful() && !signal.isDuplicate();
     }
 

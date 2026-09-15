@@ -20,7 +20,9 @@ import com.spectrayan.spector.commons.error.SpectorConnectorException;
 import com.spectrayan.spector.connector.model.ExecutionRecord;
 import com.spectrayan.spector.connector.spi.ChunkChangeDetector;
 import com.spectrayan.spector.connector.spi.ExecutionLogger;
-import com.spectrayan.spector.ingestion.IngestionTarget;
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 
@@ -46,7 +48,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   <li>Scrubs PII and secrets via {@link PiiScrubber}</li>
  *   <li>Optionally skips unchanged chunks using {@link ChunkChangeDetector}</li>
  *   <li>Embeds the scrubbed text using the configured {@link EmbeddingProvider}</li>
- *   <li>Ingests the result into Spector via {@link IngestionTarget}</li>
+ *   <li>Ingests the result into Spector via {@link SpectorMemory}</li>
  *   <li>Logs the execution result with traceId to {@link ExecutionLogger}</li>
  * </ol>
  *
@@ -73,7 +75,7 @@ public class SpectorIngestionSink implements Processor {
     public static final String HEADER_PIPELINE_ID = "spector-pipeline-id";
     public static final String HEADER_CHUNK_INDEX = "spector-chunk-index";
 
-    private final IngestionTarget target;
+    private final SpectorMemory memory;
     private final EmbeddingProvider embeddingProvider;
     private final ExecutionLogger executionLogger;
     private final ChunkChangeDetector chunkChangeDetector;
@@ -83,17 +85,17 @@ public class SpectorIngestionSink implements Processor {
     private final AtomicInteger totalErrors = new AtomicInteger();
     private final AtomicInteger totalSkippedUnchanged = new AtomicInteger();
 
-    public SpectorIngestionSink(IngestionTarget target,
+    public SpectorIngestionSink(SpectorMemory memory,
                                 EmbeddingProvider embeddingProvider,
                                 ExecutionLogger executionLogger) {
-        this(target, embeddingProvider, executionLogger, null);
+        this(memory, embeddingProvider, executionLogger, null);
     }
 
-    public SpectorIngestionSink(IngestionTarget target,
+    public SpectorIngestionSink(SpectorMemory memory,
                                 EmbeddingProvider embeddingProvider,
                                 ExecutionLogger executionLogger,
                                 ChunkChangeDetector chunkChangeDetector) {
-        this.target = Objects.requireNonNull(target, "IngestionTarget must not be null");
+        this.memory = Objects.requireNonNull(memory, "SpectorMemory must not be null");
         this.embeddingProvider = Objects.requireNonNull(embeddingProvider, "EmbeddingProvider must not be null");
         this.executionLogger = executionLogger;
         this.chunkChangeDetector = chunkChangeDetector;
@@ -141,7 +143,7 @@ public class SpectorIngestionSink implements Processor {
             float[] vector = embeddingResult.vector();
 
             // 3. Ingest into Spector
-            target.ingest(docId, scrubbedContent, vector);
+            memory.remember(docId, scrubbedContent, vector, MemoryType.SEMANTIC, MemorySource.OBSERVED);
 
             // 3b. Delta Upsert: Track the chunk hash + memory ID
             if (chunkChangeDetector != null && pipelineId != null && chunkIndex >= 0) {

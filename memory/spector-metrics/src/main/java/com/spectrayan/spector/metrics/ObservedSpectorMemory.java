@@ -108,6 +108,7 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
     // --------------------------------------------------------------
 
     @Override
+    @Deprecated(since = "0.9.0", forRemoval = true)
     public RememberPathway target() {
         return delegate.target();
     }
@@ -149,6 +150,14 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
         withObservation(SpectorObservationDocumentation.MEMORY_REMEMBER,
                 createTags(type != null ? type.name() : null, id, null),
                 () -> delegate.remember(id, text, type, source, context, tags));
+    }
+
+    @Override
+    public void remember(String id, String text, float[] vector, MemoryType type, MemorySource source,
+                         RememberContext context, String... tags) {
+        withObservation(SpectorObservationDocumentation.MEMORY_REMEMBER,
+                createTags(type != null ? type.name() : null, id, null),
+                () -> delegate.remember(id, text, vector, type, source, context, tags));
     }
 
     @Override
