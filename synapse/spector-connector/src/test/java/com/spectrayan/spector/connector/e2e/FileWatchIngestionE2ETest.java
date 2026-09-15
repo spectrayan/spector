@@ -20,7 +20,6 @@ import com.spectrayan.spector.connector.model.RouteConfig;
 import com.spectrayan.spector.connector.sink.SpectorIngestionSink;
 import com.spectrayan.spector.connector.spi.InMemoryExecutionLogger;
 import com.spectrayan.spector.connector.template.TemplateRegistry;
-import com.spectrayan.spector.ingestion.IngestionTarget;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
 
@@ -69,10 +68,10 @@ class FileWatchIngestionE2ETest {
         embeddingProvider = new StubEmbeddingProvider(DIMS);
         memory = DefaultSpectorMemory.builder()
                 .embeddingProvider(embeddingProvider)
+                .persistenceMode(com.spectrayan.spector.memory.model.MemoryPersistenceMode.IN_MEMORY)
                 .build();
 
-        IngestionTarget target = memory.target();
-        sink = new SpectorIngestionSink(target, embeddingProvider, new InMemoryExecutionLogger());
+        sink = new SpectorIngestionSink(memory, embeddingProvider, new InMemoryExecutionLogger());
 
         TemplateRegistry templateRegistry = new TemplateRegistry(null);
         InMemoryRouteConfigProvider routeConfigProvider = new InMemoryRouteConfigProvider();

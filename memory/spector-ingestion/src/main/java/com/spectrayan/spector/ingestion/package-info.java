@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 /**
- * Document ingestion pipeline for Spector.
+ * Sensory and multimodal ingestion SPIs for Spector.
  *
- * <p>Orchestrates the flow: document → chunk → embed → store → index.
- * Uses virtual threads and structured concurrency for parallel embedding
- * without introducing reactive complexity.</p>
+ * <p>Defines extension points and SPIs for extracting, linking, and embedding
+ * sensory assets (audio, visual, textual) into cognitive memory representations.</p>
  *
- * <h3>Key Classes</h3>
+ * <h3>Key Interfaces</h3>
  * <ul>
- *   <li>{@link com.spectrayan.spector.ingestion.IngestionPipeline} — main pipeline orchestrator</li>
- *   <li>{@link com.spectrayan.spector.ingestion.IngestionTarget} — abstraction for index + store operations</li>
- *   <li>{@link com.spectrayan.spector.ingestion.IngestionResult} — outcome of an ingestion operation</li>
+ *   <li>{@link com.spectrayan.spector.ingestion.sensory.SensoryExtractor} — sensory extraction SPI</li>
+ *   <li>{@link com.spectrayan.spector.ingestion.sensory.AssetStore} — raw multimodal asset persistence SPI</li>
+ *   <li>{@link com.spectrayan.spector.ingestion.sensory.TemporalChainLinker} — temporal sensory linking</li>
  * </ul>
  */
 package com.spectrayan.spector.ingestion;

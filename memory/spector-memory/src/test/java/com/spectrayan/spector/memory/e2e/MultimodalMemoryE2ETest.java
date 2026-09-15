@@ -20,8 +20,6 @@ import com.spectrayan.spector.provider.generation.GenerationOptions;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
 import com.spectrayan.spector.ingestion.sensory.AssetStore;
-import com.spectrayan.spector.ingestion.sensory.LocalAssetStore;
-import com.spectrayan.spector.ingestion.sensory.OllamaVisionExtractor;
 import com.spectrayan.spector.ingestion.sensory.SensoryExtractor;
 import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.model.*;
@@ -40,6 +38,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.spectrayan.spector.memory.e2e.E2EAssertions.*;
@@ -89,7 +88,7 @@ class MultimodalMemoryE2ETest extends AbstractE2ETest {
     private Path tempDir;
     private Path testImagePath;
     private AssetStore assetStore;
-    private OllamaVisionExtractor visionExtractor;
+    private SensoryExtractor visionExtractor;
     private OllamaLlmProvider judgeLlm;
     private LlmTestJudge judge;
 
@@ -104,15 +103,65 @@ class MultimodalMemoryE2ETest extends AbstractE2ETest {
         tempDir = Files.createTempDirectory("spector-multimodal-e2e-");
         log.info("Temp dir: {}", tempDir);
 
-        // Create asset store (takes a String path)
-        assetStore = LocalAssetStore.create(tempDir.resolve("assets").toString());
+        // Create asset store implementation via SPI
+        Path assetBase = tempDir.resolve("assets");
+        assetStore = new AssetStore() {
+            @Override
+            public URI store(Path source, String memoryId, String mimeType) throws IOException {
+                Path target = assetBase.resolve(memoryId).resolve(source.getFileName());
+                Files.createDirectories(target.getParent());
+                Files.copy(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                return target.toUri();
+            }
 
-        // Create vision extractor
-        visionExtractor = OllamaVisionExtractor.create(VISION_MODEL);
+            @Override
+            public InputStream retrieve(URI assetUri) throws IOException {
+                return Files.newInputStream(Path.of(assetUri));
+            }
+
+            @Override
+            public boolean exists(URI assetUri) {
+                return Files.exists(Path.of(assetUri));
+            }
+
+            @Override
+            public void delete(URI assetUri) throws IOException {
+                Files.deleteIfExists(Path.of(assetUri));
+            }
+        };
 
         // Create LLM judge
         judgeLlm = OllamaLlmProvider.create(JUDGE_MODEL);
         judge = LlmTestJudge.create(judgeLlm).withTemperature(0.1f);
+
+        // Create vision extractor via SPI backed by LLM provider
+        visionExtractor = new SensoryExtractor() {
+            @Override
+            public Stream<ExtractionChunk> extract(Path source, String mimeType) throws IOException {
+                try {
+                    byte[] bytes = Files.readAllBytes(source);
+                    var message = com.spectrayan.spector.provider.model.ChatMessage.user(
+                            new com.spectrayan.spector.provider.model.TextContent(
+                                    "Describe this image in detail. Include: 1) objects, 2) text, 3) mood."),
+                            new com.spectrayan.spector.provider.model.ImageContent(bytes, mimeType, null)
+                    );
+                    var response = judgeLlm.generate(
+                            com.spectrayan.spector.provider.model.LlmRequest.fromMessages(List.of(message)));
+                    return Stream.of(new SensoryExtractor.ExtractionChunk(
+                            "chunk-0",
+                            response.text(),
+                            Map.of("modality", "IMAGE", "vlm_model", VISION_MODEL)
+                    ));
+                } catch (Exception e) {
+                    throw new IOException("Failed vision extraction: " + e.getMessage(), e);
+                }
+            }
+
+            @Override
+            public Set<String> supportedMimeTypes() {
+                return Set.of("image/jpeg", "image/png", "image/webp");
+            }
+        };
 
         // Copy test image from classpath to temp dir
         testImagePath = copyTestImage();

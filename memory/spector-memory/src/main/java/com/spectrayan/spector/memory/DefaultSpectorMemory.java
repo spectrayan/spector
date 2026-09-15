@@ -379,6 +379,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // ==============================================================
 
     @Override
+    @Deprecated(since = "0.9.0", forRemoval = true)
     public RememberPathway target() {
         return rememberPathway;
     }
@@ -507,6 +508,53 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } finally {
             releaseLease();
         }
+    }
+
+    @Override
+    public void remember(String id, String text, float[] vector, MemoryType type,
+                         MemorySource source,
+                         RememberContext context,
+                         String... tags) {
+        acquireLease();
+        try {
+            String[] finalTags = tags;
+            if (tags == null || tags.length == 0) {
+                var tagExtractor = rememberPathway.tagExtractor();
+                if (tagExtractor != null) {
+                    finalTags = tagExtractor.extract(id, text);
+                }
+            }
+            float[] finalVector = (vector != null && vector.length > 0)
+                    ? vector
+                    : embeddingProvider.embed(text).vector();
+            String sessionId = MemoryScope.sessionId();
+            if (sessionId != null) {
+                sessionBufferManager.add(sessionId, id, text, finalVector, type, System.currentTimeMillis());
+            }
+            rememberPathway.ingestCognitive(id, text, finalVector, type, finalTags, source, context);
+
+            // Process attachments if present in context metadata
+            if (context != null && context.hasAttachments()) {
+                processAttachments(id, context, type, source, tags);
+            }
+
+            checkCircadianTrigger(type);
+            if (eagerConsolidator != null && (type == MemoryType.SEMANTIC || type == MemoryType.PROCEDURAL)) {
+                eagerConsolidator.submit(id, type);
+            }
+        } catch (RuntimeException e) {
+            log.error("Failed to remember with vector '{}': {}", id, e.getMessage(), e);
+            throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
+        } finally {
+            releaseLease();
+        }
+    }
+
+    @Override
+    public void remember(String id, String text, float[] vector, MemoryType type,
+                         MemorySource source,
+                         String... tags) {
+        remember(id, text, vector, type, source, (RememberContext) null, tags);
     }
 
     /**

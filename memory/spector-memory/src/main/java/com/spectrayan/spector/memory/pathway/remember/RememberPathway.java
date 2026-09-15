@@ -54,7 +54,6 @@ import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.index.VectorIndex;
-import com.spectrayan.spector.ingestion.IngestionTarget;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,7 +67,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>Executes memory ingestion with a type-safe,
  * observable synaptic relay chain.</p>
  */
-public final class RememberPathway implements IngestionTarget, AutoCloseable {
+public final class RememberPathway implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(RememberPathway.class);
 
