@@ -68,7 +68,11 @@ public final class DefaultPathwayCatalog implements PathwayCatalog {
         Objects.requireNonNull(ctx, "ctx cannot be null");
         final Pathway<I, O> pathway = require(type);
         ctx.scope().assertNotOnStack(pathway.name());
-        return pathway.conduct(ctx.nested(pathway.name()), input);
+        final ConductionOutcome childOutcome = new ConductionOutcome();
+        final PathwayContext childCtx = ctx.nestedWithOutcome(pathway.name(), childOutcome);
+        final O result = pathway.conduct(childCtx, input);
+        ctx.outcome().importFrom(childOutcome, pathway.name());
+        return result;
     }
 
     @Override

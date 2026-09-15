@@ -124,4 +124,18 @@ public interface PathwayContext {
      * @return child context
      */
     PathwayContext nested(String segment);
+
+    /**
+     * Creates a child context for a nested pathway invocation with an isolated
+     * {@link ConductionOutcome}. Shares the catalog, services, attribute bag, and
+     * the same {@link ConductionScope} instance by reference.
+     *
+     * <p>The caller is responsible for calling
+     * {@code outcome().importFrom(childOutcome, prefix)} after the nested pathway completes.</p>
+     *
+     * @param segment      nested pathway or stage segment name
+     * @param childOutcome the isolated outcome for the nested conduction
+     * @return child context with the provided outcome
+     */
+    PathwayContext nestedWithOutcome(String segment, ConductionOutcome childOutcome);
 }

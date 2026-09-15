@@ -198,6 +198,11 @@ public final class ReflectSignal extends com.spectrayan.spector.commons.pathway.
     public PartitionManager partitionManager() { return partitionManager; }
     public MemoryIndex index() { return index; }
     public ScalarQuantizer quantizer() { return quantizer; }
+    /**
+     * @deprecated Use {@code context().catalog().invoke(RememberPathway.class, ...)} instead.
+     *             Retained for backwards compatibility — will be removed in a future release.
+     */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public RememberPathway rememberPathway() { return rememberPathway; }
     public EmbeddingProvider embeddingProvider() { return embeddingProvider; }
     public LlmProvider textGenerator() { return textGenerator; }
@@ -384,6 +389,10 @@ public final class ReflectSignal extends com.spectrayan.spector.commons.pathway.
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
         public Builder index(MemoryIndex idx) { this.index = idx; return this; }
         public Builder quantizer(ScalarQuantizer q) { this.quantizer = q; return this; }
+        /**
+         * @deprecated Register RememberPathway in the PathwayCatalog instead.
+         */
+        @Deprecated(forRemoval = true, since = "1.5.0")
         public Builder rememberPathway(RememberPathway rp) { this.rememberPathway = rp; return this; }
         public Builder embeddingProvider(EmbeddingProvider ep) { this.embeddingProvider = ep; return this; }
         public Builder textGenerator(LlmProvider tg) { this.textGenerator = tg; return this; }

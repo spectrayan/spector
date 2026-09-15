@@ -12,7 +12,10 @@
  */
 package com.spectrayan.spector.memory.pathway.reflect.relay;
 
+import com.spectrayan.spector.commons.pathway.PathwayCatalog;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
+import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.kernel.store.EpisodicMemory;
 import com.spectrayan.spector.kernel.api.MemorySource;
@@ -277,7 +280,11 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
             short turnCount = (short) offsets.size();
 
             int factsIngested = 0;
-            if (signal.rememberPathway() != null) {
+            final PathwayCatalog catalog = signal.context() != null ? signal.context().catalog() : null;
+            final boolean hasCatalogRemember = catalog != null && catalog.find(RememberPathway.class).isPresent();
+            @SuppressWarnings("deprecation")
+            final var legacyRp = !hasCatalogRemember ? signal.rememberPathway() : null;
+            if (hasCatalogRemember || legacyRp != null) {
                 for (int fi = 0; fi < synthesizedFacts.size(); fi++) {
                     ConsolidatedFact fact = synthesizedFacts.get(fi);
                     String memoryId = signal.idGenerator().generate();
@@ -312,15 +319,23 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                             (short) 0, fact.arousal(), semanticFlags, fact.valence(), 1.0f
                     );
 
-                    boolean ingested = signal.rememberPathway().ingestCognitiveWithHeader(
-                            memoryId,
-                            fact.text(),
-                            vector,
-                            MemoryType.SEMANTIC,
-                            allTags,
-                            MemorySource.REFLECTED,
-                            header
-                    );
+                    boolean ingested;
+                    if (hasCatalogRemember) {
+                        RememberSignal rs = RememberSignal.forCognitiveWithHeader(
+                                memoryId, fact.text(), vector, MemoryType.SEMANTIC,
+                                allTags, MemorySource.REFLECTED, header);
+                        try {
+                            catalog.invoke(RememberPathway.class, signal.context(), rs);
+                            ingested = rs.isSuccessful() && !rs.isDuplicate();
+                        } catch (Exception e) {
+                            log.warn("Failed to invoke Remember via catalog for fact {}: {}", fi, e.getMessage());
+                            ingested = false;
+                        }
+                    } else {
+                        ingested = legacyRp.ingestCognitiveWithHeader(
+                                memoryId, fact.text(), vector, MemoryType.SEMANTIC,
+                                allTags, MemorySource.REFLECTED, header);
+                    }
 
                     if (ingested) {
                         signal.addConsolidated(1);

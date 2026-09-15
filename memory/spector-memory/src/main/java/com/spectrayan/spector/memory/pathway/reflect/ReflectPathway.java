@@ -224,7 +224,10 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
 
     /**
      * Executes a sleep reflection cycle for an explicit namespace kernel.
+     *
+     * @deprecated Use {@code conduct(ReflectSignal)} with RememberPathway registered in the catalog.
      */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public ReflectReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
                                  final PartitionManager partitionManager,
                                  final MemoryIndex index,
@@ -235,7 +238,10 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
 
     /**
      * Executes a sleep reflection cycle with explicit session index for an explicit namespace kernel.
+     *
+     * @deprecated Use {@code conduct(ReflectSignal)} with RememberPathway registered in the catalog.
      */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public ReflectReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
                                  final PartitionManager partitionManager,
                                  final MemoryIndex index,
@@ -247,7 +253,10 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
 
     /**
      * Executes a reflection cycle with an explicit sweep specification, checkpoint store, and namespace kernel.
+     *
+     * @deprecated Use {@code conduct(ReflectSignal)} with RememberPathway registered in the catalog.
      */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public ReflectReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
                                  final PartitionManager partitionManager,
                                  final MemoryIndex index,
@@ -312,7 +321,10 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
 
     /**
      * Convenience method to execute a sleep reflection cycle.
+     *
+     * @deprecated Use {@code conduct(ReflectSignal)} with RememberPathway registered in the catalog.
      */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public ReflectReport reflect(final PartitionManager partitionManager,
                                  final MemoryIndex index,
                                  final RememberPathway rememberPathway,
@@ -322,7 +334,10 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
 
     /**
      * Executes a sleep reflection cycle with explicit session index for prior-turn context.
+     *
+     * @deprecated Use {@code conduct(ReflectSignal)} with RememberPathway registered in the catalog.
      */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public ReflectReport reflect(final PartitionManager partitionManager,
                                  final MemoryIndex index,
                                  final RememberPathway rememberPathway,
@@ -333,7 +348,10 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
 
     /**
      * Executes a reflection cycle with an explicit sweep specification and checkpoint store.
+     *
+     * @deprecated Use {@code conduct(ReflectSignal)} with RememberPathway registered in the catalog.
      */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public ReflectReport reflect(final PartitionManager partitionManager,
                                  final MemoryIndex index,
                                  final RememberPathway rememberPathway,

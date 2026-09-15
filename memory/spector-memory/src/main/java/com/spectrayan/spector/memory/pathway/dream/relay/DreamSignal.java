@@ -200,6 +200,11 @@ public final class DreamSignal extends com.spectrayan.spector.commons.pathway.Ab
     public DreamProperties config() { return config; }
     public float temperature() { return temperature; }
     public PartitionManager partitionManager() { return partitionManager; }
+    /**
+     * @deprecated Use {@code context().catalog().invoke(RememberPathway.class, ...)} instead.
+     *             Retained for backwards compatibility — will be removed in a future release.
+     */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public RememberPathway rememberPathway() { return rememberPathway; }
     public AismeProperties aismeConfig() { return aismeConfig; }
 
@@ -337,6 +342,10 @@ public final class DreamSignal extends com.spectrayan.spector.commons.pathway.Ab
         public Builder config(DreamProperties config) { this.config = config; return this; }
         public Builder temperature(float temperature) { this.temperature = temperature; return this; }
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
+        /**
+         * @deprecated Register RememberPathway in the PathwayCatalog instead.
+         */
+        @Deprecated(forRemoval = true, since = "1.5.0")
         public Builder rememberPathway(RememberPathway rp) { this.rememberPathway = rp; return this; }
         public Builder aismeConfig(AismeProperties config) { this.aismeConfig = config; return this; }
         public Builder primarySoul(SoulContext soul) { this.primarySoul = soul; return this; }

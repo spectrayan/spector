@@ -197,6 +197,21 @@ public final class DefaultPathwayContext implements PathwayContext {
                 outcome);
     }
 
+    @Override
+    public PathwayContext nestedWithOutcome(final String segment, final ConductionOutcome childOutcome) {
+        scope.pushSegment(segment);
+        return new DefaultPathwayContext(
+                conductionId,
+                namespaceId,
+                catalog,
+                scope,
+                traceEnabled,
+                services,
+                keyedServices,
+                bag,
+                Objects.requireNonNull(childOutcome, "childOutcome cannot be null"));
+    }
+
     public static Builder builder() {
         return new Builder();
     }

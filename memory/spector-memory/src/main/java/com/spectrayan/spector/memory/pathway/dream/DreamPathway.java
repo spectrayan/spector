@@ -181,6 +181,11 @@ public final class DreamPathway extends AbstractPathway<DreamSignal, DreamReport
         return soulContexts;
     }
 
+    /**
+     * @deprecated Use {@code catalog.invoke(RememberPathway.class, ...)} via PathwayCatalog instead.
+     *             Retained for backwards compatibility — will be removed in a future release.
+     */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     public RememberPathway rememberPathway() {
         return rememberPathway;
     }
@@ -323,6 +328,10 @@ public final class DreamPathway extends AbstractPathway<DreamSignal, DreamReport
 
         
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
+        /**
+         * @deprecated Register RememberPathway in the PathwayCatalog instead.
+         */
+        @Deprecated(forRemoval = true, since = "1.5.0")
         public Builder rememberPathway(RememberPathway rp) { this.rememberPathway = rp; return this; }
         public Builder aismeConfig(AismeProperties ac) { this.aismeConfig = ac; return this; }
         public Builder primarySoul(SoulContext soul) { this.primarySoul = soul; return this; }

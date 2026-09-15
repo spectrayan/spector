@@ -23,6 +23,10 @@ import java.util.function.Function;
 /**
  * An adapter {@link SynapticRelay} that delegates execution to another {@link Pathway} discovered via {@link PathwayCatalog}.
  *
+ * <p>Optionally wraps the nested invocation in a {@link CircuitBreaker} permit lifecycle
+ * per ADR-0036 §9.3 — acquire before invoke, record success/failure after. The call-site
+ * {@link OnOpen} determines whether an open circuit fails fast or bypasses gracefully.</p>
+ *
  * @param <S> parent contextual signal type
  * @param <I> target pathway input type
  * @param <O> target pathway output type
@@ -34,17 +38,29 @@ public final class PathwayRelay<S extends ContextualSignal, I, O> implements Syn
     private final Function<S, I> toInput;
     private final BiConsumer<S, O> absorb;
     private final boolean required;
+    private final BreakerRef breakerRef;
 
     public PathwayRelay(final String name,
                         final Class<? extends Pathway<I, O>> targetType,
                         final Function<S, I> toInput,
                         final BiConsumer<S, O> absorb,
-                        final boolean required) {
+                        final boolean required,
+                        final BreakerRef breakerRef) {
         this.name = Objects.requireNonNull(name, "name cannot be null");
         this.targetType = Objects.requireNonNull(targetType, "targetType cannot be null");
         this.toInput = Objects.requireNonNull(toInput, "toInput cannot be null");
         this.absorb = Objects.requireNonNull(absorb, "absorb cannot be null");
         this.required = required;
+        this.breakerRef = breakerRef;
+    }
+
+    /** Backwards-compatible constructor without breaker. */
+    public PathwayRelay(final String name,
+                        final Class<? extends Pathway<I, O>> targetType,
+                        final Function<S, I> toInput,
+                        final BiConsumer<S, O> absorb,
+                        final boolean required) {
+        this(name, targetType, toInput, absorb, required, null);
     }
 
     @Override
@@ -80,15 +96,33 @@ public final class PathwayRelay<S extends ContextualSignal, I, O> implements Syn
             return true;
         }
 
+        // Breaker permit lifecycle (ADR-0036 §9.3)
+        final CircuitBreaker breaker = resolveBreaker(ctx);
+        final CircuitBreaker.Permit permit;
+        if (breaker != null) {
+            permit = breaker.tryAcquire(breakerRef.onOpen());
+            if (permit.isBypass()) {
+                final String scopeName = ctx.scope().pathwayName() + "/" + name;
+                ctx.outcome().markBypassed(scopeName, "circuit_open:" + breakerRef.name());
+                return true;
+            }
+        } else {
+            permit = null;
+        }
+
         try {
             final I nestedInput = toInput.apply(signal);
+            // catalog.invoke handles child outcome isolation + importFrom
             final O output = catalog.invoke(targetType, ctx, nestedInput);
             absorb.accept(signal, output);
-            if (nestedInput instanceof ContextualSignal childSignal && childSignal.context() != null) {
-                ctx.outcome().importFrom(childSignal.context().outcome(), name);
+            if (breaker != null && permit != null) {
+                breaker.onSuccess(permit);
             }
             return true;
         } catch (final Exception e) {
+            if (breaker != null && permit != null) {
+                breaker.onFailure(permit, Faults.kindOf(e));
+            }
             throw new CognitivePathwayException(
                     ctx.scope().pathwayName(),
                     name,
@@ -96,6 +130,20 @@ public final class PathwayRelay<S extends ContextualSignal, I, O> implements Syn
                     true,
                     e);
         }
+    }
+
+    /**
+     * Resolves the circuit breaker from the context's registry, or returns null if no breaker ref is configured.
+     */
+    private CircuitBreaker resolveBreaker(final PathwayContext ctx) {
+        if (breakerRef == null) {
+            return null;
+        }
+        final Optional<CircuitBreakerRegistry> registryOpt = ctx.find(CircuitBreakerRegistry.class);
+        if (registryOpt.isEmpty()) {
+            return null;
+        }
+        return registryOpt.get().get(breakerRef);
     }
 
     @Override
@@ -111,6 +159,10 @@ public final class PathwayRelay<S extends ContextualSignal, I, O> implements Syn
         return required;
     }
 
+    public BreakerRef breakerRef() {
+        return breakerRef;
+    }
+
     public static <S extends ContextualSignal, I, O> Builder<S, I, O> to(final Class<? extends Pathway<I, O>> targetType) {
         return new Builder<>(targetType);
     }
@@ -121,6 +173,7 @@ public final class PathwayRelay<S extends ContextualSignal, I, O> implements Syn
         private Function<S, I> toInput;
         private BiConsumer<S, O> absorb = (s, o) -> {};
         private boolean required = true;
+        private BreakerRef breakerRef;
 
         private Builder(final Class<? extends Pathway<I, O>> targetType) {
             this.targetType = Objects.requireNonNull(targetType, "targetType cannot be null");
@@ -147,10 +200,15 @@ public final class PathwayRelay<S extends ContextualSignal, I, O> implements Syn
             return this;
         }
 
+        public Builder<S, I, O> breaker(final BreakerRef breakerRef) {
+            this.breakerRef = breakerRef;
+            return this;
+        }
+
         public PathwayRelay<S, I, O> build() {
             Objects.requireNonNull(name, "name cannot be null");
             Objects.requireNonNull(toInput, "toInput mapper cannot be null");
-            return new PathwayRelay<>(name, targetType, toInput, absorb, required);
+            return new PathwayRelay<>(name, targetType, toInput, absorb, required, breakerRef);
         }
     }
 }
