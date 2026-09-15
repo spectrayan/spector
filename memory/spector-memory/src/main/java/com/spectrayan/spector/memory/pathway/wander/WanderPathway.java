@@ -180,7 +180,7 @@ public final class WanderPathway extends AbstractPathway<WanderSignal, WanderRep
                 .idleThresholdSeconds(aismeConfig != null ? aismeConfig.dmnIdleIntervalSeconds() : 60)
                 .build();
 
-        return conduct(signal);
+        return execute(kernel, signal);
     }
 
     /**

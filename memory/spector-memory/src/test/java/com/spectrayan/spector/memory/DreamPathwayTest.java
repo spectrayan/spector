@@ -75,7 +75,7 @@ class DreamPathwayTest {
                     .seedVectors(List.of(v1, v2))
                     .build();
 
-            DreamReport report = pathway.conduct(signal);
+            DreamReport report = pathway.execute(null, signal);
 
             assertThat(report).isNotNull();
             assertThat(report.seedsSampled()).isEqualTo(2);
@@ -110,7 +110,7 @@ class DreamPathwayTest {
                     .seedVectors(List.of(v1))
                     .build();
 
-            DreamReport report = pathway.conduct(signal);
+            DreamReport report = pathway.execute(null, signal);
 
             assertThat(report).isNotNull();
             assertThat(report.mode()).isEqualTo(DreamMode.THOUGHT_EXPERIMENT);
@@ -158,7 +158,7 @@ class DreamPathwayTest {
                     .seedVectors(List.of(v1))
                     .build();
 
-            DreamReport report = pathway.conduct(signal);
+            DreamReport report = pathway.execute(null, signal);
             assertThat(report).isNotNull();
             assertThat(signal.constructedScenes()).isNotEmpty();
             for (var scene : signal.constructedScenes()) {
@@ -219,7 +219,7 @@ class DreamPathwayTest {
                     .seedVectors(List.of(v1))
                     .build();
 
-            DreamReport report = pathway.conduct(signal);
+            DreamReport report = pathway.execute(null, signal);
 
             assertThat(report).isNotNull();
             assertThat(signal.primarySoul()).isEqualTo(soul);

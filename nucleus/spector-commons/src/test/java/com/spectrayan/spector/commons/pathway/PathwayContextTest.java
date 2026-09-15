@@ -133,4 +133,33 @@ class PathwayContextTest {
         assertThat(nestedCtx.scope().segment()).isEqualTo("dream_ingest");
         nestedCtx.scope().leave("dream");
     }
+
+    @Test
+    @DisplayName("from() copies all context properties and supports bindIfAbsent()")
+    void fromCopiesPropertiesAndBindIfAbsent() {
+        var catalog = new DefaultPathwayCatalog();
+        var service1 = new DummyServiceImpl();
+        var service2 = new DummyServiceImpl();
+
+        var orig = DefaultPathwayContext.builder()
+                .conductionId("orig-id")
+                .namespaceId("ns-test")
+                .catalog(catalog)
+                .traceEnabled(true)
+                .bind(DummyService.class, service1)
+                .bind(CONFIG_KEY, "val1")
+                .build();
+
+        var copied = DefaultPathwayContext.from(orig)
+                .bindIfAbsent(DummyService.class, service2)
+                .bindIfAbsent(CONFIG_KEY, "val2")
+                .build();
+
+        assertThat(copied.conductionId()).isEqualTo("orig-id");
+        assertThat(copied.namespaceId()).isEqualTo("ns-test");
+        assertThat(copied.catalog()).isSameAs(catalog);
+        assertThat(copied.traceEnabled()).isTrue();
+        assertThat(copied.get(DummyService.class)).isSameAs(service1);
+        assertThat(copied.get(CONFIG_KEY)).isEqualTo("val1");
+    }
 }

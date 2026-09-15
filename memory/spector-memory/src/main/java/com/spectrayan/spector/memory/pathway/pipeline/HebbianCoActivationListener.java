@@ -46,15 +46,25 @@ public final class HebbianCoActivationListener implements RecallListener {
         this.fallbackTracker = tracker;
     }
 
-    private CoActivationMemory effectiveTracker() {
-        var sig = com.spectrayan.spector.memory.pathway.recall.RecallPathway.activeSignal();
-        return (sig != null && sig.coActivationTracker() != null) ? sig.coActivationTracker() : fallbackTracker;
+    private CoActivationMemory effectiveTracker(final com.spectrayan.spector.commons.pathway.PathwayContext context) {
+        if (context != null) {
+            var opt = context.find(CoActivationMemory.class);
+            if (opt.isPresent()) {
+                return opt.get();
+            }
+        }
+        return fallbackTracker;
     }
 
     @Override
     public void onRecallComplete(List<CognitiveResult> results) {
+        onRecallComplete(results, null);
+    }
+
+    @Override
+    public void onRecallComplete(List<CognitiveResult> results, com.spectrayan.spector.commons.pathway.PathwayContext context) {
         if (results.size() < 2) return;
-        final CoActivationMemory tracker = effectiveTracker();
+        final CoActivationMemory tracker = effectiveTracker(context);
         if (tracker == null) return;
 
         try {

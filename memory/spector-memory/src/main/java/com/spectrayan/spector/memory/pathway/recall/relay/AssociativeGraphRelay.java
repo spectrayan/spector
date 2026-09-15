@@ -58,7 +58,7 @@ public final class AssociativeGraphRelay implements SynapticRelay<RecallSignal> 
         }
         log.info("AssociativeGraphRelay: candidates after expand={}", signal.candidates().size());
 
-        temporalFactWeavingStage.weave(signal.candidates(), signal.queryVector(), signal.options(), signal.rawQuery());
+        temporalFactWeavingStage.weave(signal.candidates(), signal.queryVector(), signal.options(), signal.rawQuery(), signal.context());
 
         return true;
     }

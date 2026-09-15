@@ -258,7 +258,7 @@ public final class DreamPathway extends AbstractPathway<DreamSignal, DreamReport
                 .idGenerator(idGenerator)
                 .build();
 
-        return conduct(signal);
+        return execute(kernel, signal);
     }
 
     /**

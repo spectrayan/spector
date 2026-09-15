@@ -1640,6 +1640,23 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         signal.suppressionSet(this.suppressionSet);
         signal.habituationPenalty(this.habituationPenalty);
         signal.prospectiveScheduler(this.prospectiveScheduler);
+
+        var ctxBuilder = signal.context() != null
+                ? com.spectrayan.spector.commons.pathway.DefaultPathwayContext.from(signal.context())
+                : com.spectrayan.spector.commons.pathway.DefaultPathwayContext.builder();
+        if (this.coActivationTracker != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.store.CoActivationMemory.class, this.coActivationTracker);
+        }
+        if (this.temporalKnowledgeGraph != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph.class, this.temporalKnowledgeGraph);
+        }
+        if (this.entityDirectory != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.graph.EntityDirectory.class, this.entityDirectory);
+        }
+        if (this.index != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.cortex.index.MemoryIndex.class, this.index);
+        }
+        signal.bind(ctxBuilder.build());
     }
 
     //  listAll implementations 

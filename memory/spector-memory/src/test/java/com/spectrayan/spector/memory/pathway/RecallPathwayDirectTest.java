@@ -91,6 +91,56 @@ class RecallPathwayDirectTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    @DisplayName("Nested Recall Conduction: inner recall during listener execution does not clobber context")
+    void testNestedRecallConduction() {
+        var pathway = memory.recallPathway();
+        final java.util.concurrent.atomic.AtomicBoolean innerExecuted = new java.util.concurrent.atomic.AtomicBoolean(false);
+        final java.util.concurrent.atomic.AtomicReference<String> innerFoundId = new java.util.concurrent.atomic.AtomicReference<>();
+
+        pathway.addListener(new com.spectrayan.spector.memory.pathway.pipeline.RecallListener() {
+            @Override
+            public void onRecallComplete(final List<CognitiveResult> results) {}
+
+            @Override
+            public void onRecallComplete(final List<CognitiveResult> results, final com.spectrayan.spector.commons.pathway.PathwayContext ctx) {
+                var innerSignal = com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal.forTextQuery(
+                        "HTTPS encryption", RecallOptions.DEFAULT);
+                memory.bindRecallSignalContext(innerSignal);
+                var innerResults = pathway.execute(null, innerSignal);
+                if (!innerResults.isEmpty()) {
+                    innerFoundId.set(innerResults.get(0).id());
+                }
+                innerExecuted.set(true);
+            }
+        });
+
+        var outerSignal = com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal.forTextQuery(
+                "Authentication failure",
+                RecallOptions.builder().recallMode(com.spectrayan.spector.memory.model.RecallMode.LEARN).build());
+        memory.bindRecallSignalContext(outerSignal);
+        var outerResults = pathway.execute(null, outerSignal);
+
+        assertThat(outerResults).isNotEmpty();
+        org.awaitility.Awaitility.await()
+                .atMost(java.time.Duration.ofSeconds(2))
+                .untilTrue(innerExecuted);
+        assertThat(innerFoundId.get()).isEqualTo("mem-3");
+    }
+
+    @Test
+    @DisplayName("Zero Ambient Thread-Local State: recall execution does not pollute thread locals")
+    void testRecallPathwayZeroThreadLocalPollution() {
+        var pathway = memory.recallPathway();
+        var signal = com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal.forTextQuery(
+                "Rate limiter", RecallOptions.DEFAULT);
+        memory.bindRecallSignalContext(signal);
+
+        var results = pathway.execute(null, signal);
+        assertThat(results).isNotEmpty();
+        assertThat(results.get(0).id()).isEqualTo("mem-2");
+    }
+
     private static class MockEmbeddingProvider implements EmbeddingProvider {
         private final int dims;
 

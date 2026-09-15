@@ -294,7 +294,7 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
                 .checkpoint(initialCheckpoint)
                 .build();
 
-        return conduct(signal);
+        return execute(kernel, signal);
     }
 
     public CircadianProperties policy() {

@@ -160,6 +160,25 @@ public final class DefaultPathwayContext implements PathwayContext {
         return new Builder();
     }
 
+    public static Builder from(final PathwayContext context) {
+        final Builder b = new Builder();
+        if (context == null) {
+            return b;
+        }
+        b.conductionId(context.conductionId());
+        b.namespaceId(context.namespaceId());
+        b.catalog(context.catalog());
+        b.scope(context.scope());
+        b.traceEnabled(context.traceEnabled());
+        b.bag(context.bag());
+        b.outcome(context.outcome());
+        if (context instanceof DefaultPathwayContext dpc) {
+            b.services.putAll(dpc.services);
+            b.keyedServices.putAll(dpc.keyedServices);
+        }
+        return b;
+    }
+
     public static final class Builder {
         private String conductionId;
         private String namespaceId;
@@ -206,6 +225,13 @@ public final class DefaultPathwayContext implements PathwayContext {
             return this;
         }
 
+        public <T> Builder bindIfAbsent(final Class<T> type, final T instance) {
+            Objects.requireNonNull(type, "type cannot be null");
+            Objects.requireNonNull(instance, "instance cannot be null");
+            services.putIfAbsent(type, instance);
+            return this;
+        }
+
         public <T> Builder bind(final Key<T> key, final T instance) {
             Objects.requireNonNull(key, "key cannot be null");
             Objects.requireNonNull(instance, "instance cannot be null");
@@ -213,6 +239,13 @@ public final class DefaultPathwayContext implements PathwayContext {
                 throw new IllegalStateException("Keyed service already registered: " + key);
             }
             keyedServices.put(key, instance);
+            return this;
+        }
+
+        public <T> Builder bindIfAbsent(final Key<T> key, final T instance) {
+            Objects.requireNonNull(key, "key cannot be null");
+            Objects.requireNonNull(instance, "instance cannot be null");
+            keyedServices.putIfAbsent(key, instance);
             return this;
         }
 

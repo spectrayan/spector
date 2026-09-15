@@ -52,29 +52,43 @@ public final class TemporalFactWeavingStage {
         this.index = index;
     }
     
-    private TemporalKnowledgeGraph effectiveTkg() {
-        var sig = com.spectrayan.spector.memory.pathway.recall.RecallPathway.activeSignal();
-        return (sig != null && sig.temporalKnowledgeGraph() != null) ? sig.temporalKnowledgeGraph() : this.tkg;
+    private TemporalKnowledgeGraph effectiveTkg(final com.spectrayan.spector.commons.pathway.PathwayContext ctx) {
+        if (ctx != null) {
+            var opt = ctx.find(TemporalKnowledgeGraph.class);
+            if (opt.isPresent()) return opt.get();
+        }
+        return this.tkg;
     }
 
-    private EntityDirectory effectiveEntityDirectory() {
-        var sig = com.spectrayan.spector.memory.pathway.recall.RecallPathway.activeSignal();
-        return (sig != null && sig.entityDirectory() != null) ? sig.entityDirectory() : this.entityDirectory;
+    private EntityDirectory effectiveEntityDirectory(final com.spectrayan.spector.commons.pathway.PathwayContext ctx) {
+        if (ctx != null) {
+            var opt = ctx.find(EntityDirectory.class);
+            if (opt.isPresent()) return opt.get();
+        }
+        return this.entityDirectory;
     }
 
-    private MemoryIndex effectiveIndex() {
-        var sig = com.spectrayan.spector.memory.pathway.recall.RecallPathway.activeSignal();
-        return (sig != null && sig.index() != null) ? sig.index() : this.index;
+    private MemoryIndex effectiveIndex(final com.spectrayan.spector.commons.pathway.PathwayContext ctx) {
+        if (ctx != null) {
+            var opt = ctx.find(MemoryIndex.class);
+            if (opt.isPresent()) return opt.get();
+        }
+        return this.index;
     }
     
     public void weave(List<CognitiveResult> candidates, float[] queryVector, RecallOptions options) {
-        weave(candidates, queryVector, options, null);
+        weave(candidates, queryVector, options, null, null);
     }
 
     public void weave(List<CognitiveResult> candidates, float[] queryVector, RecallOptions options, String rawQuery) {
-        final TemporalKnowledgeGraph tkg = effectiveTkg();
-        final EntityDirectory entityDirectory = effectiveEntityDirectory();
-        final MemoryIndex index = effectiveIndex();
+        weave(candidates, queryVector, options, rawQuery, null);
+    }
+
+    public void weave(List<CognitiveResult> candidates, float[] queryVector, RecallOptions options, String rawQuery,
+                      final com.spectrayan.spector.commons.pathway.PathwayContext ctx) {
+        final TemporalKnowledgeGraph tkg = effectiveTkg(ctx);
+        final EntityDirectory entityDirectory = effectiveEntityDirectory(ctx);
+        final MemoryIndex index = effectiveIndex(ctx);
         if (tkg == null || tkg.factCount() == 0 || candidates.isEmpty()) return;
         
         Instant asOf = options.replayTimestamp() != null ? options.replayTimestamp() : Instant.now();
