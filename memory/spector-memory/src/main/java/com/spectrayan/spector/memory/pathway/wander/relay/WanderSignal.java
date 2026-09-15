@@ -200,7 +200,8 @@ public final class WanderSignal extends com.spectrayan.spector.commons.pathway.A
                 weightDelta,
                 snapshotRecorded.get(),
                 elapsed,
-                Collections.unmodifiableList(new ArrayList<>(discoveredAssociations))
+                Collections.unmodifiableList(new ArrayList<>(discoveredAssociations)),
+                context() != null ? context().outcome() : null
         );
     }
 

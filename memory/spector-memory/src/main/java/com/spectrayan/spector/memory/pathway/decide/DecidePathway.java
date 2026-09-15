@@ -12,15 +12,9 @@
  */
 package com.spectrayan.spector.memory.pathway.decide;
 
-import com.spectrayan.spector.memory.aisme.policy.PolicyInferenceEngine;
-import com.spectrayan.spector.memory.aisme.relay.PolicyInferenceRelay;
-import com.spectrayan.spector.memory.pathway.decide.relay.DecideGates;
-import com.spectrayan.spector.memory.pathway.decide.relay.DecideReport;
-import com.spectrayan.spector.memory.pathway.decide.relay.DecideSignal;
-import com.spectrayan.spector.memory.pathway.decide.relay.ExperimentRelay;
-
 import com.spectrayan.spector.commons.pathway.AbstractPathway;
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.ConductionOutcome;
 import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
@@ -29,6 +23,7 @@ import com.spectrayan.spector.memory.aisme.relay.PolicyInferenceRelay;
 import com.spectrayan.spector.memory.pathway.decide.relay.DecideGates;
 import com.spectrayan.spector.memory.pathway.decide.relay.DecideReport;
 import com.spectrayan.spector.memory.pathway.decide.relay.DecideSignal;
+import com.spectrayan.spector.memory.pathway.decide.relay.ExperimentRelay;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,11 +85,12 @@ public final class DecidePathway extends AbstractPathway<DecideSignal, DecideRep
 
     @Override
     protected DecideReport project(final DecideSignal signal) {
+        ConductionOutcome outcome = signal.context() != null ? signal.context().outcome() : null;
         var report = signal.report();
         if (report == null) {
-            return DecideReport.empty();
+            return DecideReport.empty(outcome);
         }
-        return new DecideReport(report, 0L, report.selectedPolicy() != null);
+        return new DecideReport(report, 0L, report.selectedPolicy() != null, outcome);
     }
 
     @Override

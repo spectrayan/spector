@@ -16,6 +16,7 @@ import com.spectrayan.spector.kernel.id.MemoryId;
 
 import com.spectrayan.spector.commons.pathway.AbstractPathway;
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.ConductionOutcome;
 import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.commons.template.TemplateEngine;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
@@ -184,6 +185,10 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
 
     @Override
     protected ReflectReport project(final ReflectSignal signal) {
+        ConductionOutcome outcome = signal.context() != null ? signal.context().outcome() : null;
+        if (outcome != null && outcome.finish() == ConductionOutcome.Finish.SHORT_CIRCUITED) {
+            return ReflectReport.empty(outcome);
+        }
         final ReflectReport report = signal.buildReport();
         log.info("ReflectPathway: sleep cycle complete in {}ms — consolidated={}, tombstoned={}, compacted={}, soulRefused={}",
                 report.duration().toMillis(), report.consolidatedCount(), report.tombstonedCount(),

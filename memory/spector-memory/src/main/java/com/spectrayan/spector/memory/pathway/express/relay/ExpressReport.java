@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.pathway.express.relay;
 
+import com.spectrayan.spector.commons.pathway.ConductionOutcome;
 import com.spectrayan.spector.memory.model.BlendshapeVector;
 import com.spectrayan.spector.memory.model.PhenomenologicalContextPack;
 import com.spectrayan.spector.memory.model.IdiolectProfile;
@@ -27,9 +28,28 @@ public record ExpressReport(
     String internalMonologue,
     String ssmlTags,
     Duration elapsed,
-    int relaysExecuted
+    int relaysExecuted,
+    ConductionOutcome outcome
 ) {
+    public ExpressReport(
+        ProsodyParameterVector prosodyVector,
+        BlendshapeVector blendshapeVector,
+        IdiolectProfile idiolectProfile,
+        PhenomenologicalContextPack contextPack,
+        String promptDirectives,
+        String internalMonologue,
+        String ssmlTags,
+        Duration elapsed,
+        int relaysExecuted
+    ) {
+        this(prosodyVector, blendshapeVector, idiolectProfile, contextPack, promptDirectives, internalMonologue, ssmlTags, elapsed, relaysExecuted, null);
+    }
+
     public static ExpressReport empty() {
-        return new ExpressReport(null, null, null, null, "", "", "", Duration.ZERO, 0);
+        return new ExpressReport(null, null, null, null, "", "", "", Duration.ZERO, 0, null);
+    }
+
+    public static ExpressReport empty(ConductionOutcome outcome) {
+        return new ExpressReport(null, null, null, null, "", "", "", Duration.ZERO, 0, outcome);
     }
 }

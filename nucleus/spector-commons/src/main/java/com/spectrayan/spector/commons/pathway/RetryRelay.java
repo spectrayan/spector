@@ -70,6 +70,15 @@ public final class RetryRelay<S> implements SynapticRelay<S> {
                     break;
                 }
 
+                String pathwayName = "unknown";
+                if (signal instanceof ContextualSignal cs && cs.context() != null
+                        && cs.context().scope() != null) {
+                    pathwayName = cs.context().scope().pathwayName();
+                }
+                com.spectrayan.spector.commons.observation.PathwayObservationHooks.get(
+                        signal instanceof ContextualSignal cs ? cs.context() : null)
+                        .onRetry(pathwayName, relayName);
+
                 Duration backoff = policy.backoffFor(attempt + 1);
                 if (!backoff.isZero()) {
                     log.debug("[{}] Attempt {}/{} failed ({}), retrying after {}",

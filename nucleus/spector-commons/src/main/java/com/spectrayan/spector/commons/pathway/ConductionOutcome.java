@@ -146,6 +146,38 @@ public final class ConductionOutcome {
     }
 
     /**
+     * Returns true if the specified scope or relay was marked as degraded.
+     *
+     * @param scope relay or scope identifier
+     * @return true if degraded
+     */
+    public boolean isDegraded(String scope) {
+        if (scope == null) return false;
+        for (Mark m : degraded) {
+            if (scope.equals(m.scope()) || m.scope().endsWith("/" + scope)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if the specified scope or relay was marked as bypassed.
+     *
+     * @param scope relay or scope identifier
+     * @return true if bypassed
+     */
+    public boolean isBypassed(String scope) {
+        if (scope == null) return false;
+        for (Mark m : bypassed) {
+            if (scope.equals(m.scope()) || m.scope().endsWith("/" + scope)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Imports outcome marks from a child/nested conduction outcome, prefixing the scopes.
      *
      * @param child  child outcome to import from

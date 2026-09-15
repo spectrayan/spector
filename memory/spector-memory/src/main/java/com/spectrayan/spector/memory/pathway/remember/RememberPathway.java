@@ -286,15 +286,17 @@ public final class RememberPathway extends AbstractPathway<RememberSignal, Remem
 
     @Override
     protected RememberResult project(final RememberSignal signal) {
-        if (signal.context() != null && signal.context().outcome().finish() == ConductionOutcome.Finish.SHORT_CIRCUITED) {
-            return RememberResult.skipped();
+        ConductionOutcome outcome = signal.context() != null ? signal.context().outcome() : null;
+        if (outcome != null && outcome.finish() == ConductionOutcome.Finish.SHORT_CIRCUITED) {
+            return RememberResult.skipped(outcome);
         }
         return new RememberResult(
                 signal.id(),
                 signal.graphSlot(),
                 signal.isDuplicate(),
                 signal.type(),
-                signal.source()
+                signal.source(),
+                outcome
         );
     }
 

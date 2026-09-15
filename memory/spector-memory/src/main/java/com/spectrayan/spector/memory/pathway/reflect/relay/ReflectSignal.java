@@ -330,7 +330,8 @@ public final class ReflectSignal extends com.spectrayan.spector.commons.pathway.
                 soulDriftedCount.get(),
                 soulRefusedCount.get(),
                 averageImportanceDelta(),
-                logTurnsConsolidated.get()
+                logTurnsConsolidated.get(),
+                context() != null ? context().outcome() : null
         );
     }
 

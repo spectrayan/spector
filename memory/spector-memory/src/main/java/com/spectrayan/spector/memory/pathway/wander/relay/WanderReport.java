@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.memory.pathway.wander.relay;
+import com.spectrayan.spector.commons.pathway.ConductionOutcome;
 import com.spectrayan.spector.kernel.store.ContinuityMemory;
 
 import java.time.Duration;
@@ -25,6 +26,7 @@ import java.util.List;
  * @param snapshotRecorded whether an identity trajectory snapshot was appended to {@link com.spectrayan.spector.kernel.store.ContinuityMemory}
  * @param elapsed total elapsed duration of the wandering cycle
  * @param discoveredAssociations details of discovered synergistic memory associations
+ * @param outcome pathway conduction outcome and degraded/short-circuit telemetry
  */
 public record WanderReport(
         int memoriesSampled,
@@ -32,10 +34,26 @@ public record WanderReport(
         float synapticWeightDelta,
         boolean snapshotRecorded,
         Duration elapsed,
-        List<WanderSignal.DiscoveredAssociation> discoveredAssociations
+        List<WanderSignal.DiscoveredAssociation> discoveredAssociations,
+        ConductionOutcome outcome
 ) {
 
+    public WanderReport(
+            int memoriesSampled,
+            int associationsFormed,
+            float synapticWeightDelta,
+            boolean snapshotRecorded,
+            Duration elapsed,
+            List<WanderSignal.DiscoveredAssociation> discoveredAssociations
+    ) {
+        this(memoriesSampled, associationsFormed, synapticWeightDelta, snapshotRecorded, elapsed, discoveredAssociations, null);
+    }
+
     public static WanderReport empty() {
-        return new WanderReport(0, 0, 0.0f, false, Duration.ZERO, List.of());
+        return new WanderReport(0, 0, 0.0f, false, Duration.ZERO, List.of(), null);
+    }
+
+    public static WanderReport empty(ConductionOutcome outcome) {
+        return new WanderReport(0, 0, 0.0f, false, Duration.ZERO, List.of(), outcome);
     }
 }

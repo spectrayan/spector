@@ -98,6 +98,34 @@ public final class CircuitBreaker {
         void onStateChange(String breakerName, State from, State to);
     }
 
+    /**
+     * Circuit breaker lifecycle and reject events (ADR-0036 §15).
+     */
+    public enum Event {
+        TRIP("trip"),
+        PROBE("probe"),
+        CLOSE("close"),
+        REJECT("reject");
+
+        private final String eventName;
+
+        Event(final String eventName) {
+            this.eventName = eventName;
+        }
+
+        public String eventName() {
+            return eventName;
+        }
+    }
+
+    /**
+     * Callback for circuit breaker lifecycle and reject events.
+     */
+    @FunctionalInterface
+    public interface EventListener {
+        void onEvent(String breakerName, Event event);
+    }
+
     private final String name;
     private final CircuitBreakerConfig config;
     private final AtomicReference<State> state = new AtomicReference<>(State.CLOSED);
@@ -106,6 +134,7 @@ public final class CircuitBreaker {
     private final AtomicInteger halfOpenSuccesses = new AtomicInteger(0);
     private final AtomicLong lastStateChangeMs = new AtomicLong(0L);
     private final List<StateChangeListener> listeners = new CopyOnWriteArrayList<>();
+    private final List<EventListener> eventListeners = new CopyOnWriteArrayList<>();
 
     /**
      * Constructs a new CircuitBreaker.
@@ -141,6 +170,7 @@ public final class CircuitBreaker {
                     }
                     continue;
                 } else {
+                    notifyEvent(Event.REJECT);
                     if (onOpen == OnOpen.FAIL) {
                         throw new CircuitOpenException(name);
                     }
@@ -154,6 +184,7 @@ public final class CircuitBreaker {
                     }
                     inFlight = halfOpenInFlight.get();
                 }
+                notifyEvent(Event.REJECT);
                 if (onOpen == OnOpen.FAIL) {
                     throw new CircuitOpenException(name);
                 }
@@ -249,6 +280,27 @@ public final class CircuitBreaker {
                 log.warn("Circuit breaker '{}' state change listener threw exception", name, t);
             }
         }
+        final Event event;
+        if (to == State.OPEN) {
+            event = Event.TRIP;
+        } else if (to == State.HALF_OPEN) {
+            event = Event.PROBE;
+        } else {
+            event = Event.CLOSE;
+        }
+        notifyEvent(event);
+    }
+
+    private void notifyEvent(final Event event) {
+        for (final EventListener listener : eventListeners) {
+            try {
+                listener.onEvent(name, event);
+            } catch (final Throwable t) {
+                log.warn("Circuit breaker '{}' event listener threw exception", name, t);
+            }
+        }
+        com.spectrayan.spector.commons.observation.PathwayObservationHooks.get(null)
+                .onCircuitEvent(name, event.eventName());
     }
 
     public void addListener(final StateChangeListener listener) {
@@ -257,6 +309,14 @@ public final class CircuitBreaker {
 
     public void removeListener(final StateChangeListener listener) {
         listeners.remove(listener);
+    }
+
+    public void addEventListener(final EventListener listener) {
+        eventListeners.add(Objects.requireNonNull(listener, "listener cannot be null"));
+    }
+
+    public void removeEventListener(final EventListener listener) {
+        eventListeners.remove(listener);
     }
 
     public String name() {

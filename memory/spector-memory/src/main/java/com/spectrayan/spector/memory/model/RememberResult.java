@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.commons.pathway.ConductionOutcome;
 import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.kernel.api.MemoryType;
 
@@ -23,15 +24,25 @@ import com.spectrayan.spector.kernel.api.MemoryType;
  * @param dedupHit    whether the ingestion was deduplicated
  * @param type        target memory tier
  * @param source      provenance source
+ * @param outcome     pathway conduction outcome and degraded/short-circuit telemetry
  */
 public record RememberResult(
         String memoryId,
         int memoryIndex,
         boolean dedupHit,
         MemoryType type,
-        MemorySource source
+        MemorySource source,
+        ConductionOutcome outcome
 ) {
+    public RememberResult(String memoryId, int memoryIndex, boolean dedupHit, MemoryType type, MemorySource source) {
+        this(memoryId, memoryIndex, dedupHit, type, source, null);
+    }
+
     public static RememberResult skipped() {
-        return new RememberResult(null, -1, false, null, null);
+        return new RememberResult(null, -1, false, null, null, null);
+    }
+
+    public static RememberResult skipped(ConductionOutcome outcome) {
+        return new RememberResult(null, -1, false, null, null, outcome);
     }
 }

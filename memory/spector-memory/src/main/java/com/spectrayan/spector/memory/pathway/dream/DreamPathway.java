@@ -201,8 +201,9 @@ public final class DreamPathway extends AbstractPathway<DreamSignal, DreamReport
 
     @Override
     protected DreamReport project(final DreamSignal signal) {
-        if (signal.context() != null && signal.context().outcome().finish() == ConductionOutcome.Finish.SHORT_CIRCUITED) {
-            return DreamReport.empty();
+        ConductionOutcome outcome = signal.context() != null ? signal.context().outcome() : null;
+        if (outcome != null && outcome.finish() == ConductionOutcome.Finish.SHORT_CIRCUITED) {
+            return DreamReport.empty(outcome);
         }
         final DreamReport report = signal.buildReport();
         if (log.isDebugEnabled()) {

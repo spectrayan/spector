@@ -302,7 +302,8 @@ public final class DreamSignal extends com.spectrayan.spector.commons.pathway.Ab
                 config.journalEnabled() ? survivingCount : 0,
                 failedPairs.get(),
                 elapsed,
-                mode
+                mode,
+                context() != null ? context().outcome() : null
         );
     }
 

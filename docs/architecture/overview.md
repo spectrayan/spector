@@ -37,6 +37,9 @@ graph TB
             rec["Recall Pathway<br/><i>6-Phase SIMD Fused Scoring</i>"]
             ref["Reflect Pathway<br/><i>Sleep Consolidation · Replay</i>"]
             drm["Dream Pathway<br/><i>Counterfactual Simulation</i>"]
+            dec["Decide Pathway<br/><i>Active Inference Policy</i>"]
+            exp["Express Pathway<br/><i>Prosody · Stylometry · Kinesics</i>"]
+            wan["Wander Pathway<br/><i>DMN Associative Synthesis</i>"]
         end
 
         subgraph Memory["4-Tier Cortex & Graphs"]
@@ -227,7 +230,7 @@ graph TB
     end
 
     subgraph Core["In-Process Engine — Zero Network Overhead"]
-        pathways["Cognitive Pathways<br/><i>Remember · Recall · Reflect</i>"]
+        pathways["Cognitive Pathways<br/><i>Remember · Recall · Reflect · Dream · Decide · Express · Wander</i>"]
         kernel["Sealed Memory Kernel<br/><i>V4 Bundles · 8 Shapes · Panama FFM</i>"]
     end
 
@@ -390,12 +393,93 @@ graph TD
 | `cli → runtime + client` | CLI with local batch (runtime) and remote (client) modes |
 | `synapse → runtime` | Unified Armeria node: REST + gRPC + SSE + cluster coordination (incorporates former spector-node) |
 | `mcp → runtime + ingestion` | MCP agent entry point (in-process, zero network) |
-| `memory → ingestion` | Houses both `EngineIngestionTarget` and `CognitiveIngestionTarget` |
-| `memory → index, events, commons` | Cognitive memory and HNSW/BM25 storage foundations |
+| `commons ← ingestion & memory` | Houses `IngestionBoundary` decoupling sensory ingestion from memory (ADR-0037) |
+| `memory → index, events, commons` | Cognitive memory, 7 cognitive pathways, and HNSW/BM25 storage foundations |
 | `synapse → cli, mcp, spring` | Integration layer (CLI, MCP, Spring AI) |
 
 !!! important
     **No circular dependencies.** `spector-memory` contains both vector search and cognitive memory stores, keeping the API gateway (`spector-synapse`) decoupled from low-level storage.
+
+---
+
+## 🧠 Cognitive Pathways Architecture (ADR-0035, ADR-0036, ADR-0037)
+
+Spector structures all cognitive processes into a unified, composable pipeline architecture modeled after neurobiological synaptic pathways. Every cognitive operation extends `AbstractPathway<S, R>` and executes a directed sequence of `SynapticRelay<S>` stages orchestrated by `CognitivePathway<S>`.
+
+### The 7 Unified Cognitive Pathways
+
+| Pathway | Input Signal | Result / Report | Biological Analog & Key Functions |
+|:---|:---|:---|:---|
+| **Remember** | `RememberSignal` | `RememberResult` | **Encoding & Consolidation**: Dopamine-modulated surprise gating, perceptual dedup, transactional cortical commit, Hebbian graph co-activation linking, and knowledge graph hyper-edge enrichment. |
+| **Recall** | `RecallSignal` | `List<CognitiveResult>` | **Retrieval & Reconstruction**: 6-phase fused hybrid search (lexical BM25, dense HNSW, SPLADE), spreading activation across Hebbian manifolds, lateral inhibition, and ColBERT v2 token MaxSim reranking. |
+| **Reflect** | `ReflectSignal` | `ReflectReport` | **Circadian Sleep Consolidation**: Non-REM/REM sleep cycle simulation, synaptic homeostasis & power-law decay, soul-drift re-fusion, episodic clustering, and off-heap partition compaction. |
+| **Dream** | `DreamSignal` | `DreamReport` | **Counterfactual Replay & Discovery**: Generative self-model replay, Langevin stochastic discovery, synthetic episode generation, and Expected Free Energy (EFE) triage. |
+| **Decide** | `DecideSignal` | `DecideReport` | **Active Inference Policy Selection**: Free Energy Principle (FEP) optimization, homeostatic goal appraisal, policy rollouts, and action selection. |
+| **Express** | `ExpressSignal` | `ExpressReport` | **Embodied Stylometry & Prosody**: Affective somatic feedback, vocal prosody vector calculation, idiolect stylometric matching, SSML tagging, and 3D blendshape parameter synthesis. |
+| **Wander** | `WanderSignal` | `WanderReport` | **Default Mode Network (DMN)**: Idle-state autobiographical sampling, Hopfield continuous attractor energy minimization, spontaneous associative synthesis, and longitudinal continuity checkpointing. |
+
+### Relay Decorator Execution Order (ADR-0036)
+
+Each relay in a cognitive pathway can be declaratively wrapped with resilience and observability decorators via `PathwayComposer` or builder composition. To guarantee deterministic behavior across all pathways, decorators execute in a strict onion order:
+
+```
+Pathway Conduction Invocation
+  │
+  ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 1. Tracing & Metrics Interceptor                            │
+│    Measures relay latency; emits spector.pathway.relay      │
+├─────────────────────────────────────────────────────────────┤
+│ 2. TimeoutRelay                                             │
+│    Enforces per-relay deadlines; emits onTimeout            │
+├─────────────────────────────────────────────────────────────┤
+│ 3. RetryRelay                                               │
+│    Retries transient failures with backoff; emits onRetry   │
+├─────────────────────────────────────────────────────────────┤
+│ 4. CircuitBreakerRelay                                      │
+│    Guards downstream services; emits onCircuitEvent         │
+├─────────────────────────────────────────────────────────────┤
+│ 5. BulkheadRelay                                            │
+│    Isolates concurrency per relay; emits onBulkheadReject   │
+├─────────────────────────────────────────────────────────────┤
+│ 6. DegradationPolicy                                        │
+│    Gracefully degrades or bypasses stage; emits onDegraded  │
+├─────────────────────────────────────────────────────────────┤
+│ 7. Underlying SynapticRelay                                 │
+│    Executes core domain logic (pure cognitive step)         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Circuit Breakers & Fault Tolerance
+
+To prevent cascading failures when external providers (LLMs, embedding APIs, graph engines) experience outages, relays support circuit breaker isolation:
+
+- **States**: `CLOSED` (normal operation), `OPEN` (tripped after consecutive failures; fast-fails requests), and `HALF_OPEN` (probe execution testing upstream health).
+- **Event Lifecycle**: Emits `TRIP`, `PROBE`, `CLOSE`, and `REJECT` events through `CircuitBreaker.EventListener`.
+- **Fault Kinds**: Exceptions are classified into `TIMEOUT`, `PROVIDER`, `CAPACITY`, `TRANSIENT`, `DATA`, or `CONTROL` via `FaultClassifier`, driving degradation decisions.
+
+### Pathway Observability & Micrometer Metrics (ADR-0036 R7)
+
+The pathway execution subsystem provides zero-dependency instrumentation in `spector-commons` via `PathwayObservationHook` and exports 8 standardized Micrometer meters in `spector-metrics`:
+
+| Meter Name | Type | Tags | Description |
+|:---|:---|:---|:---|
+| `spector.pathway.conduct` | Timer | `pathway`, `finish` | End-to-end execution duration of the full pathway cycle |
+| `spector.pathway.relay` | Timer | `pathway`, `relay`, `status` | Latency of an individual relay (`status`: `success`, `degraded`, `bypassed`, `failed`, `short_circuited`) |
+| `spector.pathway.degraded` | Counter | `pathway`, `relay`, `kind` | Count of degraded relay executions classified by `FaultKind` |
+| `spector.pathway.circuit` | Counter | `circuit`, `state_transition` | Circuit breaker state transitions (`trip`, `probe`, `close`, `reject`) |
+| `spector.pathway.bulkhead.reject` | Counter | `bulkhead` | Count of relay invocations rejected due to exhausted concurrency permits |
+| `spector.pathway.timeout` | Counter | `pathway`, `relay` | Count of relay executions aborted due to timeout expiration |
+| `spector.pathway.retry` | Counter | `pathway`, `relay` | Count of retry attempts executed after initial transient failure |
+| `spector.pathway.nested` | Timer | `from`, `to` | Latency and frequency of nested pathway invocations |
+
+### Domain Telemetry & ConductionOutcome
+
+All domain reports (`DreamReport`, `DecideReport`, `ExpressReport`, `WanderReport`, `ReflectReport`, `RememberResult`) encapsulate an immutable `ConductionOutcome`. Consumers can inspect:
+- `finish()`: Terminal disposition (`COMPLETED`, `SHORT_CIRCUITED`, `FAILED`).
+- `degraded()` & `isDegraded(scope)`: Whether any stage completed in a degraded fallback state.
+- `bypassed()` & `isBypassed(scope)`: Whether any stages were skipped due to gate predicates or circuit state.
+- `traces()`: Microsecond-precision per-relay execution trace timeline.
 
 ---
 

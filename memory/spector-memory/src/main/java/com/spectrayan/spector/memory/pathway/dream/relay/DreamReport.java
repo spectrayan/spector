@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
 import com.spectrayan.spector.kernel.api.DreamMode;
+import com.spectrayan.spector.commons.pathway.ConductionOutcome;
 
 import java.time.Duration;
 
@@ -32,9 +33,27 @@ public record DreamReport(
         int journalEntriesWritten,
         int failedPairsInhibited,
         Duration elapsed,
-        DreamMode mode
+        DreamMode mode,
+        ConductionOutcome outcome
 ) {
+    public DreamReport(
+            int seedsSampled,
+            int scenesConstructed,
+            int scenesTriaged,
+            int insightsIngested,
+            int journalEntriesWritten,
+            int failedPairsInhibited,
+            Duration elapsed,
+            DreamMode mode
+    ) {
+        this(seedsSampled, scenesConstructed, scenesTriaged, insightsIngested, journalEntriesWritten, failedPairsInhibited, elapsed, mode, null);
+    }
+
     public static DreamReport empty() {
-        return new DreamReport(0, 0, 0, 0, 0, 0, Duration.ZERO, null);
+        return new DreamReport(0, 0, 0, 0, 0, 0, Duration.ZERO, null, null);
+    }
+
+    public static DreamReport empty(ConductionOutcome outcome) {
+        return new DreamReport(0, 0, 0, 0, 0, 0, Duration.ZERO, null, outcome);
     }
 }

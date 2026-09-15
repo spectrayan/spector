@@ -102,6 +102,11 @@ public final class CognitivePathway<S> {
                         }
                         if (signal instanceof ContextualSignal cs && cs.context() != null) {
                             cs.context().outcome().markDegraded(entry.relay().relayName(), kind, e);
+                            com.spectrayan.spector.commons.observation.PathwayObservationHooks.get(cs.context())
+                                    .onDegraded(pathwayName, entry.relay().relayName(), kind);
+                        } else {
+                            com.spectrayan.spector.commons.observation.PathwayObservationHooks.get(null)
+                                    .onDegraded(pathwayName, entry.relay().relayName(), kind);
                         }
                         log.warn("Pathway '{}' degraded gracefully at relay '{}' due to error.",
                                 pathwayName, entry.relay().relayName(), e);

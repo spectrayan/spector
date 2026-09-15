@@ -93,17 +93,23 @@ public abstract class AbstractPathway<S extends ContextualSignal, O> implements 
         }
         final ConductionScope scope = ctx.scope();
         scope.enter(name);
+        final long startNanos = System.nanoTime();
         try {
             final CognitivePathway<S> pathwayEngine = engine();
             pathwayEngine.conduct(signal);
             final boolean shortCircuited = scope.shortCircuited(name)
                     || scope.shortCircuited(pathwayEngine.pathwayName());
-            ctx.outcome().finish(shortCircuited
+            final ConductionOutcome.Finish finish = shortCircuited
                     ? ConductionOutcome.Finish.SHORT_CIRCUITED
-                    : ConductionOutcome.Finish.COMPLETED);
+                    : ConductionOutcome.Finish.COMPLETED;
+            ctx.outcome().finish(finish);
+            com.spectrayan.spector.commons.observation.PathwayObservationHooks.get(ctx)
+                    .onConduct(name, finish.name().toLowerCase(), java.time.Duration.ofNanos(System.nanoTime() - startNanos));
             return project(signal);
         } catch (final RuntimeException e) {
             ctx.outcome().finish(ConductionOutcome.Finish.FAILED);
+            com.spectrayan.spector.commons.observation.PathwayObservationHooks.get(ctx)
+                    .onConduct(name, "failed", java.time.Duration.ofNanos(System.nanoTime() - startNanos));
             throw PathwayExceptions.wrap(name, e);
         } finally {
             scope.leave(name);

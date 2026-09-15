@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.pathway.express;
 
 import com.spectrayan.spector.commons.pathway.AbstractPathway;
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.ConductionOutcome;
 import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.memory.model.BlendshapeVector;
@@ -82,6 +83,10 @@ public final class ExpressPathway extends AbstractPathway<ExpressSignal, Express
 
     @Override
     protected ExpressReport project(final ExpressSignal signal) {
+        ConductionOutcome outcome = signal.context() != null ? signal.context().outcome() : null;
+        if (outcome != null && outcome.finish() == ConductionOutcome.Finish.SHORT_CIRCUITED) {
+            return ExpressReport.empty(outcome);
+        }
         ProsodyParameterVector prosodyVector = (ProsodyParameterVector) signal.attributes().get("prosodyVector");
         IdiolectProfile idiolectProfile = (IdiolectProfile) signal.attributes().get("idiolectProfile");
         String promptDirectives = (String) signal.attributes().get("promptDirectives");
@@ -97,7 +102,7 @@ public final class ExpressPathway extends AbstractPathway<ExpressSignal, Express
         int relaysExecuted = 4; // updated count
         
         ExpressReport report = new ExpressReport(
-            prosodyVector, blendshapeVector, idiolectProfile, contextPack, promptDirectives, internalMonologue, ssmlTags, Duration.ZERO, relaysExecuted
+            prosodyVector, blendshapeVector, idiolectProfile, contextPack, promptDirectives, internalMonologue, ssmlTags, Duration.ZERO, relaysExecuted, outcome
         );
 
         if (somaticFeedbackConsumer != null) {

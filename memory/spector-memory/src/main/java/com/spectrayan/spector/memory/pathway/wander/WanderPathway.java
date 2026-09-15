@@ -35,6 +35,7 @@ import com.spectrayan.spector.memory.pathway.wander.relay.WanderSignal;
 
 import com.spectrayan.spector.commons.pathway.AbstractPathway;
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.ConductionOutcome;
 import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.GatedRelay;
@@ -126,6 +127,10 @@ public final class WanderPathway extends AbstractPathway<WanderSignal, WanderRep
 
     @Override
     protected WanderReport project(final WanderSignal signal) {
+        ConductionOutcome outcome = signal.context() != null ? signal.context().outcome() : null;
+        if (outcome != null && outcome.finish() == ConductionOutcome.Finish.SHORT_CIRCUITED) {
+            return WanderReport.empty(outcome);
+        }
         final WanderReport report = signal.buildReport();
         if (log.isDebugEnabled()) {
             log.debug("WanderPathway: cycle complete in {}ms — sampled={}, associations={}, snapshotRecorded={}",

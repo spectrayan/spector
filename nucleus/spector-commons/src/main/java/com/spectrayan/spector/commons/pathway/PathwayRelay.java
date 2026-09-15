@@ -110,6 +110,7 @@ public final class PathwayRelay<S extends ContextualSignal, I, O> implements Syn
             permit = null;
         }
 
+        final long startNanos = System.nanoTime();
         try {
             final I nestedInput = toInput.apply(signal);
             // catalog.invoke handles child outcome isolation + importFrom
@@ -129,6 +130,12 @@ public final class PathwayRelay<S extends ContextualSignal, I, O> implements Syn
                     Faults.kindOf(e),
                     true,
                     e);
+        } finally {
+            final long durationNanos = System.nanoTime() - startNanos;
+            final String from = ctx.scope() != null ? ctx.scope().pathwayName() : "unknown";
+            final String to = targetType.getSimpleName();
+            com.spectrayan.spector.commons.observation.PathwayObservationHooks.get(ctx)
+                    .onNested(from, to, java.time.Duration.ofNanos(durationNanos));
         }
     }
 

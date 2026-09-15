@@ -93,6 +93,9 @@ public final class BulkheadRelay<S> implements SynapticRelay<S> {
         }
 
         if (!acquired) {
+            com.spectrayan.spector.commons.observation.PathwayObservationHooks.get(
+                    signal instanceof ContextualSignal cs ? cs.context() : null)
+                    .onBulkheadReject(bulkheadName);
             if (config.onReject() == OnReject.BYPASS) {
                 log.debug("[{}] Bulkhead '{}' full ({} permits), bypassing",
                         relayName, bulkheadName, config.maxInFlight());
@@ -116,7 +119,7 @@ public final class BulkheadRelay<S> implements SynapticRelay<S> {
         try {
             return delegate.transmit(signal);
         } finally {
-            semaphore.release();
+            targetSem.release();
         }
     }
 

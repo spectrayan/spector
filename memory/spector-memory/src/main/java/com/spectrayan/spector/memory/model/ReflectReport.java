@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.commons.pathway.ConductionOutcome;
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
 
 import java.time.Duration;
@@ -29,6 +30,7 @@ import java.time.Duration;
  * @param soulRefusedCount       count of soul-drifted memories re-fused with updated importance
  * @param averageImportanceDelta average absolute delta in importance following soul re-fusion
  * @param logTurnsConsolidated   count of episodic log conversation turns processed
+ * @param outcome                pathway conduction outcome and degraded/short-circuit telemetry
  */
 public record ReflectReport(
         int consolidatedCount,
@@ -40,8 +42,22 @@ public record ReflectReport(
         int soulDriftedCount,
         int soulRefusedCount,
         float averageImportanceDelta,
-        int logTurnsConsolidated
+        int logTurnsConsolidated,
+        ConductionOutcome outcome
 ) {
+
+    /**
+     * Backward-compatible 10-argument constructor without ConductionOutcome.
+     */
+    public ReflectReport(int consolidatedCount, int tombstonedCount,
+                         int compactedPartitions, int temporalPrunedCount,
+                         Duration duration, GraphHealthMetrics graphHealth,
+                         int soulDriftedCount, int soulRefusedCount,
+                         float averageImportanceDelta, int logTurnsConsolidated) {
+        this(consolidatedCount, tombstonedCount, compactedPartitions,
+                temporalPrunedCount, duration, graphHealth, soulDriftedCount,
+                soulRefusedCount, averageImportanceDelta, logTurnsConsolidated, null);
+    }
 
     /**
      * Backward-compatible 6-argument constructor with graph health metrics.
@@ -50,7 +66,7 @@ public record ReflectReport(
                          int compactedPartitions, int temporalPrunedCount,
                          Duration duration, GraphHealthMetrics graphHealth) {
         this(consolidatedCount, tombstonedCount, compactedPartitions,
-                temporalPrunedCount, duration, graphHealth, 0, 0, 0.0f, 0);
+                temporalPrunedCount, duration, graphHealth, 0, 0, 0.0f, 0, null);
     }
 
     /**
@@ -60,7 +76,7 @@ public record ReflectReport(
                          int compactedPartitions, int temporalPrunedCount,
                          Duration duration) {
         this(consolidatedCount, tombstonedCount, compactedPartitions,
-                temporalPrunedCount, duration, null, 0, 0, 0.0f, 0);
+                temporalPrunedCount, duration, null, 0, 0, 0.0f, 0, null);
     }
 
     /**
@@ -77,9 +93,13 @@ public record ReflectReport(
     /**
      * Empty report — no work done.
      */
-    public static final ReflectReport EMPTY = new ReflectReport(0, 0, 0, 0, Duration.ZERO, null, 0, 0, 0.0f, 0);
+    public static final ReflectReport EMPTY = new ReflectReport(0, 0, 0, 0, Duration.ZERO, null, 0, 0, 0.0f, 0, null);
 
     public static ReflectReport empty() {
         return EMPTY;
+    }
+
+    public static ReflectReport empty(ConductionOutcome outcome) {
+        return new ReflectReport(0, 0, 0, 0, Duration.ZERO, null, 0, 0, 0.0f, 0, outcome);
     }
 }
