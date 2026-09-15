@@ -74,6 +74,142 @@ public final class DefaultPathwayComposer<S> implements PathwayComposer<S> {
         return this;
     }
 
+    @Override
+    public StageBuilder<S> stage(final String name) {
+        return new DefaultStageBuilder(name);
+    }
+
+    private final class DefaultStageBuilder implements StageBuilder<S> {
+        private final String stageName;
+        private SynapticRelay<S> relay;
+        private ErrorPolicy policy = ErrorPolicy.FAIL_FAST;
+        private java.time.Duration timeoutBudget;
+        private RetryPolicy retryPolicy;
+        private BreakerRef breakerRef;
+        private String bulkheadName;
+        private BulkheadConfig bulkheadConfig;
+
+        DefaultStageBuilder(final String stageName) {
+            this.stageName = Objects.requireNonNull(stageName, "stageName cannot be null");
+        }
+
+        @Override
+        public StageBuilder<S> relay(final SynapticRelay<S> relay) {
+            this.relay = Objects.requireNonNull(relay, "relay cannot be null");
+            return this;
+        }
+
+        @Override
+        public StageBuilder<S> policy(final ErrorPolicy policy) {
+            this.policy = Objects.requireNonNull(policy, "policy cannot be null");
+            return this;
+        }
+
+        @Override
+        public StageBuilder<S> timeout(final java.time.Duration budget) {
+            this.timeoutBudget = Objects.requireNonNull(budget, "budget cannot be null");
+            return this;
+        }
+
+        @Override
+        public StageBuilder<S> retry(final RetryPolicy retryPolicy) {
+            this.retryPolicy = Objects.requireNonNull(retryPolicy, "retryPolicy cannot be null");
+            return this;
+        }
+
+        @Override
+        public StageBuilder<S> breaker(final BreakerRef breakerRef) {
+            this.breakerRef = Objects.requireNonNull(breakerRef, "breakerRef cannot be null");
+            return this;
+        }
+
+        @Override
+        public StageBuilder<S> bulkhead(final BulkheadConfig bulkheadConfig) {
+            return bulkhead(this.stageName, bulkheadConfig);
+        }
+
+        @Override
+        public StageBuilder<S> bulkhead(final String bulkheadName, final BulkheadConfig bulkheadConfig) {
+            this.bulkheadName = Objects.requireNonNull(bulkheadName, "bulkheadName cannot be null");
+            this.bulkheadConfig = Objects.requireNonNull(bulkheadConfig, "bulkheadConfig cannot be null");
+            return this;
+        }
+
+        @Override
+        public PathwayComposer<S> add() {
+            if (relay == null) {
+                throw new IllegalStateException("relay must be set on stage '" + stageName + "'");
+            }
+
+            // Build-time safety validations (ADR-0036 §7.2, §8)
+            if (timeoutBudget != null && !isInterruptible(relay)) {
+                throw new IllegalArgumentException("Relay '" + stageName + "' (" + relay.getClass().getSimpleName()
+                        + ") does not implement InterruptibleRelay; cannot wrap with timeout budget");
+            }
+
+            if (retryPolicy != null && retryPolicy.maxAttempts() > 1 && !isIdempotent(relay)) {
+                throw new IllegalArgumentException("Relay '" + stageName + "' (" + relay.getClass().getSimpleName()
+                        + ") does not implement IdempotentRelay; cannot wrap with retry policy");
+            }
+
+            // Decorator composition order (ADR-0036 §6, §8.6):
+            // Outer to inner: bulkhead -> circuit breaker -> retry -> timeout -> relay
+            SynapticRelay<S> current = relay;
+
+            if (timeoutBudget != null) {
+                current = new TimeoutRelay<>(current, timeoutBudget, stageName);
+            }
+            if (retryPolicy != null && retryPolicy.maxAttempts() > 1) {
+                current = new RetryRelay<>(current, retryPolicy, stageName);
+            }
+            if (breakerRef != null) {
+                current = new CircuitBreakerRelay<>(current, breakerRef);
+            }
+            if (bulkheadConfig != null) {
+                current = new BulkheadRelay<>(current, bulkheadConfig, stageName, bulkheadName);
+            }
+
+            return DefaultPathwayComposer.this.relay(stageName, current, policy);
+        }
+
+        private static boolean isInterruptible(final SynapticRelay<?> r) {
+            if (r instanceof InterruptibleRelay ir) {
+                return ir.interruptible();
+            }
+            final SynapticRelay<?> inner = unwrap(r);
+            return inner instanceof InterruptibleRelay ir && ir.interruptible();
+        }
+
+        private static boolean isIdempotent(final SynapticRelay<?> r) {
+            if (r instanceof IdempotentRelay idr) {
+                return idr.idempotent();
+            }
+            final SynapticRelay<?> inner = unwrap(r);
+            return inner instanceof IdempotentRelay idr && idr.idempotent();
+        }
+
+        private static SynapticRelay<?> unwrap(SynapticRelay<?> r) {
+            while (r != null) {
+                if (r instanceof NamedRelay<?> nr) {
+                    r = nr.delegate();
+                } else if (r instanceof GatedRelay<?> gr) {
+                    r = gr.delegate();
+                } else if (r instanceof CircuitBreakerRelay<?> cbr) {
+                    r = cbr.delegate();
+                } else if (r instanceof RetryRelay<?> rr) {
+                    r = rr.delegate();
+                } else if (r instanceof TimeoutRelay<?> tr) {
+                    r = tr.delegate();
+                } else if (r instanceof BulkheadRelay<?> br) {
+                    r = br.delegate();
+                } else {
+                    break;
+                }
+            }
+            return r;
+        }
+    }
+
     private static boolean isOrContainsPathwayRelay(final SynapticRelay<?> relay) {
         if (relay == null) {
             return false;
@@ -89,6 +225,15 @@ public final class DefaultPathwayComposer<S> implements PathwayComposer<S> {
         }
         if (relay instanceof CircuitBreakerRelay<?> cbr) {
             return isOrContainsPathwayRelay(cbr.delegate());
+        }
+        if (relay instanceof RetryRelay<?> rr) {
+            return isOrContainsPathwayRelay(rr.delegate());
+        }
+        if (relay instanceof TimeoutRelay<?> tr) {
+            return isOrContainsPathwayRelay(tr.delegate());
+        }
+        if (relay instanceof BulkheadRelay<?> br) {
+            return isOrContainsPathwayRelay(br.delegate());
         }
         return false;
     }

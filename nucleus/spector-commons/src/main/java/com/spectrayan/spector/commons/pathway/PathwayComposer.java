@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.commons.pathway;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -26,6 +27,56 @@ import java.util.function.Predicate;
  * @param <S> signal type
  */
 public interface PathwayComposer<S> {
+
+    /**
+     * Fluent builder for a pathway stage configured with resilience decorators (ADR-0036 §6).
+     *
+     * <p>Decorators wrap the inner relay in order:
+     * {@code bulkhead -> timeout -> retry -> circuit breaker -> named relay -> user relay}.</p>
+     *
+     * @param <S> signal type
+     */
+    interface StageBuilder<S> {
+        /** Sets the user relay for this stage. */
+        StageBuilder<S> relay(SynapticRelay<S> relay);
+
+        /** Sets the error disposition policy. Defaults to {@link ErrorPolicy#FAIL_FAST}. */
+        StageBuilder<S> policy(ErrorPolicy policy);
+
+        /**
+         * Sets a timeout execution budget for each attempt.
+         *
+         * @throws IllegalArgumentException if the relay does not implement {@link InterruptibleRelay}
+         */
+        StageBuilder<S> timeout(Duration budget);
+
+        /**
+         * Sets a retry policy for transient failures.
+         *
+         * @throws IllegalArgumentException if the relay does not implement {@link IdempotentRelay}
+         */
+        StageBuilder<S> retry(RetryPolicy retryPolicy);
+
+        /** Sets a circuit breaker permit reference for this stage. */
+        StageBuilder<S> breaker(BreakerRef breakerRef);
+
+        /** Sets a bulkhead configuration using the stage name as the bulkhead key. */
+        StageBuilder<S> bulkhead(BulkheadConfig bulkheadConfig);
+
+        /** Sets a bulkhead configuration with an explicit shared bulkhead name. */
+        StageBuilder<S> bulkhead(String bulkheadName, BulkheadConfig bulkheadConfig);
+
+        /** Builds the decorator chain and adds the stage to the composer. */
+        PathwayComposer<S> add();
+    }
+
+    /**
+     * Begins defining a stage configured with resilience decorators.
+     *
+     * @param name stage name
+     * @return stage builder
+     */
+    StageBuilder<S> stage(String name);
 
     /**
      * Sets an interceptor decorating each relay.
@@ -121,7 +172,9 @@ public interface PathwayComposer<S> {
      * @param cooldownMs       cooldown in milliseconds
      * @param policy           error policy
      * @return this composer
+     * @deprecated Use {@link #stage(String)} with {@link StageBuilder#breaker(BreakerRef)} instead.
      */
+    @Deprecated(forRemoval = true, since = "1.5.0")
     PathwayComposer<S> circuitBreaker(String name, SynapticRelay<S> relay, int failureThreshold, long cooldownMs, ErrorPolicy policy);
 
     /**

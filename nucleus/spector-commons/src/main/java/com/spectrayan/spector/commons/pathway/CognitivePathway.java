@@ -134,6 +134,24 @@ public final class CognitivePathway<S> {
     }
 
     /**
+     * Returns an unmodifiable list of relay names in their configured execution order.
+     *
+     * @return ordered relay names
+     */
+    public List<String> relayNames() {
+        return entries.stream().map(e -> e.relay().relayName()).toList();
+    }
+
+    /**
+     * Returns an unmodifiable list of the configured relay entries.
+     *
+     * @return relay entries
+     */
+    public List<RelayEntry<S>> entries() {
+        return entries;
+    }
+
+    /**
      * Represents a configured relay within the pathway.
      *
      * @param <S>         the type of the signal

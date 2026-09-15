@@ -23,10 +23,18 @@ import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
+import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayComposer;
+import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.memory.pathway.recall.relay.*;
+import com.spectrayan.spector.memory.pathway.reflect.relay.*;
+import com.spectrayan.spector.memory.pathway.remember.relay.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import java.util.List;
 import java.util.Random;
@@ -264,5 +272,154 @@ class CognitivePathwayParityTest {
 
         @Override
         public String modelName() { return "mock-" + dims + "d"; }
+    }
+
+    @Nested
+    @DisplayName("M6.4 Gate: Recipe vs Factory Relay Parity")
+    class RecipeRelayParity {
+
+        @Test
+        @DisplayName("Remember: Recipe-built relay names and ordering match factory output exactly")
+        @SuppressWarnings("deprecation")
+        void rememberPathwayParity() {
+            DedupGuardRelay dedup = Mockito.mock(DedupGuardRelay.class);
+            SynapticTagTransductionRelay tags = Mockito.mock(SynapticTagTransductionRelay.class);
+            DopaminergicSurpriseRelay surprise = Mockito.mock(DopaminergicSurpriseRelay.class);
+            CorticalWriteTransactionRelay write = Mockito.mock(CorticalWriteTransactionRelay.class);
+            SynapticGraphLinkingRelay graph = Mockito.mock(SynapticGraphLinkingRelay.class);
+            KnowledgeGraphEnrichmentRelay kg = Mockito.mock(KnowledgeGraphEnrichmentRelay.class);
+
+            CognitivePathway<RememberSignal> factoryPathway = RememberPathwayFactory.create(
+                    dedup, tags, surprise, write, graph, kg);
+
+            var composer = PathwayComposer.<RememberSignal>of("remember");
+            new RememberRecipe(dedup, tags, surprise, write, graph, kg).compose(composer);
+            CognitivePathway<RememberSignal> recipePathway = composer.build();
+
+            assertThat(recipePathway.relayNames())
+                    .as("Remember relay names and order must match factory")
+                    .isEqualTo(factoryPathway.relayNames());
+        }
+
+        @Test
+        @DisplayName("Recall: Recipe-built relay names and ordering match widest factory output exactly")
+        @SuppressWarnings({"deprecation", "unchecked"})
+        void recallPathwayParity() {
+            SynapticRelay<RecallSignal> transduction = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<RecallSignal> prospective = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<RecallSignal> releaseGate = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<RecallSignal> homeostatic = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<RecallSignal> vector = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<RecallSignal> freeEnergy = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<RecallSignal> spacetime = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<RecallSignal> scoring = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<RecallSignal> graph = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<RecallSignal> hopfield = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<RecallSignal> evidence = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<RecallSignal> lateral = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<RecallSignal> bm25 = Mockito.mock(SynapticRelay.class);
+            RrfRescoreRelay rrf = Mockito.mock(RrfRescoreRelay.class);
+            SynapticRelay<RecallSignal> manifold = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<RecallSignal> constructive = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<RecallSignal> consciousness = Mockito.mock(SynapticRelay.class);
+            SortAndTruncateRelay sort = Mockito.mock(SortAndTruncateRelay.class);
+            CognitiveRerankRelay colbert = Mockito.mock(CognitiveRerankRelay.class);
+            MmrDiversityRelay mmr = Mockito.mock(MmrDiversityRelay.class);
+            TemperatureSoftmaxRelay temp = Mockito.mock(TemperatureSoftmaxRelay.class);
+            SynapticRelay<RecallSignal> consciousAccess = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<RecallSignal> persistence = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<RecallSignal> epistemic = Mockito.mock(SynapticRelay.class);
+            com.spectrayan.spector.commons.pathway.ConsolidationRelay<RecallSignal> consolidation =
+                    Mockito.mock(com.spectrayan.spector.commons.pathway.ConsolidationRelay.class);
+
+            CognitivePathway<RecallSignal> factoryPathway = RecallPathwayFactory.create(
+                    null, transduction, prospective, releaseGate, homeostatic, vector,
+                    freeEnergy, spacetime, scoring, graph, hopfield, evidence, lateral,
+                    bm25, rrf, manifold, constructive, consciousness, sort, colbert,
+                    mmr, temp, consciousAccess, persistence, epistemic, consolidation);
+
+            var composer = PathwayComposer.<RecallSignal>of("recall");
+            RecallRecipe.builder()
+                    .transductionRelay(transduction)
+                    .prospectiveRelay(prospective)
+                    .governedReleaseGateRelay(releaseGate)
+                    .homeostaticBiasRelay(homeostatic)
+                    .vectorSearchRelay(vector)
+                    .freeEnergyGuidedRelay(freeEnergy)
+                    .spacetimeScoringRelay(spacetime)
+                    .scoringRelay(scoring)
+                    .graphExpansionRelay(graph)
+                    .hopfieldAssociativeRelay(hopfield)
+                    .evidenceFusionRelay(evidence)
+                    .lateralInhibitionRelay(lateral)
+                    .bm25SearchRelay(bm25)
+                    .rrfRescoreRelay(rrf)
+                    .manifoldRerankRelay(manifold)
+                    .constructiveSimulationRelay(constructive)
+                    .consciousnessContinuityRelay(consciousness)
+                    .sortAndTruncateRelay(sort)
+                    .cognitiveRerankRelay(colbert)
+                    .mmrDiversityRelay(mmr)
+                    .temperatureSoftmaxRelay(temp)
+                    .consciousAccessRelay(consciousAccess)
+                    .constructiveMemoryPersistenceRelay(persistence)
+                    .epistemicLearningRelay(epistemic)
+                    .consolidationRelay(consolidation)
+                    .build()
+                    .compose(composer);
+            CognitivePathway<RecallSignal> recipePathway = composer.build();
+
+            assertThat(recipePathway.relayNames())
+                    .as("Recall relay names and order must match factory")
+                    .isEqualTo(factoryPathway.relayNames());
+        }
+
+        @Test
+        @DisplayName("Reflect: Recipe-built relay names and ordering match factory output exactly")
+        @SuppressWarnings({"deprecation", "unchecked"})
+        void reflectPathwayParity() {
+            SynapticPruningRelay pruning = Mockito.mock(SynapticPruningRelay.class);
+            EpisodicLogConsolidationRelay log = Mockito.mock(EpisodicLogConsolidationRelay.class);
+            SoulDriftRefusionRelay soul = Mockito.mock(SoulDriftRefusionRelay.class);
+            ProceduralCrystallizationRelay procedural = Mockito.mock(ProceduralCrystallizationRelay.class);
+            ProactiveInterferenceRelay interference = Mockito.mock(ProactiveInterferenceRelay.class);
+            HebbianHomeostasisRelay hebbian = Mockito.mock(HebbianHomeostasisRelay.class);
+            TemporalPruningRelay temporal = Mockito.mock(TemporalPruningRelay.class);
+            CrossLayerPromotionRelay promotion = Mockito.mock(CrossLayerPromotionRelay.class);
+            EntityMaintenanceRelay entity = Mockito.mock(EntityMaintenanceRelay.class);
+            SpectralSparsificationRelay sparsification = Mockito.mock(SpectralSparsificationRelay.class);
+            SynapticRelay<ReflectSignal> manifold = Mockito.mock(SynapticRelay.class);
+            SynapticRelay<ReflectSignal> softAnchor = Mockito.mock(SynapticRelay.class);
+            WalJournalRelay wal = Mockito.mock(WalJournalRelay.class);
+            IdiolectLearningRelay idiolect = Mockito.mock(IdiolectLearningRelay.class);
+
+            CognitivePathway<ReflectSignal> factoryPathway = ReflectPathwayFactory.create(
+                    null, pruning, log, soul, procedural, interference, hebbian,
+                    temporal, promotion, entity, sparsification, manifold, softAnchor, wal, idiolect);
+
+            var composer = PathwayComposer.<ReflectSignal>of("reflect");
+            ReflectRecipe.builder()
+                    .pruningRelay(pruning)
+                    .logConsolidationRelay(log)
+                    .soulDriftRelay(soul)
+                    .proceduralRelay(procedural)
+                    .interferenceRelay(interference)
+                    .hebbianRelay(hebbian)
+                    .temporalRelay(temporal)
+                    .promotionRelay(promotion)
+                    .entityRelay(entity)
+                    .sparsificationRelay(sparsification)
+                    .manifoldConsolidationRelay(manifold)
+                    .softIdentityAnchorRelay(softAnchor)
+                    .walRelay(wal)
+                    .idiolectRelay(idiolect)
+                    .build()
+                    .compose(composer);
+            CognitivePathway<ReflectSignal> recipePathway = composer.build();
+
+            assertThat(recipePathway.relayNames())
+                    .as("Reflect relay names and order must match factory")
+                    .isEqualTo(factoryPathway.relayNames());
+        }
     }
 }
