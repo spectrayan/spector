@@ -109,7 +109,7 @@ public final class CognitivePathway<S> {
                     case ABORT -> {
                         if (isTraceable) {
                             final long elapsed = System.nanoTime() - startNanos;
-                            ((TraceableSignal) signal).recordTrace(new RelayTrace(entry.relay().relayName(), elapsed, RelayTrace.TraceStatus.SHORT_CIRCUITED, e.getMessage()));
+                            ((TraceableSignal) signal).recordTrace(new RelayTrace(entry.relay().relayName(), elapsed, RelayTrace.TraceStatus.SHORT_CIRCUITED, "aborted:" + kind));
                         }
                         if (signal instanceof ContextualSignal cs && cs.context() != null && cs.context().scope() != null) {
                             cs.context().scope().markShortCircuited(pathwayName);

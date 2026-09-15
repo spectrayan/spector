@@ -188,6 +188,7 @@ public final class ConductionScope {
      */
     public void markShortCircuited(final String pathwayName) {
         checkThreadConfinement();
+        Objects.requireNonNull(pathwayName, "pathwayName cannot be null");
         for (final Frame frame : frames) {
             if (frame.pathwayName().equals(pathwayName)) {
                 frame.markShortCircuited();
@@ -204,6 +205,7 @@ public final class ConductionScope {
      */
     public boolean shortCircuited(final String pathwayName) {
         checkThreadConfinement();
+        Objects.requireNonNull(pathwayName, "pathwayName cannot be null");
         for (final Frame frame : frames) {
             if (frame.pathwayName().equals(pathwayName)) {
                 return frame.isShortCircuited();

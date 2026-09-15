@@ -23,7 +23,16 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 public class CircuitOpenException extends CognitivePathwayException {
 
     /**
-     * Constructs a new circuit open exception.
+     * Constructs a new circuit open exception with a breaker name.
+     *
+     * @param breakerName the name of the breaker
+     */
+    public CircuitOpenException(final String breakerName) {
+        this("circuit-breaker", breakerName, null);
+    }
+
+    /**
+     * Constructs a new circuit open exception with pathway and relay names.
      *
      * @param pathwayName the name of the pathway
      * @param relayName   the name of the relay
@@ -41,5 +50,14 @@ public class CircuitOpenException extends CognitivePathwayException {
      */
     public CircuitOpenException(final String pathwayName, final String relayName, final Throwable cause) {
         super(ErrorCode.PATHWAY_CIRCUIT_OPEN, pathwayName, relayName, FaultKind.TRANSIENT, false, cause);
+    }
+
+    /**
+     * Returns the name of the tripped circuit breaker.
+     *
+     * @return breaker name
+     */
+    public String breakerName() {
+        return relayName();
     }
 }
