@@ -20,6 +20,7 @@ import com.spectrayan.spector.kernel.id.MemoryId;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.config.properties.DreamProperties;
+import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
@@ -31,6 +32,7 @@ import com.spectrayan.spector.kernel.shape.DistributedMemoryTensor;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -67,6 +69,7 @@ public final class DreamSignal {
     private final DreamProperties config;
     private final float temperature;
     private final PartitionManager partitionManager;
+    private final RememberPathway rememberPathway;
     private final AismeProperties aismeConfig;
 
     private final SoulContext primarySoul;
@@ -90,6 +93,7 @@ public final class DreamSignal {
     private final HyperEntityGraphMemory hyperEntityGraph;
     private final EmbeddingProvider embeddingProvider;
     private final ContinuousHopfieldNetwork hopfieldNetwork;
+    private final LlmProvider llmProvider;
 
     private final AtomicInteger dreamsGenerated = new AtomicInteger(0);
     private final AtomicInteger dreamsIngested = new AtomicInteger(0);
@@ -145,6 +149,8 @@ public final class DreamSignal {
         this.hyperEntityGraph = builder.hyperEntityGraph;
         this.embeddingProvider = builder.embeddingProvider;
         this.hopfieldNetwork = builder.hopfieldNetwork;
+        this.llmProvider = builder.llmProvider;
+        this.rememberPathway = builder.rememberPathway;
         this.kernel = builder.kernel;
 
         final long now = System.currentTimeMillis();
@@ -194,6 +200,7 @@ public final class DreamSignal {
     public DreamProperties config() { return config; }
     public float temperature() { return temperature; }
     public PartitionManager partitionManager() { return partitionManager; }
+    public RememberPathway rememberPathway() { return rememberPathway; }
     public AismeProperties aismeConfig() { return aismeConfig; }
 
     public SoulContext primarySoul() { return primarySoul; }
@@ -224,6 +231,7 @@ public final class DreamSignal {
     public HyperEntityGraphMemory hyperEntityGraph() { return hyperEntityGraph; }
     public EmbeddingProvider embeddingProvider() { return embeddingProvider; }
     public ContinuousHopfieldNetwork hopfieldNetwork() { return hopfieldNetwork; }
+    public LlmProvider llmProvider() { return llmProvider; }
     public com.spectrayan.spector.kernel.api.NamespaceKernel kernel() { return kernel; }
     public void kernel(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel) { this.kernel = kernel; }
 
@@ -298,6 +306,7 @@ public final class DreamSignal {
         private DreamProperties config;
         private float temperature;
         private PartitionManager partitionManager;
+        private RememberPathway rememberPathway;
         private AismeProperties aismeConfig;
         private SoulContext primarySoul;
         private List<SoulContext> soulContexts;
@@ -313,6 +322,7 @@ public final class DreamSignal {
         private HyperEntityGraphMemory hyperEntityGraph;
         private EmbeddingProvider embeddingProvider;
         private ContinuousHopfieldNetwork hopfieldNetwork;
+        private LlmProvider llmProvider;
         private MemoryIdGenerator idGenerator;
         private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
 
@@ -327,6 +337,7 @@ public final class DreamSignal {
         public Builder config(DreamProperties config) { this.config = config; return this; }
         public Builder temperature(float temperature) { this.temperature = temperature; return this; }
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
+        public Builder rememberPathway(RememberPathway rp) { this.rememberPathway = rp; return this; }
         public Builder aismeConfig(AismeProperties config) { this.aismeConfig = config; return this; }
         public Builder primarySoul(SoulContext soul) { this.primarySoul = soul; return this; }
         public Builder soulContexts(List<SoulContext> soulContexts) { this.soulContexts = soulContexts; return this; }
@@ -343,6 +354,7 @@ public final class DreamSignal {
         public Builder hyperEntityGraph(HyperEntityGraphMemory graph) { this.hyperEntityGraph = graph; return this; }
         public Builder embeddingProvider(EmbeddingProvider provider) { this.embeddingProvider = provider; return this; }
         public Builder hopfieldNetwork(ContinuousHopfieldNetwork network) { this.hopfieldNetwork = network; return this; }
+        public Builder llmProvider(LlmProvider provider) { this.llmProvider = provider; return this; }
 
         public Builder simulationTimeMs(long simTime) { this.simulationTimeMs = simTime; return this; }
         public Builder queryTau(float[] tau) { this.queryTau = tau; return this; }

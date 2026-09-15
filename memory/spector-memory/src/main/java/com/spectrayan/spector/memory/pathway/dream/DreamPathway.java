@@ -19,6 +19,7 @@ import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.config.properties.AismeProperties;
+import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
@@ -47,6 +48,7 @@ import com.spectrayan.spector.memory.pathway.dream.relay.SceneConstructRelay;
 import com.spectrayan.spector.memory.pathway.simulation.relay.SpacetimeSeedRelay;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,6 +73,7 @@ public final class DreamPathway implements AutoCloseable {
     private final CognitivePathway<DreamSignal> pathway;
     private final DreamProperties dreamProperties;
     private final PartitionManager partitionManager;
+    private final RememberPathway rememberPathway;
     private final AismeProperties aismeConfig;
     private final SoulContext primarySoul;
     private final List<SoulContext> soulContexts;
@@ -82,11 +85,13 @@ public final class DreamPathway implements AutoCloseable {
     private final HyperEntityGraphMemory hyperEntityGraph;
     private final EmbeddingProvider embeddingProvider;
     private final ContinuousHopfieldNetwork hopfieldNetwork;
+    private final LlmProvider llmProvider;
     private final MemoryIdGenerator idGenerator;
 
     private DreamPathway(final Builder builder) {
         this.dreamProperties = builder.dreamProperties != null ? builder.dreamProperties : new DreamProperties();
         this.partitionManager = builder.partitionManager;
+        this.rememberPathway = builder.rememberPathway;
         this.aismeConfig = builder.aismeConfig;
         this.primarySoul = builder.primarySoul;
         this.soulContexts = builder.soulContexts != null ? List.copyOf(builder.soulContexts) : List.of();
@@ -98,6 +103,7 @@ public final class DreamPathway implements AutoCloseable {
         this.hyperEntityGraph = builder.hyperEntityGraph;
         this.embeddingProvider = builder.embeddingProvider;
         this.hopfieldNetwork = builder.hopfieldNetwork;
+        this.llmProvider = builder.llmProvider;
         this.idGenerator = builder.idGenerator;
 
         var pathwayBuilder = CognitivePathway.<DreamSignal>pathway("dream_pathway");
@@ -167,8 +173,16 @@ public final class DreamPathway implements AutoCloseable {
         return soulContexts;
     }
 
+    public RememberPathway rememberPathway() {
+        return rememberPathway;
+    }
+
     public SalienceProfile salienceProfile() {
         return salienceProfile;
+    }
+
+    public LlmProvider llmProvider() {
+        return llmProvider;
     }
 
     /**
@@ -225,6 +239,7 @@ public final class DreamPathway implements AutoCloseable {
                 .mode(mode)
                 .config(dreamProperties)
                 .partitionManager(pm != null ? pm : partitionManager)
+                .rememberPathway(rememberPathway)
                 .aismeConfig(aismeConfig != null ? aismeConfig : this.aismeConfig)
                 .primarySoul(primarySoul != null ? primarySoul : this.primarySoul)
                 .soulContexts(soulContexts != null ? soulContexts : this.soulContexts)
@@ -236,6 +251,7 @@ public final class DreamPathway implements AutoCloseable {
                 .hyperEntityGraph(hyperEntityGraph)
                 .embeddingProvider(embeddingProvider)
                 .hopfieldNetwork(hopfieldNetwork)
+                .llmProvider(llmProvider)
                 .idGenerator(idGenerator)
                 .build();
 
@@ -273,6 +289,7 @@ public final class DreamPathway implements AutoCloseable {
     public static final class Builder {
         private DreamProperties dreamProperties;
         private PartitionManager partitionManager;
+        private RememberPathway rememberPathway;
         private AismeProperties aismeConfig = AismeProperties.defaultConfig();
         private SoulContext primarySoul;
         private List<SoulContext> soulContexts;
@@ -284,6 +301,7 @@ public final class DreamPathway implements AutoCloseable {
         private HyperEntityGraphMemory hyperEntityGraph;
         private EmbeddingProvider embeddingProvider;
         private ContinuousHopfieldNetwork hopfieldNetwork;
+        private LlmProvider llmProvider;
         private MemoryIdGenerator idGenerator;
         private Function<SynapticRelay<DreamSignal>, SynapticRelay<DreamSignal>> interceptor;
 
@@ -298,6 +316,7 @@ public final class DreamPathway implements AutoCloseable {
 
         
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
+        public Builder rememberPathway(RememberPathway rp) { this.rememberPathway = rp; return this; }
         public Builder aismeConfig(AismeProperties ac) { this.aismeConfig = ac; return this; }
         public Builder primarySoul(SoulContext soul) { this.primarySoul = soul; return this; }
         public Builder soulContexts(List<SoulContext> soulContexts) { this.soulContexts = soulContexts; return this; }
@@ -309,6 +328,7 @@ public final class DreamPathway implements AutoCloseable {
         public Builder hyperEntityGraph(HyperEntityGraphMemory heg) { this.hyperEntityGraph = heg; return this; }
         public Builder embeddingProvider(EmbeddingProvider ep) { this.embeddingProvider = ep; return this; }
         public Builder hopfieldNetwork(ContinuousHopfieldNetwork hn) { this.hopfieldNetwork = hn; return this; }
+        public Builder llmProvider(LlmProvider llmProvider) { this.llmProvider = llmProvider; return this; }
         public Builder idGenerator(MemoryIdGenerator idGen) { this.idGenerator = idGen; return this; }
         public Builder interceptor(Function<SynapticRelay<DreamSignal>, SynapticRelay<DreamSignal>> inc) { this.interceptor = inc; return this; }
 

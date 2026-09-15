@@ -509,6 +509,7 @@ public final class SpectorMemoryFactory {
                 : DreamPathway.builder()
                 .dreamProperties(memProps.getDream())
                 .partitionManager(partitionManager)
+                .rememberPathway(rememberPathway)
                 .aismeConfig(aismeConfig)
                 .primarySoul(dreamPrimarySoul)
                 .soulContexts(dreamActiveSouls)
@@ -518,6 +519,7 @@ public final class SpectorMemoryFactory {
                 .hyperEntityGraph(graphs.hyperEntityGraph())
                 .embeddingProvider(embeddingProvider)
                 .hopfieldNetwork(aismeBundle != null ? aismeBundle.hopfieldNetwork() : null)
+                .llmProvider(builder.llmProvider())
                 .idGenerator(idGenerator)
                 .build();
 

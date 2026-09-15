@@ -12,7 +12,13 @@
  */
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
+import com.spectrayan.spector.core.similarity.VectorOps;
+import com.spectrayan.spector.kernel.api.DreamMode;
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.kernel.api.TriageOutcome;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.kernel.store.HebbianGraphBase;
@@ -43,7 +49,42 @@ public final class DreamIngestionRelay implements SynapticRelay<DreamSignal> {
         // 1. Ingest qualified surviving dream insights
         for (DreamSignal.DreamScene scene : signal.survivingScenes()) {
             if (scene.qualityScore() >= threshold) {
-                log.info("DreamIngestionRelay: Ingested dream insight [{}] (Q={:.3f}, Mode={}): {}",
+                if (signal.rememberPathway() != null && scene.embedding() != null) {
+                    try {
+                        String durableId = signal.nextId();
+                        byte procFlags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
+                        float norm = VectorOps.magnitude(scene.embedding());
+                        short soulVer = signal.rememberPathway().currentSoulVersion();
+                        byte dreamFlags = (byte) (EncodingHeaderFields.FLAG_DREAMED | EncodingHeaderFields.FLAG_SIMULATED);
+
+                        EncodingHeader header = EncodingHeader.createSynthetic(
+                                signal.simulationTimeMs(), 0L, norm,
+                                scene.qualityScore(), (byte) 0, (byte) 128, procFlags,
+                                dreamFlags, soulVer, 0.0f
+                        );
+
+                        MemorySource src = signal.mode() == DreamMode.THOUGHT_EXPERIMENT
+                                ? MemorySource.THOUGHT_EXPERIMENT
+                                : MemorySource.DREAMED;
+
+                        String text = scene.insightText() != null && !scene.insightText().isBlank()
+                                ? scene.narrative() + " | " + scene.insightText()
+                                : scene.narrative();
+
+                        signal.rememberPathway().ingestCognitiveWithHeader(
+                                durableId,
+                                text,
+                                scene.embedding(),
+                                MemoryType.SEMANTIC,
+                                new String[]{"dreamed", signal.mode().name().toLowerCase(), scene.triageOutcome().name().toLowerCase()},
+                                src,
+                                header
+                        );
+                    } catch (Exception e) {
+                        log.warn("DreamIngestionRelay: failed to persist dream insight {}: {}", scene.id(), e.getMessage());
+                    }
+                }
+                log.info("DreamIngestionRelay: Ingested dream insight [{}] (Q={}, Mode={}): {}",
                         scene.id(), scene.qualityScore(), signal.mode(), scene.insightText());
                 eligibleCount++;
             }
