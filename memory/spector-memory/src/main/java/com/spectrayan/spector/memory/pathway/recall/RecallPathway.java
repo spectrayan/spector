@@ -89,8 +89,10 @@ import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.observation.MemoryObservationHook;
+import com.spectrayan.spector.commons.pathway.AbstractPathway;
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.pathway.ConsolidationRelay;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
@@ -158,13 +160,17 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * Orchestrates memory recall using the pathway/relay architecture.
  */
-public final class RecallPathway {
+public final class RecallPathway extends AbstractPathway<RecallSignal, List<CognitiveResult>> implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(RecallPathway.class);
     private static final int RETRIEVAL_MODE_CACHE_MAX = 1024;
     private static final int SATIATION_CACHE_SIZE = 5000;
 
-    private final CognitivePathway<RecallSignal> pathway;
+    @SuppressWarnings("unchecked")
+    private static Class<List<CognitiveResult>> outputClass() {
+        return (Class<List<CognitiveResult>>) (Class<?>) List.class;
+    }
+
     private final QueryTransductionRelay transductionRelay;
 
     private final EmbeddingProvider embeddingProvider;
@@ -201,6 +207,7 @@ public final class RecallPathway {
     private volatile RecallOptions lastRecallOptions;
 
     private RecallPathway(final Builder builder, final RecallHistory recallHistory, final MmrReranker mmrReranker) {
+        super("recall", RecallSignal.class, outputClass());
         this.embeddingProvider = builder.embeddingProvider;
         this.wal = builder.wal;
         this.coActivationTracker = builder.bio != null ? builder.bio.coActivationTracker() : null;
@@ -318,7 +325,7 @@ public final class RecallPathway {
         final var consciousAccessRelay = builder.aismeBundle != null ? builder.aismeBundle.consciousAccessRelay() : null;
         final var epistemicLearningRelay = builder.aismeBundle != null ? builder.aismeBundle.epistemicLearningRelay() : null;
 
-        this.pathway = RecallPathwayFactory.create(
+        final CognitivePathway<RecallSignal> engine = RecallPathwayFactory.create(
                 builder.interceptor,
                 transductionRelay, prospectiveRelay, governedReleaseGateRelay,
                 homeostaticBiasRelay,
@@ -342,6 +349,11 @@ public final class RecallPathway {
                 constructiveMemoryPersistenceRelay,
                 epistemicLearningRelay,
                 consolidationRelay);
+        initEngine(engine);
+    }
+
+    public CognitivePathway<RecallSignal> pathway() {
+        return engine();
     }
 
     /**
@@ -410,51 +422,65 @@ public final class RecallPathway {
         if (kernel != null) {
             signal.kernel(kernel);
         }
+        if (signal.context() == null) {
+            final DefaultPathwayContext.Builder ctxBuilder = DefaultPathwayContext.builder();
+            if (kernel != null) {
+                ctxBuilder.namespaceId(kernel.namespaceId());
+                ctxBuilder.bind(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
+            }
+            signal.bind(ctxBuilder.build());
+        }
         ACTIVE_SIGNAL.set(signal);
         try {
             this.lastRecallOptions = signal.options();
-
-            // Execute pathway
-            pathway.conduct(signal);
-
-            final List<CognitiveResult> allResults = new ArrayList<>(signal.candidates());
-            final RecallOptions opts = signal.options();
-
-            // Post-recall listeners
-            if (opts != null && opts.recallMode() == RecallMode.LEARN && !listeners.isEmpty()) {
-                final List<CognitiveResult> finalResults = List.copyOf(allResults);
-                final RecallSignal activeSig = signal;
-                for (final RecallListener listener : listeners) {
-                    ConcurrentTasks.fireAndForget(() -> {
-                        ACTIVE_SIGNAL.set(activeSig);
-                        try {
-                            listener.onRecallComplete(finalResults);
-                        } finally {
-                            ACTIVE_SIGNAL.remove();
-                        }
-                    });
-                }
-            }
-
-            // Session bookkeeping
-            applySessionBookkeeping(allResults, opts);
-
-            // Write ordinal
-            writeProfileOrdinalToResults(allResults, opts);
-
-            // Record history
-            if (recallHistory != null && opts != null && opts.recallMode() == RecallMode.LEARN) {
-                for (final CognitiveResult r : allResults) {
-                    if (r.synapticTags() != null && r.synapticTags().length > 0) {
-                        recallHistory.record(r.synapticTags());
-                    }
-                }
-            }
-
-            return allResults;
+            return conduct(signal);
         } finally {
             ACTIVE_SIGNAL.remove();
         }
+    }
+
+    @Override
+    protected List<CognitiveResult> project(final RecallSignal signal) {
+        final List<CognitiveResult> allResults = new ArrayList<>(signal.candidates());
+        final RecallOptions opts = signal.options();
+
+        // Post-recall listeners
+        if (opts != null && opts.recallMode() == RecallMode.LEARN && !listeners.isEmpty()) {
+            final List<CognitiveResult> finalResults = List.copyOf(allResults);
+            final RecallSignal activeSig = signal;
+            for (final RecallListener listener : listeners) {
+                ConcurrentTasks.fireAndForget(() -> {
+                    ACTIVE_SIGNAL.set(activeSig);
+                    try {
+                        listener.onRecallComplete(finalResults);
+                    } finally {
+                        ACTIVE_SIGNAL.remove();
+                    }
+                });
+            }
+        }
+
+        // Session bookkeeping
+        applySessionBookkeeping(allResults, opts);
+
+        // Write ordinal
+        writeProfileOrdinalToResults(allResults, opts);
+
+        // Record history
+        if (recallHistory != null && opts != null && opts.recallMode() == RecallMode.LEARN) {
+            for (final CognitiveResult r : allResults) {
+                if (r.synapticTags() != null && r.synapticTags().length > 0) {
+                    recallHistory.record(r.synapticTags());
+                }
+            }
+        }
+
+        return allResults;
+    }
+
+    @Override
+    public void close() {
+        // AutoCloseable resource cleanup hook (ADR-0035 M2.2)
     }
 
     /**

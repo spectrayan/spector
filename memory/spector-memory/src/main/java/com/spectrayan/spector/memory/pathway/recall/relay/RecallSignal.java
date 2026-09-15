@@ -31,7 +31,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * operations like hybrid text/vector search, and {@link TraceableSignal} to capture
  * fine-grained relay execution diagnostics.</p>
  */
-public final class RecallSignal implements DivergentCapable<RecallSignal>, TraceableSignal {
+public final class RecallSignal extends com.spectrayan.spector.commons.pathway.AbstractSignal
+        implements DivergentCapable<RecallSignal> {
 
     // Immutable inputs
     private final String rawQuery;
@@ -46,8 +47,6 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
     private boolean textSearchExecuted = false;
     private boolean rrfFused = false;
     private float effectiveTemperature = 1.0f;
-    private final List<RelayTrace> traces = new ArrayList<>();
-    private final ReentrantLock tracesLock = new ReentrantLock();
 
     private final java.util.Map<String, Object> attributes = new java.util.concurrent.ConcurrentHashMap<>();
     private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
@@ -134,16 +133,11 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
         fork.surpriseDetector = this.surpriseDetector;
         fork.prospectiveScheduler = this.prospectiveScheduler;
         fork.attributes.putAll(this.attributes);
-        this.tracesLock.lock();
-        try {
-            fork.tracesLock.lock();
-            try {
-                fork.traces.addAll(this.traces);
-            } finally {
-                fork.tracesLock.unlock();
-            }
-        } finally {
-            this.tracesLock.unlock();
+        if (this.context() != null) {
+            fork.bind(this.context());
+        }
+        for (final RelayTrace trace : this.traces()) {
+            fork.recordTrace(trace);
         }
         return fork;
     }
@@ -225,45 +219,18 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
             if (fork.rrfFused) {
                 this.rrfFused = true;
             }
-            List<RelayTrace> forkTraces = fork.traces();
-            this.tracesLock.lock();
-            try {
-                for (final RelayTrace trace : forkTraces) {
-                    if (!this.traces.contains(trace)) {
-                        this.traces.add(trace);
-                    }
+            final List<RelayTrace> currentTraces = this.traces();
+            for (final RelayTrace trace : fork.traces()) {
+                if (!currentTraces.contains(trace)) {
+                    this.recordTrace(trace);
                 }
-            } finally {
-                this.tracesLock.unlock();
             }
         }
     }
 
     @Override
     public boolean isTraceEnabled() {
-        return options.enableTrace();
-    }
-
-    @Override
-    public void recordTrace(final RelayTrace trace) {
-        if (trace != null) {
-            tracesLock.lock();
-            try {
-                traces.add(trace);
-            } finally {
-                tracesLock.unlock();
-            }
-        }
-    }
-
-    @Override
-    public List<RelayTrace> traces() {
-        tracesLock.lock();
-        try {
-            return List.copyOf(traces);
-        } finally {
-            tracesLock.unlock();
-        }
+        return super.isTraceEnabled() || (options != null && options.enableTrace());
     }
 
     /**

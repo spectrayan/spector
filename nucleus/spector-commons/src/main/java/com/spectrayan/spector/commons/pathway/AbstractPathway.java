@@ -28,7 +28,7 @@ public abstract class AbstractPathway<S extends ContextualSignal, O> implements 
     private final String name;
     private final Class<S> inputType;
     private final Class<O> outputType;
-    private final CognitivePathway<S> engine;
+    private CognitivePathway<S> engine;
 
     protected AbstractPathway(final String name,
                               final Class<S> inputType,
@@ -37,6 +37,22 @@ public abstract class AbstractPathway<S extends ContextualSignal, O> implements 
         this.name = Objects.requireNonNull(name, "name cannot be null");
         this.inputType = Objects.requireNonNull(inputType, "inputType cannot be null");
         this.outputType = Objects.requireNonNull(outputType, "outputType cannot be null");
+        this.engine = Objects.requireNonNull(engine, "engine cannot be null");
+    }
+
+    protected AbstractPathway(final String name,
+                              final Class<S> inputType,
+                              final Class<O> outputType) {
+        this.name = Objects.requireNonNull(name, "name cannot be null");
+        this.inputType = Objects.requireNonNull(inputType, "inputType cannot be null");
+        this.outputType = Objects.requireNonNull(outputType, "outputType cannot be null");
+        this.engine = null;
+    }
+
+    protected final void initEngine(final CognitivePathway<S> engine) {
+        if (this.engine != null) {
+            throw new IllegalStateException("engine already initialized for pathway: " + name);
+        }
         this.engine = Objects.requireNonNull(engine, "engine cannot be null");
     }
 
@@ -61,6 +77,9 @@ public abstract class AbstractPathway<S extends ContextualSignal, O> implements 
      * @return cognitive pathway engine
      */
     public final CognitivePathway<S> engine() {
+        if (engine == null) {
+            throw new IllegalStateException("engine has not been initialized for pathway: " + name);
+        }
         return engine;
     }
 
@@ -75,9 +94,10 @@ public abstract class AbstractPathway<S extends ContextualSignal, O> implements 
         final ConductionScope scope = ctx.scope();
         scope.enter(name);
         try {
-            engine.conduct(signal);
+            final CognitivePathway<S> pathwayEngine = engine();
+            pathwayEngine.conduct(signal);
             final boolean shortCircuited = scope.shortCircuited(name)
-                    || (engine != null && scope.shortCircuited(engine.pathwayName()));
+                    || scope.shortCircuited(pathwayEngine.pathwayName());
             ctx.outcome().finish(shortCircuited
                     ? ConductionOutcome.Finish.SHORT_CIRCUITED
                     : ConductionOutcome.Finish.COMPLETED);

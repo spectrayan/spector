@@ -55,7 +55,7 @@ public final class KnowledgeGraphEnrichmentRelay implements SynapticRelay<Rememb
             return true;
         }
 
-        final RememberContext context = signal.context();
+        final RememberContext context = signal.rememberContext();
         final long epochSeconds = signal.timestampMs() / 1000;
         final String tsid = MemoryScope.sessionId();
         final String nsid = MemoryScope.namespaceId();

@@ -52,7 +52,7 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * @since 1.4.0
  */
-public final class DreamSignal {
+public final class DreamSignal extends com.spectrayan.spector.commons.pathway.AbstractSignal {
 
 
     public record DreamScene(

@@ -25,7 +25,7 @@ import java.util.Objects;
 /**
  * Mutable context payload propagating through the memory consolidation / remember pathway.
  */
-public final class RememberSignal {
+public final class RememberSignal extends com.spectrayan.spector.commons.pathway.AbstractSignal {
 
     private final String id;
     private final String text;
@@ -149,7 +149,7 @@ public final class RememberSignal {
     public MemoryType type() { return type; }
     public MemorySource source() { return source; }
     public RememberHints hints() { return hints; }
-    public RememberContext context() { return context; }
+    public RememberContext rememberContext() { return context; }
     public SalienceProfile salienceProfile() { return salienceProfile; }
     public List<com.spectrayan.spector.memory.model.SoulContext> soulContexts() { return soulContexts; }
     public void soulContexts(List<com.spectrayan.spector.memory.model.SoulContext> soulContexts) {

@@ -33,7 +33,9 @@ import com.spectrayan.spector.memory.pathway.wander.relay.WanderGates;
 import com.spectrayan.spector.memory.pathway.wander.relay.WanderReport;
 import com.spectrayan.spector.memory.pathway.wander.relay.WanderSignal;
 
+import com.spectrayan.spector.commons.pathway.AbstractPathway;
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.GatedRelay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
@@ -56,11 +58,10 @@ import java.util.function.Function;
  *
  * @since 1.2.0
  */
-public final class WanderPathway implements AutoCloseable {
+public final class WanderPathway extends AbstractPathway<WanderSignal, WanderReport> implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(WanderPathway.class);
 
-    private final CognitivePathway<WanderSignal> pathway;
     private final ScalarQuantizer quantizer;
     private final EmbeddingProvider embeddingProvider;
     private final MentalStateTracker mentalStateTracker;
@@ -73,6 +74,7 @@ public final class WanderPathway implements AutoCloseable {
     private final float[] soulPriorPreference;
 
     private WanderPathway(final Builder builder) {
+        super("wander", WanderSignal.class, WanderReport.class);
         this.quantizer = builder.quantizer;
         this.embeddingProvider = builder.embeddingProvider;
         this.mentalStateTracker = builder.mentalStateTracker;
@@ -110,36 +112,26 @@ public final class WanderPathway implements AutoCloseable {
         // 6. Longitudinal Continuity Snapshot
         pathwayBuilder.gated("longitudinal_continuity", WanderGates.CONTINUITY_ENABLED, new LongitudinalContinuityRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
 
-        this.pathway = pathwayBuilder.build();
+        final CognitivePathway<WanderSignal> engine = pathwayBuilder.build();
+        initEngine(engine);
+    }
+
+    public CognitivePathway<WanderSignal> pathway() {
+        return engine();
     }
 
     public static Builder builder() {
         return new Builder();
     }
 
-    /**
-     * Conducts a full wandering and continuity tracking cycle over the supplied signal.
-     *
-     * @param signal the wander execution signal
-     * @return resulting {@link WanderReport}
-     */
-    public WanderReport conduct(final WanderSignal signal) {
-        Objects.requireNonNull(signal, "WanderSignal cannot be null");
-        if (log.isTraceEnabled()) {
-            log.trace("WanderPathway: initiating cognitive wandering cycle...");
+    @Override
+    protected WanderReport project(final WanderSignal signal) {
+        final WanderReport report = signal.buildReport();
+        if (log.isDebugEnabled()) {
+            log.debug("WanderPathway: cycle complete in {}ms — sampled={}, associations={}, snapshotRecorded={}",
+                    report.elapsed().toMillis(), report.memoriesSampled(), report.associationsFormed(), report.snapshotRecorded());
         }
-        try {
-            pathway.conduct(signal);
-            WanderReport report = signal.buildReport();
-            if (log.isDebugEnabled()) {
-                log.debug("WanderPathway: cycle complete in {}ms — sampled={}, associations={}, snapshotRecorded={}",
-                        report.elapsed().toMillis(), report.memoriesSampled(), report.associationsFormed(), report.snapshotRecorded());
-            }
-            return report;
-        } catch (Exception e) {
-            log.error("WanderPathway: wandering cycle aborted due to error: {}", e.getMessage(), e);
-            throw new com.spectrayan.spector.memory.error.SpectorPathwayException("WanderPathway execution failed: " + e.getMessage(), e);
-        }
+        return report;
     }
 
     /**
@@ -153,6 +145,14 @@ public final class WanderPathway implements AutoCloseable {
         Objects.requireNonNull(signal, "WanderSignal cannot be null");
         if (kernel != null) {
             signal.kernel(kernel);
+        }
+        if (signal.context() == null) {
+            final DefaultPathwayContext.Builder ctxBuilder = DefaultPathwayContext.builder();
+            if (kernel != null) {
+                ctxBuilder.namespaceId(kernel.namespaceId());
+                ctxBuilder.bind(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
+            }
+            signal.bind(ctxBuilder.build());
         }
         return conduct(signal);
     }

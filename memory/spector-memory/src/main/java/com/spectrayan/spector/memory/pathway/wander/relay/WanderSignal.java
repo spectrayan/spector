@@ -44,7 +44,7 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * @since 1.2.0
  */
-public final class WanderSignal {
+public final class WanderSignal extends com.spectrayan.spector.commons.pathway.AbstractSignal {
 
     public record DiscoveredAssociation(String sourceId, String targetId, float synergy, float weightDelta) {}
 

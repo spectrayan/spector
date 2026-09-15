@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.model.SoulContext;
 import java.time.Instant;
 import java.util.List;
 
-public final class DecideSignal {
+public final class DecideSignal extends com.spectrayan.spector.commons.pathway.AbstractSignal {
     private final PolicyInferenceEngine policyInferenceEngine;
     private final List<CognitivePolicy> candidatePolicies;
     private final List<SoulContext> soulContexts;

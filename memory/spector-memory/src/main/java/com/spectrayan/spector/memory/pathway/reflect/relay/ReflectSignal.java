@@ -49,7 +49,7 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * Mutable context payload propagating through the biological sleep consolidation (Reflect) pathway.
  */
-public final class ReflectSignal {
+public final class ReflectSignal extends com.spectrayan.spector.commons.pathway.AbstractSignal {
 
     // ── Subsystems & Context ───────────────────────────────────────
     private final PartitionManager partitionManager;
