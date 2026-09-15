@@ -103,15 +103,6 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
         return tags;
     }
 
-    // --------------------------------------------------------------
-    // INGESTION TARGET
-    // --------------------------------------------------------------
-
-    @Override
-    @Deprecated(since = "0.9.0", forRemoval = true)
-    public RememberPathway target() {
-        return delegate.target();
-    }
 
     @Override
     public String namespaceId() {

@@ -18,6 +18,7 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.RememberContext;
 import com.spectrayan.spector.memory.test.FakeEmbeddingProvider;
 
 import org.junit.jupiter.api.*;
@@ -93,7 +94,7 @@ class ReconsolidationTest {
 
         // Re-embed and re-ingest
         float[] vector = dsm.embeddingProvider().embed(text).vector();
-        memory.target().ingestCognitive(id, text, vector, type, tags,
+        dsm.rememberPathway().ingestCognitive(id, text, vector, type, tags,
                 source != null ? source : MemorySource.OBSERVED,
                 (com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints) null);
     }

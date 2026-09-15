@@ -30,8 +30,6 @@ import java.nio.file.Path;
  */
 public interface MemoryRemember {
 
-    RememberPathway target();
-
     default String namespaceId() { return "default"; }
 
     default AutoCloseable acquireLease() { return () -> {}; }

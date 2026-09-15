@@ -45,8 +45,9 @@ public final class RrfRescoreRelay implements SynapticRelay<RecallSignal> {
             final RecallOptions peekOptions = options.recallMode() == RecallMode.LEARN
                     ? options.toBuilder().recallMode(RecallMode.OBSERVE).build()
                     : options;
-            final CoActivationMemory tracker = (signal != null && signal.coActivationTracker() != null)
-                    ? signal.coActivationTracker() : coActivationTracker;
+            final CoActivationMemory tracker = (signal != null && signal.context() != null)
+                    ? signal.context().find(CoActivationMemory.class).orElse(coActivationTracker)
+                    : coActivationTracker;
             scorer.applyCognitiveScoring(signal.candidates(), peekOptions, signal.timestampMs(), tracker, graphScoringPolicy);
         }
         return true;

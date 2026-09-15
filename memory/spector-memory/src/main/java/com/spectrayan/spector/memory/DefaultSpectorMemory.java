@@ -378,11 +378,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // INGESTION TARGET  --  for unified IngestionPipeline
     // ==============================================================
 
-    @Override
-    @Deprecated(since = "0.9.0", forRemoval = true)
-    public RememberPathway target() {
-        return rememberPathway;
-    }
 
     /** Returns the embedding provider for reconsolidation/update operations. */
     public EmbeddingProvider embeddingProvider() {
@@ -1627,23 +1622,34 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     public void bindRecallSignalContext(com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal signal) {
         if (signal == null) return;
-        signal.partitionRegistry(this.partitionManager);
-        signal.index(this.index);
-        signal.bm25Index(this.bm25Index);
-        signal.hebbianGraph(this.hebbianGraph);
-        signal.temporalChain(this.temporalChain);
-        signal.temporalKnowledgeGraph(this.temporalKnowledgeGraph);
-        signal.entityDirectory(this.entityDirectory);
-        signal.hyperEntityGraph(this.hyperEntityGraph);
-        signal.quantizer(this.quantizer);
-        signal.coActivationTracker(this.coActivationTracker);
-        signal.suppressionSet(this.suppressionSet);
-        signal.habituationPenalty(this.habituationPenalty);
-        signal.prospectiveScheduler(this.prospectiveScheduler);
 
         var ctxBuilder = signal.context() != null
                 ? com.spectrayan.spector.commons.pathway.DefaultPathwayContext.from(signal.context())
                 : com.spectrayan.spector.commons.pathway.DefaultPathwayContext.builder();
+        if (this.partitionManager != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.cortex.PartitionRegistry.class, this.partitionManager);
+        }
+        if (this.bm25Index != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.cortex.MemoryBM25Index.class, this.bm25Index);
+        }
+        if (this.hebbianGraph != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.store.HebbianGraphBase.class, this.hebbianGraph);
+        }
+        if (this.temporalChain != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.store.TemporalChainMemory.class, this.temporalChain);
+        }
+        if (this.hyperEntityGraph != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.store.HyperEntityGraphMemory.class, this.hyperEntityGraph);
+        }
+        if (this.suppressionSet != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet.class, this.suppressionSet);
+        }
+        if (this.habituationPenalty != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty.class, this.habituationPenalty);
+        }
+        if (this.prospectiveScheduler != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler.class, this.prospectiveScheduler);
+        }
         if (this.coActivationTracker != null) {
             ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.store.CoActivationMemory.class, this.coActivationTracker);
         }

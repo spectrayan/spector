@@ -185,11 +185,15 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
     private final com.spectrayan.spector.memory.graph.hebbian.CoActivationAssociativePriorProvider associativePriorProvider;
 
     private PartitionRegistry effectivePartitionRegistry(final RecallSignal sig) {
-        return (sig != null && sig.partitionRegistry() != null) ? sig.partitionRegistry() : this.partitionRegistry;
+        return (sig != null && sig.context() != null)
+                ? sig.context().find(PartitionRegistry.class).orElse(this.partitionRegistry)
+                : this.partitionRegistry;
     }
 
     private MemoryIndex effectiveIndex(final RecallSignal sig) {
-        return (sig != null && sig.index() != null) ? sig.index() : this.index;
+        return (sig != null && sig.context() != null)
+                ? sig.context().find(MemoryIndex.class).orElse(this.index)
+                : this.index;
     }
 
     private final List<RecallListener> listeners = new CopyOnWriteArrayList<>();
@@ -418,17 +422,14 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
                 ctxBuilder.namespaceId(kernel.namespaceId());
                 ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
             }
-            if (signal.coActivationTracker() != null) {
-                ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.store.CoActivationMemory.class, signal.coActivationTracker());
+            if (this.coActivationTracker != null) {
+                ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.store.CoActivationMemory.class, this.coActivationTracker);
             }
-            if (signal.temporalKnowledgeGraph() != null) {
-                ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph.class, signal.temporalKnowledgeGraph());
+            if (this.index != null) {
+                ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.cortex.index.MemoryIndex.class, this.index);
             }
-            if (signal.entityDirectory() != null) {
-                ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.graph.EntityDirectory.class, signal.entityDirectory());
-            }
-            if (signal.index() != null) {
-                ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.cortex.index.MemoryIndex.class, signal.index());
+            if (this.partitionRegistry != null) {
+                ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.cortex.PartitionRegistry.class, this.partitionRegistry);
             }
             signal.bind(ctxBuilder.build());
         } else if (kernel != null && signal.context().find(com.spectrayan.spector.kernel.api.NamespaceKernel.class).isEmpty()) {

@@ -124,7 +124,7 @@ class PathwayCatalogIntegrationTest {
                 assertThat(catalog.require(DecidePathway.class)).isSameAs(runtime.decidePathway());
                 assertThat(catalog.require(WanderPathway.class)).isSameAs(runtime.wanderPathway());
 
-                RememberPathway rememberPathway = ((com.spectrayan.spector.memory.DefaultSpectorMemory) mem).target();
+                RememberPathway rememberPathway = ((com.spectrayan.spector.memory.DefaultSpectorMemory) mem).rememberPathway();
                 assertThat(rememberPathway).isNotNull();
                 catalog.register(RememberPathway.class, rememberPathway);
                 assertThat(catalog.find(RememberPathway.class)).isPresent();

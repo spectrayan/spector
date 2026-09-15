@@ -17,12 +17,12 @@ All entry points (CLI, MCP, Server) route ingestion through `IngestionPipeline`:
 CLI/MCP/Server → IngestionPipeline
                      │
                      ▼
-             SpectorMemory.target()
+             SpectorMemory.rememberPathway()
              (CognitiveIngestionTarget)
 ```
 
 - **`IngestionPipeline`** (in `spector-ingestion`) — unified chunk → embed → store orchestrator
-- **`IngestionTarget`** (in `spector-ingestion`) — abstraction for storage backends (e.g. `memory.target()`)
+- **`IngestionTarget`** (in `spector-ingestion`) — abstraction for storage backends (e.g. `memory.rememberPathway()`)
 - **`FileDiscoveryService`** (in `spector-ingestion`) — pure file discovery + title extraction utility
 
 ## Module: `spector-ingestion`

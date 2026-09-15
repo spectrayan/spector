@@ -195,6 +195,9 @@ public final class ConductionScope {
                 return;
             }
         }
+        if (!frames.isEmpty()) {
+            frames.peek().markShortCircuited();
+        }
     }
 
     /**

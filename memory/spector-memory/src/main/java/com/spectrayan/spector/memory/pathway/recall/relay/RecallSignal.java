@@ -50,20 +50,6 @@ public final class RecallSignal extends com.spectrayan.spector.commons.pathway.A
 
     private final java.util.Map<String, Object> attributes = new java.util.concurrent.ConcurrentHashMap<>();
     private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
-    private com.spectrayan.spector.memory.cortex.PartitionRegistry partitionRegistry;
-    private com.spectrayan.spector.memory.cortex.index.MemoryIndex index;
-    private com.spectrayan.spector.memory.cortex.MemoryBM25Index bm25Index;
-    private com.spectrayan.spector.kernel.store.HebbianGraphBase hebbianGraph;
-    private com.spectrayan.spector.kernel.store.TemporalChainMemory temporalChain;
-    private com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph;
-    private com.spectrayan.spector.memory.graph.EntityDirectory entityDirectory;
-    private com.spectrayan.spector.kernel.store.HyperEntityGraphMemory hyperEntityGraph;
-    private com.spectrayan.spector.core.quantization.ScalarQuantizer quantizer;
-    private com.spectrayan.spector.kernel.store.CoActivationMemory coActivationTracker;
-    private com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet suppressionSet;
-    private com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty habituationPenalty;
-    private com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector surpriseDetector;
-    private com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler prospectiveScheduler;
 
     // Output
     private List<CognitiveResult> finalizedResults = Collections.emptyList();
@@ -118,20 +104,6 @@ public final class RecallSignal extends com.spectrayan.spector.commons.pathway.A
         fork.rrfFused = this.rrfFused;
         fork.effectiveTemperature = this.effectiveTemperature;
         fork.kernel = this.kernel;
-        fork.partitionRegistry = this.partitionRegistry;
-        fork.index = this.index;
-        fork.bm25Index = this.bm25Index;
-        fork.hebbianGraph = this.hebbianGraph;
-        fork.temporalChain = this.temporalChain;
-        fork.temporalKnowledgeGraph = this.temporalKnowledgeGraph;
-        fork.entityDirectory = this.entityDirectory;
-        fork.hyperEntityGraph = this.hyperEntityGraph;
-        fork.quantizer = this.quantizer;
-        fork.coActivationTracker = this.coActivationTracker;
-        fork.suppressionSet = this.suppressionSet;
-        fork.habituationPenalty = this.habituationPenalty;
-        fork.surpriseDetector = this.surpriseDetector;
-        fork.prospectiveScheduler = this.prospectiveScheduler;
         fork.attributes.putAll(this.attributes);
         if (this.context() != null) {
             fork.bind(this.context());
@@ -158,48 +130,6 @@ public final class RecallSignal extends com.spectrayan.spector.commons.pathway.A
             this.attributes.put("kernel", kernel);
         }
     }
-
-    public com.spectrayan.spector.memory.cortex.PartitionRegistry partitionRegistry() { return partitionRegistry; }
-    public RecallSignal partitionRegistry(com.spectrayan.spector.memory.cortex.PartitionRegistry pr) { this.partitionRegistry = pr; return this; }
-
-    public com.spectrayan.spector.memory.cortex.index.MemoryIndex index() { return index; }
-    public RecallSignal index(com.spectrayan.spector.memory.cortex.index.MemoryIndex idx) { this.index = idx; return this; }
-
-    public com.spectrayan.spector.memory.cortex.MemoryBM25Index bm25Index() { return bm25Index; }
-    public RecallSignal bm25Index(com.spectrayan.spector.memory.cortex.MemoryBM25Index bm25) { this.bm25Index = bm25; return this; }
-
-    public com.spectrayan.spector.kernel.store.HebbianGraphBase hebbianGraph() { return hebbianGraph; }
-    public RecallSignal hebbianGraph(com.spectrayan.spector.kernel.store.HebbianGraphBase hg) { this.hebbianGraph = hg; return this; }
-
-    public com.spectrayan.spector.kernel.store.TemporalChainMemory temporalChain() { return temporalChain; }
-    public RecallSignal temporalChain(com.spectrayan.spector.kernel.store.TemporalChainMemory tc) { this.temporalChain = tc; return this; }
-
-    public com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph() { return temporalKnowledgeGraph; }
-    public RecallSignal temporalKnowledgeGraph(com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph tkg) { this.temporalKnowledgeGraph = tkg; return this; }
-
-    public com.spectrayan.spector.memory.graph.EntityDirectory entityDirectory() { return entityDirectory; }
-    public RecallSignal entityDirectory(com.spectrayan.spector.memory.graph.EntityDirectory ed) { this.entityDirectory = ed; return this; }
-
-    public com.spectrayan.spector.kernel.store.HyperEntityGraphMemory hyperEntityGraph() { return hyperEntityGraph; }
-    public RecallSignal hyperEntityGraph(com.spectrayan.spector.kernel.store.HyperEntityGraphMemory heg) { this.hyperEntityGraph = heg; return this; }
-
-    public com.spectrayan.spector.core.quantization.ScalarQuantizer quantizer() { return quantizer; }
-    public RecallSignal quantizer(com.spectrayan.spector.core.quantization.ScalarQuantizer q) { this.quantizer = q; return this; }
-
-    public com.spectrayan.spector.kernel.store.CoActivationMemory coActivationTracker() { return coActivationTracker; }
-    public RecallSignal coActivationTracker(com.spectrayan.spector.kernel.store.CoActivationMemory cat) { this.coActivationTracker = cat; return this; }
-
-    public com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet suppressionSet() { return suppressionSet; }
-    public RecallSignal suppressionSet(com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet ss) { this.suppressionSet = ss; return this; }
-
-    public com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty habituationPenalty() { return habituationPenalty; }
-    public RecallSignal habituationPenalty(com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty hp) { this.habituationPenalty = hp; return this; }
-
-    public com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector surpriseDetector() { return surpriseDetector; }
-    public RecallSignal surpriseDetector(com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector sd) { this.surpriseDetector = sd; return this; }
-
-    public com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler prospectiveScheduler() { return prospectiveScheduler; }
-    public RecallSignal prospectiveScheduler(com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler ps) { this.prospectiveScheduler = ps; return this; }
 
     /**
      * Returns the mutable contextual attributes map for inter-relay parameter passing.

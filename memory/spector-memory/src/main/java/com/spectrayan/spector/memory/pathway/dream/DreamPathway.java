@@ -18,6 +18,7 @@ import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.commons.pathway.AbstractPathway;
+import com.spectrayan.spector.commons.pathway.ConductionOutcome;
 import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.config.properties.AismeProperties;
@@ -109,13 +110,13 @@ public final class DreamPathway extends AbstractPathway<DreamSignal, DreamReport
         this.llmProvider = builder.llmProvider;
         this.idGenerator = builder.idGenerator;
 
-        var pathwayBuilder = CognitivePathway.<DreamSignal>pathway("dream_pathway");
+        var pathwayBuilder = CognitivePathway.<DreamSignal>pathway("dream");
         if (builder.interceptor != null) {
             pathwayBuilder.withInterceptor(builder.interceptor);
         }
 
         // 1. Dream Gate (circadian & sleep pressure check)
-        pathwayBuilder.gated("dream_gate", DreamGates.DREAMING_ENABLED, new DreamGateRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
+        pathwayBuilder.relay("dream_gate", new DreamGateRelay(), ErrorPolicy.ABORT);
 
         // 2. Salient Seed Selection (TMR + Soul / Salience Matching)
         pathwayBuilder.gated("salient_seed", DreamGates.DREAMING_ENABLED, new SalientSeedRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
@@ -200,6 +201,9 @@ public final class DreamPathway extends AbstractPathway<DreamSignal, DreamReport
 
     @Override
     protected DreamReport project(final DreamSignal signal) {
+        if (signal.context() != null && signal.context().outcome().finish() == ConductionOutcome.Finish.SHORT_CIRCUITED) {
+            return DreamReport.empty();
+        }
         final DreamReport report = signal.buildReport();
         if (log.isDebugEnabled()) {
             log.debug("DreamPathway: cycle complete in {}ms — seeds={}, scenes={}, ingested={}, failed={}",

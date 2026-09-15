@@ -141,15 +141,6 @@ import java.util.List;
  */
 public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryReflection, MemoryAdminView, AutoCloseable {
 
-    // ══════════════════════════════════════════════════════════════
-    // INGESTION TARGET
-    // ══════════════════════════════════════════════════════════════
-
-    /** Returns the cognitive ingestion target for use with the unified IngestionPipeline.
-     * @deprecated since 0.9.0, for removal. Ingestion targets should accept {@link SpectorMemory} directly.
-     */
-    @Deprecated(since = "0.9.0", forRemoval = true)
-    RememberPathway target();
 
     /** Returns the namespace ID of this memory. */
     default String namespaceId() { return "default"; }

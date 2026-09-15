@@ -173,8 +173,8 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
     }
 
     private void scan(final RecallSignal signal, final ScanEmitter emitter, final MemoryType[] targetTypes, final RecallOptions options, final long nowMs) {
-        final PartitionRegistry effectiveRegistry = signal != null && signal.partitionRegistry() != null
-                ? signal.partitionRegistry()
+        final PartitionRegistry effectiveRegistry = (signal != null && signal.context() != null)
+                ? signal.context().find(PartitionRegistry.class).orElse(this.partitionRegistry)
                 : this.partitionRegistry;
         if (effectiveRegistry == null) {
             return;
